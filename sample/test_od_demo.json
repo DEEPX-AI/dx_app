@@ -1,0 +1,21 @@
+{
+    "usage": "multi",
+    "model_path": "/model_path/yolov5s_512",
+    "model_name": "yolov5s_512",
+    
+    "video_sources": [
+                    ["/video_path/video_sample0.mp4", "realtime"],
+                    ["/dev/video0", "camera"],
+                    ["/dev/video2", "camera"],
+                    ["/video_path/video_sample1.mp4", "offline", 400]
+    ], 
+    
+    "display_config": {
+                    "display_label": "output",
+                    "capture_period": 33,
+                    "output_width": 1920,
+                    "output_height": 1080,
+                    "show_fps": true,
+                    "expand_mode" : true
+    }
+}

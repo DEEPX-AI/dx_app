@@ -1,0 +1,18 @@
+set(CMAKE_SYSTEM_NAME Linux)
+set(CMAKE_SYSTEM_PROCESSOR riscv64)
+
+set(onnxruntime_LIB_DIRS /usr/local/lib)
+set(onnxruntime_INCLUDE_DIRS
+    /usr/local/include/onnxruntime
+    /usr/local/include/onnxruntime/core/session
+)
+set(PYBIND_INCLUDE_DIR extern/pybind11/include)
+set(PYBIND_TARGET_DIR extern/pybind11)
+
+SET(CMAKE_C_COMPILER      /usr/bin/riscv64-linux-gnu-gcc )
+SET(CMAKE_CXX_COMPILER    /usr/bin/riscv64-linux-gnu-g++ )
+SET(CMAKE_LINKER          /usr/bin/riscv64-linux-gnu-ld  )
+SET(CMAKE_NM              /usr/bin/riscv64-linux-gnu-nm )
+SET(CMAKE_OBJCOPY         /usr/bin/riscv64-linux-gnu-objcopy )
+SET(CMAKE_OBJDUMP         /usr/bin/riscv64-linux-gnu-objdump )
+SET(CMAKE_RANLIB          /usr/bin/riscv64-linux-gnu-ranlib )
