@@ -21,8 +21,9 @@ endif()
 if(USE_EASYLOG)
 add_compile_definitions(USE_EASYLOG=1)
 endif()
+
 if(USE_ORT)
-add_compile_definitions(USE_ORT=1)
+add_onnxruntime()
 endif()
 
 if(USE_OPENCV)

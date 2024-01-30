@@ -36,6 +36,7 @@ if(USE_ORT)
   else()
     message("onnxruntime not found.")
   endif()
+  add_compile_definitions(USE_ORT=1)
 endif()
 endmacro(add_onnxruntime)
 
@@ -46,5 +47,4 @@ macro(add_dxrt_lib)
     INTERFACE_INCLUDE_DIRECTORIES "${DXRT_DIR}/include"
   )
   LIST(APPEND link_libs dxrt_lib pthread)
-  add_onnxruntime()
 endmacro(add_dxrt_lib)
