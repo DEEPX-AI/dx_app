@@ -31,9 +31,6 @@ namespace common
 
     dxapp::common::Object scalingObject(dxapp::common::Object src, dxapp::common::Size_f padSize, dxapp::common::Size_f scaleRatio)
     {
-        /***
-         * _postprocratio/preprocRatio 를 ratio size에 담아서 ㄱㄱ 
-        */
         dxapp::common::Object dst = src;
         dst._bbox._xmin = (src._bbox._xmin - padSize._width) * scaleRatio._width;
         dst._bbox._ymin = (src._bbox._ymin - padSize._height) * scaleRatio._height;

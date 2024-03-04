@@ -6,8 +6,8 @@ set(DXRT_RELEASE_DIR ${CMAKE_BINARY_DIR}/release)
 set(CMAKE_INSTALL_PREFIX ${DXRT_RELEASE_DIR})
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake) # using function & cfg cmake file 
 
-include(dxrt.cfg)
-include(dxrt.function)
+include(dxapp.cfg)
+include(dxapp.function)
 
 add_compile_options(-W -Wall -pthread -fstrict-volatile-bitfields -fPIC)
 
@@ -36,6 +36,8 @@ add_subdirectory(demos/pose_estimation)
 add_subdirectory(demos/denoiser)
 add_subdirectory(demos/object_det_and_seg)
 add_subdirectory(demos/segmentation)
+add_subdirectory(demos/dncnn_yolo)
+add_subdirectory(demos/noiseVideoMaker)
 endif()
 
 message(STATUS "Compiler : ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION} (${CMAKE_CXX_COMPILER})")

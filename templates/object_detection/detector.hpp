@@ -31,7 +31,7 @@ public :
 
         _inputSize = dxapp::common::Size((int)_params._input_shape[2],(int)_params._input_shape[1]);
 
-        _vStream = VideoStream(_inputType, _videoPath, sourceInfo.numOfFrames, _inputSize, _inputFormat, _dstSize);        
+        _vStream = VideoStream(_inputType, _videoPath, sourceInfo.numOfFrames, _inputSize, _inputFormat, _dstSize, _inferenceEngine);        
         _srcSize = _vStream._srcSize;
         _postProcessing = dxapp::yolo::PostProcessing(_params, _inputSize, _srcSize, _dstSize);
         _resultFrame = cv::Mat(_dstSize._height, _dstSize._width, CV_8UC3, cv::Scalar(0, 0, 0));     
@@ -83,6 +83,7 @@ public :
 
     bool quit()
     {
+        std::unique_lock<std::mutex> _uniqueLock(_lock);
         return _quit;
     };
 
@@ -121,6 +122,9 @@ public :
             if(t<0 || t>33) t = 0;
             usleep(t*1000);
         };
+
+        _vStream.Destructor();
+
     };
 private:
     std::shared_ptr<dxrt::InferenceEngine> _inferenceEngine;

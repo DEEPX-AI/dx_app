@@ -70,6 +70,8 @@ public:
                 source.inputType = AppInputType::VIDEO;
             else if(read=="camera")
                 source.inputType = AppInputType::CAMERA;
+            else if(read=="isp")
+                source.inputType = AppInputType::ISP;
             
             sourcesInfo.emplace_back(source);
         }

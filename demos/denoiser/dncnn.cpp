@@ -16,8 +16,8 @@
 #define INPUT_CAPTURE_PERIOD_MS 1
 #define DISPLAY_WINDOW_NAME "DENOISE"
 
-int WIDTH = 320;
-int HEIGHT = 240;
+int WIDTH = 512;
+int HEIGHT = 512;
 
 int CAMERA_FRAME_WIDTH = 800;
 int CAMERA_FRAME_HEIGHT = 600;
@@ -59,7 +59,7 @@ int main(int argc, char *argv[])
     std::string modelPath = "", imgFile = "", videoFile = "";
     bool cameraInput = false;
     double mean = 0.0, std = 15.0;
-    int div = WIDTH / 2;
+    int input_w = 0, input_h = 0;
     std::mutex lock;
 
     if (argc == 1)
@@ -91,6 +91,11 @@ int main(int argc, char *argv[])
 
     auto ie = dxrt::InferenceEngine(modelPath);
     auto& profiler = dxrt::Profiler::GetInstance();
+
+    auto input_shape = ie.inputs().front().shape();
+    input_w = input_shape[2], input_h = input_shape[1];
+    
+    int div = input_w / 2;
     
     cv::namedWindow(DISPLAY_WINDOW_NAME);
 
@@ -98,9 +103,9 @@ int main(int argc, char *argv[])
     {
         cv::Mat frame = cv::imread(imgFile, cv::IMREAD_COLOR);
         cv::Mat noised_frame;
-        cv::Mat output_frame = cv::Mat::zeros(HEIGHT, WIDTH, CV_8UC3);
-        cv::Mat view = cv::Mat::zeros(HEIGHT, WIDTH, CV_8UC3);
-        cv::resize(frame, frame, cv::Size(WIDTH, HEIGHT), cv::INTER_LINEAR);
+        cv::Mat output_frame = cv::Mat::zeros(input_h, input_w, CV_8UC3);
+        cv::Mat view = cv::Mat::zeros(input_h, input_w, CV_8UC3);
+        cv::resize(frame, frame, cv::Size(input_w, input_h), cv::INTER_LINEAR);
 
         while(true)
         {
@@ -109,18 +114,18 @@ int main(int argc, char *argv[])
             profiler.Start("all");
             auto outputs = ie.Run(noised_frame.data);
             float *data = (float *)outputs.front()->data();
-            for (int y = 0; y < HEIGHT; y++)
+            for (int y = 0; y < input_h; y++)
             {
-                for (int x = 0; x < WIDTH; x++)
+                for (int x = 0; x < input_w; x++)
                 {
                     for (int c = 0; c < 3; c++)
                     {
-                        float value = data[(y * WIDTH + x) * 64 + c] * 255.f;
+                        float value = data[(y * input_w + x) * 64 + c] * 255.f;
                         if (value < 0.f)
                             value = 0.f;
                         else if (value > 255.f)
                             value = 255.f;
-                        output_frame.data[(y * WIDTH + x) * 3 + c] = (uint8_t)value;
+                        output_frame.data[(y * input_w + x) * 3 + c] = (uint8_t)value;
                     }
                 }
             }
@@ -133,9 +138,10 @@ int main(int argc, char *argv[])
             
             view = output_frame.clone();
             if(div > 0)
-                noised_frame(cv::Rect(0, 0, div, HEIGHT)).copyTo(view(cv::Rect(0, 0, div, HEIGHT)));
+                noised_frame(cv::Rect(0, 0, div, input_h)).copyTo(view(cv::Rect(0, 0, div, input_h)));
 
-            cv::line(view, cv::Point(div, 0), cv::Point(div, HEIGHT), cv::Scalar(0, 0, 0), 2);
+            cv::line(view, cv::Point(div, 0), cv::Point(div, input_h), cv::Scalar(0, 0, 0), 2);
+            
 
             cv::imshow(DISPLAY_WINDOW_NAME, view);
 
@@ -156,16 +162,16 @@ int main(int argc, char *argv[])
                 div -= 10;
                 if (div < 0)
                 {
-                    div = WIDTH/2;
+                    div = input_w/2;
                 }
             }
             else if (key == 'd')
             {
                 std::unique_lock _lock(lock);
                 div += 10;
-                if (div > WIDTH)
+                if (div > input_w)
                 {
-                    div = WIDTH/2;
+                    div = input_w/2;
                 }
             }
 
@@ -199,8 +205,8 @@ int main(int argc, char *argv[])
             }
         }
         cv::Mat frame, resized_fame;
-        cv::Mat output_frame = cv::Mat::zeros(HEIGHT, WIDTH, CV_8UC3);
-        cv::Mat view = cv::Mat::zeros(HEIGHT, WIDTH, CV_8UC3);
+        cv::Mat output_frame = cv::Mat::zeros(input_h, input_w, CV_8UC3);
+        cv::Mat view = cv::Mat::zeros(input_h, input_w, CV_8UC3);
         cv::Mat noised_frame;
 
         while (1)
@@ -218,25 +224,25 @@ int main(int argc, char *argv[])
 
             }
             profiler.Start("all");
-            cv::resize(frame, resized_fame, cv::Size(WIDTH, HEIGHT), cv::INTER_LINEAR);
+            cv::resize(frame, resized_fame, cv::Size(input_w, input_h), cv::INTER_LINEAR);
             
             noised_frame = get_noise_image(resized_fame, mean, std);
 
             auto outputs = ie.Run(noised_frame.data);
             float *data = (float *)outputs.front()->data();
             
-            for (int y = 0; y < HEIGHT; y++)
+            for (int y = 0; y < input_h; y++)
             {
-                for (int x = 0; x < WIDTH; x++)
+                for (int x = 0; x < input_w; x++)
                 {
                     for (int c = 0; c < 3; c++)
                     {
-                        float value = data[(y * WIDTH + x) * 64 + c] * 255.f;
+                        float value = data[(y * input_w + x) * 64 + c] * 255.f;
                         if (value < 0.f)
                             value = 0.f;
                         else if (value > 255.f)
                             value = 255.f;
-                        output_frame.data[(y * WIDTH + x) * 3 + c] = (uint8_t)value;
+                        output_frame.data[(y * input_w + x) * 3 + c] = (uint8_t)value;
                     }
                 }
             }
@@ -249,9 +255,9 @@ int main(int argc, char *argv[])
 
             view = output_frame.clone();
             if (div > 0)
-                noised_frame(cv::Rect(0, 0, div, HEIGHT)).copyTo(view(cv::Rect(0, 0, div, HEIGHT)));
+                noised_frame(cv::Rect(0, 0, div, input_h)).copyTo(view(cv::Rect(0, 0, div, input_h)));
 
-            cv::line(view, cv::Point(div, 0), cv::Point(div, HEIGHT), cv::Scalar(0, 0, 0), 2);
+            cv::line(view, cv::Point(div, 0), cv::Point(div, input_h), cv::Scalar(0, 0, 0), 2);
 
             cv::imshow(DISPLAY_WINDOW_NAME, view);
             
@@ -272,16 +278,16 @@ int main(int argc, char *argv[])
                 div -= 10;
                 if (div < 0)
                 {
-                    div = WIDTH/2;
+                    div = input_w/2;
                 }
             }
             else if (key == 'd')
             {
                 std::unique_lock _lock(lock);
                 div += 10;
-                if (div > WIDTH)
+                if (div > input_w)
                 {
-                    div = WIDTH/2;
+                    div = input_w/2;
                 }
             }
 

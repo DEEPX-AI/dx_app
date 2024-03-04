@@ -60,8 +60,12 @@ int main(int argc, char *argv[])
             detector.quitThread();
             break;
         }
+#if __riscv
+        switch(getchar())
+#else
         cv::imshow("result", detector.totalView());
         switch (cv::waitKey(1))
+#endif
         {
         case 'q':
         case 0x1B:

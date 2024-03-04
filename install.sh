@@ -58,9 +58,9 @@ function install_opencv()
         toolchain_define="-D CMAKE_INSTALL_PREFIX=/usr/local "
         if [ $(uname -p) != "$target_arch" ]; then
             case "$target_arch" in
-              arm64) toolchain_define="-D CMAKE_TOOLCHAIN_FILE=../platforms/linux/aarch64-gnu.toolchain.cmake -D CMAKE_INSTALL_PREFIX=/usr/local "
+              arm64) toolchain_define="-D CMAKE_TOOLCHAIN_FILE=../platforms/linux/aarch64-gnu.toolchain.cmake -D CMAKE_INSTALL_PREFIX=$DX_SRC_DIR/extern/$target_arch "
               ;;
-              riscv64) toolchain_define="-D CMAKE_TOOLCHAIN_FILE=../platforms/linux/riscv64-gnu.toolchain.cmake -D CMAKE_INSTALL_PREFIX=/usr/local "
+              riscv64) toolchain_define="-D CMAKE_TOOLCHAIN_FILE=../platforms/linux/riscv64-gnu.toolchain.cmake -D CMAKE_INSTALL_PREFIX=$DX_SRC_DIR/extern/$target_arch "
               ;;
             esac  
             if [ $(uname -p) == "aarch64" ] && [ $target_arch == "arm64" ]; then  

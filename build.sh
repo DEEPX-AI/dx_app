@@ -1,6 +1,4 @@
 #!/bin/bash
-dxrt_ver=`cat release.ver`
-
 function help()
 {
     echo "./build.sh"
@@ -66,7 +64,6 @@ cmake --build . --target install && cd .. && cp $build_dir/release/bin/* $out_di
 if [ -e $build_dir/release/bin ]; then
     echo Build Done. "($build_type)"
     echo =================================================
-        echo dxrt_ver : $dxrt_ver
         echo clean_build : $clean_build
         echo verbose : $verbose
         echo build_type : $build_type

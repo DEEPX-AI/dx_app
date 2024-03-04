@@ -16,3 +16,5 @@ SET(CMAKE_NM              /usr/bin/riscv64-linux-gnu-nm )
 SET(CMAKE_OBJCOPY         /usr/bin/riscv64-linux-gnu-objcopy )
 SET(CMAKE_OBJDUMP         /usr/bin/riscv64-linux-gnu-objdump )
 SET(CMAKE_RANLIB          /usr/bin/riscv64-linux-gnu-ranlib )
+
+set(OpenCV_DIR            ${CMAKE_SOURCE_DIR}/extern/${CMAKE_SYSTEM_PROCESSOR})

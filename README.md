@@ -54,12 +54,7 @@
   ./install.sh --arch arm64 --opencv
   # or
   # ./install.sh --arch riscv64 --opencv
-  ```           
-- **(Optional) Install onnxruntime (version 1.13.1 is recommended)**         
-  Install onnxruntime library       
-  ```shell
-  ./install.sh --onnxruntime  
-  ```        
+  ```                 
 ### Build DX-APP    
 - **Build Application**          
   ```shell

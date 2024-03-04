@@ -13,16 +13,7 @@
 
 #include <opencv2/opencv.hpp>
 #include "display.h"
-#include "dxrt/dxrt_api.h"
 
-#include "rapidjson/document.h"
-#include "rapidjson/writer.h"
-#include "rapidjson/prettywriter.h"
-#include "rapidjson/stringbuffer.h"
-#include "rapidjson/pointer.h"
-#include "rapidjson/rapidjson.h"
-
-#include "yolo.h"
 #include "od.h"
 
 using namespace std;
@@ -78,7 +69,6 @@ const char* usage =
 "yolo demo\n"
 "  -c, --config    use config json file for run application\n"
 "                  e.g. sudo yolo_multi -c _multi_od_.json -a \n"
-"  -n, --numbuf    number of memory buffers for inference\n"
 "  -h, --help      show help\n"
 ;
 
@@ -175,6 +165,15 @@ int ApplicationJsonParser(string configPath, AppConfig* dst)
         for(SizeType i = 0; i < videoSources.Size(); i++){
             const Value& videoSource = videoSources[i];
             pair<string, string> videoSourceInfo(pair<string, string>(videoSource[0].GetString(), videoSource[1].GetString()));
+#if __riscv
+            if(string(videoSource[1].GetString()) == "isp"){
+                dst->video_sources.clear();
+                dst->pre_saved_frame_count.clear();
+                dst->video_sources.emplace_back(videoSourceInfo);
+                dst->pre_saved_frame_count.emplace_back(0);
+                return 1;
+            }
+#endif
             if(string(videoSource[1].GetString()) == "offline")
             {
                 if(videoSource.Size() == 2)
@@ -194,16 +193,6 @@ int ApplicationJsonParser(string configPath, AppConfig* dst)
         return -1;
     }
     return 1;
-}
-
-void createExpandWindow(string window_name, int window_width, int window_height){
-    namedWindow(window_name, cv::WINDOW_NORMAL);
-    // setWindowProperty(window_name, WND_PROP_FULLSCREEN, WINDOW_FULLSCREEN);
-    resizeWindow(window_name, window_width, window_height);
-    moveWindow(window_name, 0, 0);
-}
-void destroyExpandWindow(string window_name){
-    destroyWindow(window_name);
 }
 
 YoloParam getYoloParameter(string model_name){
@@ -227,47 +216,6 @@ YoloParam getYoloParameter(string model_name){
 }
 YoloParam yoloParam;
 
-void *PreProc(cv::Mat &src, cv::Mat &dest, bool keepRatio=true, bool bgr2rgb=true, uint8_t padValue=0)
-{
-    cv::Mat Resized;
-    if(keepRatio)
-    {
-        float dw, dh;
-        uint16_t top, bottom, left, right;
-        float ratioDest = (float)dest.cols/dest.rows;
-        float ratioSrc = (float)src.cols/src.rows;
-        int newWidth, newHeight;
-        if(ratioSrc < ratioDest)
-        {
-            newHeight = dest.rows;
-            newWidth = newHeight * ratioSrc;
-        }
-        else
-        {
-            newWidth = dest.cols;
-            newHeight = newWidth / ratioSrc;
-        }
-        cv::Mat src2 = cv::Mat(newWidth, newHeight, CV_8UC3);
-        cv::resize(src, src2, Size(newWidth, newHeight), 0, 0, cv::INTER_LINEAR);
-        dw = (dest.cols - src2.cols)/2.;
-        dh = (dest.rows - src2.rows)/2.;
-        top    = (uint16_t)round(dh - 0.1);
-        bottom = (uint16_t)round(dh + 0.1);
-        left   = (uint16_t)round(dw - 0.1);
-        right  = (uint16_t)round(dw + 0.1);
-        cv::copyMakeBorder(src2, dest, top, bottom, left, right, cv::BORDER_CONSTANT, cv::Scalar(padValue,padValue,padValue));
-    }
-    else
-    {
-        cv::resize(src, dest, Size(dest.cols, dest.rows), 0, 0, cv::INTER_LINEAR);
-    }
-    if(bgr2rgb)
-    {
-        cv::cvtColor(dest, dest, COLOR_BGR2RGB);
-    }
-    return (void*)dest.data;
-}
-
 static int devideBoard(int numImages)
 {
     int ret_Div = 1;
@@ -283,25 +231,9 @@ static int devideBoard(int numImages)
     return ret_Div;
 }
 
-std::vector<std::string> get_list(std::string file_path)
-{
-    std::ifstream f(file_path);
-    std::vector<std::string> list;
-    std::string element;
-    while(!f.eof())
-    {
-        getline(f, element);
-        if(element=="") continue;
-        list.emplace_back(element);
-    }
-    f.close();
-    return list;
-}
-
 int main(int argc, char *argv[])
 {
     int arg_idx = 1;
-    int numBuf = 1;
     string configPath = "";
     bool writeFrame = false, is_show = true, is_repeat = true;
     float fps = 0.f; double frameCount = 0.0;
@@ -320,8 +252,6 @@ int main(int argc, char *argv[])
         std::string arg(argv[arg_idx++]);
         if (arg == "-c" || arg == "--config")
                         configPath = strdup(argv[arg_idx++]);
-        else if (arg == "-n" || arg == "--numbuf")
-                        numBuf = stoi(argv[arg_idx++]);
         else if (arg == "-h" || arg == "--help")
                         help(), exit(0);
         else if (arg == "-s") /* display off for debugging */
@@ -356,14 +286,11 @@ int main(int argc, char *argv[])
     }
     cv::Mat outFrame = cv::Mat(cv::Size(BOARD_WIDTH, BOARD_HEIGHT), CV_8UC3, cv::Scalar(0, 0, 0));
     
-    auto ie = dxrt::InferenceEngine(appConfig.model_path);
+    std::shared_ptr<dxrt::InferenceEngine> ie = std::make_shared<dxrt::InferenceEngine>(appConfig.model_path);
     yoloParam = getYoloParameter(appConfig.model_name);
     Yolo yolo = Yolo(yoloParam);
     auto& profiler = dxrt::Profiler::GetInstance();
     vector<shared_ptr<ObjectDetection>> apps;
-    // vector<int> viewer_index;
-    int expand_index = -1; // -1 : none expand window
-    bool created_expand_window = false;
     int calcFpsPassTimes = 0;
     bool calcFps = false;
     
@@ -471,16 +398,16 @@ int main(int argc, char *argv[])
         [&](std::vector<shared_ptr<dxrt::Tensor>> outputs, void* arg)
         {
             ObjectDetection *app = (ObjectDetection *)arg;
-            profiler.Start(app->Name()+"_post");
             app->PostProc(outputs);
-            profiler.End(app->Name()+"_post");
             return 0;
         };
-    ie.RegisterCallBack(postProcCallBack);
+    ie->RegisterCallBack(postProcCallBack);
 
+#if !__riscv
     namedWindow(DISPLAY_WINDOW_NAME, cv::WINDOW_NORMAL);
     setWindowProperty(DISPLAY_WINDOW_NAME, WND_PROP_FULLSCREEN, WINDOW_FULLSCREEN);
     moveWindow(DISPLAY_WINDOW_NAME, 0, 0);
+#endif
 
     for(auto &app:apps)
     {
@@ -488,6 +415,16 @@ int main(int argc, char *argv[])
     }
     usleep(500*1000);
     profiler.Add("spread");
+    /* Debugging */
+    std::vector<cv::Rect> dstPoint = std::vector<cv::Rect>(apps.size(), cv::Rect(0, 0, 0, 0));
+    for(int i = 0; i < apps.size(); i++)
+    {
+        dstPoint[i].x = apps[i]->Position().first;
+        dstPoint[i].y = apps[i]->Position().second;
+        dstPoint[i].width = apps[i]->Resolution().first;
+        dstPoint[i].height = apps[i]->Resolution().second;
+    }
+
     while(1)
     {
         fps = 0.0f;
@@ -495,14 +432,12 @@ int main(int argc, char *argv[])
         
         for(int i = 0; i < apps.size(); i++)
         {
-            apps[i]->ResultFrame().copyTo(outFrame(cv::Rect(apps[i]->Position().first, 
-                                            apps[i]->Position().second, 
-                                            apps[i]->Resolution().first, 
-                                            apps[i]->Resolution().second)));
-            if(i < appConfig.video_sources.size() && calcFps && expand_index < 0)
+            cv::Mat roi = outFrame(dstPoint[i]);
+            
+            apps[i]->ResultFrame().copyTo(roi);
+            if(i < appConfig.video_sources.size() && calcFps)
             {
                 fps += 1000000.0 / apps[i]->GetInferenceTime();
-                // fps += 1000000.0 / apps[i]->GetProcessingTime();
                 frameCount++;
             }
         }
@@ -519,33 +454,16 @@ int main(int argc, char *argv[])
             cv::putText(outFrame, mainCaption, Point(BOARD_WIDTH - 900, 25), 0, 1, cv::Scalar(0, 210, 210), 2, LINE_AA);
         }
         
+#if __riscv
+        cout << "press 'q' and enter to exit. " << endl;
+        int key = getchar();
+#else
         cv::imshow(DISPLAY_WINDOW_NAME, outFrame);
 
-        if(expand_index >=0){
-            if(!created_expand_window) 
-            {
-                createExpandWindow(EXPAND_WINDOW_NAME, BOARD_WIDTH, BOARD_HEIGHT);
-                created_expand_window = !created_expand_window;
-            }
-            cv::imshow(EXPAND_WINDOW_NAME, apps[expand_index]->ExpandedFrame());
-        }
-        else
-        {
-            if(created_expand_window)
-            {
-                destroyExpandWindow(EXPAND_WINDOW_NAME);
-                created_expand_window = !created_expand_window;
-            }
-        }
-
         int key = cv::waitKey(1);
-        if(key == 0x1B) //'ESC'
+#endif
+        if(key == 0x1B || key == 0x71) //'ESC'
         {
-            for (int i=0;i<apps.size();i++)
-            {
-                apps[i]->Contract();
-                apps[i]->Play();
-            }
             for(auto &app:apps)
             {
                 app->Stop();
@@ -558,42 +476,6 @@ int main(int argc, char *argv[])
             {
                 app->Toggle();
             }
-        }
-        else if(key == 0x61) // 'a' (<-)
-        {
-            if(expand_index < 0) expand_index = 1;
-            expand_index = (expand_index - 1 + apps.size()) % apps.size();
-            for (int i=0;i<apps.size();i++)
-            {
-                if(i!=expand_index)
-                    apps[i]->Contract(), apps[i]->Pause();
-                else
-                    apps[i]->Expand(), apps[i]->Play();
-            }
-        }
-        else if(key == 0x64) // 'd' (->)
-        {
-            expand_index = (expand_index + 1 + apps.size()) % apps.size();
-            for (int i=0;i<apps.size();i++)
-            {
-                if(i!=expand_index)
-                    apps[i]->Contract(), apps[i]->Pause();
-                else
-                    apps[i]->Expand(), apps[i]->Play();
-            }
-        }
-        else if(key == 0x71) // 'q' (destroy expand window)
-        {
-            if(expand_index >= 0) 
-            {
-                expand_index = -1;
-            }
-            for (int i=0;i<apps.size();i++)
-            {
-                apps[i]->Contract();
-                apps[i]->Play();
-            }
-
         }
         
     }

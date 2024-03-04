@@ -23,7 +23,7 @@ endmacro(add_easylog)
 
 macro(add_opencv)
 if(USE_OPENCV)
-    find_package(OpenCV 4.5.5 REQUIRED)
+	  find_package(OpenCV 4.5.5 REQUIRED HINTS ${OpenCV_DIR})
     LIST(APPEND link_libs ${OpenCV_LIBS})
 endif()
 endmacro(add_opencv)

@@ -105,21 +105,21 @@ namespace yolo
             _postprocRatio._width = (float)_dstSize._width/srcSize._width;
             _postprocRatio._height = (float)_dstSize._height/srcSize._height;
 
-            float _preprocRatio = std::min((float)_inputSize._width/_srcSize._width, (float)_inputSize._height/_srcSize._height);
-
-
+            float _preprocRatio;            
             if(_srcSize == _inputSize)
             {
                 _postprocPaddedSize._width = 0.f;
                 _postprocPaddedSize._height = 0.f;
+                _postprocScaleRatio = dxapp::common::Size_f(_postprocRatio._width, _postprocRatio._height);                
             }
             else
             {
+                _preprocRatio = std::min((float)_inputSize._width/_srcSize._width, (float)_inputSize._height/_srcSize._height);
                 dxapp::common::Size _resizeSize((int)(_srcSize._width * _preprocRatio), (int)(_srcSize._height * _preprocRatio));
                 _postprocPaddedSize._width = (_inputSize._width - _resizeSize._width) / 2.f;
                 _postprocPaddedSize._height = (_inputSize._height - _resizeSize._height) / 2.f;
+                _postprocScaleRatio = dxapp::common::Size_f(_postprocRatio._width/_preprocRatio, _postprocRatio._height/_preprocRatio);
             }
-            _postprocScaleRatio = dxapp::common::Size_f(_postprocRatio._width/_preprocRatio, _postprocRatio._height/_preprocRatio);
 
             switch (_params._decode_method)
             {
