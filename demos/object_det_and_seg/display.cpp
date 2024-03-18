@@ -1,4 +1,3 @@
-#ifdef USE_OPENCV
 #include "display.h"
 
 using namespace std;
@@ -286,4 +285,3 @@ vector<Scalar> GetObjectColors(int type)
     }
     return ObjectColors;
 }
-#endif

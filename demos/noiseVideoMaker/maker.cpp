@@ -7,9 +7,7 @@
 #include <iostream>
 #include <thread>
 
-#ifdef USE_OPENCV
 #include <opencv2/opencv.hpp>
-#endif
 
 #define INPUT_CAPTURE_PERIOD_MS 1
 #define DISPLAY_WINDOW_NAME "output"

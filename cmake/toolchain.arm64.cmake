@@ -1,4 +1,3 @@
-# message("ARM64 Cross-Compile")
 set(CMAKE_SYSTEM_NAME Linux)
 set(CMAKE_SYSTEM_PROCESSOR arm64)
 
@@ -7,8 +6,8 @@ set(onnxruntime_INCLUDE_DIRS
     /usr/local/include/onnxruntime
     /usr/local/include/onnxruntime/core/session
 )
-set(PYBIND_INCLUDE_DIR extern/pybind11/include)
-set(PYBIND_TARGET_DIR extern/pybind11)
+
+# set(DXRT_DIR <Installed DXRT package path>)
 
 SET(CMAKE_C_COMPILER      /usr/bin/aarch64-linux-gnu-gcc )
 SET(CMAKE_CXX_COMPILER    /usr/bin/aarch64-linux-gnu-g++ )

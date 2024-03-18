@@ -1,10 +1,4 @@
 #include "detector.hpp"
-#ifdef USE_EASYLOG
-#include "easylogging++.h"
-INITIALIZE_EASYLOGGINGPP
-#endif
-#ifdef USE_OPENCV
-#endif
 
 using namespace std;
 using namespace rapidjson;

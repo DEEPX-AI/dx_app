@@ -12,9 +12,7 @@ set(ENX_MEDIALINK_LIB ${CMAKE_SOURCE_DIR}/lib/utils/v1/libenxmedialink.a)
 target_link_libraries(run_detector ${ENX_MEDIALINK_LIB})
 endif()
 
-
 add_dxrt_lib()
 add_opencv()
 
-add_easylog(run_detector)
 add_target(run_detector)

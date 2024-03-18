@@ -2,9 +2,8 @@
 #include <future>
 #include <thread>
 #include <iostream>
-#ifdef USE_OPENCV
+
 #include <opencv2/opencv.hpp>
-#endif
 
 #include "dxrt/dxrt_api.h"
 
@@ -20,8 +19,6 @@
 #define MODEL_NAME "EfficientNetB0"
 #define CHIP_NAME "DX-M1"
 #define TOPS 23.0
-
-#ifdef USE_OPENCV
 
 template <typename... Args>
 std::string string_format(const std::string &format, Args... args)
@@ -275,9 +272,3 @@ int main(int argc, char *argv[])
     visualize(model_path, image_list_path, based_image_path);
     return 0;
 }
-#else
-int main(void)
-{
-    return 0;
-}
-#endif

@@ -2,9 +2,8 @@
 #include <future>
 #include <thread>
 #include <iostream>
-#ifdef USE_OPENCV
+
 #include <opencv2/opencv.hpp>
-#endif
 
 #include "dxrt/dxrt_api.h"
 #include "rapidjson/document.h"

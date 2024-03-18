@@ -4,7 +4,13 @@ set(CMAKE_CXX_STANDARD_REQUIRED "ON")
 set(CMAKE_CXX_STANDARD "17")
 set(DXRT_RELEASE_DIR ${CMAKE_BINARY_DIR}/release)
 set(CMAKE_INSTALL_PREFIX ${DXRT_RELEASE_DIR})
-list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake) # using function & cfg cmake file 
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake) # using function & cfg cmake file
+
+if(NOT "${CMAKE_HOST_SYSTEM_PROCESSOR}" STREQUAL "${CMAKE_SYSTEM_PROCESSOR}")
+    set(CROSS_COMPILE TRUE)
+else()
+    set(CROSS_COMPILE FALSE)
+endif()
 
 include(dxapp.cfg)
 include(dxapp.function)
@@ -15,18 +21,6 @@ if(ENABLE_DEBUG_INFO)
     add_compile_options(-g -rdynamic)
 endif()
 
-if(USE_OPENCV)
-add_compile_definitions(USE_OPENCV=1)
-endif()
-if(USE_EASYLOG)
-add_compile_definitions(USE_EASYLOG=1)
-endif()
-
-if(USE_ORT)
-add_onnxruntime()
-endif()
-
-if(USE_OPENCV)
 add_subdirectory(templates/classification)
 add_subdirectory(templates/object_detection)
 
@@ -38,7 +32,6 @@ add_subdirectory(demos/object_det_and_seg)
 add_subdirectory(demos/segmentation)
 add_subdirectory(demos/dncnn_yolo)
 add_subdirectory(demos/noiseVideoMaker)
-endif()
 
 message(STATUS "Compiler : ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION} (${CMAKE_CXX_COMPILER})")
 message(STATUS "Using compiler flags: ${CMAKE_CXX_FLAGS}")

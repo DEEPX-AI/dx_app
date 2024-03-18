@@ -1,4 +1,3 @@
-#ifdef USE_OPENCV
 #include "display.h"
 #include "dxrt/dxrt_api.h"
 
@@ -307,4 +306,3 @@ vector<Scalar> GetObjectColors(int type)
     }
     return ObjectColors;
 }
-#endif

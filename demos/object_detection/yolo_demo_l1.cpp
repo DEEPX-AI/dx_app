@@ -13,10 +13,9 @@
 #include <signal.h>
 #include <syslog.h>
 
-#ifdef USE_OPENCV
 #include <opencv2/opencv.hpp>
+
 #include "display.h"
-#endif
 #include "dxrt/dxrt_api.h"
 #include "yolo.h"
 #include "v4l2.h"
@@ -25,9 +24,7 @@
 #include "fb.h"
 
 using namespace std;
-#ifdef USE_OPENCV
 using namespace cv;
-#endif
 
 #define ISP_INPUT_DMA_COPY
 // #define ISP_DEBUG_BY_RAWFILE
@@ -118,7 +115,6 @@ void interruptHandler(int sig){
     LoopExitFlag = 1;
 }
 
-#ifdef USE_OPENCV
 void *PreProc(cv::Mat &src, cv::Mat &dest, bool keepRatio=true, bool bgr2rgb=true, uint8_t padValue=0)
 {
     cv::Mat Resized;
@@ -159,7 +155,6 @@ void *PreProc(cv::Mat &src, cv::Mat &dest, bool keepRatio=true, bool bgr2rgb=tru
     }
     return (void*)dest.data;
 }
-#endif
 bool stopFlag = false;
 void RequestToStop(int sig)
 {
@@ -187,9 +182,7 @@ int main(int argc, char *argv[])
     bool cameraInput = false, ispInput = false, ethernetInput = false,
         asyncInference = false, writeFrame = false;
     vector<unsigned long> inputPtr;
-#ifdef USE_OPENCV
     auto objectColors = GetObjectColors();
-#endif
     dxrt::InferenceMode mode = dxrt::InferenceMode::MODE_SYNC;
 
     signal(SIGTTOU, SIG_IGN);
@@ -284,7 +277,6 @@ int main(int argc, char *argv[])
     Yolo yolo = Yolo(yoloParam);
     auto& profiler = dxrt::Profiler::GetInstance();
     dxrt::CleanMemIf(); // cache flush for riscv64
-#if USE_OPENCV
     if(!imgFile.empty())
     {
         vector<vector<shared_ptr<dxrt::Tensor>>> vOutputs;
@@ -511,7 +503,6 @@ int main(int argc, char *argv[])
         profiler.Show();
         return 0;
     }
-#endif
     if(!binFile.empty())
     {
         int cnt = 0;

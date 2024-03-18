@@ -7,9 +7,7 @@
 #include <iostream>
 #include <thread>
 
-#ifdef USE_OPENCV
 #include <opencv2/opencv.hpp>
-#endif
 
 #include "dxrt/dxrt_api.h"
 

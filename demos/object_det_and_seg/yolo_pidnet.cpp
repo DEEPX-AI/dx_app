@@ -12,19 +12,16 @@
 #include <errno.h>
 #include <signal.h>
 #include <syslog.h>
-#ifdef USE_OPENCV
+
 #include <opencv2/opencv.hpp>
 #include <opencv2/core.hpp>
 #include "display.h"
-#endif
 #include "dxrt/dxrt_api.h"
 #include "yolo.h"
 #include "segmentation.h"
 
 using namespace std;
-#ifdef USE_OPENCV
 using namespace cv;
-#endif
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
 #define DISPLAY_WINDOW_NAME "YOLO + PIDNet"
@@ -120,7 +117,6 @@ void help()
     cout << usage << endl;    
 }
 
-#ifdef USE_OPENCV
 void *PreProc(cv::Mat &src, cv::Mat &dest, bool keepRatio=true, bool bgr2rgb=true, uint8_t padValue=0)
 {
     cv::Mat Resized;
@@ -161,7 +157,6 @@ void *PreProc(cv::Mat &src, cv::Mat &dest, bool keepRatio=true, bool bgr2rgb=tru
     }
     return (void*)dest.data;
 }
-#endif
 void Segmentation(uint16_t *input, uint8_t *output, int rows, int cols, SegmentationParam *cfg, int numClasses)
 {
     for(int h=0;h<rows;h++)
@@ -187,9 +182,7 @@ int main(int argc, char *argv[])
     string imgFile="", videoFile="", binFile="", simFile="";
     string od_modelpath = "", seg_modelpath = "";
     bool pcieInput = false, cameraInput = false;
-#ifdef USE_OPENCV
     auto objectColors = GetObjectColors(0);
-#endif
 
     if(argc==1)
     {
@@ -240,7 +233,6 @@ int main(int argc, char *argv[])
     Yolo yolo = Yolo(odCfg, dataInfo);
 
     auto& profiler = dxrt::Profiler::GetInstance();
-#ifdef USE_OPENCV
     cv::VideoCapture caps[NUM_VIDEO_FILES];
     if(videoFile=="0")
     {
@@ -436,7 +428,6 @@ int main(int argc, char *argv[])
         sleep(1);
         return 0;
     }
-#endif
 
     return 0;
 }

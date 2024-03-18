@@ -12,17 +12,15 @@
 #include <errno.h>
 #include <signal.h>
 #include <syslog.h>
-#ifdef USE_OPENCV
+
 #include <opencv2/opencv.hpp>
 #include <opencv2/core.hpp>
+
 #include "display.h"
-#endif
 #include "dxrt/dxrt_api.h"
 
 using namespace std;
-#ifdef USE_OPENCV
 using namespace cv;
-#endif
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
 #define PREPROC_KEEP_IMG_RATIO false
@@ -102,7 +100,6 @@ void help()
     cout << usage << endl;    
 }
 
-#ifdef USE_OPENCV
 void *PreProc(cv::Mat &src, cv::Mat &dest, bool keepRatio=true, bool bgr2rgb=true, uint8_t padValue=0)
 {
     cv::Mat Resized;
@@ -143,7 +140,6 @@ void *PreProc(cv::Mat &src, cv::Mat &dest, bool keepRatio=true, bool bgr2rgb=tru
     }
     return (void*)dest.data;
 }
-#endif
 void Segmentation(uint16_t *input, uint8_t *output, int rows, int cols, SegmentationParam *cfg, int numClasses)
 {
     for(int h=0;h<rows;h++)
@@ -239,7 +235,6 @@ int main(int argc, char *argv[])
     auto ie = dxrt::InferenceEngine(modelPath);
 
     auto& profiler = dxrt::Profiler::GetInstance();
-#if USE_OPENCV
     if(!imgFile.empty())
     {
         cv::Mat frame = cv::imread(imgFile, IMREAD_COLOR);
@@ -357,7 +352,6 @@ int main(int argc, char *argv[])
         profiler.Show();
         return 0;
     }
-#endif
     if(!binFile.empty())
     {
         uint8_t *input_buffer = new uint8_t(inputWidth * inputHeight * 3);

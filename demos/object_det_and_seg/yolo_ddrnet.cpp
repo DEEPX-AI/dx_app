@@ -12,19 +12,17 @@
 #include <errno.h>
 #include <signal.h>
 #include <syslog.h>
-#ifdef USE_OPENCV
+
 #include <opencv2/opencv.hpp>
 #include <opencv2/core.hpp>
+
 #include "display.h"
-#endif
 #include "dxrt/dxrt_api.h"
 #include "yolo.h"
 #include "segmentation.h"
 
 using namespace std;
-#ifdef USE_OPENCV
 using namespace cv;
-#endif
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
 #define DISPLAY_WINDOW_NAME "OD + Seg."
@@ -102,7 +100,6 @@ void help()
     cout << usage << endl;    
 }
 
-#ifdef USE_OPENCV
 void *PreProc(cv::Mat &src, cv::Mat &dest, bool keepRatio=true, bool bgr2rgb=true, uint8_t padValue=0)
 {
     cv::Mat Resized;
@@ -163,7 +160,6 @@ void Segmentation(uint16_t *input, cv::Mat &color, SegmentationParam *cfg, int n
         }
     }
 }
-#endif
 void Segmentation(uint16_t *input, uint8_t *output, int rows, int cols, SegmentationParam *cfg, int numClasses)
 {
     for(int h=0;h<rows;h++)
@@ -191,9 +187,7 @@ int main(int argc, char *argv[])
     string imgFile="", videoFile="", binFile="", simFile="";
     string od_modelpath = "", seg_modelpath = "";
     bool pcieInput = false, cameraInput = false, asyncInference = false;
-#ifdef USE_OPENCV
     auto objectColors = GetObjectColors(0);
-#endif
 
     if(argc==1)
     {
@@ -248,7 +242,6 @@ int main(int argc, char *argv[])
     auto dataInfo = ieOD.outputs();
     Yolo yolo = Yolo(odCfg, dataInfo);
 
-#if USE_OPENCV
     auto& profiler = dxrt::Profiler::GetInstance();
     if(!imgFile.empty())
     {
@@ -410,7 +403,6 @@ int main(int argc, char *argv[])
         profiler.Show();
         return 0;
     }
-#endif
 
     return 0;
 }

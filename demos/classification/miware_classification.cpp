@@ -19,9 +19,7 @@
 #include <cmath>
 #include <numeric>
 
-#ifdef USE_OPENCV
 #include <opencv2/opencv.hpp>
-#endif
 
 #include "dxrt/dxrt_api.h"
 #include "miware_include/MI_diagnosis_label.hpp"
