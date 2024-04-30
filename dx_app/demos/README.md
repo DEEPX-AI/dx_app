@@ -12,11 +12,11 @@ Application performance may also depending on the specifications of the host CPU
 ## C++ Demo Applications    
 
 ### prerequisites    
-- Set up build Environment ([Link](https://github.com/DEEPX-AI/dx_rt/blob/main/docs/Installation.md))
-- Install dxrt library and driver ([Link](https://github.com/DEEPX-AI/dx_rt/blob/main/docs/Getting-Started.md))       
-- model compiled for DEEPX's NPU chips ([Link](https://deepx.ai/model-zoo/))     
+- Set up build Environment ([Link](https://github.com/DEEPX-AI/dx_rt/blob/main/dx_rt/docs/Installation.md))     
+- Install dxrt library and driver ([Link](https://github.com/DEEPX-AI/dx_rt/blob/main/dx_rt/docs/Getting-Started.md))     
+- model compiled for DEEPX's NPU chips ([Link](https://deepx.ai/model-zoo/))   
 
-You can also refer to the installation guide, [Here](/README.md#L10)
+You can also refer to the installation guide, [Here](../README.md#L10)
 
 ### Build DX-APP    
 - **Build Application**          
@@ -36,23 +36,23 @@ You can also refer to the installation guide, [Here](/README.md#L10)
   After the build is successfully completed, demo and templates will be installed on the <U>\<your dx-app path\>/bin/</U>.
 
 ### Classification Demo       
-- Basic Classification ([classification.cpp](/demos/classification/classification.cpp)) [Try Demo](#L60)  
-- ImageNet Classification ([imagenet_classification.cpp](/demos/classification/imagenet_classification.cpp)) [Try Demo](#L66)  
+- Basic Classification ([classification.cpp](classification/classification.cpp)) [Try Demo](#Run-Classification)  
+- ImageNet Classification ([imagenet_classification.cpp](classification/imagenet_classification.cpp)) [Try Demo](#Run-Classification)     
                        
 ### Object Detection Demo    
-- Yolo Object Detection ([yolo_demo.cpp](/demos/object_detection/yolo_demo.cpp)) [Try Demo](#L75)    
-- Yolo Object Detection - Multi Channel ([yolo_demo_multi.cpp](/demos/object_detection/yolo_demo_multi.cpp)) [Try Demo](#L138)     
-- SSD Object Detection ([ssd_demo.cpp](/demos/object_detection/ssd_demo.cpp))    
+- Yolo Object Detection ([yolo_demo.cpp](object_detection/yolo_demo.cpp)) [Try Demo](#Run-Object-Detection)    
+- Yolo Object Detection - Multi Channel ([yolo_demo_multi.cpp](object_detection/yolo_demo_multi.cpp)) [Try Demo](#Run-Object-Detection)     
+- SSD Object Detection ([ssd_demo.cpp](object_detection/ssd_demo.cpp))    
                        
 ### Pose Estimation Demo        
-- Human Pose Estimation ([pose_demo.cpp](/demos/pose_estimation/pose_demo.cpp)) [Try Demo](#L195)      
-- Human Pose Estimation + Semantic Segmentation ([pose_ddrnet.cpp](/demos/pose_estimation/pose_ddrnet.cpp)) [Try Demo](#L233)     
+- Human Pose Estimation ([pose_demo.cpp](pose_estimation/pose_demo.cpp)) [Try Demo](#Run-Pose-Estimation)      
+- Human Pose Estimation + Semantic Segmentation ([pose_ddrnet.cpp](pose_estimation/pose_ddrnet.cpp)) [Try Demo](#Run-Pose-Estimation)      
 
 ### Segmentation Demo        
-- Semantic Segmentation DDRNet (Human Only) ([ddrnet.cpp](/demos/segmentation/ddrnet.cpp)) [Try Demo](#L247)     
-- Semantic Segmentation DDRNet (Human Only) + Yolo Object Detection ([yolo_ddrnet.cpp](/demos/object_det_and_seg/yolo_ddrnet.cpp)) [Try Demo](#L296)          
-- Semantic Segmentation PIDNet (CityScape dataset Only) ([pidnet.cpp](/demos/segmentation/pidnet.cpp))    
-- Semantic Segmentation PIDNet (CityScape dataset Only) + Yolo Object Detection ([yolo_pidnet.cpp](/demos/object_det_and_seg/yolo_pidnet.cpp))         
+- Semantic Segmentation DDRNet (Human Only) ([ddrnet.cpp](segmentation/ddrnet.cpp)) [Try Demo](#Run-Segmentation)     
+- Semantic Segmentation DDRNet (Human Only) + Yolo Object Detection ([yolo_ddrnet.cpp](object_det_and_seg/yolo_ddrnet.cpp)) [Try Demo](#Run-Segmentation)     
+- Semantic Segmentation PIDNet (CityScape dataset Only) ([pidnet.cpp](segmentation/pidnet.cpp))    
+- Semantic Segmentation PIDNet (CityScape dataset Only) + Yolo Object Detection ([yolo_pidnet.cpp](object_det_and_seg/yolo_pidnet.cpp))         
 
 
 ## Run the Demo Executable    
@@ -145,7 +145,7 @@ You can also refer to the installation guide, [Here](/README.md#L10)
     <p align="center">
       <img src="./readme_images/result_yolo_multi.jpg">
     </p>           
-    As like above yolo model list, You need to modify or create a json config file. The example json file is located in [sample/test_od_demo.json](/sample/test_od_demo.json) and must be modified for use.
+    As like above yolo model list, You need to modify or create a json config file. The example json file is located in [sample/test_od_demo.json](../sample/test_od_demo.json) and must be modified for use. 
     Refer to following configuration json file.      
 
     ```json
