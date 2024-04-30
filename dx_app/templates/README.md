@@ -18,11 +18,11 @@ Currently, This template only supports detection in the yolo method.
 
 ### prerequisites    
 
-- Set up build Environment ([Link](https://github.com/DEEPX-AI/dx_rt/blob/main/docs/Installation.md))
-- Install dxrt library and driver ([Link](https://github.com/DEEPX-AI/dx_rt/blob/main/docs/Getting-Started.md))       
-- model compiled for DEEPX's NPU chips ([Link](https://deepx.ai/model-zoo/))     
+- Set up build Environment ([Link](https://github.com/DEEPX-AI/dx_rt/blob/main/dx_rt/docs/Installation.md))     
+- Install dxrt library and driver ([Link](https://github.com/DEEPX-AI/dx_rt/blob/main/dx_rt/docs/Getting-Started.md))     
+- model compiled for DEEPX's NPU chips ([Link](https://deepx.ai/model-zoo/))   
 
-You can also refer to the installation guide, [Here](/README.md#L10)
+You can also refer to the installation guide, [Here](../README.md#L10)
 
 ### Build DX-APP    
 - **Build Application**          
@@ -44,7 +44,7 @@ You can also refer to the installation guide, [Here](/README.md#L10)
     
 ## Run Application Temaplate     
 **Getting the usage of executable, Try run with "-h" option.**
-python example code is [here](#L199)
+python example code is [here](#Run-ImageNet-Python-Example)
 
 ### Run Classification Template     
   - **Classification**       
@@ -57,7 +57,7 @@ python example code is [here](#L199)
       [example/ILSVRC2012/3.jpeg] Top1 Result : class 794 (shower curtain)
     ```             
 
-    [This](/example/imagenet_example.json) is a json config file that can run the classification model. Referring to this, you can customizing input and output. 
+    [This](../example/imagenet_example.json) is a json config file that can run the classification model. Referring to this, you can customizing input and output. 
     And You can modify it in the application section for displaying or save classification results.   
 
     ```json
@@ -79,7 +79,7 @@ python example code is [here](#L199)
       ...
       detected : 9
     ```             
-    [This](/example/yolov5s3_example.json) is a json config file that can run the detection model. Referring to this, you can customizing input and output. 
+    [This](../example/yolov5s3_example.json) is a json config file that can run the detection model. Referring to this, you can customizing input and output. 
     And You can modify it in the application section for displaying or save detection results.   
 
     ```json
@@ -215,7 +215,7 @@ python example code is [here](#L199)
     Device 0 : 4
   ```     
   The dxrt model has input and output tensors that shapes are N H W C format by default. Output tensor data format of current devices is aligned on 64-byte.   
-  You should refer to the [Here](/templates/python/imageNet_example.py) and re-arrange input data.     
+  You should refer to the [Here](python/imageNet_example.py) and re-arrange input data.     
   ```python
     def preprocessing(image, new_shape=(224, 224), align=64, format=None):
         image = cv2.resize(image, new_shape)
@@ -232,4 +232,3 @@ python example code is [here](#L199)
             
         return image_input
   ```
-  
