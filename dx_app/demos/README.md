@@ -16,7 +16,7 @@ Application performance may also depending on the specifications of the host CPU
 - Install dxrt library and driver ([Link](https://github.com/DEEPX-AI/dx_rt/blob/main/dx_rt/docs/Getting-Started.md))     
 - model compiled for DEEPX's NPU chips ([Link](https://deepx.ai/model-zoo/))   
 
-You can also refer to the installation guide, [Here](../README.md#L10)
+You can also refer to the installation guide, [Here](../README.md#Installation)
 
 ### Build DX-APP    
 - **Build Application**          
@@ -94,7 +94,8 @@ You can also refer to the installation guide, [Here](../README.md#L10)
       <img src="./readme_images/result_yolo.jpg">
     </p>           
 
-    Yolo Object Detection applications requires pre/post processing parameters that are not included in the compiled model. Example paramters are describes in yolo_cfg.cpp and are all listed in yolo_demo.cpp as follows :     
+    Yolo Object Detection applications requires pre/post processing parameters that are not included in the compiled model. 
+    Example paramters are describes in yolo_cfg.cpp and are all listed in yolo_demo.cpp as follows :     
     ```cpp
     // pre/post parameter table
     YoloParam yoloParams[] = {
@@ -139,13 +140,17 @@ You can also refer to the installation guide, [Here](../README.md#L10)
     
   - **Yolo Multi Channel Object Detection**    
     Example excutable for yolov5s_512 model.     
+
     ```shell
     $ sudo ./bin/yolo_multi -c ./example/4ch.json
     ```     
+
     <p align="center">
       <img src="./readme_images/result_yolo_multi.jpg">
     </p>           
-    As like above yolo model list, You need to modify or create a json config file. The example json file is located in [sample/test_od_demo.json](../sample/test_od_demo.json) and must be modified for use. 
+
+    As like above yolo model list, You need to modify or create a json config file. 
+    The example json file is located in [sample/test_od_demo.json](../sample/test_od_demo.json) and must be modified for use. 
     Refer to following configuration json file.      
 
     ```json
@@ -223,7 +228,9 @@ You can also refer to the installation guide, [Here](../README.md#L10)
           /0/model.33/m.3/Conv_output_0, FLOAT, [1, 10, 10, 64,  ], 0
     ```
 
-    Yolo Pose applications requires pre/post processing parameters that are not included in the compiled model. Example paramters are describes in pose_estimation/yolo_cfg.cpp and are all listed in pose_demo.cpp as follows :     
+    Yolo Pose applications requires pre/post processing parameters that are not included in the compiled model. 
+    Example paramters are describes in pose_estimation/yolo_cfg.cpp and are all listed in pose_demo.cpp as follows :     
+    
     ```c
     // pre/post parameter table
     YoloParam yoloParams[] = {

@@ -23,7 +23,7 @@ Install the followings first.
   ```
 - **Dxnnv2 library**                   
   After building, the runtime library and headers will be installed in /usr/local/lib and /usr/local/include                
-  You can also modify your runtime directory in [cmake/toolchain.xx.cmake](/dx_app/cmake/toolchain.x86_64.cmake)     
+  You can also modify your runtime directory in [cmake/toolchain.xx.cmake](cmake/toolchain.x86_64.cmake)     
   ```Makefile
   ...
   set(DXRT_DIR /usr/local)
@@ -86,5 +86,5 @@ Install the followings first.
   ```shell 
   sudo ./scripts/run_detector.sh
   ```                  
-  [Here](/dx_app/demos/README.md) For details to run demo applications and [Here](/dx_app/templates/README.md) to run templates.         
+  [Here](demos/README.md) For details to run demo applications and [Here](templates/README.md) to run templates.         
 
