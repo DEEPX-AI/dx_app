@@ -12,8 +12,8 @@ Application performance may also depending on the specifications of the host CPU
 ## C++ Demo Applications    
 
 ### prerequisites    
-- Set up build Environment ([Link](https://github.com/DEEPX-AI/dx_rt/blob/main/dx_rt/docs/Installation.md))     
-- Install dxrt library and driver ([Link](https://github.com/DEEPX-AI/dx_rt/blob/main/dx_rt/docs/Getting-Started.md))     
+- Set up build Environment ([Link](https://github.com/DEEPX-AI/dx_rt/blob/main/docs/Installation.md))     
+- Install dxrt library and driver ([Link](https://github.com/DEEPX-AI/dx_rt/blob/main/docs/Getting-Started.md))     
 - model compiled for DEEPX's NPU chips ([Link](https://deepx.ai/model-zoo/))   
 
 You can also refer to the installation guide, [Here](../README.md#Installation)
