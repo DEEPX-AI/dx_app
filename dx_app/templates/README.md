@@ -13,7 +13,7 @@ Application performance may also depending on the specifications of the host CPU
 
 Application Template is that makes it easy to experience classification or object detection through json config file modification.        
 The only part that needs to be modified is json config file.       
-If the yolo decoding method requires customization, you only need to modify the yoloCustomDecode part of [lib/utils/box_decode.hpp](/lib/utils/box_decode.hpp).    
+If the yolo decoding method requires customization, you only need to modify the yoloCustomDecode part of [lib/utils/box_decode.hpp](../lib/utils/box_decode.hpp).    
 Currently, This template only supports detection in the yolo method. 
 
 ### prerequisites    
@@ -22,7 +22,7 @@ Currently, This template only supports detection in the yolo method.
 - Install dxrt library and driver ([Link](https://github.com/DEEPX-AI/dx_rt/blob/main/dx_rt/docs/Getting-Started.md))     
 - model compiled for DEEPX's NPU chips ([Link](https://deepx.ai/model-zoo/))   
 
-You can also refer to the installation guide, [Here](../README.md#L10)
+You can also refer to the installation guide, [Here](../README.md#Installation)
 
 ### Build DX-APP    
 - **Build Application**          
