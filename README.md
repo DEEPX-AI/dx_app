@@ -10,8 +10,8 @@ Application performance may also depending on the specifications of the host bec
 ## Quick Start     
 ### prerequisites    
 Install the followings first.            
-- Set up build Environment ([Link](https://github.com/DEEPX-AI/dx_rt/blob/main/dx_rt/docs/Installation.md))     
-- Install dxrt library and driver ([Link](https://github.com/DEEPX-AI/dx_rt/blob/main/dx_rt/docs/Getting-Started.md))     
+- Set up build Environment ([Link](https://github.com/DEEPX-AI/dx_rt/blob/main/docs/Installation.md))     
+- Install dxrt library and driver ([Link](https://github.com/DEEPX-AI/dx_rt/blob/main/docs/Getting-Started.md))     
 - model compiled for DEEPX's NPU chips ([Link](https://deepx.ai/model-zoo/))   
 ### Installation    
 - **Dxnnv2 Drivers**        
@@ -87,4 +87,3 @@ Install the followings first.
   sudo ./scripts/run_detector.sh
   ```                  
   [Here](demos/README.md) For details to run demo applications and [Here](templates/README.md) to run templates.         
-
