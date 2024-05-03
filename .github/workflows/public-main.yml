@@ -1,4 +1,5 @@
 name: main
+run-name: ${{github.event.head_commit.message}}(${{github.event.head_commit.ref}})
 
 on:
     workflow_dispatch:
@@ -36,10 +37,13 @@ jobs:
                   commit_sha: ${{ github.event.head_commit.ref}}
                   message: '${{ github.event.head_commit.message }}'
 
-            - name: Create Release
-              uses: ghalactic/github-release-from-tag@v5
+            - name: Get to tag
+              run: echo "TO_TAG=$(git tag --sort=-v:refname | sed -n '1p')" >> $GITHUB_ENV
+    
+            - name: Create release
+              uses: ncipollo/release-action@v1
               with:
-                  token: ${{ secrets.GH_TOKEN }}
-                  draft: "false"
-                  prerelease: "false"
-                  summaryEnabled: "true"
+                tag: ${{ env.TO_TAG }}
+                generateReleaseNotes : true
+                allowUpdates: true
+                makeLatest: true

@@ -23,14 +23,18 @@ macro(add_onnxruntime)
 endmacro(add_onnxruntime)
 
 macro(add_dxrt_lib)
-  if(DXRT_DIR)
-    add_library(dxrt SHARED IMPORTED)
-    set_target_properties(dxrt PROPERTIES
-      IMPORTED_LOCATION "${DXRT_DIR}/lib/libdxrt.so"
-      INTERFACE_INCLUDE_DIRECTORIES "${DXRT_DIR}/include"
-    )
+  if(CROSS_COMPILE)
+    if(DXRT_INSTALLED_DIR)
+      add_library(dxrt SHARED IMPORTED)
+      set_target_properties(dxrt PROPERTIES
+        IMPORTED_LOCATION "${DXRT_INSTALLED_DIR}/lib/libdxrt.so"
+        INTERFACE_INCLUDE_DIRECTORIES "${DXRT_INSTALLED_DIR}/include"
+      )  
+    else()
+      find_package(dxrt REQUIRED)
+    endif()
   else()
-    message(FATAL_ERROR "DXRT_DIR is not defined.")
+    find_package(dxrt REQUIRED HINTS ${DXRT_INSTALLED_DIR})
   endif()
   LIST(APPEND link_libs dxrt pthread)
   if(USE_ORT)

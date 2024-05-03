@@ -26,13 +26,13 @@ Install the followings first.
   You can also modify your runtime directory in [cmake/toolchain.xx.cmake](cmake/toolchain.x86_64.cmake)     
   ```Makefile
   ...
-  set(DXRT_DIR /usr/local)
+  set(DXRT_INSTALLED_DIR /usr/local)
   ...
   ```          
 - **Clone dx_app v2**         
   clone this project, and just build 
   ```shell
-  git clone git@github.com:KOMOSYS/dx_app.git      
+  git clone git@github.com:DEEPX-AI/dx_app.git      
   ```                                 
 - **Install Dependencies**                
   Install Dependency package tools             
