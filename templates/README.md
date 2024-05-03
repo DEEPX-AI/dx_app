@@ -232,3 +232,67 @@ python example code is [here](#Run-ImageNet-Python-Example)
             
         return image_input
   ```
+
+### Run YoloV5S Python Example      
+**Getting the usage of executable, Try run with "--help" option.**
+  - **Object Detection**       
+  ```shell 
+  $ sudo -E python template/python/yolov5s.py
+  ```             
+  or      
+  ```shell 
+  $ sudo -E python template/python/yolov5s.py --config example/yolov5s3_example.json
+    ...
+    [Result] Detected 10 Boxes.
+    [0] conf, classID, x1, y1, x2, y2, : 0.8771, person(0), 307, 139, 401, 364
+    [1] conf, classID, x1, y1, x2, y2, : 0.7358, bowl(45), 46, 317, 107, 347
+    [2] conf, classID, x1, y1, x2, y2, : 0.7192, bowl(45), 25, 360, 79, 393
+    [3] conf, classID, x1, y1, x2, y2, : 0.6766, oven(69), 0, 218, 154, 325
+    [4] conf, classID, x1, y1, x2, y2, : 0.5811, oven(69), 389, 246, 497, 359
+    [5] conf, classID, x1, y1, x2, y2, : 0.5664, person(0), 0, 295, 48, 332
+    [6] conf, classID, x1, y1, x2, y2, : 0.5365, bowl(45), 1, 329, 69, 380
+    [7] conf, classID, x1, y1, x2, y2, : 0.4199, potted plant(58), 0, 86, 50, 206
+    [8] conf, classID, x1, y1, x2, y2, : 0.3649, bottle(39), 172, 271, 203, 323
+    [9] conf, classID, x1, y1, x2, y2, : 0.3084, cup(41), 117, 300, 137, 327
+    ...
+  ```     
+  After converting, You can easily cpu-post-processing using cpu_0.onnx output file with dxnn file.  
+  Modify python application with reference to [templates/python/yolov5s_example.py](./python/yolov5s_example.py).   
+
+  <p align="center">
+    <img src="./readme_images/result_python_yolov5s.jpg">
+  </p>
+  
+  ```python
+        image_src = cv2.imread(input_path, cv2.IMREAD_COLOR)
+        image_input, _, _ = letter_box(image_src, new_shape=(512, 512), fill_color=(114, 114, 114), format=cv2.COLOR_BGR2RGB)
+        
+        ''' detect image (1) run dxrt inference engine, (2) run onnx session for decoding'''
+        ie_output = ie.run(image_input)
+        print("dxrt inference Done! ")
+        input_dict = {input_names[0]:ie_output[0], input_names[1]:ie_output[1], input_names[2]:ie_output[2]}
+        ort_output = sess.run(None, input_dict)
+        print("cpu node inference Done! ")
+        
+        ''' post Processing '''
+        conf_thres, iou_thres = 0.3, 0.4
+        x = torch.Tensor(ort_output[0][0])
+        x = x[x[..., 4] > conf_thres]
+        box = ops.xywh2xyxy(x[:, :4])
+        x[:, 5:] *= x[:, 4:5]
+        conf, j = x[:, 5:].max(1, keepdims=True)
+        x = torch.cat((box, conf, j.float()), 1)[conf.view(-1) > conf_thres]
+        x = x[x[:, 4].argsort(descending=True)]
+        x = x[torchvision.ops.nms(x[:,:4], x[:, 4], iou_threshold=iou_thres)]
+        
+        print("[Result] Detected {} Boxes.".format(len(x)))
+        ''' result view '''
+        image = cv2.cvtColor(image_input, cv2.COLOR_RGB2BGR)
+        colors = np.random.randint(0, 256, [80, 3], np.uint8).tolist()
+        for idx, r in enumerate(x.numpy()):
+            pt1, pt2, conf, label = r[0:2].astype(int), r[2:4].astype(int), r[4], r[5].astype(int)
+            print("[{}] conf, classID, x1, y1, x2, y2, : {:.4f}, {}({}), {}, {}, {}, {}"
+                  .format(idx, conf, classes[label], label, pt1[0], pt1[1], pt2[0], pt2[1]))
+            image = cv2.rectangle(image, pt1, pt2, colors[label], 2)
+        cv2.imwrite("yolov5s.jpg", image)
+  ```
