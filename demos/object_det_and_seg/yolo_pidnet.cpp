@@ -156,21 +156,22 @@ void *PreProc(cv::Mat &src, cv::Mat &dest, bool keepRatio=true, bool bgr2rgb=tru
     }
     return (void*)dest.data;
 }
-void Segmentation(uint16_t *input, uint8_t *output, int rows, int cols, SegmentationParam *cfg, int numClasses)
+
+void Segmentation(float *input, uint8_t *output, int rows, int cols, SegmentationParam *cfg, int numClasses)
 {
     for(int h=0;h<rows;h++)
     {
         for(int w=0;w<cols;w++)
         {
-            for(int cls = 0; cls < numClasses; cls++)
-            {
-                if(input[cols*h + w] == (uint16_t)cls)
-                {
-                    output[3*cols*h + 3*w + 2] = cfg[cls].colorB;
-                    output[3*cols*h + 3*w + 1] = cfg[cls].colorG;
-                    output[3*cols*h + 3*w + 0] = cfg[cls].colorR;
+            int maxIdx = 0;
+            for (int c=0;c<numClasses;c++){
+                if(input[(cols*h + w)*64 + maxIdx] < input[(cols*h + w)*64 + c]){
+                    maxIdx = c;
                 }
             }
+            output[3*cols*h + 3*w + 2] = cfg[maxIdx].colorB;
+            output[3*cols*h + 3*w + 1] = cfg[maxIdx].colorG;
+            output[3*cols*h + 3*w + 0] = cfg[maxIdx].colorR;
         }
     }
 }
@@ -274,7 +275,7 @@ int main(int argc, char *argv[])
         /* PostProcessing : Segmentation */
         profiler.Start("post-segment");
         cv::Mat SegResult = cv::Mat(SEG_INPUT_HEIGHT, SEG_INPUT_WIDTH, CV_8UC3, cv::Scalar(0, 0, 0));
-        Segmentation((uint16_t*)SegOutputTensors[0]->data(), SegResult.data, SegResult.rows, SegResult.cols, segCfg, SEG_NUM_CLASSES);
+        Segmentation((float*)SegOutputTensors[0]->data(), SegResult.data, SegResult.rows, SegResult.cols, segCfg, SEG_NUM_CLASSES);
         profiler.End("post-segment");
 
         /* PostProcessing : Blend Image */
@@ -383,7 +384,7 @@ int main(int argc, char *argv[])
                         cv::Mat SegResultExpand;
                         cv::Mat outFrame = frame[prevIdx];
 
-                        Segmentation((uint16_t*)SegOutputTensors[0]->data(), SegResult[idx].data, 
+                        Segmentation((float*)SegOutputTensors[0]->data(), SegResult[idx].data, 
                             SegResult[idx].rows, SegResult[idx].cols, segCfg, SEG_NUM_CLASSES);
                         profiler.End("post-segment");
                         profiler.Start("post-blend");

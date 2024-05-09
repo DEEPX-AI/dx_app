@@ -54,6 +54,8 @@ You can also refer to the installation guide, [Here](../README.md#Installation)
 - Semantic Segmentation PIDNet (CityScape dataset Only) ([pidnet.cpp](segmentation/pidnet.cpp))    
 - Semantic Segmentation PIDNet (CityScape dataset Only) + Yolo Object Detection ([yolo_pidnet.cpp](object_det_and_seg/yolo_pidnet.cpp))         
 
+### Face Recognition Demo        
+- Face Recognition ([face_recognition_demo.cpp](face_recognition/face_recognition_demo.cpp)) [Try Demo](#Run-Face-Recognition)     
 
 ## Run the Demo Executable    
 **Getting the usage of executable, Try run with "-h" option.**
@@ -253,8 +255,8 @@ You can also refer to the installation guide, [Here](../README.md#Installation)
   
 
 ### Run Segmentation       
-  - **Semantic Segmentation DDRNet**       
-    This project was produced with reference to DDRNet model.         
+  - **Semantic Segmentation DDRNet or PIDNet**       
+    This project was produced with reference to DDRNet model and PIDNet.         
     Example excutable for semantic segmentation model. This segmentation model masks only on humans. And It separates the body from the feet.   
     
     ```shell
@@ -302,8 +304,15 @@ You can also refer to the installation guide, [Here](../README.md#Installation)
         {	18	,	"bicycle"       ,	119	,	11	,	32	,	},
     };
     ```
+
+    ```shell
+    $ sudo ./bin/pidnet -m /your-cityscape-segmentation-model-path/graph.dxnn -i sample/8.jpg
+    ```     
+    <p align="center">
+      <img src="./readme_images/result_cityscape_seg.jpg">
+    </p>            
     
-  - **Semantic Segmentation DDRNet with Object Detection**       
+  - **Semantic Segmentation with Object Detection**       
     This project was produced with reference to DDRNet and yolov5 models.      
     
     ```shell
@@ -314,3 +323,31 @@ You can also refer to the installation guide, [Here](../README.md#Installation)
     </p>            
 
     
+    This project was produced with reference to DDRNet and yolov5 models.      
+    
+    ```shell
+    $ sudo ./bin/od_pid -m0 example/YOLOV5S_3/graph.dxnn -m1 /your-cityscape-segmentation-model-path/graph.dxnn -i sample/8.jpg
+    ```     
+    <p align="center">
+      <img src="./readme_images/result_yolo_cityscape_seg.jpg">
+    </p>            
+
+    
+### Run Face Recognition       
+  - **Face Recognition**       
+  This uses a total of three models and consists of a face detection, a face landmark, and a face vector extraction model.          
+  This demo is a face recognition project, and you can also experience demo with the existing Face database or without database.   
+  If you want to use Face DB, you can enter the Data Base path with the *'-p'* option but it is not a required option.   
+  A description of the parameter can be found by entering the option *'-h'*.   
+  The face detection algorithm used a model of SSD network construction. Customization is essential for the user.
+  Face Recognition demo has two functions in total.     
+
+    - **Measure face similarity by two images**   
+       ```shell
+       $ sudo ./bin/face_recognition -m0 /your-face-detection-model-path/graph.dxnn -m1 /your-face-align-model-path/graph.dxnn -m2 /your-face-vector-model-path/graph.dxnn -l /image1-to-compare.jpg -r /image2-to-compare.jpg 
+       ```
+  
+    - **Tracking similar faces from camera by searching face database**    
+      ```shell
+      $ sudo ./bin/face_recognition -m0 /your-face-detection-model-path/graph.dxnn -m1 /your-face-align-model-path/graph.dxnn -m2 /your-face-vector-model-path/graph.dxnn -c -t -p /your-face-database-path/ 
+      ```

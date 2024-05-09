@@ -1,4 +1,5 @@
 #pragma once
+#include <sys/stat.h>
 #include <stdio.h>
 #include <string>
 #include <iostream>
@@ -74,6 +75,15 @@ namespace common
         }
         std::cout << " ]" << std::endl;
     };
+
+    bool pathValidation(const std::string &path)
+    {
+        if(struct stat sb; stat(path.c_str(), &sb) == 0)
+        {
+            return true;
+        }
+        return false;
+    }
 
 } // namespace common
 } // namespace dxapp 

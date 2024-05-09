@@ -128,11 +128,9 @@ namespace yolo
                 break;
             case Decode::YOLOX:
                 _decode = dxapp::decode::yoloXDecode;
-                for(int i=0;i<3;i++){
-                    if(_params._outputShape[i][3] == 4)_yoloxLocationIdx = i;
-                    else if(_params._outputShape[i][3] == 1)_yoloxBoxScoreIdx = i;
-                    else if(_params._outputShape[i][3] == _params._numOfClasses)_yoloxClassScoreIdx = i;
-                }
+                _yoloxLocationIdx = 0;
+                _yoloxBoxScoreIdx = 1;
+                _yoloxClassScoreIdx = 2;
                 break;
             case Decode::YOLOSCALE:
                 _decode = dxapp::decode::yoloScaledDecode;
