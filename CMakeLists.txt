@@ -29,6 +29,7 @@ add_subdirectory(demos/classification)
 add_subdirectory(demos/pose_estimation)
 add_subdirectory(demos/object_det_and_seg)
 add_subdirectory(demos/segmentation)
+add_subdirectory(demos/face_recognition)
 
 message(STATUS "Compiler : ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION} (${CMAKE_CXX_COMPILER})")
 message(STATUS "Using c++ standard required: ${CMAKE_CXX_STANDARD_REQUIRED}")

@@ -137,19 +137,22 @@ void *PreProc(cv::Mat &src, cv::Mat &dest, bool keepRatio=true, bool bgr2rgb=tru
     }
     return (void*)dest.data;
 }
-void Segmentation(uint16_t *input, uint8_t *output, int rows, int cols, SegmentationParam *cfg, int numClasses)
+
+void Segmentation(float *input, uint8_t *output, int rows, int cols, SegmentationParam *cfg, int numClasses)
 {
     for(int h=0;h<rows;h++)
     {
         for(int w=0;w<cols;w++)
         {
-            int cls = input[cols*h + w];
-            if(cls<numClasses)
-            {
-                output[3*cols*h + 3*w + 2] = cfg[cls].colorB;
-                output[3*cols*h + 3*w + 1] = cfg[cls].colorG;
-                output[3*cols*h + 3*w + 0] = cfg[cls].colorR;
+            int maxIdx = 0;
+            for (int c=0;c<numClasses;c++){
+                if(input[(cols*h + w)*64 + maxIdx] < input[(cols*h + w)*64 + c]){
+                    maxIdx = c;
+                }
             }
+            output[3*cols*h + 3*w + 2] = cfg[maxIdx].colorB;
+            output[3*cols*h + 3*w + 1] = cfg[maxIdx].colorG;
+            output[3*cols*h + 3*w + 0] = cfg[maxIdx].colorR;
         }
     }
 }
@@ -235,7 +238,7 @@ int main(int argc, char *argv[])
         LOG_VALUE(outputs.size());
         profiler.Start("post-segment");
         cv::Mat result = cv::Mat(inputHeight, inputWidth, CV_8UC3, cv::Scalar(0, 0, 0));
-        Segmentation((uint16_t*)outputs[0]->data(), result.data, result.rows, result.cols, segCfg, NUM_CLASSES);
+        Segmentation((float*)outputs[0]->data(), result.data, result.rows, result.cols, segCfg, NUM_CLASSES);
         profiler.End("post-segment");
         profiler.Start("post-blend");
         cv::resize(result, result, Size(frame.cols, frame.rows), 0, 0, cv::INTER_LINEAR);
@@ -307,7 +310,7 @@ int main(int argc, char *argv[])
                     cv::Mat resultExpand, outFrameBlend;
                     cv::Mat outFrame = frame[prevIdx];
                     Segmentation(
-                        (uint16_t*)outputs[0]->data(), result[idx].data, 
+                        (float*)outputs[0]->data(), result[idx].data, 
                         result[idx].rows, result[idx].cols, segCfg, NUM_CLASSES);
                     profiler.End("post-segment");
                     profiler.Start("post-blend");

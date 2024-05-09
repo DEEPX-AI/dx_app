@@ -36,12 +36,10 @@ using namespace cv;
 #define POSTPROC_SIMULATION_DEVICE_OUTPUT
 #define DISPLAY_WINDOW_NAME "Object Detection"
 #define INPUT_CAPTURE_PERIOD_MS 30
-// #define CAMERA_FRAME_WIDTH 800
-// #define CAMERA_FRAME_HEIGHT 600
-#define CAMERA_FRAME_WIDTH 1280
-#define CAMERA_FRAME_HEIGHT 720
-// #define CAMERA_FRAME_WIDTH 1920
-// #define CAMERA_FRAME_HEIGHT 1080
+
+// camera frame resolution (1920, 1080), (1280, 720), (800, 600)
+#define CAMERA_FRAME_WIDTH 1920
+#define CAMERA_FRAME_HEIGHT 1080
 #define FRAME_BUFFERS 5
 #define DMA_IOCTL_DATA		_IOW('T', 3, struct npu_dma_ioctl_data_copy)
 

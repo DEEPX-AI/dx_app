@@ -42,7 +42,6 @@ int SetVideoFormat(int fd, int height, int width)
     if (-1 == xioctl (fd, VIDIOC_CROPCAP, &cropcap))
     {
             perror("Querying Cropping Capabilities");
-            //return 1;
     }
 
     printf( "Camera Cropping:\n"
@@ -82,19 +81,11 @@ int SetVideoFormat(int fd, int height, int width)
         printf("pixelformat = %d\n", fmt.fmt.pix.pixelformat);
     }
 
-
     fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     fmt.fmt.pix.width = width;
     fmt.fmt.pix.height = height;
-    // fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_RGB32;
     fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_RGB24;
     fmt.fmt.pix.field = V4L2_FIELD_NONE;
-
-    //fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
-    //fmt.fmt.pix.width = 1280;
-    //fmt.fmt.pix.height = 720;
-    //fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_RGB32;
-    //fmt.fmt.pix.field = V4L2_FIELD_NONE;
 
     if (-1 == xioctl(fd, VIDIOC_S_FMT, &fmt))
     {
@@ -200,13 +191,6 @@ void V4L2CaptureWorker::CaptureV4L2FrameThread()
             return;
         }
         profiler.End("dqbuf");      
-        // {
-        //     fp = fopen(("frame"+to_string(cnt++)+".raw").c_str(), "wb");
-        //     fwrite((uint8_t*)buf.m.userptr, buf.length, 1, fp);
-        //     fclose(fp);
-        //     system("sync");
-        // }
-        
         PushFrameId(buf.index);
         if (ioctl (devFd, VIDIOC_QBUF, &buf) < 0) {
             printf("VIDIOC_QBUF failed\n");

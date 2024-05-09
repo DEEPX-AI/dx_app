@@ -1,5 +1,6 @@
 #include "od.h"
 #include "yolo.h"
+#include <utils/common_util.hpp>
 
 using namespace std;
 using namespace cv;
@@ -53,7 +54,7 @@ ObjectDetection::ObjectDetection(std::shared_ptr<dxrt::InferenceEngine> ie, std:
 
     _postprocScaleRatio = dxapp::common::Size_f(_postprocRatio._width/_preprocRatio, _postprocRatio._height/_preprocRatio);
     
-    _resultFrame = cv::Mat(_destHeight, _destWidth, CV_8UC3);
+    _resultFrame = cv::Mat(_destHeight, _destWidth, CV_8UC3, cv::Scalar(0, 0, 0));
     _queueFrame.push(cv::Mat(_destHeight, _destWidth, CV_8UC3)); 
     yolo = Yolo(yoloParam);
 }
@@ -61,8 +62,15 @@ ObjectDetection::ObjectDetection(std::shared_ptr<dxrt::InferenceEngine> ie, int 
 : _ie(ie), _profiler(dxrt::Profiler::GetInstance()), _channel(channel+1), _destWidth(destWidth), _destHeight(destHeight), _posX(posX), _posY(posY)
 {
     _name = "app" + to_string(_channel);
-    _logo = cv::imread("./sample/dx_colored_logo.png", cv::IMREAD_COLOR);
-    cv::resize(_logo, _resultFrame, cv::Size(_destWidth, _destHeight), 0, 0, cv::INTER_LINEAR);
+    if(dxapp::common::pathValidation("./sample/dx_colored_logo.png"))
+    {
+        _logo = cv::imread("./sample/dx_colored_logo.png", cv::IMREAD_COLOR);
+        cv::resize(_logo, _resultFrame, cv::Size(_destWidth, _destHeight), 0, 0, cv::INTER_LINEAR);
+    }
+    else
+    {
+        _resultFrame = cv::Mat(_destHeight, _destWidth, CV_8UC3, cv::Scalar(0, 0, 0));
+    }
     _queueFrame.push(_resultFrame);
 }
 ObjectDetection::~ObjectDetection() {}
@@ -93,15 +101,18 @@ dxapp::common::DetectObject ObjectDetection::GetScalingBBox(vector<BoundingBox>&
 void ObjectDetection::threadFunc(int period)
 {
     string cap = "cap" + to_string(_channel);
+    string proc = "proc" + to_string(_channel);
 #if 0
     char caption[100] = {0,};
     float fps = 0.f; double infCount = 0.0;
 #endif
     _profiler.Add(cap);
+    _profiler.Add(proc);
     cv::Mat member_temp;
     while(1)
     {        
         if(stop) break;
+        _profiler.Start(proc);
         _profiler.Start(cap);
         int req = _ie->RunAsync(_vStream.GetInputStream(), (void*)this);
 #if 1
@@ -143,12 +154,14 @@ void ObjectDetection::threadFunc(int period)
         _latencyTime = _ie->latency();
         
         _profiler.End(cap);
-        _processTime = _profiler.Get(cap);
-        int64_t t = (period*1000 - _processTime)/1000;
+        int64_t t = (period*1000 - _profiler.Get(cap))/1000;
         if(t<0 || t>period) t = 0;
         usleep(t*1000);
+        _profiler.End(proc);
+        _processTime = _profiler.Get(proc);
     }
     _profiler.Erase(cap);
+    _profiler.Erase(proc);
     cout << _channel << " ended." << endl;
 }
 void ObjectDetection::threadFillBlank(int period)

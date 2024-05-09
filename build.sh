@@ -41,7 +41,7 @@ fi
 cmd+=(-DCMAKE_TOOLCHAIN_FILE=cmake/toolchain.$target_arch.cmake)
 
 dxrt_dir=$(grep -i ^set\(DXRT_INSTALLED_DIR cmake/toolchain.$target_arch.cmake | sed 's/set(DXRT_INSTALLED_DIR //' | sed 's/)//')
-if [ $dxrt_dir == ""]; then
+if [ $dxrt_dir == "" ]; then
     dxrt_dir=/usr/local
 fi
 if [ ! -e $dxrt_dir ]; then

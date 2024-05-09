@@ -419,7 +419,7 @@ int main(int argc, char *argv[])
         dstPoint[i].height = apps[i]->Resolution().second;
     }
 
-    while(1)
+    while(true)
     {
         fps = 0.0f;
         frameCount = 0;
@@ -431,7 +431,7 @@ int main(int argc, char *argv[])
             apps[i]->ResultFrame().copyTo(roi);
             if(i < (int)appConfig.video_sources.size() && calcFps)
             {
-                fps += 1000000.0 / apps[i]->GetInferenceTime();
+                fps += 1000000.0 / apps[i]->GetProcessingTime();
                 frameCount++;
             }
         }
@@ -440,7 +440,7 @@ int main(int argc, char *argv[])
             calcFps = true;
         }
 
-        float resultFps = round((fps / frameCount) * 100) / 100;
+        float resultFps = round(fps * 100) / 100;
         if(appConfig.is_show_fps)
         {
             cv::rectangle(outFrame, Point(BOARD_WIDTH - 900, 0), Point(BOARD_WIDTH, 40), Scalar(120, 120, 120), cv::FILLED);
