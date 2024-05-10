@@ -57,6 +57,9 @@ You can also refer to the installation guide, [Here](../README.md#Installation)
 ### Face Recognition Demo        
 - Face Recognition ([face_recognition_demo.cpp](face_recognition/face_recognition_demo.cpp)) [Try Demo](#Run-Face-Recognition)     
 
+### Denoiser Demo        
+- Image De-Noising ([dncnn.cpp](denoiser/dncnn.cpp)) [Try Demo](#Run-Denoiser)     
+
 ## Run the Demo Executable    
 **Getting the usage of executable, Try run with "-h" option.**
 
@@ -351,3 +354,20 @@ You can also refer to the installation guide, [Here](../README.md#Installation)
       ```shell
       $ sudo ./bin/face_recognition -m0 /your-face-detection-model-path/graph.dxnn -m1 /your-face-align-model-path/graph.dxnn -m2 /your-face-vector-model-path/graph.dxnn -c -t -p /your-face-database-path/ 
       ```
+    <p align="center">
+      <img src="./readme_images/result_faceID.jpg">
+    </p>            
+    
+### Run Denoiser       
+  - **Denoiser**       
+  This demo is an example of a DNCNN model that removes noise.    
+  You can set the degree of noise using keys 1 ~ 9. Enter the *'-h*' option to see more parameter.     
+
+    ```shell
+    $ sudo ./bin/denoiser -m /your-face-detection-model-path/graph.dxnn -i sample/1.jpg 
+    ```
+    <p align="center">
+      <img src="./readme_images/result_dncnn.jpg">
+    </p>            
+
+    

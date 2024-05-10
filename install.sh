@@ -71,9 +71,9 @@ function install_opencv()
         fi
         echo " Install opencv dependent library "
         sudo apt -y install libopencv-dev python3-opencv libjpeg-dev libtiff5-dev libpng-dev libavcodec-dev \
-             libavformat-dev libswscale-dev libdc1394-22-dev libxvidcore-dev \
+             libavformat-dev libswscale-dev libxvidcore-dev \
              libx264-dev libxine2-dev libv4l-dev v4l-utils libgstreamer1.0-dev \
-             libgstreamer-plugins-base1.0-dev libgtk-3-dev libfreetype*
+             libgstreamer-plugins-base1.0-dev libgtk-3-dev libgtk2.0-dev libfreetype*
         
         if ! test -e $DX_SRC_DIR/util; then 
             mkdir $DX_SRC_DIR/util
