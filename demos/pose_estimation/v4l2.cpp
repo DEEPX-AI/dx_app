@@ -37,12 +37,11 @@ int SetVideoFormat(int fd, int height, int width)
             (caps.version>>24)&&0xff,
             caps.capabilities);
 
-    struct v4l2_cropcap cropcap = {0};
+    struct v4l2_cropcap cropcap = {};
     cropcap.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     if (-1 == xioctl (fd, VIDIOC_CROPCAP, &cropcap))
     {
             perror("Querying Cropping Capabilities");
-            //return 1;
     }
 
     printf( "Camera Cropping:\n"
@@ -53,31 +52,21 @@ int SetVideoFormat(int fd, int height, int width)
             cropcap.defrect.width, cropcap.defrect.height, cropcap.defrect.left, cropcap.defrect.top,
             cropcap.pixelaspect.numerator, cropcap.pixelaspect.denominator);
 
-    int support_grbg10 = 0;
-
-    struct v4l2_fmtdesc fmtdesc = {0};
+    struct v4l2_fmtdesc fmtdesc = {};
     fmtdesc.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-    char fourcc[5] = {0};
+    char fourcc[5] = {0,};
     char c, e;
     printf("  FMT : CE Desc\n--------------------\n");
     while (0 == xioctl(fd, VIDIOC_ENUM_FMT, &fmtdesc))
     {
         strncpy(fourcc, (char *)&fmtdesc.pixelformat, 4);
-        if (fmtdesc.pixelformat == V4L2_PIX_FMT_SGRBG10)
-            support_grbg10 = 1;
         c = fmtdesc.flags & 1? 'C' : ' ';
         e = fmtdesc.flags & 2? 'E' : ' ';
         printf("  %s: %c%c %s\n", fourcc, c, e, fmtdesc.description);
         fmtdesc.index++;
     }
-    /*
-    if (!support_grbg10)
-    {
-        printf("Doesn't support GRBG10.\n");
-        return 1;
-    }*/
 
-    struct v4l2_format fmt = {0};
+    struct v4l2_format fmt = {};
     fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     if (xioctl(fd, VIDIOC_G_FMT, &fmt) < 0)
     {
@@ -92,19 +81,11 @@ int SetVideoFormat(int fd, int height, int width)
         printf("pixelformat = %d\n", fmt.fmt.pix.pixelformat);
     }
 
-
     fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     fmt.fmt.pix.width = width;
     fmt.fmt.pix.height = height;
-    // fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_RGB32;
     fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_RGB24;
     fmt.fmt.pix.field = V4L2_FIELD_NONE;
-
-    //fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
-    //fmt.fmt.pix.width = 1280;
-    //fmt.fmt.pix.height = 720;
-    //fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_RGB32;
-    //fmt.fmt.pix.field = V4L2_FIELD_NONE;
 
     if (-1 == xioctl(fd, VIDIOC_S_FMT, &fmt))
     {
@@ -128,8 +109,8 @@ int SetVideoFormat(int fd, int height, int width)
 V4L2CaptureWorker::V4L2CaptureWorker(string dev, int height_, int width_, int numBuf_, vector<unsigned long> userPtr_)
 : height(height_), width(width_), numBuf(numBuf_), userPtr(userPtr_)
 {
-    struct v4l2_requestbuffers req = {0};
-   	struct v4l2_buffer buf = {0};
+    struct v4l2_requestbuffers req = {};
+   	struct v4l2_buffer buf = {};
     volatile int ret;
     devFd = open(dev.c_str(), O_RDWR);
     DXRT_ASSERT(devFd>0, "Fail to open V4L2 device.");
@@ -144,9 +125,9 @@ V4L2CaptureWorker::V4L2CaptureWorker(string dev, int height_, int width_, int nu
     DXRT_ASSERT(ret!=-1, "V4L2 Error in VIDIOC_REQBUFS");
     userPtr = userPtr_;
 
-	for(int i=0;i<userPtr.size();i++)
+	for(int i=0;i<(int)userPtr.size();i++)
 	{
-		printf(" #### VIDIOC_QUERYBUF ####\n", __func__);
+		printf(" #### %s : VIDIOC_QUERYBUF ####\n", __func__);
     	buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     	buf.memory = V4L2_MEMORY_USERPTR;
     	buf.index = i;
@@ -156,7 +137,7 @@ V4L2CaptureWorker::V4L2CaptureWorker(string dev, int height_, int width_, int nu
     	printf("buf.length: %d\n", buf.length);
     	printf("buf.imagelength: %d\n", buf.bytesused);
 		printf("buf.m.offset = %x\n", buf.m.offset);
-		printf("buf.m.userptr = %x\n", buf.m.userptr);
+		printf("buf.m.userptr = %lx\n", buf.m.userptr);
         ret = xioctl(devFd, VIDIOC_QBUF, &buf);
         DXRT_ASSERT(ret!=-1, "V4L2 Error in VIDIOC_QBUF");
 	}
@@ -193,14 +174,12 @@ void V4L2CaptureWorker::Stop()
 void V4L2CaptureWorker::CaptureV4L2FrameThread()
 {
     static unsigned int cnt = 0;
-    FILE *fp;
     stop = false;
     auto& profiler = dxrt::Profiler::GetInstance();
     while(!stop)
     {
         profiler.Start("capture");
-        // cout << "capture " << cnt << endl;
-        struct v4l2_buffer buf = {0};
+        struct v4l2_buffer buf = {};
         buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
         buf.memory = V4L2_MEMORY_USERPTR;
         buf.index = 0;
@@ -211,14 +190,8 @@ void V4L2CaptureWorker::CaptureV4L2FrameThread()
             perror("Retrieving Frame");
             return;
         }
-        profiler.End("dqbuf");        
-        // {
-        //     fp = fopen(("frame"+to_string(cnt++)+".raw").c_str(), "wb");
-        //     fwrite((uint8_t*)buf.m.userptr, buf.length, 1, fp);
-        //     fclose(fp);
-        //     system("sync");
-        // }
-        // cout << ">> push " << buf.index << endl;
+        profiler.End("dqbuf");      
+        
         PushFrameId(buf.index);
         if (ioctl (devFd, VIDIOC_QBUF, &buf) < 0) {
             printf("VIDIOC_QBUF failed\n");

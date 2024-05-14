@@ -87,7 +87,7 @@ int main(int argc, char *argv[])
                         help(), exit(0);
     }
 
-    auto ie = dxrt::InferenceEngine(modelPath);
+    dxrt::InferenceEngine ie(modelPath);
     auto& profiler = dxrt::Profiler::GetInstance();
 
     auto input_shape = ie.inputs().front().shape();
@@ -151,12 +151,12 @@ int main(int argc, char *argv[])
             }
             else if (key > '0' && key < '9')
             {
-                std::unique_lock _lock(lock);
+                std::unique_lock<mutex> _lock(lock);
                 std = (key - '0') * 10.0;
             }
             else if (key == 'a')
             {
-                std::unique_lock _lock(lock);
+                std::unique_lock<mutex> _lock(lock);
                 div -= 10;
                 if (div < 0)
                 {
@@ -165,7 +165,7 @@ int main(int argc, char *argv[])
             }
             else if (key == 'd')
             {
-                std::unique_lock _lock(lock);
+                std::unique_lock<mutex> _lock(lock);
                 div += 10;
                 if (div > input_w)
                 {
@@ -267,12 +267,12 @@ int main(int argc, char *argv[])
             }
             else if (key > '0' && key < '9')
             {
-                std::unique_lock _lock(lock);
+                std::unique_lock<mutex> _lock(lock);
                 std = (key - '0') * 10.0;
             }
             else if (key == 'a')
             {
-                std::unique_lock _lock(lock);
+                std::unique_lock<mutex> _lock(lock);
                 div -= 10;
                 if (div < 0)
                 {
@@ -281,7 +281,7 @@ int main(int argc, char *argv[])
             }
             else if (key == 'd')
             {
-                std::unique_lock _lock(lock);
+                std::unique_lock<mutex> _lock(lock);
                 div += 10;
                 if (div > input_w)
                 {

@@ -221,30 +221,30 @@ int main(int argc, char *argv[])
     int Classification[NUM_IMAGES];
     mutex resultLock;
     int numBuf = NUM_BUFFS;
-    auto ie = dxrt::InferenceEngine(model_path);
+    dxrt::InferenceEngine ie(model_path);
     auto& profiler = dxrt::Profiler::GetInstance();
-    atomic<int> gridIdx = 0;
-    atomic<int> gInfCnt = 0;
-    atomic<int> correct = 0;
+    atomic<int> gridIdx {0};
+    atomic<int> gInfCnt {0};
+    atomic<int> correct {0};
     double accuracy = 0;
     double fps = 0;
-    atomic<bool> exit_flag = false;
+    atomic<bool> exit_flag {false};
     bool results[NUM_IMAGES] = {false};
     std::function<int(vector<shared_ptr<dxrt::Tensor>>, void*)> postProcCallBack = \
         [&](vector<shared_ptr<dxrt::Tensor>> outputs, void *args)
         {
-            int id = *(uint64_t*)args;
-            gInfCnt = id;
+            int id = (uint64_t)args;
+            gInfCnt.store(id);
             Classification[id] = *((int*)(outputs.front()->data()));
             if(Classification[id]==GroundTruth[id])
             {
-                correct++;
+                ++correct;
                 results[id] = true;
-                accuracy = (double)correct/(double)(id+1);                
+                accuracy = (double)correct.load()/(double)(id+1);                
             }
             if(id%GRID_UNIT==GRID_UNIT-1)
             {
-                gridIdx = id/GRID_UNIT;
+                gridIdx.store(id/GRID_UNIT);
             }
             return 0;
         };
@@ -266,17 +266,17 @@ int main(int argc, char *argv[])
         while(1)
         {
             volatile int cnt = 0;
-            correct = 0;
-            while(!exit_flag)
+            correct.store(0);
+            while(!exit_flag.load())
             {
-                int reqId;
+                int reqId = 0;
                 profiler.Start("inf");
                 for(int i=0;i<numBuf-1;i++)
                 {
-                    reqId = ie.RunAsync(inputs[cnt], (void*)cnt);
+                    reqId = ie.RunAsync(inputs[cnt], (void*)(intptr_t)cnt);
                     cnt++;
                 }
-                ie.RunAsync(inputs[cnt], (void*)cnt);
+                reqId = ie.RunAsync(inputs[cnt], (void*)(intptr_t)cnt);
                 cnt++;
                 ie.Wait(reqId);
                 profiler.End("inf");
@@ -290,12 +290,12 @@ int main(int argc, char *argv[])
     thread ( [&](void) {        
         cv::Mat grid;
         int grid_size = GRID_WIDTH * GRID_HEIGHT;
-        while(!exit_flag)
+        while(!exit_flag.load())
         {
             while (1)
             {
-                int grid_index = gridIdx;
-                int count = gInfCnt;
+                int grid_index = gridIdx.load();
+                int count = gInfCnt.load();
                 {
                     grid = grids[grid_index];
                     for (int index = 0; index < grid_size; index++)
@@ -317,14 +317,14 @@ int main(int argc, char *argv[])
                 int key = cv::waitKey(1);
                 if (key == 27)
                 {
-                    exit_flag = true;
+                    exit_flag.store(true);
                     break;
                 }
             }
         }
     }).detach();
 
-    while(!exit_flag);
+    while(!exit_flag.load());
     sleep(1);
 
     return 0;

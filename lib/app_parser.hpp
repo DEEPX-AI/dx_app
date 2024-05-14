@@ -18,7 +18,7 @@ class AppConfig
 {
 public:
 
-    AppConfig(std::string json_path)
+    AppConfig(const std::string &json_path)
     {
         std::ifstream ifs(json_path);
         if(!ifs.is_open())
@@ -33,7 +33,7 @@ public:
             std::cout << json_path << " file is not a valid." << std::endl;
             std::terminate();
         }
-
+        rapidjson::Document doc;
         doc.Parse(json.c_str());
         std::string read = "";
         
@@ -112,18 +112,9 @@ public:
             videoOutResolution._width = 0;
             videoOutResolution._height = 0;
         }
-
-        // TODO : get below informations automatically
-        need_im2col = doc["input"]["need_im2col"].GetBool();
-        read = doc["output"]["type"].GetString();
-        if(read=="argmax")
-            outputType = AppOutputType::OUTPUT_ARGMAX;
-        else if(read=="raw")
-            outputType = AppOutputType::OUTPUT_NONE_ARGMAX;
-
-
+        outputType = AppOutputType::OUTPUT_NONE_ARGMAX;
     };
-    ~AppConfig(){};
+    ~AppConfig()=default;
     
     std::string modelInfo;
 
@@ -136,13 +127,8 @@ public:
     std::map<uint16_t, std::string> classes;
     int numOfClasses;
     dxapp::common::Size videoOutResolution;
-
-    // TODO : get below informations automatically
-    bool need_align;
-    bool need_im2col;
     
 private:
-    rapidjson::Document doc;
 
     const char *application_json_schema = R"""(
         {
@@ -199,7 +185,7 @@ private:
                         }
                     },
                     "required": [
-                        "classes", "type"
+                        "classes"
                     ]
                 },
                 "application": {

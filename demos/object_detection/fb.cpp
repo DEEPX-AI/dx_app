@@ -15,7 +15,6 @@ using namespace std;
 FrameBuffer::FrameBuffer(string dev, uint32_t numBuf_)
 :numBuf(numBuf_)
 {
-    void *ret = nullptr;
     fd = open((char*)dev.c_str(), O_RDWR);
     if (fd == -1) {
         perror("Error: cannot open framebuffer device");
@@ -44,9 +43,9 @@ FrameBuffer::FrameBuffer(string dev, uint32_t numBuf_)
         perror("Error: failed to mmap framebuffer device to memory");
         exit(4);
     }
-    for(int i=1;i<numBuf;i++)
+    for(int i=1;i<(int)numBuf;i++)
     {
-        data[i] = data[0] + screenSize*i;
+        data[i] = (FrameBuffer*)((uintptr_t)data[0] + screenSize*i);
     }
     cout << "    - Framebuffer Pointer: " << hex << (uint64_t)data[0] << dec << endl;
 }
@@ -70,20 +69,19 @@ void FrameBuffer::DrawBoxes(int bufId, vector<BoundingBox> &result, float Origin
     void *buf = data[bufId];
     for(auto &bbox:result)
     {
-        x1 = bbox.box[0]/rx;
-        y1 = bbox.box[1]/ry;
-        x2 = bbox.box[2]/rx;
-        y2 = bbox.box[3]/ry;
-        // cout << "    ++ (" << bbox.labelname << ") (" << x1 << ", " << y1 << ")" << ", (" << x2 << ", " << y2 << ")" << endl;
-        for(int i = x1; i<x2; i++)
+        x1 = (uint32_t)(bbox.box[0]/rx);
+        y1 = (uint32_t)(bbox.box[1]/ry);
+        x2 = (uint32_t)(bbox.box[2]/rx);
+        y2 = (uint32_t)(bbox.box[3]/ry);
+        for(int i = x1; i<(int)x2; i++)
         {
-            memcpy((void*)(buf + bpp * (y1*xres + i)), colorGreen, 4);
-            memcpy((void*)(buf + bpp * (y2*xres + i)), colorGreen, 4);
+            memcpy((void*)((uintptr_t)buf + bpp * (y1*xres + i)), colorGreen, 4);
+            memcpy((void*)((uintptr_t)buf + bpp * (y2*xres + i)), colorGreen, 4);
         }
-        for(int i = y1; i<y2; i++)
+        for(int i = y1; i<(int)y2; i++)
         {
-            memcpy((void*)(buf + bpp * (i*xres + x1)), colorGreen, 4);
-            memcpy((void*)(buf + bpp * (i*xres + x2)), colorGreen, 4);
+            memcpy((void*)((uintptr_t)buf + bpp * (i*xres + x1)), colorGreen, 4);
+            memcpy((void*)((uintptr_t)buf + bpp * (i*xres + x2)), colorGreen, 4);
         }
     }
     vinfo.yoffset = yres * bufId;
@@ -104,13 +102,13 @@ void FrameBuffer::EraseBoxes(int bufId, vector<BoundingBox> &result, float Origi
         y1 = bbox.box[1]/ry;
         x2 = bbox.box[2]/rx;
         y2 = bbox.box[3]/ry;
-        // cout << "    -- (" << bbox.labelname << ") (" << x1 << ", " << y1 << ")" << ", (" << x2 << ", " << y2 << ")" << endl;
-        for(int i = x1; i<x2; i++)
+        
+        for(int i = x1; i<(int)x2; i++)
         {
             buf[ bpp * (y1*xres + i) + 3 ] = 0;
             buf[ bpp * (y2*xres + i) + 3 ] = 0;
         }
-        for(int i = y1; i<y2; i++)
+        for(int i = y1; i<(int)y2; i++)
         {
             buf[ bpp * (i*xres + x1) + 3 ] = 0;
             buf[ bpp * (i*xres + x2) + 3 ] = 0;

@@ -18,7 +18,6 @@ namespace classification
         std::vector<int64_t> _dstShape;
         AppInputFormat _inputFormat;
         int _alignFactor;
-        bool _needIm2Col;
     };
 
     void image_pre_processing(cv::Mat src, uint8_t* input_tensor, PreConfig config){
@@ -42,11 +41,6 @@ namespace classification
             input_tensor = dst.data;
         }
     };
-    void binary_pre_processing(void* src, void* dst, PreConfig config)
-    {
-        // TODO : add im2col or array align function 
-    };
-        
     
 } // namespace classification
 } // namespace dxapp

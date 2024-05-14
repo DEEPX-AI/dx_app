@@ -128,11 +128,11 @@ uint8_t *preprocess(std::string image_path, std::string based_path)
 int inference(std::string model_path, std::vector<std::string> image_gt_list, std::string based_path, int *count, double *accuracy, double *latency, bool *exit_flag, bool *results)
 {
     // initialize inference engine
-    auto ie = dxrt::InferenceEngine(model_path);
+    dxrt::InferenceEngine ie(model_path);
     std::string* image_gt = new std::string[2];
 
     std::future<uint8_t *> input_future;
-    image_gt = split(image_gt_list[0], '\t');
+    image_gt = split(image_gt_list[0], ' ');
     input_future = std::async(std::launch::async, preprocess, image_gt[0], based_path);
 
     int correct = 0;
@@ -142,7 +142,7 @@ int inference(std::string model_path, std::vector<std::string> image_gt_list, st
         int gt = atoi(image_gt[1].c_str());
         if(i + 1 < (int)image_gt_list.size())
         {
-            image_gt = split(image_gt_list[i+1], '\t');
+            image_gt = split(image_gt_list[i+1], ' ');
             input_future = std::async(std::launch::async, preprocess, image_gt[0], based_path);
         }
 
@@ -191,7 +191,7 @@ void visualize(std::string model_path, std::string image_list_path, std::string 
         if (count == (int)image_gt_list.size()) break;
 
         std::future<uint8_t *> input_future;
-        image_gt = split(image_gt_list[count], '\t');
+        image_gt = split(image_gt_list[count], ' ');
         image = cv::imread(based_image_path+"/"+image_gt[0], cv::IMREAD_ANYCOLOR);
         cv::resize(image, constant, cv::Size(260,260));
 

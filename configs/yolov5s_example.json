@@ -2,7 +2,7 @@
     "description":"run yolo detector",
     "usage":"detection",
     "model":{
-        "path":"/home/yjlee/released/dx_app/models2/yolov5s_512.dxnn",
+        "path":"/your-detection-model-path/graph.dxnn",
         "param":{
             "name":"yolov5s_512",
             "score_threshold":0.25,
@@ -14,7 +14,7 @@
                 {
                 "name":"2", "stride": 8,
                 "anchor_width": [10, 16, 33],
-                "anchor_height": [13, 10, 23]
+                "anchor_height": [13, 30, 23]
                 },
                 {
                 "name":"1", "stride": 16,
@@ -31,19 +31,18 @@
     },
     "input":{
             "format":"RGB",
-            "need_im2col":false,
             "sources":[
                     {
+                        "type":"image", "path":"/your-sample-image-path/1.jpg"
+                    },
+                    {
+                        "type":"video", "path":"/your-sample-video-path/1.mp4"
+                    },
+                    {
+                        "type":"video", "path":"/your-sample-video-path/1.mp4", "frames":100
+                    },
+                    {
                         "type":"camera", "path":"/dev/video0"
-                    },
-                    {
-                        "type":"image", "path":"/home/yjlee/released/dx_app/sample/1.jpg"
-                    },
-                    {
-                        "type":"video", "path":"/home/yjlee/Videos/4.mp4"
-                    },
-                    {
-                        "type":"video", "path":"/home/yjlee/Videos/4.mp4", "frames":100
                     }
             ]
     },

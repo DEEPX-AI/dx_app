@@ -16,7 +16,8 @@
 #include "bbox.h"
 
 void DisplayBoundingBox(cv::Mat &frame, std::vector<BoundingBox> &result, 
-    float OriginWidth, float OriginHeight, std::string frameTitle, std::string frameText, 
+    float OriginHeight, float OriginWidth, std::string frameTitle, std::string frameText, 
     cv::Scalar UniformColor, std::vector<cv::Scalar> ObjectColors,
-    std::string OutputImgFile, int DisplayDuration, int Category=-1, bool ImageCenterAligned=false);
+    std::string OutputImgFile, int DisplayDuration, 
+    int Category=-1, bool ImageCenterAligned=false, float InputWidth=0.f, float InputHeight=0.f);
 std::vector<cv::Scalar> GetObjectColors(int type=0);

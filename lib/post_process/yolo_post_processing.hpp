@@ -7,8 +7,8 @@
 #include <sstream>
 
 #include "dxapp_api.hpp"
-
-#include <opencv2/opencv.hpp>
+#include "utils/box_decode.hpp"
+#include "utils/nms.hpp"
 
 namespace dxapp
 {
@@ -128,11 +128,9 @@ namespace yolo
                 break;
             case Decode::YOLOX:
                 _decode = dxapp::decode::yoloXDecode;
-                for(int i=0;i<3;i++){
-                    if(_params._outputShape[i][3] == 4)_yoloxLocationIdx = i;
-                    else if(_params._outputShape[i][3] == 1)_yoloxBoxScoreIdx = i;
-                    else if(_params._outputShape[i][3] == _params._numOfClasses)_yoloxClassScoreIdx = i;
-                }
+                _yoloxLocationIdx = 0;
+                _yoloxBoxScoreIdx = 1;
+                _yoloxClassScoreIdx = 2;
                 break;
             case Decode::YOLOSCALE:
                 _decode = dxapp::decode::yoloScaledDecode;
@@ -162,6 +160,14 @@ namespace yolo
                 getBoxes(outputs);
             
             dxapp::common::nms(_rawBoxes, _scoreIndices, _params._iou_threshold, _params._classes, _postprocPaddedSize, _postprocScaleRatio, _result);
+        };
+
+        static bool scoreComapre(const std::pair<float, int> &a, const std::pair<float, int> &b)
+        {
+            if(a.first > b.first)
+                return true;
+            else
+                return false;
         };
         
         void getBoxes(std::vector<std::shared_ptr<dxrt::Tensor>> outputs)
@@ -216,7 +222,7 @@ namespace yolo
             }
             for(auto &indices:_scoreIndices)
             {
-                sort(indices.begin(), indices.end(), std::greater<>());
+                sort(indices.begin(), indices.end(), scoreComapre);
             }
         };
     
@@ -267,7 +273,7 @@ namespace yolo
             }
             for(auto &indices:_scoreIndices)
             {
-                sort(indices.begin(), indices.end(), std::greater<>());
+                sort(indices.begin(), indices.end(), scoreComapre);
             }
         };
     

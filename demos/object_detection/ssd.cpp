@@ -55,9 +55,9 @@ Ssd::Ssd(SsdParam &_cfg)
         ScoreIndices.emplace_back(v);
     }
     //setup output layers
-    for(int layer=0; layer<numLayers; layer++)
+    for(int layer=0; layer<(int)numLayers; layer++)
     {
-        OutputLayer outputLayer = {0,};
+        OutputLayer outputLayer = {};
         auto priorBox = cfg.priorBoxes.dim[layer];
         outputLayer.boxes = priorBox.num_boxes;
         outputLayer.gridX = priorBox.num_grid_x;
@@ -83,7 +83,7 @@ void Ssd::CreatePriorBoxes(const string &file)
         float aspect_ratios[6] = {1.0, 2.0, 0.5, 3.0, 1./3.};
         cout << "Create Prior Boxes from SSD cfg." << endl;
         int m = numLayers;
-        int box, layer, k, num_boxes, idx = 0;
+        int box, k, num_boxes, idx = 0;
         int layer_h, layer_w, i, j;
         float min_scale = cfg.priorBoxes.min_scale;
         float max_scale = cfg.priorBoxes.max_scale;
@@ -126,7 +126,7 @@ void Ssd::CreatePriorBoxes(const string &file)
                             if(k==1 && reduce_boxes_in_lowest_layer)
                             {
                                 scale = scales[k];
-                                aspect_ratio = aspect_ratio = aspect_ratios[box];
+                                aspect_ratio = aspect_ratios[box];
                             }
                         }
                         w = scale*sqrt(aspect_ratio);
@@ -157,7 +157,15 @@ void Ssd::CreatePriorBoxes(const string &file)
     }
 }
 
-void Ssd::FilterWithSoftmax(float *org, vector<shared_ptr<dxrt::Tensor>> outputs_)
+static bool scoreComapre(const std::pair<float, int> &a, const std::pair<float, int> &b)
+{
+    if(a.first > b.first)
+        return true;
+    else
+        return false;
+};
+
+void Ssd::FilterWithSoftmax(vector<shared_ptr<dxrt::Tensor>> outputs_)
 {
     int boxIdx = 0;
 #if 0
@@ -170,14 +178,11 @@ void Ssd::FilterWithSoftmax(float *org, vector<shared_ptr<dxrt::Tensor>> outputs
     float centerVariance = cfg.priorBoxes.center_variance;
     float sizeVariance = cfg.priorBoxes.size_variance;
     float center_x, center_y, width, height;
-    for(int layer=0; layer<numLayers; layer++)
+    for(int layer=0; layer<(int)numLayers; layer++)
     {
         auto outputLayer = OutputLayers[layer];
         int numGridX = outputLayer.gridX;
         int numGridY = outputLayer.gridY;
-        // outputs_[2*layer]->Show();
-        // outputs_[2*layer+1]->Show();
-        // outputLayer.Show();
         int _numBoxes = outputLayer.boxes;
         int inc1 = 1;
         for(int gY=0; gY<numGridY; gY++)
@@ -190,15 +195,12 @@ void Ssd::FilterWithSoftmax(float *org, vector<shared_ptr<dxrt::Tensor>> outputs
                     float sum = 0;
                     classScore = (float*)(outputs_[2*layer]->data(gY, gX, box*numClasses));
                     boxLocation = (float*)(outputs_[2*layer+1]->data(gY, gX, box*4));
-                    for(int cls=0; cls<numClasses;cls++)
+                    for(int cls=0; cls<(int)numClasses;cls++)
                     {
-                        // classScore[cls*inc1] = exp(classScore[cls*inc1]);
-                        // sum += classScore[cls*inc1];
                         sum += exp(classScore[cls*inc1]);
                     }
-                    for(int cls=1; cls<numClasses;cls++)
+                    for(int cls=1; cls<(int)numClasses;cls++)
                     {
-                        // float score = classScore[cls*inc1]*(1/sum);
                         float score = exp(classScore[cls*inc1])*(1/sum);
                         if (score > scoreThreshold)
                         {
@@ -224,12 +226,12 @@ void Ssd::FilterWithSoftmax(float *org, vector<shared_ptr<dxrt::Tensor>> outputs
             }
         }
     }
-    for(int cls=1;cls<numClasses;cls++)
+    for(int cls=1;cls<(int)numClasses;cls++)
     {
-        sort(ScoreIndices[cls].begin(), ScoreIndices[cls].end(), greater<>());
+        sort(ScoreIndices[cls].begin(), ScoreIndices[cls].end(), scoreComapre);
     }
 }
-void Ssd::FilterWithSigmoid(float *org, vector<shared_ptr<dxrt::Tensor>> outputs_)
+void Ssd::FilterWithSigmoid(vector<shared_ptr<dxrt::Tensor>> outputs_)
 {
     int boxIdx = 0;
     int x = 1, y = 0, w = 3, h = 2;
@@ -239,14 +241,11 @@ void Ssd::FilterWithSigmoid(float *org, vector<shared_ptr<dxrt::Tensor>> outputs
     float centerVariance = cfg.priorBoxes.center_variance;
     float sizeVariance = cfg.priorBoxes.size_variance;
     float center_x, center_y, width, height;
-    for(int layer=0; layer<numLayers; layer++)
+    for(int layer=0; layer<(int)numLayers; layer++)
     {
         auto outputLayer = OutputLayers[layer];
         int numGridX = outputLayer.gridX;
         int numGridY = outputLayer.gridY;
-        // outputs_[2*layer]->Show();
-        // outputs_[2*layer+1]->Show();
-        // outputLayer.Show();
         int _numBoxes = outputLayer.boxes;
         int inc1 = 1;
         for(int gY=0; gY<numGridY; gY++)
@@ -258,7 +257,7 @@ void Ssd::FilterWithSigmoid(float *org, vector<shared_ptr<dxrt::Tensor>> outputs
                     bool boxDecoded = false;
                     classScore = (float*)(outputs_[2*layer]->data(gY, gX, box*numClasses));
                     boxLocation = (float*)(outputs_[2*layer+1]->data(gY, gX, box*4));
-                    for(int cls=1; cls<numClasses;cls++)
+                    for(int cls=1; cls<(int)numClasses;cls++)
                     {
                         float score = classScore[cls*inc1];
                         if (score > rawThreshold)
@@ -277,9 +276,6 @@ void Ssd::FilterWithSigmoid(float *org, vector<shared_ptr<dxrt::Tensor>> outputs
                                 boxOut[2] = center_x + width/2;
                                 boxOut[3] = center_y + height/2;
                                 boxDecoded = true;
-                                // cout << boxIdx << ": " << gX << ", " << gY << ", " << cls << ", " << \
-                                //     score << ", [ " << boxOut[0] << ", " << boxOut[1] << ", " \
-                                //     << boxOut[2] << ", " << boxOut[3] << " ]" << endl;
                             }
                         }
                     }
@@ -288,44 +284,34 @@ void Ssd::FilterWithSigmoid(float *org, vector<shared_ptr<dxrt::Tensor>> outputs
             }
         }
     }
-    for(int cls=1;cls<numClasses;cls++)
+    for(int cls=1;cls<(int)numClasses;cls++)
     {
-        sort(ScoreIndices[cls].begin(), ScoreIndices[cls].end(), greater<>());
+        sort(ScoreIndices[cls].begin(), ScoreIndices[cls].end(), scoreComapre);
     }
 }
 
 vector< BoundingBox > Ssd::PostProc(vector<shared_ptr<dxrt::Tensor>> outputs_, void *saveTo)
 {
     outputs = outputs_;
-#ifdef DUMP_DATA // TODO
-    for(int i=0;i<outputs.size();i++)
-    {
-        auto &shape = outputs[i]->shape();
-        auto size = shape[0]*shape[1]*shape[2]*data_align(shape[3], 64);
-        dxrt::DataDumpBin("output."+to_string(i)+".bin", outputs[i]->data(), size);
-        dxrt::DataDumpTxt("output."+to_string(i)+".txt", (float*)outputs[i]->data(), outputs[i]->shape()[1], outputs[i]->shape()[2], data_align(outputs[i]->shape()[3], 64));
-    }
-#endif
-    for(int cls=1; cls<numClasses; cls++)
+    for(int cls=1; cls<(int)numClasses; cls++)
     {
         ScoreIndices[cls].clear();
     }
     Result.clear();
     if(cfg.use_softmax)
-        FilterWithSoftmax(nullptr, outputs);
+        FilterWithSoftmax(outputs);
     else
-        FilterWithSigmoid(nullptr, outputs);
+        FilterWithSigmoid(outputs);
     Nms(
         numClasses,
         0,
         ClassNames, 
-        ScoreIndices, Boxes, nullptr, cfg.iou_threshold,
+        ScoreIndices, Boxes, cfg.iou_threshold,
         Result,
         1
     );
     if(saveTo!=nullptr)
     {
-        BoundingBox *boxes = (BoundingBox*)saveTo;
         memcpy(saveTo, &Result[0], Result.size()*sizeof(Result[0]));
     }
     return Result;

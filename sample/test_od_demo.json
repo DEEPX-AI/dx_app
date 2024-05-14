@@ -6,7 +6,7 @@
     "video_sources": [
                     ["/video_path/video_sample0.mp4", "realtime"],
                     ["/dev/video0", "camera"],
-                    ["/dev/video2", "camera"],
+                    ["/image_path/image.jpg", "image"],
                     ["/video_path/video_sample1.mp4", "offline", 400]
     ], 
     
@@ -15,7 +15,6 @@
                     "capture_period": 33,
                     "output_width": 1920,
                     "output_height": 1080,
-                    "show_fps": true,
-                    "expand_mode" : true
+                    "show_fps": true
     }
 }

@@ -40,6 +40,21 @@ fi
 
 cmd+=(-DCMAKE_TOOLCHAIN_FILE=cmake/toolchain.$target_arch.cmake)
 
+dxrt_dir=$(grep -i ^set\(DXRT_INSTALLED_DIR cmake/toolchain.$target_arch.cmake | sed 's/set(DXRT_INSTALLED_DIR //' | sed 's/)//')
+if [ $dxrt_dir == "" ]; then
+    dxrt_dir=/usr/local
+fi
+if [ ! -e $dxrt_dir ]; then
+    echo "-- Error : $dxrt_dir directory does not exist"
+    exit 1
+fi
+
+use_ort=$(grep -i use_ort$ $dxrt_dir/include/dxrt/gen.h)
+
+if [ -n "$use_ort" ]; then
+    cmd+=(-DUSE_ORT=True);
+fi
+
 cmd+=(-DCMAKE_VERBOSE_MAKEFILE=$verbose)
 
 if [ $build_type == "release" ] || [ $build_type == "debug" ] || [ $build_type == "relwithdebinfo" ]; then

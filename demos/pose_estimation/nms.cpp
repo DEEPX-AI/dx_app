@@ -83,7 +83,7 @@ void Nms(
         NmsOneClass(cls, ClassNames, ScoreIndices, Boxes, Keypoints, IouThreshold, Result);
     }
     sort(Result.begin(), Result.end(), compare);
-    if(numDetectTotal>0 && Result.size()>numDetectTotal)
+    if(numDetectTotal>0 && Result.size()>(size_t)numDetectTotal)
     {
         Result.resize(numDetectTotal);
     }

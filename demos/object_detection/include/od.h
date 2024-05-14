@@ -43,6 +43,8 @@ public:
     dxapp::common::DetectObject GetScalingBBox(vector<BoundingBox>& bboxes);
     friend std::ostream& operator<<(std::ostream&, const ObjectDetection&);
 private:
+    std::shared_ptr<dxrt::InferenceEngine> _ie;
+    dxrt::Profiler &_profiler;
     VideoStream _vStream;
     dxapp::common::Size_f _postprocPaddedSize;
     dxapp::common::Size_f _postprocScaleRatio;
@@ -70,8 +72,6 @@ private:
     std::queue<cv::Mat> _queueFrame;
 
     cv::Mat _logo;
-    std::shared_ptr<dxrt::InferenceEngine> _ie;
-    dxrt::Profiler &_profiler;
     std::thread _thread;
     std::atomic<bool> stop;
     std::mutex _lock;

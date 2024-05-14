@@ -5,7 +5,6 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
-#include <getopt.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <string.h>
@@ -27,20 +26,18 @@ using namespace cv;
 
 #define ISP_PHY_ADDR   (0x9D000000)
 #define ISP_INPUT_ZEROCOPY
-// #define ISP_DEBUG_BY_RAWFILE
-// #define ISP_DEBUG_BY_OPENCV
 #define POSTPROC_SIMULATION_DEVICE_OUTPUT
 #define DISPLAY_WINDOW_NAME "YOLO Pose + DDRNet"
 #define INPUT_CAPTURE_PERIOD_MS 30
-// #define CAMERA_FRAME_WIDTH 800
-// #define CAMERA_FRAME_HEIGHT 600
 #define CAMERA_FRAME_WIDTH 1920
 #define CAMERA_FRAME_HEIGHT 1080
 #define FRAME_BUFFERS 5
-#define POSE_MODEL_PATH "/dxrt/m1_4k/yolov5s6_pose_640_ti_lite"
-#define SEG_MODEL_PATH "/dxrt/m1_4k/ddrnet"
 #define SEG_INPUT_WIDTH 768
 #define SEG_INPUT_HEIGHT 384
+
+#ifndef UNUSEDVAR
+#define UNUSEDVAR(x) (void)(x);
+#endif
 
 // pre/post parameter table
 extern YoloParam yolov5s6_pose_640, yolov5s6_pose_1280;
@@ -53,30 +50,23 @@ struct SegmentationParam
     uint8_t colorR;
 };
 SegmentationParam segCfg[] = {
-    {0, "background", 0, 0, 0, }, /* Skip */
+    {0, "background", 0, 0, 0, },
     {1, "foot", 0, 128, 0, },
     {2, "body", 0, 0, 128, },
 };
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
-static struct option const opts[] = {
-    { "image", required_argument, 0, 'i' },
-    { "video", required_argument, 0, 'v' },
-    { "write", required_argument, 0, 'w' },
-    { "camera", no_argument, 0, 'c' },
-    { "async", no_argument, 0, 'a' },
-    { "help", no_argument, 0, 'h' },
-    { 0, 0, 0, 0 }
-};
 const char* usage =
-"pose estimation with ddrnet demo\n"
-"  -i, --image     use image file input\n"
-"  -v, --video     use video file input\n"
-"  -w, --write     write result frames to a video file\n"
-"  -c, --camera    use camera input\n"
-"  -a, --async     asynchronous inference\n"
-"  -h, --help      show help\n"
-;
+    "pose estimation with ddrnet demo\n"
+    "[*]  -m0, --posemodel          yolo pose model file path\n"
+    "[*]  -m1, --segmodel           yolo segmentation model file path\n"
+    "     -i,  --image             use image file input\n"
+    "     -v, --video     use video file input\n"
+    "     -w, --write     write result frames to a video file\n"
+    "     -c, --camera    use camera input\n"
+    "     -a, --async     asynchronous inference\n"
+    "     -h, --help      show help\n";
+
 void help()
 {
     cout << usage << endl;    
@@ -143,6 +133,7 @@ void Segmentation(uint16_t *input, uint8_t *output, int rows, int cols, Segmenta
 bool stopFlag = false;
 void RequestToStop(int sig)
 {
+    UNUSEDVAR(sig);
     stopFlag = true;
 }
 bool GetStopFlag()
@@ -152,10 +143,9 @@ bool GetStopFlag()
 
 int main(int argc, char *argv[])
 {
-    int optCmd, loops = 1, paramIdx = 0, numBuf = 4;
-    string modelPath="", imgFile="", videoFile="", binFile="", simFile="", videoOutFile="";        
-    bool cameraInput = false, ispInput = false, ethernetInput = false,
-        asyncInference = false, writeFrame = false;
+    int i = 1;
+    string pose_model_path="", seg_model_path="", imgFile="", videoFile="", binFile="", simFile="", videoOutFile="";        
+    bool cameraInput = false, asyncInference = false;
     vector<unsigned long> inputPtr;
     auto objectColors = GetObjectColors();    
 
@@ -166,41 +156,45 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-    while ((optCmd = getopt_long(argc, argv, "i:v:w:cah", opts,
-        NULL)) != -1) {
-        switch (optCmd) {
-            case '0':
-                break;
-            case 'i':
-                imgFile = strdup(optarg);
-                break;
-            case 'v':
-                videoFile = strdup(optarg);
-                break;
-            case 'w':
-                videoOutFile = strdup(optarg);
-                writeFrame = true;
-                break;
-            case 'c':
-                cameraInput = true;
-                break;
-            case 'a':
-                asyncInference = true;
-                break;
-            case 'h':
-            default:
-                help();
-                exit(0);
-                break;
-        }
+    while (i < argc) {
+        std::string arg(argv[i++]);
+        if (arg == "-m0")
+                                pose_model_path = strdup(argv[i++]);
+        else if (arg == "-m1")
+                                seg_model_path = strdup(argv[i++]);
+        else if (arg == "-i")
+                                imgFile = strdup(argv[i++]);
+        else if (arg == "-v")
+                                videoFile = strdup(argv[i++]);
+        else if (arg == "-w")
+                                videoOutFile = strdup(argv[i++]);
+        else if (arg == "-c")
+                                cameraInput = true;
+        else if (arg == "-a")
+                                asyncInference = true;
+        else if (arg == "-h")
+                                help(), exit(0);
+        else
+                                help(), exit(0);
     }
+    if (pose_model_path.empty() || seg_model_path.empty())
+    {
+        help(), exit(0);
+    }
+    if (imgFile.empty()&&videoFile.empty()&&!cameraInput)
+    {
+        help(), exit(0);
+    }
+    
+    LOG_VALUE(pose_model_path);
+    LOG_VALUE(seg_model_path);
     LOG_VALUE(videoFile);
     LOG_VALUE(imgFile);
     LOG_VALUE(cameraInput);
 
     string captionModel = "YOLOv5 pose + DDRNet , 30fps";
-    auto pose = dxrt::InferenceEngine(POSE_MODEL_PATH);
-    auto seg = dxrt::InferenceEngine(SEG_MODEL_PATH);
+    dxrt::InferenceEngine pose(pose_model_path);
+    dxrt::InferenceEngine seg(seg_model_path);
     auto yoloParam = yolov5s6_pose_640;
     Yolo yolo = Yolo(yoloParam);
     auto& profiler = dxrt::Profiler::GetInstance();
@@ -255,8 +249,6 @@ int main(int argc, char *argv[])
         cv::addWeighted(frame[0], 1.0, add, 1.0, 0.0, frame[0]);
         profiler.End("post-seg");
         cv::imwrite("result.jpg", frame[0]);
-        // cv::imshow(DISPLAY_WINDOW_NAME, frame[0]);
-        // cv::waitKey(0);
         profiler.Show();
         return 0;
     }
@@ -288,7 +280,13 @@ int main(int argc, char *argv[])
                 return -1;
             }
         }
-        int callBackCnt = 0; // debug
+        if(!videoOutFile.empty()){
+            writer.open(videoOutFile, cv::VideoWriter::fourcc('M', 'J', 'P', 'G'), 30,
+                        cv::Size(CAMERA_FRAME_WIDTH, CAMERA_FRAME_HEIGHT), true);
+            if(!writer.isOpened()){
+                cout << "Error: writer could not be opened." << endl;
+            }
+        }
         int fps = cap.get(CAP_PROP_FPS);
         float capInterval = 1000./fps;
         
@@ -303,9 +301,7 @@ int main(int argc, char *argv[])
             [&](vector<shared_ptr<dxrt::Tensor>> outputs, void *arg)
             {
                 profiler.Start("post-pose");
-                // cout << "pose: " << id << endl;
                 auto result = yolo.PostProc(outputs);
-                // yolo.ShowResult();
                 poseLock.lock();
                 poseQueue.push(
                     make_pair(result,(uint64_t) arg)
@@ -321,7 +317,6 @@ int main(int argc, char *argv[])
             [&](vector<shared_ptr<dxrt::Tensor>> outputs, void *arg)
             {
                 profiler.Start("post-seg");
-                // cout << "seg: " << id << endl;
                 segFrame[(uint64_t)arg].setTo(cv::Scalar(0,0,0));
                 Segmentation((uint16_t*)outputs[0]->data(), segFrame[(uint64_t)arg].data, segFrame[(uint64_t)arg].rows, segFrame[(uint64_t)arg].cols, segCfg, 3);
                 segLock.lock();
@@ -349,8 +344,10 @@ DemoLoop:
                 PreProc(frame[inIdx], segInput[inIdx], false);
                 profiler.End("pre");
                 profiler.Start("main");
-                int poseReq = pose.RunAsync(poseInput[inIdx].data, (void*)inIdx);
-                int segReq = seg.RunAsync(segInput[inIdx].data, (void*)inIdx);
+                int poseReq = pose.RunAsync(poseInput[inIdx].data, (void*)(intptr_t)inIdx);
+                int segReq = seg.RunAsync(segInput[inIdx].data, (void*)(intptr_t)inIdx);
+                UNUSEDVAR(poseReq);
+                UNUSEDVAR(segReq);
                 profiler.End("main");
                 profiler.Start("display");
                 poseLock.lock();
@@ -376,7 +373,6 @@ DemoLoop:
                     segIdx = inIdx;
                 }
                 segLock.unlock();
-                // cout << inIdx << ", " << poseIdx << ", " << segIdx << endl;
                 outFrame = frame[poseIdx];
                 DisplayBoundingBox(outFrame, bboxes, yoloParam.height, yoloParam.width, "", "",
                     cv::Scalar(0, 0, 255), objectColors, "", 0, -1, true);
@@ -386,14 +382,15 @@ DemoLoop:
                 cv::putText(outFrame, captionModel, Point(20, 25), FONT_HERSHEY_SIMPLEX, 0.7, Scalar(255, 255, 255));
                 profiler.End("display");
                 cv::imshow(DISPLAY_WINDOW_NAME, outFrame);
+                if(!videoOutFile.empty()){
+                    writer << outFrame;
+                }
                 (++inIdx)%=FRAME_BUFFERS;
             }
             tm.stop();
             double elapsed = tm.getTimeMilli();
-            // LOG_VALUE(elapsed);
             if (elapsed < capInterval)
             {
-                // LOG_VALUE(capInterval-elapsed);
                 key = cv::waitKey( max(1, (int)(capInterval - elapsed)) );
             }
             else

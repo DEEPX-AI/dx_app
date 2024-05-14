@@ -69,20 +69,29 @@ Yolo::Yolo(YoloParam &_cfg) :cfg(_cfg)
         ScoreIndices.emplace_back(v);
     }
 }
+
+static bool scoreComapre(const std::pair<float, int> &a, const std::pair<float, int> &b)
+{
+    if(a.first > b.first)
+        return true;
+    else
+        return false;
+};
+
 void Yolo::FilterWithSort(float *org)
 {
     int x = 0, y = 1, w = 2, h = 3;
     float ScoreThreshold = cfg.scoreThreshold;
     float conf_threshold = cfg.confThreshold;
     float score, score1;
-    for(int boxIdx=0;boxIdx<numBoxes;boxIdx++)
+    for(int boxIdx=0;boxIdx<(int)numBoxes;boxIdx++)
     {
         bool boxDecoded = false;
         float *data = org + (4+1+numClasses)*boxIdx;
         score1 = data[4];
         if(data[4]>conf_threshold)
         {
-            for(int cls=0; cls<numClasses; cls++)
+            for(int cls=0; cls<(int)numClasses; cls++)
             {
                 score = score1 * data[5+cls];
                 if(score > ScoreThreshold)
@@ -100,20 +109,19 @@ void Yolo::FilterWithSort(float *org)
             }
         }
     }
-    for(int cls=0;cls<numClasses;cls++)
+    for(int cls=0;cls<(int)numClasses;cls++)
     {
-        sort(ScoreIndices[cls].begin(), ScoreIndices[cls].end(), greater<>());
+        sort(ScoreIndices[cls].begin(), ScoreIndices[cls].end(), scoreComapre);
     }
 }
 void Yolo::FilterWithSort(vector<shared_ptr<dxrt::Tensor>> outputs_)
 {
     int boxIdx = 0;
-    int grid;
     int x = 0, y = 1, w = 2, h = 3;
     float ScoreThreshold = cfg.scoreThreshold;
     float conf_threshold = cfg.confThreshold;
     float rawThreshold = log(conf_threshold/(1-conf_threshold));
-    float score, score1, anchor_grid, tmp, box_temp[4];
+    float score, score1, box_temp[4];
     float *boxLocation, *boxScore, *classScore, *data;
     if(hasAnchors)
     {
@@ -140,7 +148,7 @@ void Yolo::FilterWithSort(vector<shared_ptr<dxrt::Tensor>> outputs_)
                             /* Step1 - obj_conf > CONF_THRESHOLD */
                             if(score1 > conf_threshold)
                             {
-                                for(int cls=0; cls<numClasses;cls++)
+                                for(int cls=0; cls<(int)numClasses;cls++)
                                 {
                                     score = score1 * sigmoid(data[5+cls]); /*conf = obj_conf * cls_conf*/
                                     /* Step2 - obj_conf * cls_conf > CONF_THRESHOLD */
@@ -204,7 +212,7 @@ void Yolo::FilterWithSort(vector<shared_ptr<dxrt::Tensor>> outputs_)
                         {
                             boxLocation = (float*)(outputs_[locationTensorIdx]->data(gY, gX, 0));                        
                             classScore = (float*)(outputs_[clsScoreTensorIdx]->data(gY, gX, 0));
-                            for(int cls=0; cls<numClasses;cls++)
+                            for(int cls=0; cls<(int)numClasses;cls++)
                             {
                                 score = boxScore[0]*classScore[cls];
                                 if (score > ScoreThreshold)
@@ -231,14 +239,14 @@ void Yolo::FilterWithSort(vector<shared_ptr<dxrt::Tensor>> outputs_)
             }
         }
     }
-    for(int cls=0;cls<numClasses;cls++)
+    for(int cls=0;cls<(int)numClasses;cls++)
     {
-        sort(ScoreIndices[cls].begin(), ScoreIndices[cls].end(), greater<>());
+        sort(ScoreIndices[cls].begin(), ScoreIndices[cls].end(), scoreComapre);
     }
 }
 vector< BoundingBox > Yolo::PostProc(float *data)
 {
-    for(int cls=0;cls<numClasses;cls++)
+    for(int cls=0;cls<(int)numClasses;cls++)
     {
         ScoreIndices[cls].clear();
     }
@@ -248,7 +256,7 @@ vector< BoundingBox > Yolo::PostProc(float *data)
         numClasses,
         0,
         ClassNames, 
-        ScoreIndices, Boxes.data(), nullptr, cfg.iouThreshold,
+        ScoreIndices, Boxes.data(), cfg.iouThreshold,
         Result,
         0
     );
@@ -299,13 +307,13 @@ vector< BoundingBox > Yolo::PostProc(vector<shared_ptr<dxrt::Tensor>> outputs_, 
         }
         for(uint32_t label=0 ; label<numClasses ; label++)
         {
-            sort(ScoreIndices[label].begin(), ScoreIndices[label].end(), greater<>());
+            sort(ScoreIndices[label].begin(), ScoreIndices[label].end(), scoreComapre);
         }
         Nms(
             numClasses,
             0,
             ClassNames, 
-            ScoreIndices, Boxes.data(), nullptr, cfg.iouThreshold,
+            ScoreIndices, Boxes.data(), cfg.iouThreshold,
             result,
             0
         );
@@ -325,7 +333,7 @@ vector< BoundingBox > Yolo::PostProc(vector<shared_ptr<dxrt::Tensor>> outputs_, 
         }
         // dxrt::DataDumpBin("output.bin", outputs_[0]->data(), dumpSize);
 #endif
-        for(int cls=0;cls<numClasses;cls++)
+        for(int cls=0;cls<(int)numClasses;cls++)
         {
             ScoreIndices[cls].clear();
         }
@@ -337,7 +345,7 @@ vector< BoundingBox > Yolo::PostProc(vector<shared_ptr<dxrt::Tensor>> outputs_, 
             numClasses,
             0,
             ClassNames, 
-            ScoreIndices, Boxes.data(), nullptr, cfg.iouThreshold,
+            ScoreIndices, Boxes.data(), cfg.iouThreshold,
             result,
             0
         );

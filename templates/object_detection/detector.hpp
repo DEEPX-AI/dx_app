@@ -2,7 +2,6 @@
 #include <future>
 #include <thread>
 #include <fstream>
-#include <filesystem>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -10,7 +9,6 @@
 #include <opencv2/opencv.hpp>
 
 #include "post_process/yolo_post_processing.hpp"
-#include "pre_process/yolo_pre_processing.hpp"
 
 #include "dxapp_api.hpp"
 #include "app_parser.hpp"
@@ -25,7 +23,7 @@ public :
         _videoPath = sourceInfo.inputPath;
         _inputType = sourceInfo.inputType;
         _name = "app" + std::to_string(_channel);
-        _outName = _name + "_" + std::string(std::filesystem::path(_videoPath).filename());
+        _outName = _name + "_" + dxapp::common::getFileName(_videoPath);
         _processName = "proc_"+_name;
         _inferName = "infer_"+_name;
 
@@ -65,8 +63,7 @@ public :
 
     void notify_all()
     {
-        std::unique_lock<std::mutex> _uniqueLock(_lock);
-        _wait = false;
+        _wait.store(false);
         std::cout << "[" << _name << "] : notify to this thread function. "<<std::endl;
         _cv.notify_all();
     };
@@ -77,14 +74,12 @@ public :
     };
 
     void quitThread(){
-        std::unique_lock<std::mutex> _uniqueLock(_lock);
-        _quit = true;
+        _quit.store(true);
     };
 
     bool quit()
     {
-        std::unique_lock<std::mutex> _uniqueLock(_lock);
-        return _quit;
+        return _quit.load();
     };
 
     void threadFunction()
@@ -92,12 +87,12 @@ public :
         std::cout << "[" << _name << "] : entered thread function. "<<std::endl;
         {
             std::unique_lock<std::mutex> _uniqueLock(_lock);
-            _cv.wait(_uniqueLock, [&](){return !_wait;});
+            _cv.wait(_uniqueLock, [&](){return !_wait.load();});
         }
         _profiler.Add(_processName);
         cv::Mat outputImg = cv::Mat(_dstSize._height, _dstSize._width, CV_8UC3, cv::Scalar(0, 0, 0));
 
-        while(!_quit)
+        while(!_quit.load())
         {    
             _profiler.Start(_processName);    
 		    auto inf_data = _vStream.GetInputStream();
@@ -105,11 +100,15 @@ public :
             int req = _inferenceEngine->RunAsync(inf_data, (void*)this);
 #if 0
             _inferenceEngine->Wait(req);
+#else
+            UNUSEDVAR(req)
 #endif
             {
                 std::unique_lock<std::mutex> _uniqueLock(_lock);
                 dxapp::common::DetectObject results = _postProcessing.getResult();
                 outputImg = _vStream.GetOutputStream(results);
+                if(_appType == NONE)
+                    std::cout << results <<std::endl;
             }
             {
                 std::unique_lock<std::mutex> _uniqueLock(_getFrameLock);
@@ -126,6 +125,7 @@ public :
         _vStream.Destructor();
 
     };
+    ~DetectorApp() = default;
 private:
     std::shared_ptr<dxrt::InferenceEngine> _inferenceEngine;
     dxrt::Profiler &_profiler;
@@ -160,15 +160,15 @@ private:
     std::mutex _lock;
     std::mutex _getFrameLock;
     std::condition_variable _cv;
-    bool _wait = true;
-    bool _quit = false;
+    std::atomic<bool> _wait = {true};
+    std::atomic<bool> _quit = {false};
 
 };
 
 class Detector
 {
 public:
-    Detector(dxapp::AppConfig &_config):config(_config)
+    Detector(const dxapp::AppConfig &_config):config(_config)
     {
         bool is_valid = dxapp::validationJsonSchema(config.modelInfo.c_str(), modelInfoSchema);
         if(!is_valid)
@@ -232,12 +232,26 @@ public:
         inferenceEngine->RegisterCallBack(postProcCallBack);
         resultView = cv::Mat(config.videoOutResolution._height, config.videoOutResolution._width, CV_8UC3, cv::Scalar(0, 0, 0));
     };
-    ~Detector(){};
+
+    ~Detector(void)
+    {
+        if(config.appType == OFFLINE)
+        {
+            if(saveThread.joinable())
+                saveThread.join();
+        }
+    };
 
     void makeThread()
     {
         for(int i = 0;i<(int)apps.size();i++){
             apps[i]->makeThread();
+        }
+        if(config.appType == OFFLINE)
+        {
+            std::cout << "[result save mode] ./result.mp4 \n" 
+                      << "Create Thread to save mp4 " << std::endl;
+            saveThread = std::thread(&Detector::saveResult, this);
         }
     };
 
@@ -246,12 +260,21 @@ public:
         for(int i=0;i<(int)apps.size();i++){
             apps[i]->notify_all();
         }
+        if(config.appType == OFFLINE)
+        {
+            _wait.store(false);
+            cv.notify_all();
+        }
     };
 
     void joinThread()
     {
         for(int i=0;i<(int)apps.size();i++){
             apps[i]->joinThread();
+        }
+        if(config.appType == OFFLINE)
+        {
+            saveThread.join();
         }
     };
 
@@ -280,6 +303,36 @@ public:
             apps[i]->getResultFrame().copyTo(resultView(cv::Rect(apps[i]->Position()._x, apps[i]->Position()._y, apps[i]->Resolution()._width, apps[i]->Resolution()._height)));
         }
         return resultView;
+    };
+
+    void saveResult()
+    {
+        {
+            std::unique_lock<std::mutex> _uniqueLock(lock);
+            cv.wait(_uniqueLock, [&](){return !_wait.load();});
+        }
+        std::cout << "start Save Thread " << std::endl;
+        std::cout << "Press 'q' key to quit " << std::endl;
+        std::string saveFileName = "result.avi";
+        cv::VideoWriter writer;
+        writer.open(saveFileName, cv::VideoWriter::fourcc('M', 'J', 'P','G'), 30,  
+                    cv::Size(config.videoOutResolution._width, config.videoOutResolution._height), true);
+        if(!writer.isOpened())
+        {
+            std::cout << "Error : video writer for result.mp4 could not be opened. " << std::endl;
+            return;
+        }
+
+        while(true)
+        {
+            writer << totalView();
+            
+            usleep(30000);
+            if (!status()){
+                std::cout << "quit save Thread "<< std::endl;
+                break;
+            }
+        }
     };
 
     void readModelInfo(const char* modelInfo)
@@ -318,11 +371,10 @@ public:
 
         for(auto &d:modelParam["layer"].GetArray()){
             auto o = d.GetObject();
-            dxapp::yolo::Layers l = {
-                .name = o["name"].GetString(),
-                .stride = o["stride"].GetInt(),
-                .scale = o.HasMember("scale")? o["scale"].GetFloat() : 0,
-            };
+            dxapp::yolo::Layers l = {};
+            l.name = o["name"].GetString();
+            l.stride = o["stride"].GetInt();
+            l.scale = o.HasMember("scale")? o["scale"].GetFloat() : 0;
             for(auto &w:o["anchor_width"].GetArray()){
                 l.anchor_width.emplace_back(w.GetInt());
             }
@@ -333,6 +385,7 @@ public:
         }
     };
     
+    dxapp::AppConfig config;
     std::vector<int64_t> inputShape;
     std::vector<std::vector<int64_t>> outputShape;
     int inputSize;
@@ -341,12 +394,14 @@ public:
     std::shared_ptr<dxrt::InferenceEngine> inferenceEngine;
     dxapp::yolo::Params params;
     std::string modelPath;
-    dxapp::AppConfig &config;
 
     std::vector<std::shared_ptr<DetectorApp>> apps;
 
     cv::Mat resultView;
-
+    std::thread saveThread;
+    std::mutex lock;
+    std::condition_variable cv;
+    std::atomic<bool> _wait = {true};
 private:
     const char* modelInfoSchema = R"""(
             {

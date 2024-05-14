@@ -71,9 +71,9 @@ function install_opencv()
         fi
         echo " Install opencv dependent library "
         sudo apt -y install libopencv-dev python3-opencv libjpeg-dev libtiff5-dev libpng-dev libavcodec-dev \
-             libavformat-dev libswscale-dev libdc1394-22-dev libxvidcore-dev \
+             libavformat-dev libswscale-dev libxvidcore-dev \
              libx264-dev libxine2-dev libv4l-dev v4l-utils libgstreamer1.0-dev \
-             libgstreamer-plugins-base1.0-dev libgtk-3-dev libfreetype*
+             libgstreamer-plugins-base1.0-dev libgtk-3-dev libgtk2.0-dev libfreetype*
         
         if ! test -e $DX_SRC_DIR/util; then 
             mkdir $DX_SRC_DIR/util
@@ -118,23 +118,28 @@ function install_opencv()
 
 function install_onnx()
 {
+    if [ "$target_arch" == "riscv64" ] && [ "$install_onnx" == true ]; then
+        echo "The riscv64 architecture is not yet supported ONNXRUNTIME."
+        install_onnx=false
+    fi
     if [ "$install_onnx" == true ]; then
         echo " Install ONNX-Runtime API " 
         if ! test -e $DX_SRC_DIR/util; then 
             mkdir $DX_SRC_DIR/util
         fi
         cd $DX_SRC_DIR/util
-        if ! test -e $DX_SRC_DIR/util/onnxruntime-linux-$target_arch-1.13.1.tgz; then
-        # get onnxruntime source code release version 1.13.1
-            if [ "$target_arch" == "x86_64" ]; then
-                wget -O onnxruntime-linux-$target_arch-1.13.1.tgz \
-                https://github.com/microsoft/onnxruntime/releases/download/v1.13.1/onnxruntime-linux-x64-1.13.1.tgz
-            elif [ "$target_arch" == "arm64" ] || [ "$target_arch" == "aarch64" ]; then
-                wget -O onnxruntime-linux-$target_arch-1.13.1.tgz \
-                https://github.com/microsoft/onnxruntime/releases/download/v1.13.1/onnxruntime-linux-aarch64-1.13.1.tgz
-            fi
+        if test -e $DX_SRC_DIR/util/onnxruntime; then
+            echo already installed onnxruntime
+            echo $DX_SRC_DIR/util/onnxruntime dir will be removed
+            rm -r $DX_SRC_DIR/util/onnxruntime
         fi
-        sudo tar -xvzf onnxruntime-linux-$target_arch-1.13.1.tgz -C /usr/local --strip-components 1
+        # get onnxruntime source code release version 1.16.3
+        git clone --recursive https://github.com/Microsoft/onnxruntime.git
+        cd onnxruntime
+        git checkout -b _v1.16.3 v1.16.3
+        ./build.sh --config RelWithDebInfo --build_shared_lib --parallel --compile_no_warning_as_error --skip_submodule_sync --cmake_extra_defines CMAKE_OSX_ARCHITECTURES=$target_arch
+        cd build/Linux/RelWithDebInfo
+        sudo make install
         sudo ldconfig
     fi
 }

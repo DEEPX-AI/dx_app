@@ -36,14 +36,16 @@ using namespace cv;
 #define POSTPROC_SIMULATION_DEVICE_OUTPUT
 #define DISPLAY_WINDOW_NAME "Object Detection"
 #define INPUT_CAPTURE_PERIOD_MS 30
-// #define CAMERA_FRAME_WIDTH 800
-// #define CAMERA_FRAME_HEIGHT 600
-#define CAMERA_FRAME_WIDTH 1280
-#define CAMERA_FRAME_HEIGHT 720
-// #define CAMERA_FRAME_WIDTH 1920
-// #define CAMERA_FRAME_HEIGHT 1080
+
+// camera frame resolution (1920, 1080), (1280, 720), (800, 600)
+#define CAMERA_FRAME_WIDTH 1920
+#define CAMERA_FRAME_HEIGHT 1080
 #define FRAME_BUFFERS 5
 #define DMA_IOCTL_DATA		_IOW('T', 3, struct npu_dma_ioctl_data_copy)
+
+#ifndef UNUSEDVAR
+#define UNUSEDVAR(x) (void)(x);
+#endif
 
 // pre/post parameter table
 extern YoloParam yolov5s_320, yolov5s_512, yolov5s_640, yolov5s_512_concat, yolox_s_512, yolov7_640, yolov7_512, yolov4_608;
@@ -104,7 +106,6 @@ const char* usage =
 "  -b, --bin       use binary file input\n"
 "  -s, --sim       use pre-defined npu output binary file input( perform post-proc. only )\n"
 "  -a, --async     asynchronous inference\n"
-"  -e, --ethernet  use ethernet input\n"
 "  -p, --param      pre/post-processing parameter selection\n"
 "  -l, --loop      loop test\n"
 "  -h, --help      show help\n"
@@ -157,6 +158,7 @@ void *PreProc(cv::Mat &src, cv::Mat &dest, bool keepRatio=true, bool bgr2rgb=tru
 bool stopFlag = false;
 void RequestToStop(int sig)
 {
+    UNUSEDVAR(sig);
     stopFlag = true;
 }
 bool GetStopFlag()
@@ -168,7 +170,7 @@ int main(int argc, char *argv[])
 {
     int optCmd, loops = 1, paramIdx = 0;
     string modelPath="", imgFile="", videoFile="", binFile="", simFile="", videoOutFile="", OSDstr="";  
-    bool cameraInput = false, ispInput = false, ethernetInput = false,
+    bool cameraInput = false, ispInput = false, 
         asyncInference = false, writeFrame = false;
     vector<unsigned long> inputPtr;
     auto objectColors = GetObjectColors();
@@ -213,9 +215,6 @@ int main(int argc, char *argv[])
             case 'a':
                 asyncInference = true;
                 break;
-            case 'e':
-                ethernetInput = true;
-                break;
             case 'p':
                 paramIdx = stoi(optarg);
                 break;
@@ -247,7 +246,7 @@ int main(int argc, char *argv[])
 
     string captionModel = dxrt::StringSplit(modelPath, "/").back() + ", 30fps";    
 
-    auto ie = dxrt::InferenceEngine(modelPath);
+    dxrt::InferenceEngine ie(modelPath);
     auto yoloParam = yoloParams[paramIdx];
     Yolo yolo = Yolo(yoloParam);
     auto& profiler = dxrt::Profiler::GetInstance();
@@ -304,7 +303,7 @@ int main(int argc, char *argv[])
         {
             resizedFrame[i] = cv::Mat(yoloParam.height, yoloParam.width, CV_8UC3, cv::Scalar(0, 0, 0));
         }
-        int idx = 0, prevIdx = 0, key;
+        int idx = 0, key = 0;
         if(!videoFile.empty())
         {
             cap.open(videoFile);
@@ -332,16 +331,13 @@ int main(int argc, char *argv[])
         {
             namedWindow(DISPLAY_WINDOW_NAME);
             moveWindow(DISPLAY_WINDOW_NAME, 0, 0);
-            int callBackCnt = 0; // debug
             queue<pair<vector<BoundingBox>, int>> bboxesQueue;
             vector<BoundingBox> bboxes;
             mutex lk;
             std::function<int(vector<shared_ptr<dxrt::Tensor>>, void*)> postProcCallBack = \
                 [&](vector<shared_ptr<dxrt::Tensor>> outputs, void *arg)
                 {
-                    // callBackCnt++; // debug
                     profiler.Start("post");
-                    // cout << "      >> callback " << callBackCnt << endl; // debug
                         /* PostProc */
                         auto result = yolo.PostProc(outputs);
                         /* Restore raw frame index from tensor */
@@ -354,7 +350,6 @@ int main(int argc, char *argv[])
                         );
                         lk.unlock();
                     profiler.End("post");
-                    // LOG_VALUE(profiler.Get("post"));
                     return 0;
                 };
             ie.RegisterCallBack(postProcCallBack);
@@ -371,7 +366,8 @@ int main(int argc, char *argv[])
                     PreProc(frame[idx], resizedFrame[idx], true, true, 114);
                     profiler.End("pre");
                     profiler.Start("main");
-                    int reqId = ie.RunAsync(resizedFrame[idx].data, (void*)idx);
+                    int reqId = ie.RunAsync(resizedFrame[idx].data, (void*)(intptr_t)idx);
+                    UNUSEDVAR(reqId);
                     profiler.End("main");
                     lk.lock();
                     if(!bboxesQueue.empty())
@@ -564,21 +560,18 @@ int main(int argc, char *argv[])
             int req = -1;
             int callBackCnt = 0;
             int bufIdx = 0;
-            // dxrt::CleanMemIf(); // cache flush for riscv64
             std::function<int(std::vector<std::shared_ptr<dxrt::Tensor>>, void*)> postProcCallBack = \
                 [&](std::vector<shared_ptr<dxrt::Tensor>> outputs, void* arg)
                 {
                     float fps;
                     callBackCnt++;
                     profiler.Start("post");
-                    // cout << "      >> callback " << callBackCnt << endl; // debug
     #ifdef ISP_DEBUG_BY_OPENCV
                     static int cnt = 0;
                     cv::Mat frame(yoloParam.height, yoloParam.width, CV_8UC3, inputs.front()->GetData());
                     // cv::imwrite("isp"+((loops>0)?to_string(callBackCnt):to_string(0))+".jpg", frame);
     #endif
                     auto result = yolo.PostProc(outputs);
-                    // yolo.ShowResult();
                     profiler.Start("osd");
                     SendResultOSD(nputime, OSDstr, yoloParam, result);
                     profiler.End("osd");

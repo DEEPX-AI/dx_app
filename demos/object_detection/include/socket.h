@@ -17,5 +17,5 @@
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 
-ssize_t sendDataToSocket(int sock, void *data, size_t size, int flags);
-ssize_t receiveDataFromSocket(int sock, void *data, size_t size, int flags);
+ssize_t sendDataToSocket(int sock, void *data, ssize_t size, int flags);
+ssize_t receiveDataFromSocket(int sock, void *data, ssize_t size);

@@ -18,7 +18,7 @@ int main(int argc, char *argv[])
     
     int arg_idx = 1;
     std::string configPath = "";
-    char key; bool loop = true;
+    char key;
 
     if (argc == 1)
     {
@@ -43,8 +43,8 @@ int main(int argc, char *argv[])
         std::terminate();
     }
 
-    auto appConfig = dxapp::AppConfig(configPath);
-    auto detector = Detector(appConfig);
+    dxapp::AppConfig appConfig(configPath);
+    Detector detector(appConfig);
     detector.makeThread();
     detector.startThread();
     while(true)
@@ -55,11 +55,20 @@ int main(int argc, char *argv[])
             break;
         }
 #if __riscv
-        switch(getchar())
+        key = getchar();
 #else
-        cv::imshow("result", detector.totalView());
-        switch (cv::waitKey(1))
+        if(appConfig.appType == REALTIME)
+        {
+            cv::imshow("result", detector.totalView());
+            key = (char)cv::waitKey(1);
+        }
+        else
+        {
+            key = (char)getchar();
+            std::cout << "pressed key " << key << std::endl;
+        }
 #endif
+        switch (key)
         {
         case 'q':
         case 0x1B:

@@ -30,6 +30,10 @@ using namespace cv;
 #define INPUT_CAPTURE_PERIOD_MS 33
 #define FRAME_BUFFERS 8
 
+#ifndef UNUSEDVAR
+#define UNUSEDVAR(x) (void)(x);
+#endif
+
 /////////////////////////////////////////////////////////////////////////////////////////////////
 static struct option const opts[] = {
     { "image", required_argument, 0, 'i' },
@@ -106,6 +110,7 @@ void *PreProc(cv::Mat &src, cv::Mat &dest, bool keepRatio=true, bool bgr2rgb=tru
 bool stopFlag = false;
 void RequestToStop(int sig)
 {
+    UNUSEDVAR(sig);
     stopFlag = true;
 }
 bool GetStopFlag()

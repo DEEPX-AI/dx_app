@@ -8,7 +8,6 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
-#include <filesystem>
 #include <iostream>
 
 #include <opencv2/opencv.hpp>
@@ -235,7 +234,6 @@ int main(int argc, char *argv[])
 {
     int arg_idx = 1;
     string configPath = "";
-    bool writeFrame = false, is_show = true, is_repeat = true;
     float fps = 0.f; double frameCount = 0.0;
     char mainCaption[100];
 
@@ -254,8 +252,6 @@ int main(int argc, char *argv[])
                         configPath = strdup(argv[arg_idx++]);
         else if (arg == "-h" || arg == "--help")
                         help(), exit(0);
-        else if (arg == "-s") /* display off for debugging */
-                        is_show = false;
         else
                         help(), exit(0);
     }
@@ -272,9 +268,6 @@ int main(int argc, char *argv[])
 
     LOG_VALUE(configPath);
 
-    const int IMAGE_WIDTH = appConfig.board_width/2;
-    const int IMAGE_HEIGHT = appConfig.board_height/2;
-    
     const int BOARD_WIDTH = appConfig.board_width;
     const int BOARD_HEIGHT = appConfig.board_height;
 
@@ -286,7 +279,7 @@ int main(int argc, char *argv[])
     }
     cv::Mat outFrame = cv::Mat(cv::Size(BOARD_WIDTH, BOARD_HEIGHT), CV_8UC3, cv::Scalar(0, 0, 0));
     
-    std::shared_ptr<dxrt::InferenceEngine> ie = std::make_shared<dxrt::InferenceEngine>(appConfig.model_path);
+    auto ie = std::make_shared<dxrt::InferenceEngine>(appConfig.model_path);
     yoloParam = getYoloParameter(appConfig.model_name);
     Yolo yolo = Yolo(yoloParam);
     auto& profiler = dxrt::Profiler::GetInstance();
@@ -301,7 +294,7 @@ int main(int argc, char *argv[])
         if(appConfig.video_sources.size() == 41 || appConfig.video_sources.size() == 73){
             Window_scale = 3;
         }
-        for(int i=0;i<appConfig.video_sources.size(); i++)
+        for(int i=0;i<(int)appConfig.video_sources.size(); i++)
         {
 		if(appConfig.video_sources.size() == 33){
             if(i < 14){
@@ -350,7 +343,7 @@ int main(int argc, char *argv[])
 	}
             
 	  
-	   if( i == appConfig.video_sources.size() - 1){ 
+	   if( i == (int)appConfig.video_sources.size() - 1){ 
                 apps.emplace_back(
                     make_shared<ObjectDetection>(
                         ie, appConfig.video_sources[i], i, yoloParam.width, yoloParam.height,
@@ -370,7 +363,7 @@ int main(int argc, char *argv[])
         }
     }else
     {
-        for(int i=0;i<appConfig.video_sources.size(); i++)
+        for(int i=0;i<(int)appConfig.video_sources.size(); i++)
         {
             apps.emplace_back(
                 make_shared<ObjectDetection>(
@@ -417,7 +410,7 @@ int main(int argc, char *argv[])
     profiler.Add("spread");
     /* Debugging */
     std::vector<cv::Rect> dstPoint = std::vector<cv::Rect>(apps.size(), cv::Rect(0, 0, 0, 0));
-    for(int i = 0; i < apps.size(); i++)
+    for(int i = 0; i < (int)apps.size(); i++)
     {
         dstPoint[i].x = apps[i]->Position().first;
         dstPoint[i].y = apps[i]->Position().second;
@@ -425,19 +418,19 @@ int main(int argc, char *argv[])
         dstPoint[i].height = apps[i]->Resolution().second;
     }
 
-    while(1)
+    while(true)
     {
         fps = 0.0f;
         frameCount = 0;
         
-        for(int i = 0; i < apps.size(); i++)
+        for(int i = 0; i < (int)apps.size(); i++)
         {
             cv::Mat roi = outFrame(dstPoint[i]);
             
             apps[i]->ResultFrame().copyTo(roi);
-            if(i < appConfig.video_sources.size() && calcFps)
+            if(i < (int)appConfig.video_sources.size() && calcFps)
             {
-                fps += 1000000.0 / apps[i]->GetInferenceTime();
+                fps += 1000000.0 / apps[i]->GetProcessingTime();
                 frameCount++;
             }
         }
@@ -446,7 +439,7 @@ int main(int argc, char *argv[])
             calcFps = true;
         }
 
-        float resultFps = round((fps / frameCount) * 100) / 100;
+        float resultFps = round(fps * 100) / 100;
         if(appConfig.is_show_fps)
         {
             cv::rectangle(outFrame, Point(BOARD_WIDTH - 900, 0), Point(BOARD_WIDTH, 40), Scalar(120, 120, 120), cv::FILLED);

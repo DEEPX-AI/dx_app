@@ -26,12 +26,11 @@ using namespace cv;
 #define PREPROC_KEEP_IMG_RATIO false
 #define DISPLAY_WINDOW_NAME "PIDNet"
 #define INPUT_CAPTURE_PERIOD_MS 30
-#define DEFAULT_MODEL_PATH "/dxrt/models/DX_M1/v2p0/pidnet"
-#define MODEL_WIDTH 1024
-#define MODEL_HEIGHT 512
+#define MODEL_WIDTH 640
+#define MODEL_HEIGHT 640
 #define NUM_CLASSES 19
-#define CAMERA_FRAME_WIDTH 800
-#define CAMERA_FRAME_HEIGHT 600
+#define CAMERA_FRAME_WIDTH 1920
+#define CAMERA_FRAME_HEIGHT 1080
 #define FRAME_BUFFERS 10
 
 struct SegmentationParam
@@ -74,7 +73,6 @@ static struct option const opts[] = {
     { "sim", required_argument, 0, 's' },
     { "async", no_argument, 0, 'a' },
     { "iomode", no_argument, 0, 'o' },
-    { "pcie_std", no_argument, 0, 'p' },
     { "help", no_argument, 0, 'h' },
     { "width", required_argument, 0, 'x' },
     { "height", required_argument, 0, 'y' },
@@ -82,7 +80,7 @@ static struct option const opts[] = {
 };
 const char* usage =
 "Image Segmentation Demo\n"
-"  -m, --model     define model path\n"
+"  -m, --model     define dxnn model path\n"
 "  -i, --image     use image file input\n"
 "  -v, --video     use video file input\n"
 "  -c, --camera    use camera input\n"
@@ -90,7 +88,6 @@ const char* usage =
 "  -s, --sim       use pre-defined npu output binary file input( perform post-proc. only )\n"
 "  -a, --async     asynchronous inference\n"
 "  -o, --iomode    I/O only mode (not perform inference directly)\n"
-"  -p, --pcie      Standalone mode: use pcie input \n"
 "  -x, --width     Input image width\n"
 "  -y, --height    Input image height\n"
 "  -h, --help      show help\n"
@@ -140,19 +137,22 @@ void *PreProc(cv::Mat &src, cv::Mat &dest, bool keepRatio=true, bool bgr2rgb=tru
     }
     return (void*)dest.data;
 }
-void Segmentation(uint16_t *input, uint8_t *output, int rows, int cols, SegmentationParam *cfg, int numClasses)
+
+void Segmentation(float *input, uint8_t *output, int rows, int cols, SegmentationParam *cfg, int numClasses)
 {
     for(int h=0;h<rows;h++)
     {
         for(int w=0;w<cols;w++)
         {
-            int cls = input[cols*h + w];
-            if(cls<numClasses)
-            {
-                output[3*cols*h + 3*w + 2] = cfg[cls].colorB;
-                output[3*cols*h + 3*w + 1] = cfg[cls].colorG;
-                output[3*cols*h + 3*w + 0] = cfg[cls].colorR;
+            int maxIdx = 0;
+            for (int c=0;c<numClasses;c++){
+                if(input[(cols*h + w)*64 + maxIdx] < input[(cols*h + w)*64 + c]){
+                    maxIdx = c;
+                }
             }
+            output[3*cols*h + 3*w + 2] = cfg[maxIdx].colorB;
+            output[3*cols*h + 3*w + 1] = cfg[maxIdx].colorG;
+            output[3*cols*h + 3*w + 0] = cfg[maxIdx].colorR;
         }
     }
 }
@@ -162,7 +162,7 @@ int main(int argc, char *argv[])
     int optCmd;
     int inputWidth = 0, inputHeight = 0;
     string modelPath="", imgFile="", videoFile="", binFile="", simFile="";
-    bool pcieInput = false, cameraInput = false, asyncInference = false;
+    bool cameraInput = false, asyncInference = false;
 
     if(argc==1)
     {
@@ -171,7 +171,7 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-    while ((optCmd = getopt_long(argc, argv, "m:i:v:cb:s:x:y:aoph", opts,
+    while ((optCmd = getopt_long(argc, argv, "m:i:v:cb:s:x:y:aoh", opts,
         NULL)) != -1) {
         switch (optCmd) {
             case '0':
@@ -203,9 +203,6 @@ int main(int argc, char *argv[])
             case 'a':
                 asyncInference = true;
                 break;
-            case 'p':
-                pcieInput = true;
-                break;
             case 'h':
             default:
                 help();
@@ -213,14 +210,7 @@ int main(int argc, char *argv[])
                 break;
         }
     }
-    if(modelPath.empty())
-    {
-        /* Temp. setting for SW development */
-        modelPath = DEFAULT_MODEL_PATH;
-        // cout << "Error: no model argument." << endl;
-        // help();
-        // return -1;
-    }
+
     if(inputWidth==0) inputWidth = MODEL_WIDTH;
     if(inputHeight==0) inputHeight = MODEL_HEIGHT;
     LOG_VALUE(inputWidth);
@@ -232,7 +222,7 @@ int main(int argc, char *argv[])
     LOG_VALUE(cameraInput);
     LOG_VALUE(asyncInference);
 
-    auto ie = dxrt::InferenceEngine(modelPath);
+    dxrt::InferenceEngine ie(modelPath);
 
     auto& profiler = dxrt::Profiler::GetInstance();
     if(!imgFile.empty())
@@ -246,15 +236,12 @@ int main(int argc, char *argv[])
         auto outputs = ie.Run(resizedFrame.data);
         profiler.End("main");
         LOG_VALUE(outputs.size());
-        /* For Debug */
-        // dxrt::DataDumpTxt<uint16_t>("npu_output.txt", (uint16_t*)outputs[0]->GetData(), 1, inputWidth, inputHeight);
         profiler.Start("post-segment");
         cv::Mat result = cv::Mat(inputHeight, inputWidth, CV_8UC3, cv::Scalar(0, 0, 0));
-        Segmentation((uint16_t*)outputs[0]->data(), result.data, result.rows, result.cols, segCfg, NUM_CLASSES);
+        Segmentation((float*)outputs[0]->data(), result.data, result.rows, result.cols, segCfg, NUM_CLASSES);
         profiler.End("post-segment");
         profiler.Start("post-blend");
         cv::resize(result, result, Size(frame.cols, frame.rows), 0, 0, cv::INTER_LINEAR);
-        // frame = frame + result;
         cv::addWeighted( frame, 0.5, result, 0.5, 0.0, frame);
         profiler.End("post-blend");
         cout << dec << inputWidth << "x" << inputHeight << " <- " << frame.cols << "x" << frame.rows << endl;
@@ -322,14 +309,12 @@ int main(int argc, char *argv[])
                     profiler.Start("post-segment");
                     cv::Mat resultExpand, outFrameBlend;
                     cv::Mat outFrame = frame[prevIdx];
-                    // cv::Mat outFrame = frame[idx<2?0:(idx-2)];
                     Segmentation(
-                        (uint16_t*)outputs[0]->data(), result[idx].data, 
+                        (float*)outputs[0]->data(), result[idx].data, 
                         result[idx].rows, result[idx].cols, segCfg, NUM_CLASSES);
                     profiler.End("post-segment");
                     profiler.Start("post-blend");
                     cv::resize(result[idx], resultExpand, Size(frame[idx].cols, frame[idx].rows), 0, 0, cv::INTER_LINEAR);
-                    // frame[idx] = frame[prevIdx] + resultExpand;
                     cv::addWeighted( outFrame, 0.5, resultExpand, 0.5, 0.0, outFrameBlend);
                     profiler.End("post-blend");
                     cv::imshow(DISPLAY_WINDOW_NAME, outFrameBlend);
@@ -348,7 +333,6 @@ int main(int argc, char *argv[])
             }
         }
         sleep(1);
-        // ie.Show();
         profiler.Show();
         return 0;
     }
@@ -357,13 +341,11 @@ int main(int argc, char *argv[])
         uint8_t *input_buffer = new uint8_t(inputWidth * inputHeight * 3);
         dxrt::DataFromFile(binFile, input_buffer);
         auto outputs = ie.Run(input_buffer);
-        // inputTensor[0]->Show();
         if(outputs.size()==0)
         {
             cout << "Error. Invalid output detected." << endl;
             return -1;
         }
-        /* TODO : PostProcessing */
         return 0;
     }
 

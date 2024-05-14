@@ -7,7 +7,7 @@ set(onnxruntime_INCLUDE_DIRS
     /usr/local/include/onnxruntime/core/session
 )
 
-# set(DXRT_DIR <Installed DXRT package path>)
+set(DXRT_INSTALLED_DIR /usr/local)
 
 SET(CMAKE_C_COMPILER      /usr/bin/aarch64-linux-gnu-gcc )
 SET(CMAKE_CXX_COMPILER    /usr/bin/aarch64-linux-gnu-g++ )

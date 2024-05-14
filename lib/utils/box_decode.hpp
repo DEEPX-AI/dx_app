@@ -12,6 +12,7 @@ namespace decode
 {
     dxapp::common::BBox yoloBasicDecode(std::function<float(float)> activation, float* data, dxapp::common::Point grid, dxapp::common::Size anchor, int stride, float scale)
     {
+        UNUSEDVAR(scale);
         dxapp::common::BBox box_temp;
         box_temp._xmin = (activation(data[0]) * 2. - 0.5 + grid._x ) * stride; //center x
         box_temp._ymin = (activation(data[1]) * 2. - 0.5 + grid._y ) * stride; //center y
@@ -50,6 +51,8 @@ namespace decode
 
     dxapp::common::BBox yoloXDecode(std::function<float(float)> activation, float* data, dxapp::common::Point grid, dxapp::common::Size anchor, int stride, float scale)
     {
+        UNUSEDVAR(anchor);
+        UNUSEDVAR(scale);
         dxapp::common::BBox box_temp;
         box_temp._xmin = (data[0] + grid._x ) * stride; //center x
         box_temp._ymin = (data[1] + grid._y ) * stride; //center y

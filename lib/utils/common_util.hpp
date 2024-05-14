@@ -1,13 +1,10 @@
 #pragma once
+#include <sys/stat.h>
 #include <stdio.h>
 #include <string>
 #include <iostream>
 #include <fstream>
 #include <vector>
-
-#include <opencv2/opencv.hpp>
-
-#include <utils/color_table.hpp>
 
 namespace dxapp
 {
@@ -26,7 +23,9 @@ namespace common
         std::fseek(fp, 0, SEEK_END);
         auto size = ftell(fp);
         std::fseek(fp, 0, SEEK_SET);
-        fread((void*)dst, size, elemSize, fp);
+        int read_size = fread((void*)dst, size, elemSize, fp);
+        if(read_size != size)
+            std::cout << "file size mismatch, fail to read file " << filePath << std::endl;
         fclose(fp);
     }
 
@@ -35,7 +34,7 @@ namespace common
         std::ofstream outfile(file_name, std::ios::binary);
         if(!outfile.is_open())
         {
-            std::cout << "cna not open file " << file_name << std::endl;
+            std::cout << "can not open file " << file_name << std::endl;
             std::terminate();
         }
         outfile.write((char*)ptr, dump_size);
@@ -76,23 +75,61 @@ namespace common
             std::cout << std::dec << v << ", " ;
         }
         std::cout << " ]" << std::endl;
-    };
+    }
 
-    void drawBox(cv::Mat& dst, dxapp::common::Object obj)
+    bool pathValidation(const std::string &path)
     {
-        cv::rectangle(dst, cv::Rect(obj._bbox._xmin, obj._bbox._ymin, obj._bbox._width, obj._bbox._height), dxapp::common::color_table[obj._classId], 2);
-    };
+        struct stat sb; 
+        if(stat(path.c_str(), &sb) == 0)
+        {
+            return true;
+        }
+        return false;
+    }
 
-    void drawLabel(cv::Mat& dst, dxapp::common::Object obj)
+    bool dirValidation(const std::string &path)
     {
-        int textBaseLine = 0;
-        auto textSize = cv::getTextSize(obj._name, cv::FONT_HERSHEY_SIMPLEX, 0.4, 1, &textBaseLine);
-        cv::rectangle(dst, cv::Point(obj._bbox._xmin, obj._bbox._ymin - textSize.height),
-                            cv::Point(obj._bbox._xmin + textSize.width, obj._bbox._ymin),
-                            dxapp::common::color_table[obj._classId], cv::FILLED);
-        cv::putText(dst, obj._name, cv::Point(obj._bbox._xmin, obj._bbox._ymin), cv::FONT_HERSHEY_SIMPLEX, 0.4, cv::Scalar(255,255,255));
-        
-    };
+        struct stat sb;
+        stat(path.c_str(), &sb);
+        if (S_ISDIR(sb.st_mode))
+        {
+            return true;
+        }
+        return false;
+    }
+
+    std::string getFileName(const std::string &path)
+    {
+        return path.substr(path.find_last_of("/\\") + 1);
+    }
+
+    std::vector<std::string> loadFilesFromDir(const std::string &path)
+    {
+        DIR *dirIter = nullptr;
+        struct dirent *entry = nullptr;
+        std::vector<std::string> result;
+        if(pathValidation(path))
+        {
+            dirIter = opendir(path.c_str());
+            if(dirIter != nullptr)
+            {
+                while((entry = readdir(dirIter)))
+                {
+                    if(strcmp(entry->d_name, "..") > 0)
+                        result.emplace_back(entry->d_name);
+                }
+            }
+        }
+        closedir(dirIter);
+        return result;
+    }
+    
+    std::string getExtension(const std::string& path)
+    {
+        size_t pos = path.find_last_of(".");
+        if(pos == std::string::npos) return "";
+        return path.substr(pos+1);
+    }
 
 } // namespace common
 } // namespace dxapp 

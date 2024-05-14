@@ -6,6 +6,10 @@
 #include <algorithm>
 #include <map>
 
+#ifndef UNUSEDVAR
+#define UNUSEDVAR(x) (void)(x);
+#endif
+
 typedef enum{
     CLASSIFICATION = 0,
     DETECTION,
@@ -116,6 +120,11 @@ namespace common
         float _ymax;
         float _width;
         float _height;
+        friend std::ostream& operator<<(std::ostream& os, const BBox& a)
+        {
+            os << a._xmin << ", " << a._ymin << ", " << a._width << ", " << a._height;
+            return os;
+        };
     };
     struct Object
     {
@@ -123,12 +132,22 @@ namespace common
         float _conf;
         int _classId;
         std::string _name;
+        friend std::ostream& operator<<(std::ostream& os, const Object& a)
+        {
+            os << "obj info : " << a._classId << " : " << a._bbox ;
+            return os;
+        };
     };
 
     struct DetectObject
     {
         std::vector<Object> _detections;
         int _num_of_detections;
+        friend std::ostream& operator<<(std::ostream& os, const DetectObject& a)
+        {
+            os << "detected : " << a._num_of_detections ;
+            return os;
+        };
     };
 
     struct ClsObject

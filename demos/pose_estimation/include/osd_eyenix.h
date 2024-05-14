@@ -16,22 +16,6 @@
 
 #define _REG_BASE_              (0x42100000)
 
-/*
-//#define OSD_MUTE0r            (ValSft_R31(_rd32(_REG_BASE_+(0x01a0<<2)))&BitMask_01)
-//#define OSD_ISEL0r            (ValSft_R24(_rd32(_REG_BASE_+(0x01a0<<2)))&BitMask_04)
-//#define OSD_IVSEL0r           (ValSft_R20(_rd32(_REG_BASE_+(0x01a0<<2)))&BitMask_04)
-#define BTONE31r                (ValSft_R30(_rd32(_REG_BASE_+(0x01a3<<2)))&BitMask_02)
-//#define BTONE16r              (ValSft_R00(_rd32(_REG_BASE_+(0x01a3<<2)))&BitMask_02)
-//#define BTONE15r              (ValSft_R30(_rd32(_REG_BASE_+(0x01a4<<2)))&BitMask_02)
-//#define BTONE0r               (ValSft_R00(_rd32(_REG_BASE_+(0x01a4<<2)))&BitMask_02)
-#define BFL_ON31r               (ValSft_R31(_rd32(_REG_BASE_+(0x01a5<<2)))&BitMask_01)
-//#define BFL_ON0r              (ValSft_R00(_rd32(_REG_BASE_+(0x01a5<<2)))&BitMask_01)
-#define BITBOX0r                (ValSft_R00(_rd32(_REG_BASE_+(0x0206<<2)))&BitMask_32)
-#define BIT_CB0r                (ValSft_R16(_rd32(_REG_BASE_+(0x0207<<2)))&BitMask_08)
-//#define BIT_CR0r              (ValSft_R08(_rd32(_REG_BASE_+(0x0207<<2)))&BitMask_08)
-//#define BITMAP_THRES0r        (ValSft_R00(_rd32(_REG_BASE_+(0x0207<<2)))&BitMask_08)
-*/
-
 // using mmap with 1 page, so you can access 0x4210_0000 ~ 0x4210_7FFF
 #define OSD_MMAP_SIZE           (4096 * 8)
 

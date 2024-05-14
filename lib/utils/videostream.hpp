@@ -81,7 +81,6 @@ public:
                 _frame = cv::imread(_srcPath, cv::IMREAD_COLOR);
                 _srcSize._width = _frame.cols;
                 _srcSize._height = _frame.rows;         
-                printf("src size : %d, %d", _srcSize._width, _srcSize._height);
             break;
 
             case VIDEO :    
@@ -295,13 +294,13 @@ public:
         {
             case IMAGE_RGB :
                 cv::cvtColor(img.clone(), img, cv::COLOR_BGR2RGB);
-            break;
+                break;
             case IMAGE_GRAY :
                 cv::cvtColor(img.clone(), img, cv::COLOR_BGR2GRAY);
-            break;
+                break;
             case IMAGE_BGR :
-                cv::cvtColor(img.clone(), img, cv::COLOR_RGB2BGR);
-            break;
+            default :
+                break;
         }
     };    
 

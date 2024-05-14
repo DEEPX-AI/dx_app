@@ -30,6 +30,10 @@ using namespace cv;
 #define INPUT_CAPTURE_PERIOD_MS 33
 #define FRAME_BUFFERS 8
 
+#ifndef UNUSEDVAR
+#define UNUSEDVAR(x) (void)(x);
+#endif
+
 /////////////////////////////////////////////////////////////////////////////////////////////////
 static struct option const opts[] = {
     { "image", required_argument, 0, 'i' },
@@ -52,7 +56,6 @@ const char* usage =
 "  -c, --camera    use camera input\n"
 "  -b, --bin       use binary file input\n"
 "  -a, --async     asynchronous inference\n"
-"  -l, --loop      loop test\n"
 "  -x, --width     input image width of model\n"
 "  -y, --height    input image height of model\n"
 "  -p, --ip        server IP\n"
@@ -106,6 +109,7 @@ void *PreProc(cv::Mat &src, cv::Mat &dest, bool keepRatio=true, bool bgr2rgb=tru
 bool stopFlag = false;
 void RequestToStop(int sig)
 {
+    UNUSEDVAR(sig);
     stopFlag = true;
 }
 bool GetStopFlag()
@@ -115,11 +119,10 @@ bool GetStopFlag()
 
 int main(int argc, char *argv[])
 {
-    int optCmd, loops = 1;
+    int optCmd;
     int height = 0, width = 0, inputSize = 0, timeIntervalMs = 30;
     string imgFile="", videoFile="", binFile="", ethernetServerIP="";
-    bool cameraInput = false, socketInput = false, asyncInference = false;
-    ssize_t bytes, bytes_recv, bytes_send;
+    bool cameraInput = false, asyncInference = false;
     auto objectColors = GetObjectColors();
     if(argc==1)
     {
@@ -146,9 +149,6 @@ int main(int argc, char *argv[])
                 break;
             case 'a':
                 asyncInference = true;
-                break;
-            case 'l':
-                loops = stoi(optarg);
                 break;
             case 'p':
                 ethernetServerIP = strdup(optarg);
@@ -249,11 +249,10 @@ int main(int argc, char *argv[])
     {
         cv::VideoCapture cap;
         signal(SIGINT, RequestToStop);
-        uint64_t tSend;
         BoundingBoxPacket_t bboxPacket[FRAME_BUFFERS];
         vector<BoundingBox> curBboxes;
         int key, capture = 0, show = 0;
-        ssize_t bytes, bytes_recv, bytes_send;
+        ssize_t bytes_recv, bytes_send;
         atomic<int> curFrameId(0);
         queue<BoundingBoxPacket_t*> bboxesQueue;
         mutex lk;
