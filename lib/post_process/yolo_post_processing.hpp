@@ -161,6 +161,14 @@ namespace yolo
             
             dxapp::common::nms(_rawBoxes, _scoreIndices, _params._iou_threshold, _params._classes, _postprocPaddedSize, _postprocScaleRatio, _result);
         };
+
+        static bool scoreComapre(const std::pair<float, int> &a, const std::pair<float, int> &b)
+        {
+            if(a.first > b.first)
+                return true;
+            else
+                return false;
+        };
         
         void getBoxes(std::vector<std::shared_ptr<dxrt::Tensor>> outputs)
         {
@@ -214,7 +222,7 @@ namespace yolo
             }
             for(auto &indices:_scoreIndices)
             {
-                sort(indices.begin(), indices.end(), std::greater<>());
+                sort(indices.begin(), indices.end(), scoreComapre);
             }
         };
     
@@ -265,7 +273,7 @@ namespace yolo
             }
             for(auto &indices:_scoreIndices)
             {
-                sort(indices.begin(), indices.end(), std::greater<>());
+                sort(indices.begin(), indices.end(), scoreComapre);
             }
         };
     

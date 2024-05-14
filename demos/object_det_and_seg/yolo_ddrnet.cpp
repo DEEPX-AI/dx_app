@@ -195,8 +195,8 @@ int main(int argc, char *argv[])
     LOG_VALUE(videoFile);
     LOG_VALUE(cameraInput);
     
-    auto ieOD = dxrt::InferenceEngine(od_modelpath);
-    auto ieSEG = dxrt::InferenceEngine(seg_modelpath);
+    dxrt::InferenceEngine ieOD(od_modelpath);
+    dxrt::InferenceEngine ieSEG(seg_modelpath);
     
     Yolo yolo = Yolo(odCfg);
 

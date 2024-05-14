@@ -18,7 +18,7 @@ class AppConfig
 {
 public:
 
-    AppConfig(std::string json_path)
+    AppConfig(const std::string &json_path)
     {
         std::ifstream ifs(json_path);
         if(!ifs.is_open())
@@ -33,7 +33,7 @@ public:
             std::cout << json_path << " file is not a valid." << std::endl;
             std::terminate();
         }
-
+        rapidjson::Document doc;
         doc.Parse(json.c_str());
         std::string read = "";
         
@@ -114,7 +114,7 @@ public:
         }
         outputType = AppOutputType::OUTPUT_NONE_ARGMAX;
     };
-    ~AppConfig(){};
+    ~AppConfig()=default;
     
     std::string modelInfo;
 
@@ -129,7 +129,6 @@ public:
     dxapp::common::Size videoOutResolution;
     
 private:
-    rapidjson::Document doc;
 
     const char *application_json_schema = R"""(
         {

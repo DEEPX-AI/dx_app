@@ -189,13 +189,13 @@ void ObjectDetection::Stop()
 }
 void ObjectDetection::Pause()
 {
-    std::unique_lock lk(_frameLock);
+    unique_lock<mutex> lk(_frameLock);
     if(!_isPause)
         _isPause = true;
 }
 void ObjectDetection::Play()
 {
-    std::unique_lock lk(_frameLock);
+    unique_lock<mutex> lk(_frameLock);
     if(_isPause){
         _isPause = false;
         _cv.notify_all();

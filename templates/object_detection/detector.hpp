@@ -2,7 +2,6 @@
 #include <future>
 #include <thread>
 #include <fstream>
-#include <filesystem>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -24,7 +23,7 @@ public :
         _videoPath = sourceInfo.inputPath;
         _inputType = sourceInfo.inputType;
         _name = "app" + std::to_string(_channel);
-        _outName = _name + "_" + std::string(std::filesystem::path(_videoPath).filename());
+        _outName = _name + "_" + dxapp::common::getFileName(_videoPath);
         _processName = "proc_"+_name;
         _inferName = "infer_"+_name;
 
@@ -64,7 +63,7 @@ public :
 
     void notify_all()
     {
-        _wait = false;
+        _wait.store(false);
         std::cout << "[" << _name << "] : notify to this thread function. "<<std::endl;
         _cv.notify_all();
     };
@@ -75,13 +74,12 @@ public :
     };
 
     void quitThread(){
-        _quit = true;
+        _quit.store(true);
     };
 
     bool quit()
     {
-        std::unique_lock<std::mutex> _uniqueLock(_lock);
-        return _quit;
+        return _quit.load();
     };
 
     void threadFunction()
@@ -89,12 +87,12 @@ public :
         std::cout << "[" << _name << "] : entered thread function. "<<std::endl;
         {
             std::unique_lock<std::mutex> _uniqueLock(_lock);
-            _cv.wait(_uniqueLock, [&](){return !_wait;});
+            _cv.wait(_uniqueLock, [&](){return !_wait.load();});
         }
         _profiler.Add(_processName);
         cv::Mat outputImg = cv::Mat(_dstSize._height, _dstSize._width, CV_8UC3, cv::Scalar(0, 0, 0));
 
-        while(!_quit)
+        while(!_quit.load())
         {    
             _profiler.Start(_processName);    
 		    auto inf_data = _vStream.GetInputStream();
@@ -103,7 +101,7 @@ public :
 #if 0
             _inferenceEngine->Wait(req);
 #else
-            UNUSEDVAR(req);
+            UNUSEDVAR(req)
 #endif
             {
                 std::unique_lock<std::mutex> _uniqueLock(_lock);
@@ -162,15 +160,15 @@ private:
     std::mutex _lock;
     std::mutex _getFrameLock;
     std::condition_variable _cv;
-    std::atomic<bool> _wait = true;
-    std::atomic<bool> _quit = false;
+    std::atomic<bool> _wait = {true};
+    std::atomic<bool> _quit = {false};
 
 };
 
 class Detector
 {
 public:
-    Detector(dxapp::AppConfig &_config):config(_config)
+    Detector(const dxapp::AppConfig &_config):config(_config)
     {
         bool is_valid = dxapp::validationJsonSchema(config.modelInfo.c_str(), modelInfoSchema);
         if(!is_valid)
@@ -234,7 +232,15 @@ public:
         inferenceEngine->RegisterCallBack(postProcCallBack);
         resultView = cv::Mat(config.videoOutResolution._height, config.videoOutResolution._width, CV_8UC3, cv::Scalar(0, 0, 0));
     };
-    ~Detector() = default;
+
+    ~Detector(void)
+    {
+        if(config.appType == OFFLINE)
+        {
+            if(saveThread.joinable())
+                saveThread.join();
+        }
+    };
 
     void makeThread()
     {
@@ -256,7 +262,7 @@ public:
         }
         if(config.appType == OFFLINE)
         {
-            wait = false;
+            _wait.store(false);
             cv.notify_all();
         }
     };
@@ -303,7 +309,7 @@ public:
     {
         {
             std::unique_lock<std::mutex> _uniqueLock(lock);
-            cv.wait(_uniqueLock, [&](){return !wait;});
+            cv.wait(_uniqueLock, [&](){return !_wait.load();});
         }
         std::cout << "start Save Thread " << std::endl;
         std::cout << "Press 'q' key to quit " << std::endl;
@@ -379,6 +385,7 @@ public:
         }
     };
     
+    dxapp::AppConfig config;
     std::vector<int64_t> inputShape;
     std::vector<std::vector<int64_t>> outputShape;
     int inputSize;
@@ -387,7 +394,6 @@ public:
     std::shared_ptr<dxrt::InferenceEngine> inferenceEngine;
     dxapp::yolo::Params params;
     std::string modelPath;
-    dxapp::AppConfig &config;
 
     std::vector<std::shared_ptr<DetectorApp>> apps;
 
@@ -395,8 +401,7 @@ public:
     std::thread saveThread;
     std::mutex lock;
     std::condition_variable cv;
-    std::atomic<bool> wait = true;
-
+    std::atomic<bool> _wait = {true};
 private:
     const char* modelInfoSchema = R"""(
             {

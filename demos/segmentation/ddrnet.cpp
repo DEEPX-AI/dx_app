@@ -224,7 +224,7 @@ int main(int argc, char *argv[])
     LOG_VALUE(cameraInput);
     LOG_VALUE(asyncInference);
 
-    auto ie = dxrt::InferenceEngine(modelPath);
+    dxrt::InferenceEngine ie(modelPath);
 
     auto& profiler = dxrt::Profiler::GetInstance();
     if(!imgFile.empty())

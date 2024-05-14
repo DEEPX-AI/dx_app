@@ -2,7 +2,6 @@
 #include <future>
 #include <thread>
 #include <fstream>
-#include <filesystem>
 #include <iostream>
 #include <string>
 
@@ -18,7 +17,7 @@ class Classifier
 {
 public:
 
-    Classifier(dxapp::AppConfig &_config):config(_config)
+    Classifier(const dxapp::AppConfig &_config):config(_config)
     {
         bool is_valid = dxapp::validationJsonSchema(config.modelInfo.c_str(), modelInfoSchema);
         if(!is_valid)
@@ -57,6 +56,7 @@ public:
     };
     ~Classifier()=default;
     
+    dxapp::AppConfig config;
     std::vector<int64_t> inputShape;
     std::vector<int64_t> outputShape;
     uint64_t inputSize;
@@ -66,7 +66,6 @@ public:
     std::shared_ptr<dxrt::InferenceEngine> inferenceEngine;
     dxapp::classification::PreConfig preConfig;
     dxapp::classification::PostConfig postConfig;
-    dxapp::AppConfig &config;
 
 private:
     const char* modelInfoSchema = R"""(

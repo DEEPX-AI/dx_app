@@ -614,9 +614,9 @@ int main(int argc, char *argv[])
         help();
         exit(0);
     }
-    auto ie_fd = dxrt::InferenceEngine(fd_modelPath);
-    auto ie_lm = dxrt::InferenceEngine(lm_modelPath);
-    auto ie_fr = dxrt::InferenceEngine(fr_modelPath);
+    dxrt::InferenceEngine ie_fd(fd_modelPath);
+    dxrt::InferenceEngine ie_lm(lm_modelPath);
+    dxrt::InferenceEngine ie_fr(fr_modelPath);
 
     SsdParam FDCfg = {
                 .image_size = 512,

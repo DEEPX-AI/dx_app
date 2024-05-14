@@ -56,7 +56,7 @@ static std::vector<std::vector<int>> skeleton = {
     {4, 6},
 };
 
-static std::vector pose_limb_color = {
+static std::vector<cv::Scalar> pose_limb_color = {
     cv::Scalar(51, 153, 255),
     cv::Scalar(51, 153, 255),
     cv::Scalar(51, 153, 255),
@@ -78,7 +78,7 @@ static std::vector pose_limb_color = {
     cv::Scalar(0, 255, 0),
 };
 
-static std::vector pose_kpt_color = {
+static std::vector<cv::Scalar> pose_kpt_color = {
     cv::Scalar(0, 255, 0),
     cv::Scalar(0, 255, 0),
     cv::Scalar(0, 255, 0),

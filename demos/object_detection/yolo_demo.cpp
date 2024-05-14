@@ -246,7 +246,7 @@ int main(int argc, char *argv[])
 
     string captionModel = dxrt::StringSplit(modelPath, "/").back() + ", 30fps";    
 
-    auto ie = dxrt::InferenceEngine(modelPath);
+    dxrt::InferenceEngine ie(modelPath);
     auto yoloParam = yoloParams[paramIdx];
     Yolo yolo = Yolo(yoloParam);
     auto& profiler = dxrt::Profiler::GetInstance();

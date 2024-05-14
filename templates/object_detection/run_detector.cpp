@@ -43,8 +43,8 @@ int main(int argc, char *argv[])
         std::terminate();
     }
 
-    auto appConfig = dxapp::AppConfig(configPath);
-    auto detector = Detector(appConfig);
+    dxapp::AppConfig appConfig(configPath);
+    Detector detector(appConfig);
     detector.makeThread();
     detector.startThread();
     while(true)

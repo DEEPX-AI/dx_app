@@ -193,7 +193,7 @@ int main(int argc, char *argv[])
     LOG_VALUE(ispInput);
     LOG_VALUE(asyncInference);
 
-    auto ie = dxrt::InferenceEngine(modelPath);
+    dxrt::InferenceEngine ie(modelPath);
     auto yoloParam = yoloParams[paramIdx];
     Yolo yolo = Yolo(yoloParam);
     auto& profiler = dxrt::Profiler::GetInstance();
