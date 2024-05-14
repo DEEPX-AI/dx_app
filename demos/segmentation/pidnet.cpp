@@ -29,8 +29,8 @@ using namespace cv;
 #define MODEL_WIDTH 640
 #define MODEL_HEIGHT 640
 #define NUM_CLASSES 19
-#define CAMERA_FRAME_WIDTH 800
-#define CAMERA_FRAME_HEIGHT 600
+#define CAMERA_FRAME_WIDTH 1920
+#define CAMERA_FRAME_HEIGHT 1080
 #define FRAME_BUFFERS 10
 
 struct SegmentationParam
