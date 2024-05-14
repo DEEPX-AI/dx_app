@@ -84,7 +84,7 @@ int main(int argc, char *argv[])
 
     if(!imgFile.empty())
     {
-        auto ie = dxrt::InferenceEngine(modelPath);
+        dxrt::InferenceEngine ie(modelPath);
         
         do 
         {

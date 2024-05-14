@@ -8,7 +8,6 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
-#include <filesystem>
 #include <iostream>
 
 #include <opencv2/opencv.hpp>
@@ -280,7 +279,7 @@ int main(int argc, char *argv[])
     }
     cv::Mat outFrame = cv::Mat(cv::Size(BOARD_WIDTH, BOARD_HEIGHT), CV_8UC3, cv::Scalar(0, 0, 0));
     
-    std::shared_ptr<dxrt::InferenceEngine> ie = std::make_shared<dxrt::InferenceEngine>(appConfig.model_path);
+    auto ie = std::make_shared<dxrt::InferenceEngine>(appConfig.model_path);
     yoloParam = getYoloParameter(appConfig.model_name);
     Yolo yolo = Yolo(yoloParam);
     auto& profiler = dxrt::Profiler::GetInstance();

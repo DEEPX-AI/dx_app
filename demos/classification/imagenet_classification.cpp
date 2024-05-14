@@ -128,7 +128,7 @@ uint8_t *preprocess(std::string image_path, std::string based_path)
 int inference(std::string model_path, std::vector<std::string> image_gt_list, std::string based_path, int *count, double *accuracy, double *latency, bool *exit_flag, bool *results)
 {
     // initialize inference engine
-    auto ie = dxrt::InferenceEngine(model_path);
+    dxrt::InferenceEngine ie(model_path);
     std::string* image_gt = new std::string[2];
 
     std::future<uint8_t *> input_future;

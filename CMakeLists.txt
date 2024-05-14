@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.14)
 project(dxrt DESCRIPTION "DEEPX Application Templates")
 set(CMAKE_CXX_STANDARD_REQUIRED "ON")
-set(CMAKE_CXX_STANDARD "17")
+set(CMAKE_CXX_STANDARD "11")
 set(DXRT_RELEASE_DIR ${CMAKE_BINARY_DIR}/release)
 set(CMAKE_INSTALL_PREFIX ${DXRT_RELEASE_DIR})
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake) # using function & cfg cmake file

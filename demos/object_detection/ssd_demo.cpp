@@ -214,7 +214,7 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-    auto ie = dxrt::InferenceEngine(modelPath);
+    dxrt::InferenceEngine ie(modelPath);
     auto ssdParam = ssdParams[paramIdx];
     Ssd ssd = Ssd(ssdParam);
     auto& profiler = dxrt::Profiler::GetInstance();

@@ -88,6 +88,15 @@ Yolo::Yolo(YoloParam &_cfg) :cfg(_cfg)
         ScoreIndices.emplace_back(v);
     }
 }
+
+static bool scoreComapre(const std::pair<float, int> &a, const std::pair<float, int> &b)
+{
+    if(a.first > b.first)
+        return true;
+    else
+        return false;
+};
+
 void Yolo::FilterWithSort(float *org)
 {
     int x = 0, y = 1, w = 2, h = 3;
@@ -121,7 +130,7 @@ void Yolo::FilterWithSort(float *org)
     }
     for(int cls=0;cls<(int)numClasses;cls++)
     {
-        sort(ScoreIndices[cls].begin(), ScoreIndices[cls].end(), greater<>());
+        sort(ScoreIndices[cls].begin(), ScoreIndices[cls].end(), scoreComapre);
     }
 }
 void Yolo::FilterWithSort(vector<shared_ptr<dxrt::Tensor>> outputs_)
@@ -273,7 +282,7 @@ void Yolo::FilterWithSort(vector<shared_ptr<dxrt::Tensor>> outputs_)
     }
     for(int cls=0;cls<(int)numClasses;cls++)
     {
-        sort(ScoreIndices[cls].begin(), ScoreIndices[cls].end(), greater<>());
+        sort(ScoreIndices[cls].begin(), ScoreIndices[cls].end(), scoreComapre);
     }
 }
 vector< BoundingBox > Yolo::PostProc(float *data)

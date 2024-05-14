@@ -157,6 +157,14 @@ void Ssd::CreatePriorBoxes(const string &file)
     }
 }
 
+static bool scoreComapre(const std::pair<float, int> &a, const std::pair<float, int> &b)
+{
+    if(a.first > b.first)
+        return true;
+    else
+        return false;
+};
+
 void Ssd::FilterWithSoftmax(vector<shared_ptr<dxrt::Tensor>> outputs_)
 {
     int boxIdx = 0;
@@ -220,7 +228,7 @@ void Ssd::FilterWithSoftmax(vector<shared_ptr<dxrt::Tensor>> outputs_)
     }
     for(int cls=1;cls<(int)numClasses;cls++)
     {
-        sort(ScoreIndices[cls].begin(), ScoreIndices[cls].end(), greater<>());
+        sort(ScoreIndices[cls].begin(), ScoreIndices[cls].end(), scoreComapre);
     }
 }
 void Ssd::FilterWithSigmoid(vector<shared_ptr<dxrt::Tensor>> outputs_)
@@ -278,7 +286,7 @@ void Ssd::FilterWithSigmoid(vector<shared_ptr<dxrt::Tensor>> outputs_)
     }
     for(int cls=1;cls<(int)numClasses;cls++)
     {
-        sort(ScoreIndices[cls].begin(), ScoreIndices[cls].end(), greater<>());
+        sort(ScoreIndices[cls].begin(), ScoreIndices[cls].end(), scoreComapre);
     }
 }
 

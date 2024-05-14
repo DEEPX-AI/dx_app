@@ -193,8 +193,8 @@ int main(int argc, char *argv[])
     LOG_VALUE(cameraInput);
 
     string captionModel = "YOLOv5 pose + DDRNet , 30fps";
-    auto pose = dxrt::InferenceEngine(pose_model_path);
-    auto seg = dxrt::InferenceEngine(seg_model_path);
+    dxrt::InferenceEngine pose(pose_model_path);
+    dxrt::InferenceEngine seg(seg_model_path);
     auto yoloParam = yolov5s6_pose_640;
     Yolo yolo = Yolo(yoloParam);
     auto& profiler = dxrt::Profiler::GetInstance();
