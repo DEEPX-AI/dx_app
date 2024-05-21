@@ -18,7 +18,7 @@ struct YoloLayerParam
     std::vector<int> tensorIdx;
     float scaleX=0;
     float scaleY=0;
-    void Show();
+    YoloLayerParam() = default;
     YoloLayerParam(int _gx, int _gy, int _numB, 
                    const std::vector<float> &_vAnchorW, const std::vector<float> &_vAnchorH, const std::vector<int> &_vTensorIdx, 
                    float _sx = 0.f, float _sy = 0.f)
@@ -26,6 +26,7 @@ struct YoloLayerParam
      anchorWidth(_vAnchorW), anchorHeight(_vAnchorH),
      tensorIdx(_vTensorIdx), scaleX(_sx), scaleY(_sy)
     {}
+    void Show();
 };
 struct YoloParam
 {

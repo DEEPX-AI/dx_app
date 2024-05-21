@@ -293,7 +293,7 @@ vector<BoundingBox> Ssd::PostProc(vector<shared_ptr<dxrt::Tensor>> outputs_, voi
         numClasses,
         0,
         ClassNames,
-        ScoreIndices, &Boxes[0], nullptr, cfg.iou_threshold,
+        ScoreIndices, &Boxes[0], cfg.iou_threshold,
         Result,
         1);
     if (saveTo != nullptr)
