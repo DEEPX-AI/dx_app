@@ -1,6 +1,7 @@
 #pragma once
 #include <sys/stat.h>
 #include <stdio.h>
+#include <dirent.h>
 #include <string>
 #include <iostream>
 #include <fstream>
