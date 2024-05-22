@@ -9,6 +9,9 @@
 #include "ssd.h"
 #include "utils.h"
 
+#ifndef UNUSEDVAR
+#define UNUSEDVAR(x) (void)(x);
+#endif
 // camera frame resolution (1920, 1080), (1280, 720), (800, 600)
 #define CAMERA_FRAME_WIDTH 1920
 #define CAMERA_FRAME_HEIGHT 1080
@@ -101,6 +104,7 @@ void run_image(dxrt::InferenceEngine *ie_fd, dxrt::InferenceEngine *ie_fl, dxrt:
     cv::namedWindow("gallary");
     cv::moveWindow("gallary", 0, 780);
     
+    int key = 0;
     auto fdDataInfo = ie_fd->outputs();
     Ssd detector = Ssd(fdCfg, fdDataInfo);
 
@@ -161,13 +165,15 @@ void run_image(dxrt::InferenceEngine *ie_fd, dxrt::InferenceEngine *ie_fl, dxrt:
 
     cv::imshow("view", view);
     cv::imshow("gallary", make_gallary_view(gallary));
-    std::ignore = cv::waitKey(0);
+    key = cv::waitKey(0);
+    UNUSEDVAR(key);    
 }
 
 void run_image2(dxrt::InferenceEngine *ie_fd, dxrt::InferenceEngine *ie_fl, dxrt::InferenceEngine *ie_fr, std::string image1_path, std::string image2_path)
 {
-    std::ignore = ie_fl;
-    std::ignore = ie_fd;
+    UNUSEDVAR(ie_fl);
+    UNUSEDVAR(ie_fd);
+    int key = 0;
     cv::Mat frame1 = cv::imread(image1_path, cv::IMREAD_COLOR);
     cv::Mat frame2 = cv::imread(image2_path, cv::IMREAD_COLOR);
 
@@ -190,11 +196,13 @@ void run_image2(dxrt::InferenceEngine *ie_fd, dxrt::InferenceEngine *ie_fl, dxrt
     cv::vconcat(view1, log, view);
     cv::imshow("view", view);
 
-    std::ignore = cv::waitKey(0);
+    key = cv::waitKey(0);
+    UNUSEDVAR(key);
 }
 
 void run_image3(dxrt::InferenceEngine *ie_fd, dxrt::InferenceEngine *ie_fl, dxrt::InferenceEngine *ie_fr, SsdParam fdCfg, std::string image1_path, std::string image2_path)
 {
+    int key = 0;
     auto fdDataInfo = ie_fd->outputs();
     Ssd detector = Ssd(fdCfg, fdDataInfo);
 
@@ -249,7 +257,8 @@ void run_image3(dxrt::InferenceEngine *ie_fd, dxrt::InferenceEngine *ie_fl, dxrt
     cv::vconcat(face_warped, log, view);
     cv::imshow("view", view);
     
-    std::ignore = cv::waitKey(0);
+    key = cv::waitKey(0);
+    UNUSEDVAR(key);
 }
 
 void run_video_sync(dxrt::InferenceEngine *ie_fd, dxrt::InferenceEngine *ie_fl, dxrt::InferenceEngine *ie_fr, SsdParam fdCfg, std::string dbPath, std::string videoFile, bool cameraInput, float frThreshold)
@@ -288,7 +297,7 @@ void run_video_sync(dxrt::InferenceEngine *ie_fd, dxrt::InferenceEngine *ie_fl, 
     bool running = true;
     while (running)
     {
-        double timestamp = GetTimestamp();
+        // double timestamp = GetTimestamp();
 
         cv::Mat frame;
         cap >> frame;
@@ -360,7 +369,7 @@ void run_video_sync(dxrt::InferenceEngine *ie_fd, dxrt::InferenceEngine *ie_fl, 
             break;
         }
 
-        std::ignore = GetTimestamp() - timestamp;
+        // double time_diff = GetTimestamp() - timestamp;
         //std::cout << "Latency: " << time_diff << "    FPS : " << 1 / time_diff << std::endl;
     }
 }
@@ -404,7 +413,7 @@ void run_tracker_video_sync(dxrt::InferenceEngine *ie_fd, dxrt::InferenceEngine 
     bool running = true;
     while (running)
     {
-        double timestamp = GetTimestamp();
+        // double timestamp = GetTimestamp();
 
         cv::Mat frame;
         cap >> frame;
@@ -537,7 +546,7 @@ void run_tracker_video_sync(dxrt::InferenceEngine *ie_fd, dxrt::InferenceEngine 
         }
         }
 
-        std::ignore = GetTimestamp() - timestamp;
+        // double time_diff = GetTimestamp() - timestamp;
         //std::cout << "Latency: " << time_diff << "    FPS : " << 1 / time_diff << std::endl;
     }
 }

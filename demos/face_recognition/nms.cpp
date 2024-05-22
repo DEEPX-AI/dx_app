@@ -1,5 +1,4 @@
 #include <algorithm>
-#include <tuple>
 #include "nms.h"
 #include "bbox.h"
 
@@ -34,10 +33,9 @@ void NmsOneClass(
     unsigned int cls,
     vector<string> &ClassNames,
     vector<vector<pair<float, int>>> &ScoreIndices,
-    float *Boxes, float *Scores, float IouThreshold,
+    float *Boxes, float IouThreshold,
     vector<BoundingBox> &Result)
 {
-    std::ignore = Scores;
     float iou;
     int i, j;
     int numCandidates = ScoreIndices[cls].size();
@@ -77,13 +75,13 @@ void Nms(
     const int &numDetectTotal,
     vector<string> &ClassNames,
     vector<vector<pair<float, int>>> &ScoreIndices,
-    float *Boxes, float *Scores, const float &IouThreshold,
+    float *Boxes, const float &IouThreshold,
     vector<BoundingBox> &Result,
     int startClass)
 {
     for (size_t cls = startClass; cls < numClass; cls++)
     {
-        NmsOneClass(cls, ClassNames, ScoreIndices, Boxes, Scores, IouThreshold, Result);
+        NmsOneClass(cls, ClassNames, ScoreIndices, Boxes, IouThreshold, Result);
     }
     sort(Result.begin(), Result.end(), compare);
     if (numDetectTotal > 0 && Result.size() > (size_t)numDetectTotal)

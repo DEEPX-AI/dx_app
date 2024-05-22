@@ -13,7 +13,7 @@ void NmsOneClass(
     unsigned int cls,
     vector<string> &ClassNames,
     vector<vector<pair<float, int>>> &ScoreIndices,
-    float *Boxes, float *Scores, float IouThreshold,
+    float *Boxes, float IouThreshold,
     vector<BoundingBox> &Result
 );
 
@@ -22,7 +22,7 @@ void Nms(
     const int &numDetectTotal,
     vector<string> &ClassNames,
     vector<vector<pair<float, int>>> &ScoreIndices,
-    float *Boxes, float *Scores, const float &IouThreshold,
+    float *Boxes, const float &IouThreshold,
     vector<BoundingBox> &Result,
     int startClass
 );
