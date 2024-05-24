@@ -4,7 +4,7 @@ macro(add_target name)
     ${CMAKE_SOURCE_DIR}/extern/
     ${CMAKE_SOURCE_DIR}/lib/
   )
-  target_link_libraries(${name} ${link_libs} )
+  target_link_libraries(${name} ${link_libs})
   install(
     TARGETS ${name}
     DESTINATION bin
@@ -18,7 +18,7 @@ macro(add_opencv)
 endmacro(add_opencv)
 
 macro(add_onnxruntime)
-	  find_package(onnxruntime REQUIRED)
+	  find_library(onnxruntime HINTS ${onnxruntime_LIB_DIRS})
     LIST(APPEND link_libs onnxruntime)
 endmacro(add_onnxruntime)
 

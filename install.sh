@@ -122,24 +122,33 @@ function install_onnx()
         echo "The riscv64 architecture is not yet supported ONNXRUNTIME."
         install_onnx=false
     fi
+    onnxruntime_arch="x64"
+    if [ "$target_arch" == "x86_64" ]; then
+        onnxruntime_arch="x64"
+    elif [ "$target_arch" == "arm64" ]; then
+        onnxruntime_arch="aarch64"
+    fi
     if [ "$install_onnx" == true ]; then
         echo " Install ONNX-Runtime API " 
-        if ! test -e $DX_SRC_DIR/util; then 
-            mkdir $DX_SRC_DIR/util
-        fi
+        test $(mkdir $DX_SRC_DIR/util)
         cd $DX_SRC_DIR/util
-        if test -e $DX_SRC_DIR/util/onnxruntime; then
-            echo already installed onnxruntime
-            echo $DX_SRC_DIR/util/onnxruntime dir will be removed
-            rm -r $DX_SRC_DIR/util/onnxruntime
+        test $(sudo rm -r $DX_SRC_DIR/util/onnxruntime_$target_arch)
+        wget https://github.com/microsoft/onnxruntime/releases/download/v1.12.0/onnxruntime-linux-$onnxruntime_arch-1.12.0.tgz
+        mkdir onnxruntime_$target_arch
+        tar -zxvf onnxruntime-linux-$onnxruntime_arch-1.12.0.tgz -C onnxruntime_$target_arch --strip-components=1 
+        if [ $(uname -p) != "$target_arch" ]; then
+            if [ $(uname -p) == "aarch64" ] && [ $target_arch == "arm64" ]; then  
+                sudo cp -a onnxruntime_$target_arch/* /usr/local/
+            else
+                echo " onnxruntime install library for Cross Compilation (host : $(uname -p), target : $target_arch)"
+            fi
+        else
+            echo ""
+            echo " onnxruntime install library for your local system "
+            sudo cp -a onnxruntime_$target_arch/* /usr/local/
+            echo " copy onnxruntiem libraries to your local system (/usr/local)"
+            echo ""
         fi
-        # get onnxruntime source code release version 1.16.3
-        git clone --recursive https://github.com/Microsoft/onnxruntime.git
-        cd onnxruntime
-        git checkout -b _v1.16.3 v1.16.3
-        ./build.sh --config RelWithDebInfo --build_shared_lib --parallel --compile_no_warning_as_error --skip_submodule_sync --cmake_extra_defines CMAKE_OSX_ARCHITECTURES=$target_arch
-        cd build/Linux/RelWithDebInfo
-        sudo make install
         sudo ldconfig
     fi
 }

@@ -50,7 +50,7 @@ Install the followings first.
   # or
   # ./install.sh --arch riscv64 --opencv
   ```           
-- **(Optional) Install onnxruntime (version 1.16.3 is recommended)**         
+- **(Optional) Install onnxruntime (version 1.12.0 is recommended)**         
   Install onnxruntime library       
   ```shell
   ./install.sh --onnxruntime  
@@ -59,7 +59,7 @@ Install the followings first.
   ```shell
   ./install.sh --arch arm64 --onnxruntime
   ```           
-  You can also refer to [onnxruntime Build Guide](https://onnxruntime.ai/docs/build/inferencing.html).           
+  You can also refer to [onnxruntime releases list](https://github.com/microsoft/onnxruntime/tags).           
 ### Build DX-APP    
 - **Build Application**          
   ```shell
