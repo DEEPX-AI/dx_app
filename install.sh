@@ -6,7 +6,6 @@ DX_SRC_DIR=$PWD
 echo "DX_SRC_DIR the default one $DX_SRC_DIR"
 target_arch=$(uname -p)  
 install_opencv=false  
-install_onnx=false  
 install_dep=false  
 build_type='Release'  
 
@@ -17,35 +16,47 @@ function help()
     echo "    --arch            target CPU architecture : [ x86_64, arm64, riscv64 ]"
     echo "    --dep             install dependencies : cmake, gcc, ninja, etc.."
     echo "    --opencv          (optional) install opencv pkg "
-    echo "    --onnxruntime     (optional) install onnxruntime library"
-    echo "    --all             install dependencies & opencv pkg & onnxruntime library"
+    echo "    --all             install dependencies & opencv pkg "
+}
+
+function compare_version() 
+{
+    awk -v n1="$1" -v n2="$2" 'BEGIN { if (n1 >= n2) exit 0; else exit 1; }'
 }
 
 function install_dep()
 {
-    cmake_version=3.14
+    cmake_version_required=3.14
+    install_cmake=false
     if [ "$install_dep" == true ]; then
         echo " Install dependence package tools "
-        sudo apt-get -y install build-essential make zlib1g-dev libcurl4-openssl-dev wget tar zip
-        if [ "$install_onnx" == true ]; then
-            echo " Install CMake version 3.18.0, to build onnxruntime "
-            cmake_version=3.18
-        fi
-        if ! test -e $DX_SRC_DIR/util; then 
-            mkdir $DX_SRC_DIR/util
-        fi
-        cd $DX_SRC_DIR/util
-        if ! test -e $DX_SRC_DIR/util/cmake-$cmake_version.0; then
-            echo " Install CMake v$$cmake_version.0 "
-            wget https://cmake.org/files/v$cmake_version/cmake-$cmake_version.0.tar.gz --no-check-certificate    
-            tar xvf cmake-$cmake_version.0.tar.gz
+        sudo apt-get -y install build-essential make zlib1g-dev libcurl4-openssl-dev wget tar zip cmake
+        echo ""
+        echo " Install python libraries" 
+        sudo apt-get -y install python3-dev python3-distutils python3-pip python3-tk python3-lxml python3-six
+        cmake_version=$(cmake --version |grep -oP "\d+\.\d+\.\d+")
+        if compare_version "$cmake_version" "$cmake_version_required"; then
+            install_cmake=false
         else
-            echo " Already Exist CMake "
+            install_cmake=true
         fi
-        cd cmake-$cmake_version.0
-        ./bootstrap --system-curl
-        make -j8
-        sudo make install 
+        if [ "$install_cmake" == true ]; then
+            if ! test -e $DX_SRC_DIR/util; then 
+                mkdir $DX_SRC_DIR/util
+            fi
+            cd $DX_SRC_DIR/util
+            if ! test -e $DX_SRC_DIR/util/cmake-$cmake_version.0; then
+                echo " Install CMake v$$cmake_version.0 "
+                wget https://cmake.org/files/v$cmake_version/cmake-$cmake_version.0.tar.gz --no-check-certificate    
+                tar xvf cmake-$cmake_version.0.tar.gz
+            else
+                echo " Already Exist CMake "
+            fi
+            cd cmake-$cmake_version.0
+            ./bootstrap --system-curl
+            make -j8
+            sudo make install 
+        fi
         sudo apt install ninja-build
         sudo apt-get -y install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
         sudo apt-get -y install gcc-riscv64-linux-gnu g++-riscv64-linux-gnu
@@ -116,34 +127,6 @@ function install_opencv()
     fi
 }
 
-function install_onnx()
-{
-    if [ "$target_arch" == "riscv64" ] && [ "$install_onnx" == true ]; then
-        echo "The riscv64 architecture is not yet supported ONNXRUNTIME."
-        install_onnx=false
-    fi
-    if [ "$install_onnx" == true ]; then
-        echo " Install ONNX-Runtime API " 
-        if ! test -e $DX_SRC_DIR/util; then 
-            mkdir $DX_SRC_DIR/util
-        fi
-        cd $DX_SRC_DIR/util
-        if test -e $DX_SRC_DIR/util/onnxruntime; then
-            echo already installed onnxruntime
-            echo $DX_SRC_DIR/util/onnxruntime dir will be removed
-            rm -r $DX_SRC_DIR/util/onnxruntime
-        fi
-        # get onnxruntime source code release version 1.16.3
-        git clone --recursive https://github.com/Microsoft/onnxruntime.git
-        cd onnxruntime
-        git checkout -b _v1.16.3 v1.16.3
-        ./build.sh --config RelWithDebInfo --build_shared_lib --parallel --compile_no_warning_as_error --skip_submodule_sync --cmake_extra_defines CMAKE_OSX_ARCHITECTURES=$target_arch
-        cd build/Linux/RelWithDebInfo
-        sudo make install
-        sudo ldconfig
-    fi
-}
-
 [ $# -gt 0 ] && \
 while (( $# )); do
     case "$1" in
@@ -154,8 +137,7 @@ while (( $# )); do
             shift;;       
         --dep) install_dep=true; shift;;        
         --opencv) install_opencv=true; shift;;     
-        --onnxruntime) install_onnx=true; shift;;
-        --all) install_onnx=true;install_opencv=true;install_dep=true; shift;;  
+        --all) install_opencv=true;install_dep=true; shift;;  
         *)       echo "Invalid argument : " $1 ; help; exit 1;;
     esac
 done
@@ -166,6 +148,5 @@ fi
 
 install_dep
 install_opencv
-install_onnx
 
 popd
