@@ -214,6 +214,14 @@ python example code is [here](#Run-ImageNet-Python-Example)
     Task0 , npu_0 : latency 1848 us, inference time 1411.75 us
     Device 0 : 4
   ```     
+  Import The InferenceEngine module which callable inference engine module.   
+  ```python
+    from dx_engine import InferenceEngine
+  ```   
+  Enter the model file as a parameter to **InferecneEngine** module.    
+  ```python
+    ie = InferenceEngine("./example/EfficientNetB0_4/graph.dxnn")
+  ```   
   The dxrt model has input and output tensors that shapes are N H W C format by default. Output tensor data format of current devices is aligned on 64-byte.   
   You should refer to the [Here](python/imageNet_example.py) and re-arrange input data.     
   ```python
@@ -262,6 +270,15 @@ python example code is [here](#Run-ImageNet-Python-Example)
   <p align="center">
     <img src="./readme_images/result_python_yolov5s.jpg">
   </p>
+
+  Import The InferenceEngine module which callable inference engine module.   
+  ```python
+    from dx_engine import InferenceEngine
+  ```   
+  Enter the model file as a parameter to **InferecneEngine** module.    
+  ```python
+    ie = InferenceEngine("./example/YOLOV5S_3/graph.dxnn")
+  ```   
   
   ```python
         image_src = cv2.imread(input_path, cv2.IMREAD_COLOR)
