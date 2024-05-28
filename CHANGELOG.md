@@ -1,5 +1,14 @@
 # Changelog 
 
+## [v0.1.3] - 2024-05-28  
+### 1. Changed
+- None
+### 2. Fixed
+- Fix a bug in the script file run_xx.sh
+  Remove configs folder (Duplicated meaning of "configs" and "example" folders)
+### 3. Added
+- None 
+
 ## [v0.1.2] - 2024-05-24  
 ### 1. Changed
 - Add library link syntax to enable onnxruntime c++ API.

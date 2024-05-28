@@ -2,48 +2,52 @@
     "description":"run yolo detector",
     "usage":"detection",
     "model":{
-        "path":"/your-detection-model-path/graph.dxnn",
+        "path":"/your-yolov4-model-path/graph.dxnn",
         "param":{
-            "name":"yolov5s_512",
-            "score_threshold":0.25,
-            "iou_threshold":0.3,
+            "name":"yolov4-512",
+            "score_threshold":0.3,
+            "iou_threshold":0.4,
             "last_activation":"sigmoid",
-            "decoding_method":"yolo_basic",
+            "decoding_method":"yolo_scale",
             "box_format":"center",
             "layer":[
                 {
                 "name":"2", "stride": 8,
-                "anchor_width": [10, 16, 33],
-                "anchor_height": [13, 30, 23]
+                "anchor_width": [12, 19, 40],
+                "anchor_height": [16, 36, 28],
+                "scale":1.2
                 },
                 {
                 "name":"1", "stride": 16,
-                "anchor_width": [30, 62, 59],
-                "anchor_height": [61, 45, 119]
+                "anchor_width": [36, 76, 72],
+                "anchor_height": [75, 55, 146],
+                "scale": 1.1
                 },
                 {
                 "name":"0", "stride": 32,
-                "anchor_width": [116, 156, 373],
-                "anchor_height": [90, 198, 326]
+                "anchor_width": [142, 192, 459],
+                "anchor_height": [110, 243, 401],
+                "scale": 1.05
                 }
             ]
         }
     },
     "input":{
             "format":"RGB",
+            "need_im2col":false,
             "sources":[
-                    {
-                        "type":"image", "path":"/your-sample-image-path/1.jpg"
-                    },
-                    {
-                        "type":"video", "path":"/your-sample-video-path/1.mp4"
-                    },
-                    {
-                        "type":"video", "path":"/your-sample-video-path/1.mp4", "frames":100
-                    },
-                    {
-                        "type":"camera", "path":"/dev/video0"
-                    }
+                {
+                    "type":"image", "path":"/your-sample-image-path/1.jpg"
+                },
+                {
+                    "type":"video", "path":"/your-sample-video-path/1.mp4"
+                },
+                {
+                    "type":"video", "path":"/your-sample-video-path/1.mp4", "frames":100
+                },
+                {
+                    "type":"camera", "path":"/dev/video0"
+                }
             ]
     },
     "output":{
