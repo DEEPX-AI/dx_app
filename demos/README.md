@@ -66,13 +66,13 @@ You can also refer to the installation guide, [Here](../README.md#Installation)
 ### Run Classification     
   - **Classification**       
     ```shell 
-    $ sudo ./bin/classification -m example/EfficientNetB0_4/graph.dxnn -i example/ILSVRC2012/0.jpeg
+    $ ./bin/classification -m example/EfficientNetB0_4/graph.dxnn -i example/ILSVRC2012/0.jpeg
     ...
     Top1 Result : class 831
     ```             
   - **ImageNet Classification** 
     ```shell
-    $ sudo ./bin/imagenet_classification -m example/EfficientNetB0_4/graph.dxnn -i example/imagenet_val_map.txt -p example/ILSVRC2012/
+    $ ./bin/imagenet_classification -m example/EfficientNetB0_4/graph.dxnn -i example/imagenet_val_map.txt -p example/ILSVRC2012/
     ```
     <p align="center">
       <img src="./readme_images/result_imagenet.jpg">
@@ -83,7 +83,7 @@ You can also refer to the installation guide, [Here](../README.md#Installation)
     Example excutable for yolov5s_512 model.
     
     ```shell 
-    $ sudo ./bin/yolo -m example/YOLOV5S_3/graph.dxnn -i sample/1.jpg -p 1
+    $ ./bin/yolo -m example/YOLOV5S_3/graph.dxnn -i sample/1.jpg -p 1
     ...
       Detected 8 boxes.
         BBOX:person(0) 0.859366, (307.501, 138.443, 400.977, 364.696)
@@ -147,7 +147,7 @@ You can also refer to the installation guide, [Here](../README.md#Installation)
     Example excutable for yolov5s_512 model.     
 
     ```shell
-    $ sudo ./bin/yolo_multi -c ./example/4ch.json
+    $ ./bin/yolo_multi -c ./example/4ch.json
     ```     
 
     <p align="center">
@@ -209,7 +209,7 @@ You can also refer to the installation guide, [Here](../README.md#Installation)
     This project was produced with reference to Ultralytics yolo pose model.         
     Example excutable for yolo pose model. **(Pose model will be included in a later release)**      
     ```shell
-    $ sudo ./bin/pose -m /your-yolo-pose-model-path/graph.dxnn -i sample/1.jpg -p 0
+    $ ./bin/pose -m /your-yolo-pose-model-path/graph.dxnn -i sample/1.jpg -p 0
     ```     
     
     <p align="center">
@@ -249,7 +249,7 @@ You can also refer to the installation guide, [Here](../README.md#Installation)
     This segmentation model masks only on humans. And It separates the body from the feet.     
 
     ```shell
-    $ sudo ./bin/pose_ddrnet -m /your-yolo-pose-model-path/graph.dxnn -s /your-segmentation-model-path/graph.dxnn -i sample/7.jpg -p 0
+    $ ./bin/pose_ddrnet -m /your-yolo-pose-model-path/graph.dxnn -s /your-segmentation-model-path/graph.dxnn -i sample/7.jpg -p 0
     ```     
     
     <p align="center">
@@ -263,7 +263,7 @@ You can also refer to the installation guide, [Here](../README.md#Installation)
     Example excutable for semantic segmentation model. This segmentation model masks only on humans. And It separates the body from the feet.   
     
     ```shell
-    $ sudo ./bin/ddrnet -m /your-segmentation-model-path/graph.dxnn -i sample/7.jpg
+    $ ./bin/ddrnet -m /your-segmentation-model-path/graph.dxnn -i sample/7.jpg
     ```     
     <p align="center">
       <img src="./readme_images/result_seg.jpg">
@@ -309,7 +309,7 @@ You can also refer to the installation guide, [Here](../README.md#Installation)
     ```
 
     ```shell
-    $ sudo ./bin/pidnet -m /your-cityscape-segmentation-model-path/graph.dxnn -i sample/8.jpg
+    $ ./bin/pidnet -m /your-cityscape-segmentation-model-path/graph.dxnn -i sample/8.jpg
     ```     
     <p align="center">
       <img src="./readme_images/result_cityscape_seg.jpg">
@@ -319,7 +319,7 @@ You can also refer to the installation guide, [Here](../README.md#Installation)
     This project was produced with reference to DDRNet and yolov5 models.      
     
     ```shell
-    $ sudo ./bin/od_ddr -m0 example/YOLOV5S_3/graph.dxnn -m1 /your-segmentation-model-path/graph.dxnn -i sample/7.jpg
+    $ ./bin/od_ddr -m0 example/YOLOV5S_3/graph.dxnn -m1 /your-segmentation-model-path/graph.dxnn -i sample/7.jpg
     ```     
     <p align="center">
       <img src="./readme_images/result_yolo_seg.jpg">
@@ -329,7 +329,7 @@ You can also refer to the installation guide, [Here](../README.md#Installation)
     This project was produced with reference to DDRNet and yolov5 models.      
     
     ```shell
-    $ sudo ./bin/od_pid -m0 example/YOLOV5S_3/graph.dxnn -m1 /your-cityscape-segmentation-model-path/graph.dxnn -i sample/8.jpg
+    $ ./bin/od_pid -m0 example/YOLOV5S_3/graph.dxnn -m1 /your-cityscape-segmentation-model-path/graph.dxnn -i sample/8.jpg
     ```     
     <p align="center">
       <img src="./readme_images/result_yolo_cityscape_seg.jpg">
@@ -347,12 +347,12 @@ You can also refer to the installation guide, [Here](../README.md#Installation)
 
     - **Measure face similarity by two images**   
        ```shell
-       $ sudo ./bin/face_recognition -m0 /your-face-detection-model-path/graph.dxnn -m1 /your-face-align-model-path/graph.dxnn -m2 /your-face-vector-model-path/graph.dxnn -l /image1-to-compare.jpg -r /image2-to-compare.jpg 
+       $ ./bin/face_recognition -m0 /your-face-detection-model-path/graph.dxnn -m1 /your-face-align-model-path/graph.dxnn -m2 /your-face-vector-model-path/graph.dxnn -l /image1-to-compare.jpg -r /image2-to-compare.jpg 
        ```
   
     - **Tracking similar faces from camera by searching face database**    
       ```shell
-      $ sudo ./bin/face_recognition -m0 /your-face-detection-model-path/graph.dxnn -m1 /your-face-align-model-path/graph.dxnn -m2 /your-face-vector-model-path/graph.dxnn -c -t -p /your-face-database-path/ 
+      $ ./bin/face_recognition -m0 /your-face-detection-model-path/graph.dxnn -m1 /your-face-align-model-path/graph.dxnn -m2 /your-face-vector-model-path/graph.dxnn -c -t -p /your-face-database-path/ 
       ```
     <p align="center">
       <img src="./readme_images/result_faceID.jpg">
@@ -364,7 +364,7 @@ You can also refer to the installation guide, [Here](../README.md#Installation)
   You can set the degree of noise using keys 1 ~ 9. Enter the *'-h*' option to see more parameter.     
 
     ```shell
-    $ sudo ./bin/denoiser -m /your-face-detection-model-path/graph.dxnn -i sample/1.jpg 
+    $ ./bin/denoiser -m /your-face-detection-model-path/graph.dxnn -i sample/1.jpg 
     ```
     <p align="center">
       <img src="./readme_images/result_dncnn.jpg">

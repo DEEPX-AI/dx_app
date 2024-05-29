@@ -49,7 +49,7 @@ python example code is [here](#Run-ImageNet-Python-Example)
 ### Run Classification Template     
   - **Classification**       
     ```shell 
-    $ sudo ./bin/run_classifier -c example/imagenet_example.json
+    $ ./bin/run_classifier -c example/imagenet_example.json
       ...
       [example/ILSVRC2012/0.jpeg] Top1 Result : class 831 (studio couch, day bed)
       [example/ILSVRC2012/1.jpeg] Top1 Result : class 321 (admiral)
@@ -75,7 +75,7 @@ python example code is [here](#Run-ImageNet-Python-Example)
 ### Run Detection Template     
   - **Detection**        
     ```shell 
-    $ sudo ./bin/run_detector -c example/yolov5s3_example.json
+    $ ./bin/run_detector -c example/yolov5s3_example.json
       ...
       detected : 9
     ```             
@@ -200,11 +200,11 @@ python example code is [here](#Run-ImageNet-Python-Example)
 **Getting the usage of executable, Try run with "--help" option.**
   - **Classification**       
   ```shell 
-  $ sudo -E python template/python/imageNet_example.py
+  $ python template/python/imageNet_example.py
   ```             
   or      
   ```shell 
-  $ sudo -E python template/python/imageNet_example.py --config example/imagenet_example.json
+  $ python template/python/imageNet_example.py --config example/imagenet_example.json
     ...
     [example/ILSVRC2012/0.jpeg] Top1 Result : class 831 (studio couch, day bed)
     [example/ILSVRC2012/1.jpeg] Top1 Result : class 321 (admiral)
@@ -245,11 +245,11 @@ python example code is [here](#Run-ImageNet-Python-Example)
 **Getting the usage of executable, Try run with "--help" option.**
   - **Object Detection**       
   ```shell 
-  $ sudo -E python template/python/yolov5s.py
+  $ python template/python/yolov5s.py
   ```             
   or      
   ```shell 
-  $ sudo -E python template/python/yolov5s.py --config example/yolov5s3_example.json
+  $ python template/python/yolov5s.py --config example/yolov5s3_example.json
     ...
     [Result] Detected 10 Boxes.
     [0] conf, classID, x1, y1, x2, y2, : 0.8771, person(0), 307, 139, 401, 364
