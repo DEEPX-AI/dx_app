@@ -70,10 +70,10 @@ Install the followings first.
 - To run the application, please refer to the script.       
   **ImageNet Classification**         
   ```shell 
-  sudo ./scripts/run_classifier.sh
+  $ ./scripts/run_classifier.sh
   ```                 
   **Yolov5-s-512 ObjectDetection**         
   ```shell 
-  sudo ./scripts/run_detector.sh
+  $ ./scripts/run_detector.sh
   ```                  
   [Here](demos/README.md) For details to run demo applications and [Here](templates/README.md) to run templates.         
