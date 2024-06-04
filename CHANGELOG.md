@@ -1,5 +1,24 @@
 # Changelog 
 
+## [v0.1.5] - 2024-06-04  
+### 1. Changed
+- None
+### 2. Fixed
+- Fix a bug yolo model config
+- Update example model version 3 to 4
+### 3. Added
+- None 
+
+## [v0.1.4] - 2024-06-03  
+### 1. Changed
+- None
+### 2. Fixed
+- Fix a bug get_align_factor function that returned to the base value.
+- Modify some functions to inline function call. It can Eliminating duplicate code and reducing overall code size. 
+- Modify supported architecture name arm64 to aarch64
+### 3. Added
+- None 
+
 ## [v0.1.3] - 2024-05-28  
 ### 1. Changed
 - None

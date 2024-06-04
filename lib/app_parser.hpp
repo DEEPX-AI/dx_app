@@ -18,15 +18,25 @@ class AppConfig
 {
 public:
 
-    AppConfig(const std::string &json_path)
+    AppConfig(const std::string &json_source)
     {
-        std::ifstream ifs(json_path);
-        if(!ifs.is_open())
+        std::string json_path = "";
+        std::string json = "";
+        if(dxapp::common::pathValidation(json_source))
         {
-            std::cout << "can't open " << json_path << std::endl;
-            std::terminate();
+            json_path = json_source;
+            std::ifstream ifs(json_path);
+            if(!ifs.is_open())
+            {
+                std::cout << "can't open " << json_path << std::endl;
+                std::terminate();
+            }
+            json = std::string((std::istreambuf_iterator<char>(ifs)), (std::istreambuf_iterator<char>()));
         }
-        std::string json((std::istreambuf_iterator<char>(ifs)), (std::istreambuf_iterator<char>()));
+        else
+        {
+            json = json_source;
+        }
         bool is_valid = dxapp::validationJsonSchema(json.c_str(), application_json_schema);
         if(!is_valid)
         {

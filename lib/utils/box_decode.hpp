@@ -10,7 +10,7 @@ namespace dxapp
 {
 namespace decode
 {
-    dxapp::common::BBox yoloBasicDecode(std::function<float(float)> activation, float* data, dxapp::common::Point grid, dxapp::common::Size anchor, int stride, float scale)
+    inline dxapp::common::BBox yoloBasicDecode(std::function<float(float)> activation, float* data, dxapp::common::Point grid, dxapp::common::Size anchor, int stride, float scale)
     {
         UNUSEDVAR(scale);
         dxapp::common::BBox box_temp;
@@ -30,7 +30,7 @@ namespace decode
         return result;
     };
 
-    dxapp::common::BBox yoloScaledDecode(std::function<float(float)> activation, float* data, dxapp::common::Point grid, dxapp::common::Size anchor, int stride, float scale)
+    inline dxapp::common::BBox yoloScaledDecode(std::function<float(float)> activation, float* data, dxapp::common::Point grid, dxapp::common::Size anchor, int stride, float scale)
     {
         dxapp::common::BBox box_temp;
         box_temp._xmin = (activation(data[0] * scale - 0.5 * (scale - 1)) + grid._x ) * stride; //center x
@@ -49,7 +49,7 @@ namespace decode
         return result;
     };
 
-    dxapp::common::BBox yoloXDecode(std::function<float(float)> activation, float* data, dxapp::common::Point grid, dxapp::common::Size anchor, int stride, float scale)
+    inline dxapp::common::BBox yoloXDecode(std::function<float(float)> activation, float* data, dxapp::common::Point grid, dxapp::common::Size anchor, int stride, float scale)
     {
         UNUSEDVAR(anchor);
         UNUSEDVAR(scale);
@@ -69,7 +69,7 @@ namespace decode
         return result;
     };
 
-    dxapp::common::BBox yoloCustomDecode(std::function<float(float)> activation, float* data, dxapp::common::Point grid, dxapp::common::Size anchor, int stride, float scale)
+    inline dxapp::common::BBox yoloCustomDecode(std::function<float(float)> activation, float* data, dxapp::common::Point grid, dxapp::common::Size anchor, int stride, float scale)
     {
         /**
          * @brief adding your decode method

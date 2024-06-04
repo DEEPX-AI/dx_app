@@ -3,6 +3,7 @@
 #include <vector>
 #include <opencv2/opencv.hpp>
 #include <common/objects.hpp>
+#include <utils/common_util.hpp>
 #include "dxrt/dxrt_api.h"
 #include "color_table.hpp"
 
@@ -79,6 +80,15 @@ public:
                 _srcMode = PRELOAD;
                 _preLoadNum = 1;
                 _frame = cv::imread(_srcPath, cv::IMREAD_COLOR);
+                _srcSize._width = _frame.cols;
+                _srcSize._height = _frame.rows;         
+            break;
+
+            case BINARY :
+                _srcMode = PRELOAD;
+                _preLoadNum = 1;
+                _frame = cv::Mat(_npuSize._height, _npuSize._width, CV_8UC3, cv::Scalar(0, 0, 0));
+                dxapp::common::readBinary(srcPath, _frame.data);
                 _srcSize._width = _frame.cols;
                 _srcSize._height = _frame.rows;         
             break;
@@ -311,7 +321,8 @@ public:
 
         srcImg = ImgCapture();       
         ImgPreResize(srcImg, preImg);              
-        ImgCvtColor(preImg, _npuColorFormat);
+        if(_srcType!=BINARY)
+            ImgCvtColor(preImg, _npuColorFormat);
 
         if(_srcMode == RUNTIME)
         {

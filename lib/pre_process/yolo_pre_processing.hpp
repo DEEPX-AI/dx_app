@@ -6,7 +6,7 @@
 #include <iostream>
 #include <sstream>
 
-#include "dxapp_api.hpp"
+#include "common/objects.hpp"
 
 #include <opencv2/opencv.hpp>
 

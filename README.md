@@ -44,9 +44,9 @@ Install the followings first.
   ```shell
   ./install.sh --opencv  
   ```            
-  To specify the compilation environment as arm64 or riscv64, use the **--arch** option.     
+  To specify the compilation environment as aarch64 or riscv64, use the **--arch** option.     
   ```shell
-  ./install.sh --arch arm64 --opencv
+  ./install.sh --arch aarch64 --opencv
   # or
   # ./install.sh --arch riscv64 --opencv
   ```           
@@ -59,9 +59,9 @@ Install the followings first.
   ```shell
   ./build.sh --clean
   ```
-  To specify the compilation environment as arm64 or riscv64, use the **--arch** option.     
+  To specify the compilation environment as aarch64 or riscv64, use the **--arch** option.     
   ```shell
-  ./build.sh --arch arm64
+  ./build.sh --arch aarch64
   # or
   # ./build.sh --arch riscv64
   ```              

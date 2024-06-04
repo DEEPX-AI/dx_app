@@ -10,7 +10,6 @@
 #include "post_process/classification_post_processing.hpp"
 #include "pre_process/classification_pre_processing.hpp"
 
-#include "dxapp_api.hpp"
 #include "app_parser.hpp"
 
 class Classifier
@@ -36,7 +35,7 @@ public:
         inputSize = inferenceEngine->input_size();
         auto factorialShape = inputShape[0]*inputShape[1]*inputShape[2]*inputShape[3];
         if(static_cast<uint64_t>(factorialShape) != inputSize)
-            alignFactor = dxapp::common::get_align_factor(inputShape[1] * inputShape[3], 64);
+            alignFactor = dxapp::common::get_align_factor(inputShape[2] * inputShape[3], 64);
         else
             alignFactor = false;
 
@@ -45,6 +44,7 @@ public:
         }
         preConfig = {
             ._dstShape = inputShape,
+            ._dstSize = inputSize,
             ._inputFormat = config.inputFormat,
             ._alignFactor = alignFactor
         };

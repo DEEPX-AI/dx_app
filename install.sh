@@ -13,7 +13,7 @@ function help()
 {
     echo "./install.sh"
     echo "    --help            show this help"
-    echo "    --arch            target CPU architecture : [ x86_64, arm64, riscv64 ]"
+    echo "    --arch            target CPU architecture : [ x86_64, aarch64, riscv64 ]"
     echo "    --dep             install dependencies : cmake, gcc, ninja, etc.."
     echo "    --opencv          (optional) install opencv pkg "
     echo "    --all             install dependencies & opencv pkg "
@@ -71,10 +71,12 @@ function install_opencv()
             case "$target_arch" in
               arm64) toolchain_define="-D CMAKE_TOOLCHAIN_FILE=../platforms/linux/aarch64-gnu.toolchain.cmake -D CMAKE_INSTALL_PREFIX=$DX_SRC_DIR/extern/$target_arch "
               ;;
+              aarch64) toolchain_define="-D CMAKE_TOOLCHAIN_FILE=../platforms/linux/aarch64-gnu.toolchain.cmake -D CMAKE_INSTALL_PREFIX=$DX_SRC_DIR/extern/$target_arch "
+              ;;
               riscv64) toolchain_define="-D CMAKE_TOOLCHAIN_FILE=../platforms/linux/riscv64-gnu.toolchain.cmake -D CMAKE_INSTALL_PREFIX=$DX_SRC_DIR/extern/$target_arch "
               ;;
             esac  
-            if [ $(uname -p) == "aarch64" ] && [ $target_arch == "arm64" ]; then  
+            if [ $(uname -p) == "arm64" ] && [ $target_arch == "aarch64" ]; then  
                 toolchain_define="-D CMAKE_INSTALL_PREFIX=/usr/local "
             else
                 echo " OpenCV Cross Compilation "
@@ -142,8 +144,8 @@ while (( $# )); do
     esac
 done
 
-if [ $target_arch == "aarch64" ]; then
-    target_arch=arm64
+if [ $target_arch == "arm64" ]; then
+    target_arch=aarch64
 fi
 
 install_dep

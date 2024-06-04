@@ -6,7 +6,8 @@
 #include <iostream>
 #include <sstream>
 
-#include "dxapp_api.hpp"
+#include "dxrt/dxrt_api.h"
+#include "common/objects.hpp"
 #include "utils/box_decode.hpp"
 #include "utils/nms.hpp"
 

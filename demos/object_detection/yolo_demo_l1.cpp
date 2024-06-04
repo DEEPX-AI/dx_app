@@ -506,7 +506,7 @@ int main(int argc, char *argv[])
         int cnt = 0;
         do {
             FILE *fp = fopen(binFile.c_str(), "rb");
-            fread(ie.GetInputPtr(), ie.GetInput().front()->GetSize(), 1, fp);
+            fread(ie.GetInputPtr(), 1, ie.GetInput().front()->GetSize(), fp);
             fclose(fp);
             cv::Mat frame(yoloParam.height, yoloParam.width, CV_8UC3, ie.GetInputPtr());
             cv::imwrite("debug.jpg", frame);

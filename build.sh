@@ -6,7 +6,7 @@ function help()
     echo "    --clean    clean build"
     echo "    --verbose  show build commands"
     echo "    --type     cmake build type : [ Release, Debug, RelWithDebInfo ]"
-    echo "    --arch     target CPU architecture : [ x86_64, arm64, riscv64 ]"
+    echo "    --arch     target CPU architecture : [ x86_64, aarch64, riscv64 ]"
 }
 
 # cmake command
@@ -15,6 +15,7 @@ clean_build=false
 verbose=false
 target_arch=$(uname -p)
 build_type=release  
+build_gtest=false
 
 [ $# -gt 0 ] && \
 while (( $# )); do
@@ -30,12 +31,13 @@ while (( $# )); do
             shift
             target_arch=$1
             shift;;
+        --test) build_gtest=true; shift;;
         *)       echo "Invalid argument : " $1 ; help; exit 1;;
     esac
 done
 
-if [ $target_arch == "aarch64" ]; then
-    target_arch=arm64
+if [ $target_arch == "arm64" ]; then
+    target_arch=aarch64
 fi
 
 cmd+=(-DCMAKE_TOOLCHAIN_FILE=cmake/toolchain.$target_arch.cmake)
@@ -53,6 +55,10 @@ use_ort=$(grep -i use_ort$ $dxrt_dir/include/dxrt/gen.h)
 
 if [ -n "$use_ort" ]; then
     cmd+=(-DUSE_ORT=True);
+fi
+
+if [ $build_gtest == "true" ]; then
+    cmd+=(-DUSE_DXAPP_TEST=True);
 fi
 
 cmd+=(-DCMAKE_VERBOSE_MAKEFILE=$verbose)
