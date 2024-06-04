@@ -33,9 +33,9 @@ You can also refer to the installation guide, [Here](../README.md#Installation)
   ```shell
   ./build.sh --clean
   ```
-  To specify the compilation environment as arm64 or riscv64, use the **--arch** option.     
+  To specify the compilation environment as aarch64 or riscv64, use the **--arch** option.     
   ```shell
-  ./build.sh --arch arm64
+  ./build.sh --arch aarch64
   # or
   # ./build.sh --arch riscv64
   ```            

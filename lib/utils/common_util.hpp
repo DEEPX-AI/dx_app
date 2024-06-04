@@ -11,26 +11,26 @@ namespace dxapp
 {
 namespace common
 {
-    int get_align_factor(int length, int based)
+    inline int get_align_factor(int length, int based)
     {
-        return based - (length - (length & (-based)));
-    }
+        return (length | (-based)) == (-based)? 0 : -(length | (-based));
+    }    
     
     template<typename T>
-    void readBinary(std::string filePath, T* dst, int elemSize)
+    inline void readBinary(const std::string &filePath, T* dst)
     {
         std::FILE *fp = NULL;
         fp = std::fopen(filePath.c_str(), "rb");
         std::fseek(fp, 0, SEEK_END);
         auto size = ftell(fp);
         std::fseek(fp, 0, SEEK_SET);
-        int read_size = fread((void*)dst, size, elemSize, fp);
+        int read_size = fread((void*)dst, sizeof(T), size, fp);
         if(read_size != size)
-            std::cout << "file size mismatch, fail to read file " << filePath << std::endl;
+            std::cout << "file size mismatch("<<read_size<<", " << size << "), fail to read file " << filePath << std::endl;
         fclose(fp);
     }
 
-    void dumpBinary(void *ptr, int dump_size, std::string file_name)
+    inline void dumpBinary(void *ptr, int dump_size, const std::string &file_name)
     {
         std::ofstream outfile(file_name, std::ios::binary);
         if(!outfile.is_open())
@@ -42,7 +42,7 @@ namespace common
         outfile.close();
     }
     
-    void readCSV(std::string filePath, float* dst, int size)
+    inline void readCSV(const std::string &filePath, float* dst, int size)
     {
         std::ifstream file;
         std::string value;
@@ -54,7 +54,7 @@ namespace common
         file.close();
     }
     
-    int divideBoard(int numImages)
+    inline int divideBoard(int numImages)
     {
         int ret_Div = 1;
         if(numImages < 2) ret_Div = 1;
@@ -68,7 +68,7 @@ namespace common
     }
 
     template<typename T>
-    void show(std::vector<T> vec)
+    inline void show(std::vector<T> vec)
     {
         std::cout << "\n[ ";
         for(auto &v:vec)
@@ -78,7 +78,7 @@ namespace common
         std::cout << " ]" << std::endl;
     }
 
-    bool pathValidation(const std::string &path)
+    inline bool pathValidation(const std::string &path)
     {
         struct stat sb; 
         if(stat(path.c_str(), &sb) == 0)
@@ -88,7 +88,20 @@ namespace common
         return false;
     }
 
-    bool dirValidation(const std::string &path)
+    inline std::string getAllPath(const std::string &path)
+    {
+        if(path[0]=='\\')return path;
+        char* temp = realpath(path.c_str(),NULL);
+        if (temp == nullptr)
+        {
+            return "";
+        }
+        std::string absolutePath(temp);
+        free(temp);
+        return absolutePath;
+    }
+
+    inline bool dirValidation(const std::string &path)
     {
         struct stat sb;
         stat(path.c_str(), &sb);
@@ -99,12 +112,12 @@ namespace common
         return false;
     }
 
-    std::string getFileName(const std::string &path)
+    inline std::string getFileName(const std::string &path)
     {
         return path.substr(path.find_last_of("/\\") + 1);
     }
 
-    std::vector<std::string> loadFilesFromDir(const std::string &path)
+    inline std::vector<std::string> loadFilesFromDir(const std::string &path)
     {
         DIR *dirIter = nullptr;
         struct dirent *entry = nullptr;
@@ -125,7 +138,7 @@ namespace common
         return result;
     }
     
-    std::string getExtension(const std::string& path)
+    inline std::string getExtension(const std::string& path)
     {
         size_t pos = path.find_last_of(".");
         if(pos == std::string::npos) return "";

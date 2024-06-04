@@ -55,7 +55,7 @@ int main(int argc, char *argv[])
             }
             else if(sources.inputType==AppInputType::BINARY)
             {
-                dxapp::common::readBinary(sources.inputPath, input_tensor, 1);
+                dxapp::common::readBinary(sources.inputPath, input_tensor);
             }
             auto outputs = classifier.inferenceEngine->Run(input_tensor);
             if(outputs.size() == 0){

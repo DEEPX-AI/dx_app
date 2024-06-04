@@ -10,7 +10,9 @@
 
 #include "post_process/yolo_post_processing.hpp"
 
-#include "dxapp_api.hpp"
+#include "dxrt/dxrt_api.h"
+#include "common/objects.hpp"
+#include "utils/videostream.hpp"
 #include "app_parser.hpp"
 
 

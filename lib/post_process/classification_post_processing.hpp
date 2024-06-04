@@ -7,7 +7,8 @@
 #include <sstream>
 #include <map>
 
-#include "dxapp_api.hpp"
+#include "dxrt/dxrt_api.h"
+#include "common/objects.hpp"
 
 #include <opencv2/opencv.hpp>
 
@@ -22,7 +23,7 @@ namespace classification
     };
 
     template<typename T>
-    int getArgMax(T* input, int size)
+    inline int getArgMax(T* input, int size)
     {
         int max_idx = 0;
         max_idx = 0;
@@ -34,7 +35,7 @@ namespace classification
         return max_idx;
     }
 
-    std::vector<float> getSoftmax(float* data, int size){
+    inline std::vector<float> getSoftmax(float* data, int size){
         std::vector<float> result;
         std::vector<double> exp_data;
         double exp_data_sum = 0.0;
@@ -51,7 +52,7 @@ namespace classification
         return result;
     }
     
-    common::ClsObject postProcessing(std::vector<std::shared_ptr<dxrt::Tensor>> outputs, PostConfig config){
+    inline common::ClsObject postProcessing(std::vector<std::shared_ptr<dxrt::Tensor>> outputs, PostConfig config){
         common::ClsObject result;
         if(config._outputType==AppOutputType::OUTPUT_ARGMAX)
         {
@@ -60,14 +61,14 @@ namespace classification
         }
         else
         {
-            result._scores = classification::getSoftmax((float*)outputs.back()->data(), config._outputShape[3]);
-            result._top1 = classification::getArgMax(result._scores.data(), config._outputShape[3]);
+            result._scores = classification::getSoftmax((float*)outputs.back()->data(), config._classes.size());
+            result._top1 = classification::getArgMax(result._scores.data(), config._classes.size());
             result._name = config._classes.at(result._top1);
         }
         return result;
     }
 
-    cv::Mat resultViewer(std::string path, common::ClsObject result)
+    inline cv::Mat resultViewer(std::string path, common::ClsObject result)
     {
         cv::Mat viewer;
         char comments[100];

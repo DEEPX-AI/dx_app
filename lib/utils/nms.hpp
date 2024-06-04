@@ -11,7 +11,7 @@ namespace dxapp
 namespace common
 {
     
-    float calcIoU(dxapp::common::BBox a, dxapp::common::BBox b)
+    inline float calcIoU(dxapp::common::BBox a, dxapp::common::BBox b)
     {
         float a_w = a._xmax - a._xmin;
         float a_h = a._ymax - a._ymin;
@@ -29,7 +29,7 @@ namespace common
         return overlap_area / (a_area + b_area - overlap_area);
     }
 
-    dxapp::common::Object scalingObject(dxapp::common::Object src, dxapp::common::Size_f padSize, dxapp::common::Size_f scaleRatio)
+    inline dxapp::common::Object scalingObject(dxapp::common::Object src, dxapp::common::Size_f padSize, dxapp::common::Size_f scaleRatio)
     {
         dxapp::common::Object dst = src;
         dst._bbox._xmin = (src._bbox._xmin - padSize._width) * scaleRatio._width;
@@ -41,7 +41,7 @@ namespace common
         return dst;
     };
 
-    void nms(std::vector<dxapp::common::BBox> rawBoxes, std::vector<std::vector<std::pair<float, int>>> &scoreIndices, float iou_threshold, std::map<uint16_t, std::string> &classes, dxapp::common::Size_f padSize, dxapp::common::Size_f scaleRatio, dxapp::common::DetectObject &result)
+    inline void nms(std::vector<dxapp::common::BBox> rawBoxes, std::vector<std::vector<std::pair<float, int>>> &scoreIndices, float iou_threshold, std::map<uint16_t, std::string> &classes, dxapp::common::Size_f padSize, dxapp::common::Size_f scaleRatio, dxapp::common::DetectObject &result)
     {
         for(size_t idx=0;idx<scoreIndices.size();idx++) // class 
         {
