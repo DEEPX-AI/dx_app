@@ -4,7 +4,7 @@ pushd .
 cmd=()
 DX_SRC_DIR=$PWD
 echo "DX_SRC_DIR the default one $DX_SRC_DIR"
-target_arch=$(uname -p)  
+target_arch=$(uname -m)  
 install_opencv=false  
 install_dep=false  
 build_type='Release'  
@@ -30,7 +30,12 @@ function install_dep()
     install_cmake=false
     if [ "$install_dep" == true ]; then
         echo " Install dependence package tools "
-        sudo apt-get -y install build-essential make zlib1g-dev libcurl4-openssl-dev wget tar zip cmake
+        sudo apt-get update 
+        if [$? -ne 0 ]; then
+            echo "Failed to apt update."
+            exit 1
+        fi
+        sudo apt-get update && apt-get -y install build-essential make zlib1g-dev libcurl4-openssl-dev wget tar zip cmake
         echo ""
         echo " Install python libraries" 
         sudo apt-get -y install python3-dev python3-distutils python3-pip python3-tk python3-lxml python3-six
@@ -67,7 +72,7 @@ function install_opencv()
 {
     if [ "$install_opencv" == true ]; then
         toolchain_define="-D CMAKE_INSTALL_PREFIX=/usr/local "
-        if [ $(uname -p) != "$target_arch" ]; then
+        if [ $(uname -m) != "$target_arch" ]; then
             case "$target_arch" in
               arm64) toolchain_define="-D CMAKE_TOOLCHAIN_FILE=../platforms/linux/aarch64-gnu.toolchain.cmake -D CMAKE_INSTALL_PREFIX=$DX_SRC_DIR/extern/$target_arch "
               ;;
@@ -76,7 +81,7 @@ function install_opencv()
               riscv64) toolchain_define="-D CMAKE_TOOLCHAIN_FILE=../platforms/linux/riscv64-gnu.toolchain.cmake -D CMAKE_INSTALL_PREFIX=$DX_SRC_DIR/extern/$target_arch "
               ;;
             esac  
-            if [ $(uname -p) == "arm64" ] && [ $target_arch == "aarch64" ]; then  
+            if [ $(uname -m) == "arm64" ] && [ $target_arch == "aarch64" ]; then  
                 toolchain_define="-D CMAKE_INSTALL_PREFIX=/usr/local "
             else
                 echo " OpenCV Cross Compilation "
@@ -87,6 +92,11 @@ function install_opencv()
              libavformat-dev libswscale-dev libxvidcore-dev \
              libx264-dev libxine2-dev libv4l-dev v4l-utils libgstreamer1.0-dev \
              libgstreamer-plugins-base1.0-dev libgtk-3-dev libgtk2.0-dev libfreetype*
+
+        if [$? -ne 0]; then
+            echo "Failed to install OpenCV dependent libraries."
+            exit 1
+        fi
         
         if ! test -e $DX_SRC_DIR/util; then 
             mkdir $DX_SRC_DIR/util
@@ -146,6 +156,8 @@ done
 
 if [ $target_arch == "arm64" ]; then
     target_arch=aarch64
+    echo " Use arch64 instead of arm64"
+    exit 1
 fi
 
 install_dep

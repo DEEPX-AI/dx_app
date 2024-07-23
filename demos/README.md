@@ -1,5 +1,5 @@
 
-## DX-APP (DXNN V2)    
+## DX-APP (DX Application)    
 
 **DX-APP** is DEEPX User's Application Templates based on DEEPX devices.    
 This is an application examples that gives you a quick experience of NPU Accelerator performance.     

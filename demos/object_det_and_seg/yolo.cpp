@@ -70,6 +70,15 @@ Yolo::Yolo(YoloParam &_cfg) :cfg(_cfg)
     }
 }
 
+void Yolo::LayerInverse()
+{
+    std::sort(cfg.layers.begin(), cfg.layers.end(), 
+                [&](const YoloLayerParam &a, const YoloLayerParam &b)
+                {
+                    return a.numGridX < b.numGridX;
+                });
+}
+
 static bool scoreComapre(const std::pair<float, int> &a, const std::pair<float, int> &b)
 {
     if(a.first > b.first)
@@ -271,7 +280,6 @@ vector< BoundingBox > Yolo::PostProc(vector<shared_ptr<dxrt::Tensor>> outputs_, 
         float x, y, w, h;
         int numElements = outputs_.front()->shape().front();
         dxrt::DeviceBoundingBox_t *dataSrc = (dxrt::DeviceBoundingBox_t *)outputs_.front()->data();
-        LOG_VALUE(numElements);
         for(uint32_t label=0 ; label<numClasses ; label++)
         {
             ScoreIndices[label].clear();

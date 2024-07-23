@@ -16,7 +16,7 @@ namespace classification
 {
     struct PreConfig {
         std::vector<int64_t> _dstShape;
-        int64_t _dstSize;
+        uint64_t _dstSize;
         AppInputFormat _inputFormat;
         int _alignFactor;
     };

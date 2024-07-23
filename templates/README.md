@@ -1,5 +1,5 @@
 
-## DX-APP (DXNN V2)    
+## DX-APP (DX Application)    
 
 **DX-APP** is DEEPX User's Application Templates based on DEEPX devices.    
 This is an application examples that gives you a quick experience of NPU Accelerator performance.     
@@ -161,13 +161,13 @@ python example code is [here](#Run-ImageNet-Python-Example)
     Write your own decode function by analyzing the following code block.     
 
     ```c
-      dxapp::common::BBox yoloCustomDecode(std::function<float(float)> activation, float* data, dxapp::common::Point grid, dxapp::common::Size anchor, int stride, float scale)
+      dxapp::common::BBox yoloCustomDecode(std::function<float(float)> activation, std::vector<float*> datas, dxapp::common::Point grid, dxapp::common::Size anchor, int stride, float scale)
       {
           /**
            * @brief adding your decode method
            * 
            * example code ..
-           * 
+           *      float* data = datas[0];
            *      dxapp::common::BBox box_temp;
            *      box_temp._xmin = (activation(data[0]) * 2. - 0.5 + grid._x ) * stride; //center x
            *      box_temp._ymin = (activation(data[1]) * 2. - 0.5 + grid._y ) * stride; //center y

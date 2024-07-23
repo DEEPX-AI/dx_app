@@ -196,6 +196,8 @@ int main(int argc, char *argv[])
     dxrt::InferenceEngine ie(modelPath);
     auto yoloParam = yoloParams[paramIdx];
     Yolo yolo = Yolo(yoloParam);
+    if(ie.outputs().front().type() == dxrt::DataType::POSE)
+        yolo.LayerInverse();
     auto& profiler = dxrt::Profiler::GetInstance();
     if(!imgFile.empty())
     {
@@ -205,7 +207,6 @@ int main(int argc, char *argv[])
         cv::Mat resizedFrame = cv::Mat(yoloParam.height, yoloParam.width, CV_8UC3);
         PreProc(frame, resizedFrame, true, true, 114);
         profiler.End("pre");
-        cv::imwrite("resized.jpg", resizedFrame);
         if(!asyncInference)
         {
             profiler.Start("main");
@@ -227,6 +228,7 @@ int main(int argc, char *argv[])
         yolo.ShowResult();
         DisplayBoundingBox(frame, result, yoloParam.height, yoloParam.width, \
             "", "", cv::Scalar(0, 0, 255), objectColors, "result.jpg", 0, -1, true);
+        std::cout << "save file : result.jpg " << std::endl;
         profiler.Show();
         return 0;
     }

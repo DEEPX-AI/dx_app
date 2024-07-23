@@ -248,11 +248,8 @@ int main(int argc, char *argv[])
         // cv::addWeighted( frame, 1.0, result, 0.5, 0.0, blendResultToRaw);
         profiler.End("post-blend");
         cout << dec << inputWidth << "x" << inputHeight << " <- " << frame.cols << "x" << frame.rows << endl;
-        cv::imwrite("result-blend-to-raw.jpg", frame);
-        cv::imwrite("result-segmentation.jpg", result);
-        cv::imwrite("resized.jpg", resizedFrame);
-        cv::imshow("segmentation", frame);
-        cv::waitKey(0);
+        cv::imwrite("result.jpg", frame);
+        std::cout << "save file : result.jpg " << std::endl;
         profiler.Show();
         return 0;
     }
@@ -302,7 +299,7 @@ int main(int argc, char *argv[])
             [&](vector<shared_ptr<dxrt::Tensor>> outputs, void *arg)
             {
                 profiler.Start("post");
-                uint64_t id = *(uint64_t*) arg;
+                int id = *(int*)arg;
                 segFrame[id].setTo(cv::Scalar(0,0,0));
                 Segmentation((uint16_t*)outputs[0]->data(), segFrame[id].data, segFrame[id].rows, segFrame[id].cols, segCfg, 3);
                 lk.lock();
@@ -326,7 +323,7 @@ int main(int argc, char *argv[])
                 PreProc(frame[inIdx], resizedFrame[inIdx], PREPROC_KEEP_IMG_RATIO);
                 profiler.End("pre");
                 profiler.Start("main");
-                int reqId = ie.RunAsync(resizedFrame[inIdx].data, (void*)(intptr_t)inIdx);
+                int reqId = ie.RunAsync(resizedFrame[inIdx].data, &inIdx);
                 UNUSEDVAR(reqId);
                 profiler.End("main");
                 if(!outIdxQueue.empty())

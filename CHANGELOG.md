@@ -1,5 +1,46 @@
 # Changelog 
 
+## [v0.2.4] - 2024-07-22
+### 1. Changed
+- Update models for new architecture
+### 2. Fixed
+- stabilizing python example codes
+### 3. Added
+- None 
+
+## [v0.2.3] - 2024-07-17
+### 1. Changed
+- Update post processing methods for new architecture
+### 2. Fixed
+- None
+### 3. Added
+- None 
+
+## [v0.2.2] - 2024-06-18
+### 1. Changed
+- None
+### 2. Fixed
+- Fix a bug yolo multi demo video loop mode
+### 3. Added
+- None 
+
+## [v0.2.1] - 2024-06-13
+### 1. Changed
+- None
+### 2. Fixed
+- Fix a bug yolo demo video loop mode
+### 3. Added
+- None 
+
+## [v0.2.0] - 2024-06-11  
+### 1. Changed
+- None 
+### 2. Fixed
+- None
+### 3. Added
+- Update usage of custom decode function
+- Add yolopose decode function in template
+
 ## [v0.1.5] - 2024-06-04  
 ### 1. Changed
 - None

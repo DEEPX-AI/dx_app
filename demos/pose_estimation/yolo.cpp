@@ -89,6 +89,15 @@ Yolo::Yolo(YoloParam &_cfg) :cfg(_cfg)
     }
 }
 
+void Yolo::LayerInverse()
+{
+    std::sort(cfg.layers.begin(), cfg.layers.end(), 
+                [&](const YoloLayerParam &a, const YoloLayerParam &b)
+                {
+                    return a.numGridX < b.numGridX;
+                });
+}
+
 static bool scoreComapre(const std::pair<float, int> &a, const std::pair<float, int> &b)
 {
     if(a.first > b.first)
@@ -150,8 +159,8 @@ void Yolo::FilterWithSort(vector<shared_ptr<dxrt::Tensor>> outputs_)
             int strideY = cfg.height / layer.numGridY;
             int numGridX = layer.numGridX;
             int numGridY = layer.numGridY;
-            int tensorIdx0 = layer.tensorIdx[0];
-            int tensorIdx1 = layer.tensorIdx[1];
+            int tensorIdx0 = layer.tensorIdx[1];
+            int tensorIdx1 = layer.tensorIdx[0];
             float scale_x_y = layer.scaleX;
             for(int gY=0; gY<numGridY; gY++)
             {
@@ -305,35 +314,109 @@ vector< BoundingBox > Yolo::PostProc(float *data)
 }
 vector< BoundingBox > Yolo::PostProc(vector<shared_ptr<dxrt::Tensor>> outputs_, void *saveTo)
 {
+    if(outputs_.front()->type()==dxrt::DataType::POSE)
+    {
+        int boxIdx = 0;
+        float x, y, w, h;
+        int numElements = outputs_.front()->shape().front();
+        dxrt::DevicePose_t *dataSrc = (dxrt::DevicePose_t *)outputs_.front()->data();
+        for(uint32_t label=0 ; label<numClasses ; label++)
+        {
+            ScoreIndices[label].clear();
+        }
+        for(int i=0 ; i<numElements ; i++)
+        {
+            dxrt::DevicePose_t *data = dataSrc + i;            
+            auto layer = cfg.layers[data->layer_idx];
+            int strideX = cfg.width / layer.numGridX;
+            int strideY = cfg.height / layer.numGridY;
+            int gX = data->grid_x;
+            int gY = data->grid_y;
+            float scale_x_y = layer.scaleX;            
+
+            ScoreIndices[0].emplace_back(data->score, boxIdx);
+            if(layer.anchorHeight.size()>0)
+            {
+                if(scale_x_y==0)
+                {
+                    x = ( data->x * 2. - 0.5 + gX ) * strideX;
+                    y = ( data->y * 2. - 0.5 + gY ) * strideY;
+                }
+                else
+                {
+                    x = (data->x * scale_x_y  - 0.5 * (scale_x_y - 1) + gX) * strideX;
+                    y = (data->y * scale_x_y  - 0.5 * (scale_x_y - 1) + gY) * strideY;
+                }
+                w = (data->w * data->w * 4.) * layer.anchorWidth[data->box_idx];
+                h = (data->h * data->h * 4.) * layer.anchorHeight[data->box_idx];
+            }
+            else
+            {
+                x = (gX + data->x) * strideX;
+                y = (gY + data->y) * strideY;
+                w = exp(data->w) * strideX;
+                h = exp(data->h) * strideY;
+            }
+            
+
+            for (int k = 0; k < 17; k++) 
+            {
+                Keypoints[boxIdx*51+k*3+0] = (data->kpts[k][0] * 2. - 0.5 + gX) * strideX;
+                Keypoints[boxIdx*51+k*3+1] = (data->kpts[k][1] * 2. - 0.5 + gY) * strideY;
+                Keypoints[boxIdx*51+k*3+2] = data->kpts[k][2];
+            }
+            
+            Boxes[boxIdx*4 + 0] = x - w/2.; /*x1*/
+            Boxes[boxIdx*4 + 1] = y - h/2.; /*y1*/
+            Boxes[boxIdx*4 + 2] = x + w/2.; /*x2*/
+            Boxes[boxIdx*4 + 3] = y + h/2.; /*y2*/
+            boxIdx++;
+        }
+        for(uint32_t label=0 ; label<numClasses ; label++)
+        {
+            sort(ScoreIndices[label].begin(), ScoreIndices[label].end(), scoreComapre);
+        }
+        Nms(
+            numClasses,
+            0,
+            ClassNames, 
+            ScoreIndices, Boxes, Keypoints, cfg.iouThreshold,
+            Result,
+            0
+        );
+    }
+    else if (outputs_.size()>1)
+    {
 #ifdef DUMP_DATA
-    uint32_t dumpSize = 0;
-    for(int i=0;i<outputs.size();i++)
-    {
-        // outputs[i]->Show();        
-        dxrt::DataDumpBin("output."+to_string(i)+".bin", outputs_[i]->data(), outputs_[i]->GetSize());
-        dxrt::DataDumpTxt("output."+to_string(i)+".txt", (float*)outputs_[i]->data(), outputs_[i]->GetShape()[1], outputs_[i]->GetShape()[2], data_align(outputs_[i]->GetShape()[3], 64));
-        // dxrt::DataDumpTxt("output."+to_string(i)+".txt", (float*)outputs_[i]->data(), outputs_[i]->GetShape()[0], outputs_[i]->GetShape()[1], outputs_[i]->GetShape()[2]);
-        dumpSize+=outputs_[i]->GetSize();
-    }
-    dxrt::DataDumpBin("output.bin", outputs_[0]->data(), dumpSize);
+        uint32_t dumpSize = 0;
+        for(int i=0;i<outputs.size();i++)
+        {
+            // outputs[i]->Show();        
+            dxrt::DataDumpBin("output."+to_string(i)+".bin", outputs_[i]->data(), outputs_[i]->GetSize());
+            dxrt::DataDumpTxt("output."+to_string(i)+".txt", (float*)outputs_[i]->data(), outputs_[i]->GetShape()[1], outputs_[i]->GetShape()[2], data_align(outputs_[i]->GetShape()[3], 64));
+            // dxrt::DataDumpTxt("output."+to_string(i)+".txt", (float*)outputs_[i]->data(), outputs_[i]->GetShape()[0], outputs_[i]->GetShape()[1], outputs_[i]->GetShape()[2]);
+            dumpSize+=outputs_[i]->GetSize();
+        }
+        dxrt::DataDumpBin("output.bin", outputs_[0]->data(), dumpSize);
 #endif
-    for(int cls=0;cls<(int)numClasses;cls++)
-    {
-        ScoreIndices[cls].clear();
+        for(int cls=0;cls<(int)numClasses;cls++)
+        {
+            ScoreIndices[cls].clear();
+        }
+        Result.clear();
+        if(concatedTensors)
+            FilterWithSort((float*)outputs_.front()->data());
+        else
+            FilterWithSort(outputs_);
+        Nms(
+            numClasses,
+            0,
+            ClassNames, 
+            ScoreIndices, Boxes, Keypoints, cfg.iouThreshold,
+            Result,
+            0
+        );
     }
-    Result.clear();
-    if(concatedTensors)
-        FilterWithSort((float*)outputs_.front()->data());
-    else
-        FilterWithSort(outputs_);
-    Nms(
-        numClasses,
-        0,
-        ClassNames, 
-        ScoreIndices, Boxes, Keypoints, cfg.iouThreshold,
-        Result,
-        0
-    );
     if(saveTo!=nullptr)
     {
         BoundingBox *boxes = (BoundingBox*)saveTo;

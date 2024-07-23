@@ -75,7 +75,8 @@ public :
         _thread.join();
     };
 
-    void quitThread(){
+    void quitThread()
+    {
         _quit.store(true);
     };
 
@@ -105,6 +106,7 @@ public :
 #else
             UNUSEDVAR(req)
 #endif
+            _profiler.End(_inferName);
             {
                 std::unique_lock<std::mutex> _uniqueLock(_lock);
                 dxapp::common::DetectObject results = _postProcessing.getResult();
@@ -127,6 +129,14 @@ public :
         _vStream.Destructor();
 
     };
+
+    void save()
+    {
+        std::string file_name = dxapp::common::getFileName(_videoPath);
+        cv::imwrite("./result-" + _name + ".jpg", _resultFrame);
+        std::cout << "save file : result-" << _name << ".jpg" <<std::endl;
+    };
+
     ~DetectorApp() = default;
 private:
     std::shared_ptr<dxrt::InferenceEngine> _inferenceEngine;
@@ -199,19 +209,29 @@ public:
         params._input_shape = inputShape;
         params._outputShape = outputShape;
 
+        size_t all_image_count = 0;
+        for(auto const& source_info : config.sourcesInfo)
+        {
+            if(source_info.inputType == AppInputType::IMAGE)
+                all_image_count++;
+        }
+        if(all_image_count == config.sourcesInfo.size())
+            is_all_image = true;
+
         dxrt::DataType outputTensorType = inferenceEngine->outputs().front().type();
         switch (outputTensorType)
         {
         case dxrt::DataType::BBOX:
-            params._decode_method = dxapp::yolo::Decode::BBOX;
+            params._ppu_format = dxapp::yolo::PPUFormat::BBOX;
             break;
         case dxrt::DataType::FACE:
-            params._decode_method = dxapp::yolo::Decode::FACE;
+            params._ppu_format = dxapp::yolo::PPUFormat::FACE;
             break;
         case dxrt::DataType::POSE:
-            params._decode_method = dxapp::yolo::Decode::POSE;
+            params._ppu_format = dxapp::yolo::PPUFormat::POSE;
             break;
         default:
+            params._ppu_format = dxapp::yolo::PPUFormat::NONEPPU;
             break;
         }
 
@@ -251,9 +271,18 @@ public:
         }
         if(config.appType == OFFLINE)
         {
-            std::cout << "[result save mode] ./result.mp4 \n" 
-                      << "Create Thread to save mp4 " << std::endl;
-            saveThread = std::thread(&Detector::saveResult, this);
+            if(is_all_image)
+            {
+                std::cout << "[result save mode] ./xxx.jpg \n" 
+                        << "Create Thread to save jpg " << std::endl;
+                saveThread = std::thread(&Detector::saveImage, this);
+            }
+            else
+            {
+                std::cout << "[result save mode] ./result.avi \n" 
+                        << "Create Thread to save avi " << std::endl;
+                saveThread = std::thread(&Detector::saveResult, this);
+            }
         }
     };
 
@@ -337,6 +366,24 @@ public:
         }
     };
 
+    void saveImage()
+    {
+        {
+            std::unique_lock<std::mutex> _uniqueLock(lock);
+            cv.wait(_uniqueLock, [&](){return !_wait.load();});
+        }
+        while(true)
+        {
+            usleep(100000);
+            for(int idx = 0; idx < static_cast<int>(apps.size()); idx++)
+            {
+                apps[idx]->save();
+            }
+            quitThread();
+            break;
+        }
+    };
+
     void readModelInfo(const char* modelInfo)
     {
         rapidjson::Document doc;
@@ -345,6 +392,7 @@ public:
         auto modelParam = doc["param"].GetObject();
         params._score_threshold = modelParam["score_threshold"].GetFloat();
         params._iou_threshold = modelParam["iou_threshold"].GetFloat();
+        params._kpt_count = 0;
         
         std::string read = "";
         read = modelParam.HasMember("last_activation")?modelParam["last_activation"].GetString():"";
@@ -360,6 +408,10 @@ public:
             params._decode_method = dxapp::yolo::Decode::YOLOX;
         else if(read=="yolo_scale")
             params._decode_method = dxapp::yolo::Decode::YOLOSCALE;
+        else if(read=="yolo_pose")
+            params._decode_method = dxapp::yolo::Decode::YOLO_POSE;
+        else if(read=="scrfd")
+            params._decode_method = dxapp::yolo::Decode::SCRFD;
         else if(read=="custom_decode")
             params._decode_method = dxapp::yolo::Decode::CUSTOM_DECODE;
         else
@@ -370,6 +422,20 @@ public:
             params._box_format = dxapp::yolo::BBoxFormat::XYX2Y2;
         else
             params._box_format = dxapp::yolo::BBoxFormat::CXCYWH;
+        
+        if(params._decode_method == dxapp::yolo::Decode::YOLO_POSE)
+        {
+            read = modelParam["kpt_order"].GetString();
+            if(read=="end")
+                params._kpt_order = dxapp::yolo::KeyPointOrder::BBOX_FRONT;
+            else
+                params._kpt_order = dxapp::yolo::KeyPointOrder::KPT_FRONT;
+            params._kpt_count = modelParam["kpt_count"].GetInt();
+        }
+        else if(params._decode_method == dxapp::yolo::Decode::SCRFD)
+        {
+            params._kpt_count = modelParam["kpt_count"].GetInt();
+        }
 
         for(auto &d:modelParam["layer"].GetArray()){
             auto o = d.GetObject();
@@ -392,6 +458,7 @@ public:
     std::vector<std::vector<int64_t>> outputShape;
     int inputSize;
     int alignFactor;
+    bool is_all_image = false;
     
     std::shared_ptr<dxrt::InferenceEngine> inferenceEngine;
     dxapp::yolo::Params params;
@@ -429,6 +496,12 @@ private:
                             },
                             "box_format": {
                                 "type": "string"
+                            },
+                            "kpt_order": {
+                                "type": "string"
+                            },
+                            "kpt_count": {
+                                "type": "number"
                             },
                             "layer": {
                                 "type": "array",

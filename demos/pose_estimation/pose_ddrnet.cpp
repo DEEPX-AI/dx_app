@@ -197,6 +197,8 @@ int main(int argc, char *argv[])
     dxrt::InferenceEngine seg(seg_model_path);
     auto yoloParam = yolov5s6_pose_640;
     Yolo yolo = Yolo(yoloParam);
+    if(pose.outputs().front().type() == dxrt::DataType::POSE)
+        yolo.LayerInverse();
     auto& profiler = dxrt::Profiler::GetInstance();
     cv::Mat frame[FRAME_BUFFERS];
     cv::Mat poseInput[FRAME_BUFFERS];
@@ -216,8 +218,6 @@ int main(int argc, char *argv[])
         PreProc(frame[0], poseInput[0], true, true, 114);
         PreProc(frame[0], segInput[0], false);
         profiler.End("pre");
-        cv::imwrite("pre-pose.jpg", poseInput[0]);
-        cv::imwrite("pre-seg.jpg", segInput[0]);
         if(!asyncInference)
         {
             profiler.Start("main");
@@ -239,7 +239,7 @@ int main(int argc, char *argv[])
         auto poseResults = yolo.PostProc(poseOutputs);
         profiler.End("post-pose");
         DisplayBoundingBox(frame[0], poseResults, yoloParam.height, yoloParam.width, \
-            "", "", cv::Scalar(0, 0, 255), objectColors, "result-pose.jpg", 0, -1, true);
+            "", "", cv::Scalar(0, 0, 255), objectColors, "", 0, -1, true);
         yolo.ShowResult();
         profiler.Start("post-seg");
         segFrame[0].setTo(cv::Scalar(0,0,0));
@@ -249,6 +249,7 @@ int main(int argc, char *argv[])
         cv::addWeighted(frame[0], 1.0, add, 1.0, 0.0, frame[0]);
         profiler.End("post-seg");
         cv::imwrite("result.jpg", frame[0]);
+        std::cout << "save file : result.jpg " << std::endl;
         profiler.Show();
         return 0;
     }

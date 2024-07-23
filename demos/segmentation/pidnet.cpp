@@ -245,11 +245,8 @@ int main(int argc, char *argv[])
         cv::addWeighted( frame, 0.5, result, 0.5, 0.0, frame);
         profiler.End("post-blend");
         cout << dec << inputWidth << "x" << inputHeight << " <- " << frame.cols << "x" << frame.rows << endl;
-        cv::imwrite("result-blend-to-raw.jpg", frame);
-        cv::imwrite("result-segmentation.jpg", result);
-        cv::imwrite("resized.jpg", resizedFrame);
-        cv::imshow("segmentation", frame);
-        cv::waitKey(0);
+        cv::imwrite("result.jpg", frame);
+        std::cout << "save file : result.jpg " << std::endl;
         profiler.Show();
         return 0;
     }
