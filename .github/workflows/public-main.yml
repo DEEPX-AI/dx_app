@@ -14,7 +14,7 @@ jobs:
         name: checkout
         if: github.repository == 'DEEPX-AI/dx_app'
         runs-on: self-hosted
-        timeout-minutes: 5
+        timeout-minutes: 20
         steps:
             - name: Clean
               run: |

@@ -11,6 +11,70 @@ namespace dxapp
 {
 namespace common
 {
+    static const std::vector<std::vector<int>> skeleton_nodes = {
+        {15, 13},
+        {13, 11},
+        {16, 14},
+        {14, 12},
+        {11, 12},
+        {5, 11},
+        {6, 12},
+        {5, 6},
+        {5, 7},
+        {6, 8},
+        {7, 9},
+        {8, 10},
+        {1, 2},
+        {0, 1},
+        {0, 2},
+        {1, 3},
+        {2, 4},
+        {3, 5},
+        {4, 6},
+    };
+    
+    static const std::vector<cv::Scalar> pose_limb_color = {
+        cv::Scalar(  51   ,  153  ,  255  ),
+        cv::Scalar(  51   ,  153  ,  255  ),
+        cv::Scalar(  51   ,  153  ,  255  ),
+        cv::Scalar(  51   ,  153  ,  255  ),
+        cv::Scalar(  255  ,  51   ,  255  ),
+        cv::Scalar(  255  ,  51   ,  255  ),
+        cv::Scalar(  255  ,  51   ,  255  ),
+        cv::Scalar(  255  ,  128  ,  0    ),
+        cv::Scalar(  255  ,  128  ,  0    ),
+        cv::Scalar(  255  ,  128  ,  0    ),
+        cv::Scalar(  255  ,  128  ,  0    ),
+        cv::Scalar(  255  ,  128  ,  0    ),
+        cv::Scalar(  0    ,  255  ,  0    ),
+        cv::Scalar(  0    ,  255  ,  0    ),
+        cv::Scalar(  0    ,  255  ,  0    ),
+        cv::Scalar(  0    ,  255  ,  0    ),
+        cv::Scalar(  0    ,  255  ,  0    ),
+        cv::Scalar(  0    ,  255  ,  0    ),
+        cv::Scalar(  0    ,  255  ,  0    ),
+    };
+
+    static const std::vector<cv::Scalar> pose_kpt_color = {
+        cv::Scalar(  0    ,  255  ,  0    ),
+        cv::Scalar(  0    ,  255  ,  0    ),
+        cv::Scalar(  0    ,  255  ,  0    ),
+        cv::Scalar(  0    ,  255  ,  0    ),
+        cv::Scalar(  0    ,  255  ,  0    ),
+        cv::Scalar(  255  ,  128  ,  0    ),
+        cv::Scalar(  255  ,  128  ,  0    ),
+        cv::Scalar(  255  ,  128  ,  0    ),
+        cv::Scalar(  255  ,  128  ,  0    ),
+        cv::Scalar(  255  ,  128  ,  0    ),
+        cv::Scalar(  255  ,  128  ,  0    ),
+        cv::Scalar(  51   ,  153  ,  255  ),
+        cv::Scalar(  51   ,  153  ,  255  ),
+        cv::Scalar(  51   ,  153  ,  255  ),
+        cv::Scalar(  51   ,  153  ,  255  ),
+        cv::Scalar(  51   ,  153  ,  255  ),
+        cv::Scalar(  51   ,  153  ,  255  ),
+    };
+
     static const std::vector<cv::Scalar> color_table = 
     {
         cv::Scalar(    113    ,    129    ,    39    ),

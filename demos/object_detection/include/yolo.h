@@ -60,6 +60,7 @@ public:
     ~Yolo();
     Yolo();
     Yolo(YoloParam &_cfg);
+    void LayerInverse();
     /* for concated tensor */
     std::vector< BoundingBox > PostProc(float *data);
     /* for separate tensors */

@@ -38,6 +38,14 @@ namespace common
         dst._bbox._ymax = (src._bbox._ymax - padSize._height) * scaleRatio._height;
         dst._bbox._width = src._bbox._width * scaleRatio._width;
         dst._bbox._height = src._bbox._height * scaleRatio._height;
+        for(auto &kpt:dst._bbox._kpts)
+        {
+            if(kpt._z > 0)
+            {
+                kpt._x = (kpt._x - padSize._width) * scaleRatio._width;
+                kpt._y = (kpt._y - padSize._height) * scaleRatio._height;
+            }
+        }
         return dst;
     };
 

@@ -13,7 +13,7 @@ function help()
 cmd=()
 clean_build=false
 verbose=false
-target_arch=$(uname -p)
+target_arch=$(uname -m)
 build_type=release  
 build_gtest=false
 

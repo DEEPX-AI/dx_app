@@ -64,8 +64,15 @@ int main(int argc, char *argv[])
         }
         else
         {
-            key = (char)getchar();
-            std::cout << "pressed key " << key << std::endl;
+            if(detector.is_all_image)
+            {
+                usleep(100000);
+            }
+            else
+            {
+                key = (char)getchar();
+                std::cout << "pressed key " << key << std::endl;
+            }
         }
 #endif
         switch (key)

@@ -220,6 +220,8 @@ int main(int argc, char *argv[])
     dxrt::InferenceEngine ieSEG(seg_modelpath);
 
     Yolo yolo = Yolo(odCfg);
+    if(ieOD.outputs().front().type() == dxrt::DataType::BBOX)
+        yolo.LayerInverse();
 
     auto& profiler = dxrt::Profiler::GetInstance();
     cv::VideoCapture caps[NUM_VIDEO_FILES];
@@ -263,7 +265,7 @@ int main(int argc, char *argv[])
         profiler.End("post-obj.detection");
         yolo.ShowResult();
         DisplayBoundingBox(frame, OdResult, odCfg.height, odCfg.width,
-                "", "", cv::Scalar(0, 0, 255), objectColors, "result-od.jpg", 0, -1, true);    
+                "", "", cv::Scalar(0, 0, 255), objectColors, "", 0, -1, true);    
         
         /* PostProcessing : Segmentation */
         profiler.Start("post-segment");
@@ -279,12 +281,8 @@ int main(int argc, char *argv[])
         cout << dec << SEG_INPUT_WIDTH << "x" << SEG_INPUT_HEIGHT << " <- " << frame.cols << "x" << frame.rows << endl;
 
         /* Save & Show */
-        cv::imwrite("result-od-seg.jpg", frame);
-        cv::imwrite("result-seg.jpg", SegResult);
-        cv::imwrite("resized-seg.jpg", segInput);
-        cv::imwrite("resized-od.jpg", odInput);
-        cv::imshow(DISPLAY_WINDOW_NAME, frame);
-        cv::waitKey(0);
+        cv::imwrite("result.jpg", frame);
+        std::cout << "save file : result.jpg " << std::endl;
         profiler.Show();
         return 0;
     }

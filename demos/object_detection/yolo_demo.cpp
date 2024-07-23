@@ -168,7 +168,7 @@ bool GetStopFlag()
 
 int main(int argc, char *argv[])
 {
-    int optCmd, loops = 1, paramIdx = 0;
+    int optCmd, loops = -1, paramIdx = 0;
     string modelPath="", imgFile="", videoFile="", binFile="", simFile="", videoOutFile="", OSDstr="";  
     bool cameraInput = false, ispInput = false, 
         asyncInference = false, writeFrame = false;
@@ -249,6 +249,8 @@ int main(int argc, char *argv[])
     dxrt::InferenceEngine ie(modelPath);
     auto yoloParam = yoloParams[paramIdx];
     Yolo yolo = Yolo(yoloParam);
+    if(ie.outputs().front().type() == dxrt::DataType::BBOX)
+        yolo.LayerInverse();
     auto& profiler = dxrt::Profiler::GetInstance();
     if(!imgFile.empty())
     {
@@ -259,7 +261,6 @@ int main(int argc, char *argv[])
         cv::Mat resizedFrame = cv::Mat(yoloParam.height, yoloParam.width, CV_8UC3);
         PreProc(frame, resizedFrame, true, true, 114);
         profiler.End("pre");
-        cv::imwrite("resized.jpg", resizedFrame);
         if(!asyncInference)
         {
             profiler.Start("main");
@@ -269,6 +270,7 @@ int main(int argc, char *argv[])
         else
         {
             int loop;
+            if(loops<0)loops=1;
             for(loop=0;loop<loops;loop++)
             {                
                 profiler.Start("main");            
@@ -290,12 +292,14 @@ int main(int argc, char *argv[])
             yolo.ShowResult();
             DisplayBoundingBox(frame, result, yoloParam.height, yoloParam.width, \
                 "", "", cv::Scalar(0, 0, 255), objectColors, "result.jpg", 0, -1, true);            
+            std::cout << "save file : result.jpg " << std::endl;
         }
         // profiler.Show();
     }
     else if(!videoFile.empty() || cameraInput)
     {
         bool pause = false;
+        double total_frames = 0;
         cv::VideoCapture cap;
         cv::VideoWriter writer;
         cv::Mat frame[FRAME_BUFFERS], resizedFrame[FRAME_BUFFERS];
@@ -312,6 +316,7 @@ int main(int argc, char *argv[])
                 cout << "Error: file " << videoFile << " could not be opened." <<endl;
                 return -1;
             }
+            total_frames = cap.get(cv::CAP_PROP_FRAME_COUNT);
         }
         else
         {
@@ -360,8 +365,16 @@ int main(int argc, char *argv[])
                 profiler.Start("cap");
                 if(!pause)
                 {
-                    cap >> frame[idx];                    
-                    if(frame[idx].empty()) break;
+                    if(cap.get(cv::CAP_PROP_POS_FRAMES) > total_frames - FRAME_BUFFERS)
+                    {
+                        if(loops > 0)
+                            cap.set(cv::CAP_PROP_POS_FRAMES, 0);
+                    }
+                    cap >> frame[idx];
+                    if(frame[idx].empty())
+                    {
+                        break;
+                    }
                     profiler.Start("pre");
                     PreProc(frame[idx], resizedFrame[idx], true, true, 114);
                     profiler.End("pre");

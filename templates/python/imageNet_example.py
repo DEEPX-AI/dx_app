@@ -37,7 +37,11 @@ def run_example(config):
     
     for input_path in input_list:
         image_src = cv2.imread(input_path, cv2.IMREAD_COLOR)
-        image_input = preprocessing(image_src, new_shape=(224, 224), align=64, format=cv2.COLOR_BGR2RGB)
+        if ie.input_size() == 224 * 224 * 3:
+            align = 0
+        else:
+            align = 64
+        image_input = preprocessing(image_src, new_shape=(224, 224), align=align, format=cv2.COLOR_BGR2RGB)
         ie_output = ie.run(image_input)
         
         print("[{}] Top1 Result : class {} ({})".format(input_path, ie_output[0][0], classes[ie_output[0][0]]))
