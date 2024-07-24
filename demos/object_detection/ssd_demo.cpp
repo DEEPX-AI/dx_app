@@ -121,7 +121,7 @@ void *PreProc(cv::Mat &src, cv::Mat &dest, bool keepRatio=true, bool bgr2rgb=tru
             newWidth = dest.cols;
             newHeight = newWidth / ratioSrc;
         }
-        cv::Mat src2 = cv::Mat(newWidth, newHeight, CV_8UC3);
+        cv::Mat src2 = cv::Mat(newHeight, newWidth, CV_8UC3);
         cv::resize(src, src2, Size(newWidth, newHeight), 0, 0, cv::INTER_LINEAR);
         dw = (dest.cols - src2.cols)/2.;
         dh = (dest.rows - src2.rows)/2.;
@@ -236,7 +236,7 @@ int main(int argc, char *argv[])
             profiler.End("post");
             ssd.ShowResult();
             DisplayBoundingBox(frame, result, -1, -1, \
-                "", "", cv::Scalar(0, 0, 255), objectColors, "result-ssd.jpg", 0, -1, true);
+                "", "", cv::Scalar(0, 0, 255), objectColors, "result.jpg", 0, -1, true);
         // cv::waitKey(0);
         profiler.Show();
         return 0;

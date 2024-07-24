@@ -1,4 +1,3 @@
-
 ## DX-APP (DX Application)    
 
 **DX-APP** is DEEPX User's Application Templates based on DEEPX devices.    
@@ -6,8 +5,6 @@ This is an application examples that gives you a quick experience of NPU Acceler
 You can refer to **DX-APP** and modify it a little or implement application depending on the purpose of your use.       
 This can reduce stress, such as setting the environment and implementing the code.    
 Application performance may also depending on the specifications of the host CPU because it includes pre/post processing and graphics processing operations.           
-
-
 
 ## C++ Application Templates     
 
@@ -88,6 +85,9 @@ python example code is [here](#Run-ImageNet-Python-Example)
           "type": "realtime"
       }
     ```     
+    
+    If "type" is "save," the output is saved as a video file. If "type" is "realtime," the output is displayed on the screen. If "type" is "none," the count of detection results is continuously printed.      
+    The current example json file has the "type" set to "none." If you want to save the output, change it to "save."
 
     <p align="center">
       <img src="./readme_images/result_yolov5s.jpg">
@@ -95,8 +95,9 @@ python example code is [here](#Run-ImageNet-Python-Example)
     
     When using the yolo model, the post processing parameters can be modified to suit the use by referring to official yolov5 model. 
     And You can also modify classes information. 
-    You don't have to revise only the json config file to recompile the code. 
-
+    You don't have to revise only the json config file to recompile the code.   
+    The "yolo_basic" method uses the decoding approach from YOLOv3, YOLOv5, YOLOv7. Other methods include "yolo_scale," "yolox," "yolo_pose," and "scrfd."
+    
     Please refer to follow json config file.      
     ```json
       "model":{
@@ -132,6 +133,7 @@ python example code is [here](#Run-ImageNet-Python-Example)
     And it supports multi-channel detection. 
     You can experience multi-channel detection in the form of a checkerboard by writing the image, video, and camera device path in the sources list of the input section.
 
+    When the "type" is "video," you can specify the number of frames. This allows for pre-processing and inference on the specified number of frames in the video.  
     ```json
     "input":{
         "format":"RGB",
@@ -159,7 +161,7 @@ python example code is [here](#Run-ImageNet-Python-Example)
     And If you use a cutomized yolo model instead of the official yolo model, or If you don't use the basic yolo decoding method, 
     You have to write a decode function yourself. You can also refer to the yoloXDecode in the box_decode.hpp.
     Write your own decode function by analyzing the following code block.     
-
+    The code block below is located in path *./lib/utils/box_decode.hpp*.   
     ```c
       dxapp::common::BBox yoloCustomDecode(std::function<float(float)> activation, std::vector<float*> datas, dxapp::common::Point grid, dxapp::common::Size anchor, int stride, float scale)
       {
@@ -220,7 +222,7 @@ python example code is [here](#Run-ImageNet-Python-Example)
   ```   
   Enter the model file as a parameter to **InferecneEngine** module.    
   ```python
-    ie = InferenceEngine("./example/EfficientNetB0_4/graph.dxnn")
+    ie = InferenceEngine("./example/EfficientNetB0_4/EfficientNetB0_4.dxnn")
   ```   
   The dxrt model has input and output tensors that shapes are N H W C format by default. Output tensor data format of current devices is aligned on 64-byte.   
   You should refer to the [Here](python/imageNet_example.py) and re-arrange input data.     
@@ -277,7 +279,7 @@ python example code is [here](#Run-ImageNet-Python-Example)
   ```   
   Enter the model file as a parameter to **InferecneEngine** module.    
   ```python
-    ie = InferenceEngine("./example/YOLOV5S_3/graph.dxnn")
+    ie = InferenceEngine("./example/YOLOV5S_3/YOLOV5S_3.dxnn")
   ```   
   
   ```python

@@ -64,12 +64,13 @@ int main(int argc, char *argv[])
         }
         else
         {
-            if(detector.is_all_image)
+            if(detector.is_all_image && appConfig.appType == OFFLINE)
             {
                 usleep(100000);
             }
             else
             {
+                std::cout << "press 'q' to quit. " << std::endl;
                 key = (char)getchar();
                 std::cout << "pressed key " << key << std::endl;
             }

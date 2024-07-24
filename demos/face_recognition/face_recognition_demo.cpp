@@ -23,6 +23,8 @@
 
 #define FR_THRESHOLD 0.5
 
+static bool g_resultSaveMode = false;
+
 std::vector<cv::Point2f> run_landmark(dxrt::InferenceEngine *ie, cv::Mat image, cv::Rect crop)
 {
     cv::Mat fl_cropped = image(crop);
@@ -99,11 +101,13 @@ cv::Mat make_gallary_view(std::vector<FaceData> gallary)
 
 void run_image(dxrt::InferenceEngine *ie_fd, dxrt::InferenceEngine *ie_fl, dxrt::InferenceEngine *ie_fr, SsdParam fdCfg, std::string dbPath, std::string image_path, float frThreshold)
 {
-    cv::namedWindow("view");
-    cv::moveWindow("view", 0, 0);
-    cv::namedWindow("gallary");
-    cv::moveWindow("gallary", 0, 780);
-    
+    if(!g_resultSaveMode)
+    {
+        cv::namedWindow("view");
+        cv::moveWindow("view", 0, 0);
+        cv::namedWindow("gallary");
+        cv::moveWindow("gallary", 0, 780);
+    }
     int key = 0;
     auto fdDataInfo = ie_fd->outputs();
     Ssd detector = Ssd(fdCfg, fdDataInfo);
@@ -162,10 +166,17 @@ void run_image(dxrt::InferenceEngine *ie_fd, dxrt::InferenceEngine *ie_fl, dxrt:
         position.y -= 32;
         cv::putText(view, id_str, position, 0, 0.6, color, 2);
     }
-
-    cv::imshow("view", view);
-    cv::imshow("gallary", make_gallary_view(gallary));
-    key = cv::waitKey(0);
+    if(!g_resultSaveMode)
+    {
+        cv::imshow("view", view);
+        cv::imshow("gallary", make_gallary_view(gallary));
+        key = cv::waitKey(0);
+    }
+    else
+    {
+        cv::imwrite("./result.jpg", view);
+        std::cout << "save detection and landmark result file : result.jpg " << std::endl;
+    }
     UNUSEDVAR(key);    
 }
 
@@ -194,9 +205,17 @@ void run_image2(dxrt::InferenceEngine *ie_fd, dxrt::InferenceEngine *ie_fl, dxrt
     cv::putText(log, sim_str, cv::Point(8, 32), 0, 0.6, cv::Scalar(0, 255, 255), 2);
 
     cv::vconcat(view1, log, view);
-    cv::imshow("view", view);
+    if(!g_resultSaveMode)
+    {
+        cv::imshow("view", view);
+        key = cv::waitKey(0);
+    }
+    else
+    {
+        cv::imwrite("./result.jpg", view);
+        std::cout << "save result file : result.jpg " << std::endl;
+    }
 
-    key = cv::waitKey(0);
     UNUSEDVAR(key);
 }
 
@@ -227,7 +246,8 @@ void run_image3(dxrt::InferenceEngine *ie_fd, dxrt::InferenceEngine *ie_fl, dxrt
     auto landmark1 = run_landmark(ie_fl, frame1, rect1);
     visualize_landmark(view1, landmark1);
     cv::Mat fr_warped1 = warp(frame1, landmark1);
-    cv::imshow("view1", view1);
+    if(!g_resultSaveMode)
+        cv::imshow("view1", view1);
     
     // for image2
     auto fd_tensors2 = ie_fd->Run(fd_input2.data);
@@ -240,7 +260,8 @@ void run_image3(dxrt::InferenceEngine *ie_fd, dxrt::InferenceEngine *ie_fl, dxrt
     auto landmark2 = run_landmark(ie_fl, frame2, rect2);
     visualize_landmark(view2, landmark2);
     cv::Mat fr_warped2 = warp(frame2, landmark2);
-    cv::imshow("view2", view2);
+    if(!g_resultSaveMode)
+        cv::imshow("view2", view2);
     
     auto face_data1 = run_recognition(ie_fr, fr_warped1, 1);
     auto face_data2 = run_recognition(ie_fr, fr_warped2, 2);
@@ -255,9 +276,18 @@ void run_image3(dxrt::InferenceEngine *ie_fd, dxrt::InferenceEngine *ie_fl, dxrt
     cv::putText(log, sim_str, cv::Point(8, 32), 0, 0.6, cv::Scalar(0, 255, 255), 2);
 
     cv::vconcat(face_warped, log, view);
-    cv::imshow("view", view);
     
-    key = cv::waitKey(0);
+    if(!g_resultSaveMode)
+    {
+        cv::imshow("view", view);
+        key = cv::waitKey(0);
+    }
+    else
+    {
+        cv::imwrite("./result.jpg", view);
+        std::cout << "save result file : result.jpg " << std::endl;
+    }
+    
     UNUSEDVAR(key);
 }
 
@@ -565,6 +595,7 @@ const char *usage =
     "  -c,  --camera             use camera input\n"
     "  -t,  --tracker            use tracker function\n"
     "  -d,  --detect             include face detection (for dual image test)\n"
+    "  -s,  --savemode           include face detection (for dual image test)\n"
     "  -h,  --help               show help\n";
 void help()
 {
@@ -577,7 +608,7 @@ int main(int argc, char *argv[])
     std::string dbPath = "", videoFile = "", imgFile[2] = {""};
     std::string fd_modelPath = "", lm_modelPath = "", fr_modelPath = "";
     bool cameraInput = false, tracking = false;
-    bool withFaceDetection = false;
+    bool withFaceDetection = false, resultSaveMode = false;
     float frThreshold = FR_THRESHOLD;
     if (argc == 1)
     {
@@ -612,6 +643,8 @@ int main(int argc, char *argv[])
                                 tracking = true;
         else if(arg == "-d")
                                 withFaceDetection = true;
+        else if(arg == "-s")
+                                resultSaveMode = true;
         else if(arg == "-h")
                                 help(), exit(0);
         else
@@ -623,6 +656,7 @@ int main(int argc, char *argv[])
         help();
         exit(0);
     }
+    g_resultSaveMode = resultSaveMode;
     dxrt::InferenceEngine ie_fd(fd_modelPath);
     dxrt::InferenceEngine ie_lm(lm_modelPath);
     dxrt::InferenceEngine ie_fr(fr_modelPath);
