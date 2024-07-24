@@ -1033,6 +1033,6 @@
     },
     "application": {
         "description": "result of post-processing after inference, you can use \"save\" or \"realtime\" or \"none\"",
-        "type": "save"
+        "type": "none"
     }
 }
