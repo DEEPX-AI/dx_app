@@ -324,6 +324,7 @@ vector< BoundingBox > Yolo::PostProc(vector<shared_ptr<dxrt::Tensor>> outputs_, 
         {
             ScoreIndices[label].clear();
         }
+        Result.clear();
         for(int i=0 ; i<numElements ; i++)
         {
             dxrt::DevicePose_t *data = dataSrc + i;            
