@@ -120,6 +120,7 @@ namespace common
         float _ymax;
         float _width;
         float _height;
+        std::vector<Point_f> _kpts;
         friend std::ostream& operator<<(std::ostream& os, const BBox& a)
         {
             os << a._xmin << ", " << a._ymin << ", " << a._width << ", " << a._height;

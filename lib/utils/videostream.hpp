@@ -70,6 +70,11 @@ public:
 //for GetOutputStream
     int _outGetCnt = 0;
 
+//for Input Alignment
+    bool _need_preproc = false;
+    int _align_factor = 0;
+    vector<uint8_t> _imgBuffer;
+
     VideoStream(AppInputType srcType, std::string srcPath, int preLoadNum, dxapp::common::Size npuSize, AppInputFormat npuColorFormat, dxapp::common::Size dstSize, std::shared_ptr<dxrt::InferenceEngine> inferenceEngine, int cam_fps = 30, int cam_width = 1280, int cam_height = 720)
             : _srcType(srcType), _srcPath(srcPath), _preLoadNum(preLoadNum), _npuSize(npuSize), _npuColorFormat(npuColorFormat), _dstSize(dstSize), _inferenceEngine(inferenceEngine), _cam_fps(cam_fps), _cam_width(cam_width), _cam_height(cam_height)
     {
@@ -113,6 +118,8 @@ public:
                 _srcSize._width = _video.get(cv::CAP_PROP_FRAME_WIDTH);
                 _srcSize._height = _video.get(cv::CAP_PROP_FRAME_HEIGHT);
                 _tot_frame = _video.get(cv::CAP_PROP_FRAME_COUNT);
+                if(preLoadNum==0)
+                    _preLoadNum = _tot_frame;
             break;
 
             case CAMERA :
@@ -208,6 +215,20 @@ public:
             _fillPadvalue = 114;
         }
 
+    //Input Alignment
+        auto npu_input_length = _inferenceEngine->input_size();
+        auto npu_input_shape = _inferenceEngine->inputs().front().shape();
+        uint64_t factorize_shape = 1;
+        for(auto &i:npu_input_shape){
+            factorize_shape *= (uint64_t)i;
+        }
+        if(factorize_shape != npu_input_length)
+        {
+            _need_preproc = true;
+            _imgBuffer = vector<uint8_t>(npu_input_length, 0);
+            _align_factor = dxapp::common::get_align_factor(_npuSize._width * 3, 64);
+        }
+
     //PreloadNum
         if(_srcMode == PRELOAD) 
         {
@@ -216,7 +237,6 @@ public:
                 Preprocess();
             }
         }        
-
     };
     VideoStream(){};
     ~VideoStream(){
@@ -313,6 +333,18 @@ public:
                 break;
         }
     };    
+    
+    void data_pre_processing(uint8_t* src, uint8_t* dst)
+    {
+        int copy_size = (int)(_npuSize._width * 3);
+        for(int y=0; y<_npuSize._height; ++y)
+        {
+            memcpy(&dst[y * (copy_size + _align_factor)],
+                &src[y * copy_size], 
+                copy_size
+                );
+        }
+    };
 
     void Preprocess(void)
     {   
@@ -368,11 +400,24 @@ public:
             if(_srcMode == RUNTIME)
             {
                 Preprocess();
-                img = _preImg_runtime;
+                if(_need_preproc)
+                {
+                    data_pre_processing(_preImg_runtime.data, _imgBuffer.data());
+                    img.data = _imgBuffer.data();
+                }
+                else
+                    img = _preImg_runtime;
             }         
             else
             {
-                img = _preImg[_preGetCnt];
+                
+                if(_need_preproc)
+                {
+                    data_pre_processing(_preImg[_preGetCnt].data, _imgBuffer.data());
+                    img.data = _imgBuffer.data();
+                }
+                else
+                    img = _preImg[_preGetCnt];
                 _preGetCnt++;            
                 if(_preGetCnt>=_preLoadNum)
                 {
@@ -411,6 +456,37 @@ public:
                             dxapp::common::color_table[obj._classId], cv::FILLED);
         cv::putText(dst, obj._name, cv::Point(obj._bbox._xmin, obj._bbox._ymin), cv::FONT_HERSHEY_SIMPLEX, 0.4, cv::Scalar(255,255,255));       
     };
+    
+    void DrawPoseKpt(cv::Mat& dst, dxapp::common::Object& obj)
+    {
+        for(size_t idx=0;idx<dxapp::common::skeleton_nodes.size();++idx)
+        {
+            auto node = dxapp::common::skeleton_nodes[idx];
+            auto point0 = obj._bbox._kpts[node[0]];
+            auto point1 = obj._bbox._kpts[node[1]];
+            if(point0._x >= 0 && point1._x >= 0)
+            {
+                cv::line(dst, cv::Point2f(point0._x, point0._y), cv::Point2f(point1._x, point1._y), 
+                                dxapp::common::pose_limb_color[idx], 2, cv::LINE_AA);
+            }
+        }
+        for(size_t idx=0;idx<obj._bbox._kpts.size();++idx)
+        {
+            auto point = obj._bbox._kpts[idx];
+            cv::circle(dst, cv::Point2f(point._x, point._y), 3, 
+                                dxapp::common::pose_kpt_color[idx], -1, cv::LINE_AA);
+        }
+    };
+    
+    void DrawFaceKpt(cv::Mat& dst, dxapp::common::Object& obj)
+    {
+        for(size_t idx=0;idx<obj._bbox._kpts.size();++idx)
+        {
+            auto point = obj._bbox._kpts[idx];
+            cv::circle(dst, cv::Point2f(point._x, point._y), 3, 
+                                cv::Scalar(255, 255, 0), -1, cv::LINE_AA);
+        }
+    };
 
     cv::Mat GetOutputStream(dxapp::common::DetectObject& obj)
     {
@@ -447,7 +523,11 @@ public:
             for(size_t i=0;i<obj._detections.size();i++)
             {
                 DrawBox(dstImg, obj._detections[i]);
-                DrawCaption(dstImg, obj._detections[i]);                    
+                DrawCaption(dstImg, obj._detections[i]);
+                if(obj._detections[i]._bbox._kpts.size() == 17)
+                    DrawPoseKpt(dstImg, obj._detections[i]);
+                else if(obj._detections[i]._bbox._kpts.size() == 5)
+                    DrawFaceKpt(dstImg, obj._detections[i]);
             }
         }
 

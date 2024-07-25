@@ -2,7 +2,7 @@
     "description": "run classification application ",
     "usage": "classification",
     "model": {
-        "path": "example/EfficientNetB0_4/graph.dxnn"
+        "path": "example/EfficientNetB0_4/EfficientNetB0_4.dxnn"
     },
     "input": {
         "description": "input_format = image or bin",
@@ -1033,6 +1033,6 @@
     },
     "application": {
         "description": "result of post-processing after inference, you can use \"save\" or \"realtime\" or \"none\"",
-        "type": "save"
+        "type": "none"
     }
 }

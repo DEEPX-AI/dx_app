@@ -1,4 +1,4 @@
-## DX-APP (DXNN V2)             
+## DX-APP (DX Application)             
 
 **DX-APP** is DEEPX User's Application Templates based on DEEPX devices.    
 
@@ -14,14 +14,14 @@ Install the followings first.
 - Install dxrt library and driver ([Link](https://github.com/DEEPX-AI/dx_rt/blob/main/docs/Getting-Started.md))     
 - model compiled for DEEPX's NPU chips ([Link](https://deepx.ai/model-zoo/))   
 ### Installation    
-- **Dxnnv2 Drivers**        
-  After installing the dxnnv2 driver, the PCIe driver and the runtime driver. This can be verified with the lsmod command.        
+- **DX_RT Drivers**        
+  After installing the dxrt driver, the PCIe driver and the runtime driver. This can be verified with the lsmod command.        
   ```shell
   lsmod | grep dx
   # dxrt_driver       36864  2
   # dx_dma           139264  5 dxrt_driver
   ```
-- **Dxnnv2 library**                   
+- **DX_RT library**                   
   After building, the runtime library and headers will be installed in /usr/local/lib and /usr/local/include                
   You can also modify your runtime directory in [cmake/toolchain.xx.cmake](cmake/toolchain.x86_64.cmake)     
   ```Makefile
@@ -29,7 +29,7 @@ Install the followings first.
   set(DXRT_INSTALLED_DIR /usr/local)
   ...
   ```          
-- **Clone dx_app v2**         
+- **Clone DX_APP**         
   clone this project, and just build 
   ```shell
   git clone git@github.com:DEEPX-AI/dx_app.git      
@@ -76,4 +76,13 @@ Install the followings first.
   ```shell 
   $ ./scripts/run_detector.sh
   ```                  
+- If error while loading shared library (libdxrt.so), Try to update Library Cache.      
+  ```shell
+  # copy your library to /usr/local/lib
+  # update the system's library cache.
+
+  sudo cp your_library.so /usr/local/lib
+  sudo ldconfig 
+  ```   
+
   [Here](demos/README.md) For details to run demo applications and [Here](templates/README.md) to run templates.         

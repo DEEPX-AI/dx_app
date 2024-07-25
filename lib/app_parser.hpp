@@ -95,8 +95,10 @@ public:
             appUsage = AppUsage::FACEID;
         else if(read=="segmentation")
             appUsage = AppUsage::SEGMENTATION;
-        else if(read=="yolopose")
+        else if(read=="yolo_pose")
             appUsage = AppUsage::YOLOPOSE;
+        else
+            appUsage = AppUsage::DETECTION;
         
         uint16_t i = 0;
         for(auto &d:doc["output"]["classes"].GetArray()){

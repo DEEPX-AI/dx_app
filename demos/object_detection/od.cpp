@@ -57,6 +57,8 @@ ObjectDetection::ObjectDetection(std::shared_ptr<dxrt::InferenceEngine> ie, std:
     _resultFrame = cv::Mat(_destHeight, _destWidth, CV_8UC3, cv::Scalar(0, 0, 0));
     _queueFrame.push(cv::Mat(_destHeight, _destWidth, CV_8UC3)); 
     yolo = Yolo(yoloParam);
+    if(_ie->outputs().front().type() == dxrt::DataType::BBOX)
+        yolo.LayerInverse();
 }
 ObjectDetection::ObjectDetection(std::shared_ptr<dxrt::InferenceEngine> ie, int channel, int destWidth, int destHeight, int posX, int posY)
 : _ie(ie), _profiler(dxrt::Profiler::GetInstance()), _channel(channel+1), _destWidth(destWidth), _destHeight(destHeight), _posX(posX), _posY(posY)
@@ -86,7 +88,8 @@ dxapp::common::DetectObject ObjectDetection::GetScalingBBox(vector<BoundingBox>&
             ._xmax = (b.box[2] - _postprocPaddedSize._width) * _postprocScaleRatio._width,
             ._ymax = (b.box[3] - _postprocPaddedSize._height) * _postprocScaleRatio._height,
             ._width = (b.box[2] - b.box[0]) * _postprocScaleRatio._width,
-            ._height = (b.box[3] - b.box[1]) * _postprocScaleRatio._height
+            ._height = (b.box[3] - b.box[1]) * _postprocScaleRatio._height,
+            ._kpts = {dxapp::common::Point_f(-1 , -1, -1)}
         };
         dxapp::common::Object object = {
             ._bbox=box,

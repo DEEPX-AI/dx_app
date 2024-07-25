@@ -1,5 +1,4 @@
-
-## DX-APP (DXNN V2)    
+## DX-APP (DX Application)    
 
 **DX-APP** is DEEPX User's Application Templates based on DEEPX devices.    
 This is an application examples that gives you a quick experience of NPU Accelerator performance.     
@@ -66,13 +65,13 @@ You can also refer to the installation guide, [Here](../README.md#Installation)
 ### Run Classification     
   - **Classification**       
     ```shell 
-    $ ./bin/classification -m example/EfficientNetB0_4/graph.dxnn -i example/ILSVRC2012/0.jpeg
+    $ ./bin/classification -m example/EfficientNetB0_4/EfficientNetB0_4.dxnn -i example/ILSVRC2012/0.jpeg
     ...
     Top1 Result : class 831
     ```             
   - **ImageNet Classification** 
     ```shell
-    $ ./bin/imagenet_classification -m example/EfficientNetB0_4/graph.dxnn -i example/imagenet_val_map.txt -p example/ILSVRC2012/
+    $ ./bin/imagenet_classification -m example/EfficientNetB0_4/EfficientNetB0_4.dxnn -i example/imagenet_val_map.txt -p example/ILSVRC2012/
     ```
     <p align="center">
       <img src="./readme_images/result_imagenet.jpg">
@@ -83,7 +82,7 @@ You can also refer to the installation guide, [Here](../README.md#Installation)
     Example excutable for yolov5s_512 model.
     
     ```shell 
-    $ ./bin/yolo -m example/YOLOV5S_3/graph.dxnn -i sample/1.jpg -p 1
+    $ ./bin/yolo -m example/YOLOV5S_3/YOLOV5S_3.dxnn -i sample/1.jpg -p 1
     ...
       Detected 8 boxes.
         BBOX:person(0) 0.859366, (307.501, 138.443, 400.977, 364.696)
@@ -157,6 +156,7 @@ You can also refer to the installation guide, [Here](../README.md#Installation)
     As like above yolo model list, You need to modify or create a json config file. 
     The example json file is located in [sample/test_od_demo.json](../sample/test_od_demo.json) and must be modified for use. 
     Refer to following configuration json file.      
+    When in `offline` mode and a video file is inserted in `video_sources`, you can specify the number of frames in the third parameter. This allows for pre-processing and inference on the specified number of frames in the video.   
 
     ```json
     {
@@ -319,7 +319,7 @@ You can also refer to the installation guide, [Here](../README.md#Installation)
     This project was produced with reference to DDRNet and yolov5 models.      
     
     ```shell
-    $ ./bin/od_ddr -m0 example/YOLOV5S_3/graph.dxnn -m1 /your-segmentation-model-path/graph.dxnn -i sample/7.jpg
+    $ ./bin/od_ddr -m0 example/YOLOV5S_3/YOLOV5S_3.dxnn -m1 /your-segmentation-model-path/graph.dxnn -i sample/7.jpg
     ```     
     <p align="center">
       <img src="./readme_images/result_yolo_seg.jpg">
@@ -329,7 +329,7 @@ You can also refer to the installation guide, [Here](../README.md#Installation)
     This project was produced with reference to DDRNet and yolov5 models.      
     
     ```shell
-    $ ./bin/od_pid -m0 example/YOLOV5S_3/graph.dxnn -m1 /your-cityscape-segmentation-model-path/graph.dxnn -i sample/8.jpg
+    $ ./bin/od_pid -m0 example/YOLOV5S_3/YOLOV5S_3.dxnn -m1 /your-cityscape-segmentation-model-path/graph.dxnn -i sample/8.jpg
     ```     
     <p align="center">
       <img src="./readme_images/result_yolo_cityscape_seg.jpg">

@@ -2,7 +2,7 @@
     "description": "run yolo detector",
     "usage": "detection",
     "model": {
-        "path": "./example/YOLOV5S_3/graph.dxnn",
+        "path": "./example/YOLOV5S_3/YOLOV5S_3.dxnn",
         "param": {
             "name": "YOLOV5S_3",
             "score_threshold": 0.3,
@@ -153,7 +153,7 @@
     },
     "application": {
         "description": "result of post-processing after inference, you can use \"save\" or \"realtime\" or \"none\"",
-        "type": "none",
+        "type": "save",
         "resolution": [
             960,
             540

@@ -153,8 +153,8 @@ void Ssd::FilterWithSoftmax(float *org, vector<shared_ptr<dxrt::Tensor>> outputs
             {
                 if (org == nullptr)
                 {
-                    classScore = (float *)(static_cast<uint8_t*>(outputs_[2 * tensorIdx + 1]->data()) + sizeof(float) * outputLayer.scoreAlign * (gY * numGridX + gX));
-                    boxLocation = (float *)(static_cast<uint8_t*>(outputs_[2 * tensorIdx]->data()) + sizeof(float) * outputLayer.locAlign * (gY * numGridX + gX));
+                    classScore = (float *)(static_cast<uint8_t*>(outputs_[2 * tensorIdx]->data()) + sizeof(float) * outputLayer.scoreAlign * (gY * numGridX + gX));  
+                    boxLocation = (float *)(static_cast<uint8_t*>(outputs_[2 * tensorIdx + 1]->data()) + sizeof(float) * outputLayer.locAlign * (gY * numGridX + gX));
                 }
                 else
                 {
