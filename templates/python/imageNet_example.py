@@ -21,6 +21,12 @@ def preprocessing(image, new_shape=(224, 224), align=64, format=None):
         
     return image_input
 
+def postprocessing(outputs, n_classes):
+    outputs = outputs[...,:n_classes]
+    exp_result = np.exp(outputs - np.max(outputs))
+    exp_result = exp_result / exp_result.sum()
+    top1 = np.argmax(exp_result)
+    return top1
 
 def run_example(config):
     model_path = config["model"]["path"]
@@ -43,8 +49,11 @@ def run_example(config):
             align = 64
         image_input = preprocessing(image_src, new_shape=(224, 224), align=align, format=cv2.COLOR_BGR2RGB)
         ie_output = ie.run(image_input)
-        
-        print("[{}] Top1 Result : class {} ({})".format(input_path, ie_output[0][0], classes[ie_output[0][0]]))
+        if(len(ie_output[0].shape) > 1):
+            output = postprocessing(ie_output[0], len(classes))
+        else:
+            output = ie_output[0][0]
+        print("[{}] Top1 Result : class {} ({})".format(input_path, output, classes[output]))
     
 
 
