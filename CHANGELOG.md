@@ -1,5 +1,15 @@
 # Changelog 
 
+## [v1.0.0] - 2024-08-02
+### 1. Changed
+- dxnn version up(v6). so prior dxnn models will not work from this version.
+- Update to dxnn model file version 6
+- Update imagenet example python code for none argmax model
+### 2. Fixed
+- Fix a install script syntex error
+### 3. Added
+- None  
+
 ## [v0.2.4] - 2024-07-22
 ### 1. Changed
 - Update models for new architecture

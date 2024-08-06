@@ -31,7 +31,7 @@ function install_dep()
     if [ "$install_dep" == true ]; then
         echo " Install dependence package tools "
         sudo apt-get update 
-        if [$? -ne 0 ]; then
+        if [ $? -ne 0 ]; then
             echo "Failed to apt update."
             exit 1
         fi
@@ -91,9 +91,9 @@ function install_opencv()
         sudo apt -y install libopencv-dev python3-opencv libjpeg-dev libtiff5-dev libpng-dev libavcodec-dev \
              libavformat-dev libswscale-dev libxvidcore-dev \
              libx264-dev libxine2-dev libv4l-dev v4l-utils libgstreamer1.0-dev \
-             libgstreamer-plugins-base1.0-dev libgtk-3-dev libgtk2.0-dev libfreetype*
+             libgstreamer-plugins-base1.0-dev libgtk2.0-dev libfreetype*
 
-        if [$? -ne 0]; then
+        if [ $? -ne 0 ]; then
             echo "Failed to install OpenCV dependent libraries."
             exit 1
         fi
