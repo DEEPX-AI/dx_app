@@ -247,11 +247,11 @@ python example code is [here](#Run-ImageNet-Python-Example)
 **Getting the usage of executable, Try run with "--help" option.**
   - **Object Detection**       
   ```shell 
-  $ python template/python/yolov5s.py
+  $ python template/python/yolov5s_example.py
   ```             
   or      
   ```shell 
-  $ python template/python/yolov5s.py --config example/yolov5s3_example.json
+  $ python template/python/yolov5s_example.py --config example/yolov5s3_example.json
     ...
     [Result] Detected 10 Boxes.
     [0] conf, classID, x1, y1, x2, y2, : 0.8771, person(0), 307, 139, 401, 364

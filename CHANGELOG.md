@@ -1,5 +1,14 @@
 # Changelog 
 
+## [v1.0.1] - 2024-08-08
+### 1. Changed
+- None
+### 2. Fixed
+- Fix a bug that occurred during the build with onnxruntime.
+- modify install script to stabilize the installation.
+### 3. Added
+- None  
+
 ## [v1.0.0] - 2024-08-02
 ### 1. Changed
 - dxnn version up(v6). so prior dxnn models will not work from this version.

@@ -94,6 +94,11 @@ function install_opencv()
              libgstreamer-plugins-base1.0-dev libgtk2.0-dev libfreetype*
 
         if [ $? -ne 0 ]; then
+            sudo apt-get clean && sudo apt update && sudo apt-get -y upgrade
+            sudo apt -y install libgstreamer-plugins-base1.0-dev
+        fi
+
+        if [ $? -ne 0 ]; then
             echo "Failed to install OpenCV dependent libraries."
             exit 1
         fi
