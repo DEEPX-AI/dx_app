@@ -1,5 +1,13 @@
 # Changelog 
 
+## [v1.0.2] - 2024-08-22
+### 1. Changed
+- None
+### 2. Fixed
+- Fix output layers order distortion problem
+### 3. Added
+- Supporting RTSP URL input for yolo & yolo_multi & run_detector application
+
 ## [v1.0.1] - 2024-08-08
 ### 1. Changed
 - None

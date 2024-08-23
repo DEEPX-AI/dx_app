@@ -85,6 +85,7 @@ static struct option const opts[] = {
     { "video", required_argument, 0, 'v' },
     { "write", required_argument, 0, 'w' },
     { "camera", no_argument, 0, 'c' },
+    { "rtsp", required_argument, 0, 'r' },
     { "isp", no_argument, 0, 'x' },
     { "bin",  required_argument, 0, 'b' },
     { "sim", required_argument, 0, 's' },
@@ -102,6 +103,7 @@ const char* usage =
 "  -v, --video     use video file input\n"
 "  -w, --write     write result frames to a video file\n"
 "  -c, --camera    use camera input\n"
+"  -r, --rtsp      use rtsp input\n"
 "  -x, --isp       use ISP input\n"
 "  -b, --bin       use binary file input\n"
 "  -s, --sim       use pre-defined npu output binary file input( perform post-proc. only )\n"
@@ -169,7 +171,7 @@ bool GetStopFlag()
 int main(int argc, char *argv[])
 {
     int optCmd, loops = -1, paramIdx = 0;
-    string modelPath="", imgFile="", videoFile="", binFile="", simFile="", videoOutFile="", OSDstr="";  
+    string modelPath="", imgFile="", videoFile="", binFile="", simFile="", videoOutFile="", OSDstr="", rtspPath="";  
     bool cameraInput = false, ispInput = false, 
         asyncInference = false, writeFrame = false;
     vector<unsigned long> inputPtr;
@@ -203,6 +205,9 @@ int main(int argc, char *argv[])
             case 'c':
                 cameraInput = true;
                 break;
+            case 'r':
+                rtspPath = strdup(optarg);
+                break;
             case 'x':
                 ispInput = true;
                 break;
@@ -230,6 +235,7 @@ int main(int argc, char *argv[])
     }
     LOG_VALUE(modelPath);
     LOG_VALUE(videoFile);
+    LOG_VALUE(rtspPath);
     LOG_VALUE(imgFile);
     LOG_VALUE(binFile);
     LOG_VALUE(simFile);
@@ -250,7 +256,9 @@ int main(int argc, char *argv[])
     auto yoloParam = yoloParams[paramIdx];
     Yolo yolo = Yolo(yoloParam);
     if(ie.outputs().front().type() == dxrt::DataType::BBOX)
-        yolo.LayerInverse();
+        yolo.LayerInverse(1);
+    else if(ie.outputs().front().type() == dxrt::DataType::FLOAT)
+        yolo.LayerInverse(0);
     auto& profiler = dxrt::Profiler::GetInstance();
     if(!imgFile.empty())
     {
@@ -296,7 +304,7 @@ int main(int argc, char *argv[])
         }
         // profiler.Show();
     }
-    else if(!videoFile.empty() || cameraInput)
+    else if(!videoFile.empty() || !rtspPath.empty() || cameraInput)
     {
         bool pause = false;
         double total_frames = 0;
@@ -320,7 +328,10 @@ int main(int argc, char *argv[])
         }
         else
         {
-            cap.open(0, cv::CAP_V4L2);
+            if(cameraInput)
+                cap.open(0, cv::CAP_V4L2);
+            else
+                cap.open(rtspPath);
             cap.set(CAP_PROP_FOURCC, VideoWriter::fourcc('M','J','P','G'));
             cap.set(CAP_PROP_FRAME_WIDTH, CAMERA_FRAME_WIDTH);
             cap.set(CAP_PROP_FRAME_HEIGHT, CAMERA_FRAME_HEIGHT);

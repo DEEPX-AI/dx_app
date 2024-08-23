@@ -203,7 +203,22 @@ You can also refer to the installation guide, [Here](../README.md#Installation)
         return yolov5s_512;
     }
     ```
-    
+    You can run a demo using an `RTSP` video stream by specifying the `RTSP URL` and the network type (e.g., "ethernet").    
+    Use the following json file :   
+    ```json
+    {
+          .
+          .
+          .
+          "video_sources": [
+                          ["rtsp://your_rtsp_stream_address", "ethernet"]
+          ], 
+          .
+          .
+          .
+    }
+    ```
+
 ### Run Pose Estimation      
   - **Pose Estimation**       
     This project was produced with reference to Ultralytics yolo pose model.         

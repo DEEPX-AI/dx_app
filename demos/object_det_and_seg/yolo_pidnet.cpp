@@ -221,7 +221,9 @@ int main(int argc, char *argv[])
 
     Yolo yolo = Yolo(odCfg);
     if(ieOD.outputs().front().type() == dxrt::DataType::BBOX)
-        yolo.LayerInverse();
+        yolo.LayerInverse(1);
+    else if(ieOD.outputs().front().type() == dxrt::DataType::FLOAT)
+        yolo.LayerInverse(0);
 
     auto& profiler = dxrt::Profiler::GetInstance();
     cv::VideoCapture caps[NUM_VIDEO_FILES];

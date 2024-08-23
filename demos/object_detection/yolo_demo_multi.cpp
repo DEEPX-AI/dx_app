@@ -217,17 +217,7 @@ YoloParam yoloParam;
 
 static int devideBoard(int numImages)
 {
-    int ret_Div = 1;
-    if(numImages < 2) ret_Div = 1;
-    else if(numImages < 5) ret_Div = 2;
-    else if(numImages < 10) ret_Div = 3;
-    else if(numImages < 17) ret_Div = 4;
-    else if(numImages < 26) ret_Div = 5;
-    else if(numImages < 37) ret_Div = 6;
-    else if(numImages < 50) ret_Div = 7;
-    else if(numImages < 65) ret_Div = 8;
-    else if(numImages < 82) ret_Div = 9;
-    return ret_Div;
+    return (int)ceil(sqrt(numImages));
 }
 
 int main(int argc, char *argv[])
@@ -272,6 +262,7 @@ int main(int argc, char *argv[])
     const int BOARD_HEIGHT = appConfig.board_height;
 
     int div = devideBoard(appConfig.video_sources.size());
+    LOG_VALUE(div)
     int divWidth = BOARD_WIDTH / div;
     int divHeight = BOARD_HEIGHT / div;
     if(appConfig.is_expand_mode && appConfig.video_sources.size()!=33 && appConfig.video_sources.size()!=73 && appConfig.video_sources.size()!= 61 && appConfig.video_sources.size()!=41) {

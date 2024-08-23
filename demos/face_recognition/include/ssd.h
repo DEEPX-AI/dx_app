@@ -62,6 +62,7 @@ private:
     uint32_t numClasses;
     uint32_t numBoxes;
     uint32_t numLayers;
+    int location_front = 1;
     struct OutputLayer
     {
         unsigned int locAlign;
