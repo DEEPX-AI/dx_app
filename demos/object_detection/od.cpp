@@ -19,6 +19,8 @@ ObjectDetection::ObjectDetection(std::shared_ptr<dxrt::InferenceEngine> ie, std:
         inputType = AppInputType::CAMERA;
     else if(_videoSrc.second == "image")
         inputType = AppInputType::IMAGE;
+    else if(_videoSrc.second == "ethernet")
+        inputType = AppInputType::ETHERNET;
 #if __riscv
     else if(_videoSrc.second == "isp")
         inputType = AppInputType::ISP;
@@ -58,7 +60,9 @@ ObjectDetection::ObjectDetection(std::shared_ptr<dxrt::InferenceEngine> ie, std:
     _queueFrame.push(cv::Mat(_destHeight, _destWidth, CV_8UC3)); 
     yolo = Yolo(yoloParam);
     if(_ie->outputs().front().type() == dxrt::DataType::BBOX)
-        yolo.LayerInverse();
+        yolo.LayerInverse(1);
+    else if(_ie->outputs().front().type() == dxrt::DataType::FLOAT)
+        yolo.LayerInverse(0);
 }
 ObjectDetection::ObjectDetection(std::shared_ptr<dxrt::InferenceEngine> ie, int channel, int destWidth, int destHeight, int posX, int posY)
 : _ie(ie), _profiler(dxrt::Profiler::GetInstance()), _channel(channel+1), _destWidth(destWidth), _destHeight(destHeight), _posX(posX), _posY(posY)

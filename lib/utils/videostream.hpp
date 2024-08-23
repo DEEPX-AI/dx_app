@@ -189,6 +189,13 @@ public:
 
             case ETHERNET :
                 _srcMode = RUNTIME;
+                _video.open(_srcPath);
+                if(!_video.isOpened())
+                {
+                    std::cout << "Error: file " << _srcPath << " could not be opened." <<std::endl;
+                }
+                _srcSize._width = _video.get(cv::CAP_PROP_FRAME_WIDTH);
+                _srcSize._height = _video.get(cv::CAP_PROP_FRAME_HEIGHT);
             break;
 
             default :
@@ -293,6 +300,7 @@ public:
             break;
 
             case ETHERNET :
+                _video >> _frame;
             break;
 
             default :

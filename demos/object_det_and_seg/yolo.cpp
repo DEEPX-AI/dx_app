@@ -70,12 +70,14 @@ Yolo::Yolo(YoloParam &_cfg) :cfg(_cfg)
     }
 }
 
-void Yolo::LayerInverse()
+void Yolo::LayerInverse(int mode)
 {
     std::sort(cfg.layers.begin(), cfg.layers.end(), 
                 [&](const YoloLayerParam &a, const YoloLayerParam &b)
                 {
-                    return a.numGridX < b.numGridX;
+                    if(mode > 0)
+                        return a.numGridX < b.numGridX;
+                    return a.numGridX > b.numGridX;
                 });
 }
 

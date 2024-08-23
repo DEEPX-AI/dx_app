@@ -65,6 +65,9 @@ Ssd::Ssd(SsdParam &_cfg, std::vector<dxrt::Tensor> &_datainfo)
         ScoreIndices.emplace_back(v);
     }
     // setup output layers
+    auto find_index = std::find(cfg.loc_names.begin(), cfg.loc_names.end(), datainfo[0].name());
+    if(find_index == cfg.loc_names.end())
+        location_front = 0;
     for (uint32_t layer = 0; layer < numLayers; layer++)
     {
         OutputLayer outputLayer = {};
@@ -77,13 +80,13 @@ Ssd::Ssd(SsdParam &_cfg, std::vector<dxrt::Tensor> &_datainfo)
             auto d = datainfo[i];
             if (d.name() == cfg.score_names[layer])
             {
-                outputLayer.scoreAlign = 64;
+                outputLayer.scoreAlign = d.shape()[3];
                 // outputLayer.scoreOffset = d.mem_offset;
                 layerMap[d.name()] = i / 2;
             }
             else if (d.name() == cfg.loc_names[layer])
             {
-                outputLayer.locAlign = 64;
+                outputLayer.locAlign = d.shape()[3];
                 // outputLayer.locOffset = d.mem_offset;
                 layerMap[d.name()] = i / 2;
             }
@@ -153,8 +156,8 @@ void Ssd::FilterWithSoftmax(float *org, vector<shared_ptr<dxrt::Tensor>> outputs
             {
                 if (org == nullptr)
                 {
-                    classScore = (float *)(static_cast<uint8_t*>(outputs_[2 * tensorIdx]->data()) + sizeof(float) * outputLayer.scoreAlign * (gY * numGridX + gX));  
-                    boxLocation = (float *)(static_cast<uint8_t*>(outputs_[2 * tensorIdx + 1]->data()) + sizeof(float) * outputLayer.locAlign * (gY * numGridX + gX));
+                    classScore = (float *)(static_cast<uint8_t*>(outputs_[2 * tensorIdx + location_front]->data()) + sizeof(float) * outputLayer.scoreAlign * (gY * numGridX + gX));  
+                    boxLocation = (float *)(static_cast<uint8_t*>(outputs_[2 * tensorIdx + !location_front]->data()) + sizeof(float) * outputLayer.locAlign * (gY * numGridX + gX));
                 }
                 else
                 {
@@ -220,6 +223,7 @@ void Ssd::FilterWithSigmoid(float *org, vector<shared_ptr<dxrt::Tensor>> outputs
         auto outputLayer = OutputLayers[layer];
         int numGridX = outputLayer.gridX;
         int numGridY = outputLayer.gridY;
+        int tensorIdx = layerMap[cfg.score_names[layer]];
         // outputs_[2*layer]->Show();
         // outputs_[2*layer+1]->Show();
         // outputLayer.Show();
@@ -231,8 +235,8 @@ void Ssd::FilterWithSigmoid(float *org, vector<shared_ptr<dxrt::Tensor>> outputs
             {
                 if (org == nullptr)
                 {
-                    classScore = (float *)(static_cast<uint8_t*>(outputs_[2 * layer]->data()) + sizeof(float) * outputLayer.scoreAlign * (gY * numGridX + gX));
-                    boxLocation = (float *)(static_cast<uint8_t*>(outputs_[2 * layer + 1]->data()) + sizeof(float) * outputLayer.locAlign * (gY * numGridX + gX));
+                    classScore = (float *)(static_cast<uint8_t*>(outputs_[2 * tensorIdx + location_front]->data()) + sizeof(float) * outputLayer.scoreAlign * (gY * numGridX + gX));  
+                    boxLocation = (float *)(static_cast<uint8_t*>(outputs_[2 * tensorIdx + !location_front]->data()) + sizeof(float) * outputLayer.locAlign * (gY * numGridX + gX));
                 }
                 else
                 {
