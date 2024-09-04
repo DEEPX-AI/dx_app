@@ -17,6 +17,18 @@ cv::Mat preprocess(cv::Mat image, cv::Size size)
     return converted;
 }
 
+void data_pre_processing(uint8_t* src, uint8_t* dst, int shape, int align)
+{
+    int copy_size = (int)(shape * 3);
+    for(int y=0; y<shape; ++y)
+    {
+        memcpy(&dst[y * (copy_size + align)],
+                &src[y * copy_size], 
+                copy_size
+                );
+    }
+};
+
 cv::Rect get_rect(float *box, int image_w, int image_h)
 {
     float x1 = box[0] * image_w;

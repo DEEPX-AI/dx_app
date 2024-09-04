@@ -50,16 +50,15 @@ struct AppConfig
 };
 
 // pre/post parameter table
-extern YoloParam yolov5s_320, yolov5s_512, yolov5s_640, yolov5s_512_concat, yolox_s_512, yolov7_640, yolov7_512, yolov4_608;
+extern YoloParam yolov5s_320, yolov5s_512, yolov5s_640, yolox_s_512, yolov7_640, yolov7_512, yolov4_608;
 YoloParam yoloParams[] = {
     [0] = yolov5s_320,
     [1] = yolov5s_512,
     [2] = yolov5s_640,
-    [3] = yolov5s_512_concat,
-    [4] = yolox_s_512,
-    [5] = yolov7_640,
-    [6] = yolov7_512,
-    [7] = yolov4_608
+    [3] = yolox_s_512,
+    [4] = yolov7_640,
+    [5] = yolov7_512,
+    [6] = yolov4_608
 };
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
@@ -201,8 +200,6 @@ YoloParam getYoloParameter(string model_name){
         return yolov5s_512;
     else if(model_name == "yolov5s_640")
         return yolov5s_640;
-    else if(model_name == "yolov5s_512_concat")
-        return yolov5s_512_concat;
     else if(model_name == "yolox_s_512")
         return yolox_s_512;
     else if(model_name == "yolov7_640")

@@ -196,8 +196,7 @@ int main(int argc, char *argv[])
     dxrt::InferenceEngine ie(modelPath);
     auto yoloParam = yoloParams[paramIdx];
     Yolo yolo = Yolo(yoloParam);
-    if(ie.outputs().front().type() == dxrt::DataType::POSE)
-        yolo.LayerInverse();
+    yolo.LayerReorder(ie.outputs());
     auto& profiler = dxrt::Profiler::GetInstance();
     if(!imgFile.empty())
     {

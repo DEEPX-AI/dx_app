@@ -41,7 +41,6 @@ def ppu_decode(ie_outputs, layer_config):
     num_det = ie_outputs[0].shape[0]
     ie_output = ie_outputs[0]
     decoded_tensor = []
-    layer_config.reverse()
     for detected_idx in range(num_det):
         tensor = np.zeros((85), dtype=float)
         data = ie_output[detected_idx].tobytes()
@@ -64,6 +63,8 @@ def ppu_decode(ie_outputs, layer_config):
         tensor[4] = score
         tensor[4+1+label] = score
         decoded_tensor.append(tensor)
+    if len(decoded_tensor) == 0:
+        decoded_tensor = np.zeros((85), dtype=float)
     
     decoded_output = np.stack(decoded_tensor)
     
@@ -84,7 +85,7 @@ def all_decode(ie_outputs, layer_config):
         for l in range(len(layer_config[i]["anchor_width"])):
             layer = layer_config[i]
             stride = layer["stride"]
-            grid_size = 512/stride
+            grid_size = output.shape[2]
             meshgrid_x = np.arange(0, grid_size)
             meshgrid_y = np.arange(0, grid_size)
             grid = np.stack([np.meshgrid(meshgrid_y, meshgrid_x)], axis=-1)[...,0]
@@ -126,6 +127,8 @@ def run_example(config):
     
     ''' make inference engine (dxrt)'''
     ie = InferenceEngine(model_path)
+    if ie.output_dtype()[0] == "BBOX":
+        layers.reverse()
     
     for input_path in input_list:
         image_src = cv2.imread(input_path, cv2.IMREAD_COLOR)
@@ -167,7 +170,7 @@ def run_example(config):
                   .format(idx, conf, classes[label], label, pt1[0], pt1[1], pt2[0], pt2[1]))
             image = cv2.rectangle(image, pt1, pt2, colors[label], 2)
         cv2.imwrite("yolov5s.jpg", image)
-        print("save file : yolov5s.jpg! ")
+        print("save file : yolov5s.jpg ")
         
     
 
