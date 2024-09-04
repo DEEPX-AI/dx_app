@@ -42,9 +42,10 @@ string videoFiles[NUM_VIDEO_FILES] = {
     "stuttgart-02.avi",
 };
 
-YoloLayerParam createYoloLayerParam(int _gx, int _gy, int _numB, const std::vector<float> &_vAnchorW, const std::vector<float> &_vAnchorH, const std::vector<int> &_vTensorIdx, float _sx = 0.f, float _sy = 0.f)
+YoloLayerParam createYoloLayerParam(std::string _name, int _gx, int _gy, int _numB, const std::vector<float> &_vAnchorW, const std::vector<float> &_vAnchorH, const std::vector<int> &_vTensorIdx, float _sx = 0.f, float _sy = 0.f)
 {
         YoloLayerParam s;
+        s.name = _name;
         s.numGridX = _gx;
         s.numGridY = _gy;
         s.numBoxes = _numB;
@@ -65,9 +66,9 @@ YoloParam odCfg = {
     .numBoxes = -1, // check from layer info.
     .numClasses = 80,
     .layers = {
-            createYoloLayerParam(64, 64, 3, { 10.0, 16.0, 33.0 }, { 13.0, 30.0, 23.0 }, { 0 }),
-            createYoloLayerParam(32, 32, 3, { 30.0, 62.0, 59.0 }, { 61.0, 45.0, 119.0 }, { 1 }),
-            createYoloLayerParam(16, 16, 3, { 116.0, 156.0, 373.0 }, { 90.0, 198.0, 326.0 }, { 2 })
+            createYoloLayerParam("", 64, 64, 3, { 10.0, 16.0, 33.0 }, { 13.0, 30.0, 23.0 }, { 0 }),
+            createYoloLayerParam("", 32, 32, 3, { 30.0, 62.0, 59.0 }, { 61.0, 45.0, 119.0 }, { 1 }),
+            createYoloLayerParam("", 16, 16, 3, { 116.0, 156.0, 373.0 }, { 90.0, 198.0, 326.0 }, { 2 })
     },
     .classNames = {"person" ,"bicycle" ,"car" ,"motorcycle" ,"airplane" ,"bus" ,"train" ,"truck" ,"boat" ,"trafficlight" ,"firehydrant" ,"stopsign" ,"parkingmeter" ,"bench" ,"bird" ,"cat" ,"dog" ,"horse" ,"sheep" ,"cow" ,"elephant" ,"bear" ,"zebra" ,"giraffe" ,"backpack" ,"umbrella" ,"handbag" ,"tie" ,"suitcase" ,"frisbee" ,"skis" ,"snowboard" ,"sportsball" ,"kite" ,"baseballbat" ,"baseballglove" ,"skateboard" ,"surfboard" ,"tennisracket" ,"bottle" ,"wineglass" ,"cup" ,"fork" ,"knife" ,"spoon" ,"bowl" ,"banana" ,"apple" ,"sandwich" ,"orange" ,"broccoli" ,"carrot" ,"hotdog" ,"pizza" ,"donut" ,"cake" ,"chair" ,"couch" ,"pottedplant" ,"bed" ,"diningtable" ,"toilet" ,"tv" ,"laptop" ,"mouse" ,"remote" ,"keyboard" ,"cellphone" ,"microwave" ,"oven" ,"toaster" ,"sink" ,"refrigerator" ,"book" ,"clock" ,"vase" ,"scissors" ,"teddybear" ,"hairdrier", "toothbrush"},
 };
@@ -150,7 +151,7 @@ void *PreProc(cv::Mat &src, cv::Mat &dest, bool keepRatio=true, bool bgr2rgb=tru
     return (void*)dest.data;
 }
 
-void Segmentation(float *input, uint8_t *output, int rows, int cols, SegmentationParam *cfg, int numClasses)
+void Segmentation(float *input, uint8_t *output, int rows, int cols, SegmentationParam *cfg, int numClasses, int64_t pitch)
 {
     for(int h=0;h<rows;h++)
     {
@@ -158,7 +159,7 @@ void Segmentation(float *input, uint8_t *output, int rows, int cols, Segmentatio
         {
             int maxIdx = 0;
             for (int c=0;c<numClasses;c++){
-                if(input[(cols*h + w)*64 + maxIdx] < input[(cols*h + w)*64 + c]){
+                if(input[(cols*h + w)*pitch + maxIdx] < input[(cols*h + w)*pitch + c]){
                     maxIdx = c;
                 }
             }
@@ -220,10 +221,7 @@ int main(int argc, char *argv[])
     dxrt::InferenceEngine ieSEG(seg_modelpath);
 
     Yolo yolo = Yolo(odCfg);
-    if(ieOD.outputs().front().type() == dxrt::DataType::BBOX)
-        yolo.LayerInverse(1);
-    else if(ieOD.outputs().front().type() == dxrt::DataType::FLOAT)
-        yolo.LayerInverse(0);
+    yolo.LayerReorder(ieOD.outputs());
 
     auto& profiler = dxrt::Profiler::GetInstance();
     cv::VideoCapture caps[NUM_VIDEO_FILES];
@@ -272,7 +270,7 @@ int main(int argc, char *argv[])
         /* PostProcessing : Segmentation */
         profiler.Start("post-segment");
         cv::Mat SegResult = cv::Mat(SEG_INPUT_HEIGHT, SEG_INPUT_WIDTH, CV_8UC3, cv::Scalar(0, 0, 0));
-        Segmentation((float*)SegOutputTensors[0]->data(), SegResult.data, SegResult.rows, SegResult.cols, segCfg, SEG_NUM_CLASSES);
+        Segmentation((float*)SegOutputTensors[0]->data(), SegResult.data, SegResult.rows, SegResult.cols, segCfg, SEG_NUM_CLASSES, SegOutputTensors[0]->shape()[3]);
         profiler.End("post-segment");
 
         /* PostProcessing : Blend Image */
@@ -378,7 +376,7 @@ int main(int argc, char *argv[])
                         cv::Mat outFrame = frame[prevIdx];
 
                         Segmentation((float*)SegOutputTensors[0]->data(), SegResult[idx].data, 
-                            SegResult[idx].rows, SegResult[idx].cols, segCfg, SEG_NUM_CLASSES);
+                            SegResult[idx].rows, SegResult[idx].cols, segCfg, SEG_NUM_CLASSES, SegOutputTensors[0]->shape()[3]);
                         profiler.End("post-segment");
                         profiler.Start("post-blend");
                         cv::resize(SegResult[idx], SegResultExpand, Size(frame[idx].cols, frame[idx].rows), 0, 0, cv::INTER_LINEAR);

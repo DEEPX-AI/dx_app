@@ -106,12 +106,10 @@ You can also refer to the installation guide, [Here](../README.md#Installation)
         [0] = yolov5s_320,
         [1] = yolov5s_512,             // ----> p option : 1
         [2] = yolov5s_640,
-        [3] = yolov5s_512_concat,
-        [4] = yolox_s_512,
-        [5] = yolov7_640,
-        [6] = yolov7_512,
-        [7] = yolov4_608,
-        [8] = yolov5s_640_ppu,
+        [3] = yolox_s_512,
+        [4] = yolov7_640,
+        [5] = yolov7_512,
+        [6] = yolov4_608,
     };
     ```    
     To configure your own parameters, simply modify the examples or add new examples to the list and yolo_cfg.cpp.    
@@ -190,8 +188,6 @@ You can also refer to the installation guide, [Here](../README.md#Installation)
             return yolov5s_512;
         else if(model_name == "yolov5s_640")
             return yolov5s_640;
-        else if(model_name == "yolov5s_512_concat")
-            return yolov5s_512_concat;
         else if(model_name == "yolox_s_512")
             return yolox_s_512;
         else if(model_name == "yolov7_640")

@@ -59,10 +59,7 @@ ObjectDetection::ObjectDetection(std::shared_ptr<dxrt::InferenceEngine> ie, std:
     _resultFrame = cv::Mat(_destHeight, _destWidth, CV_8UC3, cv::Scalar(0, 0, 0));
     _queueFrame.push(cv::Mat(_destHeight, _destWidth, CV_8UC3)); 
     yolo = Yolo(yoloParam);
-    if(_ie->outputs().front().type() == dxrt::DataType::BBOX)
-        yolo.LayerInverse(1);
-    else if(_ie->outputs().front().type() == dxrt::DataType::FLOAT)
-        yolo.LayerInverse(0);
+    yolo.LayerReorder(ie->outputs());
 }
 ObjectDetection::ObjectDetection(std::shared_ptr<dxrt::InferenceEngine> ie, int channel, int destWidth, int destHeight, int posX, int posY)
 : _ie(ie), _profiler(dxrt::Profiler::GetInstance()), _channel(channel+1), _destWidth(destWidth), _destHeight(destHeight), _posX(posX), _posY(posY)

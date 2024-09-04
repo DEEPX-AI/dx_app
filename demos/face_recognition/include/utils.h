@@ -3,6 +3,7 @@
 #include <opencv2/opencv.hpp>
 
 double GetTimestamp(void);
+void data_pre_processing(uint8_t* src, uint8_t* dst, int shape, int align);
 cv::Mat preprocess(cv::Mat image, cv::Size size);
 
 cv::Rect get_rect(float *box, int image_w, int image_h);

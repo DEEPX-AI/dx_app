@@ -1,8 +1,9 @@
 #include "yolo.h"
 
-YoloLayerParam createYoloLayerParam(int _gx, int _gy, int _numB, const std::vector<float> &_vAnchorW, const std::vector<float> &_vAnchorH, const std::vector<int> &_vTensorIdx, float _sx = 0.f, float _sy = 0.f)
+YoloLayerParam createYoloLayerParam(std::string _name, int _gx, int _gy, int _numB, const std::vector<float> &_vAnchorW, const std::vector<float> &_vAnchorH, const std::vector<int> &_vTensorIdx, float _sx = 0.f, float _sy = 0.f)
 {
         YoloLayerParam s;
+        s.name = _name;
         s.numGridX = _gx;
         s.numGridY = _gy;
         s.numBoxes = _numB;
@@ -23,10 +24,10 @@ YoloParam yolov5s6_pose_640 = {
     .numBoxes = -1, // check from layer info.
     .numClasses = 1,
     .layers = {
-        createYoloLayerParam(80, 80, 3, { 19.0, 44.0, 38.0 }, { 27.0, 40.0, 94.0 }, { 1, 0 }),
-        createYoloLayerParam(40, 40, 3, { 96.0, 86.0, 180.0 }, { 68.0, 152.0, 137.0 }, { 3, 2 }),
-        createYoloLayerParam(20, 20, 3, { 140.0, 303.0, 238.0 }, { 301.0, 264.0, 542.0 }, { 5, 4 }),
-        createYoloLayerParam(10, 10, 3, { 436.0, 739.0, 925.0 }, { 615.0, 380.0, 792.0 }, { 7, 6 })
+        createYoloLayerParam("", 80, 80, 3, { 19.0, 44.0, 38.0 }, { 27.0, 40.0, 94.0 }, { 0, 1 }),
+        createYoloLayerParam("", 40, 40, 3, { 96.0, 86.0, 180.0 }, { 68.0, 152.0, 137.0 }, { 2, 3 }),
+        createYoloLayerParam("", 20, 20, 3, { 140.0, 303.0, 238.0 }, { 301.0, 264.0, 542.0 }, { 4, 5 }),
+        createYoloLayerParam("", 10, 10, 3, { 436.0, 739.0, 925.0 }, { 615.0, 380.0, 792.0 }, { 6, 7 })
     },
     .classNames = {"person"},
 };
@@ -40,10 +41,10 @@ YoloParam yolov5s6_pose_1280 = {
     .numBoxes = -1, // check from layer info.
     .numClasses = 1,
     .layers = {
-        createYoloLayerParam(160, 160, 3, { 19.0, 44.0, 38.0 }, { 27.0, 40.0, 94.0 }, { 1, 0 }),
-        createYoloLayerParam(80, 80, 3, { 96.0, 86.0, 180.0 }, { 68.0, 152.0, 137.0 }, { 3, 2 }),
-        createYoloLayerParam(40, 40, 3, { 140.0, 303.0, 238.0 }, { 301.0, 264.0, 542.0 }, { 5, 4 }),
-        createYoloLayerParam(20, 20, 3, { 436.0, 739.0, 925.0 }, { 615.0, 380.0, 792.0 }, { 7, 6 })
+        createYoloLayerParam("", 160, 160, 3, { 19.0, 44.0, 38.0 }, { 27.0, 40.0, 94.0 }, { 0, 1 }),
+        createYoloLayerParam("", 80, 80, 3, { 96.0, 86.0, 180.0 }, { 68.0, 152.0, 137.0 }, { 2, 3 }),
+        createYoloLayerParam("", 40, 40, 3, { 140.0, 303.0, 238.0 }, { 301.0, 264.0, 542.0 }, { 4, 5 }),
+        createYoloLayerParam("", 20, 20, 3, { 436.0, 739.0, 925.0 }, { 615.0, 380.0, 792.0 }, { 6, 7 })
     },
     .classNames = {"person"},
 };

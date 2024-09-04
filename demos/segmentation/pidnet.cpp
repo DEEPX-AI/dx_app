@@ -138,7 +138,7 @@ void *PreProc(cv::Mat &src, cv::Mat &dest, bool keepRatio=true, bool bgr2rgb=tru
     return (void*)dest.data;
 }
 
-void Segmentation(float *input, uint8_t *output, int rows, int cols, SegmentationParam *cfg, int numClasses)
+void Segmentation(float *input, uint8_t *output, int rows, int cols, SegmentationParam *cfg, int numClasses, int64_t pitch)
 {
     for(int h=0;h<rows;h++)
     {
@@ -146,7 +146,7 @@ void Segmentation(float *input, uint8_t *output, int rows, int cols, Segmentatio
         {
             int maxIdx = 0;
             for (int c=0;c<numClasses;c++){
-                if(input[(cols*h + w)*64 + maxIdx] < input[(cols*h + w)*64 + c]){
+                if(input[(cols*h + w)*pitch + maxIdx] < input[(cols*h + w)*pitch + c]){
                     maxIdx = c;
                 }
             }
@@ -238,7 +238,7 @@ int main(int argc, char *argv[])
         LOG_VALUE(outputs.size());
         profiler.Start("post-segment");
         cv::Mat result = cv::Mat(inputHeight, inputWidth, CV_8UC3, cv::Scalar(0, 0, 0));
-        Segmentation((float*)outputs[0]->data(), result.data, result.rows, result.cols, segCfg, NUM_CLASSES);
+        Segmentation((float*)outputs[0]->data(), result.data, result.rows, result.cols, segCfg, NUM_CLASSES, outputs[0]->shape()[3]);
         profiler.End("post-segment");
         profiler.Start("post-blend");
         cv::resize(result, result, Size(frame.cols, frame.rows), 0, 0, cv::INTER_LINEAR);
@@ -308,7 +308,7 @@ int main(int argc, char *argv[])
                     cv::Mat outFrame = frame[prevIdx];
                     Segmentation(
                         (float*)outputs[0]->data(), result[idx].data, 
-                        result[idx].rows, result[idx].cols, segCfg, NUM_CLASSES);
+                        result[idx].rows, result[idx].cols, segCfg, NUM_CLASSES, outputs[0]->shape()[3]);
                     profiler.End("post-segment");
                     profiler.Start("post-blend");
                     cv::resize(result[idx], resultExpand, Size(frame[idx].cols, frame[idx].rows), 0, 0, cv::INTER_LINEAR);

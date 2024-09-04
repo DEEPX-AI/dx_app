@@ -197,8 +197,7 @@ int main(int argc, char *argv[])
     dxrt::InferenceEngine seg(seg_model_path);
     auto yoloParam = yolov5s6_pose_640;
     Yolo yolo = Yolo(yoloParam);
-    if(pose.outputs().front().type() == dxrt::DataType::POSE)
-        yolo.LayerInverse();
+    yolo.LayerReorder(pose.outputs());
     auto& profiler = dxrt::Profiler::GetInstance();
     cv::Mat frame[FRAME_BUFFERS];
     cv::Mat poseInput[FRAME_BUFFERS];

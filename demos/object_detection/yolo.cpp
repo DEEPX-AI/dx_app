@@ -8,7 +8,7 @@ using namespace std;
 
 void YoloLayerParam::Show()
 {
-    cout << "    - LayerParam: [ " << numGridX << " x " << numGridY << " x " << numBoxes << "boxes" << "], anchorWidth [";
+    cout << "    - LayerParam: [ name : " << name << ", " << numGridX << " x " << numGridY << " x " << numBoxes << "boxes" << "], anchorWidth [";
     for(auto &w : anchorWidth) cout << w << ", ";
     cout << "], anchorHeight [";
     for(auto &h : anchorHeight) cout << h << ", ";
@@ -67,6 +67,35 @@ Yolo::Yolo(YoloParam &_cfg) :cfg(_cfg)
     {
         vector<pair<float, int>> v;
         ScoreIndices.emplace_back(v);
+    }
+}
+
+void Yolo::LayerReorder(dxrt::Tensors output_info)
+{
+    #ifdef USE_ORT
+    if(output_info.size() == 1)
+        return;
+    #endif
+    if(cfg.layers.front().name == "")
+    {
+        if(output_info.front().type() > dxrt::DataType::FLOAT)
+            this->LayerInverse(1);
+        else
+            this->LayerInverse(0);
+    }
+    else
+    {
+        std::vector<YoloLayerParam> temp;
+        for(size_t i=0;i<output_info.size();i++)
+        {
+            for(size_t j=0;j<output_info.size();j++)
+            {
+                if(output_info[i].name() == cfg.layers[j].name)
+                    temp.emplace_back(cfg.layers[j]);
+            }
+        }
+        cfg.layers.clear();
+        cfg.layers = temp;
     }
 }
 
@@ -341,19 +370,6 @@ vector< BoundingBox > Yolo::PostProc(vector<shared_ptr<dxrt::Tensor>> outputs_, 
     }
     else if (outputs_.size()>1)
     {
-        // outputs = outputs_;
-#ifdef DUMP_DATA
-        uint32_t dumpSize = 0;
-        for(int i=0;i<outputs_.size();i++)
-        {
-            // outputs[i]->Show();        
-            // dxrt::DataDumpBin("output."+to_string(i)+".bin", outputs_[i]->data(), outputs_[i]->GetSize());            
-            dxrt::DataDumpTxt("output."+to_string(i)+".txt", (float*)outputs_[i]->data(), outputs_[i]->shape()[1], outputs_[i]->shape()[2], data_align(outputs_[i]->shape()[3], 64));
-            // dxrt::DataDumpTxt("output."+to_string(i)+".txt", (float*)outputs_[i]->data(), outputs_[i]->shape()[0], outputs_[i]->shape()[1], outputs_[i]->shape()[2]);
-            // dumpSize+=outputs_[i]->GetSize();
-        }
-        // dxrt::DataDumpBin("output.bin", outputs_[0]->data(), dumpSize);
-#endif
         for(int cls=0;cls<(int)numClasses;cls++)
         {
             ScoreIndices[cls].clear();

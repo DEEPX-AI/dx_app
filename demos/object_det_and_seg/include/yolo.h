@@ -10,6 +10,7 @@
 
 struct YoloLayerParam
 {
+    std::string name;
     int numGridX;
     int numGridY;
     int numBoxes;
@@ -60,6 +61,7 @@ public:
     ~Yolo();
     Yolo();
     Yolo(YoloParam &_cfg);
+    void LayerReorder(dxrt::Tensors output_info);
     void LayerInverse(int mode);
     /* for concated tensor */
     std::vector< BoundingBox > PostProc(float *data);

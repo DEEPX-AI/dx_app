@@ -48,18 +48,15 @@ using namespace cv;
 #endif
 
 // pre/post parameter table
-extern YoloParam yolov5s_320, yolov5s_512, yolov5s_640, yolov5s_512_concat, yolox_s_512, yolov7_640, yolov7_512, yolov4_608;
-extern YoloParam yolov5s_640_ppu;
+extern YoloParam yolov5s_320, yolov5s_512, yolov5s_640, yolox_s_512, yolov7_640, yolov7_512, yolov4_608;
 YoloParam yoloParams[] = {
     [0] = yolov5s_320,
     [1] = yolov5s_512,
     [2] = yolov5s_640,
-    [3] = yolov5s_512_concat,
-    [4] = yolox_s_512,
-    [5] = yolov7_640,
-    [6] = yolov7_512,
-    [7] = yolov4_608,
-    [8] = yolov5s_640_ppu,
+    [3] = yolox_s_512,
+    [4] = yolov7_640,
+    [5] = yolov7_512,
+    [6] = yolov4_608,
 };
 
 namespace dxrt {
@@ -255,10 +252,7 @@ int main(int argc, char *argv[])
     dxrt::InferenceEngine ie(modelPath);
     auto yoloParam = yoloParams[paramIdx];
     Yolo yolo = Yolo(yoloParam);
-    if(ie.outputs().front().type() == dxrt::DataType::BBOX)
-        yolo.LayerInverse(1);
-    else if(ie.outputs().front().type() == dxrt::DataType::FLOAT)
-        yolo.LayerInverse(0);
+    yolo.LayerReorder(ie.outputs());
     auto& profiler = dxrt::Profiler::GetInstance();
     if(!imgFile.empty())
     {

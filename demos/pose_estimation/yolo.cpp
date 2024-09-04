@@ -89,12 +89,43 @@ Yolo::Yolo(YoloParam &_cfg) :cfg(_cfg)
     }
 }
 
-void Yolo::LayerInverse()
+void Yolo::LayerReorder(dxrt::Tensors output_info)
+{
+    #ifdef USE_ORT
+    if(output_info.size() == 1)
+        return;
+    #endif
+    if(cfg.layers.front().name == "")
+    {
+        if(output_info.front().type() > dxrt::DataType::FLOAT)
+            this->LayerInverse(1);
+        else
+            this->LayerInverse(0);
+    }
+    else
+    {
+        std::vector<YoloLayerParam> temp;
+        for(size_t i=0;i<output_info.size();i++)
+        {
+            for(size_t j=0;j<output_info.size();j++)
+            {
+                if(output_info[i].name() == cfg.layers[j].name)
+                    temp.emplace_back(cfg.layers[j]);
+            }
+        }
+        cfg.layers.clear();
+        cfg.layers = temp;
+    }
+}
+
+void Yolo::LayerInverse(int mode)
 {
     std::sort(cfg.layers.begin(), cfg.layers.end(), 
                 [&](const YoloLayerParam &a, const YoloLayerParam &b)
                 {
-                    return a.numGridX < b.numGridX;
+                    if(mode > 0)
+                        return a.numGridX < b.numGridX;
+                    return a.numGridX > b.numGridX;
                 });
 }
 
@@ -159,8 +190,8 @@ void Yolo::FilterWithSort(vector<shared_ptr<dxrt::Tensor>> outputs_)
             int strideY = cfg.height / layer.numGridY;
             int numGridX = layer.numGridX;
             int numGridY = layer.numGridY;
-            int tensorIdx0 = layer.tensorIdx[1];
-            int tensorIdx1 = layer.tensorIdx[0];
+            int tensorIdx0 = layer.tensorIdx[0];
+            int tensorIdx1 = layer.tensorIdx[1];
             float scale_x_y = layer.scaleX;
             for(int gY=0; gY<numGridY; gY++)
             {

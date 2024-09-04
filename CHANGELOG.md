@@ -1,5 +1,14 @@
 # Changelog 
 
+## [v1.0.3] - 2024-09-04
+### 1. Changed
+- Delete cpu onnx file
+### 2. Fixed
+- Added output node name to YoloLayerParam for layer reordering (demo/object_detection)
+- Fix a bug with python example code
+### 3. Added
+- None
+
 ## [v1.0.2] - 2024-08-22
 ### 1. Changed
 - None
