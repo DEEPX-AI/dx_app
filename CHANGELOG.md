@@ -1,8 +1,18 @@
 # Changelog 
 
+## [v1.0.4] - 2024-09-06
+### 1. Changed
+- None
+### 2. Fixed
+- Fix a bug in object detection example of NMS calculation error in python file
+- Fix a bug in SCRFD Post Processing, (ll.283 ~ 290, in yolo_post_processing.hpp)
+### 3. Added
+- None
+
 ## [v1.0.3] - 2024-09-04
 ### 1. Changed
 - Delete cpu onnx file
+- Yolo configuration parameter was changed(Delete ppu and concat yolo config), Please check yolo_demo code or README.md
 ### 2. Fixed
 - Added output node name to YoloLayerParam for layer reordering (demo/object_detection)
 - Fix a bug with python example code
