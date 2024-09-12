@@ -168,7 +168,7 @@ int ApplicationJsonParser(string configPath, AppConfig* dst)
                 dst->video_sources.clear();
                 dst->pre_saved_frame_count.clear();
                 dst->video_sources.emplace_back(videoSourceInfo);
-                dst->pre_saved_frame_count.emplace_back(0);
+                dst->pre_saved_frame_count.emplace_back(-1);
                 return 1;
             }
 #endif
@@ -183,7 +183,7 @@ int ApplicationJsonParser(string configPath, AppConfig* dst)
                     dst->pre_saved_frame_count.emplace_back(videoSource[2].GetInt());
                 }
             }else{
-                dst->pre_saved_frame_count.emplace_back(0);
+                dst->pre_saved_frame_count.emplace_back(-1);
             }
             dst->video_sources.emplace_back(videoSourceInfo);
         }

@@ -54,7 +54,7 @@ struct AppSourceInfo
 {
     AppInputType inputType;
     std::string inputPath;
-    int numOfFrames;
+    int numOfFrames = -1;
 };
 
 namespace dxapp
