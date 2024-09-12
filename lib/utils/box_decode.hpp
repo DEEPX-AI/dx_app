@@ -131,8 +131,8 @@ namespace decode
         std::vector<dxapp::common::Point_f> p_temp;
         box_temp._xmin = (grid._x - data[0]) * stride;
         box_temp._ymin = (grid._y - data[1]) * stride;
-        box_temp._xmax = (grid._x + data[0]) * stride;
-        box_temp._ymax = (grid._y + data[1]) * stride;
+        box_temp._xmax = (grid._x + data[2]) * stride;
+        box_temp._ymax = (grid._y + data[3]) * stride;
         box_temp._width = box_temp._xmax - box_temp._xmin;
         box_temp._height = box_temp._ymax - box_temp._ymin;
 

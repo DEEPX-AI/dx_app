@@ -81,7 +81,8 @@ def all_decode(ie_outputs, layer_config):
     decoded_tensor = []
     
     for i, output in enumerate(outputs):
-        output[...,4:] = sigmoid(output[...,4:])
+        output[...,4:] = sigmoid(output[...,4:]) # obj confidence
+        output[...,5:] *= output[...,4:5]
         for l in range(len(layer_config[i]["anchor_width"])):
             layer = layer_config[i]
             stride = layer["stride"]
@@ -95,7 +96,6 @@ def all_decode(ie_outputs, layer_config):
             cxcy[...,1] = (sigmoid(cxcy[...,1]) * 2 - 0.5 + grid[1]) * stride
             wh[...,0] = ((sigmoid(wh[...,0]) * 2) ** 2) * layer["anchor_width"][l]
             wh[...,1] = ((sigmoid(wh[...,1]) * 2) ** 2) * layer["anchor_height"][l]
-            
             decoded_tensor.append(output[...,(l*85)+0:(l*85)+85].reshape(-1, 85))
             
     decoded_output = np.concatenate(decoded_tensor, axis=0)
@@ -110,6 +110,26 @@ def onnx_decode(ie_outputs, cpu_onnx_path):
     input_dict = {input_names[0]:ie_outputs[0], input_names[1]:ie_outputs[1], input_names[2]:ie_outputs[2]}
     ort_output = sess.run(None, input_dict)
     return ort_output[0][0]
+
+
+def intersection_filter(x:torch.Tensor):
+    for i in range(x.shape[0] - 1):
+        for j in range(x.shape[0] - 1):
+            a = x[i]
+            b = x[j+1]
+            if a[5] != b[5]:
+                continue
+            x1_inter = max(a[0], b[0])
+            y1_inter = max(a[1], b[1])
+            x2_inter = min(a[2], b[2])
+            y2_inter = min(a[3], b[3])
+            if b[0] == x1_inter and b[1] == y1_inter and b[2] == x2_inter and b[3] == y2_inter:
+                if a[4] > b[4]:
+                    x[j+1][4] = 0
+                elif a[4] < b[4]:
+                    x[i][4] = 0
+    return x
+    
 
 def run_example(config):
     model_path = config["model"]["path"]
@@ -129,10 +149,10 @@ def run_example(config):
     ie = InferenceEngine(model_path)
     if ie.output_dtype()[0] == "BBOX":
         layers.reverse()
-    
+    input_size = np.sqrt(ie.input_size() / 3)
     for input_path in input_list:
         image_src = cv2.imread(input_path, cv2.IMREAD_COLOR)
-        image_input, _, _ = letter_box(image_src, new_shape=(512, 512), fill_color=(114, 114, 114), format=cv2.COLOR_BGR2RGB)
+        image_input, _, _ = letter_box(image_src, new_shape=(int(input_size), int(input_size)), fill_color=(114, 114, 114), format=cv2.COLOR_BGR2RGB)
         
         ''' detect image (1) run dxrt inference engine, (2) post processing'''
         ie_output = ie.run(image_input)
@@ -158,13 +178,15 @@ def run_example(config):
         conf, j = x[:, 5:].max(1, keepdims=True)
         x = torch.cat((box, conf, j.float()), 1)[conf.view(-1) > score_threshold]
         x = x[x[:, 4].argsort(descending=True)]
-        x = x[torchvision.ops.nms(x[:,:4], x[:, 4], iou_threshold=iou_threshold)]
-        
+        x = intersection_filter(x)
+        x = x[torchvision.ops.nms(x[:,:4], x[:, 4], iou_threshold)]
+        x = x[x[:,4] > 0]
         print("[Result] Detected {} Boxes.".format(len(x)))
         ''' save result and print detected info '''
         image = cv2.cvtColor(image_input, cv2.COLOR_RGB2BGR)
         colors = np.random.randint(0, 256, [80, 3], np.uint8).tolist()
         for idx, r in enumerate(x.numpy()):
+            
             pt1, pt2, conf, label = r[0:2].astype(int), r[2:4].astype(int), r[4], r[5].astype(int)
             print("[{}] conf, classID, x1, y1, x2, y2, : {:.4f}, {}({}), {}, {}, {}, {}"
                   .format(idx, conf, classes[label], label, pt1[0], pt1[1], pt2[0], pt2[1]))

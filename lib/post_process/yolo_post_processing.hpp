@@ -234,6 +234,9 @@ namespace yolo
                 int numGridX = data->grid_x;
                 int numGridY = data->grid_y;
                 
+                if(data->score < _params._score_threshold)
+                    continue;
+                
                 if(ppuFormat > dxapp::yolo::PPUFormat::BBOX)
                     _scoreIndices[0].emplace_back(data->score, boxIdx);
                 else
@@ -280,10 +283,10 @@ namespace yolo
                     temp = {
                         (numGridX - data->x) * stride,
                         (numGridY - data->y) * stride,
-                        (numGridX + data->x) * stride,
-                        (numGridY + data->y) * stride,
-                        2* data->x * stride,
-                        2* data->x * stride,
+                        (numGridX + data->w) * stride,
+                        (numGridY + data->h) * stride,
+                        2* data->w * stride,
+                        2* data->h * stride,
                         {dxapp::common::Point_f(-1, -1, -1)}
                     };
                     break;
