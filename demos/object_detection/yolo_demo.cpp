@@ -181,7 +181,7 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-    while ((optCmd = getopt_long(argc, argv, "m:i:v:w:cxb:s:aep:l:n:h", opts,
+    while ((optCmd = getopt_long(argc, argv, "m:i:v:w:cxb:s:aep:l:n:hr:", opts,
         NULL)) != -1) {
         switch (optCmd) {
             case '0':

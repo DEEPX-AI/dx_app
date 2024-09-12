@@ -120,6 +120,12 @@ void run_image(dxrt::InferenceEngine *ie_fd, dxrt::InferenceEngine *ie_fl, dxrt:
 
     auto gallary = get_gallary(dbPath, &detector, ie_fd, ie_fl, ie_fr);
 
+    std::vector<bool> visited_indices;
+    for (size_t i = 0; i < gallary.size(); i++)
+    {
+        visited_indices.emplace_back(false);
+    }
+
     cv::Mat frame = cv::imread(image_path, cv::IMREAD_COLOR);
     cv::Mat view = frame.clone();
 
@@ -149,7 +155,7 @@ void run_image(dxrt::InferenceEngine *ie_fd, dxrt::InferenceEngine *ie_fl, dxrt:
         for (size_t j = 0; j < gallary.size(); j++)
         {
             float similarity = cos_sim(gallary[j].feature_vector, feature_vector, 512);
-            if (similarity > similarity_max)
+            if (similarity > similarity_max && visited_indices[j] == false)
             {
                 similarity_max = similarity;
                 similarity_max_index = j;
@@ -161,6 +167,7 @@ void run_image(dxrt::InferenceEngine *ie_fd, dxrt::InferenceEngine *ie_fl, dxrt:
         if (similarity_max > frThreshold)
         {
             id_str += std::to_string(similarity_max_index);
+            visited_indices[similarity_max_index] = true;
         }
         else
         {
@@ -311,6 +318,11 @@ void run_video_sync(dxrt::InferenceEngine *ie_fd, dxrt::InferenceEngine *ie_fl, 
     }
 
     auto gallary = get_gallary(dbPath, &detector, ie_fd, ie_fl, ie_fr);
+    std::vector<bool> visited_indices;
+    for (size_t i = 0; i < gallary.size(); i++)
+    {
+        visited_indices.emplace_back(false);
+    }
 
     cv::VideoCapture cap;
     if (cameraInput)
@@ -367,7 +379,7 @@ void run_video_sync(dxrt::InferenceEngine *ie_fd, dxrt::InferenceEngine *ie_fl, 
             for (size_t j = 0; j < gallary.size(); j++)
             {
                 float similarity = cos_sim(gallary[j].feature_vector, feature_vector, 512);
-                if (similarity > similarity_max)
+                if (similarity > similarity_max && visited_indices[j] == false)
                 {
                     similarity_max = similarity;
                     similarity_max_index = j;
@@ -379,6 +391,7 @@ void run_video_sync(dxrt::InferenceEngine *ie_fd, dxrt::InferenceEngine *ie_fl, 
             if (similarity_max > frThreshold)
             {
                 id_str += std::to_string(similarity_max_index);
+                visited_indices[similarity_max_index] = true;
             }
             else
             {
@@ -474,6 +487,11 @@ void run_tracker_video_sync(dxrt::InferenceEngine *ie_fd, dxrt::InferenceEngine 
             cv::rectangle(view, rect, color, 2);
             cv::putText(view, detected.labelname, cv::Point(rect.x + 8, rect.y + 16), 0, 0.5, color, 1);
         }
+        std::vector<bool> visited_indices;
+        for (size_t i = 0; i < gallary.size(); i++)
+        {
+            visited_indices.emplace_back(false);
+        }
 
         // Tracking
         tracker.run(D);
@@ -501,7 +519,7 @@ void run_tracker_video_sync(dxrt::InferenceEngine *ie_fd, dxrt::InferenceEngine 
             for (size_t j = 0; j < gallary.size(); j++)
             {
                 float similarity = cos_sim(gallary[j].feature_vector, feature_vector, 512);
-                if (similarity > similarity_max)
+                if (similarity > similarity_max && visited_indices[j] == false)
                 {
                     similarity_max = similarity;
                     similarity_max_index = j;
@@ -525,6 +543,7 @@ void run_tracker_video_sync(dxrt::InferenceEngine *ie_fd, dxrt::InferenceEngine 
             if (similarity_max > frThreshold)
             {
                 id_str += std::to_string(similarity_max_index);
+                visited_indices[similarity_max_index] = true;
             }
             else
             {
@@ -601,7 +620,7 @@ const char *usage =
     "  -c,  --camera             use camera input\n"
     "  -t,  --tracker            use tracker function\n"
     "  -d,  --detect             include face detection (for dual image test)\n"
-    "  -s,  --savemode           include face detection (for dual image test)\n"
+    "  -s,  --savemode           save result image (It is not supported in camera or video mode)\n"
     "  -h,  --help               show help\n";
 void help()
 {

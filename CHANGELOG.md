@@ -1,5 +1,14 @@
 # Changelog 
 
+## [v1.0.5] - 2024-09-11
+### 1. Changed
+- Update example models new version
+### 2. Fixed
+- Fix a bug RTSP mode in demos/yolo_demo.cpp, add parameter "-r" and "--rtsp".
+- Fix a bug that overlapping face ID in face recognition demo
+### 3. Added
+- None
+
 ## [v1.0.4] - 2024-09-06
 ### 1. Changed
 - None
