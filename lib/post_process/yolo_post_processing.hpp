@@ -202,6 +202,8 @@ namespace yolo
                 getBoxesFromYoloPoseFormat(outputs, _params._kpt_order, _params._kpt_count);
             else if(_params._decode_method==Decode::SCRFD) // face detection
                 getBoxesFromSCRFDFormat(outputs, _scrfdClassScoreIdx, _scrfdLocationIdx, _scrfdKptIdx, _params._kpt_count);
+            else if(_params._decode_method==Decode::CUSTOM_DECODE)
+                getBoxesFromCustomPostProcessing(outputs);
             else
                 getBoxesFromYoloFormat(outputs);
             
@@ -646,6 +648,31 @@ namespace yolo
             {
                 sort(indices.begin(), indices.end(), scoreComapre);
             }
+        };
+        
+        void getBoxesFromCustomPostProcessing(std::vector<std::shared_ptr<dxrt::Tensor>> outputs /* Users can add necessary parameters manually. */)
+        {
+            /**
+             * @brief adding your post processing code
+             * 
+             * example code ..
+             * 
+             * int boxIdx = 0;
+             * std::shared_ptr<dxrt::Tensor>> node_a;
+             * std::shared_ptr<dxrt::Tensor>> node_b;
+             * std::shared_ptr<dxrt::Tensor>> node_c;
+             * for(int i=0; i<outputs.size(); i++)
+             * {
+             *      if (outputs[i]->name() == "node_a")
+             *          node_a = outputs[i];
+             *      else if (outputs[i]->name() == "node_b")
+             *          node_b = outputs[i];
+             *      else if (outputs[i]->name() == "node_c")
+             *          node_c = outputs[i];
+             * }
+             * 
+             * 
+             */
         };
     };
 

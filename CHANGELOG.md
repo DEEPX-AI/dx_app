@@ -1,5 +1,13 @@
 # Changelog 
 
+## [v1.0.6] - 2024-09-20
+### 1. Changed
+- Modify "ethernet" option to "rtsp"
+### 2. Fixed
+- Fix a bug that de-noiser post-processing pitch size (64 to output channel size)
+### 3. Added
+- Add a README.md files for guide customizing post processing and explanation templates working
+
 ## [v1.0.5] - 2024-09-11
 ### 1. Changed
 - Update example models new version

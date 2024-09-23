@@ -19,8 +19,8 @@ ObjectDetection::ObjectDetection(std::shared_ptr<dxrt::InferenceEngine> ie, std:
         inputType = AppInputType::CAMERA;
     else if(_videoSrc.second == "image")
         inputType = AppInputType::IMAGE;
-    else if(_videoSrc.second == "ethernet")
-        inputType = AppInputType::ETHERNET;
+    else if(_videoSrc.second == "rtsp")
+        inputType = AppInputType::RTSP;
 #if __riscv
     else if(_videoSrc.second == "isp")
         inputType = AppInputType::ISP;

@@ -199,7 +199,7 @@ You can also refer to the installation guide, [Here](../README.md#Installation)
         return yolov5s_512;
     }
     ```
-    You can run a demo using an `RTSP` video stream by specifying the `RTSP URL` and the network type (e.g., "ethernet").    
+    You can run a demo using an `RTSP` video stream by specifying the `RTSP URL` and the network type (e.g., "rtsp").    
     Use the following json file :   
     ```json
     {
@@ -207,7 +207,7 @@ You can also refer to the installation guide, [Here](../README.md#Installation)
           .
           .
           "video_sources": [
-                          ["rtsp://your_rtsp_stream_address", "ethernet"]
+                          ["rtsp://your_rtsp_stream_address", "rtsp"]
           ], 
           .
           .
@@ -227,7 +227,9 @@ You can also refer to the installation guide, [Here](../README.md#Installation)
       <img src="./readme_images/result_yolo_pose.jpg">
     </p>            
 
-    The dxrt model has input and output tensors that shapes are N H W C format by default. Output tensor data format of current devices is aligned on 64-byte.    
+    The dxrt model has input and output tensors that shapes are N H W C format by default. 
+    Due to the characteristics of the NPU, if the channel size is less than 64 bytes, it is aligned to 16 bytes, and if the channel size is 64 bytes or larger, it is aligned to 64 bytes.  
+
     For example, **[1, 40, 52, 36]** will be **[1, 52, 36, 40 + 24]** output tensor which is with 24 bytes of dummy.       
 
     ```text

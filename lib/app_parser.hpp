@@ -82,8 +82,8 @@ public:
                 source.inputType = AppInputType::CAMERA;
             else if(read=="isp")
                 source.inputType = AppInputType::ISP;
-            else if(read=="ethernet")
-                source.inputType = AppInputType::ETHERNET;
+            else if(read=="rtsp")
+                source.inputType = AppInputType::RTSP;
             
             sourcesInfo.emplace_back(source);
         }

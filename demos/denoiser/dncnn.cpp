@@ -94,6 +94,7 @@ int main(int argc, char *argv[])
     input_w = input_shape[2], input_h = input_shape[1];
     
     int div = input_w / 2;
+    auto pitch = ie.outputs().front().shape().back();
     
     cv::namedWindow(DISPLAY_WINDOW_NAME);
 
@@ -118,7 +119,7 @@ int main(int argc, char *argv[])
                 {
                     for (int c = 0; c < 3; c++)
                     {
-                        float value = data[(y * input_w + x) * 64 + c] * 255.f;
+                        float value = data[(y * input_w + x) * pitch + c] * 255.f;
                         if (value < 0.f)
                             value = 0.f;
                         else if (value > 255.f)
@@ -235,7 +236,7 @@ int main(int argc, char *argv[])
                 {
                     for (int c = 0; c < 3; c++)
                     {
-                        float value = data[(y * input_w + x) * 64 + c] * 255.f;
+                        float value = data[(y * input_w + x) * pitch + c] * 255.f;
                         if (value < 0.f)
                             value = 0.f;
                         else if (value > 255.f)

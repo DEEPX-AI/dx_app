@@ -29,7 +29,7 @@ typedef enum {
     VIDEO,
     CAMERA,
     ISP,
-    ETHERNET,
+    RTSP,
     BINARY,
     CSV,
     MULTI,

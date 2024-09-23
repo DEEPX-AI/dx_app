@@ -40,8 +40,12 @@ You can also refer to the installation guide, [Here](../README.md#Installation)
 
     
 ## Run Application Temaplate     
+- [Classification](#run-classification-template) 
+- [Object Detection](#run-detection-template) 
+
 **Getting the usage of executable, Try run with "-h" option.**
-python example code is [here](#Run-ImageNet-Python-Example)
+python example code is [here](#Run-ImageNet-Python-Example)     
+If you want to see the output image and content, insert the `"type"` to `"realtime"` in the example json file and run it.
 
 ### Run Classification Template     
   - **Classification**       
@@ -63,6 +67,7 @@ python example code is [here](#Run-ImageNet-Python-Example)
           "type": "save"
       }
     ```
+    For a detailed explanation of how classification works, refer to [*dx_app/templates/classification/README.md*](./classification/README.md).
 
     <p align="center">
       <img src="./readme_images/2.jpeg-result.jpg">
@@ -197,6 +202,7 @@ python example code is [here](#Run-ImageNet-Python-Example)
     ```shell
     $ ./build.sh 
     ```
+    For a detailed explanation of how to write your models' custom post processing, refer to [*dx_app/templates/object_detection/README.md*](./object_detection/README.md).
 
 ### Run ImageNet Python Example      
 **Getting the usage of executable, Try run with "--help" option.**
@@ -224,7 +230,7 @@ python example code is [here](#Run-ImageNet-Python-Example)
   ```python
     ie = InferenceEngine("./example/EfficientNetB0_4/EfficientNetB0_4.dxnn")
   ```   
-  The dxrt model has input and output tensors that shapes are N H W C format by default. Output tensor data format of current devices is aligned on 64-byte.   
+  The dxrt model has input and output tensors that shapes are N H W C format by default. Input tensor data format of current devices is aligned on 64-byte.   
   You should refer to the [Here](python/imageNet_example.py) and re-arrange input data.     
   ```python
     def preprocessing(image, new_shape=(224, 224), align=64, format=None):
@@ -281,7 +287,11 @@ python example code is [here](#Run-ImageNet-Python-Example)
   ```python
     ie = InferenceEngine("./example/YOLOV5S_3/YOLOV5S_3.dxnn")
   ```   
-  
+  In YOLO, the channel size of the feature map is typically calculated as (80 + 1 + 4) * 3 = 255. 
+  However, due to the characteristics of the NPU, if the channel size is less than 64 bytes, it is aligned to 16 bytes, 
+  and if the channel size is 64 bytes or larger, it is aligned to 64 bytes. 
+  As a result, each blob has 256 channels.   
+  You should refer to the [Here](./python/yolov5s_example.py) and using all_decode function.
   ```python
         image_src = cv2.imread(input_path, cv2.IMREAD_COLOR)
         image_input, _, _ = letter_box(image_src, new_shape=(512, 512), fill_color=(114, 114, 114), format=cv2.COLOR_BGR2RGB)
