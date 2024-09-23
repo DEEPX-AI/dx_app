@@ -110,7 +110,10 @@ void Yolo::LayerReorder(dxrt::Tensors output_info)
             for(size_t j=0;j<output_info.size();j++)
             {
                 if(output_info[i].name() == cfg.layers[j].name)
+                {
                     temp.emplace_back(cfg.layers[j]);
+                    break;
+                }
             }
         }
         cfg.layers.clear();

@@ -187,7 +187,7 @@ public:
     #endif                
             break;
 
-            case ETHERNET :
+            case RTSP :
                 _srcMode = RUNTIME;
                 _video.open(_srcPath);
                 if(!_video.isOpened())
@@ -299,7 +299,7 @@ public:
             case ISP :
             break;
 
-            case ETHERNET :
+            case RTSP :
                 _video >> _frame;
             break;
 
