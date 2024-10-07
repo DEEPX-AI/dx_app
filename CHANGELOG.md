@@ -1,5 +1,21 @@
 # Changelog 
 
+## [v1.1.0] - 2024-09-30
+### 1. Changed
+- Set as the default Async Mode for "yolo_multi" and "run_detector"
+### 2. Fixed
+- None
+### 3. Added
+- Add "yolov8" decoding method (It must be used with `USE_ORT=ON`)
+
+## [v1.0.7] - 2024-09-27
+### 1. Changed
+- None
+### 2. Fixed
+- Fix a bug that cross compile build error with onnxruntime library
+### 3. Added
+- None
+
 ## [v1.0.6] - 2024-09-20
 ### 1. Changed
 - Modify "ethernet" option to "rtsp"
@@ -12,7 +28,7 @@
 ### 1. Changed
 - Update example models new version
 ### 2. Fixed
-- Fix a bug RTSP mode in demos/yolo_demo.cpp, add parameter "-r" and "--rtsp".
+- Fix a bug RTSP mode in demos/yolo_demo.cpp, add parameter "-r" and "--rtsp"
 - Fix a bug that overlapping face ID in face recognition demo
 ### 3. Added
 - None
@@ -48,14 +64,14 @@
 ### 1. Changed
 - None
 ### 2. Fixed
-- Fix a bug that occurred during the build with onnxruntime.
-- modify install script to stabilize the installation.
+- Fix a bug that occurred during the build with onnxruntime
+- modify install script to stabilize the installation
 ### 3. Added
 - None  
 
 ## [v1.0.0] - 2024-08-02
 ### 1. Changed
-- dxnn version up(v6). so prior dxnn models will not work from this version.
+- dxnn version up(v6). so prior dxnn models will not work from this version
 - Update to dxnn model file version 6
 - Update imagenet example python code for none argmax model
 ### 2. Fixed
@@ -117,8 +133,8 @@
 ### 1. Changed
 - None
 ### 2. Fixed
-- Fix a bug get_align_factor function that returned to the base value.
-- Modify some functions to inline function call. It can Eliminating duplicate code and reducing overall code size. 
+- Fix a bug get_align_factor function that returned to the base value
+- Modify some functions to inline function call. It can Eliminating duplicate code and reducing overall code size
 - Modify supported architecture name arm64 to aarch64
 ### 3. Added
 - None 
@@ -134,7 +150,7 @@
 
 ## [v0.1.2] - 2024-05-24  
 ### 1. Changed
-- Add library link syntax to enable onnxruntime c++ API.
+- Add library link syntax to enable onnxruntime c++ API
 ### 2. Fixed
 - None
 ### 3. Added

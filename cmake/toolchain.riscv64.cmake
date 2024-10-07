@@ -4,7 +4,6 @@ set(CMAKE_SYSTEM_PROCESSOR riscv64)
 set(onnxruntime_LIB_DIRS /usr/local/lib)
 set(onnxruntime_INCLUDE_DIRS
     /usr/local/include/onnxruntime
-    /usr/local/include/onnxruntime/core/session
 )
 
 set(DXRT_INSTALLED_DIR /usr/local)
