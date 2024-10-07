@@ -119,7 +119,7 @@ void ObjectDetection::threadFunc(int period)
         _profiler.Start(proc);
         _profiler.Start(cap);
         int req = _ie->RunAsync(_vStream.GetInputStream(), (void*)this);
-#if 1
+#if 0
         _ie->Wait(req); /* optional */
 #endif
         vector<BoundingBox> bboxes;

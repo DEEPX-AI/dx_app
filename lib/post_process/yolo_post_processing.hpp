@@ -28,6 +28,7 @@ namespace yolo
         YOLOSCALE,
         YOLO_POSE,
         SCRFD,
+        YOLOV8,
         CUSTOM_DECODE,
     };
     enum PPUFormat
@@ -166,6 +167,9 @@ namespace yolo
                 _scrfdLocationIdx = 1;
                 _scrfdKptIdx = 2;
                 break;
+            case Decode::YOLOV8:
+                _decode = dxapp::decode::yoloCustomDecode;
+                break;
             default:
                 _decode = dxapp::decode::yoloBasicDecode;
                 break;
@@ -202,6 +206,8 @@ namespace yolo
                 getBoxesFromYoloPoseFormat(outputs, _params._kpt_order, _params._kpt_count);
             else if(_params._decode_method==Decode::SCRFD) // face detection
                 getBoxesFromSCRFDFormat(outputs, _scrfdClassScoreIdx, _scrfdLocationIdx, _scrfdKptIdx, _params._kpt_count);
+            else if(_params._decode_method==Decode::YOLOV8)
+                getBoxesFromYoloV8Format(outputs);
             else if(_params._decode_method==Decode::CUSTOM_DECODE)
                 getBoxesFromCustomPostProcessing(outputs);
             else
@@ -354,55 +360,92 @@ namespace yolo
             int boxIdx = 0;
             float score, score1;
             float* raw_data = (float*)(outputs.front()->data());
-            for(int64_t i=0;i<numDetected;i++)
+            if(_params._decode_method == dxapp::yolo::Decode::YOLOV8)
             {
-                float* data = raw_data + (4 + 1 + _params._numOfClasses + (_params._kpt_count * 3)) * i;
-                score1 = data[4];
-                if(score1 > _params._score_threshold)
+                /**
+                 * @note Ultralytics models, which make yolov8/v5/v7 has same post processing methods
+                 *      https://github.com/ultralytics/ultralytics/blob/main/examples/YOLOv8-ONNXRuntime-CPP/inference.cpp
+                 */
+                auto strideNum = outputs.front()->shape()[2]; // 8400
+                auto signalResultNum = outputs.front()->shape()[1]; // 84
+                cv::Mat rawData = cv::Mat(signalResultNum, strideNum, CV_32F, raw_data);
+                rawData = rawData.t();
+                for(int64_t i=0;i<strideNum;++i)
                 {
-                    for(int cls=0;cls<_params._numOfClasses;cls++)
+                    float *data = (float*)rawData.data + (signalResultNum * i);
+                    float* classesScores = data + 4;
+                    cv::Mat scores(1, _params._numOfClasses, CV_32FC1, classesScores);
+                    cv::Point class_id;
+                    double maxClassScore;
+                    cv::minMaxLoc(scores, 0, &maxClassScore, 0, &class_id);
+                    if(maxClassScore > _params._score_threshold)
                     {
-                        bool boxDecoded = false;
-                        score = score1 * data[5+cls];
-                        if(score > _params._score_threshold)
+                        _scoreIndices[class_id.x].emplace_back((float)maxClassScore, boxIdx);
+                    }
+                    dxapp::common::BBox temp {
+                                data[0] - data[2]/2.f,
+                                data[1] - data[3]/2.f,
+                                data[0] + data[2]/2.f,
+                                data[1] + data[3]/2.f,
+                                data[2],
+                                data[3],
+                                {dxapp::common::Point_f(-1, -1, -1)}};
+                    _rawBoxes.emplace_back(temp);
+                    boxIdx++;
+                }
+            }
+            else
+            {
+                for(int64_t i=0;i<numDetected;i++)
+                {
+                    float* data = raw_data + (4 + 1 + _params._numOfClasses + (_params._kpt_count * 3)) * i;
+                    score1 = data[4];
+                    if(score1 > _params._score_threshold)
+                    {
+                        for(int cls=0;cls<_params._numOfClasses;cls++)
                         {
-                            _scoreIndices[cls].emplace_back(score, boxIdx);
-                            if(!boxDecoded)
+                            bool boxDecoded = false;
+                            score = score1 * data[5+cls];
+                            if(score > _params._score_threshold)
                             {
-                                dxapp::common::BBox temp {
-                                            data[0] - data[2]/2.f,
-                                            data[1] - data[3]/2.f,
-                                            data[0] + data[2]/2.f,
-                                            data[1] + data[3]/2.f,
-                                            data[2],
-                                            data[3],
-                                            {dxapp::common::Point_f(-1, -1, -1)}
-                                };
-                                if(_params._decode_method == dxapp::yolo::Decode::YOLO_POSE)
+                                _scoreIndices[cls].emplace_back(score, boxIdx);
+                                if(!boxDecoded)
                                 {
-                                    temp._kpts.clear();
-                                    for(int idx = 0; idx < _params._kpt_count; idx++)
+                                    dxapp::common::BBox temp {
+                                                data[0] - data[2]/2.f,
+                                                data[1] - data[3]/2.f,
+                                                data[0] + data[2]/2.f,
+                                                data[1] + data[3]/2.f,
+                                                data[2],
+                                                data[3],
+                                                {dxapp::common::Point_f(-1, -1, -1)}
+                                    };
+                                    if(_params._decode_method == dxapp::yolo::Decode::YOLO_POSE)
                                     {
-                                        int kptIdx = (idx * 3) + (4 + 1 + _params._numOfClasses);
+                                        temp._kpts.clear();
+                                        for(int idx = 0; idx < _params._kpt_count; idx++)
+                                        {
+                                            int kptIdx = (idx * 3) + (4 + 1 + _params._numOfClasses);
+                                            
+                                            if((data[kptIdx + 2])<0.5)
+                                            {
+                                                temp._kpts.emplace_back(dxapp::common::Point_f(-1, -1));
+                                            }
+                                            else
+                                            {
+                                                temp._kpts.emplace_back(dxapp::common::Point_f(
+                                                                data[kptIdx + 0],
+                                                                data[kptIdx + 1],
+                                                                0.5f
+                                                                ));
+                                            }
+                                        }
                                         
-                                        if((data[kptIdx + 2])<0.5)
-                                        {
-                                            temp._kpts.emplace_back(dxapp::common::Point_f(-1, -1));
-                                        }
-                                        else
-                                        {
-                                            temp._kpts.emplace_back(dxapp::common::Point_f(
-                                                            data[kptIdx + 0],
-                                                            data[kptIdx + 1],
-                                                            0.5f
-                                                            ));
-                                        }
                                     }
-                                    
+                                    _rawBoxes.emplace_back(temp);
+                                    boxDecoded = true;
+                                    boxIdx++;
                                 }
-                                _rawBoxes.emplace_back(temp);
-                                boxDecoded = true;
-                                boxIdx++;
                             }
                         }
                     }
@@ -648,6 +691,14 @@ namespace yolo
             {
                 sort(indices.begin(), indices.end(), scoreComapre);
             }
+        };
+
+        void getBoxesFromYoloV8Format(std::vector<std::shared_ptr<dxrt::Tensor>> outputs)
+        {
+            
+            std::cout << "[ERR:dx-app] not supported yolov8 all decode function." << std::endl;
+            std::cout << "[ERR:dx-app] please using \"USE_ORT=ON\" option in dx_rt." << std::endl;
+
         };
         
         void getBoxesFromCustomPostProcessing(std::vector<std::shared_ptr<dxrt::Tensor>> outputs /* Users can add necessary parameters manually. */)

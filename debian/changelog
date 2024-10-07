@@ -1,0 +1,5 @@
+dx-app (1.0.1) unstable; urgency=medium
+
+  * fix: use_ort build bug fix and modify template readme.md
+
+ -- Koo Bongyu <kbg@deepx.ai>  Wed, 21 Aug 2024 20:00:00 +0900

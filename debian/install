@@ -1,0 +1,2 @@
+build_aarch64/release/bin/* usr/local/bin
+/usr/local/lib/libopencv_highgui.so.* usr/local/lib
