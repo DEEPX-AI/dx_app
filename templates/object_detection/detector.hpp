@@ -412,6 +412,8 @@ public:
             params._decode_method = dxapp::yolo::Decode::YOLO_POSE;
         else if(read=="scrfd")
             params._decode_method = dxapp::yolo::Decode::SCRFD;
+        else if(read=="yolov8")
+            params._decode_method = dxapp::yolo::Decode::YOLOV8;
         else if(read=="custom_decode")
             params._decode_method = dxapp::yolo::Decode::CUSTOM_DECODE;
         else
