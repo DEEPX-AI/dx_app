@@ -1,13 +1,12 @@
 cmake_minimum_required(VERSION 3.14)
 project(dxrt DESCRIPTION "DEEPX Application Templates")
 set(CMAKE_CXX_STANDARD_REQUIRED "ON")
-if(USE_ORT)
-    set(CMAKE_CXX_STANDARD "14")
-else()
-    set(CMAKE_CXX_STANDARD "11")
-endif()
+
+set(CMAKE_CXX_STANDARD "11")
+
 set(DXRT_RELEASE_DIR ${CMAKE_BINARY_DIR}/release)
 set(CMAKE_INSTALL_PREFIX ${DXRT_RELEASE_DIR})
+set(CMAKE_INSTALL_RPATH ${DXRT_INSTALLED_DIR}/lib)
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake) # using function & cfg cmake file
 
 if(NOT "${CMAKE_HOST_SYSTEM_PROCESSOR}" STREQUAL "${CMAKE_SYSTEM_PROCESSOR}")

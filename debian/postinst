@@ -1,0 +1,19 @@
+#!/bin/sh
+set -e
+
+# Unzip the source code when the package is installed
+PACKAGER="dx-app"
+SRC_DIR="/usr/share/${PACKAGER}/src"
+MAIN_ZIP_FILE="/usr/share/${PACKAGER}/source.zip"
+
+# Unzip the main source code
+rm -rf $SRC_DIR
+mkdir -p "$SRC_DIR"
+unzip -o "$MAIN_ZIP_FILE" -d "$SRC_DIR"
+rm -rf $MAIN_ZIP_FILE
+
+# Build & install
+cd "$SRC_DIR"
+./build.sh --clean
+
+exit 0

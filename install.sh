@@ -38,7 +38,7 @@ function install_dep()
         sudo apt-get update && apt-get -y install build-essential make zlib1g-dev libcurl4-openssl-dev wget tar zip cmake
         echo ""
         echo " Install python libraries" 
-        sudo apt-get -y install python3-dev python3-distutils python3-pip python3-tk python3-lxml python3-six
+        sudo apt-get -y install python3-dev python3-setuptools python3-pip python3-tk python3-lxml python3-six
         cmake_version=$(cmake --version |grep -oP "\d+\.\d+\.\d+")
         if compare_version "$cmake_version" "$cmake_version_required"; then
             install_cmake=false
@@ -50,14 +50,14 @@ function install_dep()
                 mkdir $DX_SRC_DIR/util
             fi
             cd $DX_SRC_DIR/util
-            if ! test -e $DX_SRC_DIR/util/cmake-$cmake_version.0; then
-                echo " Install CMake v$$cmake_version.0 "
-                wget https://cmake.org/files/v$cmake_version/cmake-$cmake_version.0.tar.gz --no-check-certificate    
-                tar xvf cmake-$cmake_version.0.tar.gz
+            if ! test -e $DX_SRC_DIR/util/cmake-$cmake_version_required.0; then
+                echo " Install CMake v$$cmake_version_required.0 "
+                wget https://cmake.org/files/v$cmake_version_required/cmake-$cmake_version_required.0.tar.gz --no-check-certificate    
+                tar xvf cmake-$cmake_version_required.0.tar.gz
             else
                 echo " Already Exist CMake "
             fi
-            cd cmake-$cmake_version.0
+            cd cmake-$cmake_version_required.0
             ./bootstrap --system-curl
             make -j8
             sudo make install 
@@ -102,45 +102,73 @@ function install_opencv()
             echo "Failed to install OpenCV dependent libraries."
             exit 1
         fi
-        
-        if ! test -e $DX_SRC_DIR/util; then 
-            mkdir $DX_SRC_DIR/util
+
+        # Get the installed OpenCV version
+        installed_version=$(opencv_version)
+
+        # Define the minimum required version
+        required_version="4.5.5"
+
+        # Compare versions using sort -V
+        if [ "$(printf '%s\n' "$required_version" "$installed_version" | sort -V | head -n1)" = "$required_version" ]; then
+            if [ "$installed_version" = "$required_version" ]; then
+                echo "OpenCV version is exactly $required_version."
+            else
+                echo "OpenCV version is $installed_version, which is higher than $required_version."
+            fi
+        else
+            echo "OpenCV version is $installed_version, which is lower than $required_version."
+
+            if ! test -e $DX_SRC_DIR/util; then 
+                mkdir $DX_SRC_DIR/util
+            fi
+            cd $DX_SRC_DIR/util
+            if ! test -e $DX_SRC_DIR/util/opencv.4.5.5.zip; then
+                wget -O opencv.4.5.5.zip https://github.com/opencv/opencv/archive/4.5.5.zip 
+            fi
+            if ! test -e $DX_SRC_DIR/util/opencv_contrib.4.5.5.zip; then
+                wget -O opencv_contrib.4.5.5.zip https://github.com/opencv/opencv_contrib/archive/4.5.5.zip
+            fi
+            echo " unzip opencv & opencv contrib "
+            if test -e $DX_SRC_DIR/util/opencv-4.5.5/; then
+                sudo rm -rf $DX_SRC_DIR/util/opencv-4.5.5
+            fi
+            if test -e $DX_SRC_DIR/util/opencv_contrib-4.5.5/; then
+                sudo rm -rf $DX_SRC_DIR/util/opencv_contrib-4.5.5
+            fi
+
+            unzip opencv.4.5.5.zip
+            unzip opencv_contrib.4.5.5.zip
+            cd opencv-4.5.5
+            mkdir build_$target_arch
+            cd build_$target_arch
+            make clean 
+            cmake \
+            $toolchain_define \
+            -D OPENCV_EXTRA_MODULES_PATH=../../opencv_contrib-4.5.5/modules \
+            -D CMAKE_BUILD_TYPE=RELEASE \
+            -D WITH_TBB=ON -D WITH_IPP=OFF -D WITH_1394=OFF \
+            -D BUILD_WITH_DEBUG_INFO=OFF -D BUILD_DOCS=OFF \
+            -D INSTALL_C_EXAMPLES=ON -D INSTALL_PYTHON_EXAMPLES=ON \
+            -D BUILD_EXAMPLES=OFF -D BUILD_TESTS=OFF -D BUILD_PERF_TESTS=OFF \
+            -D WITH_QT=OFF -D WITH_GTK=ON -D WITH_OPENGL=ON \
+            -D WITH_V4L=ON -D WITH_FFMPEG=ON -D WITH_XINE=ON -D BUILD_NEW_PYTHON_SUPPORT=ON \
+            -D OPENCV_GENERATE_PKGCONFIG=ON -D WITH_CUDA=OFF -D WITH_FREETYPE=ON ../
+            make -j8
+            if [ $? -ne 0 ]; then
+                echo "Failed to install OpenCV dependent libraries."
+                exit 1
+            fi
+            
+            sudo make install
+
+            if [ $? -ne 0 ]; then
+                echo "Failed to install OpenCV dependent libraries."
+                exit 1
+            fi
+
+            sudo ldconfig
         fi
-        cd $DX_SRC_DIR/util
-        if ! test -e $DX_SRC_DIR/util/opencv.4.5.5.zip; then
-            wget -O opencv.4.5.5.zip https://github.com/opencv/opencv/archive/4.5.5.zip 
-        fi
-        if ! test -e $DX_SRC_DIR/util/opencv_contrib.4.5.5.zip; then
-            wget -O opencv_contrib.4.5.5.zip https://github.com/opencv/opencv_contrib/archive/4.5.5.zip
-        fi
-        echo " unzip opencv & opencv contrib "
-        if test -e $DX_SRC_DIR/util/opencv-4.5.5/; then
-            sudo rm -rf $DX_SRC_DIR/util/opencv-4.5.5
-        fi
-        if test -e $DX_SRC_DIR/util/opencv_contrib-4.5.5/; then
-            sudo rm -rf $DX_SRC_DIR/util/opencv_contrib-4.5.5
-        fi
-        
-        unzip opencv.4.5.5.zip
-        unzip opencv_contrib.4.5.5.zip
-        cd opencv-4.5.5
-        mkdir build_$target_arch
-        cd build_$target_arch
-        make clean 
-        cmake \
-        $toolchain_define \
-        -D OPENCV_EXTRA_MODULES_PATH=../../opencv_contrib-4.5.5/modules \
-        -D CMAKE_BUILD_TYPE=RELEASE \
-        -D WITH_TBB=ON -D WITH_IPP=OFF -D WITH_1394=OFF \
-        -D BUILD_WITH_DEBUG_INFO=OFF -D BUILD_DOCS=OFF \
-        -D INSTALL_C_EXAMPLES=ON -D INSTALL_PYTHON_EXAMPLES=ON \
-        -D BUILD_EXAMPLES=OFF -D BUILD_TESTS=OFF -D BUILD_PERF_TESTS=OFF \
-        -D WITH_QT=OFF -D WITH_GTK=ON -D WITH_OPENGL=ON \
-        -D WITH_V4L=ON -D WITH_FFMPEG=ON -D WITH_XINE=ON -D BUILD_NEW_PYTHON_SUPPORT=ON \
-        -D OPENCV_GENERATE_PKGCONFIG=ON -D WITH_CUDA=OFF -D WITH_FREETYPE=ON ../
-        make -j8
-        sudo make install
-        sudo ldconfig
     fi
 }
 

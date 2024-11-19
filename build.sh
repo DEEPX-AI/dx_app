@@ -51,12 +51,6 @@ if [ ! -e $dxrt_dir ]; then
     exit 1
 fi
 
-use_ort=$(grep -i use_ort$ $dxrt_dir/include/dxrt/gen.h)
-
-if [ -n "$use_ort" ]; then
-    cmd+=(-DUSE_ORT=True);
-fi
-
 if [ $build_gtest == "true" ]; then
     cmd+=(-DUSE_DXAPP_TEST=True);
 fi

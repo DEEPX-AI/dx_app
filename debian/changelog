@@ -1,5 +1,63 @@
+dx-app (1.1.1) unstable; urgency=medium
+
+  * Update debian packaging rules, changelog, postinst
+
+ -- yjleert <yjlee@deepx.ai>  Mon, 30 Sep 2024 00:00:00 +0900
+
+dx-app (1.1.0) unstable; urgency=medium
+
+  * Set as the default Async Mode for "yolo_multi" and "run_detector".
+  * Add "yolov8" decoding method (requires `USE_ORT=ON`).
+
+ -- yjleert <yjlee@deepx.ai>  Mon, 30 Sep 2024 00:00:00 +0900
+
+dx-app (1.0.7) unstable; urgency=medium
+
+  * Fix cross-compile build error with onnxruntime library.
+
+ -- yjleert <yjlee@deepx.ai>  Fri, 27 Sep 2024 00:00:00 +0900
+
+dx-app (1.0.6) unstable; urgency=medium
+
+  * Modify "ethernet" option to "rtsp".
+  * Fix de-noiser post-processing pitch size issue (from 64 to output channel size).
+  * Add README.md file to guide customizing post-processing and explanation of templates.
+
+ -- yjleert <yjlee@deepx.ai>  Fri, 20 Sep 2024 00:00:00 +0900
+
+dx-app (1.0.5) unstable; urgency=medium
+
+  * Update example models to new versions.
+  * Fix bug in RTSP mode in `demos/yolo_demo.cpp`, add parameters "-r" and "--rtsp".
+  * Fix overlapping face ID bug in face recognition demo.
+
+ -- yjleert <yjlee@deepx.ai>  Wed, 11 Sep 2024 00:00:00 +0900
+
+dx-app (1.0.4) unstable; urgency=medium
+
+  * Fix bug in object detection example NMS calculation error (Python file).
+  * Fix bug in SCRFD post-processing (lines 283-290 in `yolo_post_processing.hpp`).
+
+ -- yjleert <yjlee@deepx.ai>  Fri, 06 Sep 2024 00:00:00 +0900
+
+dx-app (1.0.3) unstable; urgency=medium
+
+  * Delete CPU ONNX file.
+  * Update Yolo configuration parameters (deleted ppu and concatenated yolo config). Check `yolo_demo` code or `README.md`.
+  * Add output node name to YoloLayerParam for layer reordering (`demo/object_detection`).
+
+ -- yjleert <yjlee@deepx.ai>  Wed, 04 Sep 2024 00:00:00 +0900
+
+dx-app (1.0.2) unstable; urgency=medium
+
+  * Fix output layers order distortion problem.
+  * Support RTSP URL input for `yolo`, `yolo_multi`, and `run_detector` applications.
+
+ -- yjleert <yjlee@deepx.ai>  Thu, 22 Aug 2024 00:00:00 +0900
+
+
 dx-app (1.0.1) unstable; urgency=medium
 
   * fix: use_ort build bug fix and modify template readme.md
 
- -- Koo Bongyu <kbg@deepx.ai>  Wed, 21 Aug 2024 20:00:00 +0900
+ - *Koo Bongyu <kbg@deepx.ai>  Wed, 21 Aug 2024 20:00:00 +0900

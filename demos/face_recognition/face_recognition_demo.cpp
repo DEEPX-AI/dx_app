@@ -40,14 +40,22 @@ std::vector<cv::Point2f> run_landmark(dxrt::InferenceEngine *ie, cv::Mat image, 
 FaceData run_recognition(dxrt::InferenceEngine *ie, cv::Mat image, int id)
 {
     cv::Mat input = preprocess(image, cv::Size(FR_INPUT_WIDTH, FR_INPUT_HEIGHT));
+    bool is_ort = false;
+    for (const auto& task_str : ie->task_order()) {
+        if (task_str.find("cpu") != std::string::npos) {
+            is_ort = true;
+            break;
+        }
+    }
+    dxrt::TensorPtrs tensors;
     cv::cvtColor(image, input, cv::COLOR_BGR2RGB);
-#ifdef USE_ORT
-    auto tensors = ie->Run(image.data);
-#else 
-    std::vector<uint8_t> input_tensor(ie->input_size());
-    data_pre_processing(image.data, input_tensor.data(), FR_INPUT_WIDTH, 48);
-    auto tensors = ie->Run(input_tensor.data());
-#endif
+    if (is_ort) {
+        tensors = ie->Run(image.data);
+    } else {
+        std::vector<uint8_t> input_tensor(ie->input_size());
+        data_pre_processing(image.data, input_tensor.data(), FR_INPUT_WIDTH, 48);
+        tensors = ie->Run(input_tensor.data());
+    }
     float *feature_vector = (float *)tensors[0]->data();
     return FaceData(id, image, feature_vector);
 }
