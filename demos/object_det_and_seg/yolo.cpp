@@ -72,34 +72,20 @@ Yolo::Yolo(YoloParam &_cfg) :cfg(_cfg)
 
 void Yolo::LayerReorder(dxrt::Tensors output_info)
 {
-    #ifdef USE_ORT
-    if(output_info.size() == 1)
-        return;
-    #endif
-    if(cfg.layers.front().name == "")
+    std::vector<YoloLayerParam> temp;
+    for(size_t i=0;i<output_info.size();i++)
     {
-        if(output_info.front().type() > dxrt::DataType::FLOAT)
-            this->LayerInverse(1);
-        else
-            this->LayerInverse(0);
-    }
-    else
-    {
-        std::vector<YoloLayerParam> temp;
-        for(size_t i=0;i<output_info.size();i++)
+        for(size_t j=0;j<output_info.size();j++)
         {
-            for(size_t j=0;j<output_info.size();j++)
+            if(output_info[i].name() == cfg.layers[j].name)
             {
-                if(output_info[i].name() == cfg.layers[j].name)
-                {
-                    temp.emplace_back(cfg.layers[j]);
-                    break;
-                }
+                temp.emplace_back(cfg.layers[j]);
+                break;
             }
         }
-        cfg.layers.clear();
-        cfg.layers = temp;
     }
+    cfg.layers.clear();
+    cfg.layers = temp;
 }
 
 void Yolo::LayerInverse(int mode)
