@@ -1,7 +1,6 @@
 #!/usr/bin/make -f
 #export DH_VERBOSE=1
 
-
 DESTDIR := $(CURDIR)/debian/tmp
 ARCH := $(shell dpkg-architecture -qDEB_BUILD_ARCH)
 
