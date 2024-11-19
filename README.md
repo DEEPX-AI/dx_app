@@ -32,7 +32,7 @@ Install the followings first.
 - **Clone DX_APP**         
   clone this project, and just build 
   ```shell
-  git clone git@github.com:DEEPX-AI/dx_app.git      
+  git clone git@gh.deepx.ai:DEEPX-AI/dx_app.git      
   ```                                 
 - **Install Dependencies**                
   Install Dependency package tools             

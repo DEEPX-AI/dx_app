@@ -91,16 +91,11 @@ Yolo::Yolo(YoloParam &_cfg) :cfg(_cfg)
 
 void Yolo::LayerReorder(dxrt::Tensors output_info)
 {
-    #ifdef USE_ORT
     if(output_info.size() == 1)
         return;
-    #endif
     if(cfg.layers.front().name == "")
     {
-        if(output_info.front().type() > dxrt::DataType::FLOAT)
-            this->LayerInverse(1);
-        else
-            this->LayerInverse(0);
+        this->LayerInverse(0);
     }
     else
     {

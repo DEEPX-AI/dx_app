@@ -9,10 +9,10 @@ double GetTimestamp(void)
     return timestamp;
 }
 
-cv::Mat preprocess(cv::Mat image, cv::Size size)
+cv::Mat preprocess(cv::Mat image, cv::Size size, int interpolation_flag)
 {
     cv::Mat resized, converted;
-    cv::resize(image, resized, size);
+    cv::resize(image, resized, size, 0.0, 0.0, interpolation_flag);
     cv::cvtColor(resized, converted, cv::COLOR_BGR2RGB);
     return converted;
 }
@@ -304,6 +304,17 @@ void Tracker::run(std::vector<cv::Rect> D)
 
 FaceData::FaceData(int _id, cv::Mat _image, float *_feature_vector)
 {
+    age_idx = -1;
+    age_idx = -1;
+    id = _id;
+    image = _image;
+    memcpy(feature_vector, _feature_vector, sizeof(float) * 512);
+}
+
+FaceData::FaceData(int8_t _age_idx, int8_t _gender_idx, int _id, cv::Mat _image, float *_feature_vector)
+{
+    age_idx = _age_idx;
+    gender_idx = _gender_idx;
     id = _id;
     image = _image;
     memcpy(feature_vector, _feature_vector, sizeof(float) * 512);

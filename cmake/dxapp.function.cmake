@@ -38,8 +38,5 @@ macro(add_dxrt_lib)
     find_package(dxrt REQUIRED HINTS ${DXRT_INSTALLED_DIR})
   endif()
   LIST(APPEND link_libs dxrt pthread)
-  if(USE_ORT)
-    add_onnxruntime()
-  endif()
 
 endmacro(add_dxrt_lib)

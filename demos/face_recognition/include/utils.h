@@ -4,7 +4,7 @@
 
 double GetTimestamp(void);
 void data_pre_processing(uint8_t* src, uint8_t* dst, int shape, int align);
-cv::Mat preprocess(cv::Mat image, cv::Size size);
+cv::Mat preprocess(cv::Mat image, cv::Size size, int interpolation_flag=1);
 
 cv::Rect get_rect(float *box, int image_w, int image_h);
 float get_iou(cv::Rect rect1, cv::Rect rect2);
@@ -38,10 +38,13 @@ public:
 class FaceData
 {
 public:
+    int8_t age_idx;
+    int8_t gender_idx;
     int id;
     cv::Mat image;
     float feature_vector[512];
     FaceData();
+    FaceData(int8_t age_idx, int8_t gender_idx, int _id, cv::Mat _image, float *_feature_vector);
     FaceData(int _id, cv::Mat _image, float *_feature_vector);
     ~FaceData();
 };

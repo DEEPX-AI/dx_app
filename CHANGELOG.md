@@ -1,5 +1,21 @@
 # Changelog 
 
+## [v1.1.2] - 2024-11-14
+### 1. Changed
+- None
+### 2. Fixed
+- Remove the ONNX Runtime linking process from the build, eliminating the "USE_ORT" conditional check.
+### 3. Added
+- Add age and gender classification logic from the demo/face_recognition application.
+
+## [v1.1.1] - 2024-10-29
+### 1. Changed
+- None
+### 2. Fixed
+- Install opencv Check if the required version(4.5.5) of OpenCV is installed in install script.
+### 3. Added
+- None
+
 ## [v1.1.0] - 2024-09-30
 ### 1. Changed
 - Set as the default Async Mode for "yolo_multi" and "run_detector"
