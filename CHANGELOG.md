@@ -1,5 +1,5 @@
 # Changelog 
-
+TEST
 ## [v1.1.2] - 2024-11-14
 ### 1. Changed
 - None
@@ -195,3 +195,4 @@
 - template : classification     
 - template : object detection    
 - template : python example (classification)    
+   
