@@ -17,12 +17,6 @@ macro(add_opencv)
     LIST(APPEND link_libs ${OpenCV_LIBS})
 endmacro(add_opencv)
 
-macro(add_onnxruntime)
-	  find_library(ONNXLIB_DIRS onnxruntime HINTS ${onnxruntime_LIB_DIRS})
-    include_directories(${onnxruntime_INCLUDE_DIRS})
-    LIST(APPEND link_libs ${ONNXLIB_DIRS})
-endmacro(add_onnxruntime)
-
 macro(add_dxrt_lib)
   if(CROSS_COMPILE)
     if(DXRT_INSTALLED_DIR)

@@ -1,61 +1,28 @@
 #!/usr/bin/make -f
 #export DH_VERBOSE=1
 
-DESTDIR := $(CURDIR)/debian/tmp
-ARCH := $(shell dpkg-architecture -qDEB_BUILD_ARCH)
+ROOTDIR := $(CURDIR)
+MAINZIPFILE := $(CURDIR)/source.zip
 
-export DEB_BUILD_ARCH ?= $(shell dpkg --print-architecture)
+PACKAGER := dx-app
 
 %:
 	dh $@
 
-#override_dh_clean:
-#	dh_clean
-#	rm -rf build_x86_64
+build:
+	pwd
+	rm -rf $(MAINZIPFILE)
+	echo "ROOTDIR: $(ROOTDIR)"
+	git archive -o $(MAINZIPFILE) HEAD;
+	ls -al
 
-override_dh_auto_build:
-	export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
-	./build.sh --clean
+install:
+#	dh install
+	pwd
+	mkdir -p debian/$(PACKAGER)/usr/share/$(PACKAGER)
+	cp $(MAINZIPFILE) debian/$(PACKAGER)/usr/share/$(PACKAGER)/
 
-override_dh_auto_install:
-	dh_auto_install
-	mkdir -p $(DESTDIR)/usr/local/lib
-	cp /usr/local/lib/libopencv_highgui.so.405 $(DESTDIR)/usr/local/lib/
-	mkdir -p $(DESTDIR)/usr/local/bin
-	@echo "Installing for $(ARCH)"
-	@if [ "$(ARCH)" = "amd64" ]; then \
-		cp -r build_x86_64/release/bin/* $(DESTDIR)/usr/local/bin; \
-	elif [ "$(ARCH)" = "arm64" ]; then \
-		cp -r build_aarch64/release/bin/* $(DESTDIR)/usr/local/bin; \
-	elif [ "$(ARCH)" = "riscv64" ]; then \
-		cp -r build_riscv64/release/bin/* $(DESTDIR)/usr/local/bin; \
-	else \
-		echo "Unsupported architecture: $(ARCH)" && exit 1; \
-	fi
 
-override_dh_install:
-	@if [ "$(ARCH)" = "amd64" ]; then \
-		echo "build_x86_64/release/bin/* usr/local/bin" > debian/install; \
-	elif [ "$(ARCH)" = "arm64" ]; then \
-		echo "build_aarch64/release/bin/* usr/local/bin" > debian/install; \
-	elif [ "$(ARCH)" = "riscv64" ]; then \
-		echo "build_riscv64/release/bin/* usr/local/bin" > debian/install; \
-	else \
-		echo "Unsupported architecture: $(ARCH)" && exit 1; \
-	fi
-	echo "/usr/local/lib/libopencv_highgui.so.* usr/local/lib" >> debian/install
-	dh_install
-
-override_dh_auto_test:
-	echo "No test defined"
-
-override_dh_auto_lintian:
-	dh_auto_lintian
-
-override_dh_usrlocal:
-	echo "skip usrlocal"
-#	dh_usrlocal
-
-override_dh_shlibdeps:
-	echo "skip shlibdeps"
-#	dh_shlibdeps
+clean:
+	dh clean
+	rm -rf $(MAINZIPFILE)

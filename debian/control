@@ -7,7 +7,7 @@ Standards-Version: 3.9.6
 Homepage: https://deepx.ai
 
 Package: dx-app
-Architecture: any
+Architecture: all
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: A DEEPX Runtime Application
  RT App.

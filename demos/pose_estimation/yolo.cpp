@@ -91,11 +91,9 @@ Yolo::Yolo(YoloParam &_cfg) :cfg(_cfg)
 
 void Yolo::LayerReorder(dxrt::Tensors output_info)
 {
-    if(output_info.size() == 1)
-        return;
     if(cfg.layers.front().name == "")
     {
-        this->LayerInverse(0);
+        this->LayerInverse(1);
     }
     else
     {
