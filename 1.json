@@ -1,0 +1,18 @@
+{
+    "usage": "multi",
+    "model_path": "/mnt/regression_storage/dxnn_regr_data/M1A/1762/YOLOV5S_3/YOLOV5S_3.dxnn",
+
+    "model_name": "yolov5s_512",
+    
+    "video_sources": [
+                    ["./sample/1.jpg", "image"]
+    ], 
+    
+    "display_config": {
+                    "display_label": "output",
+                    "capture_period": 33,
+                    "output_width": 1920,
+                    "output_height": 1080,
+                    "show_fps": true
+    }
+}
