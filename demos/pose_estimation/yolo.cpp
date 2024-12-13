@@ -92,37 +92,23 @@ Yolo::Yolo(YoloParam &_cfg) :cfg(_cfg)
 void Yolo::LayerReorder(dxrt::Tensors output_info)
 {
     if(cfg.layers.front().name == "")
+        return;
+    std::vector<YoloLayerParam> temp;
+    for(size_t i=0;i<output_info.size();i++)
     {
-        this->LayerInverse(1);
-    }
-    else
-    {
-        std::vector<YoloLayerParam> temp;
-        for(size_t i=0;i<output_info.size();i++)
+        for(size_t j=0;j<output_info.size();j++)
         {
-            for(size_t j=0;j<output_info.size();j++)
+            if(output_info[i].name() == cfg.layers[j].name)
             {
-                if(output_info[i].name() == cfg.layers[j].name)
-                {
-                    temp.emplace_back(cfg.layers[j]);
-                    break;
-                }
+                temp.emplace_back(cfg.layers[j]);
+                break;
             }
         }
-        cfg.layers.clear();
-        cfg.layers = temp;
     }
-}
-
-void Yolo::LayerInverse(int mode)
-{
-    std::sort(cfg.layers.begin(), cfg.layers.end(), 
-                [&](const YoloLayerParam &a, const YoloLayerParam &b)
-                {
-                    if(mode > 0)
-                        return a.numGridX < b.numGridX;
-                    return a.numGridX > b.numGridX;
-                });
+    if(temp.empty())
+        return;
+    cfg.layers.clear();
+    cfg.layers = temp;
 }
 
 static bool scoreComapre(const std::pair<float, int> &a, const std::pair<float, int> &b)

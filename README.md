@@ -86,3 +86,12 @@ Install the followings first.
   ```   
 
   [Here](demos/README.md) For details to run demo applications and [Here](templates/README.md) to run templates.         
+
+### ⚠️ Important Notice
+You can access the internal `deepx` mount storage to retrieve the appropriate dxnn models for the specified Regression ID, as well as the video files for testing. Please execute the following command:
+
+```shell
+chmod +x ./get_assets.sh
+./get_assets.sh --number $REGR_ID
+```
+If needed, You can also download the files as a `.tar.gz` archive.

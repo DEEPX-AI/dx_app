@@ -163,6 +163,7 @@ int main(int argc, char *argv[])
     int inputWidth = 0, inputHeight = 0;
     string modelPath="", imgFile="", videoFile="", binFile="", simFile="";
     bool cameraInput = false, asyncInference = false;
+    bool usingOrt = false;
 
     if(argc==1)
     {
@@ -223,6 +224,15 @@ int main(int argc, char *argv[])
     LOG_VALUE(asyncInference);
 
     dxrt::InferenceEngine ie(modelPath);
+
+    for (const auto& task_str : ie.task_order()) {
+        if (task_str.find("cpu") != std::string::npos) {
+            (void)(usingOrt);
+            std::cout<<"[NOTICE] This demo works correctly when USE_ORT is set to OFF."<<std::endl;
+            exit(0);
+            // break;
+        }
+    }
 
     auto& profiler = dxrt::Profiler::GetInstance();
     if(!imgFile.empty())

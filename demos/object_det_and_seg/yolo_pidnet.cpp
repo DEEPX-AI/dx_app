@@ -177,6 +177,7 @@ int main(int argc, char *argv[])
     string od_modelpath = "", seg_modelpath = "";
     bool cameraInput = false;
     auto objectColors = GetObjectColors(0);
+    bool usingOrt = false;
 
     if(argc==1)
     {
@@ -219,6 +220,15 @@ int main(int argc, char *argv[])
     
     dxrt::InferenceEngine ieOD(od_modelpath);
     dxrt::InferenceEngine ieSEG(seg_modelpath);
+
+    for (const auto& task_str : ieSEG.task_order()) {
+        if (task_str.find("cpu") != std::string::npos) {
+            (void)(usingOrt);
+            std::cout<<"[NOTICE] This demo works correctly when USE_ORT is set to OFF."<<std::endl;
+            exit(0);
+            // break;
+        }
+    }
 
     Yolo yolo = Yolo(odCfg);
     yolo.LayerReorder(ieOD.outputs());
