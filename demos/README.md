@@ -4,8 +4,9 @@
 This is an application examples that gives you a quick experience of NPU Accelerator performance.     
 You can refer to **DX-APP** and modify it a little or implement application depending on the purpose of your use.       
 This can reduce stress, such as setting the environment and implementing the code.    
-Application performance may also depending on the specifications of the host CPU because it includes pre/post processing and graphics processing operations.           
-
+Application performance may also depending on the specifications of the host CPU because it includes pre/post processing and graphics processing operations.  
+> **Important Notice**  
+> Some demo codes may or may not work depending on the `USE_ORT` state. `USE_ORT` can change the state in RT, and RT needs to be recompiled.          
 
 
 ## C++ Demo Applications    

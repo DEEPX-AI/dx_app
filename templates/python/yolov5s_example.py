@@ -147,15 +147,13 @@ def run_example(config):
     
     ''' make inference engine (dxrt)'''
     ie = InferenceEngine(model_path)
-    if ie.output_dtype()[0] == "BBOX":
-        layers.reverse()
     input_size = np.sqrt(ie.input_size() / 3)
     for input_path in input_list:
         image_src = cv2.imread(input_path, cv2.IMREAD_COLOR)
         image_input, _, _ = letter_box(image_src, new_shape=(int(input_size), int(input_size)), fill_color=(114, 114, 114), format=cv2.COLOR_BGR2RGB)
         
         ''' detect image (1) run dxrt inference engine, (2) post processing'''
-        ie_output = ie.run(image_input)
+        ie_output = ie.Run(image_input)
         print("dxrt inference Done! ")
         decoded_tensor = []
         if ie.output_dtype()[0] == "BBOX":

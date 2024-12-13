@@ -41,6 +41,19 @@ void help()
     cout << usage << endl;    
 }
 
+int getArgMax(float* output_data, int number_of_classes)
+{
+    int max_idx = 0;
+    for(int i=0;i<number_of_classes;i++)
+    {
+        if(output_data[max_idx] < output_data[i])
+        {
+            max_idx = i;
+        }
+    }
+    return max_idx;
+}
+
 int main(int argc, char *argv[])
 {
     int optCmd;
@@ -85,6 +98,13 @@ int main(int argc, char *argv[])
     if(!imgFile.empty())
     {
         dxrt::InferenceEngine ie(modelPath);
+        bool usingOrt = false;
+        for (const auto& task_str : ie.task_order()) {
+            if (task_str.find("cpu") != std::string::npos) {
+                usingOrt = true;
+                break;
+            }
+        }
         
         do 
         {
@@ -92,19 +112,37 @@ int main(int argc, char *argv[])
             image = cv::imread(imgFile, cv::IMREAD_COLOR);
             cv::resize(image, resized, cv::Size(input_w, input_h));
             cv::cvtColor(resized, input, cv::COLOR_BGR2RGB);
-            vector<uint8_t> inputBuf(input_h * (input_w * input_c + align_factor));
             
-            for(int y = 0; y < input_h; y++)
-            {
-                memcpy(&inputBuf[y*(input_w * input_c + align_factor)], &input.data[y * input_w * input_c], input_w * input_c);
-            }
+            vector<uint8_t> inputBuf(ie.input_size());
 
+            if(usingOrt)
+            {
+                ie.outputs().front().type();
+                memcpy(&inputBuf[0], &input.data[0], ie.input_size());
+            }
+            else
+            {
+                for(int y = 0; y < input_h; y++)
+                {
+                    memcpy(&inputBuf[y*(input_w * input_c + align_factor)], &input.data[y * input_w * input_c], input_w * input_c);
+                }
+            }
             auto outputs = ie.Run(inputBuf.data());
             
             if(!outputs.empty())
             {
-                auto result = *(uint16_t*)outputs.front()->data();
-                cout << "Top1 Result : class " << result << endl;                    
+                if(usingOrt && ie.outputs().front().type() == dxrt::DataType::FLOAT)
+                {
+                    int batch_size = outputs.front()->shape()[0];
+                    int class_size = outputs.front()->shape()[1];
+                    auto result = getArgMax((float*)outputs.front()->data(), class_size);
+                    cout << "Top1 Result : class " << result << endl;
+                }
+                else
+                {
+                    auto result = *(uint16_t*)outputs.front()->data();
+                    cout << "Top1 Result : class " << result << endl;
+                }
             }
         } while(loopTest);
     }

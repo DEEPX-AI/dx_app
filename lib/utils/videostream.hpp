@@ -126,9 +126,9 @@ public:
                 _srcMode = RUNTIME;
                 _video.open(_srcPath, cv::CAP_V4L2);
                 _video.set(cv::CAP_PROP_FOURCC, cv::VideoWriter::fourcc('M','J','P','G'));
+                _video.set(cv::CAP_PROP_FPS, _cam_fps);
                 _video.set(cv::CAP_PROP_FRAME_WIDTH, _cam_width);
                 _video.set(cv::CAP_PROP_FRAME_HEIGHT, _cam_height);
-                _video.set(cv::CAP_PROP_FPS, _cam_fps);
                 if(!_video.isOpened())
                 {
                     std::cout << "Error: camera could not be opened." <<std::endl;

@@ -48,7 +48,7 @@ def run_example(config):
         else:
             align = 64
         image_input = preprocessing(image_src, new_shape=(224, 224), align=align, format=cv2.COLOR_BGR2RGB)
-        ie_output = ie.run(image_input)
+        ie_output = ie.Run(image_input)
         if(len(ie_output[0].shape) > 1):
             output = postprocessing(ie_output[0], len(classes))
         else:

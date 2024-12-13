@@ -848,6 +848,16 @@ int main(int argc, char *argv[])
     std::shared_ptr<dxrt::InferenceEngine> ie_gender;
     if(classifier_gender)
         ie_gender = std::make_shared<dxrt::InferenceEngine>(gender_modelPath);
+    
+    for (const auto& task_str : ie_fr.task_order()) {
+        if (task_str.find("cpu") != std::string::npos) {
+            g_usingOrt = true;
+            std::cout<<"[NOTICE] This demo works correctly when USE_ORT is set to OFF."<<std::endl;
+            exit(0);
+            // break;
+        }
+    }
+    
     SsdParam FDCfg = {
                 .image_size = 512,
                 .use_softmax = true,

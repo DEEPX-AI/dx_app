@@ -1,5 +1,21 @@
 # Changelog 
 
+## [v1.2.0] - 2024-12-12
+### 1. Changed
+- Fixed Python code due to changes in the DXRT Python API. Use a specific version of DXRT(2.6.1).
+### 2. Fixed
+- Fix a bug when using USE_ORT=ON, Some demo codes may or may not work very well.
+### 3. Added
+- None
+
+## [v1.1.3] - 2024-12-12
+### 1. Changed
+- None
+### 2. Fixed
+- update scripts for install opencv (in OP5-Plus 22.04)
+### 3. Added
+- Add yolo_async.py, that Implemented an runAsync method for object detection demo using YOLO model.
+
 ## [v1.1.2] - 2024-11-14
 ### 1. Changed
 - None

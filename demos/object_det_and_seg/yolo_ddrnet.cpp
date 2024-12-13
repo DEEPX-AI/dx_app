@@ -77,7 +77,6 @@ const char* usage =
     "     -i,  --image             use image file input\n"
     "     -v,  --video             use video file input\n"
     "     -c,  --camera            use camera input\n"
-    "[*]  -a,  --async             asynchronous inference\n"
     "     -h,  --help              show help\n";
 void help()
 {

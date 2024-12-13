@@ -62,7 +62,6 @@ public:
     Yolo();
     Yolo(YoloParam &_cfg);
     void LayerReorder(dxrt::Tensors output_info);
-    void LayerInverse(int mode);
     /* for concated tensor */
     std::vector< BoundingBox > PostProc(float *data);
     /* for separate tensors */

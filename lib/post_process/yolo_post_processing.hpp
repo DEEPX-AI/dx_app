@@ -29,6 +29,7 @@ namespace yolo
         YOLO_POSE,
         SCRFD,
         YOLOV8,
+        YOLOV9,
         CUSTOM_DECODE,
     };
     enum PPUFormat
@@ -174,15 +175,6 @@ namespace yolo
                 _decode = dxapp::decode::yoloBasicDecode;
                 break;
             }
-            if(_params._ppu_format > 0)
-            {
-                /* layer re-ordering */
-                std::sort(_params._layers.begin(), _params._layers.end(), 
-                            [&](const Layers &a, const Layers &b)
-                            {
-                                return a.stride > b.stride;
-                            });             
-            }
         };
         PostProcessing(){};
         ~PostProcessing(){};
@@ -208,6 +200,8 @@ namespace yolo
                 getBoxesFromSCRFDFormat(outputs, _scrfdClassScoreIdx, _scrfdLocationIdx, _scrfdKptIdx, _params._kpt_count);
             else if(_params._decode_method==Decode::YOLOV8)
                 getBoxesFromYoloV8Format(outputs);
+            else if(_params._decode_method==Decode::YOLOV9)
+                getBoxesFromONNXOutputs(outputs, outputs.front()->shape()[1]);
             else if(_params._decode_method==Decode::CUSTOM_DECODE)
                 getBoxesFromCustomPostProcessing(outputs);
             else
@@ -359,15 +353,21 @@ namespace yolo
         {
             int boxIdx = 0;
             float score, score1;
-            float* raw_data = (float*)(outputs.front()->data());
-            if(_params._decode_method == dxapp::yolo::Decode::YOLOV8)
+            auto output_front = outputs.front();
+            auto* raw_data = (float*)(output_front->data());
+            if (_params._decode_method == dxapp::yolo::Decode::YOLOV8 ||
+                _params._decode_method == dxapp::yolo::Decode::YOLOV9)
             {
+                if(_params._decode_method == dxapp::yolo::Decode::YOLOV9) {
+                    output_front = outputs[1];
+                    raw_data = (float*)(output_front->data());
+                }
                 /**
                  * @note Ultralytics models, which make yolov8/v5/v7 has same post processing methods
                  *      https://github.com/ultralytics/ultralytics/blob/main/examples/YOLOv8-ONNXRuntime-CPP/inference.cpp
                  */
-                auto strideNum = outputs.front()->shape()[2]; // 8400
-                auto signalResultNum = outputs.front()->shape()[1]; // 84
+                auto strideNum = output_front->shape()[2]; // 8400
+                auto signalResultNum = output_front->shape()[1]; // 84
                 cv::Mat rawData = cv::Mat(signalResultNum, strideNum, CV_32F, raw_data);
                 rawData = rawData.t();
                 for(int64_t i=0;i<strideNum;++i)
