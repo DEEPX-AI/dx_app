@@ -81,8 +81,7 @@ def all_decode(ie_outputs, layer_config):
     decoded_tensor = []
     
     for i, output in enumerate(outputs):
-        output[...,4:] = sigmoid(output[...,4:]) # obj confidence
-        output[...,5:] *= output[...,4:5]
+        output[...,4] = sigmoid(output[...,4]) # obj confidence
         for l in range(len(layer_config[i]["anchor_width"])):
             layer = layer_config[i]
             stride = layer["stride"]
@@ -176,7 +175,6 @@ def run_example(config):
         conf, j = x[:, 5:].max(1, keepdims=True)
         x = torch.cat((box, conf, j.float()), 1)[conf.view(-1) > score_threshold]
         x = x[x[:, 4].argsort(descending=True)]
-        x = intersection_filter(x)
         x = x[torchvision.ops.nms(x[:,:4], x[:, 4], iou_threshold)]
         x = x[x[:,4] > 0]
         print("[Result] Detected {} Boxes.".format(len(x)))

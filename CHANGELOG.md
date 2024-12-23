@@ -1,5 +1,13 @@
 # Changelog 
 
+## [v1.2.1] - 2024-12-20
+### 1. Changed
+- None
+### 2. Fixed
+- Fix a bug yolo post-processing in python codes and simplified.
+### 3. Added
+- None
+
 ## [v1.2.0] - 2024-12-12
 ### 1. Changed
 - Fixed Python code due to changes in the DXRT Python API. Use a specific version of DXRT(2.6.1).
