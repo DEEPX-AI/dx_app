@@ -92,8 +92,7 @@ def all_decode(ie_outputs, layer_config, num_classes):
     decoded_tensor = []
     
     for i, output in enumerate(outputs):
-        output[...,4:] = sigmoid(output[...,4:]) # obj confidence
-        output[...,5:] *= output[...,4:5]
+        output[...,4] = sigmoid(output[...,4]) # obj confidence
         for l in range(len(layer_config[i]["anchor_width"])):
             layer = layer_config[i]
             stride = layer["stride"]
@@ -208,58 +207,16 @@ class PostProcessingRun:
         self.inputsize_h = int(self.config.input_size[1])
         self._queue = queue.Queue()
         self.task_order = output_task_order
-        self._cpu_model = self.cpu_onnx_extractor()
-        
-    
-    def cpu_onnx_extractor(self):
-        try:
-            with open(self.config.model_path, 'rb') as f:
-                bs = f.read()
-                header_dict = json.loads(bs[8:8129].decode().rstrip("\x00"))
-                content = bs[8129:]
-                data = header_dict["data"]
-                offset, size = data["cpu_models"]["cpu_0"]["offset"], data["cpu_models"]["cpu_0"]["size"]
-                compile_config = content[offset:offset + size]
-                return compile_config
-        except:
-            print("cpu model handler not found")
-            pass
-        return 0
-
 
     def run(self, result_output):
         self.result_bbox = self.postprocessing(result_output)
         self._queue.put(self.result_bbox)
     
-    def replace_layers(self, original_outputs, task_order_list):
-        outputs = []
-        ''' iformation of slice t'''
-        output_lists = [
-            "cv2.0.2 : 80, 80, 64 ",
-            "cv3.0.2 : 80, 80, 128 -> 80, 80, 80 ",
-            "cv2.1.2 : 40, 40, 64 ",
-            "cv3.1.2 : 40, 40, 128 -> 40, 40, 80",
-            "cv2.2.2 : 20, 20, 64 ",
-            "cv3.2.2 : 20, 20, 128 -> 20, 20, 80 ",
-                        ]
-        order = [1, 0, 3, 2, 5, 4]
-        for o in order:
-            if o % 2 == 0:
-                outputs.append(original_outputs[o][...,:80])
-            else:
-                outputs.append(original_outputs[o][...,:64])
-        return outputs
-        
-    
     def postprocessing(self, outputs):
         if self.config.output_type == "BBOX":
             decoded_tensor = ppu_decode(outputs, self.config.layers, len(self.config.classes))
         elif len(outputs) > 1:
-            if self._cpu_model != 0:
-                outputs = self.replace_layers(outputs, self.task_order)
-                decoded_tensor = onnx_decode(ie_outputs=outputs, cpu_byte=self._cpu_model)
-            else:
-                decoded_tensor = all_decode(outputs, self.config.layers, len(self.config.classes))
+            decoded_tensor = all_decode(outputs, self.config.layers, len(self.config.classes))
         else:
             decoded_tensor = outputs[0]
         
@@ -280,7 +237,6 @@ class PostProcessingRun:
         
         x = torch.cat((box, conf, j.float()), 1)[conf.view(-1) > self.config.score_threshold]
         x = x[x[:, 4].argsort(descending=True)]
-        # x = intersection_filter(x)
         x = x[torchvision.ops.nms(x[:,:4], x[:, 4], self.config.iou_threshold)]
         x = x[x[:,4] > 0]
         print("[Result] Detected {} Boxes.".format(len(x)))
