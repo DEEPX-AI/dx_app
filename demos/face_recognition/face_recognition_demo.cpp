@@ -9,6 +9,8 @@
 #include "ssd.h"
 #include "utils.h"
 
+#include "utils/common_util.hpp"
+
 #ifndef UNUSEDVAR
 #define UNUSEDVAR(x) (void)(x);
 #endif
@@ -839,7 +841,7 @@ int main(int argc, char *argv[])
     if (fd_modelPath.empty() || lm_modelPath.empty() || fr_modelPath.empty()){
         std::cout<<"[NOTICE] model path is required to run Face ID"<<std::endl;
         help();
-        exit(0);
+        exit(-1);
     }
     g_resultSaveMode = resultSaveMode;
     dxrt::InferenceEngine ie_fd(fd_modelPath);
@@ -849,13 +851,10 @@ int main(int argc, char *argv[])
     if(classifier_gender)
         ie_gender = std::make_shared<dxrt::InferenceEngine>(gender_modelPath);
     
-    for (const auto& task_str : ie_fr.task_order()) {
-        if (task_str.find("cpu") != std::string::npos) {
-            g_usingOrt = true;
-            std::cout<<"[NOTICE] This demo works correctly when USE_ORT is set to OFF."<<std::endl;
-            exit(0);
-            // break;
-        }
+    if(dxapp::common::checkOrtLinking())
+    {
+        std::cout<<"[NOTICE] This demo works correctly when USE_ORT is set to OFF."<<std::endl;
+        exit(-1);
     }
     
     SsdParam FDCfg = {

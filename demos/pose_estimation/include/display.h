@@ -9,6 +9,7 @@
 #include <vector>
 #include <opencv2/opencv.hpp>
 #include <cmath>
+#include <map>
 #include <time.h>
 #include <thread>
 #include <mutex>

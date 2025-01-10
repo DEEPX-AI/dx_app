@@ -1,3 +1,10 @@
+dx-app (1.2.1) unstable; urgency=medium
+
+  * Modified the YOLO post-processing method in Python codes to simplify logic by removing unnecessary functions.
+  * Updated changelog.
+
+ -- dhyang <dhyang@deepx.ai>  Fri, 20 Dec 2024 00:00:00 +0900
+
 dx-app (1.2.0) unstable; urgency=medium
 
   * Fixed Python code due to changes in the DXRT Python API. Use a specific version of DXRT (2.6.1).

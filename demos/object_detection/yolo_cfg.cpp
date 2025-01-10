@@ -123,3 +123,19 @@ YoloParam yolov4_608 = {
     },
     .classNames = {"0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11"},
 };
+
+YoloParam yolox_s_640 = {
+    .height = 640,
+    .width = 640,
+    .confThreshold = 0.25,
+    .scoreThreshold = 0.3,
+    .iouThreshold = 0.4,
+    .numBoxes = -1, // check from layer info.
+    .numClasses = 80,
+    .layers = {
+            createYoloLayerParam("", 80, 80, 3, {}, {}, {0, 1, 2}),
+            createYoloLayerParam("", 40, 40, 3, {}, {}, {3, 4, 5}),
+            createYoloLayerParam("", 20, 20, 3, {}, {}, {6, 7, 8})
+    },
+    .classNames = {"person" ,"bicycle" ,"car" ,"motorcycle" ,"airplane" ,"bus" ,"train" ,"truck" ,"boat" ,"trafficlight" ,"firehydrant" ,"stopsign" ,"parkingmeter" ,"bench" ,"bird" ,"cat" ,"dog" ,"horse" ,"sheep" ,"cow" ,"elephant" ,"bear" ,"zebra" ,"giraffe" ,"backpack" ,"umbrella" ,"handbag" ,"tie" ,"suitcase" ,"frisbee" ,"skis" ,"snowboard" ,"sportsball" ,"kite" ,"baseballbat" ,"baseballglove" ,"skateboard" ,"surfboard" ,"tennisracket" ,"bottle" ,"wineglass" ,"cup" ,"fork" ,"knife" ,"spoon" ,"bowl" ,"banana" ,"apple" ,"sandwich" ,"orange" ,"broccoli" ,"carrot" ,"hotdog" ,"pizza" ,"donut" ,"cake" ,"chair" ,"couch" ,"pottedplant" ,"bed" ,"diningtable" ,"toilet" ,"tv" ,"laptop" ,"mouse" ,"remote" ,"keyboard" ,"cellphone" ,"microwave" ,"oven" ,"toaster" ,"sink" ,"refrigerator" ,"book" ,"clock" ,"vase" ,"scissors" ,"teddybear" ,"hairdrier", "toothbrush"},
+};

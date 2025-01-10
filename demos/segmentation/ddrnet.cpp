@@ -207,14 +207,13 @@ int main(int argc, char *argv[])
                 break;
             case 'h':
             default:
-                help();
-                exit(0);
+                help(), exit(0);
                 break;
         }
     }
     
-    if(inputWidth==0) inputWidth = 768;
-    if(inputHeight==0) inputHeight = 384;
+    if(inputWidth==0) inputWidth = 512;
+    if(inputHeight==0) inputHeight = 512;
     LOG_VALUE(inputWidth);
     LOG_VALUE(inputHeight);
     LOG_VALUE(modelPath);

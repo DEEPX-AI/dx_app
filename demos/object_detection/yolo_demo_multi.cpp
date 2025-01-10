@@ -50,7 +50,7 @@ struct AppConfig
 };
 
 // pre/post parameter table
-extern YoloParam yolov5s_320, yolov5s_512, yolov5s_640, yolox_s_512, yolov7_640, yolov7_512, yolov4_608;
+extern YoloParam yolov5s_320, yolov5s_512, yolov5s_640, yolox_s_512, yolov7_640, yolov7_512, yolov4_608, yolox_s_640;
 YoloParam yoloParams[] = {
     [0] = yolov5s_320,
     [1] = yolov5s_512,
@@ -58,10 +58,9 @@ YoloParam yoloParams[] = {
     [3] = yolox_s_512,
     [4] = yolov7_640,
     [5] = yolov7_512,
-    [6] = yolov4_608
+    [6] = yolov4_608,
+    [7] = yolox_s_640
 };
-
-/////////////////////////////////////////////////////////////////////////////////////////////////
 
 const char* usage =
 "yolo demo\n"
@@ -208,6 +207,8 @@ YoloParam getYoloParameter(string model_name){
         return yolov7_512;
     else if(model_name == "yolov4_608")
         return yolov4_608;
+    else if(model_name == "yoloxs_640")
+        return yolox_s_640;
     return yolov5s_512;
 }
 YoloParam yoloParam;
@@ -379,7 +380,7 @@ int main(int argc, char *argv[])
         [&](std::vector<shared_ptr<dxrt::Tensor>> outputs, void* arg)
         {
             ObjectDetection *app = (ObjectDetection *)arg;
-            app->PostProc(outputs);
+            app->PostProc((void*)app->GetOutputMemory(), outputs.front()->shape()[0]);
             return 0;
         };
     ie->RegisterCallBack(postProcCallBack);

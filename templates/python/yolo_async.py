@@ -340,15 +340,16 @@ def run_example(config):
     else:
         for input_path in input_list:
             image = cv2.imread(input_path, cv2.IMREAD_COLOR)
-            with callback_lock:
-                req = async_thread.run(image)
-                if q.qsize() > 0:
-                    pp_thread.run(async_thread.result_output)
-                    q.get()
-                    q.task_done()
+            req = async_thread.run(image)
+            while q.empty():
+                time.sleep(0.001)
+            if q.qsize() > 0:
+                pp_thread.run(async_thread.result_output)
+                q.get()
+                q.task_done()
                 
-                if pp_thread._queue.qsize() > 0 :
-                    pp_thread.save_result(async_thread.input_image)
+            if pp_thread._queue.qsize() > 0 :
+                pp_thread.save_result(async_thread.input_image)
     
     return 0
                     

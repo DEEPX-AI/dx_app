@@ -24,7 +24,7 @@ int main(int argc, char *argv[])
     {
         std::cout << "Error: no arguments." << std::endl;
         help();
-        std::terminate();
+        exit(-1);
     }
 
     while (arg_idx < argc) {
@@ -40,7 +40,7 @@ int main(int argc, char *argv[])
     {
         std::cout << "error : no config json file arguments. " << std::endl;
         help();
-        std::terminate();
+        exit(-1);
     }
 
     dxapp::AppConfig appConfig(configPath);
@@ -86,6 +86,7 @@ int main(int argc, char *argv[])
             break;
         }
     }
+
     detector.joinThread();
 
     std::cout << " detector application End. " << std::endl;

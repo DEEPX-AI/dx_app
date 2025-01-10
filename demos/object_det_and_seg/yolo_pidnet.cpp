@@ -20,6 +20,8 @@
 #include "yolo.h"
 #include "segmentation.h"
 
+#include "utils/common_util.hpp"
+
 using namespace std;
 using namespace cv;
 
@@ -170,6 +172,22 @@ void Segmentation(float *input, uint8_t *output, int rows, int cols, Segmentatio
     }
 }
 
+void Segmentation(uint16_t *input, uint8_t *output, int rows, int cols, SegmentationParam *cfg, int numClasses, int64_t pitch)
+{
+    for(int h=0;h<rows;h++)
+    {
+        for(int w=0;w<cols;w++)
+        {
+            int class_index = input[cols*h + w];
+            if(class_index >= numClasses && class_index < 0)
+                continue;
+            output[3*cols*h + 3*w + 2] = cfg[class_index].colorB;
+            output[3*cols*h + 3*w + 1] = cfg[class_index].colorG;
+            output[3*cols*h + 3*w + 0] = cfg[class_index].colorR;
+        }
+    }
+}
+
 int main(int argc, char *argv[])
 {
     int i = 1;
@@ -221,19 +239,19 @@ int main(int argc, char *argv[])
     dxrt::InferenceEngine ieOD(od_modelpath);
     dxrt::InferenceEngine ieSEG(seg_modelpath);
 
-    for (const auto& task_str : ieSEG.task_order()) {
-        if (task_str.find("cpu") != std::string::npos) {
-            (void)(usingOrt);
-            std::cout<<"[NOTICE] This demo works correctly when USE_ORT is set to OFF."<<std::endl;
-            exit(0);
-            // break;
-        }
+    if(dxapp::common::checkOrtLinking())
+    {
+        usingOrt = true;
+        std::cout<<"[NOTICE] This demo works correctly when USE_ORT is set to OFF."<<std::endl;
+        exit(-1);
     }
 
     Yolo yolo = Yolo(odCfg);
     yolo.LayerReorder(ieOD.outputs());
 
     auto& profiler = dxrt::Profiler::GetInstance();
+    bool is_argmax = ieSEG.outputs().front().type() == dxrt::DataType::UINT16 ? true : false;
+
     cv::VideoCapture caps[NUM_VIDEO_FILES];
     if(videoFile=="0")
     {
@@ -280,7 +298,10 @@ int main(int argc, char *argv[])
         /* PostProcessing : Segmentation */
         profiler.Start("post-segment");
         cv::Mat SegResult = cv::Mat(SEG_INPUT_HEIGHT, SEG_INPUT_WIDTH, CV_8UC3, cv::Scalar(0, 0, 0));
-        Segmentation((float*)SegOutputTensors[0]->data(), SegResult.data, SegResult.rows, SegResult.cols, segCfg, SEG_NUM_CLASSES, SegOutputTensors[0]->shape()[3]);
+        if(is_argmax)
+            Segmentation((uint16_t*)SegOutputTensors[0]->data(), SegResult.data, SegResult.rows, SegResult.cols, segCfg, SEG_NUM_CLASSES, SegOutputTensors[0]->shape()[0]);
+        else
+            Segmentation((float*)SegOutputTensors[0]->data(), SegResult.data, SegResult.rows, SegResult.cols, segCfg, SEG_NUM_CLASSES, SegOutputTensors[0]->shape()[3]);
         profiler.End("post-segment");
 
         /* PostProcessing : Blend Image */
@@ -384,9 +405,13 @@ int main(int argc, char *argv[])
                         profiler.Start("post-segment");
                         cv::Mat SegResultExpand;
                         cv::Mat outFrame = frame[prevIdx];
-
-                        Segmentation((float*)SegOutputTensors[0]->data(), SegResult[idx].data, 
-                            SegResult[idx].rows, SegResult[idx].cols, segCfg, SEG_NUM_CLASSES, SegOutputTensors[0]->shape()[3]);
+                        if(is_argmax)
+                            Segmentation((uint16_t*)SegOutputTensors[0]->data(), SegResult[idx].data, 
+                                SegResult[idx].rows, SegResult[idx].cols, segCfg, SEG_NUM_CLASSES, SegOutputTensors[0]->shape()[0]);
+                        else
+                            Segmentation((float*)SegOutputTensors[0]->data(), SegResult[idx].data, 
+                                SegResult[idx].rows, SegResult[idx].cols, segCfg, SEG_NUM_CLASSES, SegOutputTensors[0]->shape()[3]);
+                        
                         profiler.End("post-segment");
                         profiler.Start("post-blend");
                         cv::resize(SegResult[idx], SegResultExpand, Size(frame[idx].cols, frame[idx].rows), 0, 0, cv::INTER_LINEAR);

@@ -8,7 +8,7 @@
             "score_threshold": 0.3,
             "iou_threshold": 0.4,
             "last_activation": "sigmoid",
-            "decoding_method": "yolo_basic",
+            "decoding_method": "yolov9",
             "box_format": "center",
             "layer": [
                 {

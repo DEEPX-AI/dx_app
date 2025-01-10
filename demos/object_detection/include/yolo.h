@@ -63,10 +63,13 @@ public:
     Yolo(YoloParam &_cfg);
     void LayerReorder(dxrt::Tensors output_info);
     /* for concated tensor */
-    std::vector< BoundingBox > PostProc(float *data);
+    std::vector<BoundingBox> PostProc(float *data);
     /* for separate tensors */
-    std::vector< BoundingBox > PostProc(std::vector<shared_ptr<dxrt::Tensor>> outputs_, void* saveTo=nullptr);
+    std::vector<BoundingBox> PostProc(std::vector<shared_ptr<dxrt::Tensor>> outputs_, void* saveTo=nullptr);
+    /* for using allocated output memory */
+    std::vector<BoundingBox> PostProc(void* data, std::vector<std::vector<int64_t>> output_shape, dxrt::DataType data_type, int output_length);
     void FilterWithSort(std::vector<shared_ptr<dxrt::Tensor>> outputs_);
+    void FilterWithSort(void* outputs, std::vector<std::vector<int64_t>> output_shape, dxrt::DataType data_type);
     void FilterWithSort(float *data);
     void ShowResult(void){
         std::cout << "  Detected " << dec << Result.size() << " boxes." << std::endl;

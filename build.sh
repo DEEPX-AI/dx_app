@@ -68,7 +68,7 @@ cmd+=(-DCMAKE_GENERATOR=Ninja)
 build_dir=build_"$target_arch"
 out_dir=bin
 echo cmake args : ${cmd[@]}
-[ $clean_build == "true" ] && rm -rf $build_dir
+[ $clean_build == "true" ] && rm -rf $build_dir && rm -rf $out_dir/
 
 mkdir $build_dir
 mkdir $out_dir

@@ -57,9 +57,16 @@ ObjectDetection::ObjectDetection(std::shared_ptr<dxrt::InferenceEngine> ie, std:
     _postprocScaleRatio = dxapp::common::Size_f(_postprocRatio._width/_preprocRatio, _postprocRatio._height/_preprocRatio);
     
     _resultFrame = cv::Mat(_destHeight, _destWidth, CV_8UC3, cv::Scalar(0, 0, 0));
-    _queueFrame.push(cv::Mat(_destHeight, _destWidth, CV_8UC3)); 
     yolo = Yolo(yoloParam);
     yolo.LayerReorder(ie->outputs());
+
+    outputMemory = (uint8_t*)operator new(_ie->output_size());
+    output_length = 0;
+    for(auto &o:_ie->outputs())
+    {
+        output_shape.emplace_back(o.shape());
+    }
+    data_type = _ie->outputs().front().type();
 }
 ObjectDetection::ObjectDetection(std::shared_ptr<dxrt::InferenceEngine> ie, int channel, int destWidth, int destHeight, int posX, int posY)
 : _ie(ie), _profiler(dxrt::Profiler::GetInstance()), _channel(channel+1), _destWidth(destWidth), _destHeight(destHeight), _posX(posX), _posY(posY)
@@ -74,7 +81,7 @@ ObjectDetection::ObjectDetection(std::shared_ptr<dxrt::InferenceEngine> ie, int 
     {
         _resultFrame = cv::Mat(_destHeight, _destWidth, CV_8UC3, cv::Scalar(0, 0, 0));
     }
-    _queueFrame.push(_resultFrame);
+    outputMemory = nullptr;
 }
 ObjectDetection::~ObjectDetection() {}
 dxapp::common::DetectObject ObjectDetection::GetScalingBBox(vector<BoundingBox>& bboxes)
@@ -118,12 +125,15 @@ void ObjectDetection::threadFunc(int period)
         if(stop) break;
         _profiler.Start(proc);
         _profiler.Start(cap);
-        int req = _ie->RunAsync(_vStream.GetInputStream(), (void*)this);
+        auto input = _vStream.GetInputStream();
+        int req = _ie->RunAsync(input, (void*)this, (void*)outputMemory);
 #if 0
         _ie->Wait(req); /* optional */
 #endif
         vector<BoundingBox> bboxes;
         dxapp::common::DetectObject bboxes_objects;
+        while(_bboxes.empty())
+            usleep(10);
         {
             unique_lock<mutex> lk(_lock);
             if(!_bboxes.empty() && _toggleDrawing)
@@ -149,7 +159,7 @@ void ObjectDetection::threadFunc(int period)
             
         {
             unique_lock<mutex> lk(_frameLock);
-            _queueFrame.push(member_temp);
+            member_temp.copyTo(_resultFrame);
             if(_isPause){
                 _cv.wait(lk);
             }
@@ -205,14 +215,11 @@ void ObjectDetection::Play()
         _cv.notify_all();
     }
 }
-cv::Mat &ObjectDetection::ResultFrame()
+cv::Mat ObjectDetection::ResultFrame()
 {
     unique_lock<mutex> lk(_frameLock);
-    if(_queueFrame.size()>0){
-        _resultFrame = _queueFrame.front();
-        _queueFrame.pop();
-    }
-    return _resultFrame;
+    cv::Mat out = _resultFrame.clone();
+    return out;
 }
 pair<int, int> ObjectDetection::Position()
 {
@@ -250,6 +257,11 @@ void ObjectDetection::PostProc(vector<shared_ptr<dxrt::Tensor>> &outputs)
 {
     unique_lock<mutex> lk(_lock);
     _bboxes = yolo.PostProc(outputs);
+}
+void ObjectDetection::PostProc(void* outputs, int output_length)
+{
+    unique_lock<mutex> lk(_lock);
+    _bboxes = yolo.PostProc(outputs, output_shape, data_type, output_length);
 }
 ostream& operator<<(ostream& os, const ObjectDetection& od)
 {
