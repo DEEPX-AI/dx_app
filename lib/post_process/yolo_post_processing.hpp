@@ -179,7 +179,8 @@ namespace yolo
         PostProcessing(){};
         ~PostProcessing(){};
         dxapp::common::DetectObject getResult(){return _result;};
-        void run(std::vector<std::shared_ptr<dxrt::Tensor>> outputs)
+        void run(uint8_t* output_data, int64_t data_length)
+        // void run(std::vector<std::shared_ptr<dxrt::Tensor>> outputs)
         {
             for(auto &indices:_scoreIndices){
                 indices.clear();
@@ -189,23 +190,23 @@ namespace yolo
             _result._num_of_detections = 0;
 
             if(_params._ppu_format > 0) // shape : [124, ], numBoxes = 124
-                getBoxesFromPPUOutputs(outputs, outputs.front()->shape()[0], _params._ppu_format);
+                getBoxesFromPPUOutputs(output_data, data_length, _params._ppu_format);
             else if(_params._outputShape.size() == 1) // ONNX outputs shape : [1, 16384, 85], numBoxes = 16384
-                getBoxesFromONNXOutputs(outputs, outputs.front()->shape()[1]); 
+                getBoxesFromONNXOutputs(output_data, data_length); 
             else if(_params._decode_method==Decode::YOLOX) // anchor free detector
-                getBoxesFromYoloXFormat(outputs, _yoloxLocationIdx, _yoloxBoxScoreIdx, _yoloxClassScoreIdx);
+                getBoxesFromYoloXFormat(output_data, _yoloxLocationIdx, _yoloxBoxScoreIdx, _yoloxClassScoreIdx);
             else if(_params._decode_method==Decode::YOLO_POSE) // yolo pose 
-                getBoxesFromYoloPoseFormat(outputs, _params._kpt_order, _params._kpt_count);
+                getBoxesFromYoloPoseFormat(output_data, _params._kpt_order, _params._kpt_count);
             else if(_params._decode_method==Decode::SCRFD) // face detection
-                getBoxesFromSCRFDFormat(outputs, _scrfdClassScoreIdx, _scrfdLocationIdx, _scrfdKptIdx, _params._kpt_count);
+                getBoxesFromSCRFDFormat(output_data, _scrfdClassScoreIdx, _scrfdLocationIdx, _scrfdKptIdx, _params._kpt_count);
             else if(_params._decode_method==Decode::YOLOV8)
-                getBoxesFromYoloV8Format(outputs);
+                getBoxesFromYoloV8Format(output_data);
             else if(_params._decode_method==Decode::YOLOV9)
-                getBoxesFromONNXOutputs(outputs, outputs.front()->shape()[1]);
+                getBoxesFromONNXOutputs(output_data, data_length);
             else if(_params._decode_method==Decode::CUSTOM_DECODE)
-                getBoxesFromCustomPostProcessing(outputs);
+                getBoxesFromCustomPostProcessing(output_data);
             else
-                getBoxesFromYoloFormat(outputs);
+                getBoxesFromYoloFormat(output_data);
             
             dxapp::common::nms(_rawBoxes, _scoreIndices, _params._iou_threshold, _params._classes, _postprocPaddedSize, _postprocScaleRatio, _result);
         };
@@ -218,7 +219,7 @@ namespace yolo
                 return false;
         };
 
-        void getBoxesFromPPUOutputs(std::vector<std::shared_ptr<dxrt::Tensor>> outputs, int64_t numDetected, dxapp::yolo::PPUFormat ppuFormat)
+        void getBoxesFromPPUOutputs(uint8_t* outputs, int64_t numDetected, dxapp::yolo::PPUFormat ppuFormat)
         {
             int boxIdx = 0;
             /**
@@ -229,7 +230,7 @@ namespace yolo
             size_t ppuDataSize = (size_t)ppuFormat;
             for(int64_t i=0;i<numDetected;i++)
             {
-                uint8_t *raw_data = (uint8_t*)outputs.front()->data() + (i * ppuDataSize);
+                uint8_t *raw_data = outputs + (i * ppuDataSize);
                 dxrt::DeviceBoundingBox_t *data = static_cast<dxrt::DeviceBoundingBox_t*>((void*)raw_data);
                 auto layer = _params._layers[data->layer_idx];
                 int stride = layer.stride;
@@ -349,25 +350,20 @@ namespace yolo
             }
         };
 
-        void getBoxesFromONNXOutputs(std::vector<std::shared_ptr<dxrt::Tensor>> outputs, int64_t numDetected)
+        void getBoxesFromONNXOutputs(uint8_t* outputs, int64_t numDetected)
         {
             int boxIdx = 0;
             float score, score1;
-            auto output_front = outputs.front();
-            auto* raw_data = (float*)(output_front->data());
+            auto* raw_data = (float*)outputs;
             if (_params._decode_method == dxapp::yolo::Decode::YOLOV8 ||
                 _params._decode_method == dxapp::yolo::Decode::YOLOV9)
             {
-                if(_params._decode_method == dxapp::yolo::Decode::YOLOV9) {
-                    output_front = outputs[1];
-                    raw_data = (float*)(output_front->data());
-                }
                 /**
                  * @note Ultralytics models, which make yolov8/v5/v7 has same post processing methods
                  *      https://github.com/ultralytics/ultralytics/blob/main/examples/YOLOv8-ONNXRuntime-CPP/inference.cpp
                  */
-                auto strideNum = output_front->shape()[2]; // 8400
-                auto signalResultNum = output_front->shape()[1]; // 84
+                auto strideNum = _params._outputShape.front()[2]; // 8400
+                auto signalResultNum = _params._outputShape.front()[1]; // 84
                 cv::Mat rawData = cv::Mat(signalResultNum, strideNum, CV_32F, raw_data);
                 rawData = rawData.t();
                 for(int64_t i=0;i<strideNum;++i)
@@ -396,7 +392,7 @@ namespace yolo
             }
             else
             {
-                for(int64_t i=0;i<numDetected;i++)
+                for(int64_t i=0;i<_params._outputShape.front()[1];i++)
                 {
                     float* data = raw_data + (4 + 1 + _params._numOfClasses + (_params._kpt_count * 3)) * i;
                     score1 = data[4];
@@ -457,12 +453,15 @@ namespace yolo
             }
         };
         
-        void getBoxesFromYoloPoseFormat(std::vector<std::shared_ptr<dxrt::Tensor>> outputs, KeyPointOrder kpt_order, int kpt_count)
+        void getBoxesFromYoloPoseFormat(uint8_t* outputs, KeyPointOrder kpt_order, int kpt_count)
         {
             int boxIdx = 0;
             float rawThreshold = inversSigmoid(_params._score_threshold);
             float score, score1;
             int first = -2, second = -1;
+            int first_block = 0, second_block = 0;
+            int first_layer_pitch = 1, second_layer_pitch = 1;
+            float* raw_data = (float*)outputs;
             if(kpt_order == KeyPointOrder::KPT_FRONT)
             {
                 first = -1, second = -2;
@@ -476,6 +475,17 @@ namespace yolo
                 int numGridY = _params._input_shape[1] / layer.stride;
                 first += 2;
                 second += 2;
+                int first_pitch = _params._outputShape[first].back();
+                int second_pitch = _params._outputShape[second].back();
+                for(const auto &s: _params._outputShape[first])
+                    first_layer_pitch *= s;
+                for(const auto &s: _params._outputShape[second])
+                    second_layer_pitch *= s;
+                if(kpt_order == KeyPointOrder::KPT_FRONT)
+                    first_block = second_block + second_layer_pitch;
+                else
+                    second_block = first_block + first_layer_pitch;
+
                 for(int gY=0; gY<numGridY; gY++)
                 {
                     for(int gX=0; gX<numGridX; gX++)
@@ -485,22 +495,40 @@ namespace yolo
                             bool boxDecoded = false;  
                             float *rawBuffer1, *rawBuffer2, *rawBuffer3;
                             if (box == 0)
-                            {
-                                rawBuffer1 = (float*)(outputs[first]->data(gY, gX, 0));
-                                rawBuffer2 = (float*)(outputs[first]->data(gY, gX, 6));
-                                rawBuffer3 = (float*)(outputs[second]->data(gY, gX, 0));
+                            {   
+                                rawBuffer1 = raw_data + first_layer_pitch + (gY * numGridX * first_pitch) 
+                                                          + (gX * first_pitch)
+                                                          + 0;
+                                rawBuffer2 = raw_data + first_layer_pitch + (gY * numGridX * first_pitch) 
+                                                          + (gX * first_pitch)
+                                                          + 6;
+                                rawBuffer3 = raw_data + second_layer_pitch + (gY * numGridX * second_pitch) 
+                                                          + (gX * second_pitch)
+                                                          + 0;
                             }
                             else if (box == 1)
                             {
-                                rawBuffer1 = (float*)(outputs[second]->data(gY, gX, (13 * 3)));
-                                rawBuffer2 = (float*)(outputs[second]->data(gY, gX, (13 * 3) + 6));
-                                rawBuffer3 = (float*)(outputs[second]->data(gY, gX, (17 * 3) + 6));
+                                rawBuffer1 = raw_data + second_layer_pitch + (gY * numGridX * second_pitch) 
+                                                          + (gX * second_pitch)
+                                                          + (13 * 3);
+                                rawBuffer2 = raw_data + second_layer_pitch + (gY * numGridX * second_pitch) 
+                                                          + (gX * second_pitch)
+                                                          + (13 * 3) + 6;
+                                rawBuffer3 = raw_data + second_layer_pitch + (gY * numGridX * second_pitch) 
+                                                          + (gX * second_pitch)
+                                                          + (17 * 3) + 6;
                             }
                             else if (box == 2)
                             {
-                                rawBuffer1 = (float*)(outputs[second]->data(gY, gX, (30 * 3) + 6));
-                                rawBuffer2 = (float*)(outputs[second]->data(gY, gX, (30 * 3) + 6 + 6));
-                                rawBuffer3 = (float*)(outputs[second]->data(gY, gX, (34 * 3) + 6 + 6));
+                                rawBuffer1 = raw_data + second_layer_pitch + (gY * numGridX * second_pitch) 
+                                                          + (gX * second_pitch)
+                                                          + (30 * 3) + 6;
+                                rawBuffer2 = raw_data + second_layer_pitch + (gY * numGridX * second_pitch) 
+                                                          + (gX * second_pitch)
+                                                          + (30 * 3) + 12;
+                                rawBuffer3 = raw_data + second_layer_pitch + (gY * numGridX * second_pitch) 
+                                                          + (gX * second_pitch)
+                                                          + (34 * 3) + 12;
                             }
 
                             if(rawBuffer1[4]>rawThreshold)
@@ -532,6 +560,7 @@ namespace yolo
                         }
                     }
                 }
+                first_block += second_block + second_layer_pitch;
             }
             for(auto &indices:_scoreIndices)
             {
@@ -539,31 +568,45 @@ namespace yolo
             }
         };
 
-        void getBoxesFromSCRFDFormat(std::vector<std::shared_ptr<dxrt::Tensor>> outputs,  int classScoreIdx, int locationIdx, int kptIdx, int kpt_count)
+        void getBoxesFromSCRFDFormat(uint8_t* outputs,  int classScoreIdx, int locationIdx, int kptIdx, int kpt_count)
         {
             int boxIdx = 0;
             float score, score1;
             float *data, *kpt;
-
+            /***
+             * The output order of the SCRFD model is: class 0, location 1, keypoint 2.
+             */
+            int classScore_pitch = _params._outputShape[classScoreIdx].back();
+            int location_pitch = _params._outputShape[locationIdx].back();
+            int keypoint_pitch = _params._outputShape[kptIdx].back();
+            int classScoreDataSzie = 1, locationDataSize = 1;
+            for(const auto &s:_params._outputShape[classScoreIdx])
+                classScoreDataSzie *= s;
+            for(const auto &s:_params._outputShape[locationIdx])
+                locationDataSize *= s;
             for(int i=0;i<(int)_params._layers.size();i++)
             {
                 auto layer = _params._layers[i];
                 int stride = layer.stride;
-                int numGridX = _params._input_shape[2] / layer.stride;
                 int numGridY = _params._input_shape[1] / layer.stride;
+                int numGridX = _params._input_shape[2] / layer.stride;
+                float* classScore_data = (float*)outputs;
+                float* location_data = classScore_data + classScoreDataSzie;
+                float* kpt_data = location_data + locationDataSize;
                 for(int gY=0; gY<numGridY; gY++)
                 {
                     for(int gX=0; gX<numGridX; gX++)
                     {
+                        float* score_data = classScore_data + (gY * numGridX * classScore_pitch) + (gX * classScore_pitch);
                         for(int idx=0;idx<2;idx++)
                         {
-                            score1 = *(float*)(outputs[classScoreIdx]->data(gY,gX,idx));
+                            score1 = score_data[idx];
                             score = dxapp::yolo::sigmoid(score1);
                             if(score > _params._score_threshold)
                             {
                                 _scoreIndices[0].emplace_back(score, boxIdx);
-                                data = (float*)(outputs[locationIdx]->data(gY,gX,idx*4));
-                                kpt = (float*)(outputs[kptIdx]->data(gY,gX,idx*kpt_count*2));
+                                data = location_data + (gY * numGridX * location_pitch) + (gX * location_pitch) + (idx * 4);
+                                kpt = kpt_data + (gY * numGridX * keypoint_pitch) + (gX * keypoint_pitch) + (idx * kpt_count * 2);
                                 _rawVector.clear();
                                 _rawVector.emplace_back(data);
                                 _rawVector.emplace_back(kpt);
@@ -585,29 +628,45 @@ namespace yolo
             }
         };
     
-        void getBoxesFromYoloXFormat(std::vector<std::shared_ptr<dxrt::Tensor>> outputs, int locationIndex, int boxScoreIndex, int classScoreIndex)
+        void getBoxesFromYoloXFormat(uint8_t* outputs, int locationIndex, int boxScoreIndex, int classScoreIndex)
         {
             int boxIdx = 0;
             float score, score1;
             float *data, *classScore;
-
+            float* output_per_layers = (float*)outputs;
             for(int i=0;i<(int)_params._layers.size();i++)
             {
+                /***
+                 * The output order of the yolox model is: location 0, boxes score 1, class score 2.
+                 */
+                int location_pitch = _params._outputShape[locationIndex].back();
+                int boxes_pitch = _params._outputShape[boxScoreIndex].back();
+                int classes_pitch = _params._outputShape[classScoreIndex].back();
+                int locationDataSize = 1, boxesDataSize = 1, classesDataSize = 1;
+                for(const auto &s:_params._outputShape[locationIndex])
+                    locationDataSize *= s;
+                for(const auto &s:_params._outputShape[boxScoreIndex])
+                    boxesDataSize *= s;
+                for(const auto &s:_params._outputShape[classScoreIndex])
+                    classesDataSize *= s;
                 auto layer = _params._layers[i];
                 float scale = layer.scale;
                 int stride = layer.stride;
                 int numGridX = _params._input_shape[2] / layer.stride;
                 int numGridY = _params._input_shape[1] / layer.stride;
+                float* location_data = output_per_layers;
+                float* boxScore_data = location_data + locationDataSize;
+                float* classScore_data = boxScore_data + boxesDataSize;
                 for(int gY=0; gY<numGridY; gY++)
                 {
                     for(int gX=0; gX<numGridX; gX++)
                     {
                         bool boxDecoded = false;  
-                        score1 = *(float*)(outputs[boxScoreIndex]->data(gY,gX,0));
+                        score1 = boxScore_data[(gY * numGridX * boxes_pitch) + (gX * boxes_pitch)];
                         if(score1 > _params._score_threshold)
                         {
-                            data = (float*)(outputs[locationIndex]->data(gY,gX,0));
-                            classScore = (float*)(outputs[classScoreIndex]->data(gY,gX,0));
+                            data = location_data + (gY * numGridX * location_pitch) + (gX * location_pitch);
+                            classScore = classScore_data + (gY * numGridX * classes_pitch) + (gX * classes_pitch);
                             for(int cls=0;cls<_params._numOfClasses;cls++)
                             {
                                 score = score1 * classScore[cls];
@@ -631,6 +690,7 @@ namespace yolo
                 boxScoreIndex += 3;
                 locationIndex += 3;
                 classScoreIndex += 3;
+                output_per_layers += locationDataSize + boxesDataSize + classesDataSize;
             }
             for(auto &indices:_scoreIndices)
             {
@@ -638,11 +698,12 @@ namespace yolo
             }
         };
         
-        void getBoxesFromYoloFormat(std::vector<std::shared_ptr<dxrt::Tensor>> outputs)
+        void getBoxesFromYoloFormat(uint8_t* outputs)
         {
             int boxIdx = 0;
             float rawThreshold = inversSigmoid(_params._score_threshold);
             float score, score1;
+            float* output_per_layers = (float*)outputs;
 
             for(int i=0;i<(int)_params._layers.size();i++)
             {
@@ -651,6 +712,16 @@ namespace yolo
                 int stride = layer.stride;
                 int numGridX = _params._input_shape[2] / layer.stride;
                 int numGridY = _params._input_shape[1] / layer.stride;
+                auto output_shape = _params._outputShape[i];
+                int layer_pitch = 1;
+                if(i > 0)
+                {
+                    for(const auto &s:_params._outputShape[i-1])
+                    {
+                        layer_pitch *= s;
+                    }
+                    output_per_layers += layer_pitch;
+                }
                 for(int gY=0; gY<numGridY; gY++)
                 {
                     for(int gX=0; gX<numGridX; gX++)
@@ -658,7 +729,9 @@ namespace yolo
                         for(int box=0; box<(int)layer.anchor_width.size(); box++)
                         { 
                             bool boxDecoded = false;  
-                            float* data = (float*)(outputs[i]->data(gY, gX, box*(4 + 1 + _params._numOfClasses)));
+                            float* data = output_per_layers + (gY * numGridX * output_shape.back())
+                                                                + (gX * output_shape.back())
+                                                                + (box * (_params._numOfClasses + 5));
                             if(data[4]>rawThreshold)
                             {
                                 score1 = _params._last_activation(data[4]);
@@ -693,7 +766,7 @@ namespace yolo
             }
         };
 
-        void getBoxesFromYoloV8Format(std::vector<std::shared_ptr<dxrt::Tensor>> outputs)
+        void getBoxesFromYoloV8Format(uint8_t* outputs)
         {
             
             std::cout << "[ERR:dx-app] not supported yolov8 all decode function." << std::endl;
@@ -701,7 +774,7 @@ namespace yolo
 
         };
         
-        void getBoxesFromCustomPostProcessing(std::vector<std::shared_ptr<dxrt::Tensor>> outputs /* Users can add necessary parameters manually. */)
+        void getBoxesFromCustomPostProcessing(uint8_t* outputs /* Users can add necessary parameters manually. */)
         {
             /**
              * @brief adding your post processing code

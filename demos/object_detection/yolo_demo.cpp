@@ -48,7 +48,7 @@ using namespace cv;
 #endif
 
 // pre/post parameter table
-extern YoloParam yolov5s_320, yolov5s_512, yolov5s_640, yolox_s_512, yolov7_640, yolov7_512, yolov4_608;
+extern YoloParam yolov5s_320, yolov5s_512, yolov5s_640, yolox_s_512, yolov7_640, yolov7_512, yolov4_608, yolox_s_640;
 YoloParam yoloParams[] = {
     [0] = yolov5s_320,
     [1] = yolov5s_512,
@@ -57,6 +57,7 @@ YoloParam yoloParams[] = {
     [4] = yolov7_640,
     [5] = yolov7_512,
     [6] = yolov4_608,
+    [7] = yolox_s_640,
 };
 
 namespace dxrt {
@@ -225,8 +226,7 @@ int main(int argc, char *argv[])
                 break;
             case 'h':
             default:
-                help();
-                exit(0);
+                help(), exit(0);
                 break;
         }
     }
@@ -247,7 +247,7 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-    string captionModel = dxrt::StringSplit(modelPath, "/").back() + ", 30fps";    
+    string captionModel = dxrt::StringSplit(modelPath, "/").back();
 
     dxrt::InferenceEngine ie(modelPath);
     auto yoloParam = yoloParams[paramIdx];
@@ -401,8 +401,14 @@ int main(int argc, char *argv[])
                     lk.unlock();
                     DisplayBoundingBox(outFrame, bboxes, yoloParam.height, yoloParam.width, "", "",
                         cv::Scalar(0, 0, 255), objectColors, "", 0, -1, true);
-                    cv::rectangle(outFrame, Point(0, 0), Point(400, 40), Scalar(0, 0, 0), cv::FILLED);
-                    cv::putText(outFrame, captionModel, Point(20, 25), FONT_HERSHEY_SIMPLEX, 0.7, Scalar(255, 255, 255));
+                    cv::Size mainCaptionSize = cv::getTextSize(captionModel, cv::FONT_HERSHEY_SIMPLEX, 0.7, 1, nullptr);
+                    cv::rectangle(outFrame, Point(0, 0), Point(mainCaptionSize.width+ 40, mainCaptionSize.height + 50), Scalar(0, 0, 0), cv::FILLED);
+                    cv::putText(outFrame, captionModel, cv::Point(20, 25), FONT_HERSHEY_SIMPLEX, 0.7, Scalar(255, 255, 255));
+                    
+                    uint64_t fps = 1000000 / (profiler.Get("main") + 0.1);
+                    std::string fpsCaption = "FPS : " + std::to_string((int)fps);
+                    cv::Size fpsCaptionSize = cv::getTextSize(fpsCaption, cv::FONT_HERSHEY_PLAIN, 3, 2, nullptr);
+                    cv::putText(outFrame, fpsCaption, cv::Point(outFrame.size().width - fpsCaptionSize.width, outFrame.size().height - fpsCaptionSize.height), cv::FONT_HERSHEY_PLAIN, 3, cv::Scalar(255, 255, 255),2);
                     cv::imshow(DISPLAY_WINDOW_NAME, outFrame);
                     (++idx)%=FRAME_BUFFERS;
                 }

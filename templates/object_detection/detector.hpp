@@ -15,7 +15,6 @@
 #include "utils/videostream.hpp"
 #include "app_parser.hpp"
 
-
 class DetectorApp
 {
 public :
@@ -35,11 +34,16 @@ public :
         _srcSize = _vStream._srcSize;
         _postProcessing = dxapp::yolo::PostProcessing(_params, _inputSize, _srcSize, _dstSize);
         _resultFrame = cv::Mat(_dstSize._height, _dstSize._width, CV_8UC3, cv::Scalar(0, 0, 0));     
+        _frame_count = 0;
+        _processed_count = 0;
+        outputsMemory = (uint8_t*)operator new(_inferenceEngine->output_size());
     };
-    void runPostProcess(std::vector<std::shared_ptr<dxrt::Tensor>> outputs)
+
+    void runPostProcess(uint8_t* output_data, int64_t data_length)
     {
         std::unique_lock<std::mutex> _uniqueLock(_lock);
-        _postProcessing.run(outputs);
+        _postProcessing.run(output_data, data_length);
+        _processed_count += 1;
     };
 
     cv::Mat getResultFrame()
@@ -60,7 +64,7 @@ public :
 
     void makeThread()
     {
-        _thread = std::thread(&DetectorApp::threadFunction, this);
+        _thread = std::thread(&DetectorApp::ppThreadFunction, this);
     };
 
     void notify_all()
@@ -72,6 +76,10 @@ public :
 
     void joinThread()
     {
+        while(!_thread.joinable())
+        {
+            usleep(10);
+        }
         _thread.join();
     };
 
@@ -85,32 +93,41 @@ public :
         return _quit.load();
     };
 
-    void threadFunction()
+    void ppThreadFunction()
     {
-        std::cout << "[" << _name << "] : entered thread function. "<<std::endl;
+        std::cout << "[" << _name << "] : entered post process thread function. "<<std::endl;
         {
             std::unique_lock<std::mutex> _uniqueLock(_lock);
             _cv.wait(_uniqueLock, [&](){return !_wait.load();});
         }
-        _profiler.Add(_processName);
         cv::Mat outputImg = cv::Mat(_dstSize._height, _dstSize._width, CV_8UC3, cv::Scalar(0, 0, 0));
 
         while(!_quit.load())
         {    
+            if(outputsMemory == nullptr)
+            {
+                usleep(100);
+                continue;
+            }
+            
             _profiler.Start(_processName);    
-		    auto inf_data = _vStream.GetInputStream();
             _profiler.Start(_inferName);
-            int req = _inferenceEngine->RunAsync(inf_data, (void*)this);
-#if 0
-            _inferenceEngine->Wait(req);
-#else
-            UNUSEDVAR(req)
-#endif
+            if(_frame_count - _processed_count < 10)
+            {
+		        auto inf_data = _vStream.GetInputStream();
+                int req = _inferenceEngine->RunAsync(inf_data, (void*)this, (void*)outputsMemory);
+                _frame_count += 1;
+
+            }
             _profiler.End(_inferName);
             {
                 std::unique_lock<std::mutex> _uniqueLock(_lock);
                 dxapp::common::DetectObject results = _postProcessing.getResult();
                 outputImg = _vStream.GetOutputStream(results);
+                uint64_t fps = 1000000 / (_processTime + 0.1);
+                std::string fpsCaption = "FPS : " + std::to_string((int)fps);
+                cv::Size fpsCaptionSize = cv::getTextSize(fpsCaption, cv::FONT_HERSHEY_PLAIN, 3, 2, nullptr);
+                cv::putText(outputImg, fpsCaption, cv::Point(outputImg.size().width - fpsCaptionSize.width, outputImg.size().height - fpsCaptionSize.height), cv::FONT_HERSHEY_PLAIN, 3, cv::Scalar(255, 255, 255),2);
                 if(_appType == NONE)
                     std::cout << results <<std::endl;
             }
@@ -121,11 +138,12 @@ public :
             _profiler.End(_processName);
             _processTime = _profiler.Get(_processName);
             _inferTime = _inferenceEngine->latency();
-            int64_t t = (33*1000 - _processTime)/1000;
-            if(t<0 || t>33) t = 0;
-            usleep(t*1000);
+            usleep(1);
         };
-
+        while(_frame_count != _processed_count)
+        {
+            usleep(1);
+        }
         _vStream.Destructor();
 
     };
@@ -137,7 +155,15 @@ public :
         std::cout << "save file : result-" << _name << ".jpg" <<std::endl;
     };
 
-    ~DetectorApp() = default;
+    uint8_t* get_outputMem(){
+        return outputsMemory;
+    };
+
+    ~DetectorApp(){
+        std::unique_lock<std::mutex> unique_lock(_lock);
+        operator delete(outputsMemory);
+    };
+
 private:
     std::shared_ptr<dxrt::InferenceEngine> _inferenceEngine;
     dxrt::Profiler &_profiler;
@@ -169,11 +195,17 @@ private:
     uint64_t _processTime = 0;
 
     std::thread _thread;
+    std::thread _ppThread;
     std::mutex _lock;
     std::mutex _getFrameLock;
     std::condition_variable _cv;
     std::atomic<bool> _wait = {true};
     std::atomic<bool> _quit = {false};
+
+    unsigned long long _processed_count = 0;
+    unsigned long long _frame_count = 0;
+    
+    uint8_t * outputsMemory = nullptr;
 
 };
 
@@ -248,10 +280,11 @@ public:
         [&](std::vector<std::shared_ptr<dxrt::Tensor>> outputs, void* arg)
         {
             DetectorApp* app = (DetectorApp*)arg;
-            app->runPostProcess(outputs);
+            app->runPostProcess(app->get_outputMem(), outputs.front()->shape().front());
             return 0;
         };
         inferenceEngine->RegisterCallBack(postProcCallBack);
+        
         resultView = cv::Mat(config.videoOutResolution._height, config.videoOutResolution._width, CV_8UC3, cv::Scalar(0, 0, 0));
     };
 
@@ -300,6 +333,15 @@ public:
 
     void joinThread()
     {
+        // while(true)
+        // {
+        //     for(int i=0;i<(int)apps.size();i++){
+        //         if(apps[i]->ended())
+        //         {
+
+        //         }
+        //     }
+        // }
         for(int i=0;i<(int)apps.size();i++){
             apps[i]->joinThread();
         }
@@ -319,12 +361,12 @@ public:
     bool status()
     {
         for(int i=0;i<(int)apps.size();i++){
-            if(apps[i]->quit())
+            if(!apps[i]->quit())
             {
-                return false;
+                return true;
             }
         }
-        return true;
+        return false;
     };
 
     cv::Mat totalView()

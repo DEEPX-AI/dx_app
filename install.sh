@@ -7,6 +7,7 @@ echo "DX_SRC_DIR the default one $DX_SRC_DIR"
 target_arch=$(uname -m)  
 install_opencv=false  
 install_dep=false  
+manual_opencv_install=false  
 build_type='Release'  
 
 function help()
@@ -16,6 +17,7 @@ function help()
     echo "    --arch            target CPU architecture : [ x86_64, aarch64, riscv64 ]"
     echo "    --dep             install dependencies : cmake, gcc, ninja, etc.."
     echo "    --opencv          (optional) install opencv pkg "
+    echo "    --manual          (optional) install opencv pkg "
     echo "    --all             install dependencies & opencv pkg "
 }
 
@@ -59,7 +61,7 @@ function install_dep()
             fi
             cd cmake-$cmake_version_required.0
             ./bootstrap --system-curl
-            make -j8
+            make -j $(($(nproc) / 2))
             sudo make install 
         fi
         sudo apt install ninja-build
@@ -70,7 +72,8 @@ function install_dep()
 
 function install_opencv()
 {
-    if [ "$install_opencv" == true ]; then
+    manually_install=false
+    if [ "$install_opencv" == true ] || [ "$manual_opencv_install" == true ]; then
         toolchain_define="-D CMAKE_INSTALL_PREFIX=/usr/local "
         if [ $(uname -m) != "$target_arch" ]; then
             case "$target_arch" in
@@ -85,17 +88,25 @@ function install_opencv()
                 toolchain_define="-D CMAKE_INSTALL_PREFIX=/usr/local "
             else
                 echo " OpenCV Cross Compilation "
+                manually_install=true
             fi
         fi
+        if [ "$manual_opencv_install" == true ]; then
+            manually_install=true
+        fi
         echo " Install opencv dependent library "
-        sudo apt -y install libopencv-dev python3-opencv libjpeg-dev libtiff5-dev libpng-dev libavcodec-dev \
-             libavformat-dev libswscale-dev libxvidcore-dev \
-             libx264-dev libxine2-dev libv4l-dev v4l-utils libgstreamer1.0-dev \
-             libgstreamer-plugins-base1.0-dev libgtk2.0-dev libfreetype*
+        sudo apt -y install libjpeg-dev libtiff5-dev libpng-dev ffmpeg \
+             libavcodec-dev libavformat-dev libswscale-dev libxvidcore-dev libavutil-dev \
+             libtbb-dev libeigen3-dev libx264-dev libv4l-dev v4l-utils libgstreamer1.0-dev \
+             libgstreamer-plugins-base1.0-dev libgtk2.0-dev libfreetype-dev
 
         if [ $? -ne 0 ]; then
             sudo apt-get clean && sudo apt update && sudo apt-get -y upgrade
             sudo apt -y install libgstreamer-plugins-base1.0-dev
+        fi
+
+        if [ "$manually_install" == false ]; then 
+            sudo apt -y install libopencv-dev python3-opencv
         fi
 
         if [ $? -ne 0 ]; then
@@ -107,54 +118,57 @@ function install_opencv()
         installed_version=$(opencv_version)
 
         # Define the minimum required version
-        required_version="4.5.5"
+        minimum_version="4.2.0"
+        suggestion_version="4.5.5"
 
         # Compare versions using sort -V
-        if [ "$(printf '%s\n' "$required_version" "$installed_version" | sort -V | head -n1)" = "$required_version" ]; then
-            if [ "$installed_version" = "$required_version" ]; then
-                echo "OpenCV version is exactly $required_version."
+        if [ "$(printf '%s\n' "$minimum_version" "$installed_version" | sort -V | head -n1)" = "$minimum_version" ]; then
+            if [ "$installed_version" = "$minimum_version" ]; then
+                echo "OpenCV version is exactly $minimum_version."
+                echo "OpenCV installation complete. "
             else
-                echo "OpenCV version is $installed_version, which is higher than $required_version."
+                echo "OpenCV version is $installed_version, which is higher than $minimum_version."
+                manually_install=false
             fi
         else
-            echo "OpenCV version is $installed_version, which is lower than $required_version."
-
+            echo "OpenCV version is $installed_version, which is lower than $minimum_version."
             if ! test -e $DX_SRC_DIR/util; then 
                 mkdir $DX_SRC_DIR/util
             fi
             cd $DX_SRC_DIR/util
-            if ! test -e $DX_SRC_DIR/util/opencv.4.5.5.zip; then
-                wget -O opencv.4.5.5.zip https://github.com/opencv/opencv/archive/4.5.5.zip 
+            if ! test -e $DX_SRC_DIR/util/opencv.$suggestion_version.zip; then
+                wget -O opencv.$suggestion_version.zip https://github.com/opencv/opencv/archive/$suggestion_version.zip 
             fi
-            if ! test -e $DX_SRC_DIR/util/opencv_contrib.4.5.5.zip; then
-                wget -O opencv_contrib.4.5.5.zip https://github.com/opencv/opencv_contrib/archive/4.5.5.zip
+            if ! test -e $DX_SRC_DIR/util/opencv_contrib.$suggestion_version.zip; then
+                wget -O opencv_contrib.$suggestion_version.zip https://github.com/opencv/opencv_contrib/archive/$suggestion_version.zip
             fi
             echo " unzip opencv & opencv contrib "
-            if test -e $DX_SRC_DIR/util/opencv-4.5.5/; then
-                sudo rm -rf $DX_SRC_DIR/util/opencv-4.5.5
+            if test -e $DX_SRC_DIR/util/opencv-$suggestion_version/; then
+                sudo rm -rf $DX_SRC_DIR/util/opencv-$suggestion_version
             fi
-            if test -e $DX_SRC_DIR/util/opencv_contrib-4.5.5/; then
-                sudo rm -rf $DX_SRC_DIR/util/opencv_contrib-4.5.5
+            if test -e $DX_SRC_DIR/util/opencv_contrib-$suggestion_version/; then
+                sudo rm -rf $DX_SRC_DIR/util/opencv_contrib-$suggestion_version
             fi
 
-            unzip opencv.4.5.5.zip
-            unzip opencv_contrib.4.5.5.zip
-            cd opencv-4.5.5
+            unzip opencv.$suggestion_version.zip
+            unzip opencv_contrib.$suggestion_version.zip
+            cd opencv-$suggestion_version
             mkdir build_$target_arch
             cd build_$target_arch
             make clean 
             cmake \
             $toolchain_define \
-            -D OPENCV_EXTRA_MODULES_PATH=../../opencv_contrib-4.5.5/modules \
+            -D BUILD_LIST="imgcodecs,imgproc,core,highgui,videoio" \
+	        -D OPENCV_EXTRA_MODULES_PATH=../../opencv_contrib-$suggestion_version/modules \
             -D CMAKE_BUILD_TYPE=RELEASE \
-            -D WITH_TBB=ON -D WITH_IPP=OFF -D WITH_1394=OFF \
+            -D WITH_TBB=ON -D WITH_IPP=ON -D WITH_PYTHON=ON \
             -D BUILD_WITH_DEBUG_INFO=OFF -D BUILD_DOCS=OFF \
-            -D INSTALL_C_EXAMPLES=ON -D INSTALL_PYTHON_EXAMPLES=ON \
             -D BUILD_EXAMPLES=OFF -D BUILD_TESTS=OFF -D BUILD_PERF_TESTS=OFF \
-            -D WITH_QT=OFF -D WITH_GTK=ON -D WITH_OPENGL=ON -D WITH_PNG=ON\
-            -D WITH_V4L=ON -D WITH_FFMPEG=ON -D WITH_XINE=ON -D BUILD_NEW_PYTHON_SUPPORT=ON \
-            -D OPENCV_GENERATE_PKGCONFIG=ON -D WITH_CUDA=OFF -D WITH_FREETYPE=ON ../
-            make -j8
+            -D WITH_QT=OFF -D WITH_GTK=ON -D WITH_PNG=ON\
+            -D WITH_V4L=ON -D WITH_FFMPEG=ON -D BUILD_NEW_PYTHON_SUPPORT=ON \
+            -D OPENCV_GENERATE_PKGCONFIG=ON -D WITH_CUDA=OFF ../
+            make -j $(($(nproc) / 2))
+            
             if [ $? -ne 0 ]; then
                 echo "Failed to install OpenCV dependent libraries."
                 exit 1
@@ -182,6 +196,7 @@ while (( $# )); do
             shift;;       
         --dep) install_dep=true; shift;;        
         --opencv) install_opencv=true; shift;;     
+        --manual) manual_opencv_install=true; shift;;     
         --all) install_opencv=true;install_dep=true; shift;;  
         *)       echo "Invalid argument : " $1 ; help; exit 1;;
     esac

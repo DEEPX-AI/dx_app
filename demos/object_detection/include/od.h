@@ -30,16 +30,18 @@ public:
     void Stop();
     void Pause();
     void Play();
-    cv::Mat &ResultFrame();
+    cv::Mat ResultFrame();
     std::pair<int, int> Position();
     pair<int, int> Resolution();
     uint64_t GetInferenceTime();
     uint64_t GetLatencyTime();
     uint64_t GetProcessingTime();
+    uint8_t* GetOutputMemory(){return outputMemory;};
     int Channel();
     std::string &Name();
     void Toggle();
     void PostProc(std::vector<std::shared_ptr<dxrt::Tensor>>&);
+    void PostProc(void* outputs, int output_length);
     dxapp::common::DetectObject GetScalingBBox(vector<BoundingBox>& bboxes);
     friend std::ostream& operator<<(std::ostream&, const ObjectDetection&);
 private:
@@ -69,7 +71,6 @@ private:
     cv::VideoCapture _cap;
     std::vector<cv::Mat> _dest;
     cv::Mat _resultFrame;
-    std::queue<cv::Mat> _queueFrame;
 
     cv::Mat _logo;
     std::thread _thread;
@@ -79,4 +80,9 @@ private:
     std::condition_variable _cv;
     std::vector<BoundingBox> _bboxes;
     Yolo yolo;
+
+    uint8_t* outputMemory;
+    int64_t output_length;
+    std::vector<std::vector<int64_t>> output_shape;
+    dxrt::DataType data_type;
 };

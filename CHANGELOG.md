@@ -1,5 +1,21 @@
 # Changelog 
 
+## [v1.3.0] - 2025-01-09
+### 1. Changed
+- Apply new feature API from dx_rt; May lead to perfomance degradation when using older versions of dx_app.
+### 2. Fixed
+- None
+### 3. Added
+- None
+
+## [v1.2.2] - 2025-01-09
+### 1. Changed
+- None
+### 2. Fixed
+- Modify yolov9 decode method in config json file. 
+### 3. Added
+- Add yolov9 example dxnn model
+
 ## [v1.2.1] - 2024-12-20
 ### 1. Changed
 - None

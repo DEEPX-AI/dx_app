@@ -16,6 +16,7 @@
 #include <opencv2/opencv.hpp>
 
 #include "dxrt/dxrt_api.h"
+#include "utils/common_util.hpp"
 
 using namespace std;
 
@@ -83,8 +84,7 @@ int main(int argc, char *argv[])
                 break;
             case 'h':
             default:
-                help();
-                exit(0);
+                help(), exit(0);
                 break;
         }
     }
@@ -98,13 +98,7 @@ int main(int argc, char *argv[])
     if(!imgFile.empty())
     {
         dxrt::InferenceEngine ie(modelPath);
-        bool usingOrt = false;
-        for (const auto& task_str : ie.task_order()) {
-            if (task_str.find("cpu") != std::string::npos) {
-                usingOrt = true;
-                break;
-            }
-        }
+        bool usingOrt = dxapp::common::checkOrtLinking();
         
         do 
         {

@@ -13,7 +13,7 @@ macro(add_target name)
 endmacro(add_target)
 
 macro(add_opencv)
-	  find_package(OpenCV 4.5.5 REQUIRED HINTS ${OpenCV_DIR})
+	  find_package(OpenCV REQUIRED HINTS ${OpenCV_DIR})
     LIST(APPEND link_libs ${OpenCV_LIBS})
 endmacro(add_opencv)
 

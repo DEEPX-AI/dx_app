@@ -299,7 +299,7 @@ vector< BoundingBox > Yolo::PostProc(vector<shared_ptr<dxrt::Tensor>> outputs_, 
         }
         for(int i=0 ; i<numElements ; i++)
         {
-            dxrt::DeviceBoundingBox_t *data = dataSrc + i;            
+            dxrt::DeviceBoundingBox_t *data = dataSrc + i;
             auto layer = cfg.layers[data->layer_idx];
             int strideX = cfg.width / layer.numGridX;
             int strideY = cfg.height / layer.numGridY;
@@ -308,18 +308,29 @@ vector< BoundingBox > Yolo::PostProc(vector<shared_ptr<dxrt::Tensor>> outputs_, 
             float scale_x_y = layer.scaleX;            
 
             ScoreIndices[data->label].emplace_back(data->score, boxIdx);
-            if(scale_x_y==0)
+            
+            if(hasAnchors)
             {
-                x = ( data->x * 2. - 0.5 + gX ) * strideX;
-                y = ( data->y * 2. - 0.5 + gY ) * strideY;
+                if(scale_x_y==0)
+                {
+                    x = ( data->x * 2. - 0.5 + gX ) * strideX;
+                    y = ( data->y * 2. - 0.5 + gY ) * strideY;
+                }
+                else
+                {
+                    x = (data->x * scale_x_y  - 0.5 * (scale_x_y - 1) + gX) * strideX;
+                    y = (data->y * scale_x_y  - 0.5 * (scale_x_y - 1) + gY) * strideY;
+                }
+                w = (data->w * data->w * 4.) * layer.anchorWidth[data->box_idx];
+                h = (data->h * data->h * 4.) * layer.anchorHeight[data->box_idx];
             }
             else
             {
-                x = (data->x * scale_x_y  - 0.5 * (scale_x_y - 1) + gX) * strideX;
-                y = (data->y * scale_x_y  - 0.5 * (scale_x_y - 1) + gY) * strideY;
+                x = (gX - data->x) * strideX;
+                y = (gY - data->y) * strideY;
+                w = exp(data->w) * strideX;
+                h = exp(data->h) * strideY;
             }
-            w = (data->w * data->w * 4.) * layer.anchorWidth[data->box_idx];
-            h = (data->h * data->h * 4.) * layer.anchorHeight[data->box_idx];
             Boxes[boxIdx*4 + 0] = x - w/2.; /*x1*/
             Boxes[boxIdx*4 + 1] = y - h/2.; /*y1*/
             Boxes[boxIdx*4 + 2] = x + w/2.; /*x2*/

@@ -40,6 +40,7 @@ Install the followings first.
   ./install.sh --dep
   ```
 - **Install OpenCV (version 4.5.5 is recommended)**         
+  **OpenCV** version **4.2.0** or higher is required for this demo to work properly. Please ensure your environment.
   Install and build OpenCV        
   ```shell
   ./install.sh --opencv  
@@ -50,6 +51,9 @@ Install the followings first.
   # or
   # ./install.sh --arch riscv64 --opencv
   ```           
+  If you want to use the Host PC's CPU and GPU acceleration, you need to build and install OpenCV manually.    
+  This process is described at [install.sh](install.sh#L134). 
+  Modify the necessary flag option such as `TBB`, `IPP`, `CUDA`, etc., to **ON**, then build and install OpenCV.
 ### Build DX-APP    
 - **Build Application**          
   ```shell

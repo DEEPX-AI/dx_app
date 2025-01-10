@@ -19,6 +19,8 @@
 #include "display.h"
 #include "dxrt/dxrt_api.h"
 
+#include "utils/common_util.hpp"
+
 using namespace std;
 using namespace cv;
 
@@ -26,8 +28,6 @@ using namespace cv;
 #define PREPROC_KEEP_IMG_RATIO false
 #define DISPLAY_WINDOW_NAME "PIDNet"
 #define INPUT_CAPTURE_PERIOD_MS 30
-#define MODEL_WIDTH 640
-#define MODEL_HEIGHT 640
 #define NUM_CLASSES 19
 #define CAMERA_FRAME_WIDTH 1920
 #define CAMERA_FRAME_HEIGHT 1080
@@ -62,20 +62,14 @@ SegmentationParam segCfg[] = {
     {	17	,	"motorcycle",	0	,	0	,	230	,	},
     {	18	,	"bicycle",	119	,	11	,	32	,	},
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////
 
 static struct option const opts[] = {
     { "model", required_argument, 0, 'm' },
     { "image", required_argument, 0, 'i' },
     { "video", required_argument, 0, 'v' },
     { "camera", no_argument, 0, 'c' },
-    { "bin",  required_argument, 0, 'b' },
-    { "sim", required_argument, 0, 's' },
     { "async", no_argument, 0, 'a' },
-    { "iomode", no_argument, 0, 'o' },
     { "help", no_argument, 0, 'h' },
-    { "width", required_argument, 0, 'x' },
-    { "height", required_argument, 0, 'y' },
     { 0, 0, 0, 0 }
 };
 const char* usage =
@@ -84,12 +78,7 @@ const char* usage =
 "  -i, --image     use image file input\n"
 "  -v, --video     use video file input\n"
 "  -c, --camera    use camera input\n"
-"  -b, --bin       use binary file input\n"
-"  -s, --sim       use pre-defined npu output binary file input( perform post-proc. only )\n"
 "  -a, --async     asynchronous inference\n"
-"  -o, --iomode    I/O only mode (not perform inference directly)\n"
-"  -x, --width     Input image width\n"
-"  -y, --height    Input image height\n"
 "  -h, --help      show help\n"
 ;
 void help()
@@ -157,6 +146,22 @@ void Segmentation(float *input, uint8_t *output, int rows, int cols, Segmentatio
     }
 }
 
+void Segmentation(uint16_t *input, uint8_t *output, int rows, int cols, SegmentationParam *cfg, int numClasses, int64_t pitch=0)
+{
+    for(int h=0;h<rows;h++)
+    {
+        for(int w=0;w<cols;w++)
+        {
+            int class_index = input[cols*h + w];
+            if(class_index >= numClasses && class_index < 0)
+                continue;
+            output[3*cols*h + 3*w + 2] = cfg[class_index].colorB;
+            output[3*cols*h + 3*w + 1] = cfg[class_index].colorG;
+            output[3*cols*h + 3*w + 0] = cfg[class_index].colorR;
+        }
+    }
+}
+
 int main(int argc, char *argv[])
 {
     int optCmd;
@@ -172,7 +177,7 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-    while ((optCmd = getopt_long(argc, argv, "m:i:v:cb:s:x:y:aoh", opts,
+    while ((optCmd = getopt_long(argc, argv, "m:i:v:cah", opts,
         NULL)) != -1) {
         switch (optCmd) {
             case '0':
@@ -189,50 +194,33 @@ int main(int argc, char *argv[])
             case 'c':
                 cameraInput = true;
                 break;
-            case 'b':
-                binFile = strdup(optarg);
-                break;
-            case 's':
-                simFile = strdup(optarg);
-                break;
-            case 'x':
-                inputWidth = stoi(optarg);
-                break;
-            case 'y':
-                inputHeight = stoi(optarg);
-                break;
             case 'a':
                 asyncInference = true;
                 break;
             case 'h':
             default:
-                help();
-                exit(0);
+                help(), exit(0);
                 break;
         }
     }
 
-    if(inputWidth==0) inputWidth = MODEL_WIDTH;
-    if(inputHeight==0) inputHeight = MODEL_HEIGHT;
-    LOG_VALUE(inputWidth);
-    LOG_VALUE(inputHeight);
     LOG_VALUE(modelPath);
     LOG_VALUE(videoFile);
-    LOG_VALUE(binFile);
-    LOG_VALUE(simFile);
     LOG_VALUE(cameraInput);
     LOG_VALUE(asyncInference);
 
     dxrt::InferenceEngine ie(modelPath);
 
-    for (const auto& task_str : ie.task_order()) {
-        if (task_str.find("cpu") != std::string::npos) {
-            (void)(usingOrt);
-            std::cout<<"[NOTICE] This demo works correctly when USE_ORT is set to OFF."<<std::endl;
-            exit(0);
-            // break;
-        }
+    if(dxapp::common::checkOrtLinking()) 
+    {
+        usingOrt = true;
+        std::cout<<"[NOTICE] This demo works correctly when USE_ORT is set to OFF."<<std::endl;
+        exit(-1);
     }
+    bool is_argmax = ie.outputs().front().type() == dxrt::DataType::UINT16 ? true : false;
+    
+    inputWidth = ie.inputs().front().shape()[2];
+    inputHeight = ie.inputs().front().shape()[1];
 
     auto& profiler = dxrt::Profiler::GetInstance();
     if(!imgFile.empty())
@@ -248,7 +236,10 @@ int main(int argc, char *argv[])
         LOG_VALUE(outputs.size());
         profiler.Start("post-segment");
         cv::Mat result = cv::Mat(inputHeight, inputWidth, CV_8UC3, cv::Scalar(0, 0, 0));
-        Segmentation((float*)outputs[0]->data(), result.data, result.rows, result.cols, segCfg, NUM_CLASSES, outputs[0]->shape()[3]);
+        if(is_argmax)
+            Segmentation((uint16_t*)outputs[0]->data(), result.data, result.rows, result.cols, segCfg, NUM_CLASSES, outputs[0]->shape()[0]);
+        else
+            Segmentation((float*)outputs[0]->data(), result.data, result.rows, result.cols, segCfg, NUM_CLASSES, outputs[0]->shape()[3]);
         profiler.End("post-segment");
         profiler.Start("post-blend");
         cv::resize(result, result, Size(frame.cols, frame.rows), 0, 0, cv::INTER_LINEAR);
@@ -265,6 +256,7 @@ int main(int argc, char *argv[])
         bool pause = false;
         cv::VideoCapture cap;
         cv::Mat frame[FRAME_BUFFERS], resizedFrame[FRAME_BUFFERS], result[FRAME_BUFFERS];
+        dxrt::TensorPtrs _outputs;
         for(int i=0;i<FRAME_BUFFERS;i++)
         {
             resizedFrame[i] = cv::Mat(inputHeight, inputWidth, CV_8UC3, cv::Scalar(0, 0, 0));
@@ -296,6 +288,35 @@ int main(int argc, char *argv[])
         cout << cap.get(CAP_PROP_FRAME_WIDTH) << " x " << cap.get(CAP_PROP_FRAME_HEIGHT) << endl;
         namedWindow(DISPLAY_WINDOW_NAME);
         moveWindow(DISPLAY_WINDOW_NAME, 0, 0);
+
+        std::vector<std::vector<uint8_t>> output_buffers;
+        if(asyncInference)
+        {
+            for(int buffer_length = 0; buffer_length < FRAME_BUFFERS; buffer_length++)
+            {
+                output_buffers.emplace_back(std::vector<uint8_t>(ie.output_size()));
+            }
+        }
+
+        std::queue<int> idx_queue;
+        std::mutex lk;
+
+        std::function<int(vector<shared_ptr<dxrt::Tensor>>, void*)> postProcCallBack = \
+                [&](vector<shared_ptr<dxrt::Tensor>> outputs, void *arg)
+                {
+                    profiler.Start("copy");
+                        /* PostProc */
+                        lk.lock();
+                        int arg_idx = *(int*)arg;
+                        memcpy((void*)output_buffers[arg_idx].data(), outputs[0]->data(), ie.output_size());
+                        idx_queue.push(arg_idx);
+                        lk.unlock();
+                    profiler.End("copy");
+                    return 0;
+                };
+        if(asyncInference)
+            ie.RegisterCallBack(postProcCallBack);
+
         profiler.Start("cap");
         while(1)
         {
@@ -304,55 +325,80 @@ int main(int argc, char *argv[])
             if(!pause)
             {
                 cap >> frame[idx];
-                if(frame[idx].empty()) break;                
+                if(cap.get(cv::CAP_PROP_POS_FRAMES) == cap.get(cv::CAP_PROP_FRAME_COUNT))
+                {
+                    cap.set(cv::CAP_PROP_POS_FRAMES, 0);
+                    cap >> frame[idx];
+                }
+                
                 profiler.Start("pre");
                 PreProc(frame[idx], resizedFrame[idx], PREPROC_KEEP_IMG_RATIO);
                 profiler.End("pre");
                 profiler.Start("main");
-                auto outputs = ie.Run(resizedFrame[idx].data);
-                profiler.End("main");
-                if(outputs.size()>0)
-                {                    
+                if(asyncInference)
+                    auto req = ie.RunAsync(resizedFrame[idx].data, &idx);
+                else
+                    _outputs = ie.Run(resizedFrame[idx].data);
+                if(!idx_queue.empty() || (!asyncInference && _outputs.size() > 0))
+                {
+                    int current_idx = asyncInference ? idx_queue.front():idx;
                     profiler.Start("post-segment");
                     cv::Mat resultExpand, outFrameBlend;
                     cv::Mat outFrame = frame[prevIdx];
-                    Segmentation(
-                        (float*)outputs[0]->data(), result[idx].data, 
-                        result[idx].rows, result[idx].cols, segCfg, NUM_CLASSES, outputs[0]->shape()[3]);
+                    lk.lock();
+                    if(asyncInference)
+                    {
+                        if(is_argmax)
+                        {
+                            Segmentation((uint16_t*)output_buffers[current_idx].data(), result[current_idx].data,
+                                    result[current_idx].rows, result[current_idx].cols, segCfg, NUM_CLASSES, 1);
+                        }
+                        else
+                        {
+                            Segmentation((float*)output_buffers[current_idx].data(), result[current_idx].data,
+                                    result[current_idx].rows, result[current_idx].cols, segCfg, NUM_CLASSES, 32);
+                        }
+                    }
+                    else
+                    {
+                        if(is_argmax)
+                        {
+                            Segmentation((uint16_t*)_outputs[0]->data(), result[current_idx].data,
+                                    result[current_idx].rows, result[current_idx].cols, segCfg, NUM_CLASSES, 1);
+                        }
+                        else
+                        {
+                            Segmentation((float*)_outputs[0]->data(), result[current_idx].data,
+                                    result[current_idx].rows, result[current_idx].cols, segCfg, NUM_CLASSES, 32);
+                        }
+                    }
+                    lk.unlock();
+                    profiler.End("main");
                     profiler.End("post-segment");
                     profiler.Start("post-blend");
-                    cv::resize(result[idx], resultExpand, Size(frame[idx].cols, frame[idx].rows), 0, 0, cv::INTER_LINEAR);
+                    cv::resize(result[current_idx], resultExpand, Size(frame[current_idx].cols, frame[current_idx].rows), 0, 0, cv::INTER_LINEAR);
                     cv::addWeighted( outFrame, 0.5, resultExpand, 0.5, 0.0, outFrameBlend);
                     profiler.End("post-blend");
+                    
+                    uint64_t fps = 1000000 / (profiler.Get("main") + 0.1);
+                    std::string fpsCaption = "FPS : " + std::to_string((int)fps);
+                    cv::Size fpsCaptionSize = cv::getTextSize(fpsCaption, cv::FONT_HERSHEY_PLAIN, 3, 2, nullptr);
+                    cv::putText(outFrameBlend, fpsCaption, cv::Point(outFrameBlend.size().width - fpsCaptionSize.width, outFrameBlend.size().height - fpsCaptionSize.height), cv::FONT_HERSHEY_PLAIN, 3, cv::Scalar(255, 255, 255),2);
                     cv::imshow(DISPLAY_WINDOW_NAME, outFrameBlend);
+                    prevIdx = idx;
+                    if(asyncInference)
+                        idx_queue.pop();
                 }
-                prevIdx = idx;
                 (++idx)%=FRAME_BUFFERS;
             }
             key = cv::waitKey(INPUT_CAPTURE_PERIOD_MS);
-            if(key == 0x20) //'p'
-            {
-                pause = !pause;
-            }
-            else if(key == 0x1B) //'ESC'
+            if(key == 'q' || key == 0x1B)
             {
                 break;
             }
         }
         sleep(1);
         profiler.Show();
-        return 0;
-    }
-    if(!binFile.empty())
-    {
-        uint8_t *input_buffer = new uint8_t(inputWidth * inputHeight * 3);
-        dxrt::DataFromFile(binFile, input_buffer);
-        auto outputs = ie.Run(input_buffer);
-        if(outputs.size()==0)
-        {
-            cout << "Error. Invalid output detected." << endl;
-            return -1;
-        }
         return 0;
     }
 

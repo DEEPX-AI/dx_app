@@ -145,5 +145,53 @@ namespace common
         return path.substr(pos+1);
     }
 
+    inline bool checkOrtLinking()
+    {
+        std::ostringstream command;
+        command << "ldconfig -p | grep dxrt.so";
+
+        FILE* pipe = popen(command.str().c_str(), "r");
+        if (!pipe) {
+            std::cerr << "Failed to run ldconfig command." << std::endl;
+            return false;
+        }
+
+        char buffer[128];
+        std::string result;
+        while (fgets(buffer, sizeof(buffer), pipe) != nullptr) {
+            result += buffer;
+        }
+        pclose(pipe);
+
+        if(result.empty())
+            return false;
+
+        std::string file_path;
+        size_t pos = result.find("=>");
+        if(pos == std::string::npos) return false;
+
+        file_path = result.substr(pos+3);
+        file_path.erase(file_path.find_last_not_of('\n') + 1);
+
+        if(!pathValidation(file_path))
+            return false;
+
+        command.str("");
+        command << "ldd " << file_path << " | grep libonnxruntime.so";
+
+        pipe = popen(command.str().c_str(), "r");
+        if(!pipe) {
+            std::cerr << "Failed to run ldd command" << std::endl;
+            return false;
+        }
+        result = "";
+        while(fgets(buffer, sizeof(buffer), pipe) != nullptr) {
+            result += buffer;
+        }
+        pclose(pipe);
+
+        return !result.empty();
+    }
+
 } // namespace common
 } // namespace dxapp 
