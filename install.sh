@@ -7,18 +7,18 @@ echo "DX_SRC_DIR the default one $DX_SRC_DIR"
 target_arch=$(uname -m)  
 install_opencv=false  
 install_dep=false  
-manual_opencv_install=false  
+opencv_source_build=false  
 build_type='Release'  
 
 function help()
 {
     echo "./install.sh"
-    echo "    --help            show this help"
-    echo "    --arch            target CPU architecture : [ x86_64, aarch64, riscv64 ]"
-    echo "    --dep             install dependencies : cmake, gcc, ninja, etc.."
-    echo "    --opencv          (optional) install opencv pkg "
-    echo "    --manual          (optional) install opencv pkg "
-    echo "    --all             install dependencies & opencv pkg "
+    echo "    --help                    show this help"
+    echo "    --arch                    target CPU architecture : [ x86_64, aarch64, riscv64 ]"
+    echo "    --dep                     install dependencies : cmake, gcc, ninja, etc.."
+    echo "    --opencv                  (optional) install opencv pkg "
+    echo "    --opencv-source-build     (optional) install opencv pkg "
+    echo "    --all                     install dependencies & opencv pkg "
 }
 
 function compare_version() 
@@ -72,8 +72,8 @@ function install_dep()
 
 function install_opencv()
 {
-    manually_install=false
-    if [ "$install_opencv" == true ] || [ "$manual_opencv_install" == true ]; then
+    cross_compile_opencv_mode=false
+    if [ "$install_opencv" == true ] || [ "$opencv_source_build" == true ]; then
         toolchain_define="-D CMAKE_INSTALL_PREFIX=/usr/local "
         if [ $(uname -m) != "$target_arch" ]; then
             case "$target_arch" in
@@ -88,14 +88,15 @@ function install_opencv()
                 toolchain_define="-D CMAKE_INSTALL_PREFIX=/usr/local "
             else
                 echo " OpenCV Cross Compilation "
-                manually_install=true
+                manually_opencv_install=true
+                cross_compile_opencv_mode=true
             fi
         fi
-        if [ "$manual_opencv_install" == true ]; then
-            manually_install=true
+        if [ "$opencv_source_build" == true ]; then
+            manually_opencv_install=true
         fi
         echo " Install opencv dependent library "
-        sudo apt -y install libjpeg-dev libtiff5-dev libpng-dev ffmpeg \
+        sudo apt -y install libjpeg-dev libtiff5-dev ffmpeg \
              libavcodec-dev libavformat-dev libswscale-dev libxvidcore-dev libavutil-dev \
              libtbb-dev libeigen3-dev libx264-dev libv4l-dev v4l-utils libgstreamer1.0-dev \
              libgstreamer-plugins-base1.0-dev libgtk2.0-dev libfreetype-dev
@@ -105,7 +106,7 @@ function install_opencv()
             sudo apt -y install libgstreamer-plugins-base1.0-dev
         fi
 
-        if [ "$manually_install" == false ]; then 
+        if [ "$manually_opencv_install" == false ]; then 
             sudo apt -y install libopencv-dev python3-opencv
         fi
 
@@ -122,16 +123,37 @@ function install_opencv()
         suggestion_version="4.5.5"
 
         # Compare versions using sort -V
-        if [ "$(printf '%s\n' "$minimum_version" "$installed_version" | sort -V | head -n1)" = "$minimum_version" ]; then
-            if [ "$installed_version" = "$minimum_version" ]; then
+        if [ "$(printf '%s\n' "$minimum_version" "$installed_version" | sort -V | head -n 1)" == "$minimum_version" ] && [ -z $manually_opencv_install ]; then
+            if [ "$installed_version" == "$minimum_version" ]; then
                 echo "OpenCV version is exactly $minimum_version."
                 echo "OpenCV installation complete. "
             else
                 echo "OpenCV version is $installed_version, which is higher than $minimum_version."
-                manually_install=false
+                manually_opencv_install=false
             fi
         else
-            echo "OpenCV version is $installed_version, which is lower than $minimum_version."
+            echo "OpenCV version is $installed_version, which is lower than $minimum_version or install opencv by source build. "
+            define_list=""
+            if [ "$cross_compile_opencv_mode" == false ]; then
+                lscpu | grep -i "Vendor ID" | grep -i Intel > /dev/null
+                if [ $? -eq 0 ] && [ ! $manually_opencv_install ]; then
+                    define_list="$define_list -D WITH_IPP=ON"
+                    echo "OpenCV Build With Intel IPP(Integrated Performance Primitives)."
+                fi
+
+                libpng-config --version > /dev/null
+                if [ $? -eq 0 ]; then
+                    define_list="$define_list -D BUILD_PNG=ON -D WITH_PNG=ON"
+                else
+                    sudo apt-get -y install libpng-dev
+                    if [ $? -eq 0 ]; then
+                        define_list="$define_list -D BUILD_PNG=ON -D WITH_PNG=ON"
+                    fi
+                fi
+            else
+                define_list=" -D BUILD_PNG=ON -D WITH_PNG=ON "
+            fi
+
             if ! test -e $DX_SRC_DIR/util; then 
                 mkdir $DX_SRC_DIR/util
             fi
@@ -158,14 +180,15 @@ function install_opencv()
             make clean 
             cmake \
             $toolchain_define \
+            $define_list \
             -D BUILD_LIST="imgcodecs,imgproc,core,highgui,videoio" \
 	        -D OPENCV_EXTRA_MODULES_PATH=../../opencv_contrib-$suggestion_version/modules \
             -D CMAKE_BUILD_TYPE=RELEASE \
-            -D WITH_TBB=ON -D WITH_IPP=ON -D WITH_PYTHON=ON \
+            -D WITH_TBB=ON -D WITH_PYTHON=ON -D WITH_QT=OFF -D WITH_GTK=ON \
+            -D WITH_V4L=ON -D WITH_FFMPEG=ON \
             -D BUILD_WITH_DEBUG_INFO=OFF -D BUILD_DOCS=OFF \
             -D BUILD_EXAMPLES=OFF -D BUILD_TESTS=OFF -D BUILD_PERF_TESTS=OFF \
-            -D WITH_QT=OFF -D WITH_GTK=ON -D WITH_PNG=ON\
-            -D WITH_V4L=ON -D WITH_FFMPEG=ON -D BUILD_NEW_PYTHON_SUPPORT=ON \
+            -D BUILD_NEW_PYTHON_SUPPORT=ON \
             -D OPENCV_GENERATE_PKGCONFIG=ON -D WITH_CUDA=OFF ../
             make -j $(($(nproc) / 2))
             
@@ -196,7 +219,7 @@ while (( $# )); do
             shift;;       
         --dep) install_dep=true; shift;;        
         --opencv) install_opencv=true; shift;;     
-        --manual) manual_opencv_install=true; shift;;     
+        --opencv-source-build) opencv_source_build=true; shift;;     
         --all) install_opencv=true;install_dep=true; shift;;  
         *)       echo "Invalid argument : " $1 ; help; exit 1;;
     esac

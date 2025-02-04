@@ -3,10 +3,11 @@
 ## [v1.3.0] - 2025-01-09
 ### 1. Changed
 - Apply new feature API from dx_rt; May lead to perfomance degradation when using older versions of dx_app.
+- Update install.sh to support manual installation of OpenCV via source build or automatic installation using apt-get.
 ### 2. Fixed
 - None
 ### 3. Added
-- None
+- Add 3-second timeout for camera connection test. (template/object_detection/run_detector)
 
 ## [v1.2.2] - 2025-01-09
 ### 1. Changed

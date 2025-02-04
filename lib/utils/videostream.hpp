@@ -125,10 +125,7 @@ public:
             case CAMERA :
                 _srcMode = RUNTIME;
                 _video.open(_srcPath, cv::CAP_V4L2);
-                _video.set(cv::CAP_PROP_FOURCC, cv::VideoWriter::fourcc('M','J','P','G'));
                 _video.set(cv::CAP_PROP_FPS, _cam_fps);
-                _video.set(cv::CAP_PROP_FRAME_WIDTH, _cam_width);
-                _video.set(cv::CAP_PROP_FRAME_HEIGHT, _cam_height);
                 if(!_video.isOpened())
                 {
                     std::cout << "Error: camera could not be opened." <<std::endl;
@@ -293,7 +290,7 @@ public:
             break;
 
             case CAMERA :
-                _video >> _frame;                                                    
+                _video >> _frame;
             break;
 
             case ISP :
@@ -306,7 +303,6 @@ public:
             default :
             break;
         }
-
         return _frame.clone();
 
     };
@@ -354,12 +350,15 @@ public:
         }
     };
 
-    void Preprocess(void)
+    bool Preprocess(void)
     {   
         cv::Mat srcImg;
         cv::Mat preImg;
-
-        srcImg = ImgCapture();       
+        
+        srcImg = ImgCapture();
+        if(srcImg.empty()){
+            return false;
+        }
         ImgPreResize(srcImg, preImg);              
         if(_srcType!=BINARY)
             ImgCvtColor(preImg, _npuColorFormat);
@@ -374,6 +373,7 @@ public:
             _srcImg.emplace_back(srcImg);
             _preImg.emplace_back(preImg);
         }
+        return true;
     };
     
     void* GetInputStream(void)
@@ -407,7 +407,10 @@ public:
         {
             if(_srcMode == RUNTIME)
             {
-                Preprocess();
+                if(!Preprocess())
+                {
+                    return nullptr;
+                }
                 if(_need_preproc)
                 {
                     data_pre_processing(_preImg_runtime.data, _imgBuffer.data());

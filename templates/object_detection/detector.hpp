@@ -95,6 +95,8 @@ public :
 
     void ppThreadFunction()
     {
+        void* inf_data = nullptr;
+        std::condition_variable _internal_cv;
         std::cout << "[" << _name << "] : entered post process thread function. "<<std::endl;
         {
             std::unique_lock<std::mutex> _uniqueLock(_lock);
@@ -109,12 +111,24 @@ public :
                 usleep(100);
                 continue;
             }
-            
             _profiler.Start(_processName);    
-            _profiler.Start(_inferName);
-            if(_frame_count - _processed_count < 10)
+            if(_frame_count - _processed_count < 10)// && !_quit.load())
             {
-		        auto inf_data = _vStream.GetInputStream();
+                inf_data = _vStream.GetInputStream();
+                {
+                    std::unique_lock<std::mutex> _uniqueLock(_lock);
+                    _get_frame_result = _internal_cv.wait_for(_uniqueLock, std::chrono::seconds(3), [&](){ return inf_data!=nullptr; });
+                    if(!_get_frame_result)
+                    {
+                        std::cout << "[DX-APP ERROR] The camera capture frame did not arrive properly." << std::endl;
+                        std::cout << "[DX-APP ERROR] Shutting down the yolo_multi application." << std::endl;
+                        _quit.store(true);
+                        break;
+                    }
+                    else if(inf_data == nullptr)
+                        continue;
+                }
+                _profiler.Start(_inferName);
                 int req = _inferenceEngine->RunAsync(inf_data, (void*)this, (void*)outputsMemory);
                 _frame_count += 1;
 
@@ -160,7 +174,6 @@ public :
     };
 
     ~DetectorApp(){
-        std::unique_lock<std::mutex> unique_lock(_lock);
         operator delete(outputsMemory);
     };
 
@@ -204,6 +217,8 @@ private:
 
     unsigned long long _processed_count = 0;
     unsigned long long _frame_count = 0;
+
+    bool _get_frame_result = true;
     
     uint8_t * outputsMemory = nullptr;
 
@@ -333,15 +348,6 @@ public:
 
     void joinThread()
     {
-        // while(true)
-        // {
-        //     for(int i=0;i<(int)apps.size();i++){
-        //         if(apps[i]->ended())
-        //         {
-
-        //         }
-        //     }
-        // }
         for(int i=0;i<(int)apps.size();i++){
             apps[i]->joinThread();
         }
