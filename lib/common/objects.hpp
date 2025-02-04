@@ -80,6 +80,8 @@ namespace common
             this->_width = 0;
             this->_height = 0;
         };
+        Size_<_T>(const Size_<_T>& other) = default;
+        Size_<_T>& operator=(const Size_<_T>& other) = default;
     };
 
     typedef Size_<int> Size;
@@ -107,6 +109,8 @@ namespace common
             this->_y = 0;
             this->_z = 0;
         };
+        Point_<_T>(const Point_<_T>& other) = default;
+        Point_<_T>& operator=(const Point_<_T>& other) = default;
     };
 
     typedef Point_<int> Point;
@@ -138,6 +142,8 @@ namespace common
             os << "obj info : " << a._classId << " : " << a._bbox ;
             return os;
         };
+        Object(const Object& other) = default;
+        Object& operator=(const Object& other) = default;
     };
 
     struct DetectObject

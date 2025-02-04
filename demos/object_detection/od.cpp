@@ -132,8 +132,6 @@ void ObjectDetection::threadFunc(int period)
 #endif
         vector<BoundingBox> bboxes;
         dxapp::common::DetectObject bboxes_objects;
-        while(_bboxes.empty())
-            usleep(10);
         {
             unique_lock<mutex> lk(_lock);
             if(!_bboxes.empty() && _toggleDrawing)
