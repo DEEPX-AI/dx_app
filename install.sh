@@ -106,8 +106,8 @@ function install_opencv()
             sudo apt -y install libgstreamer-plugins-base1.0-dev
         fi
 
-        if [ "$manually_opencv_install" == false ]; then 
-            sudo apt -y install libopencv-dev python3-opencv
+        if [ -z $manually_opencv_install ]; then 
+            sudo apt -y --reinstall install libopencv-dev python3-opencv
         fi
 
         if [ $? -ne 0 ]; then
