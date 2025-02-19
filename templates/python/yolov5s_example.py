@@ -37,12 +37,12 @@ def letter_box(image_src, new_shape=(512, 512), fill_color=(114, 114, 114), form
     
     return image_new, ratio, (dw, dh)    
 
-def ppu_decode(ie_outputs, layer_config):
+def ppu_decode(ie_outputs, layer_config, n_classes):
     num_det = ie_outputs[0].shape[0]
     ie_output = ie_outputs[0]
     decoded_tensor = []
     for detected_idx in range(num_det):
-        tensor = np.zeros((85), dtype=float)
+        tensor = np.zeros((n_classes + 5), dtype=float)
         data = ie_output[detected_idx].tobytes()
         box = np.frombuffer(data[0:16], np.float32)
         gy, gx, anchor, layer = np.frombuffer(data[16:20], np.uint8)
@@ -64,14 +64,14 @@ def ppu_decode(ie_outputs, layer_config):
         tensor[4+1+label] = score
         decoded_tensor.append(tensor)
     if len(decoded_tensor) == 0:
-        decoded_tensor = np.zeros((85), dtype=float)
+        decoded_tensor = np.zeros((n_classes + 5), dtype=float)
     
     decoded_output = np.stack(decoded_tensor)
     
     return decoded_output
     
 
-def all_decode(ie_outputs, layer_config):
+def all_decode(ie_outputs, layer_config, n_classes):
     ''' slice outputs'''
     outputs = []
     outputs.append(ie_outputs[0][...,:255])
@@ -89,13 +89,13 @@ def all_decode(ie_outputs, layer_config):
             meshgrid_x = np.arange(0, grid_size)
             meshgrid_y = np.arange(0, grid_size)
             grid = np.stack([np.meshgrid(meshgrid_y, meshgrid_x)], axis=-1)[...,0]
-            cxcy = output[...,(l*85)+0:(l*85)+2]
-            wh = output[...,(l*85)+2:(l*85)+4]
+            cxcy = output[...,l*(n_classes + 5)+0:l*(n_classes + 5)+2]
+            wh = output[...,l*(n_classes + 5)+2:l*(n_classes + 5)+4]
             cxcy[...,0] = (sigmoid(cxcy[...,0]) * 2 - 0.5 + grid[0]) * stride
             cxcy[...,1] = (sigmoid(cxcy[...,1]) * 2 - 0.5 + grid[1]) * stride
             wh[...,0] = ((sigmoid(wh[...,0]) * 2) ** 2) * layer["anchor_width"][l]
             wh[...,1] = ((sigmoid(wh[...,1]) * 2) ** 2) * layer["anchor_height"][l]
-            decoded_tensor.append(output[...,(l*85)+0:(l*85)+85].reshape(-1, 85))
+            decoded_tensor.append(output[...,l*(n_classes + 5)+0:l*(n_classes + 5)+(n_classes + 5)].reshape(-1, n_classes + 5))
             
     decoded_output = np.concatenate(decoded_tensor, axis=0)
     
@@ -133,6 +133,7 @@ def intersection_filter(x:torch.Tensor):
 def run_example(config):
     model_path = config["model"]["path"]
     classes = config["output"]["classes"]
+    n_classes = len(classes)
     score_threshold = config["model"]["param"]["score_threshold"]
     iou_threshold = config["model"]["param"]["iou_threshold"]
     layers = config["model"]["param"]["layer"]
@@ -156,31 +157,35 @@ def run_example(config):
         print("dxrt inference Done! ")
         decoded_tensor = []
         if ie.output_dtype()[0] == "BBOX":
-            decoded_tensor = ppu_decode(ie_output, layers)
+            decoded_tensor = ppu_decode(ie_output, layers, n_classes)
         elif len(ie_output) > 1:
             cpu_model_path = os.path.join(os.path.split(model_path)[0], "cpu_0.onnx")
             if os.path.exists(cpu_model_path):
                 decoded_tensor = onnx_decode(ie_output, cpu_model_path)
             else:
-                decoded_tensor = all_decode(ie_output, layers)
+                decoded_tensor = all_decode(ie_output, layers, n_classes)
         else:
             decoded_tensor = ie_output[0]
         print("decoding output Done! ")
-        
+
         ''' post Processing '''
-        x = torch.Tensor(decoded_tensor)
-        x = x[x[..., 4] > score_threshold]
-        box = ops.xywh2xyxy(x[:, :4])
-        x[:, 5:] *= x[:, 4:5]
-        conf, j = x[:, 5:].max(1, keepdims=True)
-        x = torch.cat((box, conf, j.float()), 1)[conf.view(-1) > score_threshold]
-        x = x[x[:, 4].argsort(descending=True)]
-        x = x[torchvision.ops.nms(x[:,:4], x[:, 4], iou_threshold)]
-        x = x[x[:,4] > 0]
-        print("[Result] Detected {} Boxes.".format(len(x)))
+        x = np.squeeze(decoded_tensor)
+        x = x[x[..., 4]>score_threshold]
+        box = ops.xywh2xyxy(x[..., :4])
+        x[:,5:] *= x[:,4:5]
+        conf = np.max(x[..., 5:], axis=-1, keepdims=True)
+        j = np.argmax(x[..., 5:], axis=-1, keepdims=True)
+        mask = conf.flatten() > score_threshold
+        filtered = np.concatenate((box, conf, j.astype(np.float32)), axis=1)[mask]
+        sorted_indices = np.argsort(-filtered[:, 4])
+        x = filtered[sorted_indices]
+        x = torch.Tensor(x)
+        x = x[torchvision.ops.nms(x[:,:4], x[:, 4], score_threshold)]
+        
         ''' save result and print detected info '''
+        print("[Result] Detected {} Boxes.".format(len(x)))
         image = cv2.cvtColor(image_input, cv2.COLOR_RGB2BGR)
-        colors = np.random.randint(0, 256, [80, 3], np.uint8).tolist()
+        colors = np.random.randint(0, 256, [n_classes, 3], np.uint8).tolist()
         for idx, r in enumerate(x.numpy()):
             
             pt1, pt2, conf, label = r[0:2].astype(int), r[2:4].astype(int), r[4], r[5].astype(int)

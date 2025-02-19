@@ -35,6 +35,10 @@ add_subdirectory(demos/segmentation)
 add_subdirectory(demos/face_recognition)
 add_subdirectory(demos/denoiser)
 
+if(NOT CROSS_COMPILE)
+    add_subdirectory(lib/pybind)
+endif()
+
 message(STATUS "Compiler : ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION} (${CMAKE_CXX_COMPILER})")
 message(STATUS "Using c++ standard required: ${CMAKE_CXX_STANDARD_REQUIRED}")
 message(STATUS "Using c++ standard: ${CMAKE_CXX_STANDARD}")
