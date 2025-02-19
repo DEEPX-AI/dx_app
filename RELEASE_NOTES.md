@@ -1,4 +1,15 @@
-# Changelog 
+# RELEASE_NOTES
+
+## [v1.4.0] - 2025-02-13
+### 1. Changed
+- Updatetd the post-processing code to use `NumPy` instead of `torch.max()` in `template/python/yolov5s_example.py` to reduce latency.
+- Updatetd the post-processing code to use `NumPy` instead of `torch.max()` in `template/python/yolo_async.py` to reduce latency.
+### 2. Fixed
+- Fixed the hardcoded number of classes in `template/python/yolov5s_example.py`.
+### 3. Added
+- Added `dx_postprocess` pybind module containing `YoloPostProcess` class.
+- Added `template/python/yolo_pybind_example.py` as an example of how to use the `YoloPostProcess` class.
+- Added `template/python/README.md` with explainations of the Python examples.
 
 ## [v1.3.0] - 2025-01-09
 ### 1. Changed

@@ -378,7 +378,7 @@ You can also refer to the installation guide, [Here](../README.md#Installation)
   You can set the degree of noise using keys 1 ~ 9. Enter the *'-h*' option to see more parameter.     
 
     ```shell
-    $ ./bin/denoiser -m /your-face-detection-model-path/graph.dxnn -i sample/1.jpg 
+    $ ./bin/denoiser -m /your-denoiser-detection-model-path/graph.dxnn -i sample/1.jpg 
     ```
     <p align="center">
       <img src="./readme_images/result_dncnn.jpg">

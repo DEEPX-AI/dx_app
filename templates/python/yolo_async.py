@@ -221,24 +221,25 @@ class PostProcessingRun:
             decoded_tensor = outputs[0]
         
         ''' post Processing '''
+        x = np.squeeze(decoded_tensor)
         if self.config.decode_type in ["yolov8", "yolov9"]:
-            x = torch.Tensor(decoded_tensor[0])
-            x = x.squeeze(0)
             x = x.T
-            # 1, 8400, (num_classes + localization)
             box = ops.xywh2xyxy(x[..., :4])
-            conf, j = x[..., 4:].max(-1, keepdim=True)
+            conf = np.max(x[..., 4:], axis=-1, keepdims=True)
+            j = np.argmax(x[..., 4:], axis=-1, keepdims=True)
         else:
-            x = torch.Tensor(decoded_tensor)
             x = x[x[...,4] > self.config.score_threshold]
-            box = ops.xywh2xyxy(x[:,:4])
+            box = ops.xywh2xyxy(x[..., :4])
             x[:,5:] *= x[:,4:5]
-            conf, j = x[:, 5:].max(1, keepdim=True)
-        
-        x = torch.cat((box, conf, j.float()), 1)[conf.view(-1) > self.config.score_threshold]
-        x = x[x[:, 4].argsort(descending=True)]
-        x = x[torchvision.ops.nms(x[:,:4], x[:, 4], self.config.iou_threshold)]
-        x = x[x[:,4] > 0]
+            conf = np.max(x[..., 5:], axis=-1, keepdims=True)
+            j = np.argmax(x[..., 5:], axis=-1, keepdims=True)
+            
+        mask = conf.flatten() > self.config.score_threshold
+        filtered = np.concatenate((box, conf, j.astype(np.float32)), axis=1)[mask]
+        sorted_indices = np.argsort(-filtered[:, 4])
+        x = filtered[sorted_indices]
+        x = torch.Tensor(x)
+        x = x[torchvision.ops.nms(x[:,:4], x[:, 4], json_config["model"]["param"]["iou_threshold"])]
         print("[Result] Detected {} Boxes.".format(len(x)))
         return x
         
