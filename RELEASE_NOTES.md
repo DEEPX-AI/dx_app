@@ -1,5 +1,13 @@
 # RELEASE_NOTES
 
+## [v1.4.1] - 2025-02-26
+### 1. Changed
+- None
+### 2. Fixed
+- Fixed a "Segmentation Fault" issue in a specific situation caused by accessing a vector out of its size range during post-processing..
+### 3. Added
+- Added parsing of "dxrt-cli -s" output with the "yolo_multi -t" option to monitor NPU temperature, logging the information and saving it to a file.
+
 ## [v1.4.0] - 2025-02-13
 ### 1. Changed
 - Updatetd the post-processing code to use `NumPy` instead of `torch.max()` in `template/python/yolov5s_example.py` to reduce latency.

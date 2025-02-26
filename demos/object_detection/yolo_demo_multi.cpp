@@ -15,6 +15,8 @@
 
 #include "od.h"
 
+#include "utils/common_util.hpp"
+
 using namespace std;
 using namespace cv;
 using namespace rapidjson;
@@ -223,6 +225,7 @@ int main(int argc, char *argv[])
     int arg_idx = 1;
     string configPath = "";
     float fps = 0.f; double frameCount = 0.0;
+    bool loggingVersion = false;
     char mainCaption[100];
 
     AppConfig appConfig;
@@ -238,6 +241,8 @@ int main(int argc, char *argv[])
         std::string arg(argv[arg_idx++]);
         if (arg == "-c" || arg == "--config")
                         configPath = strdup(argv[arg_idx++]);
+        else if (arg == "-t" || arg == "--test")
+                        loggingVersion = true;
         else if (arg == "-h" || arg == "--help")
                         help(), exit(0);
         else
@@ -273,7 +278,7 @@ int main(int argc, char *argv[])
     Yolo yolo = Yolo(yoloParam);
     auto& profiler = dxrt::Profiler::GetInstance();
     vector<shared_ptr<ObjectDetection>> apps;
-    int calcFpsPassTimes = 0;
+    unsigned int calcFpsPassTimes = 0;
     bool calcFps = false;
     
     if(appConfig.is_expand_mode)
@@ -380,6 +385,9 @@ int main(int argc, char *argv[])
         [&](std::vector<shared_ptr<dxrt::Tensor>> outputs, void* arg)
         {
             ObjectDetection *app = (ObjectDetection *)arg;
+            int64_t outputLength = outputs.front()->shape()[0];
+            if(dxapp::common::compareVersions(DXRT_VERSION, "2.6.3"))
+                outputLength = outputs.front()->shape()[1];
             app->PostProc((void*)app->GetOutputMemory(), outputs.front()->shape()[0]);
             return 0;
         };
@@ -406,6 +414,10 @@ int main(int argc, char *argv[])
         dstPoint[i].width = apps[i]->Resolution().first;
         dstPoint[i].height = apps[i]->Resolution().second;
     }
+    dxapp::common::StatusLog sl;
+    sl.period = 500, sl.threadStatus.store(1);
+    std::thread log_thread = std::thread(&dxapp::common::logThreadFunction, &sl);
+    auto start = std::chrono::high_resolution_clock::now();
 
     while(true)
     {
@@ -435,6 +447,14 @@ int main(int argc, char *argv[])
             snprintf(mainCaption, sizeof(mainCaption), "  Real time Processing... / %s, %.2f FPS ", appConfig.model_name.c_str(), resultFps);
             cv::putText(outFrame, mainCaption, Point(BOARD_WIDTH - 900, 25), 0, 1, cv::Scalar(0, 210, 210), 2, LINE_AA);
         }
+        auto end = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count();
+        sl.frameNumber = calcFpsPassTimes; 
+        sl.runningTime = duration;
+        if (loggingVersion)
+            sl.threadStatus.store(2);
+        else
+            sl.threadStatus.store(-1);
         
 #if __riscv
         cout << "press 'q' and enter to exit. " << endl;
@@ -446,10 +466,12 @@ int main(int argc, char *argv[])
 #endif
         if(key == 0x1B || key == 0x71) //'ESC'
         {
+            sl.threadStatus.store(-1);
             for(auto &app:apps)
             {
                 app->Stop();
             }
+            log_thread.join();
             break;
         }
         else if(key == 0x74) // 't'

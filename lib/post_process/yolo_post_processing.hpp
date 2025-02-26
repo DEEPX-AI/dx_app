@@ -54,8 +54,8 @@ namespace yolo
         std::string name;
         int stride;
         float scale = 0;
-        std::vector<int> anchor_width;
-        std::vector<int> anchor_height;
+        std::vector<float> anchor_width;
+        std::vector<float> anchor_height;
     };
     struct Params 
     {
@@ -398,51 +398,52 @@ namespace yolo
                     score1 = data[4];
                     if(score1 > _params._score_threshold)
                     {
+                        int max_cls = -1;
+                        float max_score = _params._score_threshold;
                         for(int cls=0;cls<_params._numOfClasses;cls++)
                         {
-                            bool boxDecoded = false;
                             score = score1 * data[5+cls];
-                            if(score > _params._score_threshold)
+                            if(score > max_score)
                             {
-                                _scoreIndices[cls].emplace_back(score, boxIdx);
-                                if(!boxDecoded)
+                                max_cls = cls;
+                                max_score = score;
+                            }
+                        }
+                        if(max_cls > -1)
+                        {
+                            _scoreIndices[max_cls].emplace_back(max_score, boxIdx);
+                            dxapp::common::BBox temp {
+                                        data[0] - data[2]/2.f,
+                                        data[1] - data[3]/2.f,
+                                        data[0] + data[2]/2.f,
+                                        data[1] + data[3]/2.f,
+                                        data[2],
+                                        data[3],
+                                        {dxapp::common::Point_f(-1, -1, -1)}
+                            };
+                            if(_params._decode_method == dxapp::yolo::Decode::YOLO_POSE)
+                            {
+                                temp._kpts.clear();
+                                for(int idx = 0; idx < _params._kpt_count; idx++)
                                 {
-                                    dxapp::common::BBox temp {
-                                                data[0] - data[2]/2.f,
-                                                data[1] - data[3]/2.f,
-                                                data[0] + data[2]/2.f,
-                                                data[1] + data[3]/2.f,
-                                                data[2],
-                                                data[3],
-                                                {dxapp::common::Point_f(-1, -1, -1)}
-                                    };
-                                    if(_params._decode_method == dxapp::yolo::Decode::YOLO_POSE)
+                                    int kptIdx = (idx * 3) + (4 + 1 + _params._numOfClasses);
+                                    
+                                    if((data[kptIdx + 2])<0.5)
                                     {
-                                        temp._kpts.clear();
-                                        for(int idx = 0; idx < _params._kpt_count; idx++)
-                                        {
-                                            int kptIdx = (idx * 3) + (4 + 1 + _params._numOfClasses);
-                                            
-                                            if((data[kptIdx + 2])<0.5)
-                                            {
-                                                temp._kpts.emplace_back(dxapp::common::Point_f(-1, -1));
-                                            }
-                                            else
-                                            {
-                                                temp._kpts.emplace_back(dxapp::common::Point_f(
-                                                                data[kptIdx + 0],
-                                                                data[kptIdx + 1],
-                                                                0.5f
-                                                                ));
-                                            }
-                                        }
-                                        
+                                        temp._kpts.emplace_back(dxapp::common::Point_f(-1, -1));
                                     }
-                                    _rawBoxes.emplace_back(temp);
-                                    boxDecoded = true;
-                                    boxIdx++;
+                                    else
+                                    {
+                                        temp._kpts.emplace_back(dxapp::common::Point_f(
+                                                        data[kptIdx + 0],
+                                                        data[kptIdx + 1],
+                                                        0.5f
+                                                        ));
+                                    }
                                 }
                             }
+                            _rawBoxes.emplace_back(temp);
+                            boxIdx++;
                         }
                     }
                 }
@@ -492,7 +493,6 @@ namespace yolo
                     {
                         for(int box=0; box<(int)layer.anchor_width.size(); box++) // num : 3
                         { 
-                            bool boxDecoded = false;  
                             float *rawBuffer1, *rawBuffer2, *rawBuffer3;
                             if (box == 0)
                             {   
@@ -536,24 +536,26 @@ namespace yolo
                                 score1 = _params._last_activation(rawBuffer1[4]);
                                 if(score1 > _params._score_threshold)
                                 {
+                                    int max_cls = -1;
+                                    float max_score = _params._score_threshold;
                                     for(int cls=0; cls<_params._numOfClasses;cls++)
                                     {
                                         score = score1 * _params._last_activation(rawBuffer1[5+cls]); 
-                                        if (score > _params._score_threshold)
+                                        if (score > max_score)
                                         {
-                                            _scoreIndices[cls].emplace_back(score, boxIdx);
-                                            if(!boxDecoded)
-                                            {
-                                                _rawVector.clear();
-                                                _rawVector.emplace_back(rawBuffer1);
-                                                _rawVector.emplace_back(rawBuffer2);
-                                                _rawVector.emplace_back(rawBuffer3);
-                                                dxapp::common::BBox temp = _decode(_params._last_activation, _rawVector, dxapp::common::Point(gX, gY), dxapp::common::Size(layer.anchor_width[box], layer.anchor_height[box]), stride, (float)kpt_count);
-                                                _rawBoxes.emplace_back(temp);
-                                                boxDecoded = true;
-                                                boxIdx++;
-                                            }
+                                            max_score = score;                                            
                                         }
+                                    }
+                                    if (max_cls > -1)
+                                    {
+                                        _scoreIndices[max_cls].emplace_back(max_score, boxIdx);
+                                        _rawVector.clear();
+                                        _rawVector.emplace_back(rawBuffer1);
+                                        _rawVector.emplace_back(rawBuffer2);
+                                        _rawVector.emplace_back(rawBuffer3);
+                                        dxapp::common::BBox temp = _decode(_params._last_activation, _rawVector, dxapp::common::Point(gX, gY), dxapp::common::Size(layer.anchor_width[box], layer.anchor_height[box]), stride, (float)kpt_count);
+                                        _rawBoxes.emplace_back(temp);
+                                        boxIdx++;
                                     }
                                 }
                             }
@@ -661,28 +663,30 @@ namespace yolo
                 {
                     for(int gX=0; gX<numGridX; gX++)
                     {
-                        bool boxDecoded = false;  
                         score1 = boxScore_data[(gY * numGridX * boxes_pitch) + (gX * boxes_pitch)];
                         if(score1 > _params._score_threshold)
                         {
                             data = location_data + (gY * numGridX * location_pitch) + (gX * location_pitch);
                             classScore = classScore_data + (gY * numGridX * classes_pitch) + (gX * classes_pitch);
+                            int max_cls = -1;
+                            float max_score = _params._score_threshold;
                             for(int cls=0;cls<_params._numOfClasses;cls++)
                             {
                                 score = score1 * classScore[cls];
-                                if(score > _params._score_threshold)
+                                if(score > max_score)
                                 {
-                                    _scoreIndices[cls].emplace_back(score, boxIdx);
-                                    if(!boxDecoded)
-                                    {
-                                        _rawVector.clear();
-                                        _rawVector.emplace_back(data);
-                                        dxapp::common::BBox temp = _decode(_params._last_activation, _rawVector, dxapp::common::Point(gX, gY), dxapp::common::Size(0, 0), stride, scale);
-                                        _rawBoxes.emplace_back(temp);
-                                        boxDecoded = true;
-                                        boxIdx++;
-                                    }
+                                    max_cls = cls;
+                                    max_score = score;
                                 }
+                            }
+                            if(max_cls > -1)
+                            {
+                                _scoreIndices[max_cls].emplace_back(max_score, boxIdx);
+                                _rawVector.clear();
+                                _rawVector.emplace_back(data);
+                                dxapp::common::BBox temp = _decode(_params._last_activation, _rawVector, dxapp::common::Point(gX, gY), dxapp::common::Size(0, 0), stride, scale);
+                                _rawBoxes.emplace_back(temp);
+                                boxIdx++;
                             }
                         }
                     }
@@ -728,7 +732,6 @@ namespace yolo
                     {
                         for(int box=0; box<(int)layer.anchor_width.size(); box++)
                         { 
-                            bool boxDecoded = false;  
                             float* data = output_per_layers + (gY * numGridX * output_shape.back())
                                                                 + (gX * output_shape.back())
                                                                 + (box * (_params._numOfClasses + 5));
@@ -737,22 +740,25 @@ namespace yolo
                                 score1 = _params._last_activation(data[4]);
                                 if(score1 > _params._score_threshold)
                                 {
+                                    int max_cls = -1;
+                                    float max_score = _params._score_threshold;
                                     for(int cls=0; cls<_params._numOfClasses;cls++)
                                     {
                                         score = score1 * _params._last_activation(data[5+cls]); 
-                                        if (score > _params._score_threshold)
+                                        if (score > max_score)
                                         {
-                                            _scoreIndices[cls].emplace_back(score, boxIdx);
-                                            if(!boxDecoded)
-                                            {
-                                                _rawVector.clear();
-                                                _rawVector.emplace_back(data);
-                                                dxapp::common::BBox temp = _decode(_params._last_activation, _rawVector, dxapp::common::Point(gX, gY), dxapp::common::Size(layer.anchor_width[box], layer.anchor_height[box]), stride, scale);
-                                                _rawBoxes.emplace_back(temp);
-                                                boxDecoded = true;
-                                                boxIdx++;
-                                            }
+                                            max_score = score;
+                                            max_cls = cls;
                                         }
+                                    }
+                                    if(max_cls > -1)
+                                    {
+                                        _scoreIndices[max_cls].emplace_back(max_score, boxIdx);
+                                        _rawVector.clear();
+                                        _rawVector.emplace_back(data);
+                                        dxapp::common::BBox temp = _decode(_params._last_activation, _rawVector, dxapp::common::Point(gX, gY), dxapp::common::Size(layer.anchor_width[box], layer.anchor_height[box]), stride, scale);
+                                        _rawBoxes.emplace_back(temp);
+                                        boxIdx++;
                                     }
                                 }
                             }

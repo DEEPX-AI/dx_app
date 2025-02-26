@@ -6,7 +6,7 @@ function help()
     echo "    --number   enter the regression ID."
 }
 
-regrID=2742
+regrID=3148
 
 [ $# -gt 0 ] && \
 while (( $# )); do
@@ -47,7 +47,7 @@ YOLOv7_512 \
 YoloV7 \
 YoloV8N \
 ;\
-do cp -r /mnt/regression_storage/dxnn_regr_data/M1A/$regrID/$x/$x.dxnn ./assets/$regrID/ \
+do cp -r /mnt/regression_storage/dxnn_regr_data/M1A/$regrID/$x-*/$x.dxnn ./assets/$regrID/ \
 && echo "$x --> DONE";\
 done
 

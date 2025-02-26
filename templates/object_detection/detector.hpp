@@ -295,7 +295,10 @@ public:
         [&](std::vector<std::shared_ptr<dxrt::Tensor>> outputs, void* arg)
         {
             DetectorApp* app = (DetectorApp*)arg;
-            app->runPostProcess(app->get_outputMem(), outputs.front()->shape().front());
+            int64_t dataLength = outputs.front()->shape().front();
+            if(dxapp::common::compareVersions(DXRT_VERSION, "2.6.3"))
+                dataLength = outputs.front()->shape()[1];
+            app->runPostProcess(app->get_outputMem(), dataLength);
             return 0;
         };
         inferenceEngine->RegisterCallBack(postProcCallBack);
@@ -496,10 +499,10 @@ public:
             l.stride = o["stride"].GetInt();
             l.scale = o.HasMember("scale")? o["scale"].GetFloat() : 0;
             for(auto &w:o["anchor_width"].GetArray()){
-                l.anchor_width.emplace_back(w.GetInt());
+                l.anchor_width.emplace_back(w.GetFloat());
             }
             for(auto &h:o["anchor_height"].GetArray()){
-                l.anchor_height.emplace_back(h.GetInt());
+                l.anchor_height.emplace_back(h.GetFloat());
             }
             params._layers.emplace_back(l);
         }
