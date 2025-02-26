@@ -280,13 +280,13 @@ public:
             break;
             
             case VIDEO:
-                _video >> _frame;                                                    
+                _video >> _frame;
                 _cur_frame = _video.get(cv::CAP_PROP_POS_FRAMES);
-
-                if( (_cur_frame > 0) && (_cur_frame >= _tot_frame) )
+                if ((_cur_frame > 0) && (_cur_frame >= _tot_frame - 1))
                 {
-                    _video.set(cv::CAP_PROP_POS_FRAMES, 0);                
-                }            
+                    _video.set(cv::CAP_PROP_POS_FRAMES, 0);
+                    _video >> _frame;
+                }      
             break;
 
             case CAMERA :

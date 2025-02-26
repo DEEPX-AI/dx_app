@@ -11,6 +11,16 @@ namespace dxapp
 {
 namespace common
 {
+    
+    struct StatusLog
+    {
+        unsigned int frameNumber;
+        int64_t runningTime; //milliseconds
+        time_t period;
+        std::condition_variable statusCheckCV;
+        std::atomic<int> threadStatus;
+    };
+
     inline int get_align_factor(int length, int based)
     {
         return (length | (-based)) == (-based)? 0 : -(length | (-based));
@@ -191,6 +201,101 @@ namespace common
         pclose(pipe);
 
         return !result.empty();
+    }
+
+    inline std::vector<std::string> checkNpuTemperature()
+    {
+        std::vector<std::string> temperature_result; // 11
+        std::ostringstream command;
+        command << "dxrt-cli -s";
+
+        FILE* pipe = popen(command.str().c_str(), "r");
+        if (!pipe) {
+            std::cerr << "Failed to run ldconfig command." << std::endl;
+            return temperature_result;
+        }
+
+        char buffer[1000];
+        std::string result;
+        while (fgets(buffer, sizeof(buffer), pipe) != nullptr) 
+        {
+            result += buffer;
+        }
+        pclose(pipe);
+
+        if(result.empty())
+            return temperature_result;
+        size_t pos = result.find("temperature ");
+        size_t end_pos = result.find("\'C", pos + 12);
+        while(pos != std::string::npos)
+        {
+            std::string str(result.begin() + pos + 12, result.begin() + end_pos);
+            temperature_result.push_back(str);
+            pos = result.find("temperature ", end_pos);
+            end_pos = result.find("\'C", pos + 12);
+        }
+        return temperature_result;
+    }
+    
+    inline void logThreadFunction(void *args)
+    {
+        std::vector<std::string> log_messages;
+        StatusLog* sl = (StatusLog*)args;
+        std::mutex cliCommandLock;
+        {
+            std::unique_lock<std::mutex> _uniqueLock(cliCommandLock);
+            sl->statusCheckCV.wait(_uniqueLock, [&](){return sl->threadStatus.load() == 1;});
+        }
+        std::ofstream file("device_status.log");
+        while(sl->threadStatus.load() > 0)
+        {
+            auto ret = dxapp::common::checkNpuTemperature();
+            {
+                std::unique_lock<std::mutex> _uniqueLock(cliCommandLock);
+                std::string log_message = std::to_string(sl->frameNumber) + ", " +
+                                          std::to_string(sl->runningTime) + ", ";
+                std::string log_result = 
+                             std::string("[Application Status] ") + 
+                             "Frame No. " + std::to_string(sl->frameNumber) + 
+                             ", running time " + std::to_string(sl->runningTime) + "ms, ";
+                for(auto &s:ret)
+                {
+                    log_result += s + "\'C, ";
+                    log_message += s + ", ";
+                }
+                std::cout << log_result << std::endl;
+                log_messages.emplace_back(log_message);
+            }
+        }
+        std::cout << "Save Logging messages ... " << std::endl;
+        for(const auto& log:log_messages)
+        {
+            file << log <<std::endl;
+        }
+        file.close();
+        std::cout << "Logs saved to device_status.log" << std::endl;
+        std::cout << "logging stopped" << std::endl;
+    }
+
+    inline bool compareVersions(const std::string& v1, const std::string& v2) 
+    {
+        std::istringstream s1(v1.substr(1)), s2(v2);
+        int num1 = 0, num2 = 0;
+        char dot;
+
+        while (s1.good() || s2.good()) {
+            if (s1.good()) s1 >> num1;
+            if (s2.good()) s2 >> num2;
+
+            if (num1 < num2) return false;
+            if (num1 > num2) return true;
+
+            num1 = num2 = 0;
+            if (s1.good()) s1 >> dot; 
+            if (s2.good()) s2 >> dot;
+        }
+
+        return false;
     }
 
 } // namespace common

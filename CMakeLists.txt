@@ -18,10 +18,32 @@ endif()
 include(dxapp.cfg)
 include(dxapp.function)
 
+if(CROSS_COMPILE)
+    file(READ "${DXRT_INSTALLED_DIR}/include/dxrt/gen.h" header_contents)
+    if(header_contents MATCHES "#define USE_ORT")
+        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-rpath-link,${onnxruntime_LIB_DIRS}")
+        set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,-rpath-link,${onnxruntime_LIB_DIRS}")
+    endif()
+endif()
+
 add_compile_options(-W -Wall -pthread -fstrict-volatile-bitfields -fPIC)
 
 if(ENABLE_DEBUG_INFO)
     add_compile_options(-g -rdynamic)
+endif()
+
+if(MSVC)
+    execute_process(
+        COMMAND where python
+        OUTPUT_VARIABLE Python_EXECUTABLE 
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+else()
+    execute_process(
+        COMMAND which python
+        OUTPUT_VARIABLE Python_EXECUTABLE 
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
 endif()
 
 add_subdirectory(templates/classification)
