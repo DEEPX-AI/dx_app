@@ -22,7 +22,6 @@
 #include <sys/stat.h>
 #include <sys/mman.h>
 #include <sys/time.h>
-#include <getopt.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <string.h>

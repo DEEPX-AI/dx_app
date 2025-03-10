@@ -68,14 +68,21 @@ cmd+=(-DCMAKE_GENERATOR=Ninja)
 build_dir=build_"$target_arch"
 out_dir=bin
 echo cmake args : ${cmd[@]}
-[ $clean_build == "true" ] && rm -rf $build_dir && rm -rf $out_dir/
+[ $clean_build == "true" ] && rm -rf $build_dir && [ $(uname -m) == "$target_arch" ] && rm -rf $out_dir/
 
-mkdir $build_dir
-mkdir $out_dir
+mkdir -p $build_dir
+mkdir -p $out_dir
 rm -rf $build_dir/release/bin
 cd $build_dir
 cmake .. ${cmd[@]}
-cmake --build . --target install && cd .. && cp $build_dir/release/bin/* $out_dir/
+if [ $(uname -m) != "$target_arch" ]; then
+    cmake --build . --target install && cd ..
+else
+    cmake --build . --target install && cd .. && cp $build_dir/release/bin/* $out_dir/
+    if [ $? -ne 1 ]; then
+        echo Build Completed and executable copied to $out_dir/
+    fi
+fi
 if [ -e $build_dir/release/bin ]; then
     echo Build Done. "($build_type)"
     echo =================================================

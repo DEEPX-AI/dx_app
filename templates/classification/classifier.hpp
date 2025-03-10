@@ -30,29 +30,27 @@ public:
         std::string modelPath = doc["path"].GetString();
         inferenceEngine = std::make_shared<dxrt::InferenceEngine>(modelPath);
         
-        inputShape = inferenceEngine->inputs().front().shape();
+        inputShape = std::vector<int64_t>(inferenceEngine->inputs().front().shape());
         outputShape = inferenceEngine->outputs().front().shape();
         inputSize = inferenceEngine->input_size();
-        auto factorialShape = inputShape[0]*inputShape[1]*inputShape[2]*inputShape[3];
-        if(static_cast<uint64_t>(factorialShape) != inputSize)
-            alignFactor = dxapp::common::get_align_factor(inputShape[2] * inputShape[3], 64);
+        auto factorialShape = inputShape[1]*inputShape[1]*3;
+        if(!dxapp::common::checkOrtLinking() && static_cast<uint64_t>(factorialShape) != inputSize)
+            alignFactor = dxapp::common::get_align_factor(inputShape[1] * 3, 64);
         else
             alignFactor = false;
 
         if(outputShape.size() == 1){
             is_argmax = true;
         }
-        preConfig = {
-            ._dstShape = inputShape,
-            ._dstSize = inputSize,
-            ._inputFormat = config.inputFormat,
-            ._alignFactor = alignFactor
-        };
-        postConfig = {
-            ._outputShape = outputShape,
-            ._outputType = is_argmax? OUTPUT_ARGMAX : OUTPUT_NONE_ARGMAX,
-            ._classes = config.classes,
-        };
+
+        preConfig._dstShape = inputShape;
+        preConfig._dstSize = inputSize;
+        preConfig._inputFormat = config.inputFormat;
+        preConfig._alignFactor = alignFactor;
+
+        postConfig._outputShape = outputShape;
+        postConfig._outputType = is_argmax? OUTPUT_ARGMAX : OUTPUT_NONE_ARGMAX;
+        postConfig._classes = config.classes;
     };
     ~Classifier()=default;
     

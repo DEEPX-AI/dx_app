@@ -1,4 +1,3 @@
-#include <getopt.h>
 #include <cmath>
 #include <chrono>
 #include <future>
@@ -804,35 +803,35 @@ int main(int argc, char *argv[])
 
     while (i < argc){
         std::string arg(argv[i++]);
-        if(arg == "-th")
+        if(arg == "-th" || arg == "--threshold")
                                 frThreshold = stof(argv[i++]);
-        else if(arg == "-m0")
+        else if(arg == "-m0" || arg == "--fd_modelpath")
                                 fd_modelPath = strdup(argv[i++]);
-        else if(arg == "-m1")
+        else if(arg == "-m1" || arg == "--lm_modelpath")
                                 lm_modelPath = strdup(argv[i++]);
-        else if(arg == "-m2")
+        else if(arg == "-m2" || arg == "--fr_modelpath")
                                 fr_modelPath = strdup(argv[i++]);
-        else if(arg == "-m3")
+        else if(arg == "-m3" || arg == "--age_sex_modelpath")
                                 gender_modelPath = strdup(argv[i++]), classifier_gender = true;
-        else if(arg == "-p")
+        else if(arg == "-p" || arg == "--dbpath")
                                 dbPath = strdup(argv[i++]);
-        else if(arg == "-l")
+        else if(arg == "-l" || arg == "--left")
                                 imgFile[0] = strdup(argv[i++]);
-        else if(arg == "-r")
+        else if(arg == "-r" || arg == "--right")
                                 imgFile[1] = strdup(argv[i++]);
-        else if(arg == "-i")
+        else if(arg == "-i" || arg == "--image")
                                 imgFile[0] = strdup(argv[i++]);
-        else if(arg == "-v")
+        else if(arg == "-v" || arg == "--video")
                                 videoFile = strdup(argv[i++]);
-        else if(arg == "-c")
+        else if(arg == "-c" || arg == "--camera")
                                 cameraInput = true;
-        else if(arg == "-t")
+        else if(arg == "-t" || arg == "--tracker")
                                 tracking = true;
-        else if(arg == "-d")
+        else if(arg == "-d" || arg == "--detect")
                                 withFaceDetection = true;
-        else if(arg == "-s")
+        else if(arg == "-s" || arg == "--savemode")
                                 resultSaveMode = true;
-        else if(arg == "-h")
+        else if(arg == "-h" || arg == "--help")
                                 help(), exit(0);
         else
                                 help(), exit(0);
@@ -854,26 +853,26 @@ int main(int argc, char *argv[])
     if(dxapp::common::checkOrtLinking())
     {
         std::cout<<"[NOTICE] This demo works correctly when USE_ORT is set to OFF."<<std::endl;
-        exit(-1);
+        g_usingOrt = true;
     }
     
     SsdParam FDCfg = {
-                .image_size = 512,
-                .use_softmax = true,
-                .score_threshold = 0.25,
-                .iou_threshold = 0.25,
-                .num_classes = 4,
-                .start_class = 2,
-                .class_names = {"BACKGROUND", "person", "no_mask", "mask"},
-                .score_names = {"1275", "1305", "1335", "1365", "1392", "1416", "1440"},
-                .loc_names = {"1290", "1320", "1350", "1380", "1404", "1428", "1452"},
-                .priorBoxes = {
-                    .num_layers = 7,
-                    .min_scale = 0.2,
-                    .max_scale = 0.95,
-                    .center_variance = 0.1,
-                    .size_variance = 0.2,
-                    .dim = {
+                512,
+                true,
+                0.25,
+                0.25,
+                4,
+                2,
+                {"BACKGROUND", "person", "no_mask", "mask"},
+                {"1275", "1305", "1335", "1365", "1392", "1416", "1440"},
+                {"1290", "1320", "1350", "1380", "1404", "1428", "1452"},
+                {
+                    7,
+                    0.2,
+                    0.95,
+                    0.1,
+                    0.2,
+                    {
                         {64, 64, 6},
                         {32, 32, 6},
                         {16, 16, 6},
@@ -882,7 +881,7 @@ int main(int argc, char *argv[])
                         {2, 2, 4},
                         {1, 1, 4},
                     },
-                    .data_file = "./sample/face_prior_boxes.bin" // temp
+                    "./sample/face_prior_boxes.bin" // temp
                 },
             };
 

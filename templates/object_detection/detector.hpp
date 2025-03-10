@@ -28,7 +28,7 @@ public :
         _processName = "proc_"+_name;
         _inferName = "infer_"+_name;
 
-        _inputSize = dxapp::common::Size((int)_params._input_shape[2],(int)_params._input_shape[1]);
+        _inputSize = dxapp::common::Size((int)_params._input_shape[1],(int)_params._input_shape[1]);
 
         _vStream = VideoStream(_inputType, _videoPath, sourceInfo.numOfFrames, _inputSize, _inputFormat, _dstSize, _inferenceEngine);        
         _srcSize = _vStream._srcSize;
@@ -78,7 +78,7 @@ public :
     {
         while(!_thread.joinable())
         {
-            usleep(10);
+            std::this_thread::sleep_for(std::chrono::microseconds(10));
         }
         _thread.join();
     };
@@ -108,7 +108,7 @@ public :
         {    
             if(outputsMemory == nullptr)
             {
-                usleep(100);
+                std::this_thread::sleep_for(std::chrono::microseconds(100));
                 continue;
             }
             _profiler.Start(_processName);    
@@ -152,11 +152,11 @@ public :
             _profiler.End(_processName);
             _processTime = _profiler.Get(_processName);
             _inferTime = _inferenceEngine->latency();
-            usleep(1);
+            std::this_thread::sleep_for(std::chrono::microseconds(1));
         };
         while(_frame_count != _processed_count)
         {
-            usleep(1);
+            std::this_thread::sleep_for(std::chrono::microseconds(1));
         }
         _vStream.Destructor();
 
@@ -239,15 +239,20 @@ public:
 
         readModelInfo(config.modelInfo.c_str());
         inferenceEngine = std::make_shared<dxrt::InferenceEngine>(modelPath);
-        inputShape = inferenceEngine->inputs().front().shape();
+        inputShape = std::vector<int64_t>(inferenceEngine->inputs().front().shape());
         auto outputDataInfo = inferenceEngine->outputs();
         for(auto &info:outputDataInfo) 
         {
             outputShape.emplace_back(info.shape());
         }
         inputSize = inferenceEngine->input_size();
-        if(inputShape[0]*inputShape[1]*inputShape[2]*inputShape[3] != inputSize)
-            alignFactor = dxapp::common::get_align_factor(inputShape[1] * inputShape[3], 64);
+        int64_t f = inputShape[1] * inputShape[1] * 3;
+        // for(auto &s:inputShape)
+        // {
+        //     f *= s;
+        // }
+        if(f != inputSize)
+            alignFactor = dxapp::common::get_align_factor(inputShape[1] * 3, 64);
         else
             alignFactor = false;
 
@@ -408,8 +413,7 @@ public:
         while(true)
         {
             writer << totalView();
-            
-            usleep(30000);
+            std::this_thread::sleep_for(std::chrono::microseconds(30000));
             if (!status()){
                 std::cout << "quit save Thread "<< std::endl;
                 break;
@@ -425,7 +429,7 @@ public:
         }
         while(true)
         {
-            usleep(100000);
+            std::this_thread::sleep_for(std::chrono::microseconds(100000));
             for(int idx = 0; idx < static_cast<int>(apps.size()); idx++)
             {
                 apps[idx]->save();

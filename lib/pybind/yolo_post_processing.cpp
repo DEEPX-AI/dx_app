@@ -195,9 +195,9 @@ void YoloPostProcess::NMS(std::vector<std::vector<std::pair<float, int>>> &Score
         if (ScoreIndices[cls].size() > 0)
         {
             int numCandidates = ScoreIndices[cls].size();
-            bool valid[numCandidates];
+            std::vector<bool> valid(numCandidates);
+            std::fill_n(valid.begin(), numCandidates, true);
             float iou;
-            std::fill_n(valid, numCandidates, true);
             for (int i = 0; i < numCandidates; i++)
             {
                 if (!valid[i])

@@ -39,6 +39,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GH_DCI_TOKEN }}
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
           ref: ${{ github.event.pull_request.head.ref }}
           fetch-depth: 0
           fetch-tags: true
@@ -118,23 +119,45 @@ jobs:
         id: modified
         run: |
           RELEASE_NOTES_CHANGE_NEEDED="false"
-
-          CHANGED=$(echo "${{ env.PR_BODY }}" | awk '/^### 1. Changed/{flag=1; next} /^### /{flag=0} flag' | tr -d '\r')
-          FIXED=$(echo "${{ env.PR_BODY }}" | awk '/^### 2. Fixed/{flag=1; next} /^### /{flag=0} flag' | tr -d '\r')
-          ADDED=$(echo "${{ env.PR_BODY }}" | awk '/^### 3. Added/{flag=1; next} /^### /{flag=0} flag' | tr -d '\r')
-          combined="${CHANGED} ${FIXED} ${ADDED}"
+          
+          CHANGED_WITH_JIRA_NUM=$(echo "${{ env.PR_BODY }}" | awk '/^### 1. Changed/{flag=1; next} /^### /{flag=0} flag' | tr -d '\r')
+          FIXED_WITH_JIRA_NUM=$(echo "${{ env.PR_BODY }}" | awk '/^### 2. Fixed/{flag=1; next} /^### /{flag=0} flag' | tr -d '\r')
+          ADDED_WITH_JIRA_NUM=$(echo "${{ env.PR_BODY }}" | awk '/^### 3. Added/{flag=1; next} /^### /{flag=0} flag' | tr -d '\r')
+          combined="${CHANGED_WITH_JIRA_NUM} ${FIXED_WITH_JIRA_NUM} ${ADDED_WITH_JIRA_NUM}"
           if [[ ! "$combined" =~ ^((- None|None|-|)[[:space:]]*)+$ ]]; then
             RELEASE_NOTES_CHANGE_NEEDED="true"
           fi
+          
+          echo "CHANGED_WITH_JIRA_NUM : "
+          echo "$CHANGED_WITH_JIRA_NUM"
+          echo "FIXED_WITH_JIRA_NUM : "
+          echo "$FIXED_WITH_JIRA_NUM"
+          echo "ADDED_WITH_JIRA_NUM : "
+          echo "$ADDED_WITH_JIRA_NUM"
 
-          echo "CHANGED Section: "
+          # Remove Jira ticket references
+          echo "Removing Jira ticket references..."
+          CHANGED=$(echo "$CHANGED_WITH_JIRA_NUM" | sed -E 's/\[[A-Za-z0-9_-]+\](\([^)]+\))?//g' | sed 's/[[:space:]]*$//')
+          FIXED=$(echo "$FIXED_WITH_JIRA_NUM" | sed -E 's/\[[A-Za-z0-9_-]+\](\([^)]+\))?//g' | sed 's/[[:space:]]*$//')
+          ADDED=$(echo "$ADDED_WITH_JIRA_NUM" | sed -E 's/\[[A-Za-z0-9_-]+\](\([^)]+\))?//g' | sed 's/[[:space:]]*$//')
+
+          echo "CHANGED (After Removing Jira Ticket Number) : "
           echo "$CHANGED"
-          echo "FIXED Section: "
+          echo "FIXED (After Removing Jira Ticket Number) : "
           echo "$FIXED"
-          echo "ADDED Section: "
+          echo "ADDED (After Removing Jira Ticket Number) : "
           echo "$ADDED"
 
           {
+            echo "CHANGED_WITH_JIRA_NUM<<EOF"
+            echo "$CHANGED_WITH_JIRA_NUM"
+            echo "EOF"
+            echo "FIXED_WITH_JIRA_NUM<<EOF"
+            echo "$FIXED_WITH_JIRA_NUM"
+            echo "EOF"
+            echo "ADDED_WITH_JIRA_NUM<<EOF"
+            echo "$ADDED_WITH_JIRA_NUM"
+            echo "EOF"
             echo "CHANGED<<EOF"
             echo "$CHANGED"
             echo "EOF"
@@ -150,6 +173,9 @@ jobs:
           echo "RELEASE_NOTES_CHANGE_NEEDED=${RELEASE_NOTES_CHANGE_NEEDED}" >> $GITHUB_OUTPUT
     outputs:
       RELEASE_NOTES_CHANGE_NEEDED: ${{ steps.modified.outputs.RELEASE_NOTES_CHANGE_NEEDED }}
+      CHANGED_WITH_JIRA_NUM: ${{ steps.modified.outputs.CHANGED_WITH_JIRA_NUM }}
+      FIXED_WITH_JIRA_NUM: ${{ steps.modified.outputs.FIXED_WITH_JIRA_NUM }}
+      ADDED_WITH_JIRA_NUM: ${{ steps.modified.outputs.ADDED_WITH_JIRA_NUM }}
       CHANGED: ${{ steps.modified.outputs.CHANGED }}
       FIXED: ${{ steps.modified.outputs.FIXED }}
       ADDED: ${{ steps.modified.outputs.ADDED }}
@@ -164,16 +190,23 @@ jobs:
         id: fetch_release_notes
         run: |
           echo "Fetching release notes section from PR body..."
-          RELEASE_NOTES_SECTION=$(echo "${{ env.PR_BODY }}" | sed -n '/# RELEASE_NOTES TO BE ADDED/,/^$/p' | sed '1d')
+          RELEASE_NOTES_SECTION_WITH_JIRA_NUM=$(echo "${{ env.PR_BODY }}" | sed -n '/# RELEASE_NOTES TO BE ADDED/,/^$/p' | sed '1d')
+          RELEASE_NOTES_SECTION=$(echo "$RELEASE_NOTES_SECTION_WITH_JIRA_NUM" | sed -E 's/\[[A-Za-z0-9_-]+\](\([^)]+\))?//g' | sed 's/[[:space:]]*$//')
           {
+            echo "RELEASE_NOTES_SECTION_WITH_JIRA_NUM<<EOF"
+            echo "$RELEASE_NOTES_SECTION_WITH_JIRA_NUM"
+            echo "EOF"
             echo "RELEASE_NOTES_SECTION<<EOF"
             echo "$RELEASE_NOTES_SECTION"
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
 
-          echo "RELEASE_NOTES_SECTION: "
+          echo "RELEASE_NOTES_SECTION_WITH_JIRA_NUM: "
+          echo "$RELEASE_NOTES_SECTION_WITH_JIRA_NUM"
+          echo "RELEASE_NOTES_SECTION (After Removing Jira Ticket Number) : "
           echo "$RELEASE_NOTES_SECTION"
     outputs:
+      RELEASE_NOTES_SECTION_WITH_JIRA_NUM: ${{ steps.fetch_release_notes.outputs.RELEASE_NOTES_SECTION_WITH_JIRA_NUM }}
       RELEASE_NOTES_SECTION: ${{ steps.fetch_release_notes.outputs.RELEASE_NOTES_SECTION }}
 
   check_bump_version_modify_release_notes:
@@ -191,6 +224,7 @@ jobs:
       needs.check_release_notes_need_change.outputs.RELEASE_NOTES_CHANGE_NEEDED == 'true'  &&
       needs.dispatch_bump_version.outputs.BUMP_VERSION_ACTION_DONE == 'true'
     env:
+      RELEASE_NOTES_SECTION_WITH_JIRA_NUM: ${{ needs.fetch_release_notes_section.outputs.RELEASE_NOTES_SECTION_WITH_JIRA_NUM }}
       RELEASE_NOTES_SECTION: ${{ needs.fetch_release_notes_section.outputs.RELEASE_NOTES_SECTION }}
       CURRENT_VERSION: ${{ needs.get_current_version.outputs.CURRENT_VERSION }}
     steps:
@@ -241,6 +275,10 @@ jobs:
             TAIL_CONTENT=""
           fi
 
+          # Write new RELEASE_NOTES_WITH_JIRA_NUM.md
+          echo -e "$HEADER\n$NEW_VERSION_HEADER\n${{ env.RELEASE_NOTES_SECTION_WITH_JIRA_NUM }}\n$TAIL_CONTENT"
+          echo -e "$HEADER\n$NEW_VERSION_HEADER\n${{ env.RELEASE_NOTES_SECTION_WITH_JIRA_NUM }}\n\n$TAIL_CONTENT" > RELEASE_NOTES_WITH_JIRA_NUM.md
+
           # Write new RELEASE_NOTES.md
           echo -e "$HEADER\n$NEW_VERSION_HEADER\n${{ env.RELEASE_NOTES_SECTION}}\n$TAIL_CONTENT"
           echo -e "$HEADER\n$NEW_VERSION_HEADER\n${{ env.RELEASE_NOTES_SECTION}}\n\n$TAIL_CONTENT" > RELEASE_NOTES.md
@@ -264,6 +302,7 @@ jobs:
             [[ "$content" == "- None" || "$content" == "-" || "$content" == "" ]]
           }
 
+          # ✅ Variables for normal release notes
           CHANGED_CONTENT="${{ needs.check_release_notes_need_change.outputs.CHANGED }}"
           FIXED_CONTENT="${{ needs.check_release_notes_need_change.outputs.FIXED }}"
           ADDED_CONTENT="${{ needs.check_release_notes_need_change.outputs.ADDED }}"
@@ -272,24 +311,37 @@ jobs:
           VALID_FIXED_CONTENT="$FIXED_CONTENT"
           VALID_ADDED_CONTENT="$ADDED_CONTENT"
 
+          # ✅ Variables for release notes with Jira numbers
+          CHANGED_WITH_JIRA_NUM_CONTENT="${{ needs.check_release_notes_need_change.outputs.CHANGED_WITH_JIRA_NUM }}"
+          FIXED_WITH_JIRA_NUM_CONTENT="${{ needs.check_release_notes_need_change.outputs.FIXED_WITH_JIRA_NUM }}"
+          ADDED_WITH_JIRA_NUM_CONTENT="${{ needs.check_release_notes_need_change.outputs.ADDED_WITH_JIRA_NUM }}"
+
+          VALID_CHANGED_WITH_JIRA_NUM_CONTENT="$CHANGED_WITH_JIRA_NUM_CONTENT"
+          VALID_FIXED_WITH_JIRA_NUM_CONTENT="$FIXED_WITH_JIRA_NUM_CONTENT"
+          VALID_ADDED_WITH_JIRA_NUM_CONTENT="$ADDED_WITH_JIRA_NUM_CONTENT"
+
           if is_useless_content "$CHANGED_CONTENT"; then
-            VALID_CHANGED_CONTENT="$CHANGED_CONTENT"
+            VALID_CHANGED_CONTENT=""
+            VALID_CHANGED_WITH_JIRA_NUM_CONTENT=""
           fi
           echo "VALID_CHANGED_CONTENT: "
           echo "$VALID_CHANGED_CONTENT"
 
           if is_useless_content "$FIXED_CONTENT"; then
             VALID_FIXED_CONTENT=""
+            VALID_FIXED_WITH_JIRA_NUM_CONTENT=""
           fi
           echo "VALID_FIXED_CONTENT: "
           echo "$VALID_FIXED_CONTENT"
 
           if is_useless_content "$ADDED_CONTENT"; then
             VALID_ADDED_CONTENT=""
+            VALID_ADDED_WITH_JIRA_NUM_CONTENT=""
           fi
           echo "VALID_ADDED_CONTENT: "
           echo "$VALID_ADDED_CONTENT"
 
+          # 📝 Modify RELEASE_NOTES.md (without Jira numbers)
           awk -v changed_line="$FIRST_CHANGED_LINE" \
               -v fixed_line="$FIRST_FIXED_LINE" \
               -v added_line="$FIRST_ADDED_LINE" \
@@ -306,12 +358,30 @@ jobs:
           echo "Updated RELEASE_NOTES.md:"
           cat RELEASE_NOTES.md
 
+          # 📝 Modify RELEASE_NOTES_WITH_JIRA_NUM.md (with Jira numbers)
+          awk -v changed_line="$FIRST_CHANGED_LINE" \
+              -v fixed_line="$FIRST_FIXED_LINE" \
+              -v added_line="$FIRST_ADDED_LINE" \
+              -v changed_content="$VALID_CHANGED_WITH_JIRA_NUM_CONTENT" \
+              -v fixed_content="$VALID_FIXED_WITH_JIRA_NUM_CONTENT" \
+              -v added_content="$VALID_ADDED_WITH_JIRA_NUM_CONTENT" \
+              '{
+                  print;
+                  if (NR == changed_line && changed_content != "") print changed_content;
+                  if (NR == fixed_line && fixed_content != "") print fixed_content;
+                  if (NR == added_line && added_content != "") print added_content;
+              }' RELEASE_NOTES_WITH_JIRA_NUM.md > RELEASE_NOTES_WITH_JIRA_NUM.tmp && mv RELEASE_NOTES_WITH_JIRA_NUM.tmp RELEASE_NOTES_WITH_JIRA_NUM.md
+
+          echo "Updated RELEASE_NOTES_WITH_JIRA_NUM.md:"
+          cat RELEASE_NOTES_WITH_JIRA_NUM.md
+
       - name: Commit and Push Change
         run: |
           git config user.name "dx-ci"
           git config user.email "dci@deepx.ai"
           git checkout dev
           git add RELEASE_NOTES.md
+          git add RELEASE_NOTES_WITH_JIRA_NUM.md
           git commit -m "docs: update RELEASE_NOTES.md"
           git push origin dev
           echo "✅ RELEASE_NOTES.md Change pushed to dev."

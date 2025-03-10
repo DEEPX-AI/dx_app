@@ -124,7 +124,24 @@ public:
 
             case CAMERA :
                 _srcMode = RUNTIME;
-                _video.open(_srcPath, cv::CAP_V4L2);
+
+                if (_srcPath.find("/") != std::string::npos)
+                {
+#ifdef __linux__
+                    _video.open(_srcPath, cv::CAP_V4L2);
+#elif _WIN32
+                    std::cout << "Error: could not open " << _srcPath << ", open 0 camera instead " << _srcPath << std::endl;
+                    _video.open(0);
+#endif
+                }
+                else
+                {
+#ifdef __linux__
+                    _video.open(stoi(_srcPath), cv::CAP_V4L2);
+#elif _WIN32
+                    _video.open(stoi(_srcPath));
+#endif
+                }
                 _video.set(cv::CAP_PROP_FPS, _cam_fps);
                 if(!_video.isOpened())
                 {
@@ -222,10 +239,7 @@ public:
     //Input Alignment
         auto npu_input_length = _inferenceEngine->input_size();
         auto npu_input_shape = _inferenceEngine->inputs().front().shape();
-        uint64_t factorize_shape = 1;
-        for(auto &i:npu_input_shape){
-            factorize_shape *= (uint64_t)i;
-        }
+        uint64_t factorize_shape = npu_input_shape[1] * npu_input_shape[1] * 3;
         if(factorize_shape != npu_input_length)
         {
             _need_preproc = true;

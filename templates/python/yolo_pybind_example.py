@@ -178,7 +178,7 @@ def run_example(args):
 if __name__ == "__main__":
     
     parser = argparse.ArgumentParser()
-    parser.add_argument('--config_path', default='./test/YOLOV8N.json', type=str, help='yolo object detection json config path')
+    parser.add_argument('--config_path', default='./test/data/YOLOV8N.json', type=str, help='yolo object detection json config path')
     parser.add_argument('--video_path', required=True, type=str, help='input video path')
     parser.add_argument('--visualize', action='store_true', dest='visualize', help='visualize post-process results')
     parser.add_argument('--run_async', action='store_true', dest='run_async', help='run the inference engine asynchronously')

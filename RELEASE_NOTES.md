@@ -1,5 +1,15 @@
 # RELEASE_NOTES
 
+## v1.5.0 / 2025-02-28
+### 1. Changed
+- Refactored project for MSVC build compatibility
+- Improved code compatibility between Windows and Linux by using '#if - #else' directives 
+### 2. Fixed
+- None
+### 3. Added
+- Added batch files for application executions in Windows
+- Included 'CMakeSettings.txt' and 'vcpkg.json' for MSVC build support
+
 ## [v1.4.1] - 2025-02-26
 ### 1. Changed
 - None

@@ -17,7 +17,7 @@ function help()
     echo "    --arch                    target CPU architecture : [ x86_64, aarch64, riscv64 ]"
     echo "    --dep                     install dependencies : cmake, gcc, ninja, etc.."
     echo "    --opencv                  (optional) install opencv pkg "
-    echo "    --opencv-source-build     (optional) install opencv pkg "
+    echo "    --opencv-source-build     (optional) install opencv pkg by source build"
     echo "    --all                     install dependencies & opencv pkg "
 }
 

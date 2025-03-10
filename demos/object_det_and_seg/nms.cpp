@@ -34,7 +34,7 @@ void NmsOneClass(
     float iou;
     int i, j;
     int numCandidates = ScoreIndices[cls].size();    
-    bool valid[numCandidates];
+    bool* valid = new bool[numCandidates];
     fill_n(valid, numCandidates, true);
     for(i=0;i<numCandidates;i++)
     {
@@ -65,6 +65,7 @@ void NmsOneClass(
             }
         }
     }
+    delete[] valid;
 }
 
 void Nms(

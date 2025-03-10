@@ -45,15 +45,9 @@ class Ssd
 private:
     SsdParam cfg;
     std::vector<dxrt::Tensor> datainfo;
-#if 0
-    float *PriorBoxes;
-    float *Boxes;
-    float *Scores;
-#else
     std::vector<float> PriorBoxes;
     std::vector<float> Boxes;
     std::vector<float> Scores;
-#endif
     std::map<string, int> layerMap;
     std::vector< std::vector<std::pair<float, int>> > ScoreIndices;
     std::vector< BoundingBox > Result;
@@ -63,6 +57,7 @@ private:
     uint32_t numBoxes;
     uint32_t numLayers;
     int location_front = 1;
+    bool use_ort = false;
     struct OutputLayer
     {
         unsigned int locAlign;

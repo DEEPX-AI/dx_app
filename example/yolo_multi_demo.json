@@ -1,0 +1,32 @@
+{
+  "usage": "multi",
+  "model_path": "example/YOLOV5S_3/YOLOV5S_3.dxnn",
+  "model_name": "yolov5s_512",
+
+  "video_sources": [
+    [ "../videos/dogs.mp4", "offline", 100 ],
+    [ "../videos/dogs.mp4", "offline", 100 ],
+    [ "../videos/dogs.mp4", "offline", 100 ],
+    [ "../videos/dogs.mp4", "offline", 100 ],
+    [ "../videos/dogs.mp4", "offline", 100 ],
+    [ "../videos/dogs.mp4", "offline", 100 ],
+    [ "../videos/dogs.mp4", "offline", 100 ],
+    [ "../videos/dogs.mp4", "offline", 100 ],
+    [ "../videos/dogs.mp4", "offline", 100 ],
+    [ "../videos/dogs.mp4", "offline", 100 ],
+    [ "../videos/dogs.mp4", "offline", 100 ],
+    [ "../videos/dogs.mp4", "offline", 100 ],
+    [ "../videos/dogs.mp4", "offline", 100 ],
+    [ "../videos/dogs.mp4", "offline", 100 ],
+    [ "../videos/dogs.mp4", "offline", 100 ],
+    [ "../videos/dogs.mp4", "offline", 100 ]
+  ],
+
+  "display_config": {
+    "display_label": "output",
+    "capture_period": 30,
+    "output_width": 1920,
+    "output_height": 1080,
+    "show_fps": true
+  }
+}

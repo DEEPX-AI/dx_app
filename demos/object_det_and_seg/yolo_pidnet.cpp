@@ -4,13 +4,15 @@
 #include <stdint.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#ifdef __linux__
 #include <sys/mman.h>
 #include <unistd.h>
+#include <syslog.h>
+#endif
 #include <fcntl.h>
 #include <string.h>
 #include <errno.h>
 #include <signal.h>
-#include <syslog.h>
 
 #include <opencv2/opencv.hpp>
 #include <opencv2/core.hpp>
@@ -46,33 +48,34 @@ string videoFiles[NUM_VIDEO_FILES] = {
 
 YoloLayerParam createYoloLayerParam(std::string _name, int _gx, int _gy, int _numB, const std::vector<float> &_vAnchorW, const std::vector<float> &_vAnchorH, const std::vector<int> &_vTensorIdx, float _sx = 0.f, float _sy = 0.f)
 {
-        YoloLayerParam s;
-        s.name = _name;
-        s.numGridX = _gx;
-        s.numGridY = _gy;
-        s.numBoxes = _numB;
-        s.anchorWidth = _vAnchorW;
-        s.anchorHeight = _vAnchorH;
-        s.tensorIdx = _vTensorIdx;
-        s.scaleX = _sx;
-        s.scaleY = _sy;
-        return s;
+    YoloLayerParam s;
+    s.name = _name;
+    s.numGridX = _gx;
+    s.numGridY = _gy;
+    s.numBoxes = _numB;
+    s.anchorWidth = _vAnchorW;
+    s.anchorHeight = _vAnchorH;
+    s.tensorIdx = _vTensorIdx;
+    s.scaleX = _sx;
+    s.scaleY = _sy;
+    return s;
 }
 
 YoloParam odCfg = {
-    .height = 512,
-    .width = 512,
-    .confThreshold = 0.25,
-    .scoreThreshold = 0.3,
-    .iouThreshold = 0.4,
-    .numBoxes = -1, // check from layer info.
-    .numClasses = 80,
-    .layers = {
+    512,  // height
+    512,  // width
+    0.25, // confThreshold
+    0.3,  // scoreThreshold
+    0.4,  // iouThreshold
+    -1,   // numBoxes
+    80,   // numClasses
+    {
             createYoloLayerParam("", 64, 64, 3, { 10.0, 16.0, 33.0 }, { 13.0, 30.0, 23.0 }, { 0 }),
             createYoloLayerParam("", 32, 32, 3, { 30.0, 62.0, 59.0 }, { 61.0, 45.0, 119.0 }, { 1 }),
             createYoloLayerParam("", 16, 16, 3, { 116.0, 156.0, 373.0 }, { 90.0, 198.0, 326.0 }, { 2 })
     },
-    .classNames = {"person" ,"bicycle" ,"car" ,"motorcycle" ,"airplane" ,"bus" ,"train" ,"truck" ,"boat" ,"trafficlight" ,"firehydrant" ,"stopsign" ,"parkingmeter" ,"bench" ,"bird" ,"cat" ,"dog" ,"horse" ,"sheep" ,"cow" ,"elephant" ,"bear" ,"zebra" ,"giraffe" ,"backpack" ,"umbrella" ,"handbag" ,"tie" ,"suitcase" ,"frisbee" ,"skis" ,"snowboard" ,"sportsball" ,"kite" ,"baseballbat" ,"baseballglove" ,"skateboard" ,"surfboard" ,"tennisracket" ,"bottle" ,"wineglass" ,"cup" ,"fork" ,"knife" ,"spoon" ,"bowl" ,"banana" ,"apple" ,"sandwich" ,"orange" ,"broccoli" ,"carrot" ,"hotdog" ,"pizza" ,"donut" ,"cake" ,"chair" ,"couch" ,"pottedplant" ,"bed" ,"diningtable" ,"toilet" ,"tv" ,"laptop" ,"mouse" ,"remote" ,"keyboard" ,"cellphone" ,"microwave" ,"oven" ,"toaster" ,"sink" ,"refrigerator" ,"book" ,"clock" ,"vase" ,"scissors" ,"teddybear" ,"hairdrier", "toothbrush"},
+    // classNames
+    {"person" ,"bicycle" ,"car" ,"motorcycle" ,"airplane" ,"bus" ,"train" ,"truck" ,"boat" ,"trafficlight" ,"firehydrant" ,"stopsign" ,"parkingmeter" ,"bench" ,"bird" ,"cat" ,"dog" ,"horse" ,"sheep" ,"cow" ,"elephant" ,"bear" ,"zebra" ,"giraffe" ,"backpack" ,"umbrella" ,"handbag" ,"tie" ,"suitcase" ,"frisbee" ,"skis" ,"snowboard" ,"sportsball" ,"kite" ,"baseballbat" ,"baseballglove" ,"skateboard" ,"surfboard" ,"tennisracket" ,"bottle" ,"wineglass" ,"cup" ,"fork" ,"knife" ,"spoon" ,"bowl" ,"banana" ,"apple" ,"sandwich" ,"orange" ,"broccoli" ,"carrot" ,"hotdog" ,"pizza" ,"donut" ,"cake" ,"chair" ,"couch" ,"pottedplant" ,"bed" ,"diningtable" ,"toilet" ,"tv" ,"laptop" ,"mouse" ,"remote" ,"keyboard" ,"cellphone" ,"microwave" ,"oven" ,"toaster" ,"sink" ,"refrigerator" ,"book" ,"clock" ,"vase" ,"scissors" ,"teddybear" ,"hairdrier", "toothbrush"},
 };
 
 SegmentationParam segCfg[] = {
@@ -153,15 +156,30 @@ void *PreProc(cv::Mat &src, cv::Mat &dest, bool keepRatio=true, bool bgr2rgb=tru
     return (void*)dest.data;
 }
 
-void Segmentation(float *input, uint8_t *output, int rows, int cols, SegmentationParam *cfg, int numClasses, int64_t pitch)
+void Segmentation(float *input, uint8_t *output, int rows, int cols, SegmentationParam *cfg, int numClasses, const std::vector<int64_t>& shape)
 {
+    bool need_transpose = shape[1] == numClasses? true : false;
+    int compare_max_idx, compare_channel_idx;
+    int pitch = shape[3];
     for(int h=0;h<rows;h++)
     {
         for(int w=0;w<cols;w++)
         {
             int maxIdx = 0;
-            for (int c=0;c<numClasses;c++){
-                if(input[(cols*h + w)*pitch + maxIdx] < input[(cols*h + w)*pitch + c]){
+            for (int c=0;c<numClasses;c++)
+            {
+                if(need_transpose)
+                {
+                    compare_max_idx = w + (cols * h) + (maxIdx * rows * cols);
+                    compare_channel_idx = w + (cols * h) + (c * rows * cols);
+                }
+                else
+                {
+                    compare_max_idx = maxIdx + ((cols * h) + w) * pitch;
+                    compare_channel_idx = c + ((cols * h) + w) * pitch;
+                }
+                if(input[compare_max_idx] < input[compare_channel_idx])
+                {
                     maxIdx = c;
                 }
             }
@@ -172,7 +190,7 @@ void Segmentation(float *input, uint8_t *output, int rows, int cols, Segmentatio
     }
 }
 
-void Segmentation(uint16_t *input, uint8_t *output, int rows, int cols, SegmentationParam *cfg, int numClasses, int64_t pitch)
+void Segmentation(uint16_t *input, uint8_t *output, int rows, int cols, SegmentationParam *cfg, int numClasses)
 {
     for(int h=0;h<rows;h++)
     {
@@ -206,17 +224,17 @@ int main(int argc, char *argv[])
 
     while (i < argc) {
         std::string arg(argv[i++]);
-        if (arg == "-m0")
+        if (arg == "-m0" || arg == "--od_modelpath")
                                 od_modelpath = strdup(argv[i++]);
-        else if (arg == "-m1")
+        else if (arg == "-m1" || arg == "--seg_modelpath")
                                 seg_modelpath = strdup(argv[i++]);
-        else if (arg == "-i")
+        else if (arg == "-i" || arg == "--image")
                                 imgFile = strdup(argv[i++]);
-        else if (arg == "-v")
+        else if (arg == "-v" || arg == "--video")
                                 videoFile = strdup(argv[i++]);
-        else if (arg == "-c")
+        else if (arg == "-c" || arg == "--camera")
                                 cameraInput = true;
-        else if (arg == "-h")
+        else if (arg == "-h" || arg == "--help")
                                 help(), exit(0);
         else
                                 help(), exit(0);
@@ -242,8 +260,6 @@ int main(int argc, char *argv[])
     if(dxapp::common::checkOrtLinking())
     {
         usingOrt = true;
-        std::cout<<"[NOTICE] This demo works correctly when USE_ORT is set to OFF."<<std::endl;
-        exit(-1);
     }
 
     Yolo yolo = Yolo(odCfg);
@@ -291,17 +307,15 @@ int main(int argc, char *argv[])
         profiler.Start("post-obj.detection");
         auto OdResult = yolo.PostProc(OdOutputTensors);
         profiler.End("post-obj.detection");
-        yolo.ShowResult();
-        DisplayBoundingBox(frame, OdResult, odCfg.height, odCfg.width,
-                "", "", cv::Scalar(0, 0, 255), objectColors, "", 0, -1, true);    
         
         /* PostProcessing : Segmentation */
         profiler.Start("post-segment");
         cv::Mat SegResult = cv::Mat(SEG_INPUT_HEIGHT, SEG_INPUT_WIDTH, CV_8UC3, cv::Scalar(0, 0, 0));
         if(is_argmax)
-            Segmentation((uint16_t*)SegOutputTensors[0]->data(), SegResult.data, SegResult.rows, SegResult.cols, segCfg, SEG_NUM_CLASSES, SegOutputTensors[0]->shape()[0]);
+            Segmentation((uint16_t*)SegOutputTensors[0]->data(), SegResult.data, SegResult.rows, SegResult.cols, segCfg, SEG_NUM_CLASSES);
         else
-            Segmentation((float*)SegOutputTensors[0]->data(), SegResult.data, SegResult.rows, SegResult.cols, segCfg, SEG_NUM_CLASSES, SegOutputTensors[0]->shape()[3]);
+            Segmentation((float*)SegOutputTensors[0]->data(), SegResult.data, SegResult.rows, SegResult.cols, segCfg, SEG_NUM_CLASSES, SegOutputTensors[0]->shape());
+
         profiler.End("post-segment");
 
         /* PostProcessing : Blend Image */
@@ -311,10 +325,13 @@ int main(int argc, char *argv[])
         profiler.End("post-blend");
         cout << dec << SEG_INPUT_WIDTH << "x" << SEG_INPUT_HEIGHT << " <- " << frame.cols << "x" << frame.rows << endl;
 
+        yolo.ShowResult();
+        DisplayBoundingBox(frame, OdResult, odCfg.height, odCfg.width,
+                "", "", cv::Scalar(0, 0, 255), objectColors, "", 0, -1, true);    
+                
         /* Save & Show */
         cv::imwrite("result.jpg", frame);
         std::cout << "save file : result.jpg " << std::endl;
-        profiler.Show();
         return 0;
     }
     else if(!videoFile.empty() || cameraInput)
@@ -407,10 +424,9 @@ int main(int argc, char *argv[])
                         cv::Mat outFrame = frame[prevIdx];
                         if(is_argmax)
                             Segmentation((uint16_t*)SegOutputTensors[0]->data(), SegResult[idx].data, 
-                                SegResult[idx].rows, SegResult[idx].cols, segCfg, SEG_NUM_CLASSES, SegOutputTensors[0]->shape()[0]);
+                                SegResult[idx].rows, SegResult[idx].cols, segCfg, SEG_NUM_CLASSES);
                         else
-                            Segmentation((float*)SegOutputTensors[0]->data(), SegResult[idx].data, 
-                                SegResult[idx].rows, SegResult[idx].cols, segCfg, SEG_NUM_CLASSES, SegOutputTensors[0]->shape()[3]);
+                            Segmentation((float*)SegOutputTensors[0]->data(), SegResult[idx].data, SegResult[idx].rows, SegResult[idx].cols, segCfg, SEG_NUM_CLASSES, SegOutputTensors[0]->shape());
                         
                         profiler.End("post-segment");
                         profiler.Start("post-blend");
@@ -445,8 +461,11 @@ int main(int argc, char *argv[])
                 }
             }
         }
-        profiler.Show();
+#ifdef _WIN32
+        Sleep(1000);
+#else
         sleep(1);
+#endif
         return 0;
     }
 

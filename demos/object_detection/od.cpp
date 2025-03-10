@@ -28,7 +28,7 @@ ObjectDetection::ObjectDetection(std::shared_ptr<dxrt::InferenceEngine> ie, std:
     else
         inputType = AppInputType::VIDEO;
     auto inputShape = _ie->inputs().front().shape();
-    auto npuShape = dxapp::common::Size((int)inputShape[2],(int)inputShape[1]);
+    auto npuShape = dxapp::common::Size((int)inputShape[1],(int)inputShape[1]);
     auto dstShape = dxapp::common::Size(_destWidth, _destHeight);
 
     _vStream = VideoStream(inputType, _videoSrc.first, numFrames, npuShape, AppInputFormat::IMAGE_BGR, dstShape, _ie);
@@ -88,23 +88,22 @@ dxapp::common::DetectObject ObjectDetection::GetScalingBBox(vector<BoundingBox>&
 {
     dxapp::common::DetectObject result;
     result._num_of_detections = bboxes.size();
-    for(auto &b:bboxes)
+    for (auto& b : bboxes)
     {
-        dxapp::common::BBox box = {
-            ._xmin = (b.box[0] - _postprocPaddedSize._width) * _postprocScaleRatio._width,
-            ._ymin = (b.box[1] - _postprocPaddedSize._height) * _postprocScaleRatio._height,
-            ._xmax = (b.box[2] - _postprocPaddedSize._width) * _postprocScaleRatio._width,
-            ._ymax = (b.box[3] - _postprocPaddedSize._height) * _postprocScaleRatio._height,
-            ._width = (b.box[2] - b.box[0]) * _postprocScaleRatio._width,
-            ._height = (b.box[3] - b.box[1]) * _postprocScaleRatio._height,
-            ._kpts = {dxapp::common::Point_f(-1 , -1, -1)}
-        };
-        dxapp::common::Object object = {
-            ._bbox=box,
-            ._conf=b.score,
-            ._classId=b.label,
-            ._name=b.labelname
-        };
+        dxapp::common::BBox box;
+        box._xmin = (b.box[0] - _postprocPaddedSize._width) * _postprocScaleRatio._width;
+        box._ymin = (b.box[1] - _postprocPaddedSize._height) * _postprocScaleRatio._height;
+        box._xmax = (b.box[2] - _postprocPaddedSize._width) * _postprocScaleRatio._width;
+        box._ymax = (b.box[3] - _postprocPaddedSize._height) * _postprocScaleRatio._height;
+        box._width = (b.box[2] - b.box[0]) * _postprocScaleRatio._width;
+        box._height = (b.box[3] - b.box[1]) * _postprocScaleRatio._height;
+        box._kpts.emplace_back(dxapp::common::Point_f(-1 , -1, -1));
+    
+        dxapp::common::Object object;
+        object._bbox = box;
+        object._conf = b.score;
+        object._classId = b.label;
+        object._name = b.labelname;
         result._detections.emplace_back(object);
     }
     return result;
@@ -140,20 +139,20 @@ void ObjectDetection::threadFunc(int period)
                 bboxes_objects = GetScalingBBox(bboxes);
             }
         }
-            member_temp = _vStream.GetOutputStream(bboxes_objects);
+        member_temp = _vStream.GetOutputStream(bboxes_objects);
             
 #if 0
-            fps += 1000000.0 / _inferTime;
-            infCount++;
-            float resultFps = round((fps/infCount) * 100) / 100;
-            
-            snprintf(caption, sizeof(caption), " / %.2f FPS", _channel, resultFps);
-            cv::rectangle(member_temp, Point(0, 0), Point(230, 34), Scalar(0, 0, 0), cv::FILLED);
-            cv::putText(member_temp, caption, Point(56, 21), 0, 0.7, cv::Scalar(255,255,255), 2, LINE_AA);
+        fps += 1000000.0 / _inferTime;
+        infCount++;
+        float resultFps = round((fps/infCount) * 100) / 100;
+        
+        snprintf(caption, sizeof(caption), " / %.2f FPS", _channel, resultFps);
+        cv::rectangle(member_temp, Point(0, 0), Point(230, 34), Scalar(0, 0, 0), cv::FILLED);
+        cv::putText(member_temp, caption, Point(56, 21), 0, 0.7, cv::Scalar(255,255,255), 2, LINE_AA);
 #else
-            cv::rectangle(member_temp, Point(0, 0), Point(76, 34), Scalar(0, 0, 0), cv::FILLED); 
+        cv::rectangle(member_temp, Point(0, 0), Point(76, 34), Scalar(0, 0, 0), cv::FILLED); 
 #endif
-            cv::putText(member_temp, " # " + to_string(_channel), Point(0, 21), 7, 0.7, cv::Scalar(255, 255, 255), 2, LINE_AA);
+        cv::putText(member_temp, " # " + to_string(_channel), Point(0, 21), 7, 0.7, cv::Scalar(255, 255, 255), 2, LINE_AA);
             
         {
             unique_lock<mutex> lk(_frameLock);
@@ -168,7 +167,11 @@ void ObjectDetection::threadFunc(int period)
         _profiler.End(cap);
         int64_t t = (period*1000 - _profiler.Get(cap))/1000;
         if(t<0 || t>period) t = 0;
+#ifdef __linux__
         usleep(t*1000);
+#elif _WIN32
+        Sleep(t);
+#endif
         _profiler.End(proc);
         _processTime = _profiler.Get(proc);
     }
@@ -181,8 +184,11 @@ void ObjectDetection::threadFillBlank(int period)
     while(1)
     {        
         if(stop) break;
-        
+#ifdef __linux__
         usleep(period * 1000);
+#elif _WIN32
+        Sleep(period);
+#endif
     }
     cout << _channel << " ended." << endl;
 }

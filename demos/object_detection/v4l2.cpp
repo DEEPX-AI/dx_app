@@ -199,5 +199,5 @@ void V4L2CaptureWorker::CaptureV4L2FrameThread()
         cnt++;
         profiler.End("capture");
     }
-    profiler.Show();
+    
 }

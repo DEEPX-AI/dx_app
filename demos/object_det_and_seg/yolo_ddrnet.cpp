@@ -4,13 +4,15 @@
 #include <stdint.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#ifdef __linux__
 #include <sys/mman.h>
 #include <unistd.h>
+#include <syslog.h>
+#endif
 #include <fcntl.h>
 #include <string.h>
 #include <errno.h>
 #include <signal.h>
-#include <syslog.h>
 
 #include <opencv2/opencv.hpp>
 #include <opencv2/core.hpp>
@@ -49,19 +51,20 @@ YoloLayerParam createYoloLayerParam(std::string _name, int _gx, int _gy, int _nu
 }
 
 YoloParam odCfg = {
-    .height = 512,
-    .width = 512,
-    .confThreshold = 0.25,
-    .scoreThreshold = 0.3,
-    .iouThreshold = 0.4,
-    .numBoxes = -1, // check from layer info.
-    .numClasses = 80,
-    .layers = {
-            createYoloLayerParam("", 64, 64, 3, { 10.0, 16.0, 33.0 }, { 13.0, 30.0, 23.0 }, { 0 }),
-            createYoloLayerParam("", 32, 32, 3, { 30.0, 62.0, 59.0 }, { 61.0, 45.0, 119.0 }, { 1 }),
-            createYoloLayerParam("", 16, 16, 3, { 116.0, 156.0, 373.0 }, { 90.0, 198.0, 326.0 }, { 2 })
+    512,  // height
+    512,  // width
+    0.25, // confThreshold
+    0.3,  // scoreThreshold
+    0.4,  // iouThreshold
+    -1,   // numBoxes
+    80,   // numClasses
+    {     // layers
+        createYoloLayerParam("", 64, 64, 3, { 10.0f, 16.0f, 33.0f }, { 13.0f, 30.0f, 23.0f }, { 0 }),
+        createYoloLayerParam("", 32, 32, 3, { 30.0f, 62.0f, 59.0f }, { 61.0f, 45.0f, 119.0f }, { 1 }),
+        createYoloLayerParam("", 16, 16, 3, { 116.0f, 156.0f, 373.0f }, { 90.0f, 198.0f, 326.0f }, { 2 })
     },
-    .classNames = {"person" ,"bicycle" ,"car" ,"motorcycle" ,"airplane" ,"bus" ,"train" ,"truck" ,"boat" ,"trafficlight" ,"firehydrant" ,"stopsign" ,"parkingmeter" ,"bench" ,"bird" ,"cat" ,"dog" ,"horse" ,"sheep" ,"cow" ,"elephant" ,"bear" ,"zebra" ,"giraffe" ,"backpack" ,"umbrella" ,"handbag" ,"tie" ,"suitcase" ,"frisbee" ,"skis" ,"snowboard" ,"sportsball" ,"kite" ,"baseballbat" ,"baseballglove" ,"skateboard" ,"surfboard" ,"tennisracket" ,"bottle" ,"wineglass" ,"cup" ,"fork" ,"knife" ,"spoon" ,"bowl" ,"banana" ,"apple" ,"sandwich" ,"orange" ,"broccoli" ,"carrot" ,"hotdog" ,"pizza" ,"donut" ,"cake" ,"chair" ,"couch" ,"pottedplant" ,"bed" ,"diningtable" ,"toilet" ,"tv" ,"laptop" ,"mouse" ,"remote" ,"keyboard" ,"cellphone" ,"microwave" ,"oven" ,"toaster" ,"sink" ,"refrigerator" ,"book" ,"clock" ,"vase" ,"scissors" ,"teddybear" ,"hairdrier", "toothbrush"},
+    // classNames
+    { "person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck", "boat", "trafficlight", "firehydrant", "stopsign", "parkingmeter", "bench", "bird", "cat", "dog", "horse", "sheep", "cow", "elephant", "bear", "zebra", "giraffe", "backpack", "umbrella", "handbag", "tie", "suitcase", "frisbee", "skis", "snowboard", "sportsball", "kite", "baseballbat", "baseballglove", "skateboard", "surfboard", "tennisracket", "bottle", "wineglass", "cup", "fork", "knife", "spoon", "bowl", "banana", "apple", "sandwich", "orange", "broccoli", "carrot", "hotdog", "pizza", "donut", "cake", "chair", "couch", "pottedplant", "bed", "diningtable", "toilet", "tv", "laptop", "mouse", "remote", "keyboard", "cellphone", "microwave", "oven", "toaster", "sink", "refrigerator", "book", "clock", "vase", "scissors", "teddybear", "hairdrier", "toothbrush"}
 };
 
 SegmentationParam segCfg[] = {
@@ -158,17 +161,17 @@ int main(int argc, char *argv[])
 
     while (i < argc) {
         std::string arg(argv[i++]);
-        if (arg == "-m0")
+        if (arg == "-m0" || arg == "--od_modelpath")
                                 od_modelpath = strdup(argv[i++]);
-        else if (arg == "-m1")
+        else if (arg == "-m1" || arg == "--seg_modelpath")
                                 seg_modelpath = strdup(argv[i++]);
-        else if (arg == "-i")
+        else if (arg == "-i" || arg == "--image")
                                 imgFile = strdup(argv[i++]);
-        else if (arg == "-v")
+        else if (arg == "-v" || arg == "--video")
                                 videoFile = strdup(argv[i++]);
-        else if (arg == "-c")
+        else if (arg == "-c" || arg == "--camera")
                                 cameraInput = true;
-        else if (arg == "-h")
+        else if (arg == "-h" || arg == "--help")
                                 help(), exit(0);
         else
                                 help(), exit(0);
@@ -242,7 +245,6 @@ int main(int argc, char *argv[])
         /* Save & Show */
         cv::imwrite("result.jpg", frame);
         std::cout << "save file : result.jpg " << std::endl;
-        profiler.Show();
         return 0;
     }
     else if(!videoFile.empty() || cameraInput)
@@ -329,7 +331,6 @@ int main(int argc, char *argv[])
             prevIdx = idx;
             (++idx)%=5;
         }
-        profiler.Show();
         return 0;
     }
 

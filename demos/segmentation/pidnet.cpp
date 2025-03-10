@@ -4,17 +4,19 @@
 #include <stdint.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#ifdef __linux__
 #include <sys/mman.h>
-#include <getopt.h>
 #include <unistd.h>
+#include <syslog.h>
+#endif
 #include <fcntl.h>
 #include <string.h>
 #include <errno.h>
 #include <signal.h>
-#include <syslog.h>
 
 #include <opencv2/opencv.hpp>
 #include <opencv2/core.hpp>
+#include <cxxopts.hpp>
 
 #include "display.h"
 #include "dxrt/dxrt_api.h"
@@ -62,29 +64,6 @@ SegmentationParam segCfg[] = {
     {	17	,	"motorcycle",	0	,	0	,	230	,	},
     {	18	,	"bicycle",	119	,	11	,	32	,	},
 };
-
-static struct option const opts[] = {
-    { "model", required_argument, 0, 'm' },
-    { "image", required_argument, 0, 'i' },
-    { "video", required_argument, 0, 'v' },
-    { "camera", no_argument, 0, 'c' },
-    { "async", no_argument, 0, 'a' },
-    { "help", no_argument, 0, 'h' },
-    { 0, 0, 0, 0 }
-};
-const char* usage =
-"Image Segmentation Demo\n"
-"  -m, --model     define dxnn model path\n"
-"  -i, --image     use image file input\n"
-"  -v, --video     use video file input\n"
-"  -c, --camera    use camera input\n"
-"  -a, --async     asynchronous inference\n"
-"  -h, --help      show help\n"
-;
-void help()
-{
-    cout << usage << endl;    
-}
 
 void *PreProc(cv::Mat &src, cv::Mat &dest, bool keepRatio=true, bool bgr2rgb=true, uint8_t padValue=0)
 {
@@ -146,7 +125,7 @@ void Segmentation(float *input, uint8_t *output, int rows, int cols, Segmentatio
     }
 }
 
-void Segmentation(uint16_t *input, uint8_t *output, int rows, int cols, SegmentationParam *cfg, int numClasses, int64_t pitch=0)
+void Segmentation(uint16_t *input, uint8_t *output, int rows, int cols, SegmentationParam *cfg, int numClasses)
 {
     for(int h=0;h<rows;h++)
     {
@@ -164,44 +143,26 @@ void Segmentation(uint16_t *input, uint8_t *output, int rows, int cols, Segmenta
 
 int main(int argc, char *argv[])
 {
-    int optCmd;
     int inputWidth = 0, inputHeight = 0;
     string modelPath="", imgFile="", videoFile="", binFile="", simFile="";
     bool cameraInput = false, asyncInference = false;
     bool usingOrt = false;
 
-    if(argc==1)
+    std::string app_name = "segmentation model demo";
+    cxxopts::Options options(app_name, app_name + " application usage ");
+    options.add_options()
+    ("m, model", "define dxnn model path", cxxopts::value<std::string>(modelPath))
+    ("i, image", "use image file input", cxxopts::value<std::string>(imgFile))
+    ("v, video", "use video file input", cxxopts::value<std::string>(videoFile))
+    ("c, camera", "use camera input", cxxopts::value<bool>(cameraInput)->default_value("false"))
+    ("a, async", "asynchronous inference", cxxopts::value<bool>(asyncInference)->default_value("false"))
+    ("h, help", "print usage")
+    ;
+    auto cmd = options.parse(argc, argv);
+    if(cmd.count("help") || modelPath.empty())
     {
-        cout << "Error: no arguments." << endl;
-        help();
-        return -1;
-    }
-
-    while ((optCmd = getopt_long(argc, argv, "m:i:v:cah", opts,
-        NULL)) != -1) {
-        switch (optCmd) {
-            case '0':
-                break;
-            case 'm':
-                modelPath = strdup(optarg);
-                break;
-            case 'i':
-                imgFile = strdup(optarg);
-                break;
-            case 'v':
-                videoFile = strdup(optarg);
-                break;
-            case 'c':
-                cameraInput = true;
-                break;
-            case 'a':
-                asyncInference = true;
-                break;
-            case 'h':
-            default:
-                help(), exit(0);
-                break;
-        }
+        std::cout << options.help() << std::endl;
+        exit(0);
     }
 
     LOG_VALUE(modelPath);
@@ -237,7 +198,7 @@ int main(int argc, char *argv[])
         profiler.Start("post-segment");
         cv::Mat result = cv::Mat(inputHeight, inputWidth, CV_8UC3, cv::Scalar(0, 0, 0));
         if(is_argmax)
-            Segmentation((uint16_t*)outputs[0]->data(), result.data, result.rows, result.cols, segCfg, NUM_CLASSES, outputs[0]->shape()[0]);
+            Segmentation((uint16_t*)outputs[0]->data(), result.data, result.rows, result.cols, segCfg, NUM_CLASSES);
         else
             Segmentation((float*)outputs[0]->data(), result.data, result.rows, result.cols, segCfg, NUM_CLASSES, outputs[0]->shape()[3]);
         profiler.End("post-segment");
@@ -248,7 +209,7 @@ int main(int argc, char *argv[])
         cout << dec << inputWidth << "x" << inputHeight << " <- " << frame.cols << "x" << frame.rows << endl;
         cv::imwrite("result.jpg", frame);
         std::cout << "save file : result.jpg " << std::endl;
-        profiler.Show();
+        
         return 0;
     }
     else if(!videoFile.empty() || cameraInput)
@@ -351,7 +312,7 @@ int main(int argc, char *argv[])
                         if(is_argmax)
                         {
                             Segmentation((uint16_t*)output_buffers[current_idx].data(), result[current_idx].data,
-                                    result[current_idx].rows, result[current_idx].cols, segCfg, NUM_CLASSES, 1);
+                                    result[current_idx].rows, result[current_idx].cols, segCfg, NUM_CLASSES);
                         }
                         else
                         {
@@ -364,7 +325,7 @@ int main(int argc, char *argv[])
                         if(is_argmax)
                         {
                             Segmentation((uint16_t*)_outputs[0]->data(), result[current_idx].data,
-                                    result[current_idx].rows, result[current_idx].cols, segCfg, NUM_CLASSES, 1);
+                                    result[current_idx].rows, result[current_idx].cols, segCfg, NUM_CLASSES);
                         }
                         else
                         {
@@ -397,8 +358,8 @@ int main(int argc, char *argv[])
                 break;
             }
         }
-        sleep(1);
-        profiler.Show();
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+        
         return 0;
     }
 

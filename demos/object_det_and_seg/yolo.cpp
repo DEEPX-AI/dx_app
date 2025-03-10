@@ -1,6 +1,7 @@
 #include <algorithm>
 #include "yolo.h"
 #include "dxrt/util.h"
+#include "utils/common_util.hpp"
 
 using namespace std;
 
@@ -292,6 +293,8 @@ vector< BoundingBox > Yolo::PostProc(vector<shared_ptr<dxrt::Tensor>> outputs_, 
         int boxIdx = 0;
         float x, y, w, h;
         int numElements = outputs_.front()->shape().front();
+        if(dxapp::common::compareVersions(DXRT_VERSION,"2.6.3"))
+            numElements = outputs_.front()->shape()[1];
         dxrt::DeviceBoundingBox_t *dataSrc = (dxrt::DeviceBoundingBox_t *)outputs_.front()->data();
         for(uint32_t label=0 ; label<numClasses ; label++)
         {
