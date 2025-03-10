@@ -4,22 +4,27 @@
 #include <stdint.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#ifdef __linux__
 #include <sys/mman.h>
 #include <unistd.h>
+#include <syslog.h>
+#endif
 #include <fcntl.h>
 #include <string.h>
 #include <errno.h>
 #include <signal.h>
-#include <syslog.h>
 
 #include <opencv2/opencv.hpp>
+
 #include "display.h"
 #include "dxrt/dxrt_api.h"
 #include "yolo.h"
+#ifdef __linux__
 #include "isp.h"
 #include "v4l2.h"
 #include "osd_eyenix.h"
 #include "socket.h"
+#endif
 
 using namespace std;
 using namespace cv;
@@ -57,15 +62,16 @@ SegmentationParam segCfg[] = {
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
 const char* usage =
-    "pose estimation with ddrnet demo\n"
-    "[*]  -m0, --posemodel          yolo pose model file path\n"
-    "[*]  -m1, --segmodel           yolo segmentation model file path\n"
-    "     -i,  --image             use image file input\n"
-    "     -v, --video     use video file input\n"
-    "     -w, --write     write result frames to a video file\n"
-    "     -c, --camera    use camera input\n"
-    "     -a, --async     asynchronous inference\n"
-    "     -h, --help      show help\n";
+"pose estimation with ddrnet demo\n"
+"[*]  -m0, --posemodel          yolo pose model file path\n"
+"[*]  -m1, --segmodel           yolo segmentation model file path\n"
+"     -i,  --image             use image file input\n"
+"     -v, --video     use video file input\n"
+"     -w, --write     write result frames to a video file\n"
+"     -c, --camera    use camera input\n"
+"     -a, --async     asynchronous inference\n"
+"     -l, --loop      demo video loops infinitely\n"
+"     -h, --help      show help\n";
 
 void help()
 {
@@ -145,7 +151,7 @@ int main(int argc, char *argv[])
 {
     int i = 1;
     string pose_model_path="", seg_model_path="", imgFile="", videoFile="", binFile="", simFile="", videoOutFile="";        
-    bool cameraInput = false, asyncInference = false;
+    bool cameraInput = false, asyncInference = false, loops = false;
     vector<unsigned long> inputPtr;
     auto objectColors = GetObjectColors();    
 
@@ -158,21 +164,23 @@ int main(int argc, char *argv[])
 
     while (i < argc) {
         std::string arg(argv[i++]);
-        if (arg == "-m0")
+        if (arg == "-m0" || arg == "--posemodel")
                                 pose_model_path = strdup(argv[i++]);
-        else if (arg == "-m1")
+        else if (arg == "-m1" || arg == "--segmodel")
                                 seg_model_path = strdup(argv[i++]);
-        else if (arg == "-i")
+        else if (arg == "-i" || arg == "--image")
                                 imgFile = strdup(argv[i++]);
-        else if (arg == "-v")
+        else if (arg == "-v" || arg == "--video")
                                 videoFile = strdup(argv[i++]);
-        else if (arg == "-w")
+        else if (arg == "-w" || arg == "--write")
                                 videoOutFile = strdup(argv[i++]);
-        else if (arg == "-c")
+        else if (arg == "-c" || arg == "--camera")
                                 cameraInput = true;
-        else if (arg == "-a")
+        else if (arg == "-a" || arg == "--async")
                                 asyncInference = true;
-        else if (arg == "-h")
+        else if (arg == "-l" || arg == "--loop")
+                                loops = true;
+        else if (arg == "-h" || arg == "--help")
                                 help(), exit(0);
         else
                                 help(), exit(0);
@@ -249,7 +257,7 @@ int main(int argc, char *argv[])
         profiler.End("post-seg");
         cv::imwrite("result.jpg", frame[0]);
         std::cout << "save file : result.jpg " << std::endl;
-        profiler.Show();
+        
         return 0;
     }
     else if(!videoFile.empty() || cameraInput)
@@ -338,7 +346,13 @@ DemoLoop:
             if(!pause)
             {
                 cap >> frame[inIdx];                    
-                if(frame[inIdx].empty()) break;
+                if(frame[inIdx].empty())
+                {
+                    if (loops)
+                        cap.set(cv::CAP_PROP_POS_FRAMES, 0), cap >> frame[inIdx];
+                    else
+                        break;
+                }
                 profiler.Start("pre");
                 PreProc(frame[inIdx], poseInput[inIdx], true, true, 114);
                 PreProc(frame[inIdx], segInput[inIdx], false);
@@ -408,8 +422,12 @@ DemoLoop:
             }
         }
         if(!GetStopFlag()) goto DemoLoop;
+#ifdef __linux__
         sleep(1);
-        profiler.Show();
+#elif _WIN32
+        Sleep(1000);
+#endif
+        
         return 0;
     }
 

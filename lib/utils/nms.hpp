@@ -76,12 +76,12 @@ namespace common
             {
                 if(_indices[j].first > 00.f)
                 {
-                    dxapp::common::Object obj = {
-                        ._bbox=rawBoxes[_indices[j].second],
-                        ._conf=_indices[j].first,
-                        ._classId=(int)idx,
-                        ._name=classes.at((int)idx),
-                    };
+                    dxapp::common::Object obj;
+                    obj._bbox = rawBoxes[_indices[j].second];
+                    obj._conf = _indices[j].first;
+                    obj._classId = static_cast<int>(idx);
+                    obj._name = classes.at(static_cast<int>(idx));
+
                     result._detections.emplace_back(scalingObject(obj, padSize, scaleRatio));
                 }
             }

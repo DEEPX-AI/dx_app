@@ -2,13 +2,18 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#ifdef __linux__
 #include <linux/videodev2.h>
+#endif
+
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#ifdef __linux__
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <unistd.h>
+#endif
 #include <iostream>
 #include <mutex>
 #include <atomic>

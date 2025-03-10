@@ -12,6 +12,10 @@
 
 #include "dxapp_api.hpp"
 
+#ifdef _WIN32
+#undef GetObject
+#endif
+
 namespace dxapp
 {
 class AppConfig

@@ -1,6 +1,11 @@
 #include <algorithm>
 #include "ssd.h"
 #include "dxrt/util.h"
+#if _WIN32
+#include <io.h>
+#define access _access
+#define F_OK 0
+#endif
 
 using namespace std;
 void PriorBoxParam::Show()
@@ -68,6 +73,8 @@ Ssd::Ssd(SsdParam &_cfg, std::vector<dxrt::Tensor> &_datainfo)
     auto find_index = std::find(cfg.loc_names.begin(), cfg.loc_names.end(), datainfo[0].name());
     if(find_index == cfg.loc_names.end())
         location_front = 0;
+    if(datainfo.size() < 3)
+        use_ort = true;
     for (uint32_t layer = 0; layer < numLayers; layer++)
     {
         OutputLayer outputLayer = {};
@@ -139,64 +146,96 @@ void Ssd::FilterWithSoftmax(float *org, vector<shared_ptr<dxrt::Tensor>> outputs
     float centerVariance = cfg.priorBoxes.center_variance;
     float sizeVariance = cfg.priorBoxes.size_variance;
     float center_x, center_y, width, height;
-    for (uint32_t layer = 0; layer < numLayers; layer++)
+    if(use_ort)
     {
-        auto outputLayer = OutputLayers[layer];
-        int numGridX = outputLayer.gridX;
-        int numGridY = outputLayer.gridY;
-        int tensorIdx = layerMap[cfg.score_names[layer]];
-        // outputLayer.Show();
-        // LOG_VALUE(tensorIdx);
-        // outputs_[2*tensorIdx]->Show();
-        int _numBoxes = outputLayer.boxes;
-        int inc1 = 1;
-        for (int gY = 0; gY < numGridY; gY++)
+        auto outputs = outputs_.front(); // front : location, back : scores
+        auto resultNum = outputs->shape()[1];
+        auto strideNum = outputs->shape()[2];
+        for(int i=0;i<resultNum;i++)
         {
-            for (int gX = 0; gX < numGridX; gX++)
+            float *cls_data = (float*)outputs_[0]->data() + (strideNum * i);
+            float *loc_data = (float*)outputs_[1]->data() + (strideNum * i);
+            float maxScore = scoreThreshold;
+            int maxClsIndex = -1;
+            for(int cls=0;cls<numClasses;cls++)
             {
-                if (org == nullptr)
+                if (cls_data[cls] >= maxScore)
                 {
-                    classScore = (float *)(static_cast<uint8_t*>(outputs_[2 * tensorIdx + location_front]->data()) + sizeof(float) * outputLayer.scoreAlign * (gY * numGridX + gX));  
-                    boxLocation = (float *)(static_cast<uint8_t*>(outputs_[2 * tensorIdx + !location_front]->data()) + sizeof(float) * outputLayer.locAlign * (gY * numGridX + gX));
+                    maxScore = cls_data[cls];
+                    maxClsIndex = cls;
                 }
-                else
+            }
+            if(maxClsIndex > 0)
+            {
+                ScoreIndices[maxClsIndex - 1].emplace_back(maxScore, boxIdx);
+                float *boxOut = &Boxes[boxIdx * 4];
+
+                boxOut[0] = loc_data[0];
+                boxOut[1] = loc_data[1];
+                boxOut[2] = loc_data[2];
+                boxOut[3] = loc_data[3];
+                boxIdx++;
+            }
+        }
+    }
+    else
+    {
+        for (uint32_t layer = 0; layer < numLayers; layer++)
+        {
+            auto outputLayer = OutputLayers[layer];
+            int numGridX = outputLayer.gridX;
+            int numGridY = outputLayer.gridY;
+            int tensorIdx = layerMap[cfg.score_names[layer]];
+            int _numBoxes = outputLayer.boxes;
+            int inc1 = 1;
+            for (int gY = 0; gY < numGridY; gY++)
+            {
+                for (int gX = 0; gX < numGridX; gX++)
                 {
-                    classScore = org + outputLayer.scoreOffset / 4 + outputLayer.scoreAlign * (gY * numGridX + gX);
-                    boxLocation = org + outputLayer.locOffset / 4 + outputLayer.locAlign * (gY * numGridX + gX);
-                }
-                for (int box = 0; box < _numBoxes; box++)
-                {
-                    bool boxDecoded = false;
-                    float sum = 0;
-                    for (uint32_t cls = 0; cls < numClasses; cls++)
+                    if (org == nullptr)
                     {
-                        sum += exp(classScore[cls * inc1]);
+                        classScore = (float *)(static_cast<uint8_t*>(outputs_[2 * tensorIdx + location_front]->data()) + sizeof(float) * outputLayer.scoreAlign * (gY * numGridX + gX));  
+                        boxLocation = (float *)(static_cast<uint8_t*>(outputs_[2 * tensorIdx + !location_front]->data()) + sizeof(float) * outputLayer.locAlign * (gY * numGridX + gX));
                     }
-                    for (uint32_t cls = cfg.start_class; cls < numClasses; cls++)
+                    else
                     {
-                        float score = exp(classScore[cls * inc1]) * (1 / sum);
-                        if (score > scoreThreshold)
+                        classScore = org + outputLayer.scoreOffset / 4 + outputLayer.scoreAlign * (gY * numGridX + gX);
+                        boxLocation = org + outputLayer.locOffset / 4 + outputLayer.locAlign * (gY * numGridX + gX);
+                    }
+                    for (int box = 0; box < _numBoxes; box++)
+                    {
+                        bool boxDecoded = false;
+                        float sum = 0;
+                        for (uint32_t cls = 0; cls < numClasses; cls++)
                         {
-                            ScoreIndices[cls].emplace_back(score, boxIdx);
-                            if (!boxDecoded)
+                            sum += exp(classScore[cls * inc1]);
+                        }
+                        for (uint32_t cls = cfg.start_class; cls < numClasses; cls++)
+                        {
+                            float score = exp(classScore[cls * inc1]) * (1 / sum);
+                            if (score > scoreThreshold)
                             {
-                                float *boxOut = &Boxes[boxIdx * 4];
-                                float *prior = &PriorBoxes[boxIdx * 4];
-                                center_x = prior[0] + boxLocation[x * inc1] * centerVariance * prior[2];
-                                center_y = prior[1] + boxLocation[y * inc1] * centerVariance * prior[3];
-                                width = exp(boxLocation[w * inc1] * sizeVariance) * prior[2];
-                                height = exp(boxLocation[h * inc1] * sizeVariance) * prior[3];
-                                boxOut[0] = center_x - width / 2;
-                                boxOut[1] = center_y - height / 2;
-                                boxOut[2] = center_x + width / 2;
-                                boxOut[3] = center_y + height / 2;
-                                boxDecoded = true;
+                                ScoreIndices[cls].emplace_back(score, boxIdx);
+                                if (!boxDecoded)
+                                {
+                                    float *boxOut = &Boxes[boxIdx * 4];
+                                    float *prior = &PriorBoxes[boxIdx * 4];
+                                    center_x = prior[0] + boxLocation[x * inc1] * centerVariance * prior[2];
+                                    center_y = prior[1] + boxLocation[y * inc1] * centerVariance * prior[3];
+                                    width = exp(boxLocation[w * inc1] * sizeVariance) * prior[2];
+                                    height = exp(boxLocation[h * inc1] * sizeVariance) * prior[3];
+                                    boxOut[0] = center_x - width / 2;
+                                    boxOut[1] = center_y - height / 2;
+                                    boxOut[2] = center_x + width / 2;
+                                    boxOut[3] = center_y + height / 2;
+                                    boxDecoded = true;
+                                }
                             }
                         }
+                        boxLocation += incLoc;
+                        classScore += incScore;
+                        boxIdx++;
                     }
-                    boxLocation += incLoc;
-                    classScore += incScore;
-                    boxIdx++;
                 }
             }
         }

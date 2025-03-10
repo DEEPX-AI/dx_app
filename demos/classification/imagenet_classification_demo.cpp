@@ -1,16 +1,13 @@
-#include <getopt.h>
 #include <future>
 #include <thread>
 #include <iostream>
 
 #include <opencv2/opencv.hpp>
+#include <cxxopts.hpp>
 
 #include "dxrt/dxrt_api.h"
+#include "rapidjson/error/en.h"
 #include "rapidjson/document.h"
-#include "rapidjson/writer.h"
-#include "rapidjson/prettywriter.h"
-#include "rapidjson/stringbuffer.h"
-#include "rapidjson/pointer.h"
 #include "rapidjson/rapidjson.h"
 
 #define DEFAULT_MODEL_PATH "/dxrt/m1/efficientnet-b0_argmax"
@@ -140,27 +137,6 @@ vector<void*> preprocessAll(string image_path)
     return ret;
 }
 
-static struct option const opts[] = {
-    {"model", required_argument, 0, 'm'},
-    {"image", required_argument, 0, 'i'},
-    {"label", required_argument, 0, 'l'},
-    {"grid", required_argument, 0, 'g'},
-    {"help", no_argument, 0, 'h'},
-    {0, 0, 0, 0}};
-
-const char *usage =
-    "ImageNet Classification Demo\n"
-    "  -m, --model        define model path\n"
-    "  -i, --image        ImageNet image path\n"
-    "  -l, --label        ImageNet label path\n"
-    "  -g, --grid         ImageNet grid path\n"
-    "  -h, --help         show help\n";
-
-void help()
-{
-    std::cout << usage << std::endl;
-}
-
 void GenerateGT(string labelPath, int numImages, int *GroundTruth)
 {
     std::ifstream f(labelPath);
@@ -183,40 +159,23 @@ int main(int argc, char *argv[])
     std::string image_path = DEFAULT_IMAGE_PATH;
     std::string label_path = DEFAULT_LABEL_PATH;
     std::string grid_path = DEFAULT_GRID_PATH;
-
-    // if (argc == 1)
-    // {
-    //     std::cout << "Error: no arguments." << std::endl;
-    //     help();
-    //     return -1;
-    // }
-
-    int optCmd;
-    while ((optCmd = getopt_long(argc, argv, "m:i:l:g:h", opts, NULL)) != -1)
+    
+    std::string app_name = "imagenet_classification_grid_demo";
+    cxxopts::Options options(app_name, app_name + " application usage ");
+    options.add_options()
+        ("m, model_path", "classification model file (.dxnn, required)", cxxopts::value<std::string>(model_path)->default_value(DEFAULT_MODEL_PATH))
+        ("i, image", "input image files directory (required)", cxxopts::value<std::string>(image_path)->default_value(DEFAULT_IMAGE_PATH))
+        ("l, label", "input ground truth label json file (required)", cxxopts::value<std::string>(label_path)->default_value(DEFAULT_LABEL_PATH))
+        ("g, grid", "imagenet grid image files directory (required)", cxxopts::value<std::string>(grid_path)->default_value(DEFAULT_GRID_PATH))
+        ("h, help", "print usage")
+    ;
+    auto cmd = options.parse(argc, argv);
+    if(cmd.count("help") || model_path.empty())
     {
-        switch (optCmd)
-        {
-        case '0':
-            break;
-        case 'm':
-            model_path = strdup(optarg);
-            break;
-        case 'i':
-            image_path = strdup(optarg);
-            break;
-        case 'l':
-            label_path = strdup(optarg);
-            break;
-        case 'g':
-            grid_path = strdup(optarg);
-            break;
-        case 'h':
-        default:
-            help();
-            exit(0);
-            break;
-        }
+        std::cout << options.help() << endl;
+        exit(0);
     }
+
     int GroundTruth[NUM_IMAGES];
     int Classification[NUM_IMAGES];
     mutex resultLock;
@@ -325,7 +284,11 @@ int main(int argc, char *argv[])
     }).detach();
 
     while(!exit_flag.load());
+#ifdef __linux__
     sleep(1);
+#elif _WIN32
+    Sleep(1000);
+#endif
 
     return 0;
 }

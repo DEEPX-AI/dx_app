@@ -23,8 +23,8 @@ namespace classification
     
     inline void data_pre_processing(uint8_t* src, uint8_t* dst, PreConfig config)
     {
-        int copy_size = (int)(config._dstShape[2] * config._dstShape[3]);
-        for(int y=0; y<config._dstShape[2]; ++y)
+        int copy_size = (int)(config._dstShape[1] * 3);
+        for(int y=0; y<config._dstShape[1]; ++y)
         {
             memcpy(&dst[y * (copy_size + config._alignFactor)],
                    &src[y * copy_size], 
@@ -35,7 +35,7 @@ namespace classification
 
     inline void image_pre_processing(cv::Mat& src, uint8_t* input_tensor, PreConfig config){
         cv::Mat dst;
-        cv::resize(src.clone(), dst, cv::Size(config._dstShape[1], config._dstShape[2]), 0, 0, cv::INTER_LINEAR);
+        cv::resize(src.clone(), dst, cv::Size(config._dstShape[1], config._dstShape[1]), 0, 0, cv::INTER_LINEAR);
         if(config._inputFormat == AppInputFormat::IMAGE_RGB)
             cv::cvtColor(dst.clone(), dst, cv::COLOR_BGR2RGB);
         else if(config._inputFormat == AppInputFormat::IMAGE_GRAY && config._dstShape[3] == 1)

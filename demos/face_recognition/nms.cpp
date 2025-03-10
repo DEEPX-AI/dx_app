@@ -37,10 +37,10 @@ void NmsOneClass(
     vector<BoundingBox> &Result)
 {
     float iou;
-    int i, j;
+    int i, j; 
     int numCandidates = ScoreIndices[cls].size();
-    bool valid[numCandidates];
-    fill_n(valid, numCandidates, true);
+    std::vector<bool> valid(numCandidates);
+    std::fill_n(valid.begin(), numCandidates, true);
     for (i = 0; i < numCandidates; i++)
     {
         if (!valid[i])

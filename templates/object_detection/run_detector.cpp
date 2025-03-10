@@ -66,7 +66,7 @@ int main(int argc, char *argv[])
         {
             if(detector.is_all_image && appConfig.appType == OFFLINE)
             {
-                usleep(100000);
+                std::this_thread::sleep_for(std::chrono::microseconds(100000));
             }
             else
             {

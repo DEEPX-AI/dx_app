@@ -2,6 +2,14 @@
 #include "ssd.h"
 #include "dxrt/util.h"
 
+#ifdef _WIN32
+#ifndef F_OK
+#define F_OK 0
+#endif
+#include <io.h>
+#define access _access
+#endif //_WIN32
+
 // #define DUMP_DATA
 
 using namespace std;

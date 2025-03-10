@@ -472,7 +472,7 @@ namespace yolo
             {
                 auto layer = _params._layers[i];
                 int stride = layer.stride;
-                int numGridX = _params._input_shape[2] / layer.stride;
+                int numGridX = _params._input_shape[1] / layer.stride;
                 int numGridY = _params._input_shape[1] / layer.stride;
                 first += 2;
                 second += 2;
@@ -591,7 +591,7 @@ namespace yolo
                 auto layer = _params._layers[i];
                 int stride = layer.stride;
                 int numGridY = _params._input_shape[1] / layer.stride;
-                int numGridX = _params._input_shape[2] / layer.stride;
+                int numGridX = _params._input_shape[1] / layer.stride;
                 float* classScore_data = (float*)outputs;
                 float* location_data = classScore_data + classScoreDataSzie;
                 float* kpt_data = location_data + locationDataSize;
@@ -613,7 +613,7 @@ namespace yolo
                                 _rawVector.emplace_back(data);
                                 _rawVector.emplace_back(kpt);
                                 dxapp::common::BBox temp = _decode(_params._last_activation, _rawVector, dxapp::common::Point(gX, gY), 
-                                                                   dxapp::common::Size(_params._input_shape[2], _params._input_shape[1]), stride, (float)kpt_count);
+                                                                   dxapp::common::Size(_params._input_shape[1], _params._input_shape[1]), stride, (float)kpt_count);
                                 _rawBoxes.emplace_back(temp);
                                 boxIdx++;
                             }
@@ -654,7 +654,7 @@ namespace yolo
                 auto layer = _params._layers[i];
                 float scale = layer.scale;
                 int stride = layer.stride;
-                int numGridX = _params._input_shape[2] / layer.stride;
+                int numGridX = _params._input_shape[1] / layer.stride;
                 int numGridY = _params._input_shape[1] / layer.stride;
                 float* location_data = output_per_layers;
                 float* boxScore_data = location_data + locationDataSize;
@@ -714,7 +714,7 @@ namespace yolo
                 auto layer = _params._layers[i];
                 float scale = layer.scale;
                 int stride = layer.stride;
-                int numGridX = _params._input_shape[2] / layer.stride;
+                int numGridX = _params._input_shape[1] / layer.stride;
                 int numGridY = _params._input_shape[1] / layer.stride;
                 auto output_shape = _params._outputShape[i];
                 int layer_pitch = 1;

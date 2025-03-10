@@ -9,6 +9,7 @@
 
 #include "dxrt/dxrt_api.h"
 #include "common/objects.hpp"
+#include "utils/common_util.hpp"
 
 #include <opencv2/opencv.hpp>
 
@@ -72,7 +73,17 @@ namespace classification
     {
         cv::Mat viewer;
         char comments[100];
-        viewer = cv::imread(path, cv::IMREAD_COLOR);
+
+        cv::Mat image, resized, input;
+        if (dxapp::common::getExtension(path) == "bin")
+        {
+            viewer = cv::Mat(cv::Size(224, 224), CV_8UC3);
+            dxapp::common::readBinary(path, viewer.data);
+        }
+        else
+        {
+            viewer = cv::imread(path, cv::IMREAD_COLOR);
+        }
         cv::resize(viewer.clone(), viewer, cv::Size(640, 640), 0, 0, 1);
         snprintf(comments, 100, "Top1 Result : class %d (%s)", result._top1, result._name.c_str());
         cv::putText(viewer, comments, cv::Point(10,viewer.size().height-20), cv::FONT_HERSHEY_DUPLEX, 0.7, cv::Scalar(255,255,0), 2);

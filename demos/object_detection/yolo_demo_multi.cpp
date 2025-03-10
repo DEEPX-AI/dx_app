@@ -4,8 +4,13 @@
 #include <stdint.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#ifdef __linux
 #include <sys/mman.h>
 #include <unistd.h>
+#elif _WIN32
+#include <Windows.h>
+#endif
+
 #include <string.h>
 #include <errno.h>
 #include <iostream>
@@ -27,6 +32,8 @@ using namespace rapidjson;
 
 /* Tuning point */
 #define INPUT_CAPTURE_PERIOD_MS 33
+
+static bool g_full_screan = false;
 
 /**
  * @brief AppConfig Definition
@@ -54,14 +61,14 @@ struct AppConfig
 // pre/post parameter table
 extern YoloParam yolov5s_320, yolov5s_512, yolov5s_640, yolox_s_512, yolov7_640, yolov7_512, yolov4_608, yolox_s_640;
 YoloParam yoloParams[] = {
-    [0] = yolov5s_320,
-    [1] = yolov5s_512,
-    [2] = yolov5s_640,
-    [3] = yolox_s_512,
-    [4] = yolov7_640,
-    [5] = yolov7_512,
-    [6] = yolov4_608,
-    [7] = yolox_s_640
+    yolov5s_320,
+    yolov5s_512,
+    yolov5s_640,
+    yolox_s_512,
+    yolov7_640,
+    yolov7_512,
+    yolov4_608,
+    yolox_s_640
 };
 
 const char* usage =
@@ -73,7 +80,7 @@ const char* usage =
 
 void help()
 {
-    cout << usage << endl;    
+    cout << usage << endl;
 }
 
 int ApplicationJsonParser(string configPath, AppConfig* dst)
@@ -109,15 +116,40 @@ int ApplicationJsonParser(string configPath, AppConfig* dst)
         DXRT_ASSERT(displayConfig.HasMember("display_label"), "ERR. display_label argument not placed");
         DXRT_ASSERT(displayConfig["display_label"].IsString(), "ERR. display_label must be str");
         dst->display_label = displayConfig["display_label"].GetString();
-        
-        DXRT_ASSERT(displayConfig.HasMember("output_width"), "ERR. output_width argument not placed");
-        DXRT_ASSERT(displayConfig["output_width"].IsInt(), "ERR. output_width must be integer");
-        dst->board_width = displayConfig["output_width"].GetInt();
-        
-        DXRT_ASSERT(displayConfig.HasMember("output_height"), "ERR. output_height argument not placed");
-        DXRT_ASSERT(displayConfig["output_height"].IsInt(), "ERR. output_height must be integer");
-        dst->board_height = displayConfig["output_height"].GetInt();
-        
+
+        if(!displayConfig.HasMember("output_width")) 
+        {
+            g_full_screan = true;
+#ifdef __linux__
+            std::ifstream graphics_info_file("/sys/class/graphics/fb0/viertual_size");
+            if(!graphics_info_file)
+            {
+                std::cout << "Failed to open framebuffer info, It will be set FHD size" << std::endl;
+                dst->board_width = 1920;
+                dst->board_height = 1080;
+            }
+            else 
+            {
+                int graphics_info_w, graphics_info_h;
+                char comma;
+                graphics_info_file >> graphics_info_w >> comma >> graphics_info_h;
+                dst->board_width = graphics_info_w;
+                dst->board_height = graphics_info_h;
+            }
+#elif _WIN32
+            dst->board_width = GetSystemMetrics(SM_CXSCREEN);
+            dst->board_height = GetSystemMetrics(SM_CYSCREEN);
+#endif
+        }
+        else
+        {
+            DXRT_ASSERT(displayConfig["output_width"].IsInt(), "ERR. output_width must be integer");
+            dst->board_width = displayConfig["output_width"].GetInt();
+
+            DXRT_ASSERT(displayConfig.HasMember("output_height"), "ERR. output_height argument not placed");
+            DXRT_ASSERT(displayConfig["output_height"].IsInt(), "ERR. output_height must be integer");
+            dst->board_height = displayConfig["output_height"].GetInt();
+        }
         if(displayConfig.HasMember("capture_period"))
         {
             DXRT_ASSERT(displayConfig["capture_period"].IsInt(), "ERR. capture_period must be integer");
@@ -388,7 +420,7 @@ int main(int argc, char *argv[])
             int64_t outputLength = outputs.front()->shape()[0];
             if(dxapp::common::compareVersions(DXRT_VERSION, "2.6.3"))
                 outputLength = outputs.front()->shape()[1];
-            app->PostProc((void*)app->GetOutputMemory(), outputs.front()->shape()[0]);
+            app->PostProc((void*)app->GetOutputMemory(), outputLength);
             return 0;
         };
     ie->RegisterCallBack(postProcCallBack);
@@ -403,7 +435,11 @@ int main(int argc, char *argv[])
     {
         app->Run(appConfig.input_capture_period_ms);
     }
-    usleep(500*1000);
+#ifdef __linux__
+    usleep(500 * 1000);
+#elif _WIN32
+    Sleep(500);
+#endif
     profiler.Add("spread");
     /* Debugging */
     std::vector<cv::Rect> dstPoint = std::vector<cv::Rect>(apps.size(), cv::Rect(0, 0, 0, 0));
@@ -415,7 +451,7 @@ int main(int argc, char *argv[])
         dstPoint[i].height = apps[i]->Resolution().second;
     }
     dxapp::common::StatusLog sl;
-    sl.period = 500, sl.threadStatus.store(1);
+    sl.period = 500, sl.threadStatus.store(0);
     std::thread log_thread = std::thread(&dxapp::common::logThreadFunction, &sl);
     auto start = std::chrono::high_resolution_clock::now();
 
@@ -454,7 +490,9 @@ int main(int argc, char *argv[])
         if (loggingVersion)
             sl.threadStatus.store(2);
         else
-            sl.threadStatus.store(-1);
+            sl.threadStatus.store(1);
+        
+        sl.statusCheckCV.notify_one();
         
 #if __riscv
         cout << "press 'q' and enter to exit. " << endl;
@@ -484,7 +522,11 @@ int main(int argc, char *argv[])
         
     }
     profiler.Erase("spread");
+#ifdef __linux__
     sleep(1);
-    profiler.Show();
+#elif _WIN32
+    Sleep(1000);
+#endif
+    
     return 0;
 }

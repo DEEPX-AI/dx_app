@@ -5,7 +5,6 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
-#include <getopt.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <string.h>
@@ -14,6 +13,7 @@
 #include <syslog.h>
 
 #include <opencv2/opencv.hpp>
+#include <cxxopts.hpp>
 
 #include "display.h"
 #include "dxrt/dxrt_api.h"
@@ -65,44 +65,6 @@ struct npu_dma_ioctl_data_copy
 
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
-static struct option const opts[] = {
-    { "model", required_argument, 0, 'm' },
-    { "image", required_argument, 0, 'i' },
-    { "video", required_argument, 0, 'v' },
-    { "write", required_argument, 0, 'w' },
-    { "camera", no_argument, 0, 'c' },
-    { "isp", no_argument, 0, 'x' },
-    { "bin",  required_argument, 0, 'b' },
-    { "sim", required_argument, 0, 's' },
-    { "async", no_argument, 0, 'a' },
-    { "ethernet", no_argument, 0, 'e' },
-    { "param", required_argument, 0, 'p' },
-    { "loop", no_argument, 0, 'l' },
-    { "numbuf", required_argument, 0, 'n' },
-    { "help", no_argument, 0, 'h' },
-    { 0, 0, 0, 0 }
-};
-const char* usage =
-"yolo demo\n"
-"  -m, --model     define model path\n"
-"  -i, --image     use image file input\n"
-"  -v, --video     use video file input\n"
-"  -w, --write     write result frames to a video file\n"
-"  -c, --camera    use camera input\n"
-"  -x, --isp       use ISP input\n"
-"  -b, --bin       use binary file input\n"
-"  -s, --sim       use pre-defined npu output binary file input( perform post-proc. only )\n"
-"  -a, --async     asynchronous inference\n"
-"  -e, --ethernet  use ethernet input\n"
-"  -p, --param      pre/post-processing parameter selection\n"
-"  -l, --loop      loop test\n"
-"  -n, --numbuf    number of memory buffers for inference\n"
-"  -h, --help      show help\n"
-;
-void help()
-{
-    cout << usage << endl;    
-}
 
 pthread_mutex_t lock_uyv = PTHREAD_MUTEX_INITIALIZER;
 int LoopExitFlag = 0;
@@ -174,76 +136,42 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
-    int optCmd, loops = 1, paramIdx = 0, numBuf = 1;
+    int loops = 1, paramIdx = 0, numBuf = 1;
     string modelPath="", imgFile="", videoFile="", binFile="", simFile="", videoOutFile="", OSDstr="";  
-    bool cameraInput = false, ispInput = false, ethernetInput = false,
+    bool cameraInput = false, ispInput = false,
         asyncInference = false, writeFrame = false;
     vector<unsigned long> inputPtr;
     auto objectColors = GetObjectColors();
     dxrt::InferenceMode mode = dxrt::InferenceMode::MODE_SYNC;
+    
+    std::string app_name = "yolo object detection ssd object detection model dmoe";
+    cxxopts::Options options(app_name, app_name + " application usage ");
+    options.add_options()
+    ("m, model", "define model path", cxxopts::value<std::string>(modelPath))
+    ("i, image", "use image file input", cxxopts::value<std::string>(imgFile))
+    ("v, video", "use video file input", cxxopts::value<std::string>(videoFile))
+    ("w, write", "write result frames to a video file", cxxopts::value<bool>(writeFrame)->default_value("false"))
+    ("c, camera", "use camera input", cxxopts::value<bool>(cameraInput)->default_value("false"))
+    ("x, isp", "use ISP input", cxxopts::value<bool>(ispInput)->default_value("false"))
+    ("b, bin", "use binary file input", cxxopts::value<std::string>(binFile))
+    ("s, sim", "use pre-defined npu output binary file input( perform post-proc. only )", cxxopts::value<std::string>(simFile))
+    ("a, async", "asynchronous inference", cxxopts::value<bool>(asyncInference)->default_value("false"))
+    ("p, param", "pre/post-processing parameter selection", cxxopts::value<int>(paramIdx)->default_value("0"))
+    ("l, loop", "loop test", cxxopts::value<int>(loops)->default_value("1"))
+    ("n, numbuf", "number of memory buffers for inference", cxxopts::value<int>(numBuf)->default_value("1"))
+    ("h, help", "print usage")
+    ;
+    
+    auto cmd = options.parse(argc, argv);
+    if(cmd.count("help") || modelPath.empty())
+    {
+        std::cout << options.help() << std::endl;
+        exit(0);
+    }
 
     signal(SIGTTOU, SIG_IGN);
 	signal(SIGINT,interruptHandler);
 
-    if(argc==1)
-    {
-        cout << "Error: no arguments." << endl;
-        help();
-        return -1;
-    }
-
-    while ((optCmd = getopt_long(argc, argv, "m:i:v:w:cxb:s:aep:l:n:h", opts,
-        NULL)) != -1) {
-        switch (optCmd) {
-            case '0':
-                break;
-            case 'm':
-                modelPath = strdup(optarg);
-                break;
-            case 'i':
-                imgFile = strdup(optarg);
-                break;
-            case 'v':
-                videoFile = strdup(optarg);
-                break;
-            case 'w':
-                videoOutFile = strdup(optarg);
-                writeFrame = true;
-                break;
-            case 'c':
-                cameraInput = true;
-                break;
-            case 'x':
-                ispInput = true;
-                break;
-            case 'b':
-                binFile = strdup(optarg);
-                break;
-            case 's':
-                simFile = strdup(optarg);
-                break;
-            case 'a':
-                asyncInference = true;
-                break;
-            case 'e':
-                ethernetInput = true;
-                break;
-            case 'p':
-                paramIdx = stoi(optarg);
-                break;
-            case 'l':
-                loops = stoi(optarg);
-                break;
-            case 'n':
-                numBuf = stoi(optarg);
-                break;
-            case 'h':
-            default:
-                help();
-                exit(0);
-                break;
-        }
-    }
     LOG_VALUE(modelPath);
     LOG_VALUE(videoFile);
     LOG_VALUE(imgFile);
@@ -254,12 +182,6 @@ int main(int argc, char *argv[])
     LOG_VALUE(asyncInference);
     LOG_VALUE(mode);    
 
-    if(modelPath.empty())
-    {
-        cout << "Error: no model argument." << endl;
-        help();
-        return -1;
-    }
     if(asyncInference)
     {
         if(mode!=dxrt::InferenceMode::MODE_IO)
@@ -319,7 +241,7 @@ int main(int argc, char *argv[])
             DisplayBoundingBox(frame, result, yoloParam.height, yoloParam.width, \
                 "", "", cv::Scalar(0, 0, 255), objectColors, "result.jpg", 0, -1, true);            
         }
-        profiler.Show();
+        
         return 0;
     }
     else if(!videoFile.empty() || cameraInput)
@@ -498,7 +420,7 @@ int main(int argc, char *argv[])
             }
         }
         // ie.Show();
-        profiler.Show();
+        
         return 0;
     }
     if(!binFile.empty())
@@ -668,7 +590,7 @@ int main(int argc, char *argv[])
         }
 
         usleep(1000*1000);
-        profiler.Show();
+        
 
         if(ENX_UYV_CAPTURE_CH_Stop(0) != 0){
             printf("ENX_UYV_CAPTURE_CH_Stop failed\n");

@@ -1,9 +1,9 @@
-#include <getopt.h>
 #include <future>
 #include <thread>
 #include <iostream>
 
 #include <opencv2/opencv.hpp>
+#include <cxxopts.hpp>
 
 #include "dxrt/dxrt_api.h"
 
@@ -198,7 +198,6 @@ void visualize(std::string model_path, std::string image_list_path, std::string 
         auto board = make_board(count, accuracy, latency);
         cv::Mat view;
         cv::hconcat(board, constant, view);
-        // cv::imwrite("./result.jpg", view);
         
         cv::imshow(window_name, view);
 
@@ -213,60 +212,25 @@ void visualize(std::string model_path, std::string image_list_path, std::string 
     value_future.get();
 }
 
-static struct option const opts[] = {
-    {"model", required_argument, 0, 'm'},
-    {"path", required_argument, 0, 'p'},
-    {"image", required_argument, 0, 'i'},
-    {"help", no_argument, 0, 'h'},
-    {0, 0, 0, 0}};
-
-const char *usage =
-    "ImageNet Classification Demo\n"
-    "  -m, --model        define model path\n"
-    "  -p, --path         based image file path\n"
-    "  -i, --image        ImageNet image list path\n"
-    "  -h, --help         show help\n";
-
-void help()
-{
-    std::cout << usage << std::endl;
-}
-
 int main(int argc, char *argv[])
 {
     std::string model_path = DEFAULT_MODEL_PATH;
     std::string based_image_path = DEFAULT_IMAGE_PATH;
     std::string image_list_path = DEFAULT_IMAGE_LIST;
-
-    if (argc == 1)
+    
+    std::string app_name = "imagenet_classification_demo";
+    cxxopts::Options options(app_name, app_name + " application usage ");
+    options.add_options()
+        ("m, model_path", "classification model file (.dxnn, required)", cxxopts::value<std::string>(model_path)->default_value(DEFAULT_MODEL_PATH))
+        ("p, base_path", "input image files directory (required)", cxxopts::value<std::string>(based_image_path)->default_value(DEFAULT_IMAGE_PATH))
+        ("i, image_list", "imagenet image list txt file (required)", cxxopts::value<std::string>(image_list_path)->default_value(DEFAULT_IMAGE_LIST))
+        ("h, help", "print usage")
+    ;
+    auto cmd = options.parse(argc, argv);
+    if(cmd.count("help") || model_path.empty())
     {
-        std::cout << "Error: no arguments." << std::endl;
-        help();
-        return -1;
-    }
-
-    int optCmd;
-    while ((optCmd = getopt_long(argc, argv, "m:p:i:h", opts, NULL)) != -1)
-    {
-        switch (optCmd)
-        {
-        case '0':
-            break;
-        case 'm':
-            model_path = strdup(optarg);
-            break;
-        case 'p':
-            based_image_path = strdup(optarg);
-            break;
-        case 'i':
-            image_list_path = strdup(optarg);
-            break;
-        case 'h':
-        default:
-            help();
-            exit(0);
-            break;
-        }
+        std::cout << options.help() << endl;
+        exit(0);
     }
 
     visualize(model_path, image_list_path, based_image_path);

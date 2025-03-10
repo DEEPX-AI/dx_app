@@ -4,23 +4,27 @@
 #include <stdint.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#ifdef __linux__
 #include <sys/mman.h>
 #include <unistd.h>
+#include <syslog.h>
+#endif
 #include <fcntl.h>
 #include <string.h>
 #include <errno.h>
 #include <signal.h>
-#include <syslog.h>
 
 #include <opencv2/opencv.hpp>
 
 #include "display.h"
 #include "dxrt/dxrt_api.h"
 #include "yolo.h"
+#ifdef __linux__
 #include "isp.h"
 #include "v4l2.h"
 #include "osd_eyenix.h"
 #include "socket.h"
+#endif
 
 using namespace std;
 using namespace cv;
@@ -41,25 +45,11 @@ using namespace cv;
 // pre/post parameter table
 extern YoloParam yolov5s6_pose_640, yolov5s6_pose_1280;
 YoloParam yoloParams[] = {
-    [0] = yolov5s6_pose_640,
-    [1] = yolov5s6_pose_1280
+    yolov5s6_pose_640,
+    yolov5s6_pose_1280
 };
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
-static struct option const opts[] = {
-    { "model", required_argument, 0, 'm' },
-    { "image", required_argument, 0, 'i' },
-    { "video", required_argument, 0, 'v' },
-    { "write", required_argument, 0, 'w' },
-    { "camera", no_argument, 0, 'c' },
-    { "isp", no_argument, 0, 'x' },
-    { "bin",  required_argument, 0, 'b' },
-    { "async", no_argument, 0, 'a' },
-    { "param", required_argument, 0, 'p' },
-    { "loop", no_argument, 0, 'l' },
-    { "help", no_argument, 0, 'h' },
-    { 0, 0, 0, 0 }
-};
 const char* usage =
 "pose estimation demo\n"
 "  -m, --model     define model path\n"
@@ -148,30 +138,30 @@ int main(int argc, char *argv[])
     
     while (i < argc) {
         std::string arg(argv[i++]);
-        if (arg == "-m")
+        if (arg == "-m" || arg == "--model")
                                 modelPath = strdup(argv[i++]);
-        else if (arg == "-i")
+        else if (arg == "-i" || arg == "--image")
                                 imgFile = strdup(argv[i++]);
-        else if (arg == "-v")
+        else if (arg == "-v" || arg == "--video")
                                 videoFile = strdup(argv[i++]);
-        else if (arg == "-w")
+        else if (arg == "-w" || arg == "--write")
         {
                                 videoOutFile = strdup(argv[i++]);
                                 writeFrame = true;
         }
-        else if (arg == "-c")
+        else if (arg == "-c" || arg == "--camera")
                                 cameraInput = true;
-        else if (arg == "-x")
+        else if (arg == "-x" || arg == "--isp")
                                 ispInput = true;
-        else if (arg == "-b")
+        else if (arg == "-b" || arg == "--bin")
                                 binFile = strdup(argv[i++]);
-        else if (arg == "-p")
+        else if (arg == "-p" || arg == "--param")
                                 paramIdx = stoi(argv[i++]);
-        else if (arg == "-l")
+        else if (arg == "-l" || arg == "--loop")
                                 loops = stoi(argv[i++]);
-        else if (arg == "-a")
+        else if (arg == "-a" || arg == "--async")
                                 asyncInference = true;
-        else if (arg == "-h")
+        else if (arg == "-h" || arg == "--help")
                                 help(), exit(0);
         else
                                 help(), exit(0);
@@ -228,7 +218,7 @@ int main(int argc, char *argv[])
         DisplayBoundingBox(frame, result, yoloParam.height, yoloParam.width, \
             "", "", cv::Scalar(0, 0, 255), objectColors, "result.jpg", 0, -1, true);
         std::cout << "save file : result.jpg " << std::endl;
-        profiler.Show();
+        
         return 0;
     }
     else if(!videoFile.empty() || cameraInput)
@@ -305,8 +295,16 @@ int main(int argc, char *argv[])
                 tm.start();
                 if(!pause)
                 {
-                    cap >> frame[idx];                    
-                    if(frame[idx].empty()) break;
+                    if (loops == 1 && cap.get(cv::CAP_PROP_POS_FRAMES) >= cap.get(cv::CAP_PROP_FRAME_COUNT) - 5)
+                    {
+                        cap.set(cv::CAP_PROP_POS_FRAMES, 0);
+                    }
+                    cap >> frame[idx];
+
+                    if (frame[idx].empty())
+                    {
+                       break;
+                    }
                     profiler.Start("pre");
                     PreProc(frame[idx], resizedFrame[idx], true, true, 114);
                     profiler.End("pre");
@@ -347,7 +345,11 @@ int main(int argc, char *argv[])
                     cv::waitKey( max(1, (int)(capInterval - elapsed)) );
                 }
             }
+#ifdef __linux__
             sleep(1);
+#elif _WIN32
+            Sleep(1000);
+#endif
         }
         else
         {
@@ -365,46 +367,46 @@ int main(int argc, char *argv[])
             int textBaseline = 0;
             while(1)
             {
-                cout << "frame " << cap.get(CAP_PROP_POS_FRAMES) << " / " << cap.get(CAP_PROP_FRAME_COUNT) << endl;
-                profiler.Start("cap");
-                    cap >> frame[idx];
-                    if(frame[idx].empty()) break;
-                profiler.End("cap");
-                profiler.Start("pre");
-                    PreProc(frame[idx], resizedFrame[idx], true, true, 114);
-                profiler.End("pre");
-                profiler.Start("main");
-                    auto outputs = ie.Run(resizedFrame[idx].data);
-                profiler.End("main");
-                profiler.Start("post");
-                    if(outputs.size()>0)
-                    {
-                        auto result = yolo.PostProc(outputs);
-                        DisplayBoundingBox(frame[idx], result, yoloParam.height, yoloParam.width, "", "",
-                            cv::Scalar(0, 0, 255), objectColors, "", 0, -1, true);                        
-                    }
-                    fps = 1; 
-                    ostringstream oss;
-                    oss << setprecision(2) << fixed << fps;
-                    string text = "FPS:" + oss.str();
-                    auto textSize = cv::getTextSize(text, FONT_HERSHEY_SIMPLEX, 1, 1, &textBaseline);
-                    cv::rectangle( 
-                        frame[idx],
-                        Point( 25, 25-textSize.height ), 
-                        Point( 25 + textSize.width, 35 ), 
-                        Scalar(172, 81, 99),
-                        cv::FILLED);
-                    cv::putText(
-                        frame[idx], text, Point( 30, 30 ), 
-                        FONT_HERSHEY_SIMPLEX, 1, Scalar(255,255,255));
-                profiler.End("post");
-                profiler.Start("writer");
-                    writer << frame[idx];
-                profiler.End("writer");
-                (++idx)%=FRAME_BUFFERS;
+            cout << "frame " << cap.get(CAP_PROP_POS_FRAMES) << " / " << cap.get(CAP_PROP_FRAME_COUNT) << endl;
+            profiler.Start("cap");
+            cap >> frame[idx];
+            if(frame[idx].empty()) break;
+            profiler.End("cap");
+            profiler.Start("pre");
+            PreProc(frame[idx], resizedFrame[idx], true, true, 114);
+            profiler.End("pre");
+            profiler.Start("main");
+            auto outputs = ie.Run(resizedFrame[idx].data);
+            profiler.End("main");
+            profiler.Start("post");
+            if(outputs.size()>0)
+            {
+                auto result = yolo.PostProc(outputs);
+                DisplayBoundingBox(frame[idx], result, yoloParam.height, yoloParam.width, "", "",
+                    cv::Scalar(0, 0, 255), objectColors, "", 0, -1, true);                        
+            }
+            fps = 1; 
+            ostringstream oss;
+            oss << setprecision(2) << fixed << fps;
+            string text = "FPS:" + oss.str();
+            auto textSize = cv::getTextSize(text, FONT_HERSHEY_SIMPLEX, 1, 1, &textBaseline);
+            cv::rectangle( 
+                frame[idx],
+                Point( 25, 25-textSize.height ), 
+                Point( 25 + textSize.width, 35 ), 
+                Scalar(172, 81, 99),
+                cv::FILLED);
+            cv::putText(
+                frame[idx], text, Point( 30, 30 ), 
+                FONT_HERSHEY_SIMPLEX, 1, Scalar(255,255,255));
+            profiler.End("post");
+            profiler.Start("writer");
+            writer << frame[idx];
+            profiler.End("writer");
+            (++idx)%=FRAME_BUFFERS;
             }
         }
-        profiler.Show();
+        
         return 0;
     }
     if(!binFile.empty())

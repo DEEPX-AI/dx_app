@@ -1,11 +1,20 @@
 #pragma once
 #include <sys/stat.h>
 #include <stdio.h>
-#include <dirent.h>
 #include <string>
 #include <iostream>
 #include <fstream>
 #include <vector>
+#if _WIN32
+#include <Windows.h>
+#include <io.h>
+#include <cstdio>
+#include <thread>
+#define fsync _commit
+#define popen _popen
+#define pclose _pclose
+#define fileno _fileno
+#endif
 
 namespace dxapp
 {
@@ -101,7 +110,11 @@ namespace common
     inline std::string getAllPath(const std::string &path)
     {
         if(path[0]=='\\')return path;
-        char* temp = realpath(path.c_str(),NULL);
+#ifdef __linux__
+        char* temp = realpath(path.c_str(), NULL);
+#elif _WIN32
+        char* temp = _fullpath(NULL, path.c_str(), _MAX_PATH);
+#endif
         if (temp == nullptr)
         {
             return "";
@@ -113,13 +126,13 @@ namespace common
 
     inline bool dirValidation(const std::string &path)
     {
+#ifdef __linux__
         struct stat sb;
-        stat(path.c_str(), &sb);
-        if (S_ISDIR(sb.st_mode))
-        {
-            return true;
-        }
-        return false;
+        return (stat(path.c_str(), &sb) == 0) && (sb.st_mode & S_IFDIR);
+#elif _WIN32
+        DWORD attr = GetFileAttributes(path.c_str());
+        return (attr != INVALID_FILE_ATTRIBUTES && (attr & FILE_ATTRIBUTE_DIRECTORY));
+#endif
     }
 
     inline std::string getFileName(const std::string &path)
@@ -129,9 +142,13 @@ namespace common
 
     inline std::vector<std::string> loadFilesFromDir(const std::string &path)
     {
+        std::vector<std::string> result;
+        if(!pathValidation(path))
+            return result;
+        
+#ifdef __linux__
         DIR *dirIter = nullptr;
         struct dirent *entry = nullptr;
-        std::vector<std::string> result;
         if(pathValidation(path))
         {
             dirIter = opendir(path.c_str());
@@ -145,6 +162,21 @@ namespace common
             }
         }
         closedir(dirIter);
+#elif _WIN32
+        std::string searchPath = path + "\\*";
+        WIN32_FIND_DATA findData;
+        HANDLE hFind = FindFirstFile(searchPath.c_str(), &findData);
+
+        if (hFind != INVALID_HANDLE_VALUE) {
+            do {
+                std::string fileName = findData.cFileName;
+                if (fileName != "." && fileName != "..") {
+                    result.emplace_back(fileName);
+                }
+            } while (FindNextFile(hFind, &findData) != 0);
+            FindClose(hFind);
+        }
+#endif
         return result;
     }
     
@@ -236,7 +268,22 @@ namespace common
         }
         return temperature_result;
     }
-    
+
+    inline std::string getLocalTimeString()
+    {
+        std::time_t now = std::time(nullptr);
+        std::tm local{};
+
+#ifdef __linux__
+        localtime_r(&now, &local);
+#elif _WIN32
+        localtime_s(&local, &now);
+#endif
+        std::ostringstream oss;
+        oss << std::put_time(&local, "%Y-%m-%d_%H-%M-%S");
+        return oss.str();
+    }
+
     inline void logThreadFunction(void *args)
     {
         std::vector<std::string> log_messages;
@@ -244,10 +291,13 @@ namespace common
         std::mutex cliCommandLock;
         {
             std::unique_lock<std::mutex> _uniqueLock(cliCommandLock);
-            sl->statusCheckCV.wait(_uniqueLock, [&](){return sl->threadStatus.load() == 1;});
+            sl->statusCheckCV.wait(_uniqueLock, [&](){return sl->threadStatus.load() > 0;});
         }
-        std::ofstream file("device_status.log");
-        while(sl->threadStatus.load() > 0)
+        if(sl->threadStatus.load() == 1)
+            return;
+        std::string fileName = std::string("device_status.") + getLocalTimeString() + ".log";
+        std::fstream logFile(fileName, std::ios::app | std::ios::in | std::ios::out);
+        while(sl->threadStatus.load() == 2)
         {
             auto ret = dxapp::common::checkNpuTemperature();
             {
@@ -264,16 +314,14 @@ namespace common
                     log_message += s + ", ";
                 }
                 std::cout << log_result << std::endl;
-                log_messages.emplace_back(log_message);
+                logFile << log_message << std::endl;
+                logFile.flush();
+                int fd = fileno(stdout);
+                if (fd != -1) fsync(fd);
             }
         }
-        std::cout << "Save Logging messages ... " << std::endl;
-        for(const auto& log:log_messages)
-        {
-            file << log <<std::endl;
-        }
-        file.close();
-        std::cout << "Logs saved to device_status.log" << std::endl;
+        logFile.close();
+        std::cout << "Logs saved to " << fileName << std::endl;
         std::cout << "logging stopped" << std::endl;
     }
 
@@ -294,8 +342,11 @@ namespace common
             if (s1.good()) s1 >> dot; 
             if (s2.good()) s2 >> dot;
         }
-
+#ifdef __linux__
         return false;
+#elif _WIN32
+        return true;
+#endif
     }
 
 } // namespace common

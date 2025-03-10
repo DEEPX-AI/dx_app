@@ -142,6 +142,7 @@ namespace common
             os << "obj info : " << a._classId << " : " << a._bbox ;
             return os;
         };
+        Object() = default;
         Object(const Object& other) = default;
         Object& operator=(const Object& other) = default;
     };
