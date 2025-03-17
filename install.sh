@@ -37,7 +37,7 @@ function install_dep()
             echo "Failed to apt update."
             exit 1
         fi
-        sudo apt-get update && apt-get -y install build-essential make zlib1g-dev libcurl4-openssl-dev wget tar zip cmake
+        sudo apt-get update && sudo apt-get -y install build-essential make zlib1g-dev libcurl4-openssl-dev wget tar zip cmake
         echo ""
         echo " Install python libraries" 
         sudo apt-get -y install python3-dev python3-setuptools python3-pip python3-tk python3-lxml python3-six

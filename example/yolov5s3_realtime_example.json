@@ -169,7 +169,7 @@
     },
     "application": {
         "description": "result of post-processing after inference, you can use \"save\" or \"realtime\" or \"none\"",
-        "type": "realtime",
+        "type": "none",
         "resolution": [
             960,
             540

@@ -29,30 +29,30 @@ jobs:
     outputs:
       MERGED_CLOSED: ${{ steps.set.outputs.MERGED_CLOSED }}
 
-  get_current_version:
-    name: Get current version before bump version
+  get_version_before_bump:
+    name: Get version before bump
     needs: check_pr_merged_closed
     runs-on: self-hosted
     if: needs.check_pr_merged_closed.outputs.MERGED_CLOSED == 'true'
     steps:
-      - name: Checkout PR branch
+      - name: Checkout dev branch
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GH_DCI_TOKEN }}
-          repository: ${{ github.event.pull_request.head.repo.full_name }}
-          ref: ${{ github.event.pull_request.head.ref }}
+          repository: ${{ github.repository }}
+          ref: ${{ github.event.pull_request.base.ref }}
           fetch-depth: 0
           fetch-tags: true
 
-      - name: Get current version
+      - name: Get version before bump
         id: set
         run: |
-          echo "Get current version of PR branch..."
-          CURRENT_VERSION=$(grep 'current_version =' .bumpversion.cfg | cut -d ' ' -f 3)
-          echo "CURRENT_VERSION=${CURRENT_VERSION}"
-          echo "CURRENT_VERSION=${CURRENT_VERSION}" >> $GITHUB_OUTPUT
+          echo "Get version before bump..."
+          VERSION_BEFORE_BUMP=$(grep 'current_version =' .bumpversion.cfg | cut -d ' ' -f 3)
+          echo "VERSION_BEFORE_BUMP=${VERSION_BEFORE_BUMP}"
+          echo "VERSION_BEFORE_BUMP=${VERSION_BEFORE_BUMP}" >> $GITHUB_OUTPUT
     outputs:
-      CURRENT_VERSION: ${{ steps.set.outputs.CURRENT_VERSION }}
+      VERSION_BEFORE_BUMP: ${{ steps.set.outputs.VERSION_BEFORE_BUMP }}
 
   dispatch_bump_version:
     name: pr merge close to dev dispatch bump-version-dev.yml action
@@ -67,21 +67,6 @@ jobs:
           token: ${{ secrets.GH_DCI_TOKEN }}
           ref: dev
 
-      - name: Get dispatched bump-version-dev's workflow id
-        run: |
-          while true; do
-            WORKFLOW_ID=$(curl -s -H "Authorization: token ${{ secrets.GH_DCI_TOKEN }}" \
-              "https://gh.deepx.ai/api/v3/repos/${{ github.repository }}/actions/workflows/bump-version-dev.yml/runs?branch=dev&STATUS=in_progress" | jq -r '.workflow_runs[0].id')
-            
-            if [[ -n "$WORKFLOW_ID" ]]; then
-              echo "WORKFLOW_ID fetch success"
-              echo "WORKFLOW_ID=$WORKFLOW_ID" >> $GITHUB_ENV
-              break
-            fi
-
-            sleep 5
-          done
-
       - name: Wait for bump-version-dev to complete
         run: sleep 60s
         shell: bash
@@ -89,23 +74,21 @@ jobs:
       - name: Check if bump-version-dev done alright
         id: dispatch_action
         run: |
-          STATUS=$(curl -s -H "Authorization: token ${{ secrets.GH_DCI_TOKEN }}" \
-            "https://gh.deepx.ai/api/v3/repos/${{ github.repository}}/actions/runs/${{ env.WORKFLOW_ID }}" | jq -r '.status')
+          RUN_INFO=$(curl -s -H "Authorization: token ${{ secrets.GH_DCI_TOKEN }}" \
+            "https://gh.deepx.ai/api/v3/repos/${{ github.repository }}/actions/workflows/bump-version-dev.yml/runs?branch=dev" | jq -r '.workflow_runs | sort_by(.created_at) | reverse | .[0]')
 
-          CONCLUSION=$(curl -s -H "Authorization: token ${{ secrets.GH_DCI_TOKEN }}" \
-            "https://gh.deepx.ai/api/v3/repos/${{ github.repository}}/actions/runs/${{ env.WORKFLOW_ID }}" | jq -r '.conclusion')
+          STATUS=$(echo "$RUN_INFO" | jq -r '.status')
+          CONCLUSION=$(echo "$RUN_INFO" | jq -r '.conclusion')
 
-          echo "Current Status: $STATUS (Conclusion: $CONCLUSION)"
+          echo "Final Status: $STATUS (Conclusion: $CONCLUSION)"
 
-          BUMP_VERSION_ACTION_DONE='false'
-          if [[ "$STATUS" == "completed" ]]; then
-            if [[ "$CONCLUSION" == "success" ]]; then
-              echo "✅ bump-version-dev completed successfully."
-              BUMP_VERSION_ACTION_DONE='true'
-            fi
+          if [[ "$CONCLUSION" == "success" ]]; then
+            echo "✅ bump-version-dev completed successfully."
+            echo "BUMP_VERSION_ACTION_DONE=true" >> $GITHUB_OUTPUT
+          else
+            echo "❌ bump-version-dev failed."
+            echo "BUMP_VERSION_ACTION_DONE=false" >> $GITHUB_OUTPUT
           fi
-
-          echo "BUMP_VERSION_ACTION_DONE=$BUMP_VERSION_ACTION_DONE" >> $GITHUB_OUTPUT
     outputs:
       BUMP_VERSION_ACTION_DONE: ${{ steps.dispatch_action.outputs.BUMP_VERSION_ACTION_DONE }}
 
@@ -216,7 +199,7 @@ jobs:
       [
         fetch_release_notes_section,
         check_release_notes_need_change,
-        get_current_version,
+        get_version_before_bump,
         dispatch_bump_version,
       ]
     if: |
@@ -226,7 +209,7 @@ jobs:
     env:
       RELEASE_NOTES_SECTION_WITH_JIRA_NUM: ${{ needs.fetch_release_notes_section.outputs.RELEASE_NOTES_SECTION_WITH_JIRA_NUM }}
       RELEASE_NOTES_SECTION: ${{ needs.fetch_release_notes_section.outputs.RELEASE_NOTES_SECTION }}
-      CURRENT_VERSION: ${{ needs.get_current_version.outputs.CURRENT_VERSION }}
+      VERSION_BEFORE_BUMP: ${{ needs.get_version_before_bump.outputs.VERSION_BEFORE_BUMP }}
     steps:
       - name: Checkout dev branch
         uses: actions/checkout@v4
@@ -247,12 +230,19 @@ jobs:
       - name: Compare current version and dev version
         id: versions
         run: |
-          if [[ "${{ steps.set.outputs.DEV_VERSION }}" != "${{ env.CURRENT_VERSION}}" ]]; then
-            echo "CURRENT_VERSION and DEV_VERSION are not the same, Bump version occurred."
+          if [[ "${{ steps.set.outputs.DEV_VERSION }}" != "${{ env.VERSION_BEFORE_BUMP}}" ]]; then
+            echo "VERSION_BEFORE_BUMP and DEV_VERSION are not the same, Bump version occurred."
             echo "BUMP_VERSION=true" >> $GITHUB_OUTPUT
           else
-            echo "CURRENT_VERSION and DEV_VERSION are the same, Bump versino didn't occur."
+            echo "VERSION_BEFORE_BUMP and DEV_VERSION are the same, Bump version didn't occur."
             echo "BUMP_VERSION=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: if RELEASE_NOTES_WITH_JIRA_NUM.md doesn't exist then make one
+        run: |
+          if [[ ! -f RELEASE_NOTES_WITH_JIRA_NUM.md && -f RELEASE_NOTES.md ]]; then
+            cp RELEASE_NOTES.md RELEASE_NOTES_WITH_JIRA_NUM.md
+            echo "Created RELEASE_NOTES_WITH_JIRA_NUM.md from RELEASE_NOTES.md"
           fi
 
       - name: if Bump version, then add new version draft
@@ -271,13 +261,15 @@ jobs:
 
           if [[ -n "$FIRST_BODY_LINE" ]]; then
             TAIL_CONTENT=$(tail -n +$FIRST_BODY_LINE RELEASE_NOTES.md)
+            TAIL_CONTENT_WITH_JIRA_NUM=$(tail -n +$FIRST_BODY_LINE RELEASE_NOTES_WITH_JIRA_NUM.md)
           else
             TAIL_CONTENT=""
+            TAIL_CONTENT_WITH_JIRA_NUM=""
           fi
 
           # Write new RELEASE_NOTES_WITH_JIRA_NUM.md
-          echo -e "$HEADER\n$NEW_VERSION_HEADER\n${{ env.RELEASE_NOTES_SECTION_WITH_JIRA_NUM }}\n$TAIL_CONTENT"
-          echo -e "$HEADER\n$NEW_VERSION_HEADER\n${{ env.RELEASE_NOTES_SECTION_WITH_JIRA_NUM }}\n\n$TAIL_CONTENT" > RELEASE_NOTES_WITH_JIRA_NUM.md
+          echo -e "$HEADER\n$NEW_VERSION_HEADER\n${{ env.RELEASE_NOTES_SECTION_WITH_JIRA_NUM }}\n$TAIL_CONTENT_WITH_JIRA_NUM"
+          echo -e "$HEADER\n$NEW_VERSION_HEADER\n${{ env.RELEASE_NOTES_SECTION_WITH_JIRA_NUM }}\n\n$TAIL_CONTENT_WITH_JIRA_NUM" > RELEASE_NOTES_WITH_JIRA_NUM.md
 
           # Write new RELEASE_NOTES.md
           echo -e "$HEADER\n$NEW_VERSION_HEADER\n${{ env.RELEASE_NOTES_SECTION}}\n$TAIL_CONTENT"
@@ -384,4 +376,7 @@ jobs:
           git add RELEASE_NOTES_WITH_JIRA_NUM.md
           git commit -m "docs: update RELEASE_NOTES.md"
           git push origin dev
+          git tag -d v${{ steps.set.outputs.DEV_VERSION }}
+          git tag v${{ steps.set.outputs.DEV_VERSION }}
+          git push origin v${{ steps.set.outputs.DEV_VERSION }} --force
           echo "✅ RELEASE_NOTES.md Change pushed to dev."

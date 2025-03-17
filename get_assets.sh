@@ -60,5 +60,5 @@ if [ -d "assets/videos" ]; then
     exit 0
 else
     mkdir -p assets/videos
-    cp -a -n /mnt/regression_storage/lyj/videos/* ./assets/videos/
+    cp -dR /mnt/regression_storage/lyj/videos/* ./assets/videos/
 fi
