@@ -2,7 +2,7 @@
     "description":"run yolo detector",
     "usage":"detection",
     "model":{
-        "path":"/your-yolov4-model-path/graph.dxnn",
+        "path":"./assets/models/YOLOV4_3.dxnn",
         "param":{
             "name":"yolov4-512",
             "score_threshold":0.3,
@@ -37,13 +37,13 @@
             "need_im2col":false,
             "sources":[
                 {
-                    "type":"image", "path":"/your-sample-image-path/1.jpg"
+                    "type":"image", "path":"sample/1.jpg"
                 },
                 {
-                    "type":"video", "path":"/your-sample-video-path/1.mp4"
+                    "type":"video", "path":"assets/videos/dogs.mp4"
                 },
                 {
-                    "type":"video", "path":"/your-sample-video-path/1.mp4", "frames":100
+                    "type":"video", "path":"assets/videos/boat.mp4", "frames":100
                 },
                 {
                     "type":"camera", "path":"/dev/video0"

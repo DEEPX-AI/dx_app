@@ -38,12 +38,15 @@ jobs:
                   message: '${{ github.event.head_commit.message }}'
 
             - name: Get to tag
-              run: echo "TO_TAG=$(git tag --sort=-v:refname | sed -n '1p')" >> $GITHUB_ENV
+              run: echo "TO_TAG=${{ github.event.head_commit.message }}" >> $GITHUB_ENV
+            - name: make latest_release.md
+              run: awk '/^## v/{if (found) exit; found=1} found' RELEASE_NOTES.md > latest_release.md
     
             - name: Create release
               uses: ncipollo/release-action@v1
               with:
                 tag: ${{ env.TO_TAG }}
-                generateReleaseNotes : true
-                allowUpdates: true
+                allowUpdates: false
                 makeLatest: true
+                draft: true
+                bodyfile: latest_release.md

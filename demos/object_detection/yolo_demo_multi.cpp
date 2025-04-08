@@ -259,6 +259,7 @@ int main(int argc, char *argv[])
     float fps = 0.f; double frameCount = 0.0;
     bool loggingVersion = false;
     char mainCaption[100];
+    char subCaption[100];
 
     AppConfig appConfig;
 
@@ -479,9 +480,12 @@ int main(int argc, char *argv[])
         float resultFps = round(fps * 100) / 100;
         if(appConfig.is_show_fps)
         {
-            cv::rectangle(outFrame, Point(BOARD_WIDTH - 900, 0), Point(BOARD_WIDTH, 40), Scalar(120, 120, 120), cv::FILLED);
-            snprintf(mainCaption, sizeof(mainCaption), "  Real time Processing... / %s, %.2f FPS ", appConfig.model_name.c_str(), resultFps);
-            cv::putText(outFrame, mainCaption, Point(BOARD_WIDTH - 900, 25), 0, 1, cv::Scalar(0, 210, 210), 2, LINE_AA);
+            cv::rectangle(outFrame, Point(0, 0), Point(500, 50), Scalar(0, 0, 255), cv::FILLED);
+            snprintf(mainCaption, sizeof(mainCaption), " %dch Real-time Processing ",(int)apps.size());
+            cv::putText(outFrame, mainCaption, Point(0, 35), cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(255, 255, 255), 2, LINE_AA);
+            cv::rectangle(outFrame, Point(500, 0), Point(BOARD_WIDTH, 50), Scalar(0, 0, 0), cv::FILLED);
+            snprintf(subCaption, sizeof(subCaption), "        AI Model : %s        AI Performance : %.2f FPS ", appConfig.model_name.c_str(), resultFps);
+            cv::putText(outFrame, subCaption, Point(500, 35), cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(255, 255, 255), 2, LINE_AA);
         }
         auto end = std::chrono::high_resolution_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count();

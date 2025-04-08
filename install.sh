@@ -8,7 +8,8 @@ target_arch=$(uname -m)
 install_opencv=false  
 install_dep=false  
 opencv_source_build=false  
-build_type='Release'  
+build_type='Release'
+export DEBIAN_FRONTEND=noninteractive
 
 function help()
 {
@@ -40,7 +41,37 @@ function install_dep()
         sudo apt-get update && sudo apt-get -y install build-essential make zlib1g-dev libcurl4-openssl-dev wget tar zip cmake
         echo ""
         echo " Install python libraries" 
-        sudo apt-get -y install python3-dev python3-setuptools python3-pip python3-tk python3-lxml python3-six
+        sudo apt-get -y install python3-dev python3-setuptools python3-pip python3-tk python3-lxml python3-six python3-venv lsb-release
+
+        echo " Install pipx" && \
+        PYTHON_PATH=$(which python)
+        echo "VIRTUAL_ENV($VIRTUAL_ENV)" && \
+        echo "CONDA_DEFAULT_ENV($CONDA_DEFAULT_ENV)" && \
+        echo "PYTHON_PATH($PYTHON_PATH)" && \
+        if [[ -n "$VIRTUAL_ENV" || "$PYTHON_PATH" == */conda/* ]]; then \
+            echo "Virtual environment or Conda detected" && \
+            python3 -m pip install pipx && \
+            python3 -m pipx ensurepath && \
+            python3 -m pipx install pybind11 && \
+            python3 -m pipx run pybind11 --cmakedir; \
+        else \
+            UBUNTU_VERSION=$(lsb_release -rs) && \
+            echo "*** UBUNTU_VERSION(${UBUNTU_VERSION}) ***" && \
+            if [ "$UBUNTU_VERSION" = "18.04" ]; then \
+                python3 -m pip install pipx && \
+                python3 -m pipx ensurepath && \
+                python3 -m pipx install pybind11 && \
+                python3 -m pipx run pybind11 --cmakedir; \
+            elif [ "$UBUNTU_VERSION" = "24.04" ] || [ "$UBUNTU_VERSION" = "22.04" ] || [ "$UBUNTU_VERSION" = "20.04" ]; then \
+                sudo apt-get install -y pipx && \
+                pipx install pybind11 && \
+                pipx ensurepath --force && \
+                pipx run pybind11 --cmakedir; \
+            else \
+                echo "Unspported Ubuntu version: $UBUNTU_VERSION" && exit 1; \
+            fi \
+        fi
+
         cmake_version=$(cmake --version |grep -oP "\d+\.\d+\.\d+")
         if compare_version "$cmake_version" "$cmake_version_required"; then
             install_cmake=false
@@ -98,13 +129,17 @@ function install_opencv()
         echo " Install opencv dependent library "
         sudo apt -y install libjpeg-dev libtiff5-dev ffmpeg \
              libavcodec-dev libavformat-dev libswscale-dev libxvidcore-dev libavutil-dev \
-             libtbb-dev libeigen3-dev libx264-dev libv4l-dev v4l-utils libgstreamer1.0-dev \
-             libgstreamer-plugins-base1.0-dev libgtk2.0-dev libfreetype-dev
-
-        if [ $? -ne 0 ]; then
-            sudo apt-get clean && sudo apt update && sudo apt-get -y upgrade
-            sudo apt -y install libgstreamer-plugins-base1.0-dev
+             libtbb-dev libeigen3-dev libx264-dev libv4l-dev v4l-utils
+        
+        if apt-cache show libfreetype-dev > /dev/null 2>&1; then
+            sudo apt-get install -y libfreetype-dev
         fi
+
+        sudo apt-get clean && sudo apt update && sudo apt-get -y upgrade
+        sudo apt -y install libgstreamer-plugins-base1.0-dev libgstreamer1.0-dev 
+
+        sudo apt-get clean && sudo apt update && sudo apt-get -y upgrade 
+        sudo apt-get -y install libgtk2.0-dev
 
         if [ -z $manually_opencv_install ]; then 
             sudo apt -y --reinstall install libopencv-dev python3-opencv

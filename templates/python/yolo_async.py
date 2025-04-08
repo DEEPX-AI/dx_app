@@ -357,7 +357,7 @@ def run_example(config):
 if __name__ == "__main__":
     
     parser = argparse.ArgumentParser()
-    parser.add_argument('--config', default='./example/yolov8_example.json', type=str, help='yolo object detection json config path')
+    parser.add_argument('--config', default='./example/yolov8n_example.json', type=str, help='yolo object detection json config path')
     parser.add_argument('--callback', action='store_true', dest='callback_mode', help='application runasync type for callback function')
     parser.add_argument('--wait', action='store_false', dest='callback_mode', help='application runasync type for wait function')
     args = parser.parse_args()

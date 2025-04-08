@@ -2,7 +2,7 @@
     "description": "run yolo detector",
     "usage": "detection",
     "model": {
-        "path": "./example/YOLOV5S_3/YOLOV5S_3.dxnn",
+        "path": "./assets/models/YOLOV5S_3.dxnn",
         "param": {
             "name": "YOLOV5S_3",
             "score_threshold": 0.3,

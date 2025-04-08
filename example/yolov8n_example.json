@@ -2,7 +2,7 @@
   "description": "run yolo detector",
   "usage": "detection",
   "model": {
-    "path": "./example/YoloV8N/YoloV8N.dxnn",
+    "path": "./assets/models/YoloV8N.dxnn",
     "param": {
       "name": "YoloV8N",
       "score_threshold": 0.3,
@@ -14,44 +14,20 @@
         {
           "name": "2",
           "stride": 8,
-          "anchor_width": [
-            10,
-            16,
-            33
-          ],
-          "anchor_height": [
-            13,
-            30,
-            23
-          ]
+          "anchor_width": [],
+          "anchor_height": []
         },
         {
           "name": "1",
           "stride": 16,
-          "anchor_width": [
-            30,
-            62,
-            59
-          ],
-          "anchor_height": [
-            61,
-            45,
-            119
-          ]
+          "anchor_width": [],
+          "anchor_height": []
         },
         {
           "name": "0",
           "stride": 32,
-          "anchor_width": [
-            116,
-            156,
-            373
-          ],
-          "anchor_height": [
-            90,
-            198,
-            326
-          ]
+          "anchor_width": [],
+          "anchor_height": []
         }
       ]
     }
@@ -153,7 +129,7 @@
   },
   "application": {
     "description": "result of post-processing after inference, you can use \"save\" or \"realtime\" or \"none\"",
-    "type": "save",
+    "type": "realtime",
     "resolution": [
       960,
       540

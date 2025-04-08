@@ -2,7 +2,7 @@
     "description": "run classification application ",
     "usage": "classification",
     "model": {
-        "path": "example/EfficientNetB0_4/EfficientNetB0_4.dxnn"
+        "path": "./assets/models/EfficientNetB0_4.dxnn"
     },
     "input": {
         "description": "input_format = image or bin",

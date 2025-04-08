@@ -10,6 +10,7 @@
 #include "common/objects.hpp"
 #include "utils/box_decode.hpp"
 #include "utils/nms.hpp"
+#include "utils/common_util.hpp"
 
 namespace dxapp
 {
@@ -189,9 +190,9 @@ namespace yolo
             _result._detections.clear();
             _result._num_of_detections = 0;
 
-            if(_params._ppu_format > 0) // shape : [124, ], numBoxes = 124
+            if(_params._ppu_format > 0) // shape : [1, 124, ], numBoxes = 124
                 getBoxesFromPPUOutputs(output_data, data_length, _params._ppu_format);
-            else if(_params._outputShape.size() == 1) // ONNX outputs shape : [1, 16384, 85], numBoxes = 16384
+            else if(_params._outputShape.size() == 1 || dxapp::common::checkOrtLinking()) // ONNX outputs shape : [1, 16384, 85], numBoxes = 16384
                 getBoxesFromONNXOutputs(output_data, data_length); 
             else if(_params._decode_method==Decode::YOLOX) // anchor free detector
                 getBoxesFromYoloXFormat(output_data, _yoloxLocationIdx, _yoloxBoxScoreIdx, _yoloxClassScoreIdx);
@@ -202,7 +203,7 @@ namespace yolo
             else if(_params._decode_method==Decode::YOLOV8)
                 getBoxesFromYoloV8Format(output_data);
             else if(_params._decode_method==Decode::YOLOV9)
-                getBoxesFromONNXOutputs(output_data, data_length);
+                getBoxesFromYoloV9Format(output_data);
             else if(_params._decode_method==Decode::CUSTOM_DECODE)
                 getBoxesFromCustomPostProcessing(output_data);
             else
@@ -774,10 +775,107 @@ namespace yolo
 
         void getBoxesFromYoloV8Format(uint8_t* outputs)
         {
-            
+            /**
+             * @note Ultralytics models, which make yolov8/v5/v7 has same post processing methods
+             *      https://github.com/ultralytics/ultralytics/blob/main/examples/YOLOv8-ONNXRuntime-CPP/inference.cpp
+             * 
+             * yolov8n.dxnn output shapes are follow.
+             *   Task[0] npu_0, NPU, 31902720bytes (input 1228800, output 6451200)
+             *      inputs
+             *      images, UINT8, [1, 640, 640, 3 ], 0
+             *      outputs
+             *      onnx::Reshape_583, FLOAT, [1, 4, 8400, 16 ], 0
+             *      onnx::Concat_617, FLOAT, [1, 8400, 1, 128 ], 0
+             */
+
+
+            int64_t first_layer_size = 1;
+            for(auto &v:_params._outputShape.front())
+            {
+                first_layer_size *= v;
+            }
+
+            int boxIdx = 0;
+            float rawThreshold = _params._score_threshold;
+            float score;
+            float* output_per_layer01 = (float*)outputs;
+            float* output_per_layer02 = output_per_layer01 + first_layer_size;
+            auto strideNum = _params._outputShape.front()[2]; // 8400
+            auto pitchSize = _params._outputShape.front()[3]; // 16
+            auto scorePitchSize = _params._outputShape.back()[2]; // 128
+            int index = -1;
+            for(int i=0;i<(int)_params._layers.size();i++)
+            {
+                auto layer = _params._layers[i];
+                float scale = layer.scale;
+                int stride = layer.stride;
+                int numGridX = _params._input_shape[1] / layer.stride;
+                int numGridY = _params._input_shape[1] / layer.stride;
+                for(int gY=0; gY<numGridY; gY++)
+                {
+                    for(int gX=0; gX<numGridX; gX++)
+                    {
+                        index++;
+                        int max_cls = -1;
+                        float max_score = _params._score_threshold;
+                        for(int cls=0;cls<_params._numOfClasses;cls++)
+                        {
+                            score = *(float*)(output_per_layer02 + (128 * index) + cls);
+                            if(score > max_score)
+                            {
+                                max_cls = cls;
+                                max_score = score;
+                            }
+                        }
+                        if(max_cls > -1)
+                        {
+                            _scoreIndices[max_cls].emplace_back(max_score, boxIdx);
+                            std::vector<float> data(4);
+                            float _605output01 = *(float*)(output_per_layer01 + (strideNum * 0 + index) * pitchSize);
+                            float _605output02 = *(float*)(output_per_layer01 + (strideNum * 1 + index) * pitchSize);
+                            float _608output01 = *(float*)(output_per_layer01 + (strideNum * 2 + index) * pitchSize);
+                            float _608output02 = *(float*)(output_per_layer01 + (strideNum * 3 + index) * pitchSize);
+
+                            float _605output01_s = (_605output01 * (-1) + (0.5f + gX));
+                            float _605output02_s = (_605output02 * (-1) + (0.5f + gY));
+                            float _608output01_s = (_608output01 + (0.5f + gX));
+                            float _608output02_s = (_608output02 + (0.5f + gY));
+
+                            _605output01 = _608output01_s - _605output01_s;
+                            _605output02 = _608output02_s - _605output02_s;
+                            _608output01 = (_608output01_s + _605output01_s) * 0.5; // 613
+                            _608output02 = (_608output02_s + _605output02_s) * 0.5; // 613
+
+                            data[0] = _608output01 * stride;
+                            data[1] = _608output02 * stride;
+                            data[2] = _605output01 * stride;
+                            data[3] = _605output02 * stride;
+                            dxapp::common::BBox temp {
+                                data[0] - data[2]/2.f,
+                                data[1] - data[3]/2.f,
+                                data[0] + data[2]/2.f,
+                                data[1] + data[3]/2.f,
+                                data[2],
+                                data[3],
+                                {dxapp::common::Point_f(-1, -1, -1)}
+                            };
+                            _rawBoxes.emplace_back(temp);
+                            boxIdx++;
+                        }
+                    }
+                }
+            }
+            for(auto &indices:_scoreIndices)
+            {
+                sort(indices.begin(), indices.end(), scoreComapre);
+            }
+
+        };
+
+        void getBoxesFromYoloV9Format(uint8_t* outputs)
+        {
             std::cout << "[ERR:dx-app] not supported yolov8 all decode function." << std::endl;
             std::cout << "[ERR:dx-app] please using \"USE_ORT=ON\" option in dx_rt." << std::endl;
-
         };
         
         void getBoxesFromCustomPostProcessing(uint8_t* outputs /* Users can add necessary parameters manually. */)

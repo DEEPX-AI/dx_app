@@ -1,5 +1,45 @@
 # RELEASE_NOTES
 
+## v1.7.2 / 2025-04-03
+### 1. Changed
+- Reorganized each folder's README.md content using MkDocs.
+- Removed README.md files and created corresponding docs/ directories.
+- None
+### 2. Fixed
+- Support Ubuntu 24.04 environment for 'install.sh'
+### 3. Added
+- None
+
+## v1.7.1 / 2025-03-27
+### 1. Changed
+- None
+### 2. Fixed
+- Fixed post-processing bugs in DeepLabV3 Segmentation demo (demos/segmentation) and Classification demo (demos/classification) when USE_ORT=ON.
+### 3. Added
+- Added setup.bat to retrieve assets via S3 on Windows OS.
+
+## v1.7.0 / 2025-03-24
+### 1. Changed
+- Updated UI for the yolo_multi display window.
+- Download assets(model, video) from AWS S3
+- Change assets model path and rename reference JSON file.
+### 2. Fixed
+- Modify to enable GPU acceleration API (gstreamer vaapi) when using video files.
+- Fix bug in align dummy size calculation in the demos/classification/classification.cpp
+- Modify the installation path to ensure the dx_postprocess Python API works in both container and Windows environments.
+- None
+### 3. Added
+- Support post-processing for the provided YoloV8N with USE_ORT=OFF version.
+- None
+
+## v1.6.0 / 2025-03-19
+### 1. Changed
+- None
+### 2. Fixed
+- None
+### 3. Added
+- Support Intel GPU HW acceleration
+
 ## v1.5.0 / 2025-02-28
 ### 1. Changed
 - Refactored project for MSVC build compatibility

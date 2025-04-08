@@ -24,6 +24,20 @@ if (MSVC)
     endif()
 endif()
 
+# check vaapi
+execute_process(
+    COMMAND gst-inspect-1.0 vaapi
+    RESULT_VARIABLE GST_VAAPI_FOUND
+    OUTPUT_QUIET ERROR_QUIET
+)
+
+if(GST_VAAPI_FOUND EQUAL 0)
+    message(STATUS "Found vaapi: Defining USE_VAAPI")
+    add_definitions(-DUSE_VAAPI)
+else()
+    message(STATUS "vaapi not found")
+endif()
+
 set(CMAKE_CXX_STANDARD_REQUIRED "ON")
 
 if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
@@ -68,9 +82,12 @@ endif()
 if(MSVC)
     execute_process(
         COMMAND where python
-        OUTPUT_VARIABLE Python_EXECUTABLE 
+        OUTPUT_VARIABLE PYTHON_PATHS
         OUTPUT_STRIP_TRAILING_WHITESPACE
     )
+    string(REPLACE "\n" ";" PYTHON_PATH_LIST "${PYTHON_PATHS}")
+    list(GET PYTHON_PATH_LIST 0 Python_EXECUTABLE)
+    message(STATUS "Selected Python Executable : ${Python_EXECUTABLE}")
 else()
     execute_process(
         COMMAND which python
@@ -87,8 +104,10 @@ add_subdirectory(demos/classification)
 add_subdirectory(demos/pose_estimation)
 add_subdirectory(demos/object_det_and_seg)
 add_subdirectory(demos/segmentation)
+if(NOT MSVC)
 add_subdirectory(demos/face_recognition)
 add_subdirectory(demos/denoiser)
+endif()
 
 if(NOT CROSS_COMPILE)
     add_subdirectory(lib/pybind)

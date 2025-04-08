@@ -2,7 +2,7 @@
     "description":"run yolo detector",
     "usage":"detection",
     "model":{
-        "path":"/your-yolox-model-path/graph.dxnn",
+        "path":"./assets/models/YOLOX-S_1.dxnn",
         "param":{
             "name":"yoloxs",
             "score_threshold":0.25,
@@ -34,16 +34,24 @@
             "need_im2col":false,
             "sources":[
                 {
-                    "type":"image", "path":"/your-sample-image-path/1.jpg"
+                    "type": "image",
+                    "path": "./sample/1.jpg"
                 },
                 {
-                    "type":"video", "path":"/your-sample-video-path/1.mp4"
+                    "type": "image",
+                    "path": "./sample/2.jpg"
                 },
                 {
-                    "type":"video", "path":"/your-sample-video-path/1.mp4", "frames":100
+                    "type": "image",
+                    "path": "./sample/3.jpg"
                 },
                 {
-                    "type":"camera", "path":"/dev/video0"
+                    "type": "image",
+                    "path": "./sample/4.jpg"
+                },
+                {
+                    "type": "image",
+                    "path": "./sample/5.jpg"
                 }
             ]
     },

@@ -2,9 +2,9 @@
     "description":"run yolo detector",
     "usage":"yolo_pose",
     "model":{
-        "path":"/your-yolopose-model-path/graph.dxnn",
+        "path":"./assets/models/YOLOV5Pose640_1.dxnn",
         "param":{
-            "name":"your-yolopose-model-name",
+            "name":"yolo_post",
             "score_threshold":0.25,
             "iou_threshold":0.4,
             "last_activation":"sigmoid",

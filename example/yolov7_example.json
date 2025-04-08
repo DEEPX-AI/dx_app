@@ -2,7 +2,7 @@
     "description": "run yolo detector",
     "usage": "detection",
     "model": {
-        "path":"/your-yoloV7-model-path/graph.dxnn",
+        "path":"./assets/models/YoloV7.dxnn",
         "param": {
             "name": "YOLOv7",
             "score_threshold": 0.25,
