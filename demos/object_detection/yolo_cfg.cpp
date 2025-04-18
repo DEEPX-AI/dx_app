@@ -116,23 +116,6 @@ YoloParam yolov7_512 = {
     { "person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck", "boat", "trafficlight", "firehydrant", "stopsign", "parkingmeter", "bench", "bird", "cat", "dog", "horse", "sheep", "cow", "elephant", "bear", "zebra", "giraffe", "backpack", "umbrella", "handbag", "tie", "suitcase", "frisbee", "skis", "snowboard", "sportsball", "kite", "baseballbat", "baseballglove", "skateboard", "surfboard", "tennisracket", "bottle", "wineglass", "cup", "fork", "knife", "spoon", "bowl", "banana", "apple", "sandwich", "orange", "broccoli", "carrot", "hotdog", "pizza", "donut", "cake", "chair", "couch", "pottedplant", "bed", "diningtable", "toilet", "tv", "laptop", "mouse", "remote", "keyboard", "cellphone", "microwave", "oven", "toaster", "sink", "refrigerator", "book", "clock", "vase", "scissors", "teddybear", "hairdrier", "toothbrush"}
 };
 
-YoloParam yolov4_608 = {
-    608,  // height
-    608,  // width
-    0.25, // confThreshold
-    0.3,  // scoreThreshold
-    0.4,  // iouThreshold
-    -1,   // numBoxes
-    12,   // numClasses
-    {     // layers
-        createYoloLayerParam("", 76, 76, 3, { 12.0f, 19.0f, 40.0f }, { 16.0f, 36.0f, 28.0f }, { 0 }, 1.2f, 1.2f),
-        createYoloLayerParam("", 38, 38, 3, { 36.0f, 76.0f, 72.0f }, { 75.0f, 55.0f, 146.0f }, { 1 }, 1.1f, 1.1f),
-        createYoloLayerParam("", 19, 19, 3, { 142.0f, 192.0f, 459.0f }, { 110.0f, 243.0f, 401.0f }, { 2 }, 1.05f, 1.05f)
-    },
-    // classNames
-    {"0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11"}
-};
-
 YoloParam yolox_s_640 = {
     640,  // height
     640,  // width

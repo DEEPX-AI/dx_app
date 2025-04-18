@@ -37,7 +37,7 @@ def run_example(config):
         if source["type"] == "image":
             input_list.append(source["path"])
     if len(input_list) == 0:
-        input_list.append("example/ILSVRC2012/0.jpeg")
+        input_list.append("sample/ILSVRC2012/0.jpeg")
     
     ie = InferenceEngine(model_path)
     

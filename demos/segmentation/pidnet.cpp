@@ -106,15 +106,30 @@ void *PreProc(cv::Mat &src, cv::Mat &dest, bool keepRatio=true, bool bgr2rgb=tru
     return (void*)dest.data;
 }
 
-void Segmentation(float *input, uint8_t *output, int rows, int cols, SegmentationParam *cfg, int numClasses, int64_t pitch)
+void Segmentation(float *input, uint8_t *output, int rows, int cols, SegmentationParam *cfg, int numClasses, const std::vector<int64_t>& shape)
 {
+    bool need_transpose = shape[1] == numClasses? true : false;
+    int compare_max_idx, compare_channel_idx;
+    int pitch = shape[3];
     for(int h=0;h<rows;h++)
     {
         for(int w=0;w<cols;w++)
         {
             int maxIdx = 0;
-            for (int c=0;c<numClasses;c++){
-                if(input[(cols*h + w)*pitch + maxIdx] < input[(cols*h + w)*pitch + c]){
+            for (int c=0;c<numClasses;c++)
+            {
+                if(need_transpose)
+                {
+                    compare_max_idx = w + (cols * h) + (maxIdx * rows * cols);
+                    compare_channel_idx = w + (cols * h) + (c * rows * cols);
+                }
+                else
+                {
+                    compare_max_idx = maxIdx + ((cols * h) + w) * pitch;
+                    compare_channel_idx = c + ((cols * h) + w) * pitch;
+                }
+                if(input[compare_max_idx] < input[compare_channel_idx])
+                {
                     maxIdx = c;
                 }
             }
@@ -153,6 +168,8 @@ int main(int argc, char *argv[])
     options.add_options()
     ("m, model", "define dxnn model path", cxxopts::value<std::string>(modelPath))
     ("i, image", "use image file input", cxxopts::value<std::string>(imgFile))
+    ("width, input_widht", "input width size(default : 640)", cxxopts::value<int>(inputWidth)->default_value("640"))
+    ("height, input_height", "input height size(default : 640)", cxxopts::value<int>(inputHeight)->default_value("640"))
     ("v, video", "use video file input", cxxopts::value<std::string>(videoFile))
     ("c, camera", "use camera input", cxxopts::value<bool>(cameraInput)->default_value("false"))
     ("a, async", "asynchronous inference", cxxopts::value<bool>(asyncInference)->default_value("false"))
@@ -175,14 +192,9 @@ int main(int argc, char *argv[])
     if(dxapp::common::checkOrtLinking()) 
     {
         usingOrt = true;
-        std::cout<<"[NOTICE] This demo works correctly when USE_ORT is set to OFF."<<std::endl;
-        exit(-1);
     }
     bool is_argmax = ie.outputs().front().type() == dxrt::DataType::UINT16 ? true : false;
     
-    inputWidth = ie.inputs().front().shape()[2];
-    inputHeight = ie.inputs().front().shape()[1];
-
     auto& profiler = dxrt::Profiler::GetInstance();
     if(!imgFile.empty())
     {
@@ -194,13 +206,12 @@ int main(int argc, char *argv[])
         profiler.Start("main");
         auto outputs = ie.Run(resizedFrame.data);
         profiler.End("main");
-        LOG_VALUE(outputs.size());
         profiler.Start("post-segment");
         cv::Mat result = cv::Mat(inputHeight, inputWidth, CV_8UC3, cv::Scalar(0, 0, 0));
         if(is_argmax)
             Segmentation((uint16_t*)outputs[0]->data(), result.data, result.rows, result.cols, segCfg, NUM_CLASSES);
         else
-            Segmentation((float*)outputs[0]->data(), result.data, result.rows, result.cols, segCfg, NUM_CLASSES, outputs[0]->shape()[3]);
+            Segmentation((float*)outputs[0]->data(), result.data, result.rows, result.cols, segCfg, NUM_CLASSES, outputs[0]->shape());
         profiler.End("post-segment");
         profiler.Start("post-blend");
         cv::resize(result, result, Size(frame.cols, frame.rows), 0, 0, cv::INTER_LINEAR);
@@ -317,7 +328,7 @@ int main(int argc, char *argv[])
                         else
                         {
                             Segmentation((float*)output_buffers[current_idx].data(), result[current_idx].data,
-                                    result[current_idx].rows, result[current_idx].cols, segCfg, NUM_CLASSES, 32);
+                                    result[current_idx].rows, result[current_idx].cols, segCfg, NUM_CLASSES, ie.GetOutputs().front().shape());
                         }
                     }
                     else
@@ -330,7 +341,7 @@ int main(int argc, char *argv[])
                         else
                         {
                             Segmentation((float*)_outputs[0]->data(), result[current_idx].data,
-                                    result[current_idx].rows, result[current_idx].cols, segCfg, NUM_CLASSES, 32);
+                                    result[current_idx].rows, result[current_idx].cols, segCfg, NUM_CLASSES, ie.GetOutputs().front().shape());
                         }
                     }
                     lk.unlock();

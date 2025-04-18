@@ -44,7 +44,7 @@ using namespace cv;
 #endif
 
 // pre/post parameter table
-extern YoloParam yolov5s_320, yolov5s_512, yolov5s_640, yolox_s_512, yolov7_640, yolov7_512, yolov4_608, yolox_s_640;
+extern YoloParam yolov5s_320, yolov5s_512, yolov5s_640, yolox_s_512, yolov7_640, yolov7_512, yolox_s_640;
 YoloParam yoloParams[] = {
     yolov5s_320,
     yolov5s_512,
@@ -52,7 +52,6 @@ YoloParam yoloParams[] = {
     yolox_s_512,
     yolov7_640,
     yolov7_512,
-    yolov4_608,
     yolox_s_640,
 };
 

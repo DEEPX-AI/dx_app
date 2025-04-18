@@ -74,28 +74,31 @@ def ppu_decode(ie_outputs, layer_config, n_classes):
 def all_decode(ie_outputs, layer_config, n_classes):
     ''' slice outputs'''
     outputs = []
-    outputs.append(ie_outputs[0][...,:255])
-    outputs.append(ie_outputs[1][...,:255])
-    outputs.append(ie_outputs[2][...,:255])
+    outputs.append(ie_outputs[0][...,:(n_classes + 5)* len(layer_config[0]["anchor_width"])])
+    outputs.append(ie_outputs[1][...,:(n_classes + 5)* len(layer_config[0]["anchor_width"])])
+    outputs.append(ie_outputs[2][...,:(n_classes + 5)* len(layer_config[0]["anchor_width"])])
     
     decoded_tensor = []
     
     for i, output in enumerate(outputs):
-        output[...,4] = sigmoid(output[...,4]) # obj confidence
         for l in range(len(layer_config[i]["anchor_width"])):
+            start = l*(n_classes + 5)
+            end = start + n_classes + 5
+            
             layer = layer_config[i]
             stride = layer["stride"]
             grid_size = output.shape[2]
             meshgrid_x = np.arange(0, grid_size)
             meshgrid_y = np.arange(0, grid_size)
             grid = np.stack([np.meshgrid(meshgrid_y, meshgrid_x)], axis=-1)[...,0]
-            cxcy = output[...,l*(n_classes + 5)+0:l*(n_classes + 5)+2]
-            wh = output[...,l*(n_classes + 5)+2:l*(n_classes + 5)+4]
+            output[...,start+4:end] = sigmoid(output[...,start+4:end])
+            cxcy = output[...,start+0:start+2]
+            wh = output[...,start+2:start+4]
             cxcy[...,0] = (sigmoid(cxcy[...,0]) * 2 - 0.5 + grid[0]) * stride
             cxcy[...,1] = (sigmoid(cxcy[...,1]) * 2 - 0.5 + grid[1]) * stride
             wh[...,0] = ((sigmoid(wh[...,0]) * 2) ** 2) * layer["anchor_width"][l]
             wh[...,1] = ((sigmoid(wh[...,1]) * 2) ** 2) * layer["anchor_height"][l]
-            decoded_tensor.append(output[...,l*(n_classes + 5)+0:l*(n_classes + 5)+(n_classes + 5)].reshape(-1, n_classes + 5))
+            decoded_tensor.append(output[...,start+0:end].reshape(-1, n_classes + 5))
             
     decoded_output = np.concatenate(decoded_tensor, axis=0)
     

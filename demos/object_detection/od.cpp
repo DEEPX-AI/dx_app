@@ -150,9 +150,9 @@ void ObjectDetection::threadFunc(int period)
         cv::rectangle(member_temp, Point(0, 0), Point(230, 34), Scalar(0, 0, 0), cv::FILLED);
         cv::putText(member_temp, caption, Point(56, 21), 0, 0.7, cv::Scalar(255,255,255), 2, LINE_AA);
 #else
-        cv::rectangle(member_temp, Point(0, 0), Point(76, 34), Scalar(0, 0, 0), cv::FILLED); 
+        cv::rectangle(member_temp, Point(0, 0), Point(40, 20), Scalar(0, 0, 0), cv::FILLED);
 #endif
-        cv::putText(member_temp, " # " + to_string(_channel), Point(0, 21), 7, 0.7, cv::Scalar(255, 255, 255), 2, LINE_AA);
+        cv::putText(member_temp, to_string(_channel), Point(5, 15), cv::FONT_HERSHEY_SIMPLEX, 0.6, cv::Scalar(255, 255, 255), 1, LINE_AA);
             
         {
             unique_lock<mutex> lk(_frameLock);

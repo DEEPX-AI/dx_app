@@ -465,6 +465,11 @@ public:
             params._decode_method = dxapp::yolo::Decode::YOLOSCALE;
         else if(read=="yolo_pose")
             params._decode_method = dxapp::yolo::Decode::YOLO_POSE;
+        else if(read=="yolo_face")
+        {
+            params._decode_method = dxapp::yolo::Decode::YOLO_FACE;
+            params._kpt_count = modelParam["kpt_count"].GetInt();
+        }
         else if(read=="scrfd")
             params._decode_method = dxapp::yolo::Decode::SCRFD;
         else if(read=="yolov8")

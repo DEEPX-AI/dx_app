@@ -38,6 +38,9 @@ public:
     SrcMode _srcMode;
     cv::Mat _frame;
     cv::VideoCapture _video;
+
+    std::string _gstVideoPipeline;
+    std::string _gstCameraPipeline;
     std::vector<cv::Mat> _srcImg;
     std::vector<cv::Mat> _preImg;
 
@@ -110,7 +113,24 @@ public:
                     _srcMode = RUNTIME;
                 }
 
-                _video.open(_srcPath);            
+#ifdef USE_VAAPI
+                // _gstVideoPipeline = "filesrc location=" + _srcPath + " ! decodebin ! queue ! videoconvert ! appsink";
+                _gstVideoPipeline = "filesrc location=" + _srcPath + " ! \
+                                    queue leaky=no max-size-buffers=30 max-size-bytes=0 max-size-time=0 ! \
+                                    qtdemux ! vaapidecodebin !  \
+                                    queue leaky=no max-size-buffers=5 max-size-bytes=0 max-size-time=0 ! \
+                                    videoconvert qos=false ! videoscale method=0 add-borders=false qos=false ! \
+                                    video/x-raw,width=" + std::to_string(640) + ",height=" + std::to_string(360) + ",pixel-aspect-ratio=1/1 ! \
+                                    queue leaky=no max-size-buffers=30 max-size-bytes=0 max-size-time=0 ! \
+                                    appsink";
+
+                _video.open(_gstVideoPipeline, cv::CAP_GSTREAMER);
+                printf("=========================== \n");
+                std::cout << "video gstVidePipeline: " << _gstVideoPipeline << std::endl;
+                printf("=========================== \n");
+#else
+                _video.open(_srcPath);
+#endif
                 if(!_video.isOpened())
                 {
                     std::cout << "Error: file " << _srcPath << " could not be opened." <<std::endl;
@@ -128,7 +148,24 @@ public:
                 if (_srcPath.find("/") != std::string::npos)
                 {
 #ifdef __linux__
-                    _video.open(_srcPath, cv::CAP_V4L2);
+#ifdef USE_VAAPI
+                    // _gstVideoPipeline = "filesrc location=" + _srcPath + " ! decodebin ! queue ! videoconvert ! appsink";
+                    _gstVideoPipeline = "filesrc location=" + _srcPath + " ! \
+                                        queue leaky=no max-size-buffers=30 max-size-bytes=0 max-size-time=0 ! \
+                                        qtdemux ! vaapidecodebin !  \
+                                        queue leaky=no max-size-buffers=5 max-size-bytes=0 max-size-time=0 ! \
+                                        videoconvert qos=false ! videoscale method=0 add-borders=false qos=false ! \
+                                        video/x-raw,width=" + std::to_string(640) + ",height=" + std::to_string(360) + ",pixel-aspect-ratio=1/1 ! \
+                                        queue leaky=no max-size-buffers=30 max-size-bytes=0 max-size-time=0 ! \
+                                        appsink";
+
+                    _video.open(_gstVideoPipeline, cv::CAP_GSTREAMER);
+                    printf("=========================== \n");
+                    std::cout << "video gstVidePipeline: " << _gstVideoPipeline << std::endl;
+                    printf("=========================== \n");
+#else
+                    _video.open(_srcPath);
+#endif
 #elif _WIN32
                     std::cout << "Error: could not open " << _srcPath << ", open 0 camera instead " << _srcPath << std::endl;
                     _video.open(0);
@@ -137,7 +174,15 @@ public:
                 else
                 {
 #ifdef __linux__
+#ifdef USE_VAAPI
+                    _gstCameraPipeline = "v4l2src device=/dev/video0 ! videoconvert ! appsink";
+                    printf("=========================== \n");
+                    std::cout << "camera gstCameraPipeline: " << _gstCameraPipeline << std::endl;
+                    printf("=========================== \n");
+                    _video.open(_gstCameraPipeline, cv::CAP_GSTREAMER);
+#else
                     _video.open(stoi(_srcPath), cv::CAP_V4L2);
+#endif // USE_VAAPI
 #elif _WIN32
                     _video.open(stoi(_srcPath));
 #endif
@@ -295,12 +340,28 @@ public:
             
             case VIDEO:
                 _video >> _frame;
+#ifdef USE_VAAPI
+                if(_frame.size().width == 0)
+                {
+                    // reopen filesrc
+                    _video.open(_gstVideoPipeline, cv::CAP_GSTREAMER);
+
+                    if(!_video.isOpened())
+                    {
+                        std::cout << "Error: file " << _srcPath << " could not be opened." <<std::endl;
+                    }
+                    _video >> _frame;
+                    // black image set
+                    // _frame = cv::Mat(_srcSize._height, _srcSize._width, CV_8UC3, cv::Scalar(0, 0, 0));
+                }
+#else
                 _cur_frame = _video.get(cv::CAP_PROP_POS_FRAMES);
                 if ((_cur_frame > 0) && (_cur_frame >= _tot_frame - 1))
                 {
                     _video.set(cv::CAP_PROP_POS_FRAMES, 0);
                     _video >> _frame;
                 }      
+#endif // USE_VAAPI
             break;
 
             case CAMERA :

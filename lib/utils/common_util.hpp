@@ -10,6 +10,8 @@
 #include <io.h>
 #include <cstdio>
 #include <thread>
+#include <dxrt/dxrt_api.h>
+#include <dxrt/device_info_status.h>
 #define fsync _commit
 #define popen _popen
 #define pclose _pclose
@@ -189,6 +191,7 @@ namespace common
 
     inline bool checkOrtLinking()
     {
+#ifdef __linux__
         std::ostringstream command;
         command << "ldconfig -p | grep dxrt.so";
 
@@ -233,6 +236,9 @@ namespace common
         pclose(pipe);
 
         return !result.empty();
+#elif _WIN32
+        return ORT_OPTION_DEFAULT;
+#endif
     }
 
     inline std::vector<std::string> checkNpuTemperature()
@@ -299,20 +305,34 @@ namespace common
         std::fstream logFile(fileName, std::ios::app | std::ios::in | std::ios::out);
         while(sl->threadStatus.load() == 2)
         {
+#ifdef __linux__
             auto ret = dxapp::common::checkNpuTemperature();
+#elif _WIN32
+            auto status = dxrt::DeviceStatus::GetCurrentStatus(0);
+            auto devices = status.GetDeviceCount();
+#endif
             {
                 std::unique_lock<std::mutex> _uniqueLock(cliCommandLock);
                 std::string log_message = std::to_string(sl->frameNumber) + ", " +
                                           std::to_string(sl->runningTime) + ", ";
                 std::string log_result = 
-                             std::string("[Application Status] ") + 
-                             "Frame No. " + std::to_string(sl->frameNumber) + 
-                             ", running time " + std::to_string(sl->runningTime) + "ms, ";
-                for(auto &s:ret)
+                             std::string("[Application Status] ") + getLocalTimeString() +
+                            " Frame No. " + std::to_string(sl->frameNumber) + 
+                            ", running time " + std::to_string(sl->runningTime) + "ms, ";
+#ifdef __linux__
+                for (auto &s:ret)
                 {
                     log_result += s + "\'C, ";
                     log_message += s + ", ";
                 }
+#elif _WIN32
+                for (int i = 0; i < devices * 3; i++)
+                {
+                    auto ret = status.Temperature(i);
+                    log_result += std::to_string(ret) + "\'C,";
+                    log_message += std::to_string(ret) + ", ";
+                }
+#endif
                 std::cout << log_result << std::endl;
                 logFile << log_message << std::endl;
                 logFile.flush();
