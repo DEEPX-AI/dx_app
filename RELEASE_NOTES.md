@@ -1,5 +1,72 @@
 # RELEASE_NOTES
 
+## v1.9.0 / 2025-04-17
+### 1. Changed
+- restructure JSON files under example directory (grouped by app name under ./bin)
+- clean up *example.json files (remove unused properties and maintain consistency)
+### 2. Fixed
+- correct pybind API module installation path and update example JSON
+### 3. Added
+- add YOLOv5 face model example to 'run_detector' app
+
+## v1.8.1 / 2025-04-15
+### 1. Changed
+- None
+### 2. Fixed
+- Fixed an issue where sigmoid was applied twice in the Python example when using the yolov5s model with all_decode mode.
+### 3. Added
+- add support for MSVC Debug mode build on Windows
+- None
+
+## v1.8.0 / 2025-04-14
+### 1. Changed
+- The dx_postprocess module is now installed directly into the current Python interpreter’s site-packages during build.
+- Output bounding box coordinates from post-processing are now always expressed in original image coordinates.
+### 2. Fixed
+- When running inference with a PPU model in Python, a batch size dimension is added to the output tensor’s shape. The dx_postprocess module was updated to handle this change properly during post-processing.
+### 3. Added
+- Added SetConfig(py::dict config) method to the YoloPostProcess class to allow updating post-processing parameters at runtime.
+
+## v1.7.2 / 2025-04-03
+### 1. Changed
+- Reorganized each folder's README.md content using MkDocs.
+- Removed README.md files and created corresponding docs/ directories.
+- None
+### 2. Fixed
+- Support Ubuntu 24.04 environment for 'install.sh'
+### 3. Added
+- None
+
+## v1.7.1 / 2025-03-27
+### 1. Changed
+- None
+### 2. Fixed
+- Fixed post-processing bugs in DeepLabV3 Segmentation demo (demos/segmentation) and Classification demo (demos/classification) when USE_ORT=ON.
+### 3. Added
+- Added setup.bat to retrieve assets via S3 on Windows OS.
+
+## v1.7.0 / 2025-03-24
+### 1. Changed
+- Updated UI for the yolo_multi display window.
+- Download assets(model, video) from AWS S3
+- Change assets model path and rename reference JSON file.
+### 2. Fixed
+- Modify to enable GPU acceleration API (gstreamer vaapi) when using video files.
+- Fix bug in align dummy size calculation in the demos/classification/classification.cpp
+- Modify the installation path to ensure the dx_postprocess Python API works in both container and Windows environments.
+- None
+### 3. Added
+- Support post-processing for the provided YoloV8N with USE_ORT=OFF version.
+- None
+
+## v1.6.0 / 2025-03-19
+### 1. Changed
+- None
+### 2. Fixed
+- None
+### 3. Added
+- Support Intel GPU HW acceleration
+
 ## v1.5.0 / 2025-02-28
 ### 1. Changed
 - Refactored project for MSVC build compatibility

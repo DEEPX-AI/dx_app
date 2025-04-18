@@ -30,11 +30,19 @@ endmacro(add_opencv)
 macro(add_dxrt_lib)
 if(MSVC)
   add_library(dxrt SHARED IMPORTED)
-  set_target_properties(dxrt PROPERTIES
-    IMPORTED_IMPLIB "${DXRT_DIR}\\lib\\dxrt.lib"
-    IMPORTED_LOCATION "${DXRT_DIR}\\lib\\dxrt.dll"
-    INTERFACE_INCLUDE_DIRECTORIES "${DXRT_DIR}\\include"
-  )
+  if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    set_target_properties(dxrt PROPERTIES
+      IMPORTED_IMPLIB "${DXRT_DIR}\\lib\\dxrtdbg.lib"
+      IMPORTED_LOCATION "${DXRT_DIR}\\lib\\dxrtdbg.dll"
+      INTERFACE_INCLUDE_DIRECTORIES "${DXRT_DIR}\\include"
+    )
+  else()
+    set_target_properties(dxrt PROPERTIES
+      IMPORTED_IMPLIB "${DXRT_DIR}\\lib\\dxrt.lib"
+      IMPORTED_LOCATION "${DXRT_DIR}\\lib\\dxrt.dll"
+      INTERFACE_INCLUDE_DIRECTORIES "${DXRT_DIR}\\include"
+    )
+  endif()
   LIST(APPEND link_libs dxrt)
 else()
   if(CROSS_COMPILE)

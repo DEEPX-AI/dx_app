@@ -103,9 +103,9 @@ jobs:
         run: |
           RELEASE_NOTES_CHANGE_NEEDED="false"
           
-          CHANGED_WITH_JIRA_NUM=$(echo "${{ env.PR_BODY }}" | awk '/^### 1. Changed/{flag=1; next} /^### /{flag=0} flag' | tr -d '\r')
-          FIXED_WITH_JIRA_NUM=$(echo "${{ env.PR_BODY }}" | awk '/^### 2. Fixed/{flag=1; next} /^### /{flag=0} flag' | tr -d '\r')
-          ADDED_WITH_JIRA_NUM=$(echo "${{ env.PR_BODY }}" | awk '/^### 3. Added/{flag=1; next} /^### /{flag=0} flag' | tr -d '\r')
+          CHANGED_WITH_JIRA_NUM=$(echo "${{ env.PR_BODY }}" | awk '/1\. Changed/ {flag=1; next} /^#+ /{flag=0} flag' | tr -d '\r')
+          FIXED_WITH_JIRA_NUM=$(echo "${{ env.PR_BODY }}" | awk '/2\. Fixed/ {flag=1; next} /^#+ /{flag=0} flag' | tr -d '\r')
+          ADDED_WITH_JIRA_NUM=$(echo "${{ env.PR_BODY }}" | awk '/3\. Added/ {flag=1; next} /^#+ /{flag=0} flag' | tr -d '\r')
           combined="${CHANGED_WITH_JIRA_NUM} ${FIXED_WITH_JIRA_NUM} ${ADDED_WITH_JIRA_NUM}"
           if [[ ! "$combined" =~ ^((- None|None|-|)[[:space:]]*)+$ ]]; then
             RELEASE_NOTES_CHANGE_NEEDED="true"
@@ -280,11 +280,11 @@ jobs:
         run: |
           echo "Modifying latest version release notes draft..."
 
-          FIRST_CHANGED_LINE=$(grep -n '^### ' RELEASE_NOTES.md | sed -n '1p' | cut -d: -f1)
+          FIRST_CHANGED_LINE=$(grep -n '1\. Changed' RELEASE_NOTES.md | head -n 1 | cut -d: -f1)
           echo "FIRST_CHANGED_LINE: $FIRST_CHANGED_LINE"
-          FIRST_FIXED_LINE=$(grep -n '^### ' RELEASE_NOTES.md | sed -n '2p' | cut -d: -f1)
+          FIRST_FIXED_LINE=$(grep -n '2\. Fixed' RELEASE_NOTES.md | head -n 1 | cut -d: -f1)
           echo "FIRST_FIXED_LINE: $FIRST_FIXED_LINE"
-          FIRST_ADDED_LINE=$(grep -n '^### ' RELEASE_NOTES.md | sed -n '3p' | cut -d: -f1)
+          FIRST_ADDED_LINE=$(grep -n '3\. Added' RELEASE_NOTES.md | head -n 1 | cut -d: -f1)
           echo "FIRST_ADDED_LINE: $FIRST_ADDED_LINE"
 
           is_useless_content() {

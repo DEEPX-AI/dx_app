@@ -37,6 +37,9 @@ private:
     std::function<float(float)> _lastActivation;
     YoloParam _param;
 
+    std::pair<float, float> _ratio;
+    std::pair<float, float> _pad;
+
     static float CalcIOU(float *box1, float *box2);
 
     static bool ScoreCompare(std::pair<float, int> &a,
@@ -61,5 +64,9 @@ private:
 public:
     YoloPostProcess(py::dict config);
 
-    py::array_t<float> Run(py::list ie_output);
+    void SetConfig(py::dict config);
+
+    py::array_t<float> Run(py::list ie_output,
+                           std::pair<float, float> ratio, 
+                           std::pair<float, float> pad);
 };

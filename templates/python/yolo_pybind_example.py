@@ -4,9 +4,12 @@ from dx_engine import InferenceEngine
 from dx_postprocess import YoloPostProcess
 
 class UserArgs:
-    def __init__(self, ypp:YoloPostProcess, input_tensor):
+    def __init__(self, ypp:YoloPostProcess, frame, ratio, pad):
         self.ypp_ = ypp
-        self.input_tensor_ = input_tensor
+        self.frame_ = frame
+        self.ratio_ = ratio
+        self.pad_ = pad
+
         
 def visualize(args):
     
@@ -24,15 +27,13 @@ def visualize(args):
             
             if args.visualize:
                 
-                input_tensor = q_item[0]
+                frame = q_item[0]
                 pp_output = q_item[1]
                 
                 # visualize
-                input_tensor = cv2.cvtColor(input_tensor, cv2.COLOR_RGB2BGR)
-                
                 for i in range(pp_output.shape[0]):
                     pt1, pt2, score, class_id = pp_output[i, :2].astype(int), pp_output[i, 2:4].astype(int), pp_output[i, 4], pp_output[i, 5].astype(int)
-                    input_tensor = cv2.rectangle(input_tensor, pt1, pt2, colors[class_id], 2)
+                    frame = cv2.rectangle(frame, pt1, pt2, colors[class_id], 2)
                     
                     if pp_output.shape[1] > 6:
                         kpts = pp_output[i, 6:]
@@ -40,9 +41,9 @@ def visualize(args):
                         for k in range(kpts_reshape.shape[0]):
                             kpt = kpts_reshape[k, :2].astype(int)
                             kpt_score = kpts_reshape[k, -1]
-                            cv2.circle(input_tensor, kpt, 1, (0, 0, 255), -1)
+                            cv2.circle(frame, kpt, 1, (0, 0, 255), -1)
                             
-                cv2.imshow('result', input_tensor)
+                cv2.imshow('result', frame)
                 if cv2.waitKey(1) == ord('q'):
                     cv2.destroyAllWindows()
                     break
@@ -51,8 +52,8 @@ def visualize(args):
                 
 def pp_callback(ie_outputs, user_args):
     value:UserArgs = user_args.value
-    pp_output_ = value.ypp_.Run(ie_outputs)
-    q.put([value.input_tensor_, pp_output_])
+    pp_output_ = value.ypp_.Run(ie_outputs, value.ratio_, value.pad_)
+    q.put([value.frame_, pp_output_])
 
 def letter_box(image_src, new_shape=(512, 512), fill_color=(114, 114, 114), format=None):
     
@@ -119,13 +120,18 @@ def run_example(args):
             break
         
         frame_idx += 1
+
+        if frame_idx > 200:
+            json_config['model']["param"]['conf_threshold'] = 0.9
+            json_config['model']["param"]['score_threshold'] = 0.9
+            ypp.SetConfig(json_config)
         
         # PreProcessing
-        input_tensor, _, _ = letter_box(frame, (input_size, input_size), fill_color=(114, 114, 114), format=cv2.COLOR_BGR2RGB)
+        input_tensor, ratio, pad = letter_box(frame, (input_size, input_size), fill_color=(114, 114, 114), format=cv2.COLOR_BGR2RGB)
         
         if args.run_async: 
             # UserArgs for callback function
-            user_args = UserArgs(ypp, input_tensor)
+            user_args = UserArgs(ypp, frame, ratio, pad)
         
             # Run the inference engine asynchronously
             req_id = ie.RunAsync(input_tensor, user_args)
@@ -134,17 +140,15 @@ def run_example(args):
             ie_output = ie.Run(input_tensor)
             
             # PostProcessing
-            pp_output = ypp.Run(ie_output)
+            pp_output = ypp.Run(ie_output, ratio, pad)
             
             # Visualizing
             if args.visualize:
                 
-                input_tensor = cv2.cvtColor(input_tensor, cv2.COLOR_BGR2RGB)
-                
                 for i in range(pp_output.shape[0]):
                     
                     pt1, pt2, score, class_id = pp_output[i, :2].astype(int), pp_output[i, 2:4].astype(int), pp_output[i, 4], pp_output[i, 5].astype(int)
-                    input_tensor = cv2.rectangle(input_tensor, pt1, pt2, colors[class_id], 2)
+                    input_tensor = cv2.rectangle(frame, pt1, pt2, colors[class_id], 2)
                     
                     if pp_output.shape[1] > 6:
                         kpts = pp_output[i, 6:]
@@ -152,8 +156,8 @@ def run_example(args):
                         for k in range(kpts_reshape.shape[0]):
                             kpt = kpts_reshape[k, :2].astype(int)
                             kpt_score = kpts_reshape[k, -1]
-                            cv2.circle(input_tensor, kpt, 1, (0, 0, 255), -1)
-                cv2.imshow('result', input_tensor)
+                            cv2.circle(frame, kpt, 1, (0, 0, 255), -1)
+                cv2.imshow('result', frame)
                 if cv2.waitKey(1) == ord('q'):
                     cv2.destroyAllWindows()
                     break

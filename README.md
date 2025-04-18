@@ -7,6 +7,21 @@ You can refer to **DX-APP** and modify it a little or implement application depe
 This can reduce stress, such as setting the environment and implementing the code.    
 Application performance may also depending on the specifications of the host because it includes pre/post processing and graphics processing operations.           
     ``` Note. Required libraries : OpenCV and dxrt. ```         
+
+For detailed guides on running demo applications and templates, refer to the following documents:
+
+- Introduction: [Introduction.md](./docs/source/Introduction.md)
+- Installation and Build: 
+  - **linux**: [Installation-on-linux.md](./docs/source/Installation-on-linux.md)
+  - **windows**: [Installation-on-windows.md](./docs/source/Installation-on-windows.md)
+- Demo Guide: [Demo-User-Guide.md](./docs/source/Demo-User-Guide.md)
+- Template Guide: [Templates-User-Guide.md](./docs/source/Templates-User-Guide.md)
+- Classification Template: [Classification-Template-Guide.md](./docs/source/Classification-Template-Guide.md)
+- Object Detection Template: [Object-Detection-Template-Guide.md](./docs/source/Object-Detection-Template-Guide.md)
+- Python Examples: 
+  - General Guide : [Python-Example-Guide.md](./docs/source/Python-Example-Guide.md)
+  - YOLO Post-Processing Optimization Using Pybind11 : [Yolo-Post-Processing-Pybind11-API.md](./docs/source/Yolo-Post-Processing-Pybind11-API.md)
+
 ## Quick Start     
 ### prerequisites    
 Install the followings first.            
@@ -89,13 +104,27 @@ Install the followings first.
   sudo ldconfig 
   ```   
 
-  [Here](demos/README.md) For details to run demo applications and [Here](templates/README.md) to run templates.         
-
-### ⚠️ Important Notice
-You can access the internal `deepx` mount storage to retrieve the appropriate dxnn models for the specified Regression ID, as well as the video files for testing. Please execute the following command:
+### ⚠️ Additional Tip
+You can download some available model files and video files. Simply run the following command:
 
 ```shell
-chmod +x ./get_assets.sh
-./get_assets.sh --number $REGR_ID
+./setup.sh
 ```
-If needed, You can also download the files as a `.tar.gz` archive.
+
+### ⚠️ Convert Markdown Files in docs/ to PDF Using MkDocs
+To convert the files under the docs/ directory into PDF using MkDocs, first build the site with:  
+
+```shell
+mkdocs build --clean
+```
+You can also preview the documentation as HTML in your browser using a local development server:
+
+```shell
+mkdocs serve
+```
+This will start a local server (usually at http://127.0.0.1:8000) where you can browse the site in real time.
+
+Note: MkDocs alone does not support PDF export directly. 
+To generate PDF files, consider using plugins such as mkdocs-pdf-export-plugin 
+or convert the built HTML pages in the site/ directory to PDF using tools like wkhtmltopdf or weasyprint.
+

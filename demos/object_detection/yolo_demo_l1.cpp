@@ -40,15 +40,14 @@ using namespace cv;
 #define DMA_IOCTL_DATA		_IOW('T', 3, struct npu_dma_ioctl_data_copy)
 
 // pre/post parameter table
-extern YoloParam yolov5s_320, yolov5s_512, yolov5s_640, yolox_s_512, yolov7_640, yolov7_512, yolov4_608;
+extern YoloParam yolov5s_320, yolov5s_512, yolov5s_640, yolox_s_512, yolov7_640, yolov7_512;
 YoloParam yoloParams[] = {
     [0] = yolov5s_320,
     [1] = yolov5s_512,
     [2] = yolov5s_640,
     [3] = yolox_s_512,
     [4] = yolov7_640,
-    [5] = yolov7_512,
-    [6] = yolov4_608
+    [5] = yolov7_512
 };
 
 
