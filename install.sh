@@ -50,23 +50,23 @@ function install_dep()
         echo "PYTHON_PATH($PYTHON_PATH)" && \
         if [[ -n "$VIRTUAL_ENV" || "$PYTHON_PATH" == */conda/* ]]; then \
             echo "Virtual environment or Conda detected" && \
-            python3 -m pip install pipx && \
-            python3 -m pipx ensurepath && \
-            python3 -m pipx install pybind11 && \
-            python3 -m pipx run pybind11 --cmakedir; \
+            $PYTHON_PATH -m pip install pipx && \
+            $PYTHON_PATH -m pipx ensurepath --force && \
+            $PYTHON_PATH -m pipx install pybind11 --force && \
+            ~/.local/bin/pybind11-config --cmakedir; \
         else \
             UBUNTU_VERSION=$(lsb_release -rs) && \
             echo "*** UBUNTU_VERSION(${UBUNTU_VERSION}) ***" && \
             if [ "$UBUNTU_VERSION" = "18.04" ]; then \
-                python3 -m pip install pipx && \
-                python3 -m pipx ensurepath && \
-                python3 -m pipx install pybind11 && \
-                python3 -m pipx run pybind11 --cmakedir; \
+                $PYTHON_PATH -m pip install pipx && \
+                $PYTHON_PATH -m pipx ensurepath --force && \
+                $PYTHON_PATH -m pipx install pybind11 --force&& \
+                ~/.local/bin/pybind11-config --cmakedir; \
             elif [ "$UBUNTU_VERSION" = "24.04" ] || [ "$UBUNTU_VERSION" = "22.04" ] || [ "$UBUNTU_VERSION" = "20.04" ]; then \
                 sudo apt-get install -y pipx && \
-                pipx install pybind11 && \
                 pipx ensurepath --force && \
-                pipx run pybind11 --cmakedir; \
+                pipx install pybind11 --force && \
+                ~/.local/bin/pybind11-config --cmakedir; \
             else \
                 echo "Unspported Ubuntu version: $UBUNTU_VERSION" && exit 1; \
             fi \

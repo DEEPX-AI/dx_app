@@ -51,6 +51,11 @@ if [ ! -e $dxrt_dir ]; then
     exit 1
 fi
 
+PYBIND11_CMAKE_DIR=$(~/.local/bin/pybind11-config --cmakedir 2>/dev/null)
+if [ $? -eq 0 ] && [ -n "$PYBIND11_CMAKE_DIR" ]; then
+    cmd+=(-Dpybind11_CMAKE_DIR=$PYBIND11_CMAKE_DIR)
+fi
+
 if [ $build_gtest == "true" ]; then
     cmd+=(-DUSE_DXAPP_TEST=True);
 fi
