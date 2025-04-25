@@ -243,7 +243,7 @@ int main(int argc, char *argv[])
         else
         {
             if(cameraInput)
-                cap.open(0, cv::CAP_V4L2);
+                cap.open(0);
             else
                 cap.open(rtspPath);
             cap.set(CAP_PROP_FOURCC, VideoWriter::fourcc('M','J','P','G'));

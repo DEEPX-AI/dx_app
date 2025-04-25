@@ -1,0 +1,83 @@
+name: Sonar Build Analysis
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  build:
+    name: Build inside docker
+    runs-on: self-hosted
+    container:
+      image: 192.168.0.54:5000/repository/docker/dx_runtime/asic/x86_64/20.04:base
+      credentials:
+        username: ${{ secrets.NX_USER }}
+        password: ${{ secrets.NX_PW }}
+      options: -u root:root
+    steps:
+      - name: Cleanup
+        run: |
+          echo "Cleaning mounted volume of container..."
+          sudo rm -rf /__w/dx_app/dx_app/*
+
+      - name: Checkout current repo
+        uses: actions/checkout@v4
+        with:
+          path: dx_app
+
+      - name: Checkout dx_rt
+        uses: actions/checkout@v4
+        with:
+          repository: deepx/dx_rt
+          path: dx_rt
+          submodules: recursive
+          token: ${{ secrets.GH_DCI_TOKEN }}
+
+      - name: Build dx_rt
+        run: |
+          cd dx_rt && ./build.sh --clean
+
+      - name: Install for dx_app
+        run: |
+          cd dx_app/.github && make install_all ARCH=x86_64
+
+      - name: Download and install the build wrapper, build the project
+        run: |
+          mkdir -p $HOME/.sonar
+          curl -sSLo $HOME/.sonar/build-wrapper-linux-x86.zip ${{ secrets.SONAR_HOST_URL }}/static/cpp/build-wrapper-linux-x86.zip
+          unzip -o $HOME/.sonar/build-wrapper-linux-x86.zip -d $HOME/.sonar/
+          cd dx_app && $HOME/.sonar/build-wrapper-linux-x86/build-wrapper-linux-x86-64 --out-dir bw-output ./build.sh --clean --arch x86_64
+        env:
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+
+      - name: Download and install the SonarScanner
+        env:
+          SONAR_SCANNER_VERSION: 4.6.2.2472
+        run: |
+          curl -sSLo $HOME/.sonar/sonar-scanner.zip https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-${{ env.SONAR_SCANNER_VERSION }}-linux.zip
+          unzip -o $HOME/.sonar/sonar-scanner.zip -d $HOME/.sonar/
+          echo "$HOME/.sonar/sonar-scanner-${{ env.SONAR_SCANNER_VERSION }}-linux/bin" >> $GITHUB_PATH
+
+      - name: SonarQube analysis for pull request
+        if: github.event_name == 'pull_request'
+        run: |
+          cd dx_app
+          sonar-scanner \
+            -Dsonar.pullrequest.key=${{ github.event.pull_request.number }} \
+            -Dsonar.pullrequest.branch=${{ github.head_ref }} \
+            -Dsonar.pullrequest.base=${{ github.base_ref }}
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+
+      - name: SonarQube analysis when push to main branch
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          cd dx_app
+          sonar-scanner
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}

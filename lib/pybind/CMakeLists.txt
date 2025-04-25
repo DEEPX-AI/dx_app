@@ -1,41 +1,14 @@
 # Find Python and pybind11
 find_package(Python REQUIRED COMPONENTS Interpreter Development)
 
-# Verify that pybind11 is installed; install it using pip if it is missing
-execute_process(
-    COMMAND ${Python_EXECUTABLE} -m pybind11 --cmakedir
-    OUTPUT_VARIABLE pybind11_CMAKE_DIR
-    RESULT_VARIABLE pybind11_check_result
-    OUTPUT_STRIP_TRAILING_WHITESPACE
-)
-
-if(NOT pybind11_check_result EQUAL 0)
-    message(STATUS "pybind11 not found, installing via pip...")
+if(MSVC)
+    # Verify that pybind11 is installed; install it using pip if it is missing
     execute_process(
-        COMMAND ${Python_EXECUTABLE} -m ensurepip --default-pip
+        COMMAND pybind11-config --cmakedir
+        OUTPUT_VARIABLE pybind11_CMAKE_DIR
+        RESULT_VARIABLE pybind11_check_result
+        OUTPUT_STRIP_TRAILING_WHITESPACE
     )
-    if(MSVC)
-        execute_process(
-            COMMAND ${Python_EXECUTABLE} -m pip install pybind11
-            RESULT_VARIABLE pip_install_result
-        )
-        if(NOT pip_install_result EQUAL 0)
-            message(FATAL_ERROR "Failed to install pybind11 via pip.")
-        endif()
-        
-        # 다시 pybind11 CMake 디렉토리 찾기
-        execute_process(
-            COMMAND ${Python_EXECUTABLE} -m pybind11 --cmakedir
-            OUTPUT_VARIABLE pybind11_CMAKE_DIR
-            OUTPUT_STRIP_TRAILING_WHITESPACE
-        )
-    else()
-        execute_process(
-            COMMAND ${Python_EXECUTABLE} -m pipx run pybind11 --cmakedir
-            OUTPUT_VARIABLE pybind11_CMAKE_DIR
-            OUTPUT_STRIP_TRAILING_WHITESPACE
-        )
-    endif()
 endif()
 
 # Append the pybind11 CMake directory to CMAKE_PREFIX_PATH
