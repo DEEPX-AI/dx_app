@@ -423,20 +423,17 @@ namespace yolo
                                 {dxapp::common::Point_f(-1, -1, -1)}
                     };
 
-                    if (_params._decode_method == dxapp::yolo::Decode::YOLO_FACE)
+                    temp._kpts.clear();
+                    for(int idx = 0; idx < _params._kpt_count; idx++)
                     {
-                        temp._kpts.clear();
-                        for(int idx = 0; idx < _params._kpt_count; idx++)
-                        {
-                            int kptIdx = (idx * 2) + (5);
-                            temp._kpts.emplace_back(dxapp::common::Point_f(
-                                data[kptIdx + 0],
-                                data[kptIdx + 1],
-                                0.5f
-                            ));
-                        }
-                        
+                        int kptIdx = (idx * 2) + (5);
+                        temp._kpts.emplace_back(dxapp::common::Point_f(
+                            data[kptIdx + 0],
+                            data[kptIdx + 1],
+                            0.5f
+                        ));
                     }
+                        
                     _rawBoxes.emplace_back(temp);
                     boxIdx++;
                 }

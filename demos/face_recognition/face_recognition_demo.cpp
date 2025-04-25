@@ -462,7 +462,7 @@ void run_video_sync(dxrt::InferenceEngine *ie_fd, dxrt::InferenceEngine *ie_fl, 
     cv::VideoCapture cap;
     if (cameraInput)
     {
-        cap.open(0, cv::CAP_V4L2);
+        cap.open(0);
         cap.set(cv::CAP_PROP_FOURCC, cv::VideoWriter::fourcc('M', 'J', 'P', 'G'));
         cap.set(cv::CAP_PROP_FRAME_WIDTH, CAMERA_FRAME_WIDTH);
         cap.set(cv::CAP_PROP_FRAME_HEIGHT, CAMERA_FRAME_HEIGHT);
@@ -592,7 +592,7 @@ void run_tracker_video_sync(dxrt::InferenceEngine *ie_fd, dxrt::InferenceEngine 
     cv::VideoCapture cap;
     if (cameraInput)
     {
-        cap.open(0, cv::CAP_V4L2);
+        cap.open(0);
         cap.set(cv::CAP_PROP_FOURCC, cv::VideoWriter::fourcc('M', 'J', 'P', 'G'));
         cap.set(cv::CAP_PROP_FRAME_WIDTH, CAMERA_FRAME_WIDTH);
         cap.set(cv::CAP_PROP_FRAME_HEIGHT, CAMERA_FRAME_HEIGHT);
