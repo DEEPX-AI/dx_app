@@ -32,7 +32,7 @@ while (( $# )); do
             target_arch=$1
             shift;;
         --test) build_gtest=true; shift;;
-        *)       echo "Invalid argument : " $1 ; help; exit 1;;
+        *)       echo "Invalid argument : " $1 ; help; exit -1;;
     esac
 done
 
@@ -48,12 +48,14 @@ if [ $dxrt_dir == "" ]; then
 fi
 if [ ! -e $dxrt_dir ]; then
     echo "-- Error : $dxrt_dir directory does not exist"
-    exit 1
+    exit -1
 fi
 
-PYBIND11_CMAKE_DIR=$(~/.local/bin/pybind11-config --cmakedir 2>/dev/null)
-if [ $? -eq 0 ] && [ -n "$PYBIND11_CMAKE_DIR" ]; then
+if PYBIND11_CMAKE_DIR=$(pybind11-config --cmakedir 2>/dev/null || ~/.local/bin/pybind11-config --cmakedir 2>/dev/null); then
     cmd+=(-Dpybind11_CMAKE_DIR=$PYBIND11_CMAKE_DIR)
+else
+    echo "-- Error : pybind11-config not found"
+    exit -1
 fi
 
 if [ $build_gtest == "true" ]; then
@@ -98,5 +100,5 @@ if [ -e $build_dir/release/bin ]; then
     echo =================================================
 else
     echo Build Failed.
-    exit 1
+    exit -1
 fi

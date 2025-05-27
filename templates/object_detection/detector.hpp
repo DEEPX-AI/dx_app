@@ -239,6 +239,13 @@ public:
 
         readModelInfo(config.modelInfo.c_str());
         inferenceEngine = std::make_shared<dxrt::InferenceEngine>(modelPath);
+        if(params._layers.empty())
+        {
+            if(ORT_OPTION_DEFAULT)
+            {
+                throw std::invalid_argument("Layer information is missing. Please check the input json configuration file");
+            }
+        }
         inputShape = std::vector<int64_t>(inferenceEngine->inputs().front().shape());
         auto outputDataInfo = inferenceEngine->outputs();
         for(auto &info:outputDataInfo) 
@@ -597,7 +604,7 @@ private:
                             }
                         },
                         "required": [
-                            "score_threshold", "iou_threshold", "decoding_method", "box_format", "layer"
+                            "score_threshold", "iou_threshold", "decoding_method", "box_format"
                         ]
                     }
                 },

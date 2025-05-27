@@ -15,7 +15,7 @@ void help()
 
 int main(int argc, char *argv[])
 {
-    
+    DXRT_TRY_CATCH_BEGIN
     int arg_idx = 1;
     std::string configPath = "";
     char key;
@@ -90,6 +90,6 @@ int main(int argc, char *argv[])
     detector.joinThread();
 
     std::cout << " detector application End. " << std::endl;
-    
+DXRT_TRY_CATCH_END    
     return 0;
 }

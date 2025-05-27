@@ -16,9 +16,10 @@
 
 #include <opencv2/opencv.hpp>
 #include <opencv2/core.hpp>
+#include "dxrt/dxrt_api.h"
+#include "utils/common_util.hpp"
 
 #include "display.h"
-#include "dxrt/dxrt_api.h"
 
 using namespace std;
 using namespace cv;
@@ -129,6 +130,7 @@ void Segmentation(uint16_t *input, uint8_t *output, int rows, int cols, Segmenta
 
 int main(int argc, char *argv[])
 {
+DXRT_TRY_CATCH_BEGIN
     int inputWidth = 0, inputHeight = 0;
     string modelPath="", imgFile="", videoFile="", binFile="", simFile="";
     bool cameraInput = false, asyncInference = false;
@@ -321,6 +323,6 @@ int main(int argc, char *argv[])
         delete [] buf;
         return 0;
     }
-
+DXRT_TRY_CATCH_END
     return 0;
 }

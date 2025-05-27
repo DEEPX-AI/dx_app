@@ -251,6 +251,7 @@ static int devideBoard(int numImages)
 
 int main(int argc, char *argv[])
 {
+DXRT_TRY_CATCH_BEGIN
     int arg_idx = 1;
     string configPath = "";
     float fps = 0.f; double frameCount = 0.0;
@@ -528,6 +529,6 @@ int main(int argc, char *argv[])
 #elif _WIN32
     Sleep(1000);
 #endif
-    
+DXRT_TRY_CATCH_END    
     return 0;
 }

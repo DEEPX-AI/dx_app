@@ -1,5 +1,13 @@
 # RELEASE_NOTES
 
+## v1.9.1 / 2025-05-16
+### 1. Changed
+- Moved all exposed Windows .bat files into the x86_64_win directory for better organization.
+### 2. Fixed
+- Removed unused tools and the profiler directory to clean up the project structure.
+### 3. Added
+- None
+
 ## v1.9.0 / 2025-04-17
 ### 1. Changed
 - restructure JSON files under example directory (grouped by app name under ./bin)
