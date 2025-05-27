@@ -10,6 +10,7 @@
 #include <opencv2/opencv.hpp>
 
 #include "dxrt/dxrt_api.h"
+#include "utils/common_util.hpp"
 
 #define INPUT_CAPTURE_PERIOD_MS 1
 #define DISPLAY_WINDOW_NAME "DENOISE"
@@ -53,6 +54,7 @@ cv::Mat get_noise_image(cv::Mat src, double _mean, double _std)
 
 int main(int argc, char *argv[])
 {
+DXRT_TRY_CATCH_BEGIN
     int arg_idx = 1;
     std::string modelPath = "", imgFile = "", videoFile = "";
     bool cameraInput = false;
@@ -292,5 +294,6 @@ int main(int argc, char *argv[])
 
         }
     }
+DXRT_TRY_CATCH_END
     return 1;
 }

@@ -15,6 +15,7 @@ void help()
 
 int main(int argc, char *argv[])
 {
+DXRT_TRY_CATCH_BEGIN
     int arg_idx = 1;
     string configPath = "";
 
@@ -94,6 +95,6 @@ int main(int argc, char *argv[])
             std::cerr << sources.inputPath << " is invalid path. plz insert regular file. " << std::endl;
         }
     }
-
+DXRT_TRY_CATCH_END
     return 0;
 }

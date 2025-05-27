@@ -37,6 +37,7 @@ int getArgMax(float* output_data, int number_of_classes)
 
 int main(int argc, char *argv[])
 {
+DXRT_TRY_CATCH_BEGIN
     string modelPath="", imgFile="";    
     bool loopTest = false;
     int input_w = 224, input_h = 224, input_c = 3, class_size = 1000;
@@ -61,7 +62,6 @@ int main(int argc, char *argv[])
     LOG_VALUE(modelPath)
     LOG_VALUE(imgFile)
     LOG_VALUE(loopTest)
-    
     dxrt::InferenceEngine ie(modelPath);
 
     // for align64
@@ -110,5 +110,6 @@ int main(int argc, char *argv[])
             }
         } while(loopTest);
     }
+DXRT_TRY_CATCH_END
     return 0;
 }

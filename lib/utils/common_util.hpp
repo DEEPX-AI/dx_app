@@ -23,6 +23,19 @@ namespace dxapp
 namespace common
 {
     
+#define DXRT_EXCEPTION_UTIL
+#define DXRT_TRY_CATCH_BEGIN try {
+#define DXRT_TRY_CATCH_END } \
+catch (const dxrt::Exception& e) { \
+    std::cerr << e.what() << " error-code=" << e.code() << std::endl; \
+    return -1; \
+} \
+catch (const std::exception& e) \
+{ \
+    std::cerr << e.what() << std::endl; \
+    return -1; \
+}
+
     struct StatusLog
     {
         unsigned int frameNumber;

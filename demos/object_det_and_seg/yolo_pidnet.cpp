@@ -208,6 +208,7 @@ void Segmentation(uint16_t *input, uint8_t *output, int rows, int cols, Segmenta
 
 int main(int argc, char *argv[])
 {
+    DXRT_TRY_CATCH_BEGIN
     int i = 1;
     string imgFile="", videoFile="", binFile="", simFile="";
     string od_modelpath = "", seg_modelpath = "";
@@ -468,6 +469,6 @@ int main(int argc, char *argv[])
 #endif
         return 0;
     }
-
+DXRT_TRY_CATCH_END
     return 0;
 }

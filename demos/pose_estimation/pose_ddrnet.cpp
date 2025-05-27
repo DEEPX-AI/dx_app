@@ -15,9 +15,10 @@
 #include <signal.h>
 
 #include <opencv2/opencv.hpp>
+#include "dxrt/dxrt_api.h"
+#include "utils/common_util.hpp"
 
 #include "display.h"
-#include "dxrt/dxrt_api.h"
 #include "yolo.h"
 #ifdef __linux__
 #include "isp.h"
@@ -149,6 +150,7 @@ bool GetStopFlag()
 
 int main(int argc, char *argv[])
 {
+DXRT_TRY_CATCH_BEGIN
     int i = 1;
     string pose_model_path="", seg_model_path="", imgFile="", videoFile="", binFile="", simFile="", videoOutFile="";        
     bool cameraInput = false, asyncInference = false, loops = false;
@@ -430,6 +432,6 @@ DemoLoop:
         
         return 0;
     }
-
+DXRT_TRY_CATCH_END
     return 0;
 }

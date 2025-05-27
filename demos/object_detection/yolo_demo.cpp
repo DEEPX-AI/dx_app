@@ -15,8 +15,10 @@
 #include <opencv2/opencv.hpp>
 #include <cxxopts.hpp>
 
-#include "display.h"
 #include "dxrt/dxrt_api.h"
+#include "utils/common_util.hpp"
+
+#include "display.h"
 #include "yolo.h"
 #include "v4l2.h"
 #include "socket.h"
@@ -126,6 +128,7 @@ bool GetStopFlag()
 
 int main(int argc, char *argv[])
 {
+DXRT_TRY_CATCH_BEGIN
     int loops = -1, paramIdx = 0;
     string modelPath="", imgFile="", videoFile="", binFile="", simFile="", videoOutFile="", OSDstr="", rtspPath="";  
     bool cameraInput = false, ispInput = false, 
@@ -612,6 +615,6 @@ int main(int argc, char *argv[])
     }
 
     cout << ie.name() << " : latency " << ie.latency() << "us, " << ie.inference_time() << "us" << endl;
-
+DXRT_TRY_CATCH_END
     return 0;
 }
