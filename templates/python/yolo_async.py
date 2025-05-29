@@ -4,6 +4,7 @@ import numpy as np
 import json
 import argparse
 from dx_engine import InferenceEngine
+from dx_engine import version as dx_version
 
 import torch
 import torchvision
@@ -13,6 +14,8 @@ import threading
 import queue
 import time 
 import copy
+
+PPU_TYPES = ["BBOX", "POSE"]
 
 q = queue.Queue()   # queue of the inference jobs (just runAsync and callback function)
 callback_lock = threading.Lock()   # for inference copy lock
@@ -80,7 +83,6 @@ def onnx_decode(ie_outputs, cpu_byte):
     ort_output = sess.run(None, input_dict)
     return ort_output[0][0]
 
-
 def all_decode(ie_outputs, layer_config, n_classes):
     ''' slice outputs'''
     outputs = []
@@ -114,13 +116,58 @@ def all_decode(ie_outputs, layer_config, n_classes):
     
     return decoded_output
 
-
-def ppu_decode(ie_outputs, layer_config, num_classes):
-    num_det = ie_outputs[0].shape[0]
-    ie_output = ie_outputs[0]
+def ppu_decode_pose(ie_outputs, layer_config, n_classes):
+    ie_output = ie_outputs[0][0]
+    num_det = ie_output.shape[0]
     decoded_tensor = []
     for detected_idx in range(num_det):
-        tensor = np.zeros((num_classes + 5), dtype=float)
+        tensor = np.zeros((n_classes + 5), dtype=float)
+        
+        data = ie_output[detected_idx].tobytes()
+
+        box = np.frombuffer(data[0:16], np.float32)
+        gy, gx, anchor, layer = np.frombuffer(data[16:20], np.uint8)
+        score = np.frombuffer(data[20:24], np.float32)
+        label = 0 # np.frombuffer(data[24:28], np.uint32)
+        kpts = np.frombuffer(data[28:232], np.float32)
+
+        if layer > len(layer_config):
+            break
+
+        w = layer_config[layer]["anchor_width"][anchor]
+        h = layer_config[layer]["anchor_height"][anchor]
+        s = layer_config[layer]["stride"]
+        
+        grid = np.array([gx, gy], np.float32)
+        anchor_wh = np.array([w, h], np.float32)
+        xc = (grid - 0.5 + (box[0:2] * 2)) * s
+        wh = box[2:4] ** 2 * 4 * anchor_wh
+
+        box = np.concatenate([xc, wh], axis=0)
+        tensor[:4] = box
+        tensor[4] = score
+        tensor[4+1+label] = score
+
+        # for i in range(17):
+        #     start = (n_classes + 5) + (i * 3) 
+        #     tensor[start:start+2] = (grid - 0.5 + (kpts[i*3:i*3+2] * 2)) * s
+        #     tensor[start+2:start+3] = kpts[i*3+2:i*3+3]
+
+        decoded_tensor.append(tensor)
+    if len(decoded_tensor) == 0:
+        decoded_tensor = np.zeros((n_classes + 5), dtype=float)
+    
+    decoded_output = np.stack(decoded_tensor)
+    
+    return decoded_output
+
+
+def ppu_decode(ie_outputs, layer_config, n_classes):
+    ie_output = ie_outputs[0][0]
+    num_det = ie_output.shape[0]
+    decoded_tensor = []
+    for detected_idx in range(num_det):
+        tensor = np.zeros((n_classes + 5), dtype=float)
         data = ie_output[detected_idx].tobytes()
         box = np.frombuffer(data[0:16], np.float32)
         gy, gx, anchor, layer = np.frombuffer(data[16:20], np.uint8)
@@ -142,7 +189,7 @@ def ppu_decode(ie_outputs, layer_config, num_classes):
         tensor[4+1+label] = score
         decoded_tensor.append(tensor)
     if len(decoded_tensor) == 0:
-        decoded_tensor = np.zeros((num_classes + 5), dtype=float)
+        decoded_tensor = np.zeros((n_classes + 5), dtype=float)
     
     decoded_output = np.stack(decoded_tensor)
     
@@ -170,7 +217,7 @@ class AsyncYolo:
         self.score_threshold = score_threshold
         self.iou_threshold = iou_threshold
         self.layers = layers
-        input_resolution = np.sqrt(self.ie.input_size() / 3)
+        input_resolution = np.sqrt(self.ie.get_input_size() / 3)
         self.input_size = (input_resolution, input_resolution)
         self.videomode = False
         self.callback_mode = callback_mode
@@ -181,7 +228,7 @@ class AsyncYolo:
     def run(self, image):
         self.image = copy.deepcopy(image)
         self.input_image, _, _ = letter_box(self.image, self.config.input_size, fill_color=(114, 114, 114), format=cv2.COLOR_BGR2RGB)
-        self.req = self.ie.RunAsync(self.input_image, self)
+        self.req = self.ie.run_async([self.input_image], self)
         if not self.callback_mode :
             self.result_output = self.ie.Wait(self.req)
             q.put(self.req)
@@ -196,9 +243,11 @@ class AsyncYolo:
     @staticmethod
     def pp_callback(ie_outputs, user_args):
         with callback_lock:
-            value:AsyncYolo = user_args.value
+            if dx_version.__version__ == '1.1.0':
+                value:AsyncYolo = user_args
+            else:
+                value:AsyncYolo = user_args.value
             value.result_output = ie_outputs
-            # value.deepcopy(ie_outputs)
             q.put(value.req)
         
 class PostProcessingRun:
@@ -217,10 +266,19 @@ class PostProcessingRun:
     def postprocessing(self, outputs):
         if self.config.output_type == "BBOX":
             decoded_tensor = ppu_decode(outputs, self.config.layers, len(self.config.classes))
+        elif self.config.output_type == "POSE":
+            decoded_tensor = ppu_decode_pose(outputs, self.config.layers, len(self.config.classes))
         elif len(outputs) > 1:
+            if self.config.decode_type in ["yolov8", "yolov9"]:
+                raise ValueError(
+                    f"Decode type '{self.config.decode_type}' requires USE_ORT=ON. "
+                    "Please enable ONNX Runtime support to use this decode type."
+                )
             decoded_tensor = all_decode(outputs, self.config.layers, len(self.config.classes))
-        else:
+        elif len(outputs) == 1:
             decoded_tensor = outputs[0]
+        else:
+            raise ValueError(f"[Error] Output Size {len(outputs)} is not supported !!")
         
         ''' post Processing '''
         x = np.squeeze(decoded_tensor)
@@ -293,7 +351,7 @@ def run_example(config):
     ie = InferenceEngine(model_path)
     task_order = ie.task_order()
     
-    yolo_config = YoloConfig(model_path, classes, score_threshold, iou_threshold, layers, np.sqrt(ie.input_size() / 3), ie.output_dtype()[0], decode_type)
+    yolo_config = YoloConfig(model_path, classes, score_threshold, iou_threshold, layers, np.sqrt(ie.get_input_size() / 3), ie.get_output_tensors_info()[0]['dtype'], decode_type)
     
     async_thread = AsyncYolo(ie, yolo_config, classes, score_threshold, iou_threshold, layers, callback_mode)
     
@@ -359,7 +417,7 @@ def run_example(config):
 if __name__ == "__main__":
     
     parser = argparse.ArgumentParser()
-    parser.add_argument('--config', default='./example/yolov5s3_example.json', type=str, help='yolo object detection json config path')
+    parser.add_argument('--config', default='./example/run_detector/yolov7_example.json', type=str, help='yolo object detection json config path')
     parser.add_argument('--callback', action='store_true', dest='callback_mode', help='application runasync type for callback function')
     parser.add_argument('--wait', action='store_false', dest='callback_mode', help='application runasync type for wait function')
     args = parser.parse_args()

@@ -1,6 +1,7 @@
 import os, cv2, json, time, argparse, queue, threading
 import numpy as np
 from dx_engine import InferenceEngine
+from dx_engine import version as dx_version
 from dx_postprocess import YoloPostProcess
 
 class UserArgs:
@@ -51,7 +52,10 @@ def visualize(args):
             time.sleep(0.0001)
                 
 def pp_callback(ie_outputs, user_args):
-    value:UserArgs = user_args.value
+    if dx_version.__version__ == '1.1.0':
+        value:UserArgs = user_args
+    else:
+        value:UserArgs = user_args.value
     pp_output_ = value.ypp_.Run(ie_outputs, value.ratio_, value.pad_)
     q.put([value.frame_, pp_output_])
 
@@ -94,7 +98,7 @@ def run_example(args):
     
     if args.run_async: 
         # Register callback function 
-        ie.RegisterCallBack(pp_callback)
+        ie.register_callback(pp_callback)
         
         # Thread for Visualization
         vis_thread = threading.Thread(target=visualize, args=(args,))
@@ -121,10 +125,10 @@ def run_example(args):
         
         frame_idx += 1
 
-        if frame_idx > 200:
-            json_config['model']["param"]['conf_threshold'] = 0.9
-            json_config['model']["param"]['score_threshold'] = 0.9
-            ypp.SetConfig(json_config)
+        # if frame_idx > 200:
+        #     json_config['model']["param"]['conf_threshold'] = 0.9
+        #     json_config['model']["param"]['score_threshold'] = 0.9
+        #     ypp.SetConfig(json_config)
         
         # PreProcessing
         input_tensor, ratio, pad = letter_box(frame, (input_size, input_size), fill_color=(114, 114, 114), format=cv2.COLOR_BGR2RGB)
@@ -134,10 +138,10 @@ def run_example(args):
             user_args = UserArgs(ypp, frame, ratio, pad)
         
             # Run the inference engine asynchronously
-            req_id = ie.RunAsync(input_tensor, user_args)
+            req_id = ie.run_async([input_tensor], user_args)
         else:
             # Run the inference engine synchronously
-            ie_output = ie.Run(input_tensor)
+            ie_output = ie.run([input_tensor])
             
             # PostProcessing
             pp_output = ypp.Run(ie_output, ratio, pad)
@@ -168,7 +172,7 @@ def run_example(args):
 
     if args.run_async:
         # Wait until the final inference
-        final_ie_output = ie.Wait(req_id)
+        final_ie_output = ie.wait(req_id)
     
         # Finish
         if vis_thread.is_alive():
@@ -182,7 +186,7 @@ def run_example(args):
 if __name__ == "__main__":
     
     parser = argparse.ArgumentParser()
-    parser.add_argument('--config_path', default='./test/data/YOLOV8N.json', type=str, help='yolo object detection json config path')
+    parser.add_argument('--config_path', default='./example/run_detector/yolov7_example.json', type=str, help='yolo object detection json config path')
     parser.add_argument('--video_path', required=True, type=str, help='input video path')
     parser.add_argument('--visualize', action='store_true', dest='visualize', help='visualize post-process results')
     parser.add_argument('--run_async', action='store_true', dest='run_async', help='run the inference engine asynchronously')

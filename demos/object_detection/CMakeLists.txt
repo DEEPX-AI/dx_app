@@ -7,11 +7,6 @@ endif()
 set(yolo_srcs ${common_srcs} yolo.cpp yolo_cfg.cpp yolo_demo.cpp)
 set(yolo_multi_srcs bbox.cpp display.cpp nms.cpp yolo.cpp yolo_cfg.cpp yolo_demo_multi.cpp od.cpp)
 set(ssd_srcs ${common_srcs} ssd.cpp ssd_cfg.cpp ssd_demo.cpp)
-if(CMAKE_SYSTEM_PROCESSOR STREQUAL "riscv64")
-set(ENX_MEDIALINK_LIB ${CMAKE_SOURCE_DIR}/lib/utils/v1/libenxmedialink.a)
-set(yolo_srcs ${yolo_srcs} isp_eyenix.cpp)
-set(yolo_multi_srcs ${yolo_multi_srcs} ${CMAKE_SOURCE_DIR}/lib/utils/v1/isp_eyenix.cpp)
-endif()
 
 add_executable(yolo ${yolo_srcs})
 add_executable(ssd ${ssd_srcs})
@@ -20,10 +15,6 @@ add_executable(od_client ${common_srcs} od_client.cpp)
 
 if(MSVC)
 target_link_libraries(od_client Ws2_32.lib)    # Windows socket API Library
-endif()
-if(CMAKE_SYSTEM_PROCESSOR STREQUAL "riscv64")
-target_link_libraries(yolo ${ENX_MEDIALINK_LIB})
-target_link_libraries(yolo_multi ${ENX_MEDIALINK_LIB})
 endif()
 
 add_dxrt_lib()
