@@ -12,6 +12,6 @@ if ! test -e $dxapp_dir/bin/$dxapp_name; then
     ./build.sh --clean
 fi
 
-$dxapp_dir/bin/$dxapp_name -c $dxapp_dir/example/imagenet_example.json
+$dxapp_dir/bin/$dxapp_name -c $dxapp_dir/example/run_classifier/imagenet_example.json
 
 popd

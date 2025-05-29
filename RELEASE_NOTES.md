@@ -1,5 +1,14 @@
 # RELEASE_NOTES
 
+## v1.9.3 / 2025-05-29
+### 1. Changed
+- None
+### 2. Fixed
+- Fix a correct JSON file path in script
+- update DX-RT Python API to handle RT version incompatibility
+### 3. Added
+- None
+
 ## v1.9.1 / 2025-05-16
 ### 1. Changed
 - Moved all exposed Windows .bat files into the x86_64_win directory for better organization.
