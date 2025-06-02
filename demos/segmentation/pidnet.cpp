@@ -230,12 +230,20 @@ DXRT_TRY_CATCH_BEGIN
         cv::VideoCapture cap;
         cv::Mat frame[FRAME_BUFFERS], resizedFrame[FRAME_BUFFERS], result[FRAME_BUFFERS];
         dxrt::TensorPtrs _outputs;
+
+        int64_t previous_average_time = 0;
+        auto time_s = std::chrono::high_resolution_clock::now();
+        auto time_e = std::chrono::high_resolution_clock::now();
+        uint64_t postprocessed_count = 0;
+        uint64_t duration_time = 0;
+        int font_size = 0;
+
         for(int i=0;i<FRAME_BUFFERS;i++)
         {
             resizedFrame[i] = cv::Mat(inputHeight, inputWidth, CV_8UC3, cv::Scalar(0, 0, 0));
             result[i] = cv::Mat(inputHeight, inputWidth, CV_8UC3, cv::Scalar(0, 0, 0));
         }
-        int idx = 0, prevIdx = 0, key;
+        int idx = 0, key = 0;
         if(!videoFile.empty())
         {
             cap.open(videoFile);
@@ -247,16 +255,19 @@ DXRT_TRY_CATCH_BEGIN
         }
         else
         {
+#ifdef __linux__
+            cap.open(0, cv::CAP_V4L2);
+#elif _WIN32
             cap.open(0);
+#endif
             cap.set(CAP_PROP_FOURCC, VideoWriter::fourcc('M','J','P','G'));
-            cap.set(CAP_PROP_FRAME_WIDTH, CAMERA_FRAME_WIDTH);
-            cap.set(CAP_PROP_FRAME_HEIGHT, CAMERA_FRAME_HEIGHT);
             if(!cap.isOpened())
             {
                 cout << "Error: camera could not be opened." <<endl;
                 return -1;
             }
         }
+        font_size = cap.get(cv::CAP_PROP_FRAME_HEIGHT) / 100;
         cout << "FPS: " << dec << (int)cap.get(CAP_PROP_FPS) << endl;
         cout << cap.get(CAP_PROP_FRAME_WIDTH) << " x " << cap.get(CAP_PROP_FRAME_HEIGHT) << endl;
         namedWindow(DISPLAY_WINDOW_NAME);
@@ -278,12 +289,15 @@ DXRT_TRY_CATCH_BEGIN
                 [&](vector<shared_ptr<dxrt::Tensor>> outputs, void *arg)
                 {
                     profiler.Start("copy");
-                        /* PostProc */
-                        lk.lock();
-                        int arg_idx = *(int*)arg;
-                        memcpy((void*)output_buffers[arg_idx].data(), outputs[0]->data(), ie.output_size());
-                        idx_queue.push(arg_idx);
-                        lk.unlock();
+                    /* PostProc */
+                    lk.lock();
+                    int arg_idx = *(int*)arg;
+                    memcpy((void*)output_buffers[arg_idx].data(), outputs[0]->data(), ie.output_size());
+                    idx_queue.push(arg_idx);
+                    lk.unlock();
+                    time_e = std::chrono::high_resolution_clock::now();
+                    duration_time = std::chrono::duration_cast<std::chrono::microseconds>(time_e - time_s).count();
+                    postprocessed_count++;
                     profiler.End("copy");
                     return 0;
                 };
@@ -308,16 +322,22 @@ DXRT_TRY_CATCH_BEGIN
                 PreProc(frame[idx], resizedFrame[idx], PREPROC_KEEP_IMG_RATIO);
                 profiler.End("pre");
                 profiler.Start("main");
+                time_s = std::chrono::high_resolution_clock::now();
                 if(asyncInference)
                     auto req = ie.RunAsync(resizedFrame[idx].data, &idx);
                 else
+                {
                     _outputs = ie.Run(resizedFrame[idx].data);
-                if(!idx_queue.empty() || (!asyncInference && _outputs.size() > 0))
+                    time_e = std::chrono::high_resolution_clock::now();
+                    duration_time = std::chrono::duration_cast<std::chrono::microseconds>(time_e - time_s).count();
+                    postprocessed_count++;
+                }
+                if(postprocessed_count > 0)
                 {
                     int current_idx = asyncInference ? idx_queue.front():idx;
                     profiler.Start("post-segment");
                     cv::Mat resultExpand, outFrameBlend;
-                    cv::Mat outFrame = frame[prevIdx];
+                    cv::Mat outFrame = frame[current_idx];
                     lk.lock();
                     if(asyncInference)
                     {
@@ -352,13 +372,13 @@ DXRT_TRY_CATCH_BEGIN
                     cv::resize(result[current_idx], resultExpand, Size(frame[current_idx].cols, frame[current_idx].rows), 0, 0, cv::INTER_LINEAR);
                     cv::addWeighted( outFrame, 0.5, resultExpand, 0.5, 0.0, outFrameBlend);
                     profiler.End("post-blend");
-                    
-                    uint64_t fps = 1000000 / (profiler.Get("main") + 0.1);
+                    auto new_average_time = ((previous_average_time * postprocessed_count) + duration_time)/ (postprocessed_count + 1);
+                    previous_average_time = new_average_time;
+                    uint64_t fps = 1000000 / new_average_time;
                     std::string fpsCaption = "FPS : " + std::to_string((int)fps);
-                    cv::Size fpsCaptionSize = cv::getTextSize(fpsCaption, cv::FONT_HERSHEY_PLAIN, 3, 2, nullptr);
-                    cv::putText(outFrameBlend, fpsCaption, cv::Point(outFrameBlend.size().width - fpsCaptionSize.width, outFrameBlend.size().height - fpsCaptionSize.height), cv::FONT_HERSHEY_PLAIN, 3, cv::Scalar(255, 255, 255),2);
+                    cv::Size fpsCaptionSize = cv::getTextSize(fpsCaption, cv::FONT_HERSHEY_PLAIN, font_size, 2, nullptr);
+                    cv::putText(outFrameBlend, fpsCaption, cv::Point(outFrameBlend.size().width - fpsCaptionSize.width, outFrameBlend.size().height - fpsCaptionSize.height), cv::FONT_HERSHEY_PLAIN, font_size, cv::Scalar(255, 255, 255),2);
                     cv::imshow(DISPLAY_WINDOW_NAME, outFrameBlend);
-                    prevIdx = idx;
                     if(asyncInference)
                         idx_queue.pop();
                 }

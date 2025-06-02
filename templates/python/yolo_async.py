@@ -210,7 +210,7 @@ class YoloConfig:
 
 
 class AsyncYolo:
-    def __init__(self, ie:InferenceEngine, yolo_config:YoloConfig, classes, score_threshold, iou_threshold, layers, callback_mode):
+    def __init__(self, ie:InferenceEngine, yolo_config:YoloConfig, classes, score_threshold, iou_threshold, layers):
         self.ie = ie
         self.config = yolo_config
         self.classes = classes
@@ -220,18 +220,14 @@ class AsyncYolo:
         input_resolution = np.sqrt(self.ie.get_input_size() / 3)
         self.input_size = (input_resolution, input_resolution)
         self.videomode = False
-        self.callback_mode = callback_mode
-            
-        if self.callback_mode:
-            self.ie.RegisterCallBack(self.pp_callback)
+        self.result_output = queue.Queue()
+        self.ie.RegisterCallBack(self.pp_callback)
             
     def run(self, image):
         self.image = copy.deepcopy(image)
         self.input_image, _, _ = letter_box(self.image, self.config.input_size, fill_color=(114, 114, 114), format=cv2.COLOR_BGR2RGB)
         self.req = self.ie.run_async([self.input_image], self)
-        if not self.callback_mode :
-            self.result_output = self.ie.Wait(self.req)
-            q.put(self.req)
+        q.put(self.req)
         return self.req
     
     def set_videomode(self, video_mode:bool):
@@ -247,7 +243,7 @@ class AsyncYolo:
                 value:AsyncYolo = user_args
             else:
                 value:AsyncYolo = user_args.value
-            value.result_output = ie_outputs
+            value.result_output.put(ie_outputs)
             q.put(value.req)
         
 class PostProcessingRun:
@@ -337,8 +333,6 @@ def run_example(config):
     decode_type = config["model"]["param"]["decoding_method"]
     input_list = []
     video_mode = False
-    callback_mode = config["callback_mode"]
-    print(callback_mode)
     
     for source in config["input"]["sources"]:
         if source["type"] == "image":
@@ -353,7 +347,7 @@ def run_example(config):
     
     yolo_config = YoloConfig(model_path, classes, score_threshold, iou_threshold, layers, np.sqrt(ie.get_input_size() / 3), ie.get_output_tensors_info()[0]['dtype'], decode_type)
     
-    async_thread = AsyncYolo(ie, yolo_config, classes, score_threshold, iou_threshold, layers, callback_mode)
+    async_thread = AsyncYolo(ie, yolo_config, classes, score_threshold, iou_threshold, layers)
     
     pp_thread = PostProcessingRun(yolo_config, task_order)
     
@@ -375,9 +369,10 @@ def run_example(config):
             
             req = async_thread.run(image)
             if q.qsize() > 0:
-                pp_thread.run(async_thread.result_output)
+                pp_thread.run(async_thread.result_output.get())
                 q.get()
                 q.task_done()
+                async_thread.result_output.task_done()
             
             if pp_thread._queue.qsize() > 0 :
                 result_frame = pp_thread.get_result_frame(async_thread.input_image)
@@ -405,9 +400,10 @@ def run_example(config):
             while q.empty():
                 time.sleep(0.001)
             if q.qsize() > 0:
-                pp_thread.run(async_thread.result_output)
+                pp_thread.run(async_thread.result_output.get())
                 q.get()
                 q.task_done()
+                async_thread.result_output.task_done()
                 
             if pp_thread._queue.qsize() > 0 :
                 pp_thread.save_result(async_thread.input_image)
@@ -418,8 +414,6 @@ if __name__ == "__main__":
     
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', default='./example/run_detector/yolov7_example.json', type=str, help='yolo object detection json config path')
-    parser.add_argument('--callback', action='store_true', dest='callback_mode', help='application runasync type for callback function')
-    parser.add_argument('--wait', action='store_false', dest='callback_mode', help='application runasync type for wait function')
     args = parser.parse_args()
 
     if not os.path.exists(args.config):
@@ -428,10 +422,6 @@ if __name__ == "__main__":
     
     with open(args.config, "r") as f:
         json_config = json.load(f)
-        if args.callback_mode:
-            json_config["callback_mode"] = True
-        else:
-            json_config["callback_mode"] = False
         
     run_example(json_config)
     

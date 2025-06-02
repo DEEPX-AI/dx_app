@@ -67,6 +67,9 @@ ObjectDetection::ObjectDetection(std::shared_ptr<dxrt::InferenceEngine> ie, std:
         output_shape.emplace_back(o.shape());
     }
     data_type = _ie->outputs().front().type();
+
+    _fps_time_s = std::chrono::high_resolution_clock::now();
+    _fps_time_e = std::chrono::high_resolution_clock::now();
 }
 ObjectDetection::ObjectDetection(std::shared_ptr<dxrt::InferenceEngine> ie, int channel, int destWidth, int destHeight, int posX, int posY)
 : _ie(ie), _profiler(dxrt::Profiler::GetInstance()), _channel(channel+1), _destWidth(destWidth), _destHeight(destHeight), _posX(posX), _posY(posY)
@@ -125,10 +128,12 @@ void ObjectDetection::threadFunc(int period)
         _profiler.Start(proc);
         _profiler.Start(cap);
         auto input = _vStream.GetInputStream();
+        _fps_time_s = std::chrono::high_resolution_clock::now();
         int req = _ie->RunAsync(input, (void*)this, (void*)outputMemory);
 #if 0
         _ie->Wait(req); /* optional */
 #endif
+        auto s = std::chrono::high_resolution_clock::now();
         vector<BoundingBox> bboxes;
         dxapp::common::DetectObject bboxes_objects;
         {
@@ -153,10 +158,15 @@ void ObjectDetection::threadFunc(int period)
         cv::rectangle(member_temp, Point(0, 0), Point(40, 20), Scalar(0, 0, 0), cv::FILLED);
 #endif
         cv::putText(member_temp, to_string(_channel), Point(5, 15), cv::FONT_HERSHEY_SIMPLEX, 0.6, cv::Scalar(255, 255, 255), 1, LINE_AA);
-            
+
+        auto e = std::chrono::high_resolution_clock::now();
+        
         {
             unique_lock<mutex> lk(_frameLock);
             member_temp.copyTo(_resultFrame);
+            _processTime = _duration_time + std::chrono::duration_cast<std::chrono::microseconds>(e-s).count();
+            uint64_t new_average = ((_processAverageTime * _processed_count) + _processTime)/(_processed_count + 1);
+            _processAverageTime = new_average;
             if(_isPause){
                 _cv.wait(lk);
             }
@@ -173,7 +183,6 @@ void ObjectDetection::threadFunc(int period)
         Sleep(t);
 #endif
         _profiler.End(proc);
-        _processTime = _profiler.Get(proc);
     }
     _profiler.Erase(cap);
     _profiler.Erase(proc);
@@ -243,7 +252,7 @@ uint64_t ObjectDetection::GetInferenceTime()
 }
 uint64_t ObjectDetection::GetProcessingTime()
 {
-    return _processTime;
+    return _processAverageTime;
 }
 int ObjectDetection::Channel()
 {
@@ -266,6 +275,9 @@ void ObjectDetection::PostProc(void* outputs, int output_length)
 {
     unique_lock<mutex> lk(_lock);
     _bboxes = yolo.PostProc(outputs, output_shape, data_type, output_length);
+    _fps_time_e = std::chrono::high_resolution_clock::now();
+    _processed_count++;
+    _duration_time = std::chrono::duration_cast<std::chrono::microseconds>(_fps_time_e - _fps_time_s).count();
 }
 ostream& operator<<(ostream& os, const ObjectDetection& od)
 {

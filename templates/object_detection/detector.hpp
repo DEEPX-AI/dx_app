@@ -36,6 +36,8 @@ public :
         _resultFrame = cv::Mat(_dstSize._height, _dstSize._width, CV_8UC3, cv::Scalar(0, 0, 0));     
         _frame_count = 0;
         _processed_count = 0;
+        _fps_time_s = std::chrono::high_resolution_clock::now();
+        _fps_time_e = std::chrono::high_resolution_clock::now();
         outputsMemory = (uint8_t*)operator new(_inferenceEngine->output_size());
     };
 
@@ -44,6 +46,8 @@ public :
         std::unique_lock<std::mutex> _uniqueLock(_lock);
         _postProcessing.run(output_data, data_length);
         _processed_count += 1;
+        _fps_time_e = std::chrono::high_resolution_clock::now();
+        _processTime = std::chrono::duration_cast<std::chrono::microseconds>(_fps_time_e - _fps_time_s).count();
     };
 
     cv::Mat getResultFrame()
@@ -111,8 +115,7 @@ public :
                 std::this_thread::sleep_for(std::chrono::microseconds(100));
                 continue;
             }
-            _profiler.Start(_processName);    
-            if(_frame_count - _processed_count < 10)// && !_quit.load())
+            if(!_quit.load())
             {
                 inf_data = _vStream.GetInputStream();
                 {
@@ -128,17 +131,18 @@ public :
                     else if(inf_data == nullptr)
                         continue;
                 }
-                _profiler.Start(_inferName);
+                _fps_time_s = std::chrono::high_resolution_clock::now();
                 int req = _inferenceEngine->RunAsync(inf_data, (void*)this, (void*)outputsMemory);
                 _frame_count += 1;
-
             }
-            _profiler.End(_inferName);
+            if(_processed_count > 0)
             {
                 std::unique_lock<std::mutex> _uniqueLock(_lock);
                 dxapp::common::DetectObject results = _postProcessing.getResult();
                 outputImg = _vStream.GetOutputStream(results);
-                uint64_t fps = 1000000 / (_processTime + 0.1);
+                int64_t new_average = ((_fps_previous_average_time * _processed_count) + _processTime) / (_processed_count + 1);
+                int64_t fps = 1000000 / new_average;
+                _fps_previous_average_time = new_average;
                 std::string fpsCaption = "FPS : " + std::to_string((int)fps);
                 cv::Size fpsCaptionSize = cv::getTextSize(fpsCaption, cv::FONT_HERSHEY_PLAIN, 3, 2, nullptr);
                 cv::putText(outputImg, fpsCaption, cv::Point(outputImg.size().width - fpsCaptionSize.width, outputImg.size().height - fpsCaptionSize.height), cv::FONT_HERSHEY_PLAIN, 3, cv::Scalar(255, 255, 255),2);
@@ -149,8 +153,6 @@ public :
                 std::unique_lock<std::mutex> _uniqueLock(_getFrameLock);
                _resultFrame = outputImg;
             }
-            _profiler.End(_processName);
-            _processTime = _profiler.Get(_processName);
             _inferTime = _inferenceEngine->latency();
             std::this_thread::sleep_for(std::chrono::microseconds(1));
         };
@@ -205,8 +207,9 @@ private:
     std::string _processName;
     std::string _inferName;
     uint64_t _inferTime = 0;
-    uint64_t _processTime = 0;
-
+    int64_t _processTime = 0;
+    int64_t _fps_previous_average_time = 0;
+    
     std::thread _thread;
     std::thread _ppThread;
     std::mutex _lock;
@@ -217,7 +220,10 @@ private:
 
     unsigned long long _processed_count = 0;
     unsigned long long _frame_count = 0;
-
+    
+    std::chrono::high_resolution_clock::time_point _fps_time_s;
+    std::chrono::high_resolution_clock::time_point _fps_time_e;
+    
     bool _get_frame_result = true;
     
     uint8_t * outputsMemory = nullptr;
