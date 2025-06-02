@@ -228,6 +228,14 @@ DXRT_TRY_CATCH_BEGIN
         cv::VideoCapture cap;
         cv::VideoWriter writer;
         cv::Mat frame[FRAME_BUFFERS], resizedFrame[FRAME_BUFFERS];
+
+        int64_t previous_average_time = 0;
+        auto time_s = std::chrono::high_resolution_clock::now();
+        auto time_e = std::chrono::high_resolution_clock::now();
+        uint64_t postprocessed_count = 0;
+        uint64_t duration_time = 0;
+        int font_size = 0;
+
         for(int i=0;i<FRAME_BUFFERS;i++)
         {
             resizedFrame[i] = cv::Mat(yoloParam.height, yoloParam.width, CV_8UC3, cv::Scalar(0, 0, 0));
@@ -242,21 +250,25 @@ DXRT_TRY_CATCH_BEGIN
                 return -1;
             }
             total_frames = cap.get(cv::CAP_PROP_FRAME_COUNT);
+            font_size = cap.get(cv::CAP_PROP_FRAME_HEIGHT) / 100;
         }
         else
         {
             if(cameraInput)
+#ifdef __linux__
+                cap.open(0, cv::CAP_V4L2);
+#elif _WIN32
                 cap.open(0);
+#endif
             else
                 cap.open(rtspPath);
             cap.set(CAP_PROP_FOURCC, VideoWriter::fourcc('M','J','P','G'));
-            cap.set(CAP_PROP_FRAME_WIDTH, CAMERA_FRAME_WIDTH);
-            cap.set(CAP_PROP_FRAME_HEIGHT, CAMERA_FRAME_HEIGHT);
             if(!cap.isOpened())
             {
                 cout << "Error: camera could not be opened." <<endl;
                 return -1;
             }
+            font_size = cap.get(cv::CAP_PROP_FRAME_HEIGHT) / 100;
         }
         cout << "FPS: " << dec << (int)cap.get(CAP_PROP_FPS) << endl;
         cout << cap.get(CAP_PROP_FRAME_WIDTH) << " x " << cap.get(CAP_PROP_FRAME_HEIGHT) << endl;
@@ -271,17 +283,20 @@ DXRT_TRY_CATCH_BEGIN
                 [&](vector<shared_ptr<dxrt::Tensor>> outputs, void *arg)
                 {
                     profiler.Start("post");
-                        /* PostProc */
-                        auto result = yolo.PostProc(outputs);
-                        /* Restore raw frame index from tensor */
-                        lk.lock();
-                        bboxesQueue.push(
-                            make_pair(
-                                result, 
-                                (uint64_t) arg
-                            )
-                        );
-                        lk.unlock();
+                    /* PostProc */
+                    auto result = yolo.PostProc(outputs);
+                    /* Restore raw frame index from tensor */
+                    lk.lock();
+                    bboxesQueue.push(
+                        make_pair(
+                            result, 
+                            (uint64_t) arg
+                        )
+                    );
+                    lk.unlock();
+                    time_e = std::chrono::high_resolution_clock::now();
+                    duration_time = std::chrono::duration_cast<std::chrono::microseconds>(time_e - time_s).count();
+                    postprocessed_count++;
                     profiler.End("post");
                     return 0;
                 };
@@ -307,46 +322,41 @@ DXRT_TRY_CATCH_BEGIN
                     profiler.Start("pre");
                     PreProc(frame[idx], resizedFrame[idx], true, true, 114);
                     profiler.End("pre");
+                    time_s = std::chrono::high_resolution_clock::now();
                     int reqId = ie.RunAsync(resizedFrame[idx].data, (void*)(intptr_t)idx);
                     UNUSEDVAR(reqId);
                     profiler.End("main");
-                    lk.lock();
-                    if(!bboxesQueue.empty())
+                    if(postprocessed_count > 0)
                     {
+                        lk.lock();
                         bboxes = bboxesQueue.front().first;
                         outFrame = frame[bboxesQueue.front().second];
                         bboxesQueue.pop();
+                        lk.unlock();
+                        DisplayBoundingBox(outFrame, bboxes, yoloParam.height, yoloParam.width, "", "",
+                            cv::Scalar(0, 0, 255), objectColors, "", 0, -1, true);
+                        cv::Size mainCaptionSize = cv::getTextSize(captionModel, cv::FONT_HERSHEY_SIMPLEX, 0.7, 1, nullptr);
+                        cv::rectangle(outFrame, Point(0, 0), Point(mainCaptionSize.width+ 40, mainCaptionSize.height + 50), Scalar(0, 0, 0), cv::FILLED);
+                        cv::putText(outFrame, captionModel, cv::Point(20, 25), FONT_HERSHEY_SIMPLEX, 0.7, Scalar(255, 255, 255));
+                        auto new_average_time = ((previous_average_time * postprocessed_count) + duration_time)/ (postprocessed_count + 1);
+                        previous_average_time = new_average_time;
+                        uint64_t fps = 1000000 / new_average_time;
+                        std::string fpsCaption = "FPS : " + std::to_string((int)fps);
+                        cv::Size fpsCaptionSize = cv::getTextSize(fpsCaption, cv::FONT_HERSHEY_PLAIN, font_size, 2, nullptr);
+                        cv::putText(outFrame, fpsCaption, cv::Point(outFrame.size().width - fpsCaptionSize.width, outFrame.size().height - fpsCaptionSize.height), cv::FONT_HERSHEY_PLAIN, font_size, cv::Scalar(255, 255, 255),2);
+                        cv::imshow(DISPLAY_WINDOW_NAME, outFrame);
                     }
-                    else
-                    {
-                        outFrame = frame[idx];
-                    }
-                    lk.unlock();
-                    DisplayBoundingBox(outFrame, bboxes, yoloParam.height, yoloParam.width, "", "",
-                        cv::Scalar(0, 0, 255), objectColors, "", 0, -1, true);
-                    cv::Size mainCaptionSize = cv::getTextSize(captionModel, cv::FONT_HERSHEY_SIMPLEX, 0.7, 1, nullptr);
-                    cv::rectangle(outFrame, Point(0, 0), Point(mainCaptionSize.width+ 40, mainCaptionSize.height + 50), Scalar(0, 0, 0), cv::FILLED);
-                    cv::putText(outFrame, captionModel, cv::Point(20, 25), FONT_HERSHEY_SIMPLEX, 0.7, Scalar(255, 255, 255));
-                    
-                    uint64_t fps = 1000000 / (profiler.Get("main") + 0.1);
-                    std::string fpsCaption = "FPS : " + std::to_string((int)fps);
-                    cv::Size fpsCaptionSize = cv::getTextSize(fpsCaption, cv::FONT_HERSHEY_PLAIN, 3, 2, nullptr);
-                    cv::putText(outFrame, fpsCaption, cv::Point(outFrame.size().width - fpsCaptionSize.width, outFrame.size().height - fpsCaptionSize.height), cv::FONT_HERSHEY_PLAIN, 3, cv::Scalar(255, 255, 255),2);
-                    cv::imshow(DISPLAY_WINDOW_NAME, outFrame);
                     (++idx)%=FRAME_BUFFERS;
                 }
                 profiler.End("cap");
                 int64_t t = (INPUT_CAPTURE_PERIOD_MS*1000 - profiler.Get("cap"))/1000;
                 if(t<0 || t>INPUT_CAPTURE_PERIOD_MS) t = 0;
-                // LOG_VALUE(profiler.Get("cap"));
-                // LOG_VALUE(t);
-                key = cv::waitKey(max((int64_t)1, t));
-                // key = cv::waitKey(1);
-                if(key == 0x20) //'p'
+                key = cv::waitKey(1);
+                if(key == 'p') //'p'
                 {
                     pause = !pause;
                 }
-                else if(key == 0x1B) //'ESC'
+                else if(key == 0x1B || key == 'q') //'ESC'
                 {
                     break;
                 }

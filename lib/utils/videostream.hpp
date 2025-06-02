@@ -181,7 +181,7 @@ public:
                     printf("=========================== \n");
                     _video.open(_gstCameraPipeline, cv::CAP_GSTREAMER);
 #else
-                    _video.open(stoi(_srcPath));
+                    _video.open(stoi(_srcPath), cv::CAP_V4L2);
 #endif // USE_VAAPI
 #elif _WIN32
                     _video.open(stoi(_srcPath));

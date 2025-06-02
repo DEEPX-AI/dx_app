@@ -1,5 +1,16 @@
 # RELEASE_NOTES
 
+## v1.9.4 / 2025-06-02
+### 1. Changed
+- Updated camera backend selection logic — now uses:
+      windows : auto
+      linux : v4l2
+- drop wait mode support in template/python/yolo_async.py and remove callback_mode and wait option parameters
+### 2. Fixed
+- Corrected the FPS calculation logic by using a cumulative average instead of per-frame timing.
+### 3. Added
+- None
+
 ## v1.9.3 / 2025-05-29
 ### 1. Changed
 - None

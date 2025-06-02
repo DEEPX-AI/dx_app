@@ -56,6 +56,11 @@ private:
     uint64_t _inferenceTime = 0;
     uint64_t _latencyTime = 0;
     uint64_t _processTime = 0;
+    uint64_t _duration_time = 0;
+    uint64_t _processAverageTime = 0;
+    uint64_t _processed_count = 0;
+    std::chrono::high_resolution_clock::time_point _fps_time_s;
+    std::chrono::high_resolution_clock::time_point _fps_time_e;
     int _srcWidth;
     int _srcHeight;
     int _width;

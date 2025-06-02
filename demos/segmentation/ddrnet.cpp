@@ -210,7 +210,11 @@ DXRT_TRY_CATCH_BEGIN
         }
         else
         {
+#ifdef __linux__
+            cap.open(0, cv::CAP_V4L2);
+#elif _WIN32
             cap.open(0);
+#endif
             cap.set(CAP_PROP_FOURCC, VideoWriter::fourcc('M','J','P','G'));
             cap.set(CAP_PROP_FRAME_WIDTH, CAMERA_FRAME_WIDTH);
             cap.set(CAP_PROP_FRAME_HEIGHT, CAMERA_FRAME_HEIGHT);
