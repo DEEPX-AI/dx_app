@@ -136,13 +136,15 @@ int inference(std::string model_path, std::vector<std::string> image_gt_list, st
     input_future = std::async(std::launch::async, preprocess, image_gt[0], based_path);
 
     int correct = 0;
-    for (int i = 0; i < (int)image_gt_list.size(); i++)
+    int i = 0;
+    int inference_count = 0;
+    while(true)
     {
         auto input = input_future.get();
         int gt = atoi(image_gt[1].c_str());
-        if(i + 1 < (int)image_gt_list.size())
+        if((i+1) % image_gt_list.size() < (int)image_gt_list.size())
         {
-            image_gt = split(image_gt_list[i+1], ' ');
+            image_gt = split(image_gt_list[(i+1) % image_gt_list.size()], ' ');
             input_future = std::async(std::launch::async, preprocess, image_gt[0], based_path);
         }
 
@@ -152,7 +154,8 @@ int inference(std::string model_path, std::vector<std::string> image_gt_list, st
         if(input!=NULL)
             delete input;
 
-        int ret = *(int*)output.front()->data();
+        int ret = *(uint16_t*)output.front()->data();
+        inference_count++;
         if (gt == ret)
         {
             correct++;
@@ -160,10 +163,11 @@ int inference(std::string model_path, std::vector<std::string> image_gt_list, st
         }
 
         *count = i + 1;
-        *accuracy = (double)correct / (double)(i + 1);
+        *accuracy = (double)correct / inference_count;
         *latency = time_run;
         if (*exit_flag)
             break;
+        i = (i+1) % image_gt_list.size();
     }
     return 0;
 }
@@ -188,8 +192,7 @@ void visualize(std::string model_path, std::string image_list_path, std::string 
 
     while (1)
     {
-        if (count == (int)image_gt_list.size()) break;
-
+        if (count == (int)image_gt_list.size()) count = 0;
         std::future<uint8_t *> input_future;
         image_gt = split(image_gt_list[count], ' ');
         image = cv::imread(based_image_path+"/"+image_gt[0], cv::IMREAD_ANYCOLOR);

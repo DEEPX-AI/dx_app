@@ -475,7 +475,7 @@ DXRT_TRY_CATCH_BEGIN
             calcFps = true;
         }
 
-        float resultFps = round((fps / frameCount) * 100) / 100;
+        float resultFps = round(fps * 100) / 100;
         if(appConfig.is_show_fps)
         {
             cv::rectangle(outFrame, Point(0, 0), Point(500, 50), Scalar(0, 0, 255), cv::FILLED);

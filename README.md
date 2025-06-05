@@ -10,24 +10,21 @@ Application performance may also depending on the specifications of the host bec
 
 For detailed guides on running demo applications and templates, refer to the following documents:
 
-- Introduction: [Introduction.md](./docs/source/Introduction.md)
-- Installation and Build: 
-  - **linux**: [Installation-on-linux.md](./docs/source/Installation-on-linux.md)
-  - **windows**: [Installation-on-windows.md](./docs/source/Installation-on-windows.md)
-- Demo Guide: [Demo-User-Guide.md](./docs/source/Demo-User-Guide.md)
-- Template Guide: [Templates-User-Guide.md](./docs/source/Templates-User-Guide.md)
-- Classification Template: [Classification-Template-Guide.md](./docs/source/Classification-Template-Guide.md)
-- Object Detection Template: [Object-Detection-Template-Guide.md](./docs/source/Object-Detection-Template-Guide.md)
-- Python Examples: 
-  - General Guide : [Python-Example-Guide.md](./docs/source/Python-Example-Guide.md)
-  - YOLO Post-Processing Optimization Using Pybind11 : [Yolo-Post-Processing-Pybind11-API.md](./docs/source/Yolo-Post-Processing-Pybind11-API.md)
+- Overview: [01_DXNN_Application_Overview.md](./docs/source/docs/01_DXNN_Application_Overview.md)
+- Installation and Build: [02_DX-APP_Installation_and_Build.md](./docs/source/docs/02_DX-APP_Installation_and_Build.md)
+- Demo Guide: [03_Demo_Guide.md](./docs/source/docs/03_Demo_Guide.md)
+- Template Guide: [04_Template_Guide.md](./docs/source/docs/04_Template_Guide.md)
+- Classification Template: [05_Classification_Template.md](./docs/source/docs/05_Classification_Template.md)
+- Object Detection Template: [06_Object_Detection_Template.md](./docs/source/docs/06_Object_Detection_Template.md)
+- Python Examples: [07_Python_Examples.md](./docs/source/docs/07_Python_Examples.md)
+- Appendix ChangeLog: [Appendix_Change_Log.md](./docs/source/docs/Appendix_Change_Log.md)
 
 ## Quick Start     
 ### prerequisites    
 Install the followings first.            
 - Set up build Environment ([Link](https://github.com/DEEPX-AI/dx_rt/blob/main/docs/Installation.md))     
 - Install dxrt library and driver ([Link](https://github.com/DEEPX-AI/dx_rt/blob/main/docs/Getting-Started.md))     
-- model compiled for DEEPX's NPU chips ([Link](https://deepx.ai/model-zoo/))   
+
 ### Installation    
 - **DX_RT Drivers**        
   After installing the dxrt driver, the PCIe driver and the runtime driver. This can be verified with the lsmod command.        
