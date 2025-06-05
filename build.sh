@@ -90,6 +90,17 @@ else
         echo Build Completed and executable copied to $out_dir/
     fi
 fi
+
+if [ -f ./templates/python/requirements.txt ]; then
+    echo Installing Python dependencies from ./templates/python/requirements.txt
+    pip install -r ./templates/python/requirements.txt
+    if [ $? -ne 0 ]; then
+        echo "-- Warning: Failed to install Python dependencies"
+    fi
+else
+    echo "-- Warning: ./templates/python/requirements.txt not found"
+fi
+
 if [ -e $build_dir/release/bin ]; then
     echo Build Done. "($build_type)"
     echo =================================================

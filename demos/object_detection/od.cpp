@@ -159,18 +159,7 @@ void ObjectDetection::threadFunc(int period)
 #endif
         cv::putText(member_temp, to_string(_channel), Point(5, 15), cv::FONT_HERSHEY_SIMPLEX, 0.6, cv::Scalar(255, 255, 255), 1, LINE_AA);
 
-        auto e = std::chrono::high_resolution_clock::now();
         
-        {
-            unique_lock<mutex> lk(_frameLock);
-            member_temp.copyTo(_resultFrame);
-            _processTime = _duration_time + std::chrono::duration_cast<std::chrono::microseconds>(e-s).count();
-            uint64_t new_average = ((_processAverageTime * _processed_count) + _processTime)/(_processed_count + 1);
-            _processAverageTime = new_average;
-            if(_isPause){
-                _cv.wait(lk);
-            }
-        }
         _inferenceTime = _ie->inference_time();
         _latencyTime = _ie->latency();
         
@@ -182,6 +171,20 @@ void ObjectDetection::threadFunc(int period)
 #elif _WIN32
         Sleep(t);
 #endif
+        auto e = std::chrono::high_resolution_clock::now();
+        
+        if(_processed_count > 0)
+        {
+            unique_lock<mutex> lk(_frameLock);
+            member_temp.copyTo(_resultFrame);
+            _processAverageTime = std::chrono::duration_cast<std::chrono::microseconds>(e-s).count();
+            // uint64_t new_average = ((_processAverageTime * _processed_count) + _processTime)/(_processed_count + 1);
+            // _processAverageTime = new_average;
+            if(_isPause){
+                _cv.wait(lk);
+            }
+        }
+
         _profiler.End(proc);
     }
     _profiler.Erase(cap);

@@ -1,5 +1,15 @@
 # RELEASE_NOTES
 
+## v1.9.5 / 2025-06-05
+### 1. Changed
+- Updated imageNet_example.py to use run_batch
+- Changed imagenet_classification C++ demo to run in an infinite loop 
+- Updated documentation to reflect new file structure
+### 2. Fixed
+- None
+### 3. Added
+- None
+
 ## v1.9.4 / 2025-06-02
 ### 1. Changed
 - Updated camera backend selection logic — now uses:
