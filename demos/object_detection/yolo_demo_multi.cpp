@@ -474,7 +474,7 @@ DXRT_TRY_CATCH_BEGIN
         }
 
         allFrameCount++;
-        if(passTime == 1000){
+        if(passTime > 1000){
             calcFps = true;
             passTime = -1;
             start = std::chrono::high_resolution_clock::now();
