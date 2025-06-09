@@ -105,10 +105,6 @@ add_subdirectory(demos/pose_estimation)
 add_subdirectory(demos/object_det_and_seg)
 add_subdirectory(demos/segmentation)
 
-if(NOT CROSS_COMPILE)
-    add_subdirectory(lib/pybind)
-endif()
-
 if(EXISTS "${CMAKE_SOURCE_DIR}/test" AND USE_DXAPP_TEST)
     add_subdirectory(test)
 endif()

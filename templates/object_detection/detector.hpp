@@ -145,13 +145,14 @@ public :
                 _fps_previous_average_time = new_average;
                 std::string fpsCaption = "FPS : " + std::to_string((int)fps);
                 cv::Size fpsCaptionSize = cv::getTextSize(fpsCaption, cv::FONT_HERSHEY_PLAIN, 3, 2, nullptr);
-                cv::putText(outputImg, fpsCaption, cv::Point(outputImg.size().width - fpsCaptionSize.width, outputImg.size().height - fpsCaptionSize.height), cv::FONT_HERSHEY_PLAIN, 3, cv::Scalar(255, 255, 255),2);
+                // cv::putText(outputImg, fpsCaption, cv::Point(outputImg.size().width - fpsCaptionSize.width, outputImg.size().height - fpsCaptionSize.height), cv::FONT_HERSHEY_PLAIN, 3, cv::Scalar(255, 255, 255),2);
                 if(_appType == NONE)
                     std::cout << results <<std::endl;
-            }
-            {
-                std::unique_lock<std::mutex> _uniqueLock(_getFrameLock);
-               _resultFrame = outputImg;
+                {
+                    std::unique_lock<std::mutex> _result_frameLock(_getFrameLock);
+                    _resultFrame = outputImg;
+                    _result_frame_count++;
+                }
             }
             _inferTime = _inferenceEngine->latency();
             std::this_thread::sleep_for(std::chrono::microseconds(1));
@@ -164,11 +165,19 @@ public :
 
     };
 
-    void save()
+    int save()
     {
+        while(_result_frame_count < 1)
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        std::unique_lock<std::mutex> _uniqueLock(_lock);
         std::string file_name = dxapp::common::getFileName(_videoPath);
-        cv::imwrite("./result-" + _name + ".jpg", _resultFrame);
-        std::cout << "save file : result-" << _name << ".jpg" <<std::endl;
+        if(cv::imwrite("./result-" + _name + ".jpg", _resultFrame))
+        {
+            std::cout << "save file : result-" << _name << ".jpg" <<std::endl;
+            return 0;
+        }
+        else
+            return -1;
     };
 
     uint8_t* get_outputMem(){
@@ -220,6 +229,7 @@ private:
 
     unsigned long long _processed_count = 0;
     unsigned long long _frame_count = 0;
+    unsigned long long _result_frame_count = 0;
     
     std::chrono::high_resolution_clock::time_point _fps_time_s;
     std::chrono::high_resolution_clock::time_point _fps_time_e;
@@ -442,13 +452,21 @@ public:
         }
         while(true)
         {
-            std::this_thread::sleep_for(std::chrono::microseconds(100000));
+            int processed_complete = 0;
             for(int idx = 0; idx < static_cast<int>(apps.size()); idx++)
             {
-                apps[idx]->save();
+                auto ret = apps[idx]->save();
+                if(ret < 0){
+                    idx--;
+                    continue;
+                }
+                processed_complete++;
             }
-            quitThread();
-            break;
+            if(processed_complete == static_cast<int>(apps.size()))
+            {
+                quitThread();
+                break;
+            }
         }
     };
 

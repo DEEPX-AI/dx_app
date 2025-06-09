@@ -17,7 +17,7 @@ Related Sections are as follows.
 Here is an example of a classification template.  
 
 ```
-./bin/run_classifier -c example/imagenet_example.json
+./bin/run_classifier -c example/run_classifier/imagenet_example.json
 ...
 [example/ILSVRC2012/0.jpeg] Top1 Result : class 831 (studio couch, day bed) 
 [example/ILSVRC2012/1.jpeg] Top1 Result : class 321 (admiral) 
@@ -44,7 +44,7 @@ For a detailed explanation of how classification works, refer to **Section 5. Cl
 Here is an example of an objection detection template.  
 
 ```
-./bin/run_detector -c example/yolov5s3_example.json
+./bin/run_detector -c example/run_detector/yolov5s3_example.json
     ...
     detected : 9
 ```

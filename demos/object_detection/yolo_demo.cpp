@@ -45,6 +45,8 @@ using namespace cv;
 #define UNUSEDVAR(x) (void)(x);
 #endif
 
+#define PERFORMANCE_TEST false
+
 // pre/post parameter table
 extern YoloParam yolov5s_320, yolov5s_512, yolov5s_640, yolox_s_512, yolov7_640, yolov7_512, yolox_s_640;
 YoloParam yoloParams[] = {
@@ -132,7 +134,7 @@ DXRT_TRY_CATCH_BEGIN
     int loops = -1, paramIdx = 0;
     string modelPath="", imgFile="", videoFile="", binFile="", simFile="", videoOutFile="", OSDstr="", rtspPath="";  
     bool cameraInput = false, ispInput = false, 
-        asyncInference = false, writeFrame = false;
+        asyncInference = false, writeFrame = false, performanceTest = false;
     vector<unsigned long> inputPtr;
     auto objectColors = GetObjectColors();
 
@@ -152,6 +154,7 @@ DXRT_TRY_CATCH_BEGIN
     ("a, async", "asynchronous inference", cxxopts::value<bool>(asyncInference)->default_value("false"))
     ("p, param", "pre/post-processing parameter selection", cxxopts::value<int>(paramIdx)->default_value("-1"))
     ("l, loop", "loop test", cxxopts::value<int>(loops)->default_value("0"))
+    ("performance", "for performance inference", cxxopts::value<bool>(performanceTest)->default_value("false"))
     ("h, help", "print usage")
     ;
     auto cmd = options.parse(argc, argv);
@@ -171,7 +174,7 @@ DXRT_TRY_CATCH_BEGIN
     LOG_VALUE(ispInput);
     LOG_VALUE(asyncInference);
 
-    string captionModel = dxrt::StringSplit(modelPath, "/").back();
+    auto captionModel = dxapp::common::getFileName(modelPath);
 
     dxrt::InferenceEngine ie(modelPath);
     auto yoloParam = yoloParams[paramIdx];
@@ -326,7 +329,7 @@ DXRT_TRY_CATCH_BEGIN
                     int reqId = ie.RunAsync(resizedFrame[idx].data, (void*)(intptr_t)idx);
                     UNUSEDVAR(reqId);
                     profiler.End("main");
-                    if(postprocessed_count > 0)
+                    if(postprocessed_count > 0 && bboxesQueue.size() > 0)
                     {
                         lk.lock();
                         bboxes = bboxesQueue.front().first;
@@ -343,7 +346,7 @@ DXRT_TRY_CATCH_BEGIN
                         uint64_t fps = 1000000 / new_average_time;
                         std::string fpsCaption = "FPS : " + std::to_string((int)fps);
                         cv::Size fpsCaptionSize = cv::getTextSize(fpsCaption, cv::FONT_HERSHEY_PLAIN, font_size, 2, nullptr);
-                        cv::putText(outFrame, fpsCaption, cv::Point(outFrame.size().width - fpsCaptionSize.width, outFrame.size().height - fpsCaptionSize.height), cv::FONT_HERSHEY_PLAIN, font_size, cv::Scalar(255, 255, 255),2);
+                        // cv::putText(outFrame, fpsCaption, cv::Point(outFrame.size().width - fpsCaptionSize.width, outFrame.size().height - fpsCaptionSize.height), cv::FONT_HERSHEY_PLAIN, font_size, cv::Scalar(255, 255, 255),2);
                         cv::imshow(DISPLAY_WINDOW_NAME, outFrame);
                     }
                     (++idx)%=FRAME_BUFFERS;
@@ -351,7 +354,12 @@ DXRT_TRY_CATCH_BEGIN
                 profiler.End("cap");
                 int64_t t = (INPUT_CAPTURE_PERIOD_MS*1000 - profiler.Get("cap"))/1000;
                 if(t<0 || t>INPUT_CAPTURE_PERIOD_MS) t = 0;
-                key = cv::waitKey(1);
+
+                if(performanceTest)
+                    key = cv::waitKey(1);
+                else
+                    key = cv::waitKey(max((int64_t)1, t));
+                
                 if(key == 'p') //'p'
                 {
                     pause = !pause;

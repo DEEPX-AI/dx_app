@@ -51,13 +51,6 @@ if [ ! -e $dxrt_dir ]; then
     exit -1
 fi
 
-if PYBIND11_CMAKE_DIR=$(pybind11-config --cmakedir 2>/dev/null || ~/.local/bin/pybind11-config --cmakedir 2>/dev/null); then
-    cmd+=(-Dpybind11_CMAKE_DIR=$PYBIND11_CMAKE_DIR)
-else
-    echo "-- Error : pybind11-config not found"
-    exit -1
-fi
-
 if [ $build_gtest == "true" ]; then
     cmd+=(-DUSE_DXAPP_TEST=True);
 fi
@@ -99,6 +92,24 @@ if [ -f ./templates/python/requirements.txt ]; then
     fi
 else
     echo "-- Warning: ./templates/python/requirements.txt not found"
+fi
+
+# Install dx_postprocess Python module
+if [ -f ./lib/pybind/setup.py ]; then
+    echo "Installing dx_postprocess Python module..."
+    cd ./lib/pybind
+    pip install .
+    install_result=$?
+    cd ../..
+    if [ $install_result -eq 0 ]; then
+        echo "dx_postprocess module installed successfully"
+        # Verify installation
+        python -c "import dx_postprocess; print('dx_postprocess module verification: OK')" 2>/dev/null || echo "-- Warning: dx_postprocess module import failed"
+    else
+        echo "-- Warning: Failed to install dx_postprocess module"
+    fi
+else
+    echo "-- Warning: ./lib/pybind/setup.py not found"
 fi
 
 if [ -e $build_dir/release/bin ]; then

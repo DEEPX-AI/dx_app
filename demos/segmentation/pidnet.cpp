@@ -377,7 +377,7 @@ DXRT_TRY_CATCH_BEGIN
                     uint64_t fps = 1000000 / new_average_time;
                     std::string fpsCaption = "FPS : " + std::to_string((int)fps);
                     cv::Size fpsCaptionSize = cv::getTextSize(fpsCaption, cv::FONT_HERSHEY_PLAIN, font_size, 2, nullptr);
-                    cv::putText(outFrameBlend, fpsCaption, cv::Point(outFrameBlend.size().width - fpsCaptionSize.width, outFrameBlend.size().height - fpsCaptionSize.height), cv::FONT_HERSHEY_PLAIN, font_size, cv::Scalar(255, 255, 255),2);
+                    // cv::putText(outFrameBlend, fpsCaption, cv::Point(outFrameBlend.size().width - fpsCaptionSize.width, outFrameBlend.size().height - fpsCaptionSize.height), cv::FONT_HERSHEY_PLAIN, font_size, cv::Scalar(255, 255, 255),2);
                     cv::imshow(DISPLAY_WINDOW_NAME, outFrameBlend);
                     if(asyncInference)
                         idx_queue.pop();

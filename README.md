@@ -41,12 +41,7 @@ Install the followings first.
   set(DXRT_INSTALLED_DIR /usr/local)
   ...
   ```          
-- **Clone DX_APP**         
-  clone this project, and just build 
-  ```shell
-  git clone git@gh.deepx.ai:DEEPX-AI/dx_app.git      
-  ```                                 
-- **Install Dependencies**                
+- **Open dx_app and Install Dependencies**                
   Install Dependency package tools             
   ```shell
   ./install.sh --dep

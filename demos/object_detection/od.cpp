@@ -166,26 +166,24 @@ void ObjectDetection::threadFunc(int period)
         _profiler.End(cap);
         int64_t t = (period*1000 - _profiler.Get(cap))/1000;
         if(t<0 || t>period) t = 0;
-#ifdef __linux__
-        usleep(t*1000);
-#elif _WIN32
-        Sleep(t);
-#endif
         auto e = std::chrono::high_resolution_clock::now();
         
         if(_processed_count > 0)
         {
             unique_lock<mutex> lk(_frameLock);
             member_temp.copyTo(_resultFrame);
-            _processAverageTime = std::chrono::duration_cast<std::chrono::microseconds>(e-s).count();
-            // uint64_t new_average = ((_processAverageTime * _processed_count) + _processTime)/(_processed_count + 1);
-            // _processAverageTime = new_average;
             if(_isPause){
                 _cv.wait(lk);
             }
         }
 
         _profiler.End(proc);
+        _processTime = _profiler.Get(proc);
+#ifdef __linux__
+        usleep(t*1000);
+#elif _WIN32
+        Sleep(t);
+#endif
     }
     _profiler.Erase(cap);
     _profiler.Erase(proc);
@@ -255,7 +253,7 @@ uint64_t ObjectDetection::GetInferenceTime()
 }
 uint64_t ObjectDetection::GetProcessingTime()
 {
-    return _processAverageTime;
+    return _duration_time;
 }
 int ObjectDetection::Channel()
 {
@@ -278,9 +276,18 @@ void ObjectDetection::PostProc(void* outputs, int output_length)
 {
     unique_lock<mutex> lk(_lock);
     _bboxes = yolo.PostProc(outputs, output_shape, data_type, output_length);
-    _fps_time_e = std::chrono::high_resolution_clock::now();
     _processed_count++;
-    _duration_time = std::chrono::duration_cast<std::chrono::microseconds>(_fps_time_e - _fps_time_s).count();
+    _ret_processed_count++;
+}
+uint64_t ObjectDetection::GetPostProcessCount()
+{
+    unique_lock<mutex> lk(_lock);
+    return _ret_processed_count;
+}
+void ObjectDetection::SetZeroPostProcessCount()
+{
+    unique_lock<mutex> lk(_lock);
+    _ret_processed_count = 0;
 }
 ostream& operator<<(ostream& os, const ObjectDetection& od)
 {
