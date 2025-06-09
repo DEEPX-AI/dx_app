@@ -1,4 +1,10 @@
 # RELEASE_NOTES
+## v1.9.8 / 2025-06-09
+### 1. Changed
+### 2. Fixed
+- update condition for FPS calculation
+### 3. Added
+
 ## v1.9.7 / 2025-06-09
 ### 1. Changed
 ### 2. Fixed
