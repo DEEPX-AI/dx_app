@@ -82,12 +82,6 @@ To check the usage and available options: `python imageNet_example.py --help`
 
 **Classification**  
 ```
-python template/python/imageNet_example.py
-```
-
-or
-
-```
 python template/python/imageNet_example.py --config example/run_classifier/imagenet_example.json
   ...
   [example/ILSVRC2012/0.jpeg] Top1 Result : class 831 (studio couch, day bed)

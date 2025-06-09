@@ -1,4 +1,14 @@
 # RELEASE_NOTES
+## v1.9.6 / 2025-06-09
+### 1. Changed
+- Improved the installation method of the Python-based dx_postprocess module to use pip install .
+- optimize processing time calculation and improve frame handling in object detection demo
+### 2. Fixed
+- Added handling for empty frame indexing queue
+### 3. Added
+- run / run_batch options related to the ImageNet Python example
+- Automatically downloads pybind11 via git clone in setup.py (header-only, no build required).
+
 
 ## v1.9.5 / 2025-06-05
 ### 1. Changed

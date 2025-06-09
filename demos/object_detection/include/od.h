@@ -36,6 +36,8 @@ public:
     uint64_t GetInferenceTime();
     uint64_t GetLatencyTime();
     uint64_t GetProcessingTime();
+    uint64_t GetPostProcessCount();
+    void SetZeroPostProcessCount();
     uint8_t* GetOutputMemory(){return outputMemory;};
     int Channel();
     std::string &Name();
@@ -59,6 +61,7 @@ private:
     uint64_t _duration_time = 0;
     uint64_t _processAverageTime = 0;
     uint64_t _processed_count = 0;
+    uint64_t _ret_processed_count = 0;
     std::chrono::high_resolution_clock::time_point _fps_time_s;
     std::chrono::high_resolution_clock::time_point _fps_time_e;
     int _srcWidth;

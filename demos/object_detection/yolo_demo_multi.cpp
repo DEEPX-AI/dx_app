@@ -457,36 +457,47 @@ DXRT_TRY_CATCH_BEGIN
     while(true)
     {
         fps = 0.0f;
-        frameCount = 0;
+        frameCount = 0.1;
+        float resultFps = 0.f;
         
         for(int i = 0; i < (int)apps.size(); i++)
         {
             cv::Mat roi = outFrame(dstPoint[i]);
             
             apps[i]->ResultFrame().copyTo(roi);
-            if(i < (int)appConfig.video_sources.size() && calcFps)
+            if(i < (int)appConfig.video_sources.size())
             {
-                fps += 1000000.0 / apps[i]->GetProcessingTime();
-                frameCount++;
+                frameCount+=apps[i]->GetPostProcessCount();
             }
         }
+
         calcFpsPassTimes++;
-        if(calcFpsPassTimes > 30){
+        if(calcFpsPassTimes == 1000){
             calcFps = true;
+            start = std::chrono::high_resolution_clock::now();
+            for(int i = 0; i < (int)apps.size(); i++)
+            {
+                apps[i]->SetZeroPostProcessCount();
+            }
         }
 
-        float resultFps = round(fps * 100) / 100;
+        auto end = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count();
+        if(calcFps)
+            resultFps = round(frameCount * 1000)/duration;
+
         if(appConfig.is_show_fps)
         {
             cv::rectangle(outFrame, Point(0, 0), Point(500, 50), Scalar(0, 0, 255), cv::FILLED);
             snprintf(mainCaption, sizeof(mainCaption), " %dch Real-time Processing ",(int)apps.size());
             cv::putText(outFrame, mainCaption, Point(0, 35), cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(255, 255, 255), 2, LINE_AA);
             cv::rectangle(outFrame, Point(500, 0), Point(BOARD_WIDTH, 50), Scalar(0, 0, 0), cv::FILLED);
-            snprintf(subCaption, sizeof(subCaption), "        AI Model : %s        AI Performance : %.2f FPS ", appConfig.model_name.c_str(), resultFps);
+            if(calcFps)
+                snprintf(subCaption, sizeof(subCaption), "        AI Model : %s        AI Performance : %.2f FPS ", appConfig.model_name.c_str(), resultFps);
+            else
+                snprintf(subCaption, sizeof(subCaption), "        AI Model : %s        AI Performance :       FPS ", appConfig.model_name.c_str());
             cv::putText(outFrame, subCaption, Point(500, 35), cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(255, 255, 255), 2, LINE_AA);
         }
-        auto end = std::chrono::high_resolution_clock::now();
-        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count();
         sl.frameNumber = calcFpsPassTimes; 
         sl.runningTime = duration;
         if (loggingVersion)

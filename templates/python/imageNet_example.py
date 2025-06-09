@@ -45,34 +45,52 @@ def run_example(config):
     
     output_data_type = ie.get_output_tensors_info()[0]["dtype"]
     output_size = ie.get_output_size()/np.dtype(output_data_type).itemsize
-
-    for input_path in input_list:
-        image_src = cv2.imread(input_path, cv2.IMREAD_COLOR)
-        if ie.get_input_size() == 224 * 224 * 3:
-            align = 0
-        else:
-            align = 64
-        image_input = preprocessing(image_src, new_shape=(224, 224), align=align, format=cv2.COLOR_BGR2RGB)
-        image_input_list.append([image_input])
-        output_buffer = np.zeros((int(output_size)), dtype=output_data_type)
-        output_buffer_list.append([output_buffer])
     
-    # This example demonstrates batch inference using run_batch,
-    # which processes multiple input images together for efficient inference
+    if config["run_batch"]:
+        print("[DX-APP Notify] run batch inference using run_batch, which processes multiple input images\n")
+        for input_path in input_list:
+            image_src = cv2.imread(input_path, cv2.IMREAD_COLOR)
+            if ie.get_input_size() == 224 * 224 * 3:
+                align = 0
+            else:
+                align = 64
+            image_input = preprocessing(image_src, new_shape=(224, 224), align=align, format=cv2.COLOR_BGR2RGB)
+            image_input_list.append([image_input])
+            output_buffer = np.zeros((int(output_size)), dtype=output_data_type)
+            output_buffer_list.append([output_buffer])
+        
+        # This example demonstrates batch inference using run_batch,
+        # which processes multiple input images together for efficient inference
 
-    result = ie.run(image_input_list, output_buffer_list)
+        result = ie.run(image_input_list, output_buffer_list)
 
-    for ie_output in output_buffer_list:
-        if(ie_output[0].shape[0] > 1):
-            output = postprocessing(ie_output[0], len(classes))
-        else:
-            output = ie_output[0][0]
-        print("[{}] Top1 Result : class {} ({})".format(input_path, output, classes[output]))
+        for ie_output in output_buffer_list:
+            if(ie_output[0].shape[0] > 1):
+                output = postprocessing(ie_output[0], len(classes))
+            else:
+                output = ie_output[0][0]
+            print("[{}] Top1 Result : class {} ({})".format(input_path, output, classes[output]))
+    else:
+        print("[DX-APP Notify] single run inference using run\n")
+        for input_path in input_list:
+            image_src = cv2.imread(input_path, cv2.IMREAD_COLOR)
+            if ie.get_input_size() == 224 * 224 * 3:
+                align = 0
+            else:
+                align = 64
+            image_input = preprocessing(image_src, new_shape=(224, 224), align=align, format=cv2.COLOR_BGR2RGB)
+            ie_output = ie.run([image_input])
+            if(len(ie_output[0].shape) > 1):
+                output = postprocessing(ie_output[0], len(classes))
+            else:
+                output = ie_output[0][0]
+            print("[{}] Top1 Result : class {} ({})".format(input_path, output, classes[output]))
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', default='./example/run_classifer/imagenet_example.json', type=str, help='yolo object detection json config path')
+    parser.add_argument('--run_batch', action='store_true', dest='run_batch', help='run batch mode')
     args = parser.parse_args()
 
     if not os.path.exists(args.config):
@@ -81,5 +99,9 @@ if __name__ == "__main__":
     
     with open(args.config, "r") as f:
         json_config = json.load(f)
+    if args.run_batch:
+        json_config["run_batch"] = True
+    else:
+        json_config["run_batch"] = False
         
     run_example(json_config)
