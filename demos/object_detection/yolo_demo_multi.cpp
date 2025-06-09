@@ -309,7 +309,7 @@ DXRT_TRY_CATCH_BEGIN
     Yolo yolo = Yolo(yoloParam);
     auto& profiler = dxrt::Profiler::GetInstance();
     vector<shared_ptr<ObjectDetection>> apps;
-    unsigned int calcFpsPassTimes = 0;
+    unsigned int allFrameCount = 0;
     bool calcFps = false;
     
     if(appConfig.is_expand_mode)
@@ -453,6 +453,8 @@ DXRT_TRY_CATCH_BEGIN
     sl.period = 500, sl.threadStatus.store(0);
     std::thread log_thread = std::thread(&dxapp::common::logThreadFunction, &sl);
     auto start = std::chrono::high_resolution_clock::now();
+    long long duration = 0;
+    long long passTime = 0;
 
     while(true)
     {
@@ -471,9 +473,10 @@ DXRT_TRY_CATCH_BEGIN
             }
         }
 
-        calcFpsPassTimes++;
-        if(calcFpsPassTimes == 1000){
+        allFrameCount++;
+        if(passTime == 1000){
             calcFps = true;
+            passTime = -1;
             start = std::chrono::high_resolution_clock::now();
             for(int i = 0; i < (int)apps.size(); i++)
             {
@@ -482,7 +485,8 @@ DXRT_TRY_CATCH_BEGIN
         }
 
         auto end = std::chrono::high_resolution_clock::now();
-        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count();
+        duration = std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count();
+        if(passTime != -1) passTime = duration;
         if(calcFps)
             resultFps = round(frameCount * 1000)/duration;
 
@@ -498,7 +502,7 @@ DXRT_TRY_CATCH_BEGIN
                 snprintf(subCaption, sizeof(subCaption), "        AI Model : %s        AI Performance :       FPS ", appConfig.model_name.c_str());
             cv::putText(outFrame, subCaption, Point(500, 35), cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(255, 255, 255), 2, LINE_AA);
         }
-        sl.frameNumber = calcFpsPassTimes; 
+        sl.frameNumber = allFrameCount; 
         sl.runningTime = duration;
         if (loggingVersion)
             sl.threadStatus.store(2);

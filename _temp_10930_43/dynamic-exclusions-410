@@ -38,6 +38,7 @@ run_seg_pose.bat
 .bumpversion.cfg
 CHANGELOG.md
 RELEASE_NOTES_MATERIAL.md
+
 .github/workflows/bump-version-main.yml
 .github/workflows/commit-message-checker-pr.yml
 .github/workflows/cpp-check.yml

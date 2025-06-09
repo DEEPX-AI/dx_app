@@ -1,4 +1,10 @@
 # RELEASE_NOTES
+## v1.9.7 / 2025-06-09
+### 1. Changed
+### 2. Fixed
+- refactor FPS calculation variables for clarity in yolo_multi
+### 3. Added
+
 ## v1.9.6 / 2025-06-09
 ### 1. Changed
 - Improved the installation method of the Python-based dx_postprocess module to use pip install .
