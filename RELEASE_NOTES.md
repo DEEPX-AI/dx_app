@@ -1,4 +1,11 @@
 # RELEASE_NOTES
+## v1.9.9 / 2025-06-13
+### 1. Changed
+### 2. Fixed
+- fix: prevent overwriting result files by using unique names in Python example
+- chore: update Python dependencies to use CPU version of torch
+### 3. Added
+
 ## v1.9.8 / 2025-06-09
 ### 1. Changed
 ### 2. Fixed
