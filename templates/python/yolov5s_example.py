@@ -199,6 +199,7 @@ def run_example(config):
     ''' make inference engine (dxrt)'''
     ie = InferenceEngine(model_path)
     input_size = np.sqrt(ie.get_input_size() / 3)
+    count = 1
     for input_path in input_list:
         image_src = cv2.imread(input_path, cv2.IMREAD_COLOR)
         image_input, _, _ = letter_box(image_src, new_shape=(int(input_size), int(input_size)), fill_color=(114, 114, 114), format=cv2.COLOR_BGR2RGB)
@@ -247,9 +248,9 @@ def run_example(config):
             print("[{}] conf, classID, x1, y1, x2, y2, : {:.4f}, {}({}), {}, {}, {}, {}"
                   .format(idx, conf, classes[label], label, pt1[0], pt1[1], pt2[0], pt2[1]))
             image = cv2.rectangle(image, pt1, pt2, colors[label], 2)
-        cv2.imwrite("yolov5s.jpg", image)
-        print("save file : yolov5s.jpg ")
-        
+        cv2.imwrite(f"yolov5s_{count}.jpg", image)
+        print(f"save file : yolov5s_{count}.jpg ")
+        count += 1
     
 
 if __name__ == "__main__":
