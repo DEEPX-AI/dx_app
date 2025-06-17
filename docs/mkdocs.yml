@@ -8,7 +8,7 @@ theme:
   font:
     text: Noto Sans Display
     #text: Noto Serif
-    #code: Noto Sans 
+    #code: Noto Sans
     code: Roboto Mono 
   logo: ./img/deepx.png
   favicon: ./img/favicon.png
@@ -33,6 +33,7 @@ theme:
      - navigation.tabs.sticky
      - content.tabs.link
      - content.code.copy
+site_url: 'https://developer.deepx.ai/'
 nav:
   - DXNN Application Overview: docs/01_DXNN_Application_Overview.md
   - DX-APP Installation and Build: docs/02_DX-APP_Installation_and_Build.md
@@ -85,6 +86,7 @@ plugins:
       #verbose: true
 #  - mkdocs-video
 extra:
+  homepage: https://developer.deepx.ai
 #  version:
 #    provider: mike
 #    default: stable

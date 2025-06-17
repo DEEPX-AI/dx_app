@@ -1,4 +1,12 @@
 # RELEASE_NOTES
+## v1.10.0 / 2025-06-17
+### 1. Changed
+- Improved FPS display accuracy in the yolo_multi demo by average over the last {window_size} seconds. (add window_size parameter)
+- Added DeepX developer page URL in MkDocs configuration.
+- Updated the appendix page to include the current version and initial release information.
+### 2. Fixed
+### 3. Added
+
 ## v1.9.9 / 2025-06-13
 ### 1. Changed
 ### 2. Fixed
