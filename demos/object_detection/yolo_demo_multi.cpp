@@ -72,9 +72,11 @@ YoloParam yoloParams[] = {
 
 const char* usage =
 "yolo demo\n"
-"  -c, --config    use config json file for run application\n"
-"                  e.g. sudo yolo_multi -c _multi_od_.json -a \n"
-"  -h, --help      show help\n"
+"  -c, --config        use config json file for run application\n"
+"                      e.g. sudo yolo_multi -c _multi_od_.json -a \n"
+"      --window_size    FPS by average over the last {window_size} seconds (default: 60)\n"
+"                      e.g. sudo yolo_multi -c _multi_od_.json --window_size 60\n"
+"  -h, --help          show help\n"
 ;
 
 void help()
@@ -254,7 +256,7 @@ int main(int argc, char *argv[])
 DXRT_TRY_CATCH_BEGIN
     int arg_idx = 1;
     string configPath = "";
-    float fps = 0.f; double frameCount = 0.0;
+    float fps = 0.f; double frameCount = 0.0, window_size = 60;
     bool loggingVersion = false;
     char mainCaption[100];
     char subCaption[100];
@@ -274,6 +276,8 @@ DXRT_TRY_CATCH_BEGIN
                         configPath = strdup(argv[arg_idx++]);
         else if (arg == "-t" || arg == "--test")
                         loggingVersion = true;
+        else if (arg == "--window_size")
+                        window_size = stoi(argv[arg_idx++]);
         else if (arg == "-h" || arg == "--help")
                         help(), exit(0);
         else
@@ -455,6 +459,8 @@ DXRT_TRY_CATCH_BEGIN
     auto start = std::chrono::high_resolution_clock::now();
     long long duration = 0;
     long long passTime = 0;
+    std::deque<unsigned int> callbackCount;
+    int queueMaxSize = -1;
 
     while(true)
     {
@@ -465,31 +471,65 @@ DXRT_TRY_CATCH_BEGIN
         for(int i = 0; i < (int)apps.size(); i++)
         {
             cv::Mat roi = outFrame(dstPoint[i]);
-            
             apps[i]->ResultFrame().copyTo(roi);
-            if(i < (int)appConfig.video_sources.size())
-            {
-                frameCount+=apps[i]->GetPostProcessCount();
-            }
         }
 
         allFrameCount++;
-        if(passTime > 1000){
-            calcFps = true;
-            passTime = -1;
-            start = std::chrono::high_resolution_clock::now();
-            for(int i = 0; i < (int)apps.size(); i++)
+
+        if(calcFps)
+        {
+            int checkSum = 0;
+            for(int i = 0; i < (int)appConfig.video_sources.size(); i++)
             {
+                checkSum += apps[i]->GetPostProcessCount();
                 apps[i]->SetZeroPostProcessCount();
             }
+            if(queueMaxSize < callbackCount.size())
+            {
+                while(callbackCount.size() > queueMaxSize)
+                {
+                    callbackCount.pop_front();
+                }
+            }
+            callbackCount.push_back(checkSum);
         }
+
 
         auto end = std::chrono::high_resolution_clock::now();
         duration = std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count();
         if(passTime != -1) passTime = duration;
-        if(calcFps)
-            resultFps = round(frameCount * 1000)/duration;
+        if(passTime > 1000 && calcFps == false)
+        {
+            calcFps = true;
+            passTime = 0;
+            start = std::chrono::high_resolution_clock::now();
+            for(int i = 0; i < (int)appConfig.video_sources.size(); i++)
+            {
+                apps[i]->SetZeroPostProcessCount();
+            }
+        }
+        if(passTime > 1000 * window_size){
+            passTime = 0;
+            queueMaxSize = callbackCount.size();
+            start = std::chrono::high_resolution_clock::now();
+        }
 
+        for(int i = 0; i < (int)callbackCount.size(); i++)
+        {
+            frameCount += callbackCount[i];
+        }
+
+        if(calcFps)
+        {
+            if(queueMaxSize > 0)
+            {
+                resultFps = round(frameCount * 1000)/(1000 * window_size);
+            }
+            else
+                resultFps = round(frameCount * 1000)/duration;
+
+        }
+        
         if(appConfig.is_show_fps)
         {
             cv::rectangle(outFrame, Point(0, 0), Point(500, 50), Scalar(0, 0, 255), cv::FILLED);
