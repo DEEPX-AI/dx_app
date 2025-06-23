@@ -28,7 +28,7 @@ jobs:
               with:
                 fetch-depth: 0
                 fetch-tags: true
-                token: ${{ secrets.GH_TOKEN }}
+                token: ${{ secrets.GC_DCI_TOKEN }}
             
             - name: Extract tag prefix from commit message
               id: extract_tag
@@ -50,7 +50,7 @@ jobs:
 
             - name: Get current release tag
               run: |
-                CURRENT_RELEASE_TAG=$(curl -s -H "Authorization: token ${{ secrets.GH_TOKEN }}" \
+                CURRENT_RELEASE_TAG=$(curl -s -H "Authorization: token ${{ secrets.GC_DCI_TOKEN }}" \
                 "https://api.github.com/repos/DEEPX-AI/dx_app/releases/latest" | jq -r .tag_name | cut -d+ -f1)
                 echo "CURRENT_RELEASE_TAG=$CURRENT_RELEASE_TAG" >> $GITHUB_ENV
 

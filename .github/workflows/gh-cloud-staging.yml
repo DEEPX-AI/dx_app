@@ -28,7 +28,7 @@ jobs:
               with:
                 fetch-depth: 0
                 fetch-tags: true
-                token: ${{ secrets.GH_TOKEN }}
+                token: ${{ secrets.GC_DCI_TOKEN }}
             
             - name: Create tag
               uses: rickstaa/action-create-tag@v1
