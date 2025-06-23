@@ -1,12 +1,32 @@
 #!/bin/bash
-function help()
-{
-    echo "./build.sh"
-    echo "    --help     show this help"
-    echo "    --clean    clean build"
-    echo "    --verbose  show build commands"
-    echo "    --type     cmake build type : [ Release, Debug, RelWithDebInfo ]"
-    echo "    --arch     target CPU architecture : [ x86_64, aarch64, riscv64 ]"
+SCRIPT_DIR=$(realpath "$(dirname "$0")")
+
+# color env settings
+source "${SCRIPT_DIR}/scripts/color_env.sh"
+
+help() {
+    echo -e "Usage: ${COLOR_CYAN}$0 [OPTIONS]${COLOR_RESET}"
+    echo -e "Build the project with various configuration options."
+    echo -e ""
+    echo -e "${COLOR_BOLD}Options:${COLOR_RESET}"
+    echo -e "  ${COLOR_GREEN}--help${COLOR_RESET}       Display this help message and exit."
+    echo -e "  ${COLOR_GREEN}--clean${COLOR_RESET}      Perform a clean build, removing previous build artifacts."
+    echo -e "  ${COLOR_GREEN}--verbose${COLOR_RESET}    Show detailed build commands during the process."
+    echo -e "  ${COLOR_GREEN}--type <TYPE>${COLOR_RESET}  Specify the CMake build type. Valid options: [Release, Debug, RelWithDebInfo]."
+    echo -e "  ${COLOR_GREEN}--arch <ARCH>${COLOR_RESET}  Specify the target CPU architecture. Valid options: [x86_64, aarch64, riscv64]."
+    echo -e ""
+    echo -e "  ${COLOR_GREEN}--python_exec <PATH>${COLOR_RESET} Specify the Python executable to use for the build."
+    echo -e "                            If omitted, the default system 'python3' will be used."
+    echo -e "  ${COLOR_GREEN}--venv_path <PATH>${COLOR_RESET}  Specify the path to a virtual environment to activate for the build."
+    echo -e "                            If omitted, no virtual environment will be activated."
+    echo -e ""
+    echo -e "${COLOR_BOLD}Examples:${COLOR_RESET}"
+    echo -e "  ${COLOR_YELLOW}$0 --type Release --arch x86_64${COLOR_RESET}"
+    echo -e "  ${COLOR_YELLOW}$0 --clean --verbose${COLOR_RESET}"
+    echo -e ""
+    echo -e "  ${COLOR_YELLOW}$0 --python_exec /usr/local/bin/python3.8${COLOR_RESET}"
+    echo -e "  ${COLOR_YELLOW}$0 --venv_path ./venv-dxnn${COLOR_RESET}"
+    exit 0
 }
 
 # cmake command
@@ -16,6 +36,10 @@ verbose=false
 target_arch=$(uname -m)
 build_type=release  
 build_gtest=false
+
+# global variaibles
+python_exec=""
+venv_path=""
 
 [ $# -gt 0 ] && \
 while (( $# )); do
@@ -31,10 +55,40 @@ while (( $# )); do
             shift
             target_arch=$1
             shift;;
+        --python_exec)
+            shift
+            python_exec=$(realpath "$1")
+            shift;;
+        --venv_path)
+            shift
+            venv_path=$1
+            shift;;
         --test) build_gtest=true; shift;;
         *)       echo "Invalid argument : " $1 ; help; exit -1;;
     esac
 done
+
+# Check if venv_path
+if [ -n "${venv_path}" ]; then
+    if [ ! -f "${venv_path}/bin/python" ]; then
+        echo -e "${TAG_ERROR} --venv_path is set to '${venv_path}'. but, Virtual environment path is invalid: ${venv_path}/bin/python. Please check the path." >&2
+        exit 1
+    else
+        echo -e "${TAG_INFO} --venv_path is set to '${venv_path}'."
+        . ${venv_path}/bin/activate;
+    fi
+fi
+
+# Check if venv_path
+if [ -n "${python_exec}" ]; then
+    if [ ! -f "${python_exec}" ]; then
+        echo -e "${TAG_ERROR} --python_exec is set to '${python_exec}'. but, Python executable path does not exist: ${python_exec}. Please check the path." >&2
+        exit 1
+    else
+        echo -e "${TAG_INFO} --python_exec is set to '${python_exec}'"
+        ${python_exec} --version;
+    fi
+fi
 
 if [ $target_arch == "arm64" ]; then
     target_arch=aarch64
@@ -98,7 +152,7 @@ fi
 if [ -f ./lib/pybind/setup.py ]; then
     echo "Installing dx_postprocess Python module..."
     cd ./lib/pybind
-    pip install .
+    ${python_exec} -m pip install .
     install_result=$?
     cd ../..
     if [ $install_result -eq 0 ]; then
@@ -107,6 +161,11 @@ if [ -f ./lib/pybind/setup.py ]; then
         python -c "import dx_postprocess; print('dx_postprocess module verification: OK')" 2>/dev/null || echo "-- Warning: dx_postprocess module import failed"
     else
         echo "-- Warning: Failed to install dx_postprocess module"
+    fi
+
+    if [ -n "$venv_path" ]; then
+        echo -e "${TAG_INFO} To activate the virtual environment, run:"
+        echo -e "${COLOR_BRIGHT_YELLOW_ON_BLACK}  source ${venv_path}/bin/activate ${COLOR_RESET}"
     fi
 else
     echo "-- Warning: ./lib/pybind/setup.py not found"
