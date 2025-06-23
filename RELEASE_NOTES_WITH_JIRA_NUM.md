@@ -1,4 +1,16 @@
 # RELEASE_NOTES
+## v1.10.1 / 2025-06-23
+### 1. Changed
+### 2. Fixed
+- fix: fix dx-rt build error caused by pybind11 incompatibility with Python 3.6.9 on Ubuntu 18.04 [TFT-82](https://deepx.atlassian.net/browse/TFT-82)
+  - Support automatic installation of minimum required Python version (>= 3.8.2)  
+  - Install Python 3.8.2 if the system Python version is not supported
+  - On Ubuntu 18.04, install via source build; on Ubuntu 20.04+, use apt install
+  - Added support in install.sh to optionally accept --python_version and --venv_path for installation
+  - Added support in build.sh to accept and use --python_exec
+  - Added support in build.sh to optionally accept --venv_path and activate the specified virtual environment
+### 3. Added
+
 ## v1.10.0 / 2025-06-17
 ### 1. Changed
 - Improved FPS display accuracy in the yolo_multi demo by average over the last {window_size} seconds. (add window_size parameter)
