@@ -1,0 +1,26 @@
+name: dx-runtime-dispatch-update
+run-name: dispatch submodule update of dx-runtime by ${{ github.sha }}
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - staging
+
+env:
+  OWNER: DEEPX-AI
+  REPO: dx-runtime
+
+jobs:
+  dispatch:
+    runs-on:
+      - self-hosted
+      - sdk
+    steps:
+      - name: Dispatch Submodule Update of dx-runtime
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.GC_DCI_TOKEN }}
+          repository: ${{ env.OWNER }}/${{ env.REPO }}
+          event-type: update-submodule
+          client-payload: '{"name": "dx_app", "sha": "${{ github.sha }}", "ref": "${{ github.ref }}"}'
