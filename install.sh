@@ -1,4 +1,9 @@
 #!/bin/bash
+SCRIPT_DIR=$(realpath "$(dirname "$0")")
+
+# color env settings
+source "${SCRIPT_DIR}/scripts/color_env.sh"
+
 # dependencies install script in host
 pushd .
 cmd=()
@@ -9,17 +14,43 @@ install_opencv=false
 install_dep=false  
 opencv_source_build=false  
 build_type='Release'
+python_version=""
+venv_path=""
+
 export DEBIAN_FRONTEND=noninteractive
 
-function help()
-{
-    echo "./install.sh"
-    echo "    --help                    show this help"
-    echo "    --arch                    target CPU architecture : [ x86_64, aarch64, riscv64 ]"
-    echo "    --dep                     install dependencies : cmake, gcc, ninja, etc.."
-    echo "    --opencv                  (optional) install opencv pkg "
-    echo "    --opencv-source-build     (optional) install opencv pkg by source build"
-    echo "    --all                     install dependencies & opencv pkg "
+function help() {
+    echo -e "Usage: ${COLOR_CYAN}$0 [OPTIONS]${COLOR_RESET}"
+    echo -e "Install necessary components and libraries for the project."
+    echo -e ""
+    echo -e "${COLOR_BOLD}Options:${COLOR_RESET}"
+    echo -e "  ${COLOR_GREEN}--arch <ARCH>${COLOR_RESET}            Specify the target CPU architecture. Valid options: [x86_64, aarch64, riscv64]."
+    echo -e "  ${COLOR_GREEN}--dep${COLOR_RESET}                    Install core dependencies such as CMake, GCC, Ninja, etc."
+    echo -e "  ${COLOR_GREEN}--opencv${COLOR_RESET}                 (Optional) Install the OpenCV package using system packages."
+    echo -e "  ${COLOR_GREEN}--opencv-source-build${COLOR_RESET}    (Optional) Install the OpenCV package by compiling from source."
+    echo -e "  ${COLOR_GREEN}--all${COLOR_RESET}                    Install all dependencies and the OpenCV package (via system packages)."
+    echo -e ""
+    echo -e "  ${COLOR_GREEN}--python_version <VERSION>${COLOR_RESET}   Specify the Python version to install (e.g., 3.10.4)."
+    echo -e "                                 * Minimum supported version: ${MIN_PY_VERSION}."
+    echo -e "                                 * If not specified:"
+    echo -e "                                     - For Ubuntu 20.04+, the OS default Python 3 will be used."
+    echo -e "                                     - For Ubuntu 18.04, Python ${MIN_PY_VERSION} will be source-built."
+    echo -e "  ${COLOR_GREEN}--venv_path <PATH>${COLOR_RESET}          Specify the path for the virtual environment."
+    echo -e "                                 * If this option is omitted, no virtual environment will be created."
+    echo -e "  ${COLOR_GREEN}--help${COLOR_RESET}                      Display this help message and exit."
+    echo -e ""
+    echo -e ""
+    echo -e "${COLOR_BOLD}Examples:${COLOR_RESET}"
+    echo -e "  ${COLOR_YELLOW}$0 --arch x86_64 --dep${COLOR_RESET}"
+    echo -e "  ${COLOR_YELLOW}$0 --all${COLOR_RESET}"
+    echo -e "  ${COLOR_YELLOW}$0 --opencv-source-build${COLOR_RESET}"
+    echo -e ""
+    echo -e "  ${COLOR_YELLOW}$0 --python_version 3.10.4 --venv_path /opt/my_venv${COLOR_RESET}"
+    echo -e "  ${COLOR_YELLOW}$0 --python_version 3.9.18  # Installs Python, but no venv${COLOR_RESET}"
+    echo -e "  ${COLOR_YELLOW}$0 --venv_path ./venv-dxnn # Installs default Python, creates venv${COLOR_RESET}"
+    echo -e "  ${COLOR_YELLOW}$0 # Installs default Python, but no venv${COLOR_RESET}"
+    echo -e ""
+    exit 0
 }
 
 function compare_version() 
@@ -72,6 +103,8 @@ function install_dep()
         sudo apt-get -y install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
         sudo apt-get -y install gcc-riscv64-linux-gnu g++-riscv64-linux-gnu
     fi
+
+    install_python
 }
 
 function install_opencv()
@@ -217,6 +250,26 @@ function install_opencv()
     fi
 }
 
+install_python()
+{
+    
+    python_version_arg=""
+    if [ -n "$python_version" ]; then
+        python_version_arg="--python_version=$python_version"
+    fi
+
+    venv_path_arg=""
+    if [ -n "$venv_path" ]; then
+        venv_path_arg="--venv_path=$venv_path"
+    fi
+
+    ${SCRIPT_DIR}/scripts//install_python_and_venv.sh $python_version_arg $venv_path_arg
+    if [ $? -ne 0 ]; then
+        echo -e "${TAG_ERROR} Python and Virual environment setup failed. Exiting."
+        exit 1
+    fi
+}
+
 [ $# -gt 0 ] && \
 while (( $# )); do
     case "$1" in
@@ -228,7 +281,15 @@ while (( $# )); do
         --dep) install_dep=true; shift;;        
         --opencv) install_opencv=true; shift;;     
         --opencv-source-build) opencv_source_build=true; shift;;     
-        --all) install_opencv=true;install_dep=true; shift;;  
+        --all) install_opencv=true;install_dep=true; shift;;
+        --python_version)
+            shift
+            python_version=$1
+            shift;;
+        --venv_path)
+            shift
+            venv_path=$1
+            shift;;
         *)       echo "Invalid argument : " $1 ; help; exit 1;;
     esac
 done
