@@ -23,4 +23,4 @@ jobs:
           token: ${{ secrets.GC_DCI_TOKEN }}
           repository: ${{ env.OWNER }}/${{ env.REPO }}
           event-type: update-submodule
-          client-payload: '{"name": "dx_app", "sha": "${{ github.sha }}", "ref": "${{ github.ref }}"}'
+          client-payload: '{"name": "dx_app", "sha": "${{ github.sha }}", "ref": "${{ github.ref_name }}"}'
