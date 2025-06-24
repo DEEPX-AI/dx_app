@@ -17,6 +17,11 @@ jobs:
       - self-hosted
       - sdk
     steps:
+      - name: Clean
+        run: |
+            sudo rm -rf ${{ github.workspace }}
+            mkdir -p ${{ github.workspace }}
+
       - name: Dispatch Submodule Update of dx-runtime
         uses: peter-evans/repository-dispatch@v3
         with:
