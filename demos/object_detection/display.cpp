@@ -1,4 +1,3 @@
-#ifdef USE_OPENCV
 #include "display.h"
 
 using namespace std;
@@ -97,14 +96,11 @@ void DisplayBoundingBox(cv::Mat &frame, vector<BoundingBox> &result,
         cv::rectangle(
             frame, Point( x1, y1 ), Point( x2, y2 ), 
             ObjectColors[bbox.label], 2);
-            // object_colors[bbox.label], frame.cols>1280?2:1);
         cv::rectangle( 
             frame, 
             Point( x1, y1-textSize.height ), 
             Point( x1 + textSize.width, y1 ), 
             ObjectColors[bbox.label], 
-            // dev==0?(object_colors[bbox.label]):Scalar(0, 0, 255), 
-            // UniformColor,
             cv::FILLED);
         cv::putText(
             frame, bbox.labelname, Point( x1, y1 ), 
@@ -119,9 +115,6 @@ void DisplayBoundingBox(cv::Mat &frame, vector<BoundingBox> &result,
         {
             numObjects["others"]++;
         }
-        // cv::putText( frame, txtBuf, Point( x1, 12 + y1 ), FONT_HERSHEY_SIMPLEX, 0.5, object_colors[bbox.label]);
-        // bbox.Show();
-        // cout << "      (" << x1 << ", " << y1 << ")" << ", (" << x2 << ", " << y2 << ")" << endl;
     }
 #if 1
     if(!frameTitle.empty())
@@ -306,4 +299,3 @@ vector<Scalar> GetObjectColors(int type)
     }
     return ObjectColors;
 }
-#endif

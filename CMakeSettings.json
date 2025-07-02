@@ -1,0 +1,110 @@
+{
+  "configurations": [
+    {
+      "name": "x64-Release",
+      "generator": "Ninja",
+      "configurationType": "Release",
+      "buildRoot": "${projectDir}\\out\\build\\${name}",
+      "installRoot": "${projectDir}\\out\\install\\${name}",
+      "cmakeCommandArgs": "",
+      "buildCommandArgs": "",
+      "ctestCommandArgs": "",
+      "inheritEnvironments": [ "msvc_x64_x64" ],
+      "variables": [
+        {
+          "name": "CMAKE_TOOLCHAIN_FILE",
+          "value": "${env.VCPKG_ROOT}\\scripts\\buildsystems\\vcpkg.cmake",
+          "type": "STRING"
+        },
+        {
+          "name": "DXRT_DIR",
+          "value": "${env.DXRT_DIR}",
+          "type": "STRING"
+        },
+        {
+          "name": "OpenCV_DIR",
+          "value": "${projectDir}\\vcpkg_installed\\x64-windows",
+          "type": "PATH"
+        },
+        {
+          "name": "VCPKG_TARGET_TRIPLET",
+          "value": "x64-windows",
+          "type": "STRING"
+        },
+        {
+          "name": "VCPKG_INSTALLED_DIR",
+          "value": "${projectDir}\\vcpkg_installed",
+          "type": "STRING"
+        },
+        {
+          "name": "VCPKG_MANIFEST_MODE",
+          "value": "ON",
+          "type": "STRING"
+        },
+        {
+          "name": "VCPKG_MANIFEST_INSTALL",
+          "value": "ON",
+          "type": "STRING"
+        },
+        {
+          "name": "VCPKG_CRT_LINKAGE",
+          "value": "dynamic",
+          "type": "STRING"
+        },
+        {
+          "name": "VCPKG_LIBRARY_LINKAGE",
+          "value": "dynamic",
+          "type": "STRING"
+        },
+        {
+          "name": "VCPKG_TARGET_ARCHITECTURE",
+          "value": "x64",
+          "type": "STRING"
+        }
+      ]
+    },
+    {
+      "name": "x64-Debug",
+      "generator": "Ninja",
+      "configurationType": "Debug",
+      "buildRoot": "${projectDir}\\out\\build\\${name}",
+      "installRoot": "${projectDir}\\out\\install\\${name}",
+      "cmakeCommandArgs": "",
+      "buildCommandArgs": "",
+      "ctestCommandArgs": "",
+      "inheritEnvironments": [ "msvc_x64_x64" ],
+      "variables": [
+        {
+          "name": "CMAKE_TOOLCHAIN_FILE",
+          "value": "${env.VCPKG_ROOT}\\scripts\\buildsystems\\vcpkg.cmake",
+          "type": "STRING"
+        },
+        {
+          "name": "DXRT_DIR",
+          "value": "${env.DXRT_DIR}",
+          "type": "STRING"
+        },
+        {
+          "name": "OpenCV_DIR",
+          "value": "${projectDir}\\vcpkg_installed\\x64-windows\\debug",
+          "type": "PATH"
+        },
+        {
+          "name": "VCPKG_TARGET_TRIPLET",
+          "value": "x64-windows",
+          "type": "STRING"
+        },
+        {
+          "name": "VCPKG_INSTALLED_DIR",
+          "value": "${projectDir}\\vcpkg_installed",
+          "type": "STRING"
+        },
+        {
+          "name": "VCPKG_MANIFEST_MODE",
+          "value": "ON",
+          "type": "STRING"
+        }
+      ]
+    }
+  ]
+}

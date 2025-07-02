@@ -1,35 +1,30 @@
-#include <stddef.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <stdint.h>
-#include <sys/types.h>
-#include <sys/stat.h>
+#ifdef __linux__
 #include <sys/mman.h>
-#include <getopt.h>
 #include <unistd.h>
+#include <syslog.h>
+#include "fb.h"
+#elif _WIN32
+#include <Windows.h>
+#endif
+
 #include <fcntl.h>
 #include <string.h>
 #include <errno.h>
 #include <signal.h>
-#include <syslog.h>
 
-#ifdef USE_OPENCV
 #include <opencv2/opencv.hpp>
-#include "display.h"
-#endif
+#include <cxxopts.hpp>
+
 #include "dxrt/dxrt_api.h"
+#include "utils/common_util.hpp"
+
+#include "display.h"
 #include "yolo.h"
 #include "v4l2.h"
-#if __riscv
-#include "l1/isp_eyenix.h"
-#endif
 #include "socket.h"
-#include "fb.h"
 
 using namespace std;
-#ifdef USE_OPENCV
 using namespace cv;
-#endif
 
 #define ISP_INPUT_DMA_COPY
 #define ISP_PHY_ADDR   (0xA0000000)
@@ -39,28 +34,29 @@ using namespace cv;
 #define POSTPROC_SIMULATION_DEVICE_OUTPUT
 #define DISPLAY_WINDOW_NAME "Object Detection"
 #define INPUT_CAPTURE_PERIOD_MS 30
-// #define CAMERA_FRAME_WIDTH 800
-// #define CAMERA_FRAME_HEIGHT 600
-#define CAMERA_FRAME_WIDTH 1280
-#define CAMERA_FRAME_HEIGHT 720
-// #define CAMERA_FRAME_WIDTH 1920
-// #define CAMERA_FRAME_HEIGHT 1080
+
+// camera frame resolution (1920, 1080), (1280, 720), (800, 600)
+#define CAMERA_FRAME_WIDTH 1920
+#define CAMERA_FRAME_HEIGHT 1080
 #define FRAME_BUFFERS 5
 #define DMA_IOCTL_DATA		_IOW('T', 3, struct npu_dma_ioctl_data_copy)
 
+#ifndef UNUSEDVAR
+#define UNUSEDVAR(x) (void)(x);
+#endif
+
+#define PERFORMANCE_TEST false
+
 // pre/post parameter table
-extern YoloParam yolov5s_320, yolov5s_512, yolov5s_640, yolov5s_512_concat, yolox_s_512, yolov7_640, yolov7_512, yolov4_608;
-extern YoloParam yolov5s_640_ppu;
+extern YoloParam yolov5s_320, yolov5s_512, yolov5s_640, yolox_s_512, yolov7_640, yolov7_512, yolox_s_640;
 YoloParam yoloParams[] = {
-    [0] = yolov5s_320,
-    [1] = yolov5s_512,
-    [2] = yolov5s_640,
-    [3] = yolov5s_512_concat,
-    [4] = yolox_s_512,
-    [5] = yolov7_640,
-    [6] = yolov7_512,
-    [7] = yolov4_608,
-    [8] = yolov5s_640_ppu,
+    yolov5s_320,
+    yolov5s_512,
+    yolov5s_640,
+    yolox_s_512,
+    yolov7_640,
+    yolov7_512,
+    yolox_s_640,
 };
 
 namespace dxrt {
@@ -80,44 +76,7 @@ int uyv_cnt = 0;
 #endif
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
-static struct option const opts[] = {
-    { "model", required_argument, 0, 'm' },
-    { "image", required_argument, 0, 'i' },
-    { "video", required_argument, 0, 'v' },
-    { "write", required_argument, 0, 'w' },
-    { "camera", no_argument, 0, 'c' },
-    { "isp", no_argument, 0, 'x' },
-    { "bin",  required_argument, 0, 'b' },
-    { "sim", required_argument, 0, 's' },
-    { "async", no_argument, 0, 'a' },
-    { "ethernet", no_argument, 0, 'e' },
-    { "param", required_argument, 0, 'p' },
-    { "loop", no_argument, 0, 'l' },    
-    { "help", no_argument, 0, 'h' },
-    { 0, 0, 0, 0 }
-};
-const char* usage =
-"yolo demo\n"
-"  -m, --model     define model path\n"
-"  -i, --image     use image file input\n"
-"  -v, --video     use video file input\n"
-"  -w, --write     write result frames to a video file\n"
-"  -c, --camera    use camera input\n"
-"  -x, --isp       use ISP input\n"
-"  -b, --bin       use binary file input\n"
-"  -s, --sim       use pre-defined npu output binary file input( perform post-proc. only )\n"
-"  -a, --async     asynchronous inference\n"
-"  -e, --ethernet  use ethernet input\n"
-"  -p, --param      pre/post-processing parameter selection\n"
-"  -l, --loop      loop test\n"
-"  -h, --help      show help\n"
-;
-void help()
-{
-    cout << usage << endl;    
-}
 
-#ifdef USE_OPENCV
 void *PreProc(cv::Mat &src, cv::Mat &dest, bool keepRatio=true, bool bgr2rgb=true, uint8_t padValue=0)
 {
     cv::Mat Resized;
@@ -138,7 +97,7 @@ void *PreProc(cv::Mat &src, cv::Mat &dest, bool keepRatio=true, bool bgr2rgb=tru
             newWidth = dest.cols;
             newHeight = newWidth / ratioSrc;
         }
-        cv::Mat src2 = cv::Mat(newWidth, newHeight, CV_8UC3);
+        cv::Mat src2 = cv::Mat(newHeight, newWidth, CV_8UC3);
         cv::resize(src, src2, Size(newWidth, newHeight), 0, 0, cv::INTER_LINEAR);
         dw = (dest.cols - src2.cols)/2.;
         dh = (dest.rows - src2.rows)/2.;
@@ -158,10 +117,10 @@ void *PreProc(cv::Mat &src, cv::Mat &dest, bool keepRatio=true, bool bgr2rgb=tru
     }
     return (void*)dest.data;
 }
-#endif
 bool stopFlag = false;
 void RequestToStop(int sig)
 {
+    UNUSEDVAR(sig);
     stopFlag = true;
 }
 bool GetStopFlag()
@@ -171,73 +130,43 @@ bool GetStopFlag()
 
 int main(int argc, char *argv[])
 {
-    int optCmd, loops = 1, paramIdx = 0;
-    string modelPath="", imgFile="", videoFile="", binFile="", simFile="", videoOutFile="", OSDstr="";  
-    bool cameraInput = false, ispInput = false, ethernetInput = false,
-        asyncInference = false, writeFrame = false;
+DXRT_TRY_CATCH_BEGIN
+    int loops = -1, paramIdx = 0;
+    string modelPath="", imgFile="", videoFile="", binFile="", simFile="", videoOutFile="", OSDstr="", rtspPath="";  
+    bool cameraInput = false, ispInput = false, 
+        asyncInference = false, writeFrame = false, performanceTest = false;
     vector<unsigned long> inputPtr;
-#ifdef USE_OPENCV
     auto objectColors = GetObjectColors();
-#endif    
 
-    if(argc==1)
+    
+    std::string app_name = "yolo object detection demo";
+    cxxopts::Options options(app_name, app_name + " application usage ");
+    options.add_options()
+    ("m, model", "define model path", cxxopts::value<std::string>(modelPath))
+    ("i, image", "use image file input", cxxopts::value<std::string>(imgFile))
+    ("v, video", "use video file input", cxxopts::value<std::string>(videoFile))
+    ("w, write", "write result frames to a video file", cxxopts::value<bool>(writeFrame)->default_value("false"))
+    ("c, camera", "use camera input", cxxopts::value<bool>(cameraInput)->default_value("false"))
+    ("r, rtsp", "use rtsp input", cxxopts::value<std::string>(rtspPath))
+    ("x, isp", "use ISP input", cxxopts::value<bool>(ispInput)->default_value("false"))
+    ("b, bin", "use binary file input", cxxopts::value<std::string>(binFile))
+    ("s, sim", "use pre-defined npu output binary file input( perform post-proc. only )", cxxopts::value<std::string>(simFile))
+    ("a, async", "asynchronous inference", cxxopts::value<bool>(asyncInference)->default_value("false"))
+    ("p, param", "pre/post-processing parameter selection", cxxopts::value<int>(paramIdx)->default_value("-1"))
+    ("l, loop", "loop test", cxxopts::value<int>(loops)->default_value("0"))
+    ("performance", "for performance inference", cxxopts::value<bool>(performanceTest)->default_value("false"))
+    ("h, help", "print usage")
+    ;
+    auto cmd = options.parse(argc, argv);
+    if(cmd.count("help") || modelPath.empty())
     {
-        cout << "Error: no arguments." << endl;
-        help();
-        return -1;
+        std::cout << options.help() << std::endl;
+        exit(0);
     }
 
-    while ((optCmd = getopt_long(argc, argv, "m:i:v:w:cxb:s:aep:l:n:h", opts,
-        NULL)) != -1) {
-        switch (optCmd) {
-            case '0':
-                break;
-            case 'm':
-                modelPath = strdup(optarg);
-                break;
-            case 'i':
-                imgFile = strdup(optarg);
-                break;
-            case 'v':
-                videoFile = strdup(optarg);
-                break;
-            case 'w':
-                videoOutFile = strdup(optarg);
-                writeFrame = true;
-                break;
-            case 'c':
-                cameraInput = true;
-                break;
-            case 'x':
-                ispInput = true;
-                break;
-            case 'b':
-                binFile = strdup(optarg);
-                break;
-            case 's':
-                simFile = strdup(optarg);
-                break;
-            case 'a':
-                asyncInference = true;
-                break;
-            case 'e':
-                ethernetInput = true;
-                break;
-            case 'p':
-                paramIdx = stoi(optarg);
-                break;
-            case 'l':
-                loops = stoi(optarg);
-                break;
-            case 'h':
-            default:
-                help();
-                exit(0);
-                break;
-        }
-    }
     LOG_VALUE(modelPath);
     LOG_VALUE(videoFile);
+    LOG_VALUE(rtspPath);
     LOG_VALUE(imgFile);
     LOG_VALUE(binFile);
     LOG_VALUE(simFile);
@@ -245,20 +174,13 @@ int main(int argc, char *argv[])
     LOG_VALUE(ispInput);
     LOG_VALUE(asyncInference);
 
-    if(modelPath.empty())
-    {
-        cout << "Error: no model argument." << endl;
-        help();
-        return -1;
-    }
+    auto captionModel = dxapp::common::getFileName(modelPath);
 
-    string captionModel = dxrt::StringSplit(modelPath, "/").back() + ", 30fps";    
-
-    auto ie = dxrt::InferenceEngine(modelPath);
+    dxrt::InferenceEngine ie(modelPath);
     auto yoloParam = yoloParams[paramIdx];
     Yolo yolo = Yolo(yoloParam);
+    yolo.LayerReorder(ie.outputs());
     auto& profiler = dxrt::Profiler::GetInstance();
-#if USE_OPENCV
     if(!imgFile.empty())
     {
         vector<vector<shared_ptr<dxrt::Tensor>>> vOutputs;
@@ -268,7 +190,6 @@ int main(int argc, char *argv[])
         cv::Mat resizedFrame = cv::Mat(yoloParam.height, yoloParam.width, CV_8UC3);
         PreProc(frame, resizedFrame, true, true, 114);
         profiler.End("pre");
-        cv::imwrite("resized.jpg", resizedFrame);
         if(!asyncInference)
         {
             profiler.Start("main");
@@ -278,6 +199,7 @@ int main(int argc, char *argv[])
         else
         {
             int loop;
+            if(loops<0)loops=1;
             for(loop=0;loop<loops;loop++)
             {                
                 profiler.Start("main");            
@@ -299,20 +221,29 @@ int main(int argc, char *argv[])
             yolo.ShowResult();
             DisplayBoundingBox(frame, result, yoloParam.height, yoloParam.width, \
                 "", "", cv::Scalar(0, 0, 255), objectColors, "result.jpg", 0, -1, true);            
+            std::cout << "save file : result.jpg " << std::endl;
         }
-        // profiler.Show();
     }
-    else if(!videoFile.empty() || cameraInput)
+    else if(!videoFile.empty() || !rtspPath.empty() || cameraInput)
     {
         bool pause = false;
+        double total_frames = 0;
         cv::VideoCapture cap;
         cv::VideoWriter writer;
         cv::Mat frame[FRAME_BUFFERS], resizedFrame[FRAME_BUFFERS];
+
+        int64_t previous_average_time = 0;
+        auto time_s = std::chrono::high_resolution_clock::now();
+        auto time_e = std::chrono::high_resolution_clock::now();
+        uint64_t postprocessed_count = 0;
+        uint64_t duration_time = 0;
+        int font_size = 0;
+
         for(int i=0;i<FRAME_BUFFERS;i++)
         {
             resizedFrame[i] = cv::Mat(yoloParam.height, yoloParam.width, CV_8UC3, cv::Scalar(0, 0, 0));
         }
-        int idx = 0, prevIdx = 0, key;
+        int idx = 0, key = 0;
         if(!videoFile.empty())
         {
             cap.open(videoFile);
@@ -321,18 +252,26 @@ int main(int argc, char *argv[])
                 cout << "Error: file " << videoFile << " could not be opened." <<endl;
                 return -1;
             }
+            total_frames = cap.get(cv::CAP_PROP_FRAME_COUNT);
+            font_size = cap.get(cv::CAP_PROP_FRAME_HEIGHT) / 100;
         }
         else
         {
-            cap.open(0, cv::CAP_V4L2);
+            if(cameraInput)
+#ifdef __linux__
+                cap.open(0, cv::CAP_V4L2);
+#elif _WIN32
+                cap.open(0);
+#endif
+            else
+                cap.open(rtspPath);
             cap.set(CAP_PROP_FOURCC, VideoWriter::fourcc('M','J','P','G'));
-            cap.set(CAP_PROP_FRAME_WIDTH, CAMERA_FRAME_WIDTH);
-            cap.set(CAP_PROP_FRAME_HEIGHT, CAMERA_FRAME_HEIGHT);
             if(!cap.isOpened())
             {
                 cout << "Error: camera could not be opened." <<endl;
                 return -1;
             }
+            font_size = cap.get(cv::CAP_PROP_FRAME_HEIGHT) / 100;
         }
         cout << "FPS: " << dec << (int)cap.get(CAP_PROP_FPS) << endl;
         cout << cap.get(CAP_PROP_FRAME_WIDTH) << " x " << cap.get(CAP_PROP_FRAME_HEIGHT) << endl;
@@ -340,29 +279,28 @@ int main(int argc, char *argv[])
         {
             namedWindow(DISPLAY_WINDOW_NAME);
             moveWindow(DISPLAY_WINDOW_NAME, 0, 0);
-            int callBackCnt = 0; // debug
             queue<pair<vector<BoundingBox>, int>> bboxesQueue;
             vector<BoundingBox> bboxes;
             mutex lk;
             std::function<int(vector<shared_ptr<dxrt::Tensor>>, void*)> postProcCallBack = \
                 [&](vector<shared_ptr<dxrt::Tensor>> outputs, void *arg)
                 {
-                    // callBackCnt++; // debug
                     profiler.Start("post");
-                    // cout << "      >> callback " << callBackCnt << endl; // debug
-                        /* PostProc */
-                        auto result = yolo.PostProc(outputs);
-                        /* Restore raw frame index from tensor */
-                        lk.lock();
-                        bboxesQueue.push(
-                            make_pair(
-                                result, 
-                                (uint64_t) arg
-                            )
-                        );
-                        lk.unlock();
+                    /* PostProc */
+                    auto result = yolo.PostProc(outputs);
+                    /* Restore raw frame index from tensor */
+                    lk.lock();
+                    bboxesQueue.push(
+                        make_pair(
+                            result, 
+                            (uint64_t) arg
+                        )
+                    );
+                    lk.unlock();
+                    time_e = std::chrono::high_resolution_clock::now();
+                    duration_time = std::chrono::duration_cast<std::chrono::microseconds>(time_e - time_s).count();
+                    postprocessed_count++;
                     profiler.End("post");
-                    // LOG_VALUE(profiler.Get("post"));
                     return 0;
                 };
             ie.RegisterCallBack(postProcCallBack);
@@ -371,52 +309,71 @@ int main(int argc, char *argv[])
             while(1)
             {
                 profiler.Start("cap");
+                profiler.Start("main");
                 if(!pause)
                 {
-                    cap >> frame[idx];                    
-                    if(frame[idx].empty()) break;
+                    if(cap.get(cv::CAP_PROP_POS_FRAMES) > total_frames - FRAME_BUFFERS)
+                    {
+                        if(loops > 0)
+                            cap.set(cv::CAP_PROP_POS_FRAMES, 0);
+                    }
+                    cap >> frame[idx];
+                    if(frame[idx].empty())
+                    {
+                        break;
+                    }
                     profiler.Start("pre");
                     PreProc(frame[idx], resizedFrame[idx], true, true, 114);
                     profiler.End("pre");
-                    profiler.Start("main");
-                    int reqId = ie.RunAsync(resizedFrame[idx].data, (void*)idx);
+                    time_s = std::chrono::high_resolution_clock::now();
+                    int reqId = ie.RunAsync(resizedFrame[idx].data, (void*)(intptr_t)idx);
+                    UNUSEDVAR(reqId);
                     profiler.End("main");
-                    lk.lock();
-                    if(!bboxesQueue.empty())
+                    if(postprocessed_count > 0 && bboxesQueue.size() > 0)
                     {
+                        lk.lock();
                         bboxes = bboxesQueue.front().first;
                         outFrame = frame[bboxesQueue.front().second];
                         bboxesQueue.pop();
+                        lk.unlock();
+                        DisplayBoundingBox(outFrame, bboxes, yoloParam.height, yoloParam.width, "", "",
+                            cv::Scalar(0, 0, 255), objectColors, "", 0, -1, true);
+                        cv::Size mainCaptionSize = cv::getTextSize(captionModel, cv::FONT_HERSHEY_SIMPLEX, 0.7, 1, nullptr);
+                        cv::rectangle(outFrame, Point(0, 0), Point(mainCaptionSize.width+ 40, mainCaptionSize.height + 50), Scalar(0, 0, 0), cv::FILLED);
+                        cv::putText(outFrame, captionModel, cv::Point(20, 25), FONT_HERSHEY_SIMPLEX, 0.7, Scalar(255, 255, 255));
+                        auto new_average_time = ((previous_average_time * postprocessed_count) + duration_time)/ (postprocessed_count + 1);
+                        previous_average_time = new_average_time;
+                        uint64_t fps = 1000000 / new_average_time;
+                        std::string fpsCaption = "FPS : " + std::to_string((int)fps);
+                        cv::Size fpsCaptionSize = cv::getTextSize(fpsCaption, cv::FONT_HERSHEY_PLAIN, font_size, 2, nullptr);
+                        // cv::putText(outFrame, fpsCaption, cv::Point(outFrame.size().width - fpsCaptionSize.width, outFrame.size().height - fpsCaptionSize.height), cv::FONT_HERSHEY_PLAIN, font_size, cv::Scalar(255, 255, 255),2);
+                        cv::imshow(DISPLAY_WINDOW_NAME, outFrame);
                     }
-                    else
-                    {
-                        outFrame = frame[idx];
-                    }
-                    lk.unlock();
-                    DisplayBoundingBox(outFrame, bboxes, yoloParam.height, yoloParam.width, "", "",
-                        cv::Scalar(0, 0, 255), objectColors, "", 0, -1, true);
-                    cv::rectangle(outFrame, Point(0, 0), Point(400, 40), Scalar(0, 0, 0), cv::FILLED);
-                    cv::putText(outFrame, captionModel, Point(20, 25), FONT_HERSHEY_SIMPLEX, 0.7, Scalar(255, 255, 255));
-                    cv::imshow(DISPLAY_WINDOW_NAME, outFrame);
                     (++idx)%=FRAME_BUFFERS;
                 }
                 profiler.End("cap");
                 int64_t t = (INPUT_CAPTURE_PERIOD_MS*1000 - profiler.Get("cap"))/1000;
                 if(t<0 || t>INPUT_CAPTURE_PERIOD_MS) t = 0;
-                // LOG_VALUE(profiler.Get("cap"));
-                // LOG_VALUE(t);
-                key = cv::waitKey(max((int64_t)1, t));
-                // key = cv::waitKey(1);
-                if(key == 0x20) //'p'
+
+                if(performanceTest)
+                    key = cv::waitKey(1);
+                else
+                    key = cv::waitKey(max((int64_t)1, t));
+                
+                if(key == 'p') //'p'
                 {
                     pause = !pause;
                 }
-                else if(key == 0x1B) //'ESC'
+                else if(key == 0x1B || key == 'q') //'ESC'
                 {
                     break;
                 }
             }
+#ifdef __linux__
             sleep(1);
+#elif _WIN32
+            Sleep(1000);
+#endif
         }
         else
         {
@@ -436,50 +393,44 @@ int main(int argc, char *argv[])
             {
                 cout << "frame " << cap.get(CAP_PROP_POS_FRAMES) << " / " << cap.get(CAP_PROP_FRAME_COUNT) << endl;
                 profiler.Start("cap");
-                    cap >> frame[idx];
-                    // if(cap.get(CAP_PROP_POS_FRAMES)>30*15) break; // temp
-                    if(frame[idx].empty()) break;
+                cap >> frame[idx];
+                if (frame[idx].empty()) break;
                 profiler.End("cap");
                 profiler.Start("pre");
-                    PreProc(frame[idx], resizedFrame[idx], true, true, 114);
+                PreProc(frame[idx], resizedFrame[idx], true, true, 114);
                 profiler.End("pre");
                 profiler.Start("main");
-                    auto outputs = ie.Run(resizedFrame[idx].data);
+                auto outputs = ie.Run(resizedFrame[idx].data);
                 profiler.End("main");
                 profiler.Start("post");
-                    if(outputs.size()>0)
-                    {
-                        auto result = yolo.PostProc(outputs);
-                        DisplayBoundingBox(frame[idx], result, yoloParam.height, yoloParam.width, "", "",
-                            cv::Scalar(0, 0, 255), objectColors, "", 0, -1, true);                        
-                    }
-                    fps = 1000000. / ie.latency();
-                    ostringstream oss;
-                    oss << setprecision(2) << fixed << fps;
-                    string text = "FPS:" + oss.str();
-                    auto textSize = cv::getTextSize(text, FONT_HERSHEY_SIMPLEX, 1, 1, &textBaseline);
-                    cv::rectangle( 
-                        frame[idx],
-                        Point( 25, 25-textSize.height ), 
-                        Point( 25 + textSize.width, 35 ), 
-                        Scalar(172, 81, 99),
-                        cv::FILLED);
-                    cv::putText(
-                        frame[idx], text, Point( 30, 30 ), 
-                        FONT_HERSHEY_SIMPLEX, 1, Scalar(255,255,255));
-                    // cout << fps << endl; // debug
-                    // cv::imwrite("tmp.jpg", frame[idx]); break; // debug 
+                if (outputs.size() > 0)
+                {
+                    auto result = yolo.PostProc(outputs);
+                    DisplayBoundingBox(frame[idx], result, yoloParam.height, yoloParam.width, "", "",
+                        cv::Scalar(0, 0, 255), objectColors, "", 0, -1, true);
+                }
+                fps = 1000000. / ie.latency();
+                ostringstream oss;
+                oss << setprecision(2) << fixed << fps;
+                string text = "FPS:" + oss.str();
+                auto textSize = cv::getTextSize(text, FONT_HERSHEY_SIMPLEX, 1, 1, &textBaseline);
+                cv::rectangle(
+                    frame[idx],
+                    Point(25, 25 - textSize.height),
+                    Point(25 + textSize.width, 35),
+                    Scalar(172, 81, 99),
+                    cv::FILLED);
+                cv::putText(
+                    frame[idx], text, Point(30, 30),
+                    FONT_HERSHEY_SIMPLEX, 1, Scalar(255, 255, 255));
                 profiler.End("post");
                 profiler.Start("writer");
-                    writer << frame[idx];
+                writer << frame[idx];
                 profiler.End("writer");
-                (++idx)%=FRAME_BUFFERS;
+                (++idx) %= FRAME_BUFFERS;
             }
         }
-        // ie.Show();
-        // profiler.Show();
     }
-#endif
     if(!binFile.empty())
     {
         int cnt = 0;
@@ -573,21 +524,18 @@ int main(int argc, char *argv[])
             int req = -1;
             int callBackCnt = 0;
             int bufIdx = 0;
-            // dxrt::CleanMemIf(); // cache flush for riscv64
             std::function<int(std::vector<std::shared_ptr<dxrt::Tensor>>, void*)> postProcCallBack = \
                 [&](std::vector<shared_ptr<dxrt::Tensor>> outputs, void* arg)
                 {
                     float fps;
                     callBackCnt++;
                     profiler.Start("post");
-                    // cout << "      >> callback " << callBackCnt << endl; // debug
     #ifdef ISP_DEBUG_BY_OPENCV
                     static int cnt = 0;
                     cv::Mat frame(yoloParam.height, yoloParam.width, CV_8UC3, inputs.front()->GetData());
                     // cv::imwrite("isp"+((loops>0)?to_string(callBackCnt):to_string(0))+".jpg", frame);
     #endif
                     auto result = yolo.PostProc(outputs);
-                    // yolo.ShowResult();
                     profiler.Start("osd");
                     SendResultOSD(nputime, OSDstr, yoloParam, result);
                     profiler.End("osd");
@@ -668,7 +616,6 @@ int main(int argc, char *argv[])
             }
 
             usleep(1000*1000);
-            // profiler.Show();
 
             if(ENX_UYV_CAPTURE_CH_Stop(0) != 0){
                 printf("ENX_UYV_CAPTURE_CH_Stop failed\n");
@@ -686,6 +633,6 @@ int main(int argc, char *argv[])
     }
 
     cout << ie.name() << " : latency " << ie.latency() << "us, " << ie.inference_time() << "us" << endl;
-
+DXRT_TRY_CATCH_END
     return 0;
 }

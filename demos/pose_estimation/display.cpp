@@ -1,4 +1,3 @@
-#ifdef USE_OPENCV
 #include "display.h"
 
 using namespace std;
@@ -57,7 +56,7 @@ static std::vector<std::vector<int>> skeleton = {
     {4, 6},
 };
 
-static std::vector pose_limb_color = {
+static std::vector<cv::Scalar> pose_limb_color = {
     cv::Scalar(51, 153, 255),
     cv::Scalar(51, 153, 255),
     cv::Scalar(51, 153, 255),
@@ -79,7 +78,7 @@ static std::vector pose_limb_color = {
     cv::Scalar(0, 255, 0),
 };
 
-static std::vector pose_kpt_color = {
+static std::vector<cv::Scalar> pose_kpt_color = {
     cv::Scalar(0, 255, 0),
     cv::Scalar(0, 255, 0),
     cv::Scalar(0, 255, 0),
@@ -106,7 +105,7 @@ void DisplayBoundingBox(cv::Mat &frame, vector<BoundingBox> &result,
     string OutputImgFile, int DisplayDuration, int Category, bool ImageCenterAligned)
 {    
     map<string, int> numObjects;
-    float x1, y1, x2, y2, r, w_pad, h_pad;
+    float x1, y1, x2, y2, r = 1.f, w_pad = 0, h_pad = 0;
     float w = (float)frame.cols; /* Target Frame Width */
     float h = (float)frame.rows; /* Target Frame Height */
     int txtBaseline = 0;
@@ -142,7 +141,7 @@ void DisplayBoundingBox(cv::Mat &frame, vector<BoundingBox> &result,
                 }
             }
             
-            for (int index=0; index < skeleton.size(); index++) {
+            for (int index=0; index < (int)skeleton.size(); index++) {
                 auto pp = skeleton[index];
                 auto kp0 = points[pp[0]];
                 auto kp1 = points[pp[1]];
@@ -150,7 +149,7 @@ void DisplayBoundingBox(cv::Mat &frame, vector<BoundingBox> &result,
                     cv::line(frame, kp0, kp1, pose_limb_color[index], 2, cv::LINE_AA);
             }
 
-            for (int index=0; index < points.size(); index++) {
+            for (int index=0; index < (int)points.size(); index++) {
                 cv::circle(frame, points[index], 3, pose_kpt_color[index], -1, cv::LINE_AA);
             }
         }
@@ -168,14 +167,11 @@ void DisplayBoundingBox(cv::Mat &frame, vector<BoundingBox> &result,
         cv::rectangle(
             frame, Point( x1, y1 ), Point( x2, y2 ), 
             ObjectColors[bbox.label], 2);
-            // object_colors[bbox.label], frame.cols>1280?2:1);
         cv::rectangle( 
             frame, 
             Point( x1, y1-textSize.height ), 
             Point( x1 + textSize.width, y1 ), 
             ObjectColors[bbox.label], 
-            // dev==0?(object_colors[bbox.label]):Scalar(0, 0, 255), 
-            // UniformColor,
             cv::FILLED);
         cv::putText(
             frame, bbox.labelname, Point( x1, y1 ), 
@@ -190,9 +186,6 @@ void DisplayBoundingBox(cv::Mat &frame, vector<BoundingBox> &result,
         {
             numObjects["others"]++;
         }
-        // cv::putText( frame, txtBuf, Point( x1, 12 + y1 ), FONT_HERSHEY_SIMPLEX, 0.5, object_colors[bbox.label]);
-        // bbox.Show();
-        // cout << "      (" << x1 << ", " << y1 << ")" << ", (" << x2 << ", " << y2 << ")" << endl;
     }
 #if 1
     if(!frameTitle.empty())
@@ -377,4 +370,3 @@ vector<Scalar> GetObjectColors(int type)
     }
     return ObjectColors;
 }
-#endif

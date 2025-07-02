@@ -15,6 +15,7 @@ void help()
 
 int main(int argc, char *argv[])
 {
+DXRT_TRY_CATCH_BEGIN
     int arg_idx = 1;
     string configPath = "";
 
@@ -22,7 +23,7 @@ int main(int argc, char *argv[])
     {
         std::cout << "Error: no arguments." << std::endl;
         help();
-        std::terminate();
+        exit(-1);
     }
 
     while (arg_idx < argc) {
@@ -38,16 +39,16 @@ int main(int argc, char *argv[])
     {
         std::cout << "error : no config json file arguments. " << std::endl;
         help();
-        std::terminate();
+        exit(-1);
     }
 
-    auto appConfig = dxapp::AppConfig(configPath);
-    auto classifier = Classifier(appConfig);
+    dxapp::AppConfig appConfig(configPath);
+    Classifier classifier(appConfig);
 
     uint8_t* input_tensor = new uint8_t[classifier.inputSize];
 
     for(auto &sources:appConfig.sourcesInfo){
-        if(std::filesystem::is_regular_file(sources.inputPath)){
+        if(dxapp::common::pathValidation(sources.inputPath)){
             if(sources.inputType==AppInputType::IMAGE)
             {
                 auto image = cv::imread(sources.inputPath, cv::IMREAD_COLOR);
@@ -55,7 +56,7 @@ int main(int argc, char *argv[])
             }
             else if(sources.inputType==AppInputType::BINARY)
             {
-                dxapp::common::readBinary(sources.inputPath, input_tensor, 1);
+                dxapp::common::readBinary(sources.inputPath, input_tensor);
             }
             auto outputs = classifier.inferenceEngine->Run(input_tensor);
             if(outputs.size() == 0){
@@ -83,7 +84,7 @@ int main(int argc, char *argv[])
             {
                 char output_filename[100];
                 auto view = dxapp::classification::resultViewer(sources.inputPath, result);
-                std::filesystem::path filename = std::filesystem::path(sources.inputPath).filename();
+                auto filename = dxapp::common::getFileName(sources.inputPath);
                 snprintf(output_filename, 100, "./%s-result.jpg", filename.c_str());
                 cv::imwrite(output_filename, view);
                 std::cout << "save file : " << output_filename << std::endl;
@@ -94,6 +95,6 @@ int main(int argc, char *argv[])
             std::cerr << sources.inputPath << " is invalid path. plz insert regular file. " << std::endl;
         }
     }
-
+DXRT_TRY_CATCH_END
     return 0;
 }

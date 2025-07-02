@@ -34,7 +34,7 @@ void NmsOneClass(
     float iou;
     int i, j;
     int numCandidates = ScoreIndices[cls].size();    
-    bool valid[numCandidates];
+    bool* valid = new bool[numCandidates];
     fill_n(valid, numCandidates, true);
     for(i=0;i<numCandidates;i++)
     {
@@ -66,6 +66,7 @@ void NmsOneClass(
             }
         }
     }
+    delete[] valid;
 }
 
 void Nms(
@@ -83,7 +84,7 @@ void Nms(
         NmsOneClass(cls, ClassNames, ScoreIndices, Boxes, Keypoints, IouThreshold, Result);
     }
     sort(Result.begin(), Result.end(), compare);
-    if(numDetectTotal>0 && Result.size()>numDetectTotal)
+    if(numDetectTotal>0 && Result.size()>(size_t)numDetectTotal)
     {
         Result.resize(numDetectTotal);
     }

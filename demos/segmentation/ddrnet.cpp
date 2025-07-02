@@ -4,33 +4,36 @@
 #include <stdint.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#ifdef __linux__
 #include <sys/mman.h>
-#include <getopt.h>
 #include <unistd.h>
+#include <syslog.h>
+#endif
 #include <fcntl.h>
 #include <string.h>
 #include <errno.h>
 #include <signal.h>
-#include <syslog.h>
-#ifdef USE_OPENCV
+
 #include <opencv2/opencv.hpp>
 #include <opencv2/core.hpp>
-#include "display.h"
-#endif
 #include "dxrt/dxrt_api.h"
+#include "utils/common_util.hpp"
+
+#include "display.h"
 
 using namespace std;
-#ifdef USE_OPENCV
 using namespace cv;
-#endif
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
 #define PREPROC_KEEP_IMG_RATIO false
 #define DISPLAY_WINDOW_NAME "Segmentation: DDRNet"
-#define DEFAULT_MODEL_PATH "/dxrt/m1_4k/ddrnet"
 #define CAMERA_FRAME_WIDTH 1920
 #define CAMERA_FRAME_HEIGHT 1080
 #define FRAME_BUFFERS 5
+
+#ifndef UNUSEDVAR
+#define UNUSEDVAR(x) (void)(x);
+#endif
 struct SegmentationParam
 {
     int classIndex;
@@ -46,42 +49,6 @@ SegmentationParam segCfg[] = {
 };
 /////////////////////////////////////////////////////////////////////////////////////////////////
 
-static struct option const opts[] = {
-    { "model", required_argument, 0, 'm' },
-    { "image", required_argument, 0, 'i' },
-    { "video", required_argument, 0, 'v' },
-    { "camera", no_argument, 0, 'c' },
-    { "bin",  required_argument, 0, 'b' },
-    { "sim", required_argument, 0, 's' },
-    { "async", no_argument, 0, 'a' },
-    { "iomode", no_argument, 0, 'o' },
-    { "pcie_std", no_argument, 0, 'p' },
-    { "help", no_argument, 0, 'h' },
-    { "width", required_argument, 0, 'x' },
-    { "height", required_argument, 0, 'y' },
-    { 0, 0, 0, 0 }
-};
-const char* usage =
-"Image Segmentation Demo\n"
-"  -m, --model     define model path\n"
-"  -i, --image     use image file input\n"
-"  -v, --video     use video file input\n"
-"  -c, --camera    use camera input\n"
-"  -b, --bin       use binary file input\n"
-"  -s, --sim       use pre-defined npu output binary file input( perform post-proc. only )\n"
-"  -a, --async     asynchronous inference\n"
-"  -o, --iomode    I/O only mode (not perform inference directly)\n"
-"  -p, --pcie      Standalone mode: use pcie input \n"
-"  -x, --width     Input image width\n"
-"  -y, --height    Input image height\n"
-"  -h, --help      show help\n"
-;
-void help()
-{
-    cout << usage << endl;    
-}
-
-#ifdef USE_OPENCV
 void *PreProc(cv::Mat &src, cv::Mat &dest, bool keepRatio=true, bool bgr2rgb=true, uint8_t padValue=0)
 {
     cv::Mat Resized;
@@ -142,7 +109,6 @@ void Segmentation(uint16_t *input, cv::Mat &color, SegmentationParam *cfg, int n
         }
     }
 }
-#endif
 void Segmentation(uint16_t *input, uint8_t *output, int rows, int cols, SegmentationParam *cfg, int numClasses)
 {
     for(int h=0;h<rows;h++)
@@ -164,85 +130,35 @@ void Segmentation(uint16_t *input, uint8_t *output, int rows, int cols, Segmenta
 
 int main(int argc, char *argv[])
 {
-    int optCmd;
+DXRT_TRY_CATCH_BEGIN
     int inputWidth = 0, inputHeight = 0;
     string modelPath="", imgFile="", videoFile="", binFile="", simFile="";
-    bool pcieInput = false, cameraInput = false, asyncInference = false;
-#ifdef USE_OPENCV
-    // auto objectColors = GetObjectColors(); /* TODO */
-#endif
+    bool cameraInput = false, asyncInference = false;
 
-    if(argc==1)
+    std::string app_name = "segmentation model demo";
+    cxxopts::Options options(app_name, app_name + " application usage ");
+    options.add_options()
+    ("m, model", "define dxnn model path", cxxopts::value<std::string>(modelPath))
+    ("i, image", "use image file input", cxxopts::value<std::string>(imgFile))
+    ("v, video", "use video file input", cxxopts::value<std::string>(videoFile))
+    ("c, camera", "use camera input", cxxopts::value<bool>(cameraInput)->default_value("false"))
+    ("b, bin", "use binary file input", cxxopts::value<std::string>(binFile))
+    ("s, sim", "use pre-defined npu output binary file input( perform post-proc. only )", cxxopts::value<std::string>(simFile))
+    ("a, async", "asynchronous inference", cxxopts::value<bool>(asyncInference)->default_value("false"))
+    ("x, width", "Input image width", cxxopts::value<int>(inputWidth)->default_value("768"))
+    ("y, height", "Input image height", cxxopts::value<int>(inputHeight)->default_value("384"))
+    ("h, help", "print usage")
+    ;
+    
+    auto cmd = options.parse(argc, argv);
+    if(cmd.count("help") || modelPath.empty())
     {
-        cout << "Error: no arguments." << endl;
-        help();
-        return -1;
+        std::cout << options.help() << std::endl;
+        exit(0);
     }
 
-    while ((optCmd = getopt_long(argc, argv, "m:i:v:cb:s:x:y:aoph", opts,
-        NULL)) != -1) {
-        switch (optCmd) {
-            case '0':
-                break;
-            case 'm':
-                modelPath = strdup(optarg);
-                break;
-            case 'i':
-                imgFile = strdup(optarg);
-                break;
-            case 'v':
-                videoFile = strdup(optarg);
-                break;
-            case 'c':
-                cameraInput = true;
-                break;
-            case 'b':
-                binFile = strdup(optarg);
-                break;
-            case 's':
-                simFile = strdup(optarg);
-                break;
-            case 'x':
-                inputWidth = stoi(optarg);
-                break;
-            case 'y':
-                inputHeight = stoi(optarg);
-                break;
-            case 'a':
-                asyncInference = true;
-                break;
-            case 'p':
-                pcieInput = true;
-                break;
-            case 'h':
-            default:
-                help();
-                exit(0);
-                break;
-        }
-    }
-    if(modelPath.empty())
-    {
-        /* Temp. setting for SW development */
-        modelPath = DEFAULT_MODEL_PATH;
-        // cout << "Error: no model argument." << endl;
-        // help();
-        // return -1;
-    }
-    if(inputWidth==0) inputWidth = 768;
-    if(inputHeight==0) inputHeight = 384;
-    LOG_VALUE(inputWidth);
-    LOG_VALUE(inputHeight);
-    LOG_VALUE(modelPath);
-    LOG_VALUE(videoFile);
-    LOG_VALUE(binFile);
-    LOG_VALUE(simFile);
-    LOG_VALUE(cameraInput);
-    LOG_VALUE(asyncInference);
+    dxrt::InferenceEngine ie(modelPath);
 
-    auto ie = dxrt::InferenceEngine(modelPath);
-
-#if USE_OPENCV
     auto& profiler = dxrt::Profiler::GetInstance();
     if(!imgFile.empty())
     {
@@ -251,22 +167,13 @@ int main(int argc, char *argv[])
         cv::Mat resizedFrame = cv::Mat(inputHeight, inputWidth, CV_8UC3);
         PreProc(frame, resizedFrame, PREPROC_KEEP_IMG_RATIO);
         profiler.End("pre");
-#if 0
-        auto inputTensors = ie.GetInput(0x0);
-        inputTensors[0]->SetData(resizedFrame.data);
-        // inputTensors[0]->Show();
-        profiler.Start("main");
-        auto outputs = ie.Run(inputTensors);
-#else
         profiler.Start("main");
         auto outputs = ie.Run(resizedFrame.data);
-#endif
         profiler.End("main");
         LOG_VALUE(outputs.size());
         profiler.Start("post-segment");
         cv::Mat result = cv::Mat(inputHeight, inputWidth, CV_8UC3, cv::Scalar(0, 0, 0));
         Segmentation((uint16_t*)outputs[0]->data(), result.data, result.rows, result.cols, segCfg, 3);
-        // Segmentation((uint16_t*)outputs[0]->GetData(), color, segCfg, 3);
         profiler.End("post-segment");
         profiler.Start("post-blend");
         cv::resize(result, result, Size(frame.cols, frame.rows), 0, 0, cv::INTER_LINEAR);
@@ -274,12 +181,9 @@ int main(int argc, char *argv[])
         // cv::addWeighted( frame, 1.0, result, 0.5, 0.0, blendResultToRaw);
         profiler.End("post-blend");
         cout << dec << inputWidth << "x" << inputHeight << " <- " << frame.cols << "x" << frame.rows << endl;
-        cv::imwrite("result-blend-to-raw.jpg", frame);
-        cv::imwrite("result-segmentation.jpg", result);
-        cv::imwrite("resized.jpg", resizedFrame);
-        cv::imshow("segmentation", frame);
-        cv::waitKey(0);
-        profiler.Show();
+        cv::imwrite("result.jpg", frame);
+        std::cout << "save file : result.jpg " << std::endl;
+        
         return 0;
     }
     else if(!videoFile.empty() || cameraInput)
@@ -306,7 +210,11 @@ int main(int argc, char *argv[])
         }
         else
         {
+#ifdef __linux__
             cap.open(0, cv::CAP_V4L2);
+#elif _WIN32
+            cap.open(0);
+#endif
             cap.set(CAP_PROP_FOURCC, VideoWriter::fourcc('M','J','P','G'));
             cap.set(CAP_PROP_FRAME_WIDTH, CAMERA_FRAME_WIDTH);
             cap.set(CAP_PROP_FRAME_HEIGHT, CAMERA_FRAME_HEIGHT);
@@ -316,7 +224,6 @@ int main(int argc, char *argv[])
                 return -1;
             }
         }
-        int callBackCnt = 0; // debug
         int fps = cap.get(CAP_PROP_FPS);
         float capInterval = 1000./fps;
         queue<int> outIdxQueue;
@@ -329,16 +236,13 @@ int main(int argc, char *argv[])
             [&](vector<shared_ptr<dxrt::Tensor>> outputs, void *arg)
             {
                 profiler.Start("post");
-                // callBackCnt++; // debug
-                // cout << "      >> callback " << callBackCnt << endl; // debug
-                uint64_t id = *(uint64_t*) arg;
+                int id = *(int*)arg;
                 segFrame[id].setTo(cv::Scalar(0,0,0));
                 Segmentation((uint16_t*)outputs[0]->data(), segFrame[id].data, segFrame[id].rows, segFrame[id].cols, segCfg, 3);
                 lk.lock();
                 outIdxQueue.push(id);
                 lk.unlock();
                 profiler.End("post");
-                // LOG_VALUE(profiler.Get("post"));
                 return 0;
             };
         ie.RegisterCallBack(postProcCallBack);
@@ -356,8 +260,8 @@ int main(int argc, char *argv[])
                 PreProc(frame[inIdx], resizedFrame[inIdx], PREPROC_KEEP_IMG_RATIO);
                 profiler.End("pre");
                 profiler.Start("main");
-                int reqId = ie.RunAsync(resizedFrame[inIdx].data, (void*)inIdx);
-                // ie.WaitForCompleted(reqId);
+                int reqId = ie.RunAsync(resizedFrame[inIdx].data, &inIdx);
+                UNUSEDVAR(reqId);
                 profiler.End("main");
                 if(!outIdxQueue.empty())
                 {
@@ -389,18 +293,19 @@ int main(int argc, char *argv[])
             }
             tm.stop();
             double elapsed = tm.getTimeMilli();
-            // LOG_VALUE(elapsed);
             if (elapsed < capInterval)
             {
-                // LOG_VALUE(capInterval-elapsed);
                 cv::waitKey( max(1, (int)(capInterval - elapsed)) );
             }
         }
+#ifdef __linux__
         sleep(1);
-        profiler.Show();
+#elif _WIN32
+        Sleep(1000);
+#endif
+        
         return 0;
     }
-#endif
 
     if(!binFile.empty())
     {
@@ -419,10 +324,9 @@ int main(int argc, char *argv[])
             cout << "Error. Invalid output detected." << endl;
             return -1;
         }
-        /* TODO : PostProcessing */
         delete [] buf;
         return 0;
     }
-
+DXRT_TRY_CATCH_END
     return 0;
 }

@@ -4,25 +4,28 @@
 #include <stdint.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#ifdef __linux__
 #include <sys/mman.h>
-#include <getopt.h>
 #include <unistd.h>
+#endif
+
 #include <fcntl.h>
 #include <string.h>
 #include <errno.h>
 #include <signal.h>
+#ifdef __linux__
 #include <syslog.h>
-#ifdef USE_OPENCV
-#include <opencv2/opencv.hpp>
-#include "display.h"
 #endif
+
+#include <opencv2/opencv.hpp>
+#include <cxxopts.hpp>
+
+#include "display.h"
 #include "dxrt/dxrt_api.h"
 #include "ssd.h"
 
 using namespace std;
-#ifdef USE_OPENCV
 using namespace cv;
-#endif
 
 #define ISP_PHY_ADDR   (0x8F000000)
 #define ISP_INPUT_ZEROCOPY
@@ -37,6 +40,7 @@ using namespace cv;
 static int memfd;
 static unsigned char *ispBuf = NULL;
 
+#ifdef __linux__
 unsigned char *InitISPMapping(size_t mapSize, off_t phyAddr)
 {
     memfd = open("/dev/mem", O_RDWR);
@@ -60,51 +64,18 @@ void DeinitISPMapping(size_t imgSize)
     munmap(ispBuf, imgSize);
     close(memfd);
 };
+#endif
 
 // pre/post parameter table
 extern SsdParam mv1_ssd_300, mv2_ssd_320, mv1_ssd_512;
 SsdParam ssdParams[] = {
-    [0] = mv1_ssd_300,
-    [1] = mv2_ssd_320,
-    [2] = mv1_ssd_512,
+    mv1_ssd_300, // index = 0
+    mv2_ssd_320, // index = 1
+    mv1_ssd_512, // index = 2
 };
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
-static struct option const opts[] = {
-    { "model", required_argument, 0, 'm' },
-    { "image", required_argument, 0, 'i' },
-    { "video", required_argument, 0, 'v' },
-    { "camera", no_argument, 0, 'c' },
-    { "bin",  required_argument, 0, 'b' },
-    { "sim", required_argument, 0, 's' },
-    { "async", no_argument, 0, 'a' },
-    { "iomode", no_argument, 0, 'o' },
-    { "param", required_argument, 0, 'p' },
-    { "loop", no_argument, 0, 'l' },
-    { "help", no_argument, 0, 'h' },
-    { 0, 0, 0, 0 }
-};
-const char* usage =
-"ssd demo\n"
-"  -m, --model     define model path\n"
-"  -i, --image     use image file input\n"
-"  -v, --video     use video file input\n"
-"  -c, --camera    use camera input\n"
-"  -x, --isp    use ISP input\n"
-"  -b, --bin       use binary file input\n"
-"  -s, --sim       use pre-defined npu output binary file input( perform post-proc. only )\n"
-"  -a, --async     asynchronous inference\n"
-"  -o, --iomode    I/O only mode (not perform inference directly)\n"
-"  -p, --param      pre/post-processing parameter selection\n"
-"  -l, --loop      loop test\n"
-"  -h, --help      show help\n"
-;
-void help()
-{
-    cout << usage << endl;    
-}
 
-#ifdef USE_OPENCV
 void *PreProc(cv::Mat &src, cv::Mat &dest, bool keepRatio=true, bool bgr2rgb=true, uint8_t padValue=0)
 {
     cv::Mat Resized;
@@ -125,7 +96,7 @@ void *PreProc(cv::Mat &src, cv::Mat &dest, bool keepRatio=true, bool bgr2rgb=tru
             newWidth = dest.cols;
             newHeight = newWidth / ratioSrc;
         }
-        cv::Mat src2 = cv::Mat(newWidth, newHeight, CV_8UC3);
+        cv::Mat src2 = cv::Mat(newHeight, newWidth, CV_8UC3);
         cv::resize(src, src2, Size(newWidth, newHeight), 0, 0, cv::INTER_LINEAR);
         dw = (dest.cols - src2.cols)/2.;
         dh = (dest.rows - src2.rows)/2.;
@@ -145,66 +116,37 @@ void *PreProc(cv::Mat &src, cv::Mat &dest, bool keepRatio=true, bool bgr2rgb=tru
     }
     return (void*)dest.data;
 }
-#endif
 
 int main(int argc, char *argv[])
 {
-    int optCmd, loops=1, paramIdx=0;
+    int loops=1, paramIdx=0;
     string modelPath="", imgFile="", videoFile="", binFile="", simFile="";
     bool cameraInput = false, ispInput = false, asyncInference = false;
-#ifdef USE_OPENCV
     auto objectColors = GetObjectColors();
-#endif    
 
-    if(argc==1)
+
+    std::string app_name = "ssd object detection model demo";
+    cxxopts::Options options(app_name, app_name + " application usage ");
+    options.add_options()
+    ("m, model", "define model path", cxxopts::value<std::string>(modelPath))
+    ("i, image", "use image file input", cxxopts::value<std::string>(imgFile))
+    ("v, video", "use video file input", cxxopts::value<std::string>(videoFile))
+    ("c, camera", "use camera input", cxxopts::value<bool>(cameraInput)->default_value("false"))
+    ("x, isp", "use ISP input", cxxopts::value<bool>(ispInput)->default_value("false"))
+    ("b, bin", "use binary file input", cxxopts::value<std::string>(binFile))
+    ("s, sim", "use pre-defined npu output binary file input( perform post-proc. only )", cxxopts::value<std::string>(simFile))
+    ("a, async", "asynchronous inference", cxxopts::value<bool>(asyncInference))
+    ("p, param", "pre/post-processing parameter selection", cxxopts::value<int>(paramIdx))
+    ("l, loop", "loop test", cxxopts::value<int>(loops)->default_value("1"))
+    ("h, help", "print usage")
+    ;
+    auto cmd = options.parse(argc, argv);
+    if(cmd.count("help") || modelPath.empty())
     {
-        cout << "Error: no arguments." << endl;
-        help();
-        return -1;
+        std::cout << options.help() << std::endl;
+        exit(0);
     }
 
-    while ((optCmd = getopt_long(argc, argv, "m:i:v:cxb:s:aop:l:h", opts,
-        NULL)) != -1) {
-        switch (optCmd) {
-            case '0':
-                break;
-            case 'm':
-                modelPath = strdup(optarg);
-                break;
-            case 'i':
-                imgFile = strdup(optarg);
-                break;
-            case 'v':
-                videoFile = strdup(optarg);
-                break;
-            case 'c':
-                cameraInput = true;
-                break;
-            case 'x':
-                ispInput = true;
-                break;
-            case 'b':
-                binFile = strdup(optarg);
-                break;
-            case 's':
-                simFile = strdup(optarg);
-                break;
-            case 'a':
-                asyncInference = true;
-                break;
-            case 'p':
-                paramIdx = stoi(optarg);
-                break;
-            case 'l':
-                loops = stoi(optarg);
-                break;
-            case 'h':
-            default:
-                help();
-                exit(0);
-                break;
-        }
-    }
     LOG_VALUE(modelPath);
     LOG_VALUE(videoFile);
     LOG_VALUE(imgFile);
@@ -214,18 +156,10 @@ int main(int argc, char *argv[])
     LOG_VALUE(ispInput);
     LOG_VALUE(asyncInference);
 
-    if(modelPath.empty())
-    {
-        cout << "Error: no model argument." << endl;
-        help();
-        return -1;
-    }
-
-    auto ie = dxrt::InferenceEngine(modelPath);
+    dxrt::InferenceEngine ie(modelPath);
     auto ssdParam = ssdParams[paramIdx];
     Ssd ssd = Ssd(ssdParam);
     auto& profiler = dxrt::Profiler::GetInstance();
-#if USE_OPENCV
     if(!imgFile.empty())
     {
         cv::Mat frame = cv::imread(imgFile, IMREAD_COLOR);
@@ -244,9 +178,9 @@ int main(int argc, char *argv[])
             profiler.End("post");
             ssd.ShowResult();
             DisplayBoundingBox(frame, result, -1, -1, \
-                "", "", cv::Scalar(0, 0, 255), objectColors, "result-ssd.jpg", 0, -1, true);
+                "", "", cv::Scalar(0, 0, 255), objectColors, "result.jpg", 0, -1, true);
         // cv::waitKey(0);
-        profiler.Show();
+        
         return 0;
     }
     else if(!videoFile.empty() || cameraInput)
@@ -270,7 +204,7 @@ int main(int argc, char *argv[])
         }
         else
         {
-            cap.open(0, cv::CAP_V4L2);
+            cap.open(0);
             cap.set(CAP_PROP_FOURCC, VideoWriter::fourcc('M','J','P','G'));
             cap.set(CAP_PROP_FRAME_WIDTH, CAMERA_FRAME_WIDTH);
             cap.set(CAP_PROP_FRAME_HEIGHT, CAMERA_FRAME_HEIGHT);
@@ -327,12 +261,16 @@ int main(int argc, char *argv[])
                 break;
             }
         }
+#ifdef __linux
         sleep(1);
+#elif _WIN32
+        Sleep(1000);
+#endif
+
         // ie.Show();
-        profiler.Show();
+        
         return 0;
     }
-#endif
     if(!binFile.empty())
     {
         int cnt = 0;

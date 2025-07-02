@@ -10,6 +10,7 @@
 
 struct YoloLayerParam
 {
+    std::string name;
     int numGridX;
     int numGridY;
     int numBoxes;
@@ -18,6 +19,14 @@ struct YoloLayerParam
     std::vector<int> tensorIdx;
     float scaleX=0;
     float scaleY=0;
+    YoloLayerParam() = default;
+    YoloLayerParam(int _gx, int _gy, int _numB, 
+                   const std::vector<float> &_vAnchorW, const std::vector<float> &_vAnchorH, const std::vector<int> &_vTensorIdx, 
+                   float _sx = 0.f, float _sy = 0.f)
+    :numGridX(_gx), numGridY(_gy), numBoxes(_numB), 
+     anchorWidth(_vAnchorW), anchorHeight(_vAnchorH),
+     tensorIdx(_vTensorIdx), scaleX(_sx), scaleY(_sy)
+    {}
     void Show();
 };
 struct YoloParam
@@ -54,6 +63,7 @@ public:
     ~Yolo();
     Yolo();
     Yolo(YoloParam &_cfg);
+    void LayerReorder(dxrt::Tensors output_info);
     /* for concated tensor */
     std::vector< BoundingBox > PostProc(float *data);
     /* for separate tensors */

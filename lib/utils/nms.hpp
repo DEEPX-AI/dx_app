@@ -11,7 +11,7 @@ namespace dxapp
 namespace common
 {
     
-    float calcIoU(dxapp::common::BBox a, dxapp::common::BBox b)
+    inline float calcIoU(dxapp::common::BBox a, dxapp::common::BBox b)
     {
         float a_w = a._xmax - a._xmin;
         float a_h = a._ymax - a._ymin;
@@ -29,11 +29,8 @@ namespace common
         return overlap_area / (a_area + b_area - overlap_area);
     }
 
-    dxapp::common::Object scalingObject(dxapp::common::Object src, dxapp::common::Size_f padSize, dxapp::common::Size_f scaleRatio)
+    inline dxapp::common::Object scalingObject(dxapp::common::Object src, dxapp::common::Size_f padSize, dxapp::common::Size_f scaleRatio)
     {
-        /***
-         * _postprocratio/preprocRatio 를 ratio size에 담아서 ㄱㄱ 
-        */
         dxapp::common::Object dst = src;
         dst._bbox._xmin = (src._bbox._xmin - padSize._width) * scaleRatio._width;
         dst._bbox._ymin = (src._bbox._ymin - padSize._height) * scaleRatio._height;
@@ -41,10 +38,18 @@ namespace common
         dst._bbox._ymax = (src._bbox._ymax - padSize._height) * scaleRatio._height;
         dst._bbox._width = src._bbox._width * scaleRatio._width;
         dst._bbox._height = src._bbox._height * scaleRatio._height;
+        for(auto &kpt:dst._bbox._kpts)
+        {
+            if(kpt._z > 0)
+            {
+                kpt._x = (kpt._x - padSize._width) * scaleRatio._width;
+                kpt._y = (kpt._y - padSize._height) * scaleRatio._height;
+            }
+        }
         return dst;
     };
 
-    void nms(std::vector<dxapp::common::BBox> rawBoxes, std::vector<std::vector<std::pair<float, int>>> &scoreIndices, float iou_threshold, std::map<uint16_t, std::string> &classes, dxapp::common::Size_f padSize, dxapp::common::Size_f scaleRatio, dxapp::common::DetectObject &result)
+    inline void nms(std::vector<dxapp::common::BBox> rawBoxes, std::vector<std::vector<std::pair<float, int>>> &scoreIndices, float iou_threshold, std::map<uint16_t, std::string> &classes, dxapp::common::Size_f padSize, dxapp::common::Size_f scaleRatio, dxapp::common::DetectObject &result)
     {
         for(size_t idx=0;idx<scoreIndices.size();idx++) // class 
         {
@@ -71,12 +76,12 @@ namespace common
             {
                 if(_indices[j].first > 00.f)
                 {
-                    dxapp::common::Object obj = {
-                        ._bbox=rawBoxes[_indices[j].second],
-                        ._conf=_indices[j].first,
-                        ._classId=(int)idx,
-                        ._name=classes.at((int)idx),
-                    };
+                    dxapp::common::Object obj;
+                    obj._bbox = rawBoxes[_indices[j].second];
+                    obj._conf = _indices[j].first;
+                    obj._classId = static_cast<int>(idx);
+                    obj._name = classes.at(static_cast<int>(idx));
+
                     result._detections.emplace_back(scalingObject(obj, padSize, scaleRatio));
                 }
             }

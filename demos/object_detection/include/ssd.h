@@ -47,7 +47,6 @@ private:
     std::vector< std::vector<std::pair<float, int>> > ScoreIndices;
     std::vector< BoundingBox > Result;
     std::vector< std::string > ClassNames;
-    // PriorBoxGenerator pb;
     uint32_t numClasses;
     uint32_t numBoxes;
     uint32_t numLayers;
@@ -79,8 +78,8 @@ public:
     // void CreatePriorBoxes(PriorBoxGenerator &pb);
     std::vector< BoundingBox > PostProc(float *data);
     std::vector< BoundingBox > PostProc(std::vector<shared_ptr<dxrt::Tensor>> outputs_, void* saveTo=nullptr);
-    void FilterWithSoftmax(float *data, vector<shared_ptr<dxrt::Tensor>> outputs_);
-    void FilterWithSigmoid(float *data, vector<shared_ptr<dxrt::Tensor>> outputs_);
+    void FilterWithSoftmax(vector<shared_ptr<dxrt::Tensor>> outputs_);
+    void FilterWithSigmoid(vector<shared_ptr<dxrt::Tensor>> outputs_);
     float* GetPriorBoxes(){ return PriorBoxes; }
     float* GetBoxes(){ return Boxes; }
     float* GetScores(){ return Scores; }

@@ -1,4 +1,3 @@
-#ifdef USE_OPENCV
 #include "display.h"
 
 using namespace std;
@@ -36,20 +35,34 @@ list<string> displayObjList[2]{
 };
 
 void DisplayBoundingBox(cv::Mat &frame, vector<BoundingBox> &result, 
-    float OriginWidth, float OriginHeight, string frameTitle, string frameText, 
+    float OriginHeight, float OriginWidth, string frameTitle, string frameText, 
     cv::Scalar UniformColor, vector<Scalar> ObjectColors,
-    string OutputImgFile, int DisplayDuration, int Category, bool ImageCenterAligned)
+    string OutputImgFile, int DisplayDuration, int Category, bool ImageCenterAligned, float InputWidth, float InputHeight)
 {    
     map<string, int> numObjects;
     float x1, y1, x2, y2, r, w_pad, h_pad;
     float w = (float)frame.cols; /* Target Frame Width */
     float h = (float)frame.rows; /* Target Frame Height */
+    bool reformatting = false;
+    float reformatting_ratio_width = 1.f, reformatting_ratio_height = 1.f;
     int txtBaseline = 0;
+    if(InputWidth >0){
+        if(w/h == InputWidth/InputHeight)
+            reformatting = 0;
+        else
+            reformatting = 1, reformatting_ratio_width = w/InputWidth, reformatting_ratio_height = h/InputHeight;
+    }
     if(OriginWidth!=-1)
     {
-        r = min(OriginWidth/w, OriginHeight/h);
-        w_pad = ImageCenterAligned?(OriginWidth - w*r)/2.:0;
-        h_pad = ImageCenterAligned?(OriginHeight - h*r)/2.:0;
+        if(reformatting){
+            r = min(OriginWidth/InputWidth, OriginHeight/InputHeight);
+            w_pad = ImageCenterAligned?(OriginWidth - InputWidth*r)/2.:0;
+            h_pad = ImageCenterAligned?(OriginHeight - InputHeight*r)/2.:0;
+        }else{
+            r = min(OriginWidth/w, OriginHeight/h);
+            w_pad = ImageCenterAligned?(OriginWidth - w*r)/2.:0;
+            h_pad = ImageCenterAligned?(OriginHeight - h*r)/2.:0;
+        }
     }
     for(auto &bbox:result)
     {
@@ -59,6 +72,12 @@ void DisplayBoundingBox(cv::Mat &frame, vector<BoundingBox> &result,
             x2 = (bbox.box[2] - w_pad)/r;
             y1 = (bbox.box[1] - h_pad)/r;
             y2 = (bbox.box[3] - h_pad)/r;
+            if(reformatting){
+                x1 *= reformatting_ratio_width;
+                x2 *= reformatting_ratio_width;
+                y1 *= reformatting_ratio_height;
+                y2 *= reformatting_ratio_height;
+            }
             x1 = min((float)w, max((float)0.0, x1) );
             x2 = min((float)w, max((float)0.0, x2) );
             y1 = min((float)h, max((float)0.0, y1) );
@@ -77,14 +96,11 @@ void DisplayBoundingBox(cv::Mat &frame, vector<BoundingBox> &result,
         cv::rectangle(
             frame, Point( x1, y1 ), Point( x2, y2 ), 
             ObjectColors[bbox.label], 2);
-            // object_colors[bbox.label], frame.cols>1280?2:1);
         cv::rectangle( 
             frame, 
             Point( x1, y1-textSize.height ), 
             Point( x1 + textSize.width, y1 ), 
             ObjectColors[bbox.label], 
-            // dev==0?(object_colors[bbox.label]):Scalar(0, 0, 255), 
-            // UniformColor,
             cv::FILLED);
         cv::putText(
             frame, bbox.labelname, Point( x1, y1 ), 
@@ -99,9 +115,6 @@ void DisplayBoundingBox(cv::Mat &frame, vector<BoundingBox> &result,
         {
             numObjects["others"]++;
         }
-        // cv::putText( frame, txtBuf, Point( x1, 12 + y1 ), FONT_HERSHEY_SIMPLEX, 0.5, object_colors[bbox.label]);
-        // bbox.Show();
-        // cout << "      (" << x1 << ", " << y1 << ")" << ", (" << x2 << ", " << y2 << ")" << endl;
     }
 #if 1
     if(!frameTitle.empty())
@@ -286,4 +299,3 @@ vector<Scalar> GetObjectColors(int type)
     }
     return ObjectColors;
 }
-#endif

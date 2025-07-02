@@ -2,7 +2,6 @@
 #include <future>
 #include <thread>
 #include <fstream>
-#include <filesystem>
 #include <iostream>
 #include <string>
 
@@ -11,14 +10,13 @@
 #include "post_process/classification_post_processing.hpp"
 #include "pre_process/classification_pre_processing.hpp"
 
-#include "dxapp_api.hpp"
 #include "app_parser.hpp"
 
 class Classifier
 {
 public:
 
-    Classifier(dxapp::AppConfig &_config):config(_config)
+    Classifier(const dxapp::AppConfig &_config):config(_config)
     {
         bool is_valid = dxapp::validationJsonSchema(config.modelInfo.c_str(), modelInfoSchema);
         if(!is_valid)
@@ -32,42 +30,40 @@ public:
         std::string modelPath = doc["path"].GetString();
         inferenceEngine = std::make_shared<dxrt::InferenceEngine>(modelPath);
         
-        inputShape = inferenceEngine->inputs().front().shape();
+        inputShape = std::vector<int64_t>(inferenceEngine->inputs().front().shape());
         outputShape = inferenceEngine->outputs().front().shape();
         inputSize = inferenceEngine->input_size();
-        if(inputShape[0]*inputShape[1]*inputShape[2]*inputShape[3] != inputSize)
-            alignFactor = dxapp::common::get_align_factor(inputShape[1] * inputShape[3], 64);
+        auto factorialShape = inputShape[1]*inputShape[1]*3;
+        if(!dxapp::common::checkOrtLinking() && static_cast<uint64_t>(factorialShape) != inputSize)
+            alignFactor = dxapp::common::get_align_factor(inputShape[1] * 3, 64);
         else
             alignFactor = false;
-                
-        preConfig = {
-            ._dstShape = inputShape,
-            ._inputFormat = config.inputFormat,
-            ._alignFactor = alignFactor,
-            ._needIm2Col = false,
-        };
-        postConfig = {
-            ._outputShape = outputShape,
-            ._outputType = config.outputType,
-            ._classes = config.classes,
-        };
 
-        if(outputShape.size() == 0){
+        if(outputShape.size() == 1){
             is_argmax = true;
         }
+
+        preConfig._dstShape = inputShape;
+        preConfig._dstSize = inputSize;
+        preConfig._inputFormat = config.inputFormat;
+        preConfig._alignFactor = alignFactor;
+
+        postConfig._outputShape = outputShape;
+        postConfig._outputType = is_argmax? OUTPUT_ARGMAX : OUTPUT_NONE_ARGMAX;
+        postConfig._classes = config.classes;
     };
-    ~Classifier(){};
+    ~Classifier()=default;
     
+    dxapp::AppConfig config;
     std::vector<int64_t> inputShape;
     std::vector<int64_t> outputShape;
-    int inputSize;
+    uint64_t inputSize;
     int alignFactor;
     bool is_argmax = false;
     
     std::shared_ptr<dxrt::InferenceEngine> inferenceEngine;
     dxapp::classification::PreConfig preConfig;
     dxapp::classification::PostConfig postConfig;
-    dxapp::AppConfig &config;
 
 private:
     const char* modelInfoSchema = R"""(

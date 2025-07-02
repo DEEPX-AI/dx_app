@@ -1,0 +1,1 @@
+option(ENABLE_DEBUG_INFO "Include debugging informations in build output" ON)

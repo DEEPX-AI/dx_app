@@ -5,7 +5,6 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
-#include <getopt.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <string.h>
@@ -30,39 +29,12 @@ using namespace cv;
 #define INPUT_CAPTURE_PERIOD_MS 33
 #define FRAME_BUFFERS 8
 
+#ifndef UNUSEDVAR
+#define UNUSEDVAR(x) (void)(x);
+#endif
+
 /////////////////////////////////////////////////////////////////////////////////////////////////
-static struct option const opts[] = {
-    { "image", required_argument, 0, 'i' },
-    { "video", required_argument, 0, 'v' },
-    { "camera", no_argument, 0, 'c' },
-    { "bin",  required_argument, 0, 'b' },
-    { "async", no_argument, 0, 'a' },
-    { "loop", no_argument, 0, 'l' },
-    { "width", required_argument, 0, 'x' },
-    { "height", required_argument, 0, 'y' },
-    { "ip", required_argument, 0, 'p' },
-    { "time", required_argument, 0, 't' },
-    { "help", no_argument, 0, 'h' },
-    { 0, 0, 0, 0 }
-};
-const char* usage =
-"object detection by ethernet\n"
-"  -i, --image     use image file input\n"
-"  -v, --video     use video file input\n"
-"  -c, --camera    use camera input\n"
-"  -b, --bin       use binary file input\n"
-"  -a, --async     asynchronous inference\n"
-"  -l, --loop      loop test\n"
-"  -x, --width     input image width of model\n"
-"  -y, --height    input image height of model\n"
-"  -p, --ip        server IP\n"
-"  -t, --time      request time interval (ms)\n"
-"  -h, --help      show help\n"
-;
-void help()
-{
-    cout << usage << endl;    
-}
+
 void *PreProc(cv::Mat &src, cv::Mat &dest, bool keepRatio=true, bool bgr2rgb=true, uint8_t padValue=0)
 {
     cv::Mat Resized;
@@ -83,7 +55,7 @@ void *PreProc(cv::Mat &src, cv::Mat &dest, bool keepRatio=true, bool bgr2rgb=tru
             newWidth = dest.cols;
             newHeight = newWidth / ratioSrc;
         }
-        cv::Mat src2 = cv::Mat(newWidth, newHeight, CV_8UC3);
+        cv::Mat src2 = cv::Mat(newHeight, newWidth, CV_8UC3);
         cv::resize(src, src2, Size(newWidth, newHeight), 0, 0, cv::INTER_LINEAR);
         dw = (dest.cols - src2.cols)/2.;
         dh = (dest.rows - src2.rows)/2.;
@@ -106,6 +78,7 @@ void *PreProc(cv::Mat &src, cv::Mat &dest, bool keepRatio=true, bool bgr2rgb=tru
 bool stopFlag = false;
 void RequestToStop(int sig)
 {
+    UNUSEDVAR(sig);
     stopFlag = true;
 }
 bool GetStopFlag()
@@ -115,66 +88,43 @@ bool GetStopFlag()
 
 int main(int argc, char *argv[])
 {
-    int optCmd, loops = 1;
+    int loops = 1;
     int height = 0, width = 0, inputSize = 0, timeIntervalMs = 30;
     string imgFile="", videoFile="", binFile="", ethernetServerIP="";
     bool cameraInput = false, socketInput = false, asyncInference = false;
     ssize_t bytes, bytes_recv, bytes_send;
     auto objectColors = GetObjectColors();
-    if(argc==1)
+
+        
+    std::string app_name = "yolo pose object detection client demo";
+    cxxopts::Options options(app_name, app_name + " application usage ");
+    options.add_options()
+    ("i, image", "use image file input", cxxopts::value<std::string>(imgFile))
+    ("v, video", "use video file input", cxxopts::value<std::string>(videoFile))
+    ("c, camera", "use camera input", cxxopts::value<bool>()->default_value("false"))
+    ("b, bin", "use binary file input", cxxopts::value<std::string>(binFile))
+    ("a, async", "asynchronous inference", cxxopts::value<bool>()->default_value("false"))
+    ("l, loop", "loop test", cxxopts::value<int>(loops)->default_value("1"))
+    ("x, width", "input image width of model", cxxopts::value<int>(width))
+    ("y, height", "input image height of model", cxxopts::value<int>(height))
+    ("p, ip", "server IP", cxxopts::value<std::string>(ethernetServerIP))
+    ("t, time", "request time interval (ms)", cxxopts::value<int>(timeIntervalMs))
+    ("h, help", "print usage")
+    ;
+    
+    auto cmd = options.parse(argc, argv);
+    if(cmd.count("help") || ethernetServerIP.empty())
     {
-        cout << "Error: no arguments." << endl;
-        help();
-        return -1;
+        std::cout << options.help() << std::endl;
+        exit(0);
     }
-    while ((optCmd = getopt_long(argc, argv, "i:v:cb:al:x:y:p:t:h", opts,
-        NULL)) != -1) {
-        switch (optCmd) {
-            case '0':
-                break;
-            case 'i':
-                imgFile = strdup(optarg);
-                break;
-            case 'v':
-                videoFile = strdup(optarg);
-                break;
-            case 'c':
-                cameraInput = true;
-                break;
-            case 'b':
-                binFile = strdup(optarg);
-                break;
-            case 'a':
-                asyncInference = true;
-                break;
-            case 'l':
-                loops = stoi(optarg);
-                break;
-            case 'p':
-                ethernetServerIP = strdup(optarg);
-                break;
-            case 't':
-                timeIntervalMs = stoi(optarg);
-                break;
-            case 'h':
-            default:
-                help();
-                exit(0);
-                break;
-        }
-    }
+    
     LOG_VALUE(videoFile);
     LOG_VALUE(imgFile);
     LOG_VALUE(binFile);
     LOG_VALUE(cameraInput);
     LOG_VALUE(asyncInference);    
     LOG_VALUE(ethernetServerIP);
-    if(ethernetServerIP.empty())
-    {
-        cout << "Error: No server IP." << endl;
-        help();
-        return -1;
-    }
 
     /* Socket for Client */
     int sock;
@@ -242,7 +192,7 @@ int main(int argc, char *argv[])
         for(auto &bbox:bboxes) bbox.Show();
         DisplayBoundingBox(frame, bboxes, height, width, \
             "", "", cv::Scalar(0, 0, 255), objectColors, "result.jpg", 0, -1, true);
-        profiler.Show();
+        
         return 0;
     }
     else if(!videoFile.empty() || cameraInput)
@@ -269,7 +219,7 @@ int main(int argc, char *argv[])
         }
         else
         {
-            cap.open(0, cv::CAP_V4L2);
+            cap.open(0);
             cap.set(CAP_PROP_FOURCC, VideoWriter::fourcc('M','J','P','G'));
             cap.set(CAP_PROP_FRAME_WIDTH, CAMERA_FRAME_WIDTH);
             cap.set(CAP_PROP_FRAME_HEIGHT, CAMERA_FRAME_HEIGHT);
@@ -375,7 +325,7 @@ int main(int argc, char *argv[])
             }
             (++capture)%=FRAME_BUFFERS;
         }
-        profiler.Show();
+        
         return 0;
     }
     if(!binFile.empty())

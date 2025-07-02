@@ -1,10 +1,4 @@
 #include "detector.hpp"
-#ifdef USE_EASYLOG
-#include "easylogging++.h"
-INITIALIZE_EASYLOGGINGPP
-#endif
-#ifdef USE_OPENCV
-#endif
 
 using namespace std;
 using namespace rapidjson;
@@ -21,16 +15,16 @@ void help()
 
 int main(int argc, char *argv[])
 {
-    
+    DXRT_TRY_CATCH_BEGIN
     int arg_idx = 1;
     std::string configPath = "";
-    char key; bool loop = true;
+    char key;
 
     if (argc == 1)
     {
         std::cout << "Error: no arguments." << std::endl;
         help();
-        std::terminate();
+        exit(-1);
     }
 
     while (arg_idx < argc) {
@@ -46,11 +40,11 @@ int main(int argc, char *argv[])
     {
         std::cout << "error : no config json file arguments. " << std::endl;
         help();
-        std::terminate();
+        exit(-1);
     }
 
-    auto appConfig = dxapp::AppConfig(configPath);
-    auto detector = Detector(appConfig);
+    dxapp::AppConfig appConfig(configPath);
+    Detector detector(appConfig);
     detector.makeThread();
     detector.startThread();
     while(true)
@@ -60,8 +54,29 @@ int main(int argc, char *argv[])
             detector.quitThread();
             break;
         }
-        cv::imshow("result", detector.totalView());
-        switch (cv::waitKey(1))
+#if __riscv
+        key = getchar();
+#else
+        if(appConfig.appType == REALTIME)
+        {
+            cv::imshow("result", detector.totalView());
+            key = (char)cv::waitKey(1);
+        }
+        else
+        {
+            if(detector.is_all_image && appConfig.appType == OFFLINE)
+            {
+                std::this_thread::sleep_for(std::chrono::microseconds(100000));
+            }
+            else
+            {
+                std::cout << "press 'q' to quit. " << std::endl;
+                key = (char)getchar();
+                std::cout << "pressed key " << key << std::endl;
+            }
+        }
+#endif
+        switch (key)
         {
         case 'q':
         case 0x1B:
@@ -71,9 +86,10 @@ int main(int argc, char *argv[])
             break;
         }
     }
+
     detector.joinThread();
 
     std::cout << " detector application End. " << std::endl;
-    
+DXRT_TRY_CATCH_END    
     return 0;
 }

@@ -1,0 +1,5 @@
+matplotlib
+opencv-python
+torch --find-links https://download.pytorch.org/whl/cpu
+torchvision --find-links https://download.pytorch.org/whl/cpu
+ultralytics

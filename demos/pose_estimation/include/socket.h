@@ -5,7 +5,6 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
-#include <getopt.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <string.h>
@@ -17,5 +16,5 @@
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 
-ssize_t sendDataToSocket(int sock, void *data, size_t size, int flags);
-ssize_t receiveDataFromSocket(int sock, void *data, size_t size, int flags);
+ssize_t sendDataToSocket(int sock, void *data, ssize_t size, int flags);
+ssize_t receiveDataFromSocket(int sock, void *data, ssize_t size);

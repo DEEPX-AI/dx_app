@@ -1,0 +1,28 @@
+#!/usr/bin/make -f
+#export DH_VERBOSE=1
+
+ROOTDIR := $(CURDIR)
+MAINZIPFILE := $(CURDIR)/source.zip
+
+PACKAGER := dx-app
+
+%:
+	dh $@
+
+build:
+	pwd
+	rm -rf $(MAINZIPFILE)
+	echo "ROOTDIR: $(ROOTDIR)"
+	git archive -o $(MAINZIPFILE) HEAD;
+	ls -al
+
+install:
+#	dh install
+	pwd
+	mkdir -p debian/$(PACKAGER)/usr/share/$(PACKAGER)
+	cp $(MAINZIPFILE) debian/$(PACKAGER)/usr/share/$(PACKAGER)/
+
+
+clean:
+	dh clean
+	rm -rf $(MAINZIPFILE)

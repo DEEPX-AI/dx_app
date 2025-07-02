@@ -1,17 +1,13 @@
-#include <getopt.h>
 #include <future>
 #include <thread>
 #include <iostream>
-#ifdef USE_OPENCV
+
 #include <opencv2/opencv.hpp>
-#endif
+#include <cxxopts.hpp>
 
 #include "dxrt/dxrt_api.h"
+#include "rapidjson/error/en.h"
 #include "rapidjson/document.h"
-#include "rapidjson/writer.h"
-#include "rapidjson/prettywriter.h"
-#include "rapidjson/stringbuffer.h"
-#include "rapidjson/pointer.h"
 #include "rapidjson/rapidjson.h"
 
 #define DEFAULT_MODEL_PATH "/dxrt/m1/efficientnet-b0_argmax"
@@ -141,27 +137,6 @@ vector<void*> preprocessAll(string image_path)
     return ret;
 }
 
-static struct option const opts[] = {
-    {"model", required_argument, 0, 'm'},
-    {"image", required_argument, 0, 'i'},
-    {"label", required_argument, 0, 'l'},
-    {"grid", required_argument, 0, 'g'},
-    {"help", no_argument, 0, 'h'},
-    {0, 0, 0, 0}};
-
-const char *usage =
-    "ImageNet Classification Demo\n"
-    "  -m, --model        define model path\n"
-    "  -i, --image        ImageNet image path\n"
-    "  -l, --label        ImageNet label path\n"
-    "  -g, --grid         ImageNet grid path\n"
-    "  -h, --help         show help\n";
-
-void help()
-{
-    std::cout << usage << std::endl;
-}
-
 void GenerateGT(string labelPath, int numImages, int *GroundTruth)
 {
     std::ifstream f(labelPath);
@@ -184,68 +159,51 @@ int main(int argc, char *argv[])
     std::string image_path = DEFAULT_IMAGE_PATH;
     std::string label_path = DEFAULT_LABEL_PATH;
     std::string grid_path = DEFAULT_GRID_PATH;
-
-    // if (argc == 1)
-    // {
-    //     std::cout << "Error: no arguments." << std::endl;
-    //     help();
-    //     return -1;
-    // }
-
-    int optCmd;
-    while ((optCmd = getopt_long(argc, argv, "m:i:l:g:h", opts, NULL)) != -1)
+    
+    std::string app_name = "imagenet_classification_grid_demo";
+    cxxopts::Options options(app_name, app_name + " application usage ");
+    options.add_options()
+        ("m, model_path", "classification model file (.dxnn, required)", cxxopts::value<std::string>(model_path)->default_value(DEFAULT_MODEL_PATH))
+        ("i, image", "input image files directory (required)", cxxopts::value<std::string>(image_path)->default_value(DEFAULT_IMAGE_PATH))
+        ("l, label", "input ground truth label json file (required)", cxxopts::value<std::string>(label_path)->default_value(DEFAULT_LABEL_PATH))
+        ("g, grid", "imagenet grid image files directory (required)", cxxopts::value<std::string>(grid_path)->default_value(DEFAULT_GRID_PATH))
+        ("h, help", "print usage")
+    ;
+    auto cmd = options.parse(argc, argv);
+    if(cmd.count("help") || model_path.empty())
     {
-        switch (optCmd)
-        {
-        case '0':
-            break;
-        case 'm':
-            model_path = strdup(optarg);
-            break;
-        case 'i':
-            image_path = strdup(optarg);
-            break;
-        case 'l':
-            label_path = strdup(optarg);
-            break;
-        case 'g':
-            grid_path = strdup(optarg);
-            break;
-        case 'h':
-        default:
-            help();
-            exit(0);
-            break;
-        }
+        std::cout << options.help() << endl;
+        exit(0);
     }
+
     int GroundTruth[NUM_IMAGES];
     int Classification[NUM_IMAGES];
     mutex resultLock;
     int numBuf = NUM_BUFFS;
-    auto ie = dxrt::InferenceEngine(model_path);
+    dxrt::InferenceEngine ie(model_path);
     auto& profiler = dxrt::Profiler::GetInstance();
-    atomic<int> gridIdx = 0;
-    atomic<int> gInfCnt = 0;
-    atomic<int> correct = 0;
+    atomic<int> gridIdx {0};
+    atomic<int> gInfCnt {0};
+    atomic<int> correct {0};
     double accuracy = 0;
     double fps = 0;
-    atomic<bool> exit_flag = false;
+    atomic<bool> exit_flag {false};
     bool results[NUM_IMAGES] = {false};
     std::function<int(vector<shared_ptr<dxrt::Tensor>>, void*)> postProcCallBack = \
         [&](vector<shared_ptr<dxrt::Tensor>> outputs, void *args)
         {
-            int id = *(uint64_t*)args;
-            gInfCnt = id;
+            int id = (uint64_t)args;
+            gInfCnt.store(id);
             Classification[id] = *((int*)(outputs.front()->data()));
             if(Classification[id]==GroundTruth[id])
             {
-                correct++;
+                ++correct;
                 results[id] = true;
-                accuracy = (double)correct/(double)(id+1);                
+                accuracy = (double)correct.load()/(double)(id+1);                
             }
             if(id%GRID_UNIT==GRID_UNIT-1)
             {
-                gridIdx = id/GRID_UNIT;
+                gridIdx.store(id/GRID_UNIT);
             }
             return 0;
         };
@@ -267,17 +225,17 @@ int main(int argc, char *argv[])
         while(1)
         {
             volatile int cnt = 0;
-            correct = 0;
-            while(!exit_flag)
+            correct.store(0);
+            while(!exit_flag.load())
             {
-                int reqId;
+                int reqId = 0;
                 profiler.Start("inf");
                 for(int i=0;i<numBuf-1;i++)
                 {
-                    reqId = ie.RunAsync(inputs[cnt], (void*)cnt);
+                    reqId = ie.RunAsync(inputs[cnt], (void*)(intptr_t)cnt);
                     cnt++;
                 }
-                ie.RunAsync(inputs[cnt], (void*)cnt);
+                reqId = ie.RunAsync(inputs[cnt], (void*)(intptr_t)cnt);
                 cnt++;
                 ie.Wait(reqId);
                 profiler.End("inf");
@@ -291,12 +249,12 @@ int main(int argc, char *argv[])
     thread ( [&](void) {        
         cv::Mat grid;
         int grid_size = GRID_WIDTH * GRID_HEIGHT;
-        while(!exit_flag)
+        while(!exit_flag.load())
         {
             while (1)
             {
-                int grid_index = gridIdx;
-                int count = gInfCnt;
+                int grid_index = gridIdx.load();
+                int count = gInfCnt.load();
                 {
                     grid = grids[grid_index];
                     for (int index = 0; index < grid_size; index++)
@@ -318,15 +276,19 @@ int main(int argc, char *argv[])
                 int key = cv::waitKey(1);
                 if (key == 27)
                 {
-                    exit_flag = true;
+                    exit_flag.store(true);
                     break;
                 }
             }
         }
     }).detach();
 
-    while(!exit_flag);
+    while(!exit_flag.load());
+#ifdef __linux__
     sleep(1);
+#elif _WIN32
+    Sleep(1000);
+#endif
 
     return 0;
 }

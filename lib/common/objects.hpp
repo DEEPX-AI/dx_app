@@ -6,6 +6,10 @@
 #include <algorithm>
 #include <map>
 
+#ifndef UNUSEDVAR
+#define UNUSEDVAR(x) (void)(x);
+#endif
+
 typedef enum{
     CLASSIFICATION = 0,
     DETECTION,
@@ -25,7 +29,7 @@ typedef enum {
     VIDEO,
     CAMERA,
     ISP,
-    ETHERNET,
+    RTSP,
     BINARY,
     CSV,
     MULTI,
@@ -50,7 +54,7 @@ struct AppSourceInfo
 {
     AppInputType inputType;
     std::string inputPath;
-    int numOfFrames;
+    int numOfFrames = -1;
 };
 
 namespace dxapp
@@ -76,6 +80,8 @@ namespace common
             this->_width = 0;
             this->_height = 0;
         };
+        Size_<_T>(const Size_<_T>& other) = default;
+        Size_<_T>& operator=(const Size_<_T>& other) = default;
     };
 
     typedef Size_<int> Size;
@@ -103,6 +109,8 @@ namespace common
             this->_y = 0;
             this->_z = 0;
         };
+        Point_<_T>(const Point_<_T>& other) = default;
+        Point_<_T>& operator=(const Point_<_T>& other) = default;
     };
 
     typedef Point_<int> Point;
@@ -116,6 +124,12 @@ namespace common
         float _ymax;
         float _width;
         float _height;
+        std::vector<Point_f> _kpts;
+        friend std::ostream& operator<<(std::ostream& os, const BBox& a)
+        {
+            os << a._xmin << ", " << a._ymin << ", " << a._width << ", " << a._height;
+            return os;
+        };
     };
     struct Object
     {
@@ -123,12 +137,25 @@ namespace common
         float _conf;
         int _classId;
         std::string _name;
+        friend std::ostream& operator<<(std::ostream& os, const Object& a)
+        {
+            os << "obj info : " << a._classId << " : " << a._bbox ;
+            return os;
+        };
+        Object() = default;
+        Object(const Object& other) = default;
+        Object& operator=(const Object& other) = default;
     };
 
     struct DetectObject
     {
         std::vector<Object> _detections;
         int _num_of_detections;
+        friend std::ostream& operator<<(std::ostream& os, const DetectObject& a)
+        {
+            os << "detected : " << a._num_of_detections ;
+            return os;
+        };
     };
 
     struct ClsObject

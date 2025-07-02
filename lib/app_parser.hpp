@@ -12,28 +12,42 @@
 
 #include "dxapp_api.hpp"
 
+#ifdef _WIN32
+#undef GetObject
+#endif
+
 namespace dxapp
 {
 class AppConfig
 {
 public:
 
-    AppConfig(std::string json_path)
+    AppConfig(const std::string &json_source)
     {
-        std::ifstream ifs(json_path);
-        if(!ifs.is_open())
+        std::string json_path = "";
+        std::string json = "";
+        if(dxapp::common::pathValidation(json_source))
         {
-            std::cout << "can't open " << json_path << std::endl;
-            std::terminate();
+            json_path = json_source;
+            std::ifstream ifs(json_path);
+            if(!ifs.is_open())
+            {
+                std::cout << "can't open " << json_path << std::endl;
+                std::terminate();
+            }
+            json = std::string((std::istreambuf_iterator<char>(ifs)), (std::istreambuf_iterator<char>()));
         }
-        std::string json((std::istreambuf_iterator<char>(ifs)), (std::istreambuf_iterator<char>()));
+        else
+        {
+            json = json_source;
+        }
         bool is_valid = dxapp::validationJsonSchema(json.c_str(), application_json_schema);
         if(!is_valid)
         {
             std::cout << json_path << " file is not a valid." << std::endl;
             std::terminate();
         }
-
+        rapidjson::Document doc;
         doc.Parse(json.c_str());
         std::string read = "";
         
@@ -70,6 +84,10 @@ public:
                 source.inputType = AppInputType::VIDEO;
             else if(read=="camera")
                 source.inputType = AppInputType::CAMERA;
+            else if(read=="isp")
+                source.inputType = AppInputType::ISP;
+            else if(read=="rtsp")
+                source.inputType = AppInputType::RTSP;
             
             sourcesInfo.emplace_back(source);
         }
@@ -83,8 +101,10 @@ public:
             appUsage = AppUsage::FACEID;
         else if(read=="segmentation")
             appUsage = AppUsage::SEGMENTATION;
-        else if(read=="yolopose")
+        else if(read=="yolo_pose")
             appUsage = AppUsage::YOLOPOSE;
+        else
+            appUsage = AppUsage::DETECTION;
         
         uint16_t i = 0;
         for(auto &d:doc["output"]["classes"].GetArray()){
@@ -110,18 +130,9 @@ public:
             videoOutResolution._width = 0;
             videoOutResolution._height = 0;
         }
-
-        // TODO : get below informations automatically
-        need_im2col = doc["input"]["need_im2col"].GetBool();
-        read = doc["output"]["type"].GetString();
-        if(read=="argmax")
-            outputType = AppOutputType::OUTPUT_ARGMAX;
-        else if(read=="raw")
-            outputType = AppOutputType::OUTPUT_NONE_ARGMAX;
-
-
+        outputType = AppOutputType::OUTPUT_NONE_ARGMAX;
     };
-    ~AppConfig(){};
+    ~AppConfig()=default;
     
     std::string modelInfo;
 
@@ -134,13 +145,8 @@ public:
     std::map<uint16_t, std::string> classes;
     int numOfClasses;
     dxapp::common::Size videoOutResolution;
-
-    // TODO : get below informations automatically
-    bool need_align;
-    bool need_im2col;
     
 private:
-    rapidjson::Document doc;
 
     const char *application_json_schema = R"""(
         {
@@ -197,7 +203,7 @@ private:
                         }
                     },
                     "required": [
-                        "classes", "type"
+                        "classes"
                     ]
                 },
                 "application": {

@@ -2,7 +2,6 @@
 #include <future>
 #include <thread>
 #include <fstream>
-#include <filesystem>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -10,11 +9,11 @@
 #include <opencv2/opencv.hpp>
 
 #include "post_process/yolo_post_processing.hpp"
-#include "pre_process/yolo_pre_processing.hpp"
 
-#include "dxapp_api.hpp"
+#include "dxrt/dxrt_api.h"
+#include "common/objects.hpp"
+#include "utils/videostream.hpp"
 #include "app_parser.hpp"
-
 
 class DetectorApp
 {
@@ -25,21 +24,30 @@ public :
         _videoPath = sourceInfo.inputPath;
         _inputType = sourceInfo.inputType;
         _name = "app" + std::to_string(_channel);
-        _outName = _name + "_" + std::string(std::filesystem::path(_videoPath).filename());
+        _outName = _name + "_" + dxapp::common::getFileName(_videoPath);
         _processName = "proc_"+_name;
         _inferName = "infer_"+_name;
 
-        _inputSize = dxapp::common::Size((int)_params._input_shape[2],(int)_params._input_shape[1]);
+        _inputSize = dxapp::common::Size((int)_params._input_shape[1],(int)_params._input_shape[1]);
 
-        _vStream = VideoStream(_inputType, _videoPath, sourceInfo.numOfFrames, _inputSize, _inputFormat, _dstSize);        
+        _vStream = VideoStream(_inputType, _videoPath, sourceInfo.numOfFrames, _inputSize, _inputFormat, _dstSize, _inferenceEngine);        
         _srcSize = _vStream._srcSize;
         _postProcessing = dxapp::yolo::PostProcessing(_params, _inputSize, _srcSize, _dstSize);
         _resultFrame = cv::Mat(_dstSize._height, _dstSize._width, CV_8UC3, cv::Scalar(0, 0, 0));     
+        _frame_count = 0;
+        _processed_count = 0;
+        _fps_time_s = std::chrono::high_resolution_clock::now();
+        _fps_time_e = std::chrono::high_resolution_clock::now();
+        outputsMemory = (uint8_t*)operator new(_inferenceEngine->output_size());
     };
-    void runPostProcess(std::vector<std::shared_ptr<dxrt::Tensor>> outputs)
+
+    void runPostProcess(uint8_t* output_data, int64_t data_length)
     {
         std::unique_lock<std::mutex> _uniqueLock(_lock);
-        _postProcessing.run(outputs);
+        _postProcessing.run(output_data, data_length);
+        _processed_count += 1;
+        _fps_time_e = std::chrono::high_resolution_clock::now();
+        _processTime = std::chrono::duration_cast<std::chrono::microseconds>(_fps_time_e - _fps_time_s).count();
     };
 
     cv::Mat getResultFrame()
@@ -60,68 +68,126 @@ public :
 
     void makeThread()
     {
-        _thread = std::thread(&DetectorApp::threadFunction, this);
+        _thread = std::thread(&DetectorApp::ppThreadFunction, this);
     };
 
     void notify_all()
     {
-        std::unique_lock<std::mutex> _uniqueLock(_lock);
-        _wait = false;
+        _wait.store(false);
         std::cout << "[" << _name << "] : notify to this thread function. "<<std::endl;
         _cv.notify_all();
     };
 
     void joinThread()
     {
+        while(!_thread.joinable())
+        {
+            std::this_thread::sleep_for(std::chrono::microseconds(10));
+        }
         _thread.join();
     };
 
-    void quitThread(){
-        std::unique_lock<std::mutex> _uniqueLock(_lock);
-        _quit = true;
+    void quitThread()
+    {
+        _quit.store(true);
     };
 
     bool quit()
     {
-        return _quit;
+        return _quit.load();
     };
 
-    void threadFunction()
+    void ppThreadFunction()
     {
-        std::cout << "[" << _name << "] : entered thread function. "<<std::endl;
+        void* inf_data = nullptr;
+        std::condition_variable _internal_cv;
+        std::cout << "[" << _name << "] : entered post process thread function. "<<std::endl;
         {
             std::unique_lock<std::mutex> _uniqueLock(_lock);
-            _cv.wait(_uniqueLock, [&](){return !_wait;});
+            _cv.wait(_uniqueLock, [&](){return !_wait.load();});
         }
-        _profiler.Add(_processName);
         cv::Mat outputImg = cv::Mat(_dstSize._height, _dstSize._width, CV_8UC3, cv::Scalar(0, 0, 0));
 
-        while(!_quit)
+        while(!_quit.load())
         {    
-            _profiler.Start(_processName);    
-		    auto inf_data = _vStream.GetInputStream();
-            _profiler.Start(_inferName);
-            int req = _inferenceEngine->RunAsync(inf_data, (void*)this);
-#if 0
-            _inferenceEngine->Wait(req);
-#endif
+            if(outputsMemory == nullptr)
+            {
+                std::this_thread::sleep_for(std::chrono::microseconds(100));
+                continue;
+            }
+            if(!_quit.load())
+            {
+                inf_data = _vStream.GetInputStream();
+                {
+                    std::unique_lock<std::mutex> _uniqueLock(_lock);
+                    _get_frame_result = _internal_cv.wait_for(_uniqueLock, std::chrono::seconds(3), [&](){ return inf_data!=nullptr; });
+                    if(!_get_frame_result)
+                    {
+                        std::cout << "[DX-APP ERROR] The camera capture frame did not arrive properly." << std::endl;
+                        std::cout << "[DX-APP ERROR] Shutting down the yolo_multi application." << std::endl;
+                        _quit.store(true);
+                        break;
+                    }
+                    else if(inf_data == nullptr)
+                        continue;
+                }
+                _fps_time_s = std::chrono::high_resolution_clock::now();
+                int req = _inferenceEngine->RunAsync(inf_data, (void*)this, (void*)outputsMemory);
+                _frame_count += 1;
+            }
+            if(_processed_count > 0)
             {
                 std::unique_lock<std::mutex> _uniqueLock(_lock);
                 dxapp::common::DetectObject results = _postProcessing.getResult();
                 outputImg = _vStream.GetOutputStream(results);
+                int64_t new_average = ((_fps_previous_average_time * _processed_count) + _processTime) / (_processed_count + 1);
+                int64_t fps = 1000000 / new_average;
+                _fps_previous_average_time = new_average;
+                std::string fpsCaption = "FPS : " + std::to_string((int)fps);
+                cv::Size fpsCaptionSize = cv::getTextSize(fpsCaption, cv::FONT_HERSHEY_PLAIN, 3, 2, nullptr);
+                // cv::putText(outputImg, fpsCaption, cv::Point(outputImg.size().width - fpsCaptionSize.width, outputImg.size().height - fpsCaptionSize.height), cv::FONT_HERSHEY_PLAIN, 3, cv::Scalar(255, 255, 255),2);
+                if(_appType == NONE)
+                    std::cout << results <<std::endl;
+                {
+                    std::unique_lock<std::mutex> _result_frameLock(_getFrameLock);
+                    _resultFrame = outputImg;
+                    _result_frame_count++;
+                }
             }
-            {
-                std::unique_lock<std::mutex> _uniqueLock(_getFrameLock);
-               _resultFrame = outputImg;
-            }
-            _profiler.End(_processName);
-            _processTime = _profiler.Get(_processName);
             _inferTime = _inferenceEngine->latency();
-            int64_t t = (33*1000 - _processTime)/1000;
-            if(t<0 || t>33) t = 0;
-            usleep(t*1000);
+            std::this_thread::sleep_for(std::chrono::microseconds(1));
         };
+        while(_frame_count != _processed_count)
+        {
+            std::this_thread::sleep_for(std::chrono::microseconds(1));
+        }
+        _vStream.Destructor();
+
     };
+
+    int save()
+    {
+        while(_result_frame_count < 1)
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        std::unique_lock<std::mutex> _uniqueLock(_lock);
+        std::string file_name = dxapp::common::getFileName(_videoPath);
+        if(cv::imwrite("./result-" + _name + ".jpg", _resultFrame))
+        {
+            std::cout << "save file : result-" << _name << ".jpg" <<std::endl;
+            return 0;
+        }
+        else
+            return -1;
+    };
+
+    uint8_t* get_outputMem(){
+        return outputsMemory;
+    };
+
+    ~DetectorApp(){
+        operator delete(outputsMemory);
+    };
+
 private:
     std::shared_ptr<dxrt::InferenceEngine> _inferenceEngine;
     dxrt::Profiler &_profiler;
@@ -150,21 +216,34 @@ private:
     std::string _processName;
     std::string _inferName;
     uint64_t _inferTime = 0;
-    uint64_t _processTime = 0;
-
+    int64_t _processTime = 0;
+    int64_t _fps_previous_average_time = 0;
+    
     std::thread _thread;
+    std::thread _ppThread;
     std::mutex _lock;
     std::mutex _getFrameLock;
     std::condition_variable _cv;
-    bool _wait = true;
-    bool _quit = false;
+    std::atomic<bool> _wait = {true};
+    std::atomic<bool> _quit = {false};
+
+    unsigned long long _processed_count = 0;
+    unsigned long long _frame_count = 0;
+    unsigned long long _result_frame_count = 0;
+    
+    std::chrono::high_resolution_clock::time_point _fps_time_s;
+    std::chrono::high_resolution_clock::time_point _fps_time_e;
+    
+    bool _get_frame_result = true;
+    
+    uint8_t * outputsMemory = nullptr;
 
 };
 
 class Detector
 {
 public:
-    Detector(dxapp::AppConfig &_config):config(_config)
+    Detector(const dxapp::AppConfig &_config):config(_config)
     {
         bool is_valid = dxapp::validationJsonSchema(config.modelInfo.c_str(), modelInfoSchema);
         if(!is_valid)
@@ -176,15 +255,27 @@ public:
 
         readModelInfo(config.modelInfo.c_str());
         inferenceEngine = std::make_shared<dxrt::InferenceEngine>(modelPath);
-        inputShape = inferenceEngine->inputs().front().shape();
+        if(params._layers.empty())
+        {
+            if(ORT_OPTION_DEFAULT)
+            {
+                throw std::invalid_argument("Layer information is missing. Please check the input json configuration file");
+            }
+        }
+        inputShape = std::vector<int64_t>(inferenceEngine->inputs().front().shape());
         auto outputDataInfo = inferenceEngine->outputs();
         for(auto &info:outputDataInfo) 
         {
             outputShape.emplace_back(info.shape());
         }
         inputSize = inferenceEngine->input_size();
-        if(inputShape[0]*inputShape[1]*inputShape[2]*inputShape[3] != inputSize)
-            alignFactor = dxapp::common::get_align_factor(inputShape[1] * inputShape[3], 64);
+        int64_t f = inputShape[1] * inputShape[1] * 3;
+        // for(auto &s:inputShape)
+        // {
+        //     f *= s;
+        // }
+        if(f != inputSize)
+            alignFactor = dxapp::common::get_align_factor(inputShape[1] * 3, 64);
         else
             alignFactor = false;
 
@@ -193,19 +284,29 @@ public:
         params._input_shape = inputShape;
         params._outputShape = outputShape;
 
+        size_t all_image_count = 0;
+        for(auto const& source_info : config.sourcesInfo)
+        {
+            if(source_info.inputType == AppInputType::IMAGE)
+                all_image_count++;
+        }
+        if(all_image_count == config.sourcesInfo.size())
+            is_all_image = true;
+
         dxrt::DataType outputTensorType = inferenceEngine->outputs().front().type();
         switch (outputTensorType)
         {
         case dxrt::DataType::BBOX:
-            params._decode_method = dxapp::yolo::Decode::BBOX;
+            params._ppu_format = dxapp::yolo::PPUFormat::BBOX;
             break;
         case dxrt::DataType::FACE:
-            params._decode_method = dxapp::yolo::Decode::FACE;
+            params._ppu_format = dxapp::yolo::PPUFormat::FACE;
             break;
         case dxrt::DataType::POSE:
-            params._decode_method = dxapp::yolo::Decode::POSE;
+            params._ppu_format = dxapp::yolo::PPUFormat::POSE;
             break;
         default:
+            params._ppu_format = dxapp::yolo::PPUFormat::NONEPPU;
             break;
         }
 
@@ -222,18 +323,45 @@ public:
         [&](std::vector<std::shared_ptr<dxrt::Tensor>> outputs, void* arg)
         {
             DetectorApp* app = (DetectorApp*)arg;
-            app->runPostProcess(outputs);
+            int64_t dataLength = outputs.front()->shape().front();
+            if(dxapp::common::compareVersions(DXRT_VERSION, "2.6.3"))
+                dataLength = outputs.front()->shape()[1];
+            app->runPostProcess(app->get_outputMem(), dataLength);
             return 0;
         };
         inferenceEngine->RegisterCallBack(postProcCallBack);
+        
         resultView = cv::Mat(config.videoOutResolution._height, config.videoOutResolution._width, CV_8UC3, cv::Scalar(0, 0, 0));
     };
-    ~Detector(){};
+
+    ~Detector(void)
+    {
+        if(config.appType == OFFLINE)
+        {
+            if(saveThread.joinable())
+                saveThread.join();
+        }
+    };
 
     void makeThread()
     {
         for(int i = 0;i<(int)apps.size();i++){
             apps[i]->makeThread();
+        }
+        if(config.appType == OFFLINE)
+        {
+            if(is_all_image)
+            {
+                std::cout << "[result save mode] ./xxx.jpg \n" 
+                        << "Create Thread to save jpg " << std::endl;
+                saveThread = std::thread(&Detector::saveImage, this);
+            }
+            else
+            {
+                std::cout << "[result save mode] ./result.avi \n" 
+                        << "Create Thread to save avi " << std::endl;
+                saveThread = std::thread(&Detector::saveResult, this);
+            }
         }
     };
 
@@ -242,12 +370,21 @@ public:
         for(int i=0;i<(int)apps.size();i++){
             apps[i]->notify_all();
         }
+        if(config.appType == OFFLINE)
+        {
+            _wait.store(false);
+            cv.notify_all();
+        }
     };
 
     void joinThread()
     {
         for(int i=0;i<(int)apps.size();i++){
             apps[i]->joinThread();
+        }
+        if(config.appType == OFFLINE)
+        {
+            saveThread.join();
         }
     };
 
@@ -261,12 +398,12 @@ public:
     bool status()
     {
         for(int i=0;i<(int)apps.size();i++){
-            if(apps[i]->quit())
+            if(!apps[i]->quit())
             {
-                return false;
+                return true;
             }
         }
-        return true;
+        return false;
     };
 
     cv::Mat totalView()
@@ -278,6 +415,61 @@ public:
         return resultView;
     };
 
+    void saveResult()
+    {
+        {
+            std::unique_lock<std::mutex> _uniqueLock(lock);
+            cv.wait(_uniqueLock, [&](){return !_wait.load();});
+        }
+        std::cout << "start Save Thread " << std::endl;
+        std::cout << "Press 'q' key to quit " << std::endl;
+        std::string saveFileName = "result.avi";
+        cv::VideoWriter writer;
+        writer.open(saveFileName, cv::VideoWriter::fourcc('M', 'J', 'P','G'), 30,  
+                    cv::Size(config.videoOutResolution._width, config.videoOutResolution._height), true);
+        if(!writer.isOpened())
+        {
+            std::cout << "Error : video writer for result.mp4 could not be opened. " << std::endl;
+            return;
+        }
+
+        while(true)
+        {
+            writer << totalView();
+            std::this_thread::sleep_for(std::chrono::microseconds(30000));
+            if (!status()){
+                std::cout << "quit save Thread "<< std::endl;
+                break;
+            }
+        }
+    };
+
+    void saveImage()
+    {
+        {
+            std::unique_lock<std::mutex> _uniqueLock(lock);
+            cv.wait(_uniqueLock, [&](){return !_wait.load();});
+        }
+        while(true)
+        {
+            int processed_complete = 0;
+            for(int idx = 0; idx < static_cast<int>(apps.size()); idx++)
+            {
+                auto ret = apps[idx]->save();
+                if(ret < 0){
+                    idx--;
+                    continue;
+                }
+                processed_complete++;
+            }
+            if(processed_complete == static_cast<int>(apps.size()))
+            {
+                quitThread();
+                break;
+            }
+        }
+    };
+
     void readModelInfo(const char* modelInfo)
     {
         rapidjson::Document doc;
@@ -286,6 +478,7 @@ public:
         auto modelParam = doc["param"].GetObject();
         params._score_threshold = modelParam["score_threshold"].GetFloat();
         params._iou_threshold = modelParam["iou_threshold"].GetFloat();
+        params._kpt_count = 0;
         
         std::string read = "";
         read = modelParam.HasMember("last_activation")?modelParam["last_activation"].GetString():"";
@@ -301,6 +494,19 @@ public:
             params._decode_method = dxapp::yolo::Decode::YOLOX;
         else if(read=="yolo_scale")
             params._decode_method = dxapp::yolo::Decode::YOLOSCALE;
+        else if(read=="yolo_pose")
+            params._decode_method = dxapp::yolo::Decode::YOLO_POSE;
+        else if(read=="yolo_face")
+        {
+            params._decode_method = dxapp::yolo::Decode::YOLO_FACE;
+            params._kpt_count = modelParam["kpt_count"].GetInt();
+        }
+        else if(read=="scrfd")
+            params._decode_method = dxapp::yolo::Decode::SCRFD;
+        else if(read=="yolov8")
+            params._decode_method = dxapp::yolo::Decode::YOLOV8;
+        else if(read=="yolov9")
+            params._decode_method = dxapp::yolo::Decode::YOLOV9;
         else if(read=="custom_decode")
             params._decode_method = dxapp::yolo::Decode::CUSTOM_DECODE;
         else
@@ -311,38 +517,55 @@ public:
             params._box_format = dxapp::yolo::BBoxFormat::XYX2Y2;
         else
             params._box_format = dxapp::yolo::BBoxFormat::CXCYWH;
+        
+        if(params._decode_method == dxapp::yolo::Decode::YOLO_POSE)
+        {
+            read = modelParam["kpt_order"].GetString();
+            if(read=="end")
+                params._kpt_order = dxapp::yolo::KeyPointOrder::BBOX_FRONT;
+            else
+                params._kpt_order = dxapp::yolo::KeyPointOrder::KPT_FRONT;
+            params._kpt_count = modelParam["kpt_count"].GetInt();
+        }
+        else if(params._decode_method == dxapp::yolo::Decode::SCRFD)
+        {
+            params._kpt_count = modelParam["kpt_count"].GetInt();
+        }
 
         for(auto &d:modelParam["layer"].GetArray()){
             auto o = d.GetObject();
-            dxapp::yolo::Layers l = {
-                .name = o["name"].GetString(),
-                .stride = o["stride"].GetInt(),
-                .scale = o.HasMember("scale")? o["scale"].GetFloat() : 0,
-            };
+            dxapp::yolo::Layers l = {};
+            l.name = o["name"].GetString();
+            l.stride = o["stride"].GetInt();
+            l.scale = o.HasMember("scale")? o["scale"].GetFloat() : 0;
             for(auto &w:o["anchor_width"].GetArray()){
-                l.anchor_width.emplace_back(w.GetInt());
+                l.anchor_width.emplace_back(w.GetFloat());
             }
             for(auto &h:o["anchor_height"].GetArray()){
-                l.anchor_height.emplace_back(h.GetInt());
+                l.anchor_height.emplace_back(h.GetFloat());
             }
             params._layers.emplace_back(l);
         }
     };
     
+    dxapp::AppConfig config;
     std::vector<int64_t> inputShape;
     std::vector<std::vector<int64_t>> outputShape;
     int inputSize;
     int alignFactor;
+    bool is_all_image = false;
     
     std::shared_ptr<dxrt::InferenceEngine> inferenceEngine;
     dxapp::yolo::Params params;
     std::string modelPath;
-    dxapp::AppConfig &config;
 
     std::vector<std::shared_ptr<DetectorApp>> apps;
 
     cv::Mat resultView;
-
+    std::thread saveThread;
+    std::mutex lock;
+    std::condition_variable cv;
+    std::atomic<bool> _wait = {true};
 private:
     const char* modelInfoSchema = R"""(
             {
@@ -368,6 +591,12 @@ private:
                             },
                             "box_format": {
                                 "type": "string"
+                            },
+                            "kpt_order": {
+                                "type": "string"
+                            },
+                            "kpt_count": {
+                                "type": "number"
                             },
                             "layer": {
                                 "type": "array",
@@ -399,7 +628,7 @@ private:
                             }
                         },
                         "required": [
-                            "score_threshold", "iou_threshold", "decoding_method", "box_format", "layer"
+                            "score_threshold", "iou_threshold", "decoding_method", "box_format"
                         ]
                     }
                 },

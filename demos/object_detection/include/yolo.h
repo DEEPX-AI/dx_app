@@ -10,6 +10,7 @@
 
 struct YoloLayerParam
 {
+    std::string name;
     int numGridX;
     int numGridY;
     int numBoxes;
@@ -18,6 +19,14 @@ struct YoloLayerParam
     std::vector<int> tensorIdx;
     float scaleX=0;
     float scaleY=0;
+    YoloLayerParam() = default;
+    YoloLayerParam(std::string _name, int _gx, int _gy, int _numB, 
+                   const std::vector<float> &_vAnchorW, const std::vector<float> &_vAnchorH, const std::vector<int> &_vTensorIdx, 
+                   float _sx = 0.f, float _sy = 0.f)
+    :name(_name), numGridX(_gx), numGridY(_gy), numBoxes(_numB), 
+     anchorWidth(_vAnchorW), anchorHeight(_vAnchorH),
+     tensorIdx(_vTensorIdx), scaleX(_sx), scaleY(_sy)
+    {}
     void Show();
 };
 struct YoloParam
@@ -52,11 +61,15 @@ public:
     ~Yolo();
     Yolo();
     Yolo(YoloParam &_cfg);
+    void LayerReorder(dxrt::Tensors output_info);
     /* for concated tensor */
-    std::vector< BoundingBox > PostProc(float *data);
+    std::vector<BoundingBox> PostProc(float *data);
     /* for separate tensors */
-    std::vector< BoundingBox > PostProc(std::vector<shared_ptr<dxrt::Tensor>> outputs_, void* saveTo=nullptr);
+    std::vector<BoundingBox> PostProc(std::vector<shared_ptr<dxrt::Tensor>> outputs_, void* saveTo=nullptr);
+    /* for using allocated output memory */
+    std::vector<BoundingBox> PostProc(void* data, std::vector<std::vector<int64_t>> output_shape, dxrt::DataType data_type, int output_length);
     void FilterWithSort(std::vector<shared_ptr<dxrt::Tensor>> outputs_);
+    void FilterWithSort(void* outputs, std::vector<std::vector<int64_t>> output_shape, dxrt::DataType data_type);
     void FilterWithSort(float *data);
     void ShowResult(void){
         std::cout << "  Detected " << dec << Result.size() << " boxes." << std::endl;

@@ -27,15 +27,15 @@ void NmsOneClass(
     unsigned int cls,
     vector<string> &ClassNames,
     vector<vector<pair<float, int>>> &ScoreIndices,
-    float *Boxes, float *Scores, float IouThreshold,
+    float *Boxes, float IouThreshold,
     vector<BoundingBox> &Result
 )
 {
     float iou;
     int i, j;
-    int numCandidates = ScoreIndices[cls].size();    
-    bool valid[numCandidates];
-    fill_n(valid, numCandidates, true);
+    int numCandidates = ScoreIndices[cls].size();
+    std::vector<bool> valid(numCandidates);
+    std::fill_n(valid.begin(), numCandidates, true);
     for(i=0;i<numCandidates;i++)
     {
         if(!valid[i])
@@ -72,17 +72,17 @@ void Nms(
     const int &numDetectTotal,
     vector<string> &ClassNames,
     vector<vector<pair<float, int>>> &ScoreIndices,
-    float *Boxes, float *Scores, const float &IouThreshold,
+    float *Boxes, const float &IouThreshold,
     vector<BoundingBox> &Result,
     int startClass
 )
 {
     for(size_t cls=startClass;cls<numClass;cls++)
     {
-        NmsOneClass(cls, ClassNames, ScoreIndices, Boxes, Scores, IouThreshold, Result);
+        NmsOneClass(cls, ClassNames, ScoreIndices, Boxes, IouThreshold, Result);
     }
     sort(Result.begin(), Result.end(), compare);
-    if(numDetectTotal>0 && Result.size()>numDetectTotal)
+    if(numDetectTotal>0 && (int)Result.size()>numDetectTotal)
     {
         Result.resize(numDetectTotal);
     }

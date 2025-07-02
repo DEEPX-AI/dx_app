@@ -12,6 +12,6 @@ if ! test -e $dxapp_dir/bin/$dxapp_name; then
     ./build.sh --clean
 fi
 
-sudo $dxapp_dir/bin/$dxapp_name -c $dxapp_dir/configs/yolov5s_example.json
+$dxapp_dir/bin/$dxapp_name -c $dxapp_dir/example/run_detector/yolov5s3_example.json
 
 popd

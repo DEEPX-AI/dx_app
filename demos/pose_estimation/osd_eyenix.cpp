@@ -16,7 +16,6 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
-#include <getopt.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <string.h>
@@ -318,14 +317,14 @@ void ClearFont(){
 
 void setString(int X, int Y, const char* str){
     CLIP(0, MAX_LINE - 1, Y);
-    CLIP(0, MAX_CHAR - strlen(str), X);
+    CLIP(0, MAX_CHAR - (int)strlen(str), X);
     
     FONT_S C;
     C.enAlpha = 0;
     C.enAttr = 0;
     C.enChar = 1;
 
-    for(int i=0; (i < strlen(str)) && (*(str+i)); i++) {
+    for(int i=0; (i < (int)strlen(str)) && (*(str+i)); i++) {
         C.Char = *(str+i);
         setFont(X + i, Y, C);
 	}
@@ -367,14 +366,14 @@ void EyenixOSD(vector< BoundingBox > &Result, vector<std::string> &classNames, i
 }
 void EyenixOSD_setString(int X, int Y, const char* str){
     CLIP(0, MAX_LINE - 1, Y);
-    CLIP(0, MAX_CHAR - strlen(str), X);
+    CLIP(0, MAX_CHAR - (int)strlen(str), X);
     
     FONT_S C;
     C.enAlpha = 0;
     C.enAttr = 0;
     C.enChar = 1;
 
-    for(int i=0; (i < strlen(str)) && (*(str+i)); i++) {
+    for(int i=0; (i < (int)strlen(str)) && (*(str+i)); i++) {
         C.Char = *(str+i);
         setFont(X + i, Y, C);
 	}

@@ -1,6 +1,8 @@
 #include <errno.h>
 #include <fcntl.h>
+#ifdef __linux__
 #include <linux/videodev2.h>
+#endif
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>

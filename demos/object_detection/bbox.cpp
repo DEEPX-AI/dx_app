@@ -12,7 +12,12 @@ BoundingBox::BoundingBox(unsigned int _label, char _labelname[20], float _score,
     box[1] = data2;
     box[2] = data3;
     box[3] = data4;
-    strncpy(labelname, _labelname, 20);
+
+#ifdef __linux__
+    strcpy(labelname, _labelname);
+#elif _WIN32
+    strcpy_s(labelname, _labelname);
+#endif
 }
 
 void BoundingBox::Show(void)

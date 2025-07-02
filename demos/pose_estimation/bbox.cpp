@@ -12,7 +12,7 @@ BoundingBox::BoundingBox(unsigned int _label, char _labelname[20], float _score,
     box[1] = data2;
     box[2] = data3;
     box[3] = data4;
-    strncpy(labelname, _labelname, 20);
+    strcpy(labelname, _labelname);
 }
 
 BoundingBox::BoundingBox(unsigned int _label, char _labelname[20], float _score,
@@ -27,8 +27,7 @@ BoundingBox::BoundingBox(unsigned int _label, char _labelname[20], float _score,
     for (int i = 0; i < 3*17; i++) {
         kpt[i] = keypoints[i];
     }
-    //memcpy(kpt, keypoints, sizeof(float) * 51);
-    strncpy(labelname, _labelname, 20);
+    strcpy(labelname, _labelname);
 }
 
 void BoundingBox::Show(void)

@@ -1,60 +1,65 @@
 #include <algorithm>
 #include "yolo.h"
 #include "dxrt/util.h"
+#include "utils/common_util.hpp"
 
 using namespace std;
 
 // #define DUMP_DATA
 
-void AnchorBoxParam::Show()
+void YoloLayerParam::Show()
 {
-    cout << "    - AnchorBoxParam: [ " << num_grid_x << " x " << num_grid_y << " x " << num_boxes << "], width [";
-    for(auto &w : width) cout << w << ", ";
-    cout << "], height [";
-    for(auto &h : height) cout << h << ", ";
+    cout << "    - LayerParam: [ " << numGridX << " x " << numGridY << " x " << numBoxes << "boxes" << "], anchorWidth [";
+    for(auto &w : anchorWidth) cout << w << ", ";
+    cout << "], anchorHeight [";
+    for(auto &h : anchorHeight) cout << h << ", ";
+    cout << "], tensor index [";
+    for(auto &t : tensorIdx) cout << t << ", ";
     cout << "]" << endl;
 }
 void YoloParam::Show()
 {
-    cout << "  YoloParam: " << endl << "    - conf_threshold: " << conf_threshold << ", "
-        << "score_threshold: " << score_threshold << ", "
-        << "iou_threshold: " << iou_threshold << ", "
-        << "num_classes: " << num_classes << ", "
-        << "num_layers: " << num_layers << endl;
-    for(auto &a : anchorBoxes) a.Show();
+    cout << "  YoloParam: " << endl << "    - conf_threshold: " << confThreshold << ", "
+        << "score_threshold: " << scoreThreshold << ", "
+        << "iou_threshold: " << iouThreshold << ", "
+        << "num_classes: " << numClasses << ", "
+        << "num_layers: " << layers.size() << endl;
+    for(auto &layer:layers) layer.Show();
     cout << "    - classes: [";
-    for(auto &c : class_names) cout << c << ", ";
+    for(auto &c : classNames) cout << c << ", ";
     cout << "]" << endl;
 }
-Yolo::Yolo() {  }
-Yolo::~Yolo()    
+Yolo::Yolo() { }
+Yolo::~Yolo() { }
+Yolo::Yolo(YoloParam &_cfg) :cfg(_cfg)
 {
-    if(Boxes!=nullptr)
+    //setup number of boxes, classes, layers    
+    numClasses = cfg.numClasses;
+    if(cfg.numBoxes<=0)
     {
-        delete [] Boxes;
-        Boxes = nullptr;
+        numBoxes = 0;
+        for(auto &layer:cfg.layers)
+        {
+            numBoxes += layer.numGridX*layer.numGridY*layer.numBoxes;
+        }
     }
-    if(Scores!=nullptr)
+    else
     {
-        delete [] Scores;
-        Scores = nullptr;        
+        numBoxes = cfg.numBoxes;
     }
-}
-Yolo::Yolo(YoloParam &_cfg, std::vector<dxrt::Tensor> &_tensorData)
-    :cfg(_cfg), TensorData(_tensorData)
-{
-    //setup number of boxes, classes, layers
-    numClasses = cfg.num_classes;
-    numBoxes = 0;
-    for(auto &ab : cfg.anchorBoxes)
+    if(cfg.layers.empty())
     {
-        numBoxes += ab.num_grid_x * ab.num_grid_y * ab.num_boxes;
+        concatedTensors = true;
+        hasAnchors = false;        
     }
-    numLayers = cfg.num_layers;
-    ClassNames = cfg.class_names;
+    else
+    {
+        hasAnchors = cfg.layers[0].anchorWidth.size()>0?true:false;
+    }
+    numLayers = cfg.layers.size();
+    ClassNames = cfg.classNames;
     //allocate memory
-    Boxes = new float[numBoxes * 4];
-    Scores = new float[numBoxes * numClasses];
+    Boxes = vector<float>(numBoxes*4);
     cout << "YOLO created : " << numBoxes << " boxes, " << numClasses << " classes, " 
         << numLayers << " layers." << endl;
     cfg.Show();
@@ -64,73 +69,101 @@ Yolo::Yolo(YoloParam &_cfg, std::vector<dxrt::Tensor> &_tensorData)
         vector<pair<float, int>> v;
         ScoreIndices.emplace_back(v);
     }
-    //setup output layers
-    for(auto &d : TensorData)
+}
+
+void Yolo::LayerReorder(dxrt::Tensors output_info)
+{
+    if(cfg.layers.front().name == "")
+        return;
+    std::vector<YoloLayerParam> temp;
+    for(size_t i=0;i<output_info.size();i++)
     {
-        for(int layer=0; layer<numLayers; layer++)
+        for(size_t j=0;j<output_info.size();j++)
         {
-            auto anchorBox = cfg.anchorBoxes[layer];
-            if(d.shape()[1]==anchorBox.num_grid_x && d.shape()[2]==anchorBox.num_grid_y)
+            if(output_info[i].name() == cfg.layers[j].name)
             {
-                if(d.shape()[3] == (4 + 1 + numClasses)*anchorBox.num_boxes)
+                temp.emplace_back(cfg.layers[j]);
+                break;
+            }
+        }
+    }
+    if(temp.empty())
+        return;
+    cfg.layers.clear();
+    cfg.layers = temp;
+}
+
+static bool scoreComapre(const std::pair<float, int> &a, const std::pair<float, int> &b)
+{
+    if(a.first > b.first)
+        return true;
+    else
+        return false;
+};
+
+void Yolo::FilterWithSort(float *org)
+{
+    int x = 0, y = 1, w = 2, h = 3;
+    float ScoreThreshold = cfg.scoreThreshold;
+    float conf_threshold = cfg.confThreshold;
+    float score, score1;
+    for(int boxIdx=0;boxIdx<(int)numBoxes;boxIdx++)
+    {
+        bool boxDecoded = false;
+        float *data = org + (4+1+numClasses)*boxIdx;
+        score1 = data[4];
+        if(data[4]>conf_threshold)
+        {
+            for(int cls=0; cls<(int)numClasses; cls++)
+            {
+                score = score1 * data[5+cls];
+                if(score > ScoreThreshold)
                 {
-                    OutputLayer outputLayer = {0,};
-                    outputLayer.boxes = anchorBox.num_boxes;
-                    outputLayer.gridX = anchorBox.num_grid_x;
-                    outputLayer.gridY = anchorBox.num_grid_y;
-                    outputLayer.stride = cfg.image_size/anchorBox.num_grid_x;
-                    outputLayer.anchorHeight.assign(outputLayer.boxes, 0);
-                    outputLayer.anchorWidth.assign(outputLayer.boxes, 0);
-                    for(int box=0; box<outputLayer.boxes; box++)
+                    ScoreIndices[cls].emplace_back(score, boxIdx);
+                    if(!boxDecoded)
                     {
-                        outputLayer.anchorHeight[box] = anchorBox.height[box];
-                        outputLayer.anchorWidth[box] = anchorBox.width[box];
+                        Boxes[boxIdx*4+0] = data[x] - data[w] / 2.; /*x1*/
+                        Boxes[boxIdx*4+1] = data[y] - data[h] / 2.; /*y1*/
+                        Boxes[boxIdx*4+2] = data[x] + data[w] / 2.; /*x2*/
+                        Boxes[boxIdx*4+3] = data[y] + data[h] / 2.; /*y2*/
+                        boxDecoded = true;
                     }
-                    outputLayer.dataAlign = ((int)(d.shape()[2]/64) + 1)*64;
-                    outputLayer.dataOffset = d.elem_size();
-                    OutputLayers.emplace_back(outputLayer);
                 }
             }
         }
     }
-    for(auto &o : OutputLayers)
-        o.Show();
-
+    for(int cls=0;cls<(int)numClasses;cls++)
+    {
+        sort(ScoreIndices[cls].begin(), ScoreIndices[cls].end(), scoreComapre);
+    }
 }
-void Yolo::FilterWithSort(float *org, vector<shared_ptr<dxrt::Tensor>> outputs_)
+void Yolo::FilterWithSort(vector<shared_ptr<dxrt::Tensor>> outputs_)
 {
     int boxIdx = 0;
-    int grid;
     int x = 0, y = 1, w = 2, h = 3;
-    float ScoreThreshold = cfg.score_threshold;
-    float conf_threshold = cfg.conf_threshold;
+    float ScoreThreshold = cfg.scoreThreshold;
+    float conf_threshold = cfg.confThreshold;
     float rawThreshold = log(conf_threshold/(1-conf_threshold));
-    float score, score1, anchor_grid, tmp, box_temp[4];
-    float *data;
-        for(int layer=0; layer<numLayers; layer++)
+    float score, score1, box_temp[4];
+    float *boxLocation, *boxScore, *classScore, *data;
+    if(hasAnchors)
+    {
+        for(auto &layer:cfg.layers)        
         {
-            auto outputLayer = OutputLayers[layer];
-            int stride = outputLayer.stride;
-            int numGridX = outputLayer.gridX;
-            int numGridY = outputLayer.gridY;
-            // outputLayer.Show();
-
+            int strideX = cfg.width / layer.numGridX;
+            int strideY = cfg.height / layer.numGridY;
+            int numGridX = layer.numGridX;
+            int numGridY = layer.numGridY;
+            int tensorIdx = layer.tensorIdx[0];
+            float scale_x_y = layer.scaleX;
             for(int gY=0; gY<numGridY; gY++)
             {
                 for(int gX=0; gX<numGridX; gX++)
                 {
-                    // if(org==nullptr)
-                    // {
-                    //     data = (float*)(outputs_[layer]->GetData() + 4*outputLayer.dataAlign*(gY*numGridX + gX));
-                    // }
-                    // else
-                    // {
-                    //     data = org + outputLayer.dataOffset/4 + outputLayer.dataAlign*(gY*numGridX + gX);
-                    // }
-                    for(int box=0; box<outputLayer.boxes; box++)
+                    for(int box=0; box<layer.numBoxes; box++)
                     { 
                         bool boxDecoded = false;
-                        data = (float*)(outputs_[layer]->data(gY, gX, box*(4+1+numClasses)));
+                        data = (float*)(outputs_[tensorIdx]->data(gY, gX, box*(4+1+numClasses)));
                         // cout << boxIdx << ": " << hex << data << ", " << dec << gX << " x " << gY << ", " << dec << data[4] << ", " << sigmoid(data[4]) << endl;
                         if(data[4]>rawThreshold)
                         {
@@ -138,7 +171,7 @@ void Yolo::FilterWithSort(float *org, vector<shared_ptr<dxrt::Tensor>> outputs_)
                             /* Step1 - obj_conf > CONF_THRESHOLD */
                             if(score1 > conf_threshold)
                             {
-                                for(int cls=0; cls<numClasses;cls++)
+                                for(int cls=0; cls<(int)numClasses;cls++)
                                 {
                                     score = score1 * sigmoid(data[5+cls]); /*conf = obj_conf * cls_conf*/
                                     /* Step2 - obj_conf * cls_conf > CONF_THRESHOLD */
@@ -149,26 +182,18 @@ void Yolo::FilterWithSort(float *org, vector<shared_ptr<dxrt::Tensor>> outputs_)
                                         ScoreIndices[cls].emplace_back(score, boxIdx);
                                         if(!boxDecoded)
                                         {
-                                            for (int ch=0; ch<4; ch++) /*Box and Score*/
+                                            if(scale_x_y==0)
                                             {
-                                                tmp = sigmoid(data[ch]); /*sigmoid*/
-                                                if (ch < 2) {
-                                                    if (ch == 0) {
-                                                        grid = gX;//outputLayer.gridX;
-                                                    } else {
-                                                        grid = gY;//outputLayer.gridY;
-                                                    }
-                                                    tmp = (tmp * 2. - 0.5 + grid) * outputLayer.stride; /*XY*/
-                                                } else {
-                                                    if (ch == 2) {
-                                                        anchor_grid = outputLayer.anchorWidth[box];
-                                                    } else {
-                                                        anchor_grid = outputLayer.anchorHeight[box];
-                                                    }
-                                                    tmp = pow((tmp * 2.), 2) * anchor_grid; /*WH*/
-                                                }
-                                                box_temp[ch] = tmp;
+                                                box_temp[x] = ( sigmoid(data[x]) * 2. - 0.5 + gX ) * strideX;
+                                                box_temp[y] = ( sigmoid(data[y]) * 2. - 0.5 + gY ) * strideY;
                                             }
+                                            else
+                                            {
+                                                box_temp[x] = (sigmoid(data[x] * scale_x_y  - 0.5 * (scale_x_y - 1)) + gX) * strideX;
+                                                box_temp[y] = (sigmoid(data[y] * scale_x_y  - 0.5 * (scale_x_y - 1)) + gY) * strideY;
+                                            }
+                                            box_temp[w] = pow((sigmoid(data[w]) * 2.), 2) * layer.anchorWidth[box];
+                                            box_temp[h] = pow((sigmoid(data[h]) * 2.), 2) * layer.anchorHeight[box];
                                             Boxes[boxIdx*4+0] = box_temp[x] - box_temp[w] / 2.; /*x1*/
                                             Boxes[boxIdx*4+1] = box_temp[y] - box_temp[h] / 2.; /*y1*/
                                             Boxes[boxIdx*4+2] = box_temp[x] + box_temp[w] / 2.; /*x2*/
@@ -180,45 +205,197 @@ void Yolo::FilterWithSort(float *org, vector<shared_ptr<dxrt::Tensor>> outputs_)
                             }
                         }
                         // cout << dec << boxIdx << " : " << hex << data << " : +0x" << data-org << dec << endl;
-                        data += (4+1+numClasses);
                         // LOG_VALUE(boxIdx);
                         boxIdx++;
                     }
                 }
             }
         }
-    for(int cls=0;cls<numClasses;cls++)
+    }
+    else
     {
-        sort(ScoreIndices[cls].begin(), ScoreIndices[cls].end(), greater<>());
+        for(auto &layer:cfg.layers)        
+        {
+            int strideX = cfg.width / layer.numGridX;
+            int strideY = cfg.height / layer.numGridY;
+            int numGridX = layer.numGridX;
+            int numGridY = layer.numGridY;
+            int locationTensorIdx = layer.tensorIdx[0];
+            int boxScoreTensorIdx = layer.tensorIdx[1];
+            int clsScoreTensorIdx = layer.tensorIdx[2];
+            for(int gY=0; gY<numGridY; gY++)
+            {
+                for(int gX=0; gX<numGridX; gX++)
+                {
+                    for(int box=0; box<layer.numBoxes; box++)
+                    { 
+                        bool boxDecoded = false;
+                        boxScore = (float*)(outputs_[boxScoreTensorIdx]->data(gY, gX, 0));
+                        if(boxScore[0]>conf_threshold)
+                        {
+                            boxLocation = (float*)(outputs_[locationTensorIdx]->data(gY, gX, 0));                        
+                            classScore = (float*)(outputs_[clsScoreTensorIdx]->data(gY, gX, 0));
+                            for(int cls=0; cls<(int)numClasses;cls++)
+                            {
+                                score = boxScore[0]*classScore[cls];
+                                if (score > ScoreThreshold)
+                                {
+                                    float x = (boxLocation[0] + gX ) * strideX;
+                                    float y = (boxLocation[1] + gY ) * strideY;
+                                    float w = exp(boxLocation[2]) * strideX;
+                                    float h = exp(boxLocation[3]) * strideY;
+                                    ScoreIndices[cls].emplace_back(score, boxIdx);
+                                    if(!boxDecoded)
+                                    {
+                                        Boxes[boxIdx*4+0] = x - w / 2.; /*x1*/
+                                        Boxes[boxIdx*4+1] = y - h / 2.; /*y1*/
+                                        Boxes[boxIdx*4+2] = x + w / 2.; /*x2*/
+                                        Boxes[boxIdx*4+3] = y + h / 2.; /*y2*/
+                                        boxDecoded = true;
+                                    }
+                                }
+                            }
+                        }
+                        boxIdx++;
+                    }
+                }
+            }
+        }
+    }
+    for(int cls=0;cls<(int)numClasses;cls++)
+    {
+        sort(ScoreIndices[cls].begin(), ScoreIndices[cls].end(), scoreComapre);
     }
 }
-vector< BoundingBox > Yolo::PostProc(vector<shared_ptr<dxrt::Tensor>> outputs_, void *saveTo)
+vector< BoundingBox > Yolo::PostProc(float *data)
 {
-    outputs = outputs_;
-#ifdef DUMP_DATA
-    for(int i=0;i<outputs.size();i++)
-    {
-        dxrt::DataDumpBin("output."+to_string(i)+".bin", outputs[i]->GetData(), outputs[i]->GetDataInfo().mem_size);
-    }
-#endif
-    for(int cls=0;cls<numClasses;cls++)
+    for(int cls=0;cls<(int)numClasses;cls++)
     {
         ScoreIndices[cls].clear();
     }
     Result.clear();
-    FilterWithSort(nullptr, outputs);
+    FilterWithSort(data);
     Nms(
         numClasses,
         0,
         ClassNames, 
-        ScoreIndices, Boxes, nullptr, cfg.iou_threshold,
+        ScoreIndices, Boxes.data(), cfg.iouThreshold,
         Result,
         0
     );
+    return Result;
+}
+vector< BoundingBox > Yolo::PostProc(vector<shared_ptr<dxrt::Tensor>> outputs_, void *saveTo)
+{
+    vector< BoundingBox > result;
+    if(outputs_.front()->type()==dxrt::DataType::BBOX)
+    {
+        int boxIdx = 0;
+        float x, y, w, h;
+        int numElements = outputs_.front()->shape().front();
+        if(dxapp::common::compareVersions(DXRT_VERSION,"2.6.3"))
+            numElements = outputs_.front()->shape()[1];
+        dxrt::DeviceBoundingBox_t *dataSrc = (dxrt::DeviceBoundingBox_t *)outputs_.front()->data();
+        for(uint32_t label=0 ; label<numClasses ; label++)
+        {
+            ScoreIndices[label].clear();
+        }
+        for(int i=0 ; i<numElements ; i++)
+        {
+            dxrt::DeviceBoundingBox_t *data = dataSrc + i;
+            auto layer = cfg.layers[data->layer_idx];
+            int strideX = cfg.width / layer.numGridX;
+            int strideY = cfg.height / layer.numGridY;
+            int gX = data->grid_x;
+            int gY = data->grid_y;
+            float scale_x_y = layer.scaleX;            
+
+            ScoreIndices[data->label].emplace_back(data->score, boxIdx);
+            
+            if(hasAnchors)
+            {
+                if(scale_x_y==0)
+                {
+                    x = ( data->x * 2. - 0.5 + gX ) * strideX;
+                    y = ( data->y * 2. - 0.5 + gY ) * strideY;
+                }
+                else
+                {
+                    x = (data->x * scale_x_y  - 0.5 * (scale_x_y - 1) + gX) * strideX;
+                    y = (data->y * scale_x_y  - 0.5 * (scale_x_y - 1) + gY) * strideY;
+                }
+                w = (data->w * data->w * 4.) * layer.anchorWidth[data->box_idx];
+                h = (data->h * data->h * 4.) * layer.anchorHeight[data->box_idx];
+            }
+            else
+            {
+                x = (gX - data->x) * strideX;
+                y = (gY - data->y) * strideY;
+                w = exp(data->w) * strideX;
+                h = exp(data->h) * strideY;
+            }
+            Boxes[boxIdx*4 + 0] = x - w/2.; /*x1*/
+            Boxes[boxIdx*4 + 1] = y - h/2.; /*y1*/
+            Boxes[boxIdx*4 + 2] = x + w/2.; /*x2*/
+            Boxes[boxIdx*4 + 3] = y + h/2.; /*y2*/
+            boxIdx++;
+        }
+        for(uint32_t label=0 ; label<numClasses ; label++)
+        {
+            sort(ScoreIndices[label].begin(), ScoreIndices[label].end(), scoreComapre);
+        }
+        Nms(
+            numClasses,
+            0,
+            ClassNames, 
+            ScoreIndices, Boxes.data(), cfg.iouThreshold,
+            result,
+            0
+        );
+    }
+    else if (outputs_.size()>1)
+    {
+        // outputs = outputs_;
+#ifdef DUMP_DATA
+        uint32_t dumpSize = 0;
+        for(int i=0;i<outputs_.size();i++)
+        {
+            // outputs[i]->Show();        
+            // dxrt::DataDumpBin("output."+to_string(i)+".bin", outputs_[i]->data(), outputs_[i]->GetSize());            
+            dxrt::DataDumpTxt("output."+to_string(i)+".txt", (float*)outputs_[i]->data(), outputs_[i]->shape()[1], outputs_[i]->shape()[2], data_align(outputs_[i]->shape()[3], 64));
+            // dxrt::DataDumpTxt("output."+to_string(i)+".txt", (float*)outputs_[i]->data(), outputs_[i]->shape()[0], outputs_[i]->shape()[1], outputs_[i]->shape()[2]);
+            // dumpSize+=outputs_[i]->GetSize();
+        }
+        // dxrt::DataDumpBin("output.bin", outputs_[0]->data(), dumpSize);
+#endif
+        for(int cls=0;cls<(int)numClasses;cls++)
+        {
+            ScoreIndices[cls].clear();
+        }
+        if(concatedTensors)
+            FilterWithSort((float*)outputs_.front()->data());
+        else
+            FilterWithSort(outputs_);
+        Nms(
+            numClasses,
+            0,
+            ClassNames, 
+            ScoreIndices, Boxes.data(), cfg.iouThreshold,
+            result,
+            0
+        );
+    }
+    else
+    {
+        return PostProc((float*)outputs_.front()->data());
+    }
     if(saveTo!=nullptr)
     {
         BoundingBox *boxes = (BoundingBox*)saveTo;
-        memcpy(saveTo, &Result[0], Result.size()*sizeof(Result[0]));
+        memcpy(saveTo, &result[0], result.size()*sizeof(result[0]));
+        boxes[result.size()].label = -1;
+        if(result.empty()) boxes[0].label = -1;
     }
-    return Result;
+    Result = result;
+    return result;
 }
