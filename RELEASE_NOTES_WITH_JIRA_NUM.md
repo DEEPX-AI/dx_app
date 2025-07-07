@@ -1,4 +1,10 @@
 # RELEASE_NOTES
+## v1.10.2 / 2025-07-03
+### 1. Changed
+### 2. Fixed
+- handle runtime error when VAAPI plugin is installed but element is unavailable [DSA1-405](https://deepx.atlassian.net/browse/DSA1-405)
+### 3. Added
+
 ## v1.10.1 / 2025-06-23
 ### 1. Changed
 ### 2. Fixed
