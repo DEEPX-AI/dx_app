@@ -6,9 +6,9 @@ Currently, the supported application templates are Classification and YOLO-based
 
 Related Sections are as follows.  
 
-- Section 5. Classification Templates  
-- Section 6. Object Detection Templates  
-- Section 7. Python Examples Templates  
+- Section. Classification Templates  
+- Section. Object Detection Templates  
+- Section. Python Examples Templates  
 
 ---
 
@@ -33,7 +33,7 @@ The `example/run_classifier/imagenet_example.json` file is a sample configuratio
 }
 ```
 
-For a detailed explanation of how classification works, refer to **Section 5. Classification Template Guide**.  
+For a detailed explanation of how classification works, refer to **Section. Classification Template Guide**.  
 
 ![](./../resources/04_01_Output_of_run_classifier.png){ width=400px }
 
@@ -176,6 +176,6 @@ anchor, int stride, float scale)
 ./build.sh
 ```
 
-For a detailed explanation of how to write your models' custom post-processing, refer to **Section 6. Object Detection Template Guide**.
+For a detailed explanation of how to write your models' custom post-processing, refer to **Section. Object Detection Template Guide**.
 
 ---
