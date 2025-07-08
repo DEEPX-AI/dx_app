@@ -28,7 +28,11 @@ jobs:
           fetch-depth: 0
 
       - name: Fetch Staging Branch
-        run: git fetch origin staging
+        run: |
+          git fetch origin staging
+
+          mkdir -p .github/scripts
+          git show origin/staging:.github/scripts/write_release_notes.sh > .github/scripts/write_release_notes.sh
 
       - name: Set up Python
         uses: actions/setup-python@v4
