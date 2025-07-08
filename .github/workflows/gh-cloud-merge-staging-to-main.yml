@@ -152,8 +152,6 @@ jobs:
           echo "Attempting to squash merge origin/staging into main..."
           git merge --squash origin/staging
 
-          mkdir -p .github/scripts
-          git show origin/staging:.github/scripts/write_release_notes.sh > .github/scripts/write_release_notes.sh
           chmod +x .github/scripts/write_release_notes.sh
 
           echo "Attempting to squash merge origin/staging into main..."
