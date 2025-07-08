@@ -28,11 +28,7 @@ jobs:
           fetch-depth: 0
 
       - name: Fetch Staging Branch
-        run: |
-          git fetch origin staging
-
-          mkdir -p .github/scripts
-          git show origin/staging:.github/scripts/write_release_notes.sh > .github/scripts/write_release_notes.sh
+        run: git fetch origin staging
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -118,9 +114,6 @@ jobs:
             echo "EOF"
           } >> $GITHUB_ENV
 
-      - name: Make release notes script executable
-        run: chmod +x .github/scripts/write_release_notes.sh
-
       - name: Check Bump version output
         id: semver
         run: |
@@ -151,6 +144,17 @@ jobs:
         run: |
           echo "Pulling latest changes from origin/main before merge..."
           git pull origin main # 최신 main 브랜치 상태를 가져옴
+
+          # Clean up untracked files that might conflict with merge
+          echo "Cleaning up untracked files before merge..."
+          git clean -fd
+
+          echo "Attempting to squash merge origin/staging into main..."
+          git merge --squash origin/staging
+
+          mkdir -p .github/scripts
+          git show origin/staging:.github/scripts/write_release_notes.sh > .github/scripts/write_release_notes.sh
+          chmod +x .github/scripts/write_release_notes.sh
 
           echo "Attempting to squash merge origin/staging into main..."
           git merge --squash origin/staging
