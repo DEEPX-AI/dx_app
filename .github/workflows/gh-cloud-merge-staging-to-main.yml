@@ -153,10 +153,7 @@ jobs:
           git merge --squash origin/staging
 
           chmod +x .github/scripts/write_release_notes.sh
-
-          echo "Attempting to squash merge origin/staging into main..."
-          git merge --squash origin/staging
-
+          
           echo "Deleting RELEASE_NOTES_WITH_JIRA_NUM.md if exists..."
           rm -f RELEASE_NOTES_WITH_JIRA_NUM.md
 
