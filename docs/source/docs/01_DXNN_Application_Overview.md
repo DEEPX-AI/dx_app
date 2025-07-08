@@ -1,4 +1,4 @@
-his chapter provides an overview of the DEEPX SDK architecture and explains each core component, and describes the overview and key features of DX-APP. 
+This chapter provides an overview of the DEEPX SDK architecture and explains each core component, and describes the overview and key features of DX-APP. 
 
 ## DEEPX SDK Architecture  
 ![](./../resources/01_SDK_Architecture.drawio.png)
