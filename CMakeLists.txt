@@ -26,7 +26,7 @@ endif()
 
 # check vaapi
 execute_process(
-    COMMAND gst-inspect-1.0 vaapi
+    COMMAND gst-inspect-1.0 vaapidecodebin
     RESULT_VARIABLE GST_VAAPI_FOUND
     OUTPUT_QUIET ERROR_QUIET
 )
