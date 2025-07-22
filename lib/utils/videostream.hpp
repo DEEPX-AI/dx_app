@@ -11,6 +11,8 @@
 #include "v1/isp_eyenix.h"
 #endif
 
+using namespace std;
+
 
 typedef enum{
     PRELOAD = 0,
