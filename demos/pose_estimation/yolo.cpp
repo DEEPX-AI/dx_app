@@ -101,6 +101,7 @@ void Yolo::LayerReorder(dxrt::Tensors output_info)
         {
             if(output_info[i].name() == cfg.layers[j].name)
             {
+                cfg.layers[j].tensorIdx[0] = i;
                 temp.emplace_back(cfg.layers[j]);
                 break;
             }
