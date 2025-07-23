@@ -1,12 +1,4 @@
 # RELEASE_NOTES
-## v1.10.2 / 2025-07-08
-
-### 1. Changed
-
-### 2. Fixed
-
-### 3. Added
-
 ## v1.10.2 / 2025-07-03
 ### 1. Changed
 ### 2. Fixed

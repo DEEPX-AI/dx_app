@@ -3,9 +3,10 @@ SCRIPT_DIR=$(realpath "$(dirname "$0")")
 
 # color env settings
 source "${SCRIPT_DIR}/color_env.sh"
+source "${SCRIPT_DIR}/common_util.sh"
 
 # Global variables for script configuration
-MIN_PY_VERSION="3.8.10"
+DEFAULT_MIN_PY_VERSION="3.8.10"
 
 # ---
 ## Usage Information
@@ -16,12 +17,16 @@ usage() {
     echo -e ""
     echo -e "${COLOR_BOLD}Options:${COLOR_RESET}"
     echo -e "  ${COLOR_GREEN}--python_version=<VERSION>${COLOR_RESET}  Specify the Python version to install (e.g., 3.10.4)."
-    echo -e "                            Minimum supported version: ${MIN_PY_VERSION}."
-    echo -e "                            If not specified:"
-    echo -e "                              - For Ubuntu 20.04+, the OS default Python 3 will be used."
-    echo -e "                              - For Ubuntu 18.04, Python ${MIN_PY_VERSION} will be source-built."
+    echo -e "                                Default Minimum supported version: ${DEFAULT_MIN_PY_VERSION}."
+    echo -e "                                If not specified:"
+    echo -e "                                  - For Ubuntu 20.04+, the OS default Python 3 will be used."
+    echo -e "                                  - For Ubuntu 18.04, Python ${DEFAULT_MIN_PY_VERSION} "
+    echo -e "                                    (or the value specified by the '--min_py_version' option) will be source-built."
+    echo -e "  ${COLOR_GREEN}--min_py_version=<VERSION>${COLOR_RESET}  Specify the minimum Python version. (default: ${DEFAULT_MIN_PY_VERSION})"
     echo -e "  ${COLOR_GREEN}--venv_path=<PATH>${COLOR_RESET}          Specify the path for the virtual environment."
-    echo -e "                            If this option is omitted, no virtual environment will be created."
+    echo -e "                                If this option is omitted, no virtual environment will be created."
+    echo -e "  ${COLOR_GREEN}-f | --venv-force-remove${COLOR_RESET}         If specified, force remove existing virtual environment at --venv_path before creation."
+    echo -e "  ${COLOR_GREEN}-r | --venv-reuse${COLOR_RESET}                If specified, reuse existing virtual environment at --venv_path if it's valid, skipping creation."
     echo -e "  ${COLOR_GREEN}--help${COLOR_RESET}                      Display this help message and exit."
     echo -e ""
     echo -e "${COLOR_BOLD}Examples:${COLOR_RESET}"
@@ -29,6 +34,8 @@ usage() {
     echo -e "  ${COLOR_YELLOW}$0 --python_version=3.9.18  # Installs Python, but no venv${COLOR_RESET}"
     echo -e "  ${COLOR_YELLOW}$0 --venv_path=/usr/local/py_env # Installs default Python, creates venv${COLOR_RESET}"
     echo -e "  ${COLOR_YELLOW}$0 # Installs default Python, but no venv${COLOR_RESET}"
+    echo -e "  ${COLOR_YELLOW}$0 --venv_path=/opt/existing_venv --venv-reuse # Reuse existing venv${COLOR_RESET}"
+    echo -e "  ${COLOR_YELLOW}$0 --venv_path=/opt/old_venv --venv-force-remove # Force remove and recreate venv${COLOR_RESET}"
     echo -e ""
     exit 0
 }
@@ -180,19 +187,19 @@ install_python_and_dependencies() {
                 echo -e "${TAG_SKIP} Python${TARGET_MAJOR_MINOR}-dev and python${TARGET_MAJOR_MINOR}-venv are already installed. Skipping."
             else
                 if ! sudo apt-get update; then
-                    echo -e "${TAG_ERROR} Failed to update apt repositories"
+                    print_colored "Failed to update apt repositories" "ERROR"
                     INSTALL_STATUS=1
                 elif ! sudo apt install -y gnupg gpg-agent; then
-                    echo -e "${TAG_ERROR} Failed to install gnupg gpg-agent."
+                    print_colored "Failed to install gnupg gpg-agent." "ERROR"
                     INSTALL_STATUS=1
                 elif ! sudo add-apt-repository -y ppa:deadsnakes/ppa; then
-                    echo -e "${TAG_ERROR} Failed to add deadsnakes PPA."
+                    print_colored "Failed to add deadsnakes PPA." "ERROR"
                     INSTALL_STATUS=1
                 elif ! sudo apt-get update; then
-                    echo -e "${TAG_ERROR} Failed to update apt repositories after adding PPA."
+                    print_colored "Failed to update apt repositories after adding PPA." "ERROR"
                     INSTALL_STATUS=1
                 elif ! sudo apt-get install -y python${TARGET_MAJOR_MINOR}-dev python${TARGET_MAJOR_MINOR}-venv; then
-                    echo -e "${TAG_ERROR} Failed to install python${TARGET_MAJOR_MINOR}-dev and/or python${TARGET_MAJOR_MINOR}-venv."
+                    print_colored "Failed to install python${TARGET_MAJOR_MINOR}-dev and/or python${TARGET_MAJOR_MINOR}-venv." "ERROR"
                     INSTALL_STATUS=1
                 fi
             fi
@@ -206,29 +213,29 @@ install_python_and_dependencies() {
             if [ -n "${TARGET_INSTALL_PY_VERSION}" ]; then
                 echo -e "${TAG_INFO} Installing python ${PY_MAJOR_MINOR} version using apt..."
                 if ! sudo apt-get update; then
-                    echo -e "${TAG_ERROR} Failed to update apt repositories"
+                    print_colored "Failed to update apt repositories" "ERROR"
                     INSTALL_STATUS=1
                 elif ! sudo apt install -y gnupg gpg-agent; then
-                    echo -e "${TAG_ERROR} Failed to install gnupg gpg-agent."
+                    print_colored "Failed to install gnupg gpg-agent." "ERROR"
                     INSTALL_STATUS=1
                 elif ! sudo add-apt-repository -y ppa:deadsnakes/ppa; then
-                    echo -e "${TAG_ERROR} Failed to add deadsnakes PPA."
+                    print_colored "Failed to add deadsnakes PPA." "ERROR"
                     INSTALL_STATUS=1
                 elif ! sudo apt-get update; then
-                    echo -e "${TAG_ERROR} Failed to update apt repositories after adding PPA."
+                    print_colored "Failed to update apt repositories after adding PPA." "ERROR"
                     INSTALL_STATUS=1
                 elif ! sudo apt-get install -y python${PY_MAJOR_MINOR} python${PY_MAJOR_MINOR}-dev python${PY_MAJOR_MINOR}-venv; then
-                    echo -e "${TAG_ERROR} apt installation failed for python${PY_MAJOR_MINOR}."
+                    print_colored "apt installation failed for python${PY_MAJOR_MINOR}." "ERROR"
                     INSTALL_STATUS=1
                 fi
                 DX_PYTHON_EXEC_OUT="python${PY_MAJOR_MINOR}"
             else
                 echo -e "${TAG_INFO} Installing OS default python3 version and dependencies using apt..."
                 if ! sudo apt-get update; then
-                    echo -e "${TAG_ERROR} Failed to update apt repositories"
+                    print_colored "Failed to update apt repositories" "ERROR"
                     INSTALL_STATUS=1
                 elif ! sudo apt-get install -y python3 python3-dev python3-venv; then
-                    echo -e "${TAG_ERROR} apt installation failed for python3."
+                    print_colored "apt installation failed for python3." "ERROR"
                     INSTALL_STATUS=1
                 fi
                 DX_PYTHON_EXEC_OUT="python3"
@@ -267,10 +274,10 @@ install_python_and_dependencies() {
                 mkdir -p "${BUILD_DIR}"
                 pushd "${BUILD_DIR}" >/dev/null # Push current directory, suppress output
 
-                if ! wget --no-check-certificate https://www.python.org/ftp/python/${TARGET_INSTALL_PY_VERSION}/Python-${TARGET_INSTALL_PY_VERSION}.tgz || \
-                    ! tar xvf Python-${TARGET_INSTALL_PY_VERSION}.tgz || \
-                    ! (cd Python-${TARGET_INSTALL_PY_VERSION} && ./configure --enable-optimizations && make -j$(nproc) && sudo make altinstall); then
-                    echo -e "${TAG_ERROR} Source build for Python ${TARGET_INSTALL_PY_VERSION} failed."
+                if ! wget --no-check-certificate "https://www.python.org/ftp/python/${TARGET_INSTALL_PY_VERSION}/Python-${TARGET_INSTALL_PY_VERSION}.tgz" || \
+                    ! tar xvf "Python-${TARGET_INSTALL_PY_VERSION}.tgz" || \
+                    ! (cd "Python-${TARGET_INSTALL_PY_VERSION}" && ./configure --enable-optimizations && make -j$(nproc) && sudo make altinstall); then
+                    print_colored "Source build for Python ${TARGET_INSTALL_PY_VERSION} failed." "ERROR"
                     INSTALL_STATUS=1
                 fi
                 popd >/dev/null # Pop back to original directory
@@ -281,7 +288,7 @@ install_python_and_dependencies() {
                 fi
             fi
         else
-            echo -e "${TAG_ERROR} Unsupported Ubuntu version: $UBUNTU_VERSION"
+            print_colored "Unsupported Ubuntu version: $UBUNTU_VERSION" "ERROR"
             INSTALL_STATUS=1
         fi
     fi
@@ -304,39 +311,81 @@ install_python_and_dependencies() {
 }
 
 # ---
+## Check Virtual Environment Validity
+# Returns 0 if valid, 1 otherwise.
+# Arguments:
+#   $1: VENV_PATH_TO_CHECK - The path to the virtual environment.
+# ---
+function check_venv_validity() {
+    local VENV_PATH_TO_CHECK="${1}"
+    echo -e "${TAG_INFO} Checking virtual environment validity at ${VENV_PATH_TO_CHECK}..." >&2
+
+    if [ ! -d "${VENV_PATH_TO_CHECK}" ]; then
+        echo -e "${TAG_WARN} Venv path ${VENV_PATH_TO_CHECK} does not exist." >&2
+        return 1
+    fi
+
+    if [ ! -f "${VENV_PATH_TO_CHECK}/bin/activate" ]; then
+        echo -e "${TAG_WARN} Venv activate script not found: ${VENV_PATH_TO_CHECK}/bin/activate." >&2
+        return 1
+    fi
+
+    if [ ! -x "${VENV_PATH_TO_CHECK}/bin/python" ]; then
+        echo -e "${TAG_WARN} Venv python executable not found or not executable: ${VENV_PATH_TO_CHECK}/bin/python." >&2
+        return 1
+    fi
+
+    # Test if the python executable works
+    if ! "${VENV_PATH_TO_CHECK}/bin/python" -c "import sys; print('Python in venv is working!')" >/dev/null 2>&1; then
+        echo -e "${TAG_WARN} Python executable in venv (${VENV_PATH_TO_CHECK}/bin/python) is not functional." >&2
+        return 1
+    fi
+
+    echo -e "${TAG_SUCC} Virtual environment at ${VENV_PATH_TO_CHECK} appears to be valid." >&2
+    return 0
+}
+
+
+# ---
 ## Setup Virtual Environment
 # ---
 # Arguments:
 #   $1: DX_PYTHON_EXEC - The command to execute the installed Python (e.g., python3.10).
 #   $2: VENV_PATH - The desired path for the virtual environment.
+#   $3: SKIP_VENV_CREATION_FLAG - 'y' to skip venv creation, 'n' otherwise.
 setup_venv() {
     local DX_PYTHON_EXEC="${1}"
     local VENV_PATH="${2}"
+    local SKIP_VENV_CREATION_FLAG="${3}"
 
     # Temporarily disable 'set -x' for cleaner output during venv setup steps
     local OPT_X_STATE="$-"
     case "${OPT_X_STATE}" in *x*) set +x;; esac
 
     if [ -z "${DX_PYTHON_EXEC}" ]; then
-        echo -e "${TAG_ERROR} Python executable not provided to setup_venv." >&2
+        print_colored "Python executable not provided to setup_venv." "ERROR" >&2
         return 1
     fi
     if [ -z "${VENV_PATH}" ]; then
-        echo -e "${TAG_ERROR} Virtual environment path not provided to setup_venv." >&2
+        print_colored "Virtual environment path not provided to setup_venv." "ERROR" >&2
         return 1
     fi
 
-    echo -e "${TAG_INFO} Setting up Virtual Environment at ${VENV_PATH} using ${DX_PYTHON_EXEC}..."
-    if ! "${DX_PYTHON_EXEC}" -m venv "${VENV_PATH}"; then
-        echo -e "${TAG_ERROR} Failed to create virtual environment at ${VENV_PATH}." >&2
-        case "${OPT_X_STATE}" in *x*) set -x;; esac # Restore set -x before returning
-        return 1
+    if [ "${SKIP_VENV_CREATION_FLAG}" != "y" ]; then
+        echo -e "${TAG_INFO} Setting up Virtual Environment at ${VENV_PATH} using ${DX_PYTHON_EXEC}..."
+        if ! "${DX_PYTHON_EXEC}" -m venv "${VENV_PATH}"; then
+            print_colored "Failed to create virtual environment at ${VENV_PATH}." >&2
+            case "${OPT_X_STATE}" in *x*) set -x;; esac # Restore set -x before returning
+            return 1
+        fi
+    else
+        echo -e "${TAG_INFO} Skipping virtual environment creation as --venv-reuse was specified and venv is valid."
     fi
 
     # Activate the venv temporarily for pip operations
     echo -e "${TAG_INFO} Activating virtual environment for package upgrades..."
     if ! source "${VENV_PATH}/bin/activate"; then # Use 'source' or '.' here
-        echo -e "${TAG_ERROR} Failed to activate virtual environment." >&2
+        print_colored "Failed to activate virtual environment." >&2
         case "${OPT_X_STATE}" in *x*) set -x;; esac # Restore set -x before returning
         return 1
     fi
@@ -373,7 +422,12 @@ setup_venv() {
 # ---
 main() {
     local PYTHON_VERSION=""
+    local MIN_PY_VERSION=$DEFAULT_MIN_PY_VERSION
     local VENV_PATH="" # Initialize as empty string
+    local FORCE_REMOVE_VENV="n" # New variable
+    local REUSE_VENV="n"        # New variable
+    local SKIP_VENV_CREATION="n" # Flag to control venv creation in setup_venv
+
     local UBUNTU_VERSION=$(lsb_release -rs) # Get Ubuntu version once
 
     # Parse command-line arguments
@@ -383,15 +437,27 @@ main() {
                 PYTHON_VERSION="${i#*=}"
                 shift # past argument=value
                 ;;
+            --min_py_version=*)
+                MIN_PY_VERSION="${i#*=}"
+                shift # past argument=value
+                ;;
             --venv_path=*)
                 VENV_PATH="${i#*=}"
                 shift # past argument=value
+                ;;
+            -f|--venv-force-remove)
+                FORCE_REMOVE_VENV="y"
+                shift # past argument
+                ;;
+            -r|--venv-reuse)
+                REUSE_VENV="y"
+                shift # past argument
                 ;;
             --help)
                 usage
                 ;;
             *)
-                echo -e "${TAG_ERROR} Unknown option: $i" >&2
+                print_colored "Unknown option: $i" "ERROR" >&2
                 usage
                 ;;
         esac
@@ -404,14 +470,42 @@ main() {
     local MIN_VER_NUM=$(printf "%02d%02d%02d" $(echo "${MIN_PY_VERSION}" | tr '.' ' '))
 
     if [ "${REQ_VER_NUM}" -lt "${MIN_VER_NUM}" ]; then
-        echo -e "${TAG_ERROR} Requested Python version (${PYTHON_VERSION:-default}) is lower than the minimum required version (${MIN_PY_VERSION}). Aborting." >&2
+        print_colored "Requested Python version (${PYTHON_VERSION:-default}) is lower than the minimum required version (${MIN_PY_VERSION}). Aborting." "ERROR" >&2
         exit 1
     fi
 
-    # Check if venv_path exists only if it's provided
-    if [ -n "$VENV_PATH" ] && [ -e "$VENV_PATH" ]; then
-        echo -e "${TAG_ERROR} Virtual environment path already exists: ${VENV_PATH}. Please remove it or choose a different path." >&2
+    # Handle --venv-force-remove and --venv-reuse conflicts
+    if [ "${FORCE_REMOVE_VENV}" = "y" ] && [ "${REUSE_VENV}" = "y" ]; then
+        print_colored "Cannot use both --venv-force-remove and --venv-reuse simultaneously. Please choose one." "ERROR" >&2
         exit 1
+    fi
+
+    # Check if venv_path exists and handle based on options
+    if [ -n "$VENV_PATH" ]; then # Only proceed if VENV_PATH was provided
+        if [ -e "$VENV_PATH" ]; then # Venv path exists
+            if [ "${FORCE_REMOVE_VENV}" = "y" ]; then
+                echo -e "${TAG_INFO} --venv-force-remove specified. Removing existing virtual environment at ${VENV_PATH}..." >&2
+                if ! rm -rf "${VENV_PATH}"; then
+                    print_colored "Failed to remove existing virtual environment at ${VENV_PATH}. Aborting." "ERROR" >&2
+                    exit 1
+                fi
+            elif [ "${REUSE_VENV}" = "y" ]; then
+                if check_venv_validity "${VENV_PATH}"; then
+                    echo -e "${TAG_INFO} --venv-reuse specified and existing virtual environment is valid. Skipping venv creation." >&2
+                    SKIP_VENV_CREATION="y"
+                else
+                    echo -e "${TAG_WARN} --venv-reuse specified, but existing virtual environment at ${VENV_PATH} is invalid. Attempting to recreate it." >&2
+                    # Fallback to normal creation if invalid, try to remove it first
+                    if ! rm -rf "${VENV_PATH}"; then
+                        print_colored "Failed to remove invalid virtual environment at ${VENV_PATH}. Aborting." "ERROR" >&2
+                        exit 1
+                    fi
+                fi
+            else
+                print_colored "Virtual environment path already exists: ${VENV_PATH}. Please remove it or choose a different path, or use --venv-force-remove to force recreation, or --venv-reuse to reuse it." "HINT" >&2
+                exit 1
+            fi
+        fi
     fi
 
     echo -e "${TAG_INFO} Starting Python installation and environment setup..."
@@ -423,22 +517,22 @@ main() {
     local INSTALL_PY_STATUS=$? # Capture the exit status of install_python_and_dependencies
 
     if [ ${INSTALL_PY_STATUS} -ne 0 ]; then
-        echo -e "${TAG_ERROR} Python and Virual environment setup failed. Exiting." >&2
+        print_colored "Python and Virtual environment setup failed. Exiting." "ERROR" >&2
         exit 1
     fi
 
     # Ensure INSTALLED_PYTHON_EXEC is not empty (it would be if installation failed or was skipped due to an error)
     if [ -z "${INSTALLED_PYTHON_EXEC}" ]; then
-        echo -e "${TAG_ERROR} Could not determine installed Python executable or Python installation failed. Exiting." >&2
+        print_colored "Could not determine installed Python executable or Python installation failed. Exiting." "ERROR" >&2
         exit 1
     fi
 
     # Conditionally call setup_venv based on VENV_PATH
     if [ -n "${VENV_PATH}" ]; then
         echo -e "${TAG_INFO} Virtual Environment Path: ${VENV_PATH}"
-        setup_venv "${INSTALLED_PYTHON_EXEC}" "${VENV_PATH}"
+        setup_venv "${INSTALLED_PYTHON_EXEC}" "${VENV_PATH}" "${SKIP_VENV_CREATION}"
         if [ $? -ne 0 ]; then
-            echo -e "${TAG_ERROR} Virtual environment setup failed. Exiting." >&2
+            print_colored "Virtual environment setup failed. Exiting." "ERROR" >&2
             exit 1
         fi
         echo -e "${TAG_SUCC} Script execution completed successfully."
