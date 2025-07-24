@@ -22,6 +22,13 @@
 
 #include "utils/common_util.hpp"
 
+#include "rapidjson/error/en.h"
+#include "rapidjson/filereadstream.h"
+#include "rapidjson/schema.h"
+#include "rapidjson/stringbuffer.h"
+#include "rapidjson/prettywriter.h"
+
+
 using namespace std;
 using namespace cv;
 using namespace rapidjson;
