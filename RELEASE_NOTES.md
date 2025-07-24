@@ -1,4 +1,20 @@
 # RELEASE_NOTES
+## v1.11.0 / 2025-07-24
+
+### 1. Changed
+- feat: enhance --clean option in build script for pybind artifacts
+- feat: update dxnn models version(1.40.2 to 1.60.1)
+- feat: auto run setup script or display a guide message when a file not found error occurs during example execution
+
+### 2. Fixed
+- feat: Improve error message readability in install, build scripts
+  - Apply color to error messages
+  - Reorder message output to display errors before help messages
+- Update tensor index assignment in Yolo layer reordering
+- fix: resolve dx_postprocess Python lib build error and improve error handling
+
+### 3. Added
+
 ## v1.10.2 / 2025-07-03
 ### 1. Changed
 ### 2. Fixed

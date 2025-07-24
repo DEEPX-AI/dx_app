@@ -5,6 +5,16 @@
 #include <iostream>
 #include <fstream>
 #include <vector>
+#if __cplusplus >= 201703L || (defined(_MSVC_LANG) && _MSVC_LANG >= 201703L)
+    // for C++17 
+    #include <filesystem>
+    namespace fs = std::filesystem;
+#else
+    // for C++11 
+    #include <experimental/filesystem>
+    namespace fs = std::experimental::filesystem;
+#endif
+
 #if _WIN32
 #include <Windows.h>
 #include <io.h>
@@ -18,6 +28,17 @@
 #define fileno _fileno
 #endif
 
+#define RED     "\033[1;31m"
+#define YELLOW  "\033[1;33m"
+#define GREEN   "\033[1;32m"
+#define RESET   "\033[0m"
+
+#if _WIN32
+#define SETUP_FILE_PATH "setup.bat"
+#else
+#define SETUP_FILE_PATH "setup.sh --force"
+#endif
+
 namespace dxapp
 {
 namespace common
@@ -27,7 +48,26 @@ namespace common
 #define DXRT_TRY_CATCH_BEGIN try {
 #define DXRT_TRY_CATCH_END } \
 catch (const dxrt::Exception& e) { \
-    std::cerr << e.what() << " error-code=" << e.code() << std::endl; \
+    std::cerr << RED << e.what() << " error-code=" << e.code() << RESET << std::endl; \
+    fs::path dx_app_dir(fs::canonical(PROJECT_ROOT_DIR)); \
+    fs::path setup_script = dx_app_dir / SETUP_FILE_PATH; \
+    std::cerr << "dx_app_dir: " << dx_app_dir.string() << std::endl; \
+    if (e.code() == 257 ) { \
+        if (dx_app_dir != fs::canonical(fs::current_path())) { \
+            std::cerr << GREEN << "[HINT] The current directory is '" << fs::current_path().string() << "'. Please move to '" << dx_app_dir.string() << "' before running the application." << RESET << std::endl; \
+        } else { \
+            std::cerr << GREEN << "[HINT] Please run '" << setup_script.string() << "' to set up the model and input video files before running the application again." << RESET << std::endl; \
+            std::cerr << YELLOW << "Would you like to run the setup script now? (y/n): " << RESET; \
+            std::string user_input; \
+            std::cin >> user_input; \
+            if (user_input == "y" || user_input == "Y") { \
+                int ret = system(setup_script.string().c_str()); \
+                if (ret != 0) { \
+                    std::cerr << RED << "Failed to run setup script. Please check permissions or script content." << RESET << std::endl; \
+                } \
+            } \
+        } \
+    } \
     return -1; \
 } \
 catch (const std::exception& e) \
