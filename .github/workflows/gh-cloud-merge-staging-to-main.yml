@@ -227,15 +227,22 @@ jobs:
           git push origin --delete staging || true
           echo "Checking out main branch and pulling latest..."
           git checkout main
-          git pull origin main
+          git pull main
+          git status
+          echo "remove local staging branch..."
+          git branch -D staging
           echo "Creating new staging branch from main..."
           git checkout -b staging
+          git status
           echo "Pushing new staging branch to origin..."
           git push -u origin staging
       - name: Get New Main SHA
         id: get_sha
-        run: echo "main_sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
-
+        run: |
+          git checkout main
+          git pull
+          git status
+          echo "main_sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
       - name: Dispatch Update to Parent Repository 
         if: >
           github.event_name == 'repository_dispatch' ||
@@ -243,8 +250,7 @@ jobs:
         uses: peter-evans/repository-dispatch@v3
         with:
           token: ${{ secrets.GC_DCI_TOKEN }}
-          repository: >-
-            ${{ github.event.client_payload.parent_owner || github.repository_owner }}/${{ github.event.client_payload.parent_repo || github.repository }}
+          repository: ${{ github.event_name == 'repository_dispatch' && format('{0}/{1}', github.event.client_payload.parent_owner, github.event.client_payload.parent_repo) || 'DEEPX-AI/dx-runtime' }}
           event-type: update-submodule-from-child
           client-payload: |
             {
