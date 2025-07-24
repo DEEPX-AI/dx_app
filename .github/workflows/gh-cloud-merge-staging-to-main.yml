@@ -2,6 +2,16 @@ name: Merge Staging to Main
 run-name: Merging staging of ${{ github.event.client_payload.repo_name }} to main (Triggered by ${{ github.event.client_payload.parent_sha }})
 
 on:
+  workflow_dispatch:
+    inputs:
+      repo_name:
+        description: 'Submodule repo name'
+        required: false
+      parent_ref:
+        description: 'Parent repo ref (e.g. main)'
+        required: false
+
+
   repository_dispatch:
     types:
       - merge-staging-to-main
@@ -15,20 +25,26 @@ jobs:
       - sdk
     timeout-minutes: 10
     steps:
+      - name: Debug dispatch params
+        run: |
+          echo "event_name = ${{ github.event_name }}"
+          echo "repo_name = ${{ github.event.client_payload.repo_name || github.event.inputs.repo_name }}"
+          echo "parent_ref = ${{ github.event.client_payload.parent_ref || github.event.inputs.parent_ref }}"
+
       - name: Clean Workspace
         run: |
           sudo rm -rf ${{ github.workspace }}
           mkdir -p ${{ github.workspace }}
 
-      - name: Checkout Main Branch
+      - name: Checkout Staging Branch
         uses: actions/checkout@v4
         with:
-          ref: main
+          ref: staing
           token: ${{ secrets.GC_DCI_TOKEN }}
           fetch-depth: 0
 
-      - name: Fetch Staging Branch
-        run: git fetch origin staging
+      # - name: Fetch Staging Branch
+      #   run: git fetch origin staging
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -117,7 +133,7 @@ jobs:
       - name: Check Diff Between Main and Staging
         id: check_diff
         run: |
-          if git diff --quiet main origin/staging; then
+          if git diff --quiet origin/main origin/staging; then
             echo "::notice::No differences between main and staging. Skipping merge."
             echo "has_changes=false" >> $GITHUB_OUTPUT
           else
@@ -144,14 +160,15 @@ jobs:
           fi
 
       - name: Merge Staging to Main (Squash)
-        if: steps.check_diff.outputs.has_changes == 'true' && steps.check_diff.outputs.valid_bump_type == 'true'
+        if: steps.check_diff.outputs.has_changes == 'true' && steps.semver.outputs.valid_bump_type == 'true'
         env:
           CHANGED_ITEMS: ${{ env.CHANGED_ITEMS }}
           FIXED_ITEMS: ${{ env.FIXED_ITEMS }}
           ADDED_ITEMS: ${{ env.ADDED_ITEMS }}
         run: |
           echo "Pulling latest changes from origin/main before merge..."
-          git pull origin main # 최신 main 브랜치 상태를 가져옴
+          git checkout main
+          git pull # 최신 main 브랜치 상태를 가져옴
 
           # Clean up untracked files that might conflict with merge
           echo "Cleaning up untracked files before merge..."
@@ -233,7 +250,7 @@ jobs:
           git push origin main
 
       - name: Recreate Staging Branch from Main
-        if: steps.check_diff.outputs.has_changes == 'true' && steps.check_diff.outputs.valid_bump_type == 'true'
+        if: steps.check_diff.outputs.has_changes == 'true' && steps.semver.outputs.valid_bump_type == 'true'
         run: |
           echo "Deleting remote origin/staging branch..."
           git push origin --delete staging || true
@@ -252,16 +269,21 @@ jobs:
         id: get_sha
         run: echo "main_sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
 
-      - name: Dispatch Update to Parent Repository
+      - name: Dispatch Update to Parent Repository 
+        if: >
+          github.event_name == 'repository_dispatch' ||
+          (github.event.inputs.repo_name != '' && github.event.inputs.parent_ref != '')
         uses: peter-evans/repository-dispatch@v3
         with:
           token: ${{ secrets.GC_DCI_TOKEN }}
-          repository: ${{ github.event.client_payload.parent_owner }}/${{ github.event.client_payload.parent_repo }}
+          repository: >-
+            ${{ github.event.client_payload.parent_owner || github.repository_owner }}/${{ github.event.client_payload.parent_repo || github.repository }}
           event-type: update-submodule-from-child
           client-payload: |
             {
-              "submodule_name": "${{ github.event.client_payload.repo_name }}",
+              "submodule_name": "${{ github.event.client_payload.repo_name || github.event.inputs.repo_name }}",
               "submodule_sha": "${{ steps.get_sha.outputs.main_sha }}",
               "submodule_ref": "main",
-              "parent_ref": "${{ github.event.client_payload.parent_ref }}"
+              "parent_ref": "${{ github.event.client_payload.parent_ref || github.event.inputs.parent_ref }}"
             }
+
