@@ -172,7 +172,7 @@ int main(int argc, char *argv[])
     auto cmd = options.parse(argc, argv);
     if(cmd.count("help") || model_path.empty())
     {
-        std::cout << options.help() << endl;
+        std::cout << options.help() << std::endl;
         exit(0);
     }
 
