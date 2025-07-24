@@ -16,6 +16,9 @@ endif()
 
 project(dxapp DESCRIPTION "DEEPX Application Templates")
 
+get_filename_component(PROJECT_ROOT_DIR ${CMAKE_SOURCE_DIR} ABSOLUTE)
+add_compile_definitions(PROJECT_ROOT_DIR="${PROJECT_ROOT_DIR}")
+
 if (MSVC)
     if (DEFINED ENV{WindowsSdkDir})
         set(CMAKE_SYSTEM_PREFIX_PATH "$ENV{WindowsSdkDir}")

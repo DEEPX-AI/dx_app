@@ -1,8 +1,21 @@
 #!/bin/bash
 SCRIPT_DIR=$(realpath "$(dirname "$0")")
+DX_APP_PATH=$(realpath -s "${SCRIPT_DIR}")
+
+# variables for venv options
+PYTHON_VERSION=""
+VENV_PATH=""
+VENV_FORCE_REMOVE="n"
+VENV_REUSE="n"
+
+ENABLE_DEBUG_LOGS=0
+
+# Global variables for script configuration
+MIN_PY_VERSION="3.11.0"
 
 # color env settings
-source "${SCRIPT_DIR}/scripts/color_env.sh"
+source ${SCRIPT_DIR}/scripts/color_env.sh
+source ${SCRIPT_DIR}/scripts/common_util.sh
 
 # dependencies install script in host
 pushd .
@@ -14,8 +27,6 @@ install_opencv=false
 install_dep=false  
 opencv_source_build=false  
 build_type='Release'
-python_version=""
-venv_path=""
 
 export DEBIAN_FRONTEND=noninteractive
 
@@ -50,16 +61,25 @@ function help() {
     echo -e "  ${COLOR_YELLOW}$0 --venv_path ./venv-dxnn # Installs default Python, creates venv${COLOR_RESET}"
     echo -e "  ${COLOR_YELLOW}$0 # Installs default Python, but no venv${COLOR_RESET}"
     echo -e ""
+
+    if [ "$1" == "error" ] && [[ ! -n "$2" ]]; then
+        print_colored "Invalid or missing arguments." "ERROR"
+        exit 1
+    elif [ "$1" == "error" ] && [[ -n "$2" ]]; then
+        print_colored "$2" "ERROR"
+        exit 1
+    elif [[ "$1" == "warn" ]] && [[ -n "$2" ]]; then
+        print_colored "$2" "WARNING"
+        return 0
+    fi
     exit 0
 }
 
-function compare_version() 
-{
+function compare_version() {
     awk -v n1="$1" -v n2="$2" 'BEGIN { if (n1 >= n2) exit 0; else exit 1; }'
 }
 
-function install_dep()
-{
+function install_dep() {
     cmake_version_required=3.14
     install_cmake=false
     if [ "$install_dep" == true ]; then
@@ -107,8 +127,7 @@ function install_dep()
     install_python
 }
 
-function install_opencv()
-{
+function install_opencv() {
     cross_compile_opencv_mode=false
     if [ "$install_opencv" == true ] || [ "$opencv_source_build" == true ]; then
         toolchain_define="-D CMAKE_INSTALL_PREFIX=/usr/local "
@@ -250,30 +269,47 @@ function install_opencv()
     fi
 }
 
-install_python()
-{
-    
-    python_version_arg=""
-    if [ -n "$python_version" ]; then
-        python_version_arg="--python_version=$python_version"
+function install_python() {
+    print_colored "--- setup python... ---" "INFO"
+
+    local INSTALL_PY_CMD_ARGS=""
+
+    if [ -n "${PYTHON_VERSION}" ]; then
+        INSTALL_PY_CMD_ARGS+=" --python_version=$PYTHON_VERSION"
     fi
 
-    venv_path_arg=""
-    if [ -n "$venv_path" ]; then
-        venv_path_arg="--venv_path=$venv_path"
+    if [ -n "${MIN_PY_VERSION}" ]; then
+        INSTALL_PY_CMD_ARGS+=" --min_py_version=$MIN_PY_VERSION"
     fi
 
-    ${SCRIPT_DIR}/scripts//install_python_and_venv.sh $python_version_arg $venv_path_arg
+    if [ -n "${VENV_PATH}" ]; then
+        INSTALL_PY_CMD_ARGS+=" --venv_path=$VENV_PATH"
+    fi
+
+    if [ "${VENV_FORCE_REMOVE}" = "y" ]; then
+        INSTALL_PY_CMD_ARGS+=" --venv-force-remove"
+    fi
+
+    if [ "${VENV_REUSE}" = "y" ]; then
+        INSTALL_PY_CMD_ARGS+=" --venv-reuse"
+    fi
+
+    # Pass the determined VENV_PATH and new options to install_python_and_venv.sh
+    INSTALL_PY_CMD="${DX_APP_PATH}/scripts/install_python_and_venv.sh ${INSTALL_PY_CMD_ARGS}"
+    echo "CMD: ${INSTALL_PY_CMD}"
+    ${INSTALL_PY_CMD}
     if [ $? -ne 0 ]; then
-        echo -e "${TAG_ERROR} Python and Virual environment setup failed. Exiting."
+        print_colored "Python and Virtual environment setup failed. Exiting." "ERROR"
         exit 1
     fi
+
+    print_colored "[OK] Completed to setup python" "INFO"
 }
 
+# parse args
 [ $# -gt 0 ] && \
 while (( $# )); do
     case "$1" in
-        --help) help; exit 0;;      
         --arch)  
             shift
             target_arch=$1
@@ -284,19 +320,39 @@ while (( $# )); do
         --all) install_opencv=true;install_dep=true; shift;;
         --python_version)
             shift
-            python_version=$1
+            PYTHON_VERSION=$1
             shift;;
         --venv_path)
             shift
-            venv_path=$1
-            shift;;
-        *)       echo "Invalid argument : " $1 ; help; exit 1;;
+            VENV_PATH=$1
+            shift
+            ;;
+        -f|--venv-force-remove)
+            VENV_FORCE_REMOVE="y"
+            shift # past argument
+            ;;
+        -r|--venv-reuse)
+            VENV_REUSE="y"
+            shift # past argument
+            ;;
+        --verbose)
+            ENABLE_DEBUG_LOGS=1
+            shift # Consume argument
+            ;;
+        --help) 
+            help; 
+            exit 0
+            ;;
+        *)
+            help "error"  "Invalid argument: $1"
+            exit 1
+            ;;
     esac
 done
 
 if [ $target_arch == "arm64" ]; then
     target_arch=aarch64
-    echo " Use arch64 instead of arm64"
+    print_colored_v2 "INFO" " Use arch64 instead of arm64"
     exit 1
 fi
 
