@@ -2,6 +2,16 @@ name: Merge Staging to Main
 run-name: Merging staging of ${{ github.event.client_payload.repo_name }} to main (Triggered by ${{ github.event.client_payload.parent_sha }})
 
 on:
+  workflow_dispatch:
+    inputs:
+      repo_name:
+        description: 'Submodule repo name'
+        required: false
+      parent_ref:
+        description: 'Parent repo ref (e.g. main)'
+        required: false
+
+
   repository_dispatch:
     types:
       - merge-staging-to-main
@@ -15,6 +25,12 @@ jobs:
       - sdk
     timeout-minutes: 10
     steps:
+      - name: Debug dispatch params
+        run: |
+          echo "event_name = ${{ github.event_name }}"
+          echo "repo_name = ${{ github.event.client_payload.repo_name || github.event.inputs.repo_name }}"
+          echo "parent_ref = ${{ github.event.client_payload.parent_ref || github.event.inputs.parent_ref }}"
+
       - name: Clean Workspace
         run: |
           sudo rm -rf ${{ github.workspace }}
@@ -144,7 +160,7 @@ jobs:
           fi
 
       - name: Merge Staging to Main (Squash)
-        if: steps.check_diff.outputs.has_changes == 'true' && steps.check_diff.outputs.valid_bump_type == 'true'
+        if: steps.check_diff.outputs.has_changes == 'true' && steps.semver.outputs.valid_bump_type == 'true'
         env:
           CHANGED_ITEMS: ${{ env.CHANGED_ITEMS }}
           FIXED_ITEMS: ${{ env.FIXED_ITEMS }}
@@ -233,7 +249,7 @@ jobs:
           git push origin main
 
       - name: Recreate Staging Branch from Main
-        if: steps.check_diff.outputs.has_changes == 'true' && steps.check_diff.outputs.valid_bump_type == 'true'
+        if: steps.check_diff.outputs.has_changes == 'true' && steps.semver.outputs.valid_bump_type == 'true'
         run: |
           echo "Deleting remote origin/staging branch..."
           git push origin --delete staging || true
@@ -252,16 +268,21 @@ jobs:
         id: get_sha
         run: echo "main_sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
 
-      - name: Dispatch Update to Parent Repository
+      - name: Dispatch Update to Parent Repository 
+        if: >
+          github.event_name == 'repository_dispatch' ||
+          (github.event.inputs.repo_name != '' && github.event.inputs.parent_ref != '')
         uses: peter-evans/repository-dispatch@v3
         with:
           token: ${{ secrets.GC_DCI_TOKEN }}
-          repository: ${{ github.event.client_payload.parent_owner }}/${{ github.event.client_payload.parent_repo }}
+          repository: >-
+            ${{ github.event.client_payload.parent_owner || github.repository_owner }}/${{ github.event.client_payload.parent_repo || github.repository }}
           event-type: update-submodule-from-child
           client-payload: |
             {
-              "submodule_name": "${{ github.event.client_payload.repo_name }}",
+              "submodule_name": "${{ github.event.client_payload.repo_name || github.event.inputs.repo_name }}",
               "submodule_sha": "${{ steps.get_sha.outputs.main_sha }}",
               "submodule_ref": "main",
-              "parent_ref": "${{ github.event.client_payload.parent_ref }}"
+              "parent_ref": "${{ github.event.client_payload.parent_ref || github.event.inputs.parent_ref }}"
             }
+
