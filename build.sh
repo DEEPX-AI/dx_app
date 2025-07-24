@@ -2,7 +2,8 @@
 SCRIPT_DIR=$(realpath "$(dirname "$0")")
 
 # color env settings
-source "${SCRIPT_DIR}/scripts/color_env.sh"
+source ${SCRIPT_DIR}/scripts/color_env.sh
+source ${SCRIPT_DIR}/scripts/common_util.sh
 
 help() {
     echo -e "Usage: ${COLOR_CYAN}$0 [OPTIONS]${COLOR_RESET}"
@@ -26,6 +27,17 @@ help() {
     echo -e ""
     echo -e "  ${COLOR_YELLOW}$0 --python_exec /usr/local/bin/python3.8${COLOR_RESET}"
     echo -e "  ${COLOR_YELLOW}$0 --venv_path ./venv-dxnn${COLOR_RESET}"
+
+    if [ "$1" == "error" ] && [[ ! -n "$2" ]]; then
+        print_colored "Invalid or missing arguments." "ERROR"
+        exit 1
+    elif [ "$1" == "error" ] && [[ -n "$2" ]]; then
+        print_colored "$2" "ERROR"
+        exit 1
+    elif [[ "$1" == "warn" ]] && [[ -n "$2" ]]; then
+        print_colored "$2" "WARNING"
+        return 0
+    fi
     exit 0
 }
 
@@ -39,6 +51,7 @@ build_gtest=false
 
 # global variaibles
 python_exec=""
+python_exec_input=""
 venv_path=""
 
 [ $# -gt 0 ] && \
@@ -57,14 +70,18 @@ while (( $# )); do
             shift;;
         --python_exec)
             shift
-            python_exec=$(realpath "$1")
+            python_exec_input=$(realpath "$1")
             shift;;
         --venv_path)
             shift
             venv_path=$1
             shift;;
-        --test) build_gtest=true; shift;;
-        *)       echo "Invalid argument : " $1 ; help; exit -1;;
+        --test)
+            build_gtest=true;
+            shift;;
+        *)
+            help "error" "Invalid argument : $1"
+            exit 1;;
     esac
 done
 
@@ -79,15 +96,19 @@ if [ -n "${venv_path}" ]; then
     fi
 fi
 
-# Check if venv_path
-if [ -n "${python_exec}" ]; then
-    if [ ! -f "${python_exec}" ]; then
-        echo -e "${TAG_ERROR} --python_exec is set to '${python_exec}'. but, Python executable path does not exist: ${python_exec}. Please check the path." >&2
+# Check if python_exec 
+if [ -n "${python_exec_input}" ]; then
+    if [ ! -f "${python_exec_input}" ]; then
+        echo -e "${TAG_ERROR} --python_exec is set to '${python_exec_input}'. but, Python executable path does not exist: ${python_exec}. Please check the path." >&2
         exit 1
     else
-        echo -e "${TAG_INFO} --python_exec is set to '${python_exec}'"
-        ${python_exec} --version;
+        echo -e "${TAG_INFO} --python_exec is set to '${python_exec_input}'"
+        ${python_exec_input} --version;
+        python_exec=${python_exec_input}
     fi
+else
+    # use default python
+    python_exec="python3"
 fi
 
 if [ $target_arch == "arm64" ]; then
@@ -101,7 +122,7 @@ if [ $dxrt_dir == "" ]; then
     dxrt_dir=/usr/local
 fi
 if [ ! -e $dxrt_dir ]; then
-    echo "-- Error : $dxrt_dir directory does not exist"
+    echo -e "${TAG_ERROR} $dxrt_dir directory does not exist"
     exit -1
 fi
 
@@ -121,8 +142,21 @@ cmd+=(-DCMAKE_GENERATOR=Ninja)
 
 build_dir=build_"$target_arch"
 out_dir=bin
+pybind_biuld_dir=lib/pybind/build/ 
+pybind_dx_postprocess_dir=lib/pybind/dx_postprocess.egg-info/
 echo cmake args : ${cmd[@]}
-[ $clean_build == "true" ] && rm -rf $build_dir && [ $(uname -m) == "$target_arch" ] && rm -rf $out_dir/
+if [ $clean_build == "true" ]; then 
+    CLEAN_CMD="rm -rf $build_dir $pybind_biuld_dir $pybind_dx_postprocess_dir && [ $(uname -m) == "$target_arch" ] && rm -rf $out_dir"
+    ${CLEAN_CMD}
+    if [ $? -ne 0 ]; then
+        echo -e "${TAG_WARN} Failed to clean build directory. try to clean again with 'sudo'."
+        sudo ${CLEAN_CMD} 
+        if [ $? -ne 0 ]; then
+            echo -e "${TAG_ERROR} Failed to clean build directory"
+            exit 1
+        fi
+    fi
+fi
 
 mkdir -p $build_dir
 mkdir -p $out_dir
@@ -142,10 +176,12 @@ if [ -f ./templates/python/requirements.txt ]; then
     echo Installing Python dependencies from ./templates/python/requirements.txt
     pip install -r ./templates/python/requirements.txt
     if [ $? -ne 0 ]; then
-        echo "-- Warning: Failed to install Python dependencies"
+        echo -e "${TAG_ERROR} Failed to install Python dependencies"
+        exit 1
     fi
 else
-    echo "-- Warning: ./templates/python/requirements.txt not found"
+    echo -e "${TAG_ERROR} ./templates/python/requirements.txt not found"
+    exit 1
 fi
 
 # Install dx_postprocess Python module
@@ -158,9 +194,14 @@ if [ -f ./lib/pybind/setup.py ]; then
     if [ $install_result -eq 0 ]; then
         echo "dx_postprocess module installed successfully"
         # Verify installation
-        python -c "import dx_postprocess; print('dx_postprocess module verification: OK')" 2>/dev/null || echo "-- Warning: dx_postprocess module import failed"
+        ${python_exec} -c "import dx_postprocess; print('dx_postprocess module verification: OK')" 2>/dev/null;
+        if [ $? -ne 0 ]; then
+            echo -e "${TAG_ERROR} dx_postprocess module import failed"
+            exit 1
+        fi 
     else
-        echo "-- Warning: Failed to install dx_postprocess module"
+        echo -e "${TAG_ERROR} Failed to install dx_postprocess module"
+        exit 1
     fi
 
     if [ -n "$venv_path" ]; then
@@ -168,7 +209,8 @@ if [ -f ./lib/pybind/setup.py ]; then
         echo -e "${COLOR_BRIGHT_YELLOW_ON_BLACK}  source ${venv_path}/bin/activate ${COLOR_RESET}"
     fi
 else
-    echo "-- Warning: ./lib/pybind/setup.py not found"
+    echo -e "${TAG_ERROR} ./lib/pybind/setup.py not found"
+    exit 1
 fi
 
 if [ -e $build_dir/release/bin ]; then

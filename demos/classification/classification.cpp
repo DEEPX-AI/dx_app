@@ -56,7 +56,7 @@ DXRT_TRY_CATCH_BEGIN
     auto cmd = options.parse(argc, argv);
     if(cmd.count("help") || modelPath.empty())
     {
-        std::cout << options.help() << endl;
+        std::cout << options.help() << std::endl;
         exit(0);
     }
     LOG_VALUE(modelPath)
