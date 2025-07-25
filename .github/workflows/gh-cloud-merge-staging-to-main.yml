@@ -10,6 +10,9 @@ on:
       parent_ref:
         description: 'Parent repo ref (e.g. main)'
         required: false
+      dispatch_target_repo:
+        description: 'Dispatch Update to Parent Repository (e.g. DEEPX-AI/dx-runtime or DEEPX-AI/dx-all-suite)'
+        required: false  
 
 
   repository_dispatch:
@@ -30,6 +33,7 @@ jobs:
           echo "event_name = ${{ github.event_name }}"
           echo "repo_name = ${{ github.event.client_payload.repo_name || github.event.inputs.repo_name }}"
           echo "parent_ref = ${{ github.event.client_payload.parent_ref || github.event.inputs.parent_ref }}"
+          echo "dispatch_target_repo = ${{ github.event.inputs.dispatch_target_repo }}
       - name: Clean Workspace
         run: |
           sudo rm -rf ${{ github.workspace }}
@@ -186,9 +190,6 @@ jobs:
             echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
             # 릴리즈노트 작성
             .github/scripts/write_release_notes.sh "$bump_type" $NEW_VERSION
-            # Remove the script before committing to main
-            echo "Removing release notes script before commit..."
-            rm -f .github/scripts/write_release_notes.sh
             git add .
             COMMIT_MESSAGE="v$NEW_VERSION"
             git tag -a "v$NEW_VERSION" -m "$tag_message"
@@ -246,11 +247,11 @@ jobs:
       - name: Dispatch Update to Parent Repository 
         if: >
           github.event_name == 'repository_dispatch' ||
-          (github.event.inputs.repo_name != '' && github.event.inputs.parent_ref != '')
+          (github.event.inputs.repo_name != '' && github.event.inputs.parent_ref != '' && github.event.inputs.dispatch_target_repo != '')
         uses: peter-evans/repository-dispatch@v3
         with:
           token: ${{ secrets.GC_DCI_TOKEN }}
-          repository: ${{ github.event_name == 'repository_dispatch' && format('{0}/{1}', github.event.client_payload.parent_owner, github.event.client_payload.parent_repo) || 'DEEPX-AI/dx-runtime' }}
+          repository: ${{ github.event_name == 'repository_dispatch' && format('{0}/{1}', github.event.client_payload.parent_owner, github.event.client_payload.parent_repo) || github.event.inputs.dispatch_target_repo }}
           event-type: update-submodule-from-child
           client-payload: |
             {
