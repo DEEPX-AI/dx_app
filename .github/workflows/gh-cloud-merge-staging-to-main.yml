@@ -33,7 +33,7 @@ jobs:
           echo "event_name = ${{ github.event_name }}"
           echo "repo_name = ${{ github.event.client_payload.repo_name || github.event.inputs.repo_name }}"
           echo "parent_ref = ${{ github.event.client_payload.parent_ref || github.event.inputs.parent_ref }}"
-          echo "dispatch_target_repo = ${{ github.event.inputs.dispatch_target_repo }}
+          echo "dispatch_target_repo = ${{ github.event.inputs.dispatch_target_repo }}"
       - name: Clean Workspace
         run: |
           sudo rm -rf ${{ github.workspace }}
