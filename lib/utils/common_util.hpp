@@ -1,10 +1,17 @@
 #pragma once
 #include <sys/stat.h>
 #include <stdio.h>
-#include <string>
+#include <cstring>
 #include <iostream>
 #include <fstream>
+#include <sstream>
 #include <vector>
+#include <thread>
+#include <atomic>
+#include <condition_variable>
+#include <mutex>
+#include <iomanip>
+
 #if __cplusplus >= 201703L || (defined(_MSVC_LANG) && _MSVC_LANG >= 201703L)
     // for C++17 
     #include <filesystem>
@@ -15,18 +22,19 @@
     namespace fs = std::experimental::filesystem;
 #endif
 
-#if _WIN32
+#if __linux__
+#include <dirent.h>
+#include <unistd.h>
+#elif _WIN32
 #include <Windows.h>
 #include <io.h>
-#include <cstdio>
-#include <thread>
-#include <dxrt/dxrt_api.h>
-#include <dxrt/device_info_status.h>
 #define fsync _commit
 #define popen _popen
 #define pclose _pclose
 #define fileno _fileno
 #endif
+#include <dxrt/dxrt_api.h>
+#include <dxrt/device_info_status.h>
 
 #define RED     "\033[1;31m"
 #define YELLOW  "\033[1;33m"
@@ -44,6 +52,7 @@ namespace dxapp
 namespace common
 {
     
+#ifndef DXRT_EXCEPTION_UTIL
 #define DXRT_EXCEPTION_UTIL
 #define DXRT_TRY_CATCH_BEGIN try {
 #define DXRT_TRY_CATCH_END } \
@@ -75,6 +84,7 @@ catch (const std::exception& e) \
     std::cerr << e.what() << std::endl; \
     return -1; \
 }
+#endif // DXRT_EXCEPTION_UTIL
 
     struct StatusLog
     {
@@ -294,40 +304,6 @@ catch (const std::exception& e) \
 #endif
     }
 
-    inline std::vector<std::string> checkNpuTemperature()
-    {
-        std::vector<std::string> temperature_result; // 11
-        std::ostringstream command;
-        command << "dxrt-cli -s";
-
-        FILE* pipe = popen(command.str().c_str(), "r");
-        if (!pipe) {
-            std::cerr << "Failed to run ldconfig command." << std::endl;
-            return temperature_result;
-        }
-
-        char buffer[1000];
-        std::string result;
-        while (fgets(buffer, sizeof(buffer), pipe) != nullptr) 
-        {
-            result += buffer;
-        }
-        pclose(pipe);
-
-        if(result.empty())
-            return temperature_result;
-        size_t pos = result.find("temperature ");
-        size_t end_pos = result.find("\'C", pos + 12);
-        while(pos != std::string::npos)
-        {
-            std::string str(result.begin() + pos + 12, result.begin() + end_pos);
-            temperature_result.push_back(str);
-            pos = result.find("temperature ", end_pos);
-            end_pos = result.find("\'C", pos + 12);
-        }
-        return temperature_result;
-    }
-
     inline std::string getLocalTimeString()
     {
         std::time_t now = std::time(nullptr);
@@ -358,12 +334,8 @@ catch (const std::exception& e) \
         std::fstream logFile(fileName, std::ios::app | std::ios::in | std::ios::out);
         while(sl->threadStatus.load() == 2)
         {
-#ifdef __linux__
-            auto ret = dxapp::common::checkNpuTemperature();
-#elif _WIN32
             auto status = dxrt::DeviceStatus::GetCurrentStatus(0);
             auto devices = status.GetDeviceCount();
-#endif
             {
                 std::unique_lock<std::mutex> _uniqueLock(cliCommandLock);
                 std::string log_message = std::to_string(sl->frameNumber) + ", " +
@@ -372,20 +344,13 @@ catch (const std::exception& e) \
                              std::string("[Application Status] ") + getLocalTimeString() +
                             " Frame No. " + std::to_string(sl->frameNumber) + 
                             ", running time " + std::to_string(sl->runningTime) + "ms, ";
-#ifdef __linux__
-                for (auto &s:ret)
-                {
-                    log_result += s + "\'C, ";
-                    log_message += s + ", ";
-                }
-#elif _WIN32
+
                 for (int i = 0; i < devices * 3; i++)
                 {
                     auto ret = status.Temperature(i);
                     log_result += std::to_string(ret) + "\'C,";
                     log_message += std::to_string(ret) + ", ";
                 }
-#endif
                 std::cout << log_result << std::endl;
                 logFile << log_message << std::endl;
                 logFile.flush();
@@ -398,9 +363,9 @@ catch (const std::exception& e) \
         std::cout << "logging stopped" << std::endl;
     }
 
-    inline bool compareVersions(const std::string& v1, const std::string& v2) 
+    inline bool isVersionGreaterOrEqual(const std::string& v1, const std::string& v2) 
     {
-        std::istringstream s1(v1.substr(1)), s2(v2);
+        std::istringstream s1(v1), s2(v2);
         int num1 = 0, num2 = 0;
         char dot;
 
@@ -415,11 +380,27 @@ catch (const std::exception& e) \
             if (s1.good()) s1 >> dot; 
             if (s2.good()) s2 >> dot;
         }
-#ifdef __linux__
-        return false;
-#elif _WIN32
         return true;
-#endif
+    }
+
+    inline bool minversionforRTandCompiler(dxrt::InferenceEngine* ie)
+    {
+        std::string rt_version = dxrt::Configuration::GetInstance().GetVersion();
+        std::string compiler_version = ie->GetModelVersion();
+        if(isVersionGreaterOrEqual(rt_version, "3.0.0"))
+        {
+            if(isVersionGreaterOrEqual(compiler_version, "v7"))
+            {
+                return true;
+            }
+            else{
+                std::cerr << "[DXAPP] [ER] Compiler version is too low. (required: >= 7, current: " << compiler_version << ")" << std::endl;
+            }
+        }
+        else{
+            std::cerr << "[DXAPP] [ER] DXRT library version is too low. (required: >= 3.0.0, current: " << rt_version << ")" << std::endl;
+        }
+        return false;
     }
 
 } // namespace common

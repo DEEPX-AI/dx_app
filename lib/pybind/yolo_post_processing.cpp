@@ -49,7 +49,7 @@ YoloPostProcess::YoloPostProcess(py::dict config)
             }
 
             std::string decoding_method = param_dict.contains("decoding_method") ? param_dict["decoding_method"].cast<std::string>() : "yolo_basic";
-            if (decoding_method == "yolo_basic" || decoding_method == "yolo_scale" || decoding_method == "yolox" || decoding_method == "yolo_pose" || decoding_method == "scrfd")
+            if (decoding_method == "yolo_basic" || decoding_method == "yolo_scale" || decoding_method == "yolox" || decoding_method == "yolo_pose" || decoding_method == "yolo_face")
             {
                 _param._decodeMethod = decoding_method;
 
@@ -57,7 +57,7 @@ YoloPostProcess::YoloPostProcess(py::dict config)
                 {
                     _param._numKeypoints = 17;
                 }
-                else if (decoding_method == "scrfd")
+                else if (decoding_method == "yolo_face")
                 {
                     _param._numKeypoints = 5;
                 }
@@ -206,7 +206,7 @@ void YoloPostProcess::SetConfig(py::dict config)
             }
 
             std::string decoding_method = param_dict.contains("decoding_method") ? param_dict["decoding_method"].cast<std::string>() : "yolo_basic";
-            if (decoding_method == "yolo_basic" || decoding_method == "yolo_scale" || decoding_method == "yolox" || decoding_method == "yolo_pose" || decoding_method == "scrfd")
+            if (decoding_method == "yolo_basic" || decoding_method == "yolo_scale" || decoding_method == "yolox" || decoding_method == "yolo_pose" || decoding_method == "yolo_face")
             {
                 _param._decodeMethod = decoding_method;
 
@@ -214,7 +214,7 @@ void YoloPostProcess::SetConfig(py::dict config)
                 {
                     _param._numKeypoints = 17;
                 }
-                else if (decoding_method == "scrfd")
+                else if (decoding_method == "yolo_face")
                 {
                     _param._numKeypoints = 5;
                 }
@@ -398,129 +398,9 @@ void YoloPostProcess::NMS(std::vector<std::vector<std::pair<float, int>>> &Score
     }
 }
 
-void YoloPostProcess::ProcessPPU(std::vector<std::vector<std::pair<float, int>>> &ScoreIndices,
-                                 std::vector<float> &Boxes,
-                                 std::vector<float> &Keypoints,
-                                 py::list &ie_output)
-{
-    int boxIdx = 0;
-    int box0, box1, box2, box3;
-    py::array output_arr = py::cast<py::array>(ie_output[0]);
-    py::buffer_info output_arr_info = output_arr.request();
-    int8_t *output_arr_ptr = static_cast<int8_t *>(output_arr_info.ptr);
-
-    for (int i = 0; i < output_arr_info.shape[1]; i++)
-    {
-
-        int8_t *data = output_arr_ptr + i * output_arr_info.shape[2];
-
-        float *box = reinterpret_cast<float *>(data);
-
-        uint8_t gY = *(data + 16);
-        uint8_t gX = *(data + 17);
-        uint8_t anchorIdx = *(data + 18);
-        uint8_t layerIdx = *(data + 19);
-
-        float score = *reinterpret_cast<float *>(data + 20);
-
-        if (score > _param._scoreThreshold)
-        {
-            uint32_t label;
-            float *kpts;
-            if (output_arr_info.shape[2] == 32)
-            {
-                label = *reinterpret_cast<uint32_t *>(data + 24);
-            }
-            else if (output_arr_info.shape[2] == 64)
-            {
-                label = 0;
-                kpts = reinterpret_cast<float *>(data + 24);
-            }
-            else if (output_arr_info.shape[2] == 256)
-            {
-                label = 0;
-                kpts = reinterpret_cast<float *>(data + 28);
-            }
-            else
-            {
-                std::cerr << "[Error] Unknown PPU Type !" << std::endl;
-                std::terminate();
-            }
-
-            ScoreIndices[label].emplace_back(score, boxIdx);
-
-            YoloLayerParam layer = _param._layers[layerIdx];
-
-            if (_param._decodeMethod == "yolo_basic" || _param._decodeMethod == "yolo_pose")
-            {
-                box0 = (box[0] * 2. - 0.5 + gX) * layer._stride;
-                box1 = (box[1] * 2. - 0.5 + gY) * layer._stride;
-                box2 = (box[2] * box[2] * 4.) * layer._anchorWidth[anchorIdx];
-                box3 = (box[3] * box[3] * 4.) * layer._anchorHeight[anchorIdx];
-            }
-            else if (_param._decodeMethod == "yolo_scale")
-            {
-                box0 = (box[0] * layer._scaleXY - 0.5 * (layer._scaleXY - 1) + gX) * layer._stride;
-                box1 = (box[1] * layer._scaleXY - 0.5 * (layer._scaleXY - 1) + gY) * layer._stride;
-                box2 = (box[2] * box[2] * 4.) * layer._anchorWidth[anchorIdx];
-                box3 = (box[3] * box[3] * 4.) * layer._anchorHeight[anchorIdx];
-            }
-            else if (_param._decodeMethod == "yolox")
-            {
-                box0 = (gX + box[0]) * layer._stride;
-                box1 = (gY + box[1]) * layer._stride;
-                box2 = exp(box[2]) * layer._stride;
-                box3 = exp(box[3]) * layer._stride;
-            }
-            else if (_param._decodeMethod == "scrfd")
-            {
-                box0 = (gX - box[0]) * layer._stride;
-                box1 = (gY - box[1]) * layer._stride;
-                box2 = (gX + box[2]) * layer._stride;
-                box3 = (gY + box[3]) * layer._stride;
-            }
-
-            if (_param._boxFormat == "corner")
-            {
-                Boxes.push_back(box0); /*x1*/
-                Boxes.push_back(box1); /*y1*/
-                Boxes.push_back(box2); /*x2*/
-                Boxes.push_back(box3); /*y2*/
-            }
-            else if (_param._boxFormat == "center")
-            {
-                Boxes.push_back(box0 - box2 / 2.); /*x1*/
-                Boxes.push_back(box1 - box3 / 2.); /*y1*/
-                Boxes.push_back(box0 + box2 / 2.); /*x2*/
-                Boxes.push_back(box1 + box3 / 2.); /*y2*/
-            }
-
-            if (_param._decodeMethod == "yolo_pose")
-            {
-                for (int k = 0; k < _param._numKeypoints; k++)
-                {
-                    Keypoints.push_back((kpts[3 * k + 0] * 2 - 0.5 + gX) * layer._stride);
-                    Keypoints.push_back((kpts[3 * k + 1] * 2 - 0.5 + gY) * layer._stride);
-                    Keypoints.push_back(_lastActivation(kpts[3 * k + 2]));
-                }
-            }
-            else if (_param._decodeMethod == "scrfd")
-            {
-                for (int k = 0; k < _param._numKeypoints; k++)
-                {
-                    Keypoints.push_back((kpts[2 * k + 0] + gX) * layer._stride);
-                    Keypoints.push_back((kpts[2 * k + 1] + gY) * layer._stride);
-                    Keypoints.push_back(0.5f);
-                }
-            }
-
-            boxIdx++;
-        }
-    }
-}
-
 void YoloPostProcess::ProcessONNX(std::vector<std::vector<std::pair<float, int>>> &ScoreIndices,
                                   std::vector<float> &Boxes,
+                                  std::vector<float> &Keypoints,
                                   py::list &ie_output)
 {
     int boxIdx = 0;
@@ -584,60 +464,114 @@ void YoloPostProcess::ProcessONNX(std::vector<std::vector<std::pair<float, int>>
     }
     else
     {
-        // yolov5 has an output of shape (batchSize, 25200, 85)
+        int n_dets = output_arr_info.shape[1];
+        int dimensions = output_arr_info.shape[2];
 
-        auto n_dets = output_arr_info.shape[1];
-        auto dimensions = output_arr_info.shape[2];
+        if (dimensions == 16)
+        {
+            for (int i = 0; i < n_dets; i++)
+            { 
+                float *data = output_arr_ptr + (dimensions * i);
 
-        for (int i = 0; i < n_dets; i++)
-        { // 25200
-
-            float *data = output_arr_ptr + (dimensions * i);
-
-            if (data[4] > _param._confThreshold)
-            {
-
-                float *classesScores = data + 5;
-
-                int ClassId = 0;
-                float maxClassScore = classesScores[0];
-
-                for (int class_idx = 0; class_idx < _param._numClasses; class_idx++)
+                if (data[4] > _param._confThreshold)
                 {
-                    if (classesScores[class_idx] > maxClassScore)
+                    int ClassId = 0;
+                    float score = data[4] * data[15];
+                    if (score > _param._scoreThreshold)
                     {
-                        maxClassScore = classesScores[class_idx];
-                        ClassId = class_idx;
+                        ScoreIndices[ClassId].emplace_back(score, boxIdx);
+
+                        box0 = data[0];
+                        box1 = data[1];
+                        box2 = data[2];
+                        box3 = data[3];
+
+                        if (_param._boxFormat == "corner")
+                        {
+                            Boxes.push_back(box0); /*x1*/
+                            Boxes.push_back(box1); /*y1*/
+                            Boxes.push_back(box2); /*x2*/
+                            Boxes.push_back(box3); /*y2*/
+                        }
+                        else if (_param._boxFormat == "center")
+                        {
+                            Boxes.push_back(box0 - box2 / 2.); /*x1*/
+                            Boxes.push_back(box1 - box3 / 2.); /*y1*/
+                            Boxes.push_back(box0 + box2 / 2.); /*x2*/
+                            Boxes.push_back(box1 + box3 / 2.); /*y2*/
+                        }
+
+                        for (int k = 0; k < _param._numKeypoints; k++)
+                        {
+                            Keypoints.push_back(data[5 + k * 2]);
+                            Keypoints.push_back(data[5 + k * 2 + 1]);
+                            Keypoints.push_back(0.5f);
+                        }
+
+                        boxIdx++;
                     }
                 }
+            }
+        }
+        else
+        {
+            for (int i = 0; i < n_dets; i++)
+            {
+                float *data = output_arr_ptr + (dimensions * i);
 
-                float score = maxClassScore * data[4];
-                if (score > _param._scoreThreshold)
+                if (data[4] > _param._confThreshold)
                 {
+                    int ClassId = 0;
 
-                    ScoreIndices[ClassId].emplace_back(score, boxIdx);
+                    float *classesScores = data + 5;
+                    float maxClassScore = classesScores[0];
 
-                    box0 = data[0];
-                    box1 = data[1];
-                    box2 = data[2];
-                    box3 = data[3];
-
-                    if (_param._boxFormat == "corner")
+                    for (int class_idx = 0; class_idx < _param._numClasses; class_idx++)
                     {
-                        Boxes.push_back(box0); /*x1*/
-                        Boxes.push_back(box1); /*y1*/
-                        Boxes.push_back(box2); /*x2*/
-                        Boxes.push_back(box3); /*y2*/
-                    }
-                    else if (_param._boxFormat == "center")
-                    {
-                        Boxes.push_back(box0 - box2 / 2.); /*x1*/
-                        Boxes.push_back(box1 - box3 / 2.); /*y1*/
-                        Boxes.push_back(box0 + box2 / 2.); /*x2*/
-                        Boxes.push_back(box1 + box3 / 2.); /*y2*/
+                        if (classesScores[class_idx] > maxClassScore)
+                        {
+                            maxClassScore = classesScores[class_idx];
+                            ClassId = class_idx;
+                        }
                     }
 
-                    boxIdx++;
+                    float score = maxClassScore * data[4];
+                    if (score > _param._scoreThreshold)
+                    {
+                        ScoreIndices[ClassId].emplace_back(score, boxIdx);
+
+                        box0 = data[0];
+                        box1 = data[1];
+                        box2 = data[2];
+                        box3 = data[3];
+
+                        if (_param._boxFormat == "corner")
+                        {
+                            Boxes.push_back(box0); /*x1*/
+                            Boxes.push_back(box1); /*y1*/
+                            Boxes.push_back(box2); /*x2*/
+                            Boxes.push_back(box3); /*y2*/
+                        }
+                        else if (_param._boxFormat == "center")
+                        {
+                            Boxes.push_back(box0 - box2 / 2.); /*x1*/
+                            Boxes.push_back(box1 - box3 / 2.); /*y1*/
+                            Boxes.push_back(box0 + box2 / 2.); /*x2*/
+                            Boxes.push_back(box1 + box3 / 2.); /*y2*/
+                        }
+
+                        if (dimensions == 57)
+                        {
+                            for (int k = 0; k < _param._numKeypoints; k++)
+                            {
+                                Keypoints.push_back(data[6 + k * 3]);
+                                Keypoints.push_back(data[6 + k * 3 + 1]);
+                                Keypoints.push_back(data[6 + k * 3 + 2]);
+                            }
+                        }
+
+                        boxIdx++;
+                    }
                 }
             }
         }
@@ -660,28 +594,37 @@ void YoloPostProcess::ProcessRAW(std::vector<std::vector<std::pair<float, int>>>
         py::buffer_info output_arr_info = output_arr.request();
         float *output_arr_ptr = static_cast<float *>(output_arr_info.ptr);
 
-        for (int gY = 0; gY < output_arr_info.shape[1]; gY++)
+        int channels = output_arr_info.shape[1];
+        int height = output_arr_info.shape[2];
+        int width = output_arr_info.shape[3];
+        
+        for (int gY = 0; gY < height; gY++) // H
         {
-            for (int gX = 0; gX < output_arr_info.shape[2]; gX++)
+            for (int gX = 0; gX < width; gX++) // W
             {
                 for (size_t anchorIdx = 0; anchorIdx < layer._anchorWidth.size(); anchorIdx++)
                 {
+                    const int numAttr = 4 + 1 + _param._numClasses;
+                    const int anchorOffset = anchorIdx * numAttr;
 
-                    float *data = output_arr_ptr + output_arr_info.shape[3] * output_arr_info.shape[2] * gY + output_arr_info.shape[3] * gX + anchorIdx * (4 + 1 + _param._numClasses);
+                    auto get_val = [&](int ch_offset) -> float {
+                        return output_arr_ptr[(anchorOffset + ch_offset) * height * width + gY * width + gX];
+                    };
 
-                    if (data[4] > rawThreshold)
+                    float raw_objectness = get_val(4);
+                    if (raw_objectness > rawThreshold)
                     {
-
-                        float objectness = _lastActivation(data[4]);
+                        float objectness = _lastActivation(raw_objectness);
 
                         int ClassId = 0;
-                        float maxClassScore = _lastActivation(data[5]);
+                        float maxClassScore = _lastActivation(get_val(5));
 
                         for (int cls = 0; cls < _param._numClasses; cls++)
                         {
-                            if (_lastActivation(data[5 + cls]) > maxClassScore)
+                            float cls_score = _lastActivation(get_val(5 + cls));
+                            if (cls_score > maxClassScore)
                             {
-                                maxClassScore = _lastActivation(data[5 + cls]);
+                                maxClassScore = cls_score;
                                 ClassId = cls;
                             }
                         }
@@ -693,46 +636,46 @@ void YoloPostProcess::ProcessRAW(std::vector<std::vector<std::pair<float, int>>>
 
                             if (_param._decodeMethod == "yolo_basic" || _param._decodeMethod == "yolo_pose")
                             {
-                                box0 = (_lastActivation(data[0]) * 2. - 0.5 + gX) * layer._stride;
-                                box1 = (_lastActivation(data[1]) * 2. - 0.5 + gY) * layer._stride;
-                                box2 = pow(_lastActivation(data[2]) * 2, 2) * layer._anchorWidth[anchorIdx];
-                                box3 = pow(_lastActivation(data[3]) * 2, 2) * layer._anchorHeight[anchorIdx];
+                                box0 = (_lastActivation(get_val(0)) * 2. - 0.5 + gX) * layer._stride;
+                                box1 = (_lastActivation(get_val(1)) * 2. - 0.5 + gY) * layer._stride;
+                                box2 = pow(_lastActivation(get_val(2)) * 2, 2) * layer._anchorWidth[anchorIdx];
+                                box3 = pow(_lastActivation(get_val(3)) * 2, 2) * layer._anchorHeight[anchorIdx];
                             }
                             else if (_param._decodeMethod == "yolo_scale")
                             {
-                                box0 = (_lastActivation(data[0]) * layer._scaleXY - 0.5 * (layer._scaleXY - 1) + gX) * layer._stride;
-                                box1 = (_lastActivation(data[1]) * layer._scaleXY - 0.5 * (layer._scaleXY - 1) + gY) * layer._stride;
-                                box2 = pow(_lastActivation(data[2]) * 2, 2) * layer._anchorWidth[anchorIdx];
-                                box3 = pow(_lastActivation(data[3]) * 2, 2) * layer._anchorHeight[anchorIdx];
+                                box0 = (_lastActivation(get_val(0)) * layer._scaleXY - 0.5 * (layer._scaleXY - 1) + gX) * layer._stride;
+                                box1 = (_lastActivation(get_val(1)) * layer._scaleXY - 0.5 * (layer._scaleXY - 1) + gY) * layer._stride;
+                                box2 = pow(_lastActivation(get_val(2)) * 2, 2) * layer._anchorWidth[anchorIdx];
+                                box3 = pow(_lastActivation(get_val(3)) * 2, 2) * layer._anchorHeight[anchorIdx];
                             }
                             else if (_param._decodeMethod == "yolox")
                             {
-                                box0 = (gX + data[0]) * layer._stride;
-                                box1 = (gY + data[1]) * layer._stride;
-                                box2 = _lastActivation(data[2]) * layer._stride;
-                                box3 = _lastActivation(data[3]) * layer._stride;
+                                box0 = (gX + get_val(0)) * layer._stride;
+                                box1 = (gY + get_val(1)) * layer._stride;
+                                box2 = _lastActivation(get_val(2)) * layer._stride;
+                                box3 = _lastActivation(get_val(3)) * layer._stride;
                             }
-                            else if (_param._decodeMethod == "scrfd")
+                            else if (_param._decodeMethod == "yolo_face")
                             {
-                                box0 = (gX - data[0]) * layer._stride;
-                                box1 = (gY - data[1]) * layer._stride;
-                                box2 = (gX + data[2]) * layer._stride;
-                                box3 = (gY + data[3]) * layer._stride;
+                                box0 = (gX - get_val(0)) * layer._stride;
+                                box1 = (gY - get_val(1)) * layer._stride;
+                                box2 = (gX + get_val(2)) * layer._stride;
+                                box3 = (gY + get_val(3)) * layer._stride;
                             }
 
                             if (_param._boxFormat == "corner")
                             {
-                                Boxes.push_back(box0); /*x1*/
-                                Boxes.push_back(box1); /*y1*/
-                                Boxes.push_back(box2); /*x2*/
-                                Boxes.push_back(box3); /*y2*/
+                                Boxes.push_back(box0);
+                                Boxes.push_back(box1);
+                                Boxes.push_back(box2);
+                                Boxes.push_back(box3);
                             }
                             else if (_param._boxFormat == "center")
                             {
-                                Boxes.push_back(box0 - box2 / 2.); /*x1*/
-                                Boxes.push_back(box1 - box3 / 2.); /*y1*/
-                                Boxes.push_back(box0 + box2 / 2.); /*x2*/
-                                Boxes.push_back(box1 + box3 / 2.); /*y2*/
+                                Boxes.push_back(box0 - box2 / 2.);
+                                Boxes.push_back(box1 - box3 / 2.);
+                                Boxes.push_back(box0 + box2 / 2.);
+                                Boxes.push_back(box1 + box3 / 2.);
                             }
 
                             boxIdx++;
@@ -775,13 +718,7 @@ py::array_t<float> YoloPostProcess::Run(py::list ie_output,
 
         if (output_arr_info.ndim == 3)
         {
-            if (output_arr_info.shape[2] == 32 || output_arr_info.shape[2] == 64 || output_arr_info.shape[2] == 256)
-            {
-                ProcessPPU(ScoreIndices, Boxes, Keypoints, ie_output);
-            }
-            else{
-                ProcessONNX(ScoreIndices, Boxes, ie_output);
-            }
+            ProcessONNX(ScoreIndices, Boxes, Keypoints, ie_output);
         }
         else
         {

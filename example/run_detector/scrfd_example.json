@@ -1,0 +1,57 @@
+{
+    "description":"run yolo face detector",
+    "usage":"detection",
+    "model":{
+        "path":"./assets/models/SCRFD500M_1.dxnn",
+        "param":{
+            "name":"scrfd",
+            "input_width" : 640,
+            "input_height" : 640,
+            "score_threshold":0.25,
+            "iou_threshold":0.4,
+            "last_activation":"sigmoid",
+            "decoding_method":"scrfd",
+            "box_format":"center",
+            "kpt_order":"front",
+            "kpt_count":5,
+            "final_outputs":[
+                "score_8", "score_16", "score_32", "bbox_8", "bbox_16", "bbox_32", "kps_8", "kps_16", "kps_32"
+            ],
+            "layer":[
+                { "name":"score_8", "shape":[1, 12800, 1] },
+                { "name":"score_16", "shape":[1, 3200, 1] },
+                { "name":"score_32", "shape":[1, 800, 1] },
+                { "name":"bbox_8", "shape":[1, 12800, 4] },
+                { "name":"bbox_16", "shape":[1, 3200, 4] },
+                { "name":"bbox_32", "shape":[1, 800, 4] },
+                { "name":"kps_8", "shape":[1, 12800, 10] },
+                { "name":"kps_16", "shape":[1, 3200, 10] },
+                { "name":"kps_32", "shape":[1, 800, 10] }
+            ]
+        }
+    },
+    "input":{
+        "format":"RGB",
+        "sources":[
+            {
+                "type":"image", 
+                "path":"sample/face_sample.jpg"
+            }
+        ]
+    },
+    "output":{
+        "description":"output type is used for post processing, that yolo, ssd, etc...",
+        "classes":[ 
+            "face"
+        ],
+        "type":"yolo"
+    },
+    "application":{
+        "description":"result of post-processing after inference, you can use \"save\" or \"realtime\" or \"none\"",
+        "type":"save",
+        "resolution": [
+            960, 
+            540
+        ]
+    }
+}

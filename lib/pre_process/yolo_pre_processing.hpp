@@ -6,7 +6,7 @@
 #include <iostream>
 #include <sstream>
 
-#include "common/objects.hpp"
+#include <common/objects.hpp>
 
 #include <opencv2/opencv.hpp>
 
@@ -17,17 +17,18 @@ namespace yolo
     class PreProcessing
     {
     private:
-        dxapp::common::Size _oldSize;
-        dxapp::common::Size _newSize;
+        bool _letterBox;
         AppInputFormat _inputFormat;
         int _fillPadvalue = 114;
-        float _preprocRatio;
-        dxapp::common::Size _resizeSize;
-        float _dw, _dh;
         int _top, _bottom, _left, _right;
+        float _dw, _dh;
+        float _preprocRatio;
+        dxapp::common::Size _oldSize;
+        dxapp::common::Size _newSize;
+        dxapp::common::Size _resizeSize;
         /* data */
     public:
-        PreProcessing(dxapp::common::Size oldSize, dxapp::common::Size newSize, AppInputFormat inputFormat)
+        PreProcessing(dxapp::common::Size oldSize, dxapp::common::Size newSize, AppInputFormat inputFormat, bool letterBox=true)
            :_oldSize(oldSize), _newSize(newSize), _inputFormat(inputFormat)
            {
                 _preprocRatio = std::min((float)_newSize._width/_oldSize._width, (float)_newSize._height/_oldSize._height);
@@ -39,7 +40,7 @@ namespace yolo
                 _bottom = std::max((int)std::round(_dh + 0.1), 0);
                 _left = std::max((int)std::round(_dw - 0.1), 0);
                 _right = std::max((int)std::round(_dw + 0.1), 0);
-                if(newSize == oldSize)
+                if(newSize == oldSize || !letterBox)
                 {
                     _fillPadvalue = -1;
                 }

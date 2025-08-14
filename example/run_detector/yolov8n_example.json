@@ -5,30 +5,28 @@
         "path": "./assets/models/YoloV8N.dxnn",
         "param": {
             "name": "YoloV8N",
-            "input_size" : 640,
+            "input_width" : 640,
+            "input_height" : 640,
             "score_threshold": 0.3,
             "iou_threshold": 0.4,
             "last_activation": "sigmoid",
             "decoding_method": "yolov8",
             "box_format": "center",
+            "final_outputs":[
+                "output0"
+            ],
             "layer": [
                 {
-                    "name": "2",
-                    "stride": 8,
-                    "anchor_width": [],
-                    "anchor_height": []
+                    "name": "output0",
+                    "shape":[1, 84, 8400]
                 },
                 {
-                    "name": "1",
-                    "stride": 16,
-                    "anchor_width": [],
-                    "anchor_height": []
+                    "name": "/model.22/Sigmoid_output_0",
+                    "shape":[1, 80, 8400]
                 },
                 {
-                    "name": "0",
-                    "stride": 32,
-                    "anchor_width": [],
-                    "anchor_height": []
+                    "name": "/model.22/dfl/conv/Conv_output_0",
+                    "shape":[1, 1, 4, 8400]
                 }
             ]
         }

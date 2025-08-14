@@ -5,13 +5,21 @@
         "path":"./assets/models/YoloV7.dxnn",
         "param": {
             "name": "YOLOv7",
-            "input_size" : 640,
+            "input_width" : 640,
+            "input_height" : 640,
             "score_threshold": 0.25,
             "iou_threshold": 0.3,
             "last_activation": "sigmoid",
             "decoding_method": "yolo_basic",
             "box_format": "center",
+            "final_outputs":[
+                "output"
+            ],
             "layer": [
+                {
+                    "name": "output",
+                    "shape":[1, 25200, 85]
+                },
                 {
                     "name": "onnx::Reshape_491",
                     "stride": 8,

@@ -11,7 +11,7 @@ This chapter introduces a quick-start experience using pre-built demo applicatio
 - **Classification**: Basic Classification, ImageNet Classification  
 - **Object Detection**: Yolo Object Detection, Yolo Object Detection - Multi Channel  
 - **Pose Estimation**: Human Pose Estimation  
-- **Segmentation**: Semantic Segmentation PIDNet (CityScape dataset Only), Semantic Segmentation PIDNet (CityScape dataset Only) + Yolo Object Detection  
+- **Segmentation**: Semantic Segmentation DeepLabV3 (CityScape dataset Only), Semantic Segmentation DeepLabV3 (CityScape dataset Only) + Yolo Object Detection  
 
 ---
 
@@ -45,6 +45,9 @@ bin\classification.exe -m assets/models/EfficientNetB0_4.dxnn -i sample/ILSVRC20
 
 ```
 Top1 Result : class 321
+[DXAPP] [INFO] total time : 5703 us
+[DXAPP] [INFO] per frame time : 5703 us
+[DXAPP] [INFO] fps : 200
 ```
 
 **ImageNet Classification Demo**  
@@ -65,7 +68,7 @@ bin\imagenet_classification.exe -m assets\models\EfficientNetB0_4.dxnn -i exampl
 
 ![](./../resources/03_01_Output_of_imagenet.png){ width=400px }
 
-The output shows the accuracy of the classification result is **74.3%** and the frame rate (rps) is **634**.  
+The output shows the accuracy of the classification result is **74.3%** and the frame rate (fps) is **634**.  
 
 
 ### Object Detection  
@@ -82,18 +85,24 @@ This demo performs object detection on a single input stream using a YOLOv5 mode
 ```
 ./bin/yolo -m assets/models/YOLOV5S_3.dxnn -i sample/1.jpg -p 1
 ...
-Detected 8 boxes.
-    BBOX:person(0) 0.859366, (307.501, 138.443, 400.977, 364.696)
-    BBOX:oven(69) 0.661055, (-0.446404, 225.652, 155.377, 325.085)
-    BBOX:bowl(45) 0.564862, (46.2462, 314.978, 105.182, 347.728)
-    BBOX:person(0) 0.561198, (0.643028, 295.378, 47.8478, 331.855)
-    BBOX:oven(69) 0.494507, (390.414, 245.532, 495.489, 359.54)
-    BBOX:bowl(45) 0.47086, (-0.300865, 328.801, 69.139, 379.72)
-    BBOX:bowl(45) 0.452027, (25.9788, 359.192, 80.7059, 392.734)
-    BBOX:pottedplant(58) 0.368497, (0.423544, 86.835, 51.0048, 206.592)
+  Detected 10 boxes.
+    BBOX:person(0) 0.877039, (308.116, 138.729, 400.442, 363.999)
+    BBOX:bowl(45) 0.760544, (25.5619, 359.37, 78.8973, 393.056)
+    BBOX:bowl(45) 0.749591, (46.0043, 315.064, 107.362, 346.737)
+    BBOX:oven(69) 0.706145, (0.168434, 228.332, 154.418, 324.19)
+    BBOX:person(0) 0.631538, (0.423515, 295.068, 47.6304, 332.823)
+    BBOX:bowl(45) 0.586059, (0.148106, 329.093, 68.946, 379.93)
+    BBOX:oven(69) 0.571996, (389.631, 245.565, 495.666, 359.34)
+    BBOX:bottle(39) 0.455668, (172.258, 268.919, 200.505, 322.398)
+    BBOX:pottedplant(58) 0.442108, (0.457752, 86.3962, 51.3189, 208.127)
+    BBOX:bowl(45) 0.407671, (124.369, 219.818, 145.423, 232.568)
+  Result saved to result.jpg
+  [DXAPP] [INFO] total time : 23618 us
+  [DXAPP] [INFO] per frame time : 23618 us
+  [DXAPP] [INFO] fps : 43.4783
 ```
 
-In this example, a person is detected with **confidence 0.859**, and the bounding box is defined by the four coordinates.
+In this example, a person is detected with **confidence 0.877**, and the bounding box is defined by the four coordinates.
 
 ![](./../resources/03_02_Output_of_yolo.png){ width=600px }
 
@@ -102,8 +111,8 @@ YOLO models in **DX-APP** require external configuration for pre-processing and 
 
 Pre-processing and post-processing parameters  
 
-- Defined in:  `yolo_cfg.cpp`  
-- Referenced in: `yolo_demo.cpp`  
+- Defined in:  `demos/demo_utils/yolo_cfg.cpp`  
+- Referenced in: `yolo_1channel.cpp`  
  
 To customize,  
 
@@ -112,22 +121,19 @@ To customize,
 
 ```
 YoloParam yolov5s_512 = {
-    .height = 512,
-    .width = 512,
-    .confThreshold = 0.25,
-    .scoreThreshold = 0.3,
-    .iouThreshold = 0.4,
-    .numBoxes = -1,
-    .numClasses = 80,
-    .layers = {
-        {
-            .numGridX = 64,
-            .numGridY = 64,
-            .numBoxes = 3,
-            .anchorWidth = { 10.0, 16.0, 33.0 },
-            .anchorHeight = { 13.0, 30.0, 23.0 },
-            .tensorIdx = { 0 },
-        },
+    512,  // height
+    512,  // width
+    0.25, // confThreshold
+    0.3,  // scoreThreshold
+    0.4,  // iouThreshold
+    0,   // numBoxes
+    80,   // numClasses
+    "output", // onnx output name
+    {     // if use_ort = off, layers config
+        createYoloLayerParam("378", 40, 40, 3, { 10.0f, 16.0f, 33.0f }, { 13.0f, 30.0f, 23.0f }, { 0 }),
+        createYoloLayerParam("439", 20, 20, 3, { 30.0f, 62.0f, 59.0f }, { 61.0f, 45.0f, 119.0f }, { 1 }),
+        createYoloLayerParam("500", 10, 10, 3, { 116.0f, 156.0f, 373.0f }, { 90.0f, 198.0f, 326.0f }, { 2 })
+    },
         .
         .
         .
@@ -190,8 +196,8 @@ YOLO models in **DX-APP** require external configuration for pre-processing and 
 
 Pre-processing and post-processing parameters  
 
-- Defined in: `yolo_cfg.cpp`  
-- Referenced in: `yolo_demo.cpp`  
+- Defined in:  `demos/demo_utils/yolo_cfg.cpp`  
+- Referenced in: `yolo_multi_channels.cpp`  
 
 To customize,  
 
@@ -200,28 +206,25 @@ To customize,
 
 ```
 YoloParam yolov5s_512 = {
-    .height = 512,
-    .width = 512,
-    .confThreshold = 0.25,
-    .scoreThreshold = 0.3,
-    .iouThreshold = 0.4,
-    .numBoxes = -1,
-    .numClasses = 80,
-    .layers = {
-        {
-            .numGridX = 64,
-            .numGridY = 64,
-            .numBoxes = 3,
-            .anchorWidth = { 10.0, 16.0, 33.0 },
-            .anchorHeight = { 13.0, 30.0, 23.0 },
-            .tensorIdx = { 0 },
-        },
+    512,  // height
+    512,  // width
+    0.25, // confThreshold
+    0.3,  // scoreThreshold
+    0.4,  // iouThreshold
+    0,   // numBoxes
+    80,   // numClasses
+    "output", // onnx output name
+    {     // if use_ort = off, layers config
+        createYoloLayerParam("378", 40, 40, 3, { 10.0f, 16.0f, 33.0f }, { 13.0f, 30.0f, 23.0f }, { 0 }),
+        createYoloLayerParam("439", 20, 20, 3, { 30.0f, 62.0f, 59.0f }, { 61.0f, 45.0f, 119.0f }, { 1 }),
+        createYoloLayerParam("500", 10, 10, 3, { 116.0f, 156.0f, 373.0f }, { 90.0f, 198.0f, 326.0f }, { 2 })
+    },
         .
         .
         .
     },
     .classNames = {"person" ,"bicycle" ,"car" ,"motorcycle", . . .}
-};
+}
 ```
 
 ```
@@ -282,48 +285,16 @@ The YOLO pose model predicts human key points for each detected person within an
 
 ![](./../resources/03_04_Output_of_YOLO_Pose_Estimation.png){ width=600px }
 
-**Tensor Shape and Alignment**  
-The input and output tensors of the model use the NHWC format by default.  
-
-Due to DeepX NPU architecture constraints, the number of channels (including output classes) **must** be aligned based on the following rule.  
-
-- If the channel count is less than 64, it is aligned to the nearest multiple of 16 bytes.  
-- If the channel count is 64 or greater, it is aligned to the nearest multiple of 64 bytes.  
-
-Example  
-
-- Original shape: **[1, 40, 52, 36]**  
-- Aligned shape: **[1, 52, 36, 40 + 24]** (adding 24 bytes of dummy to satisfy alignment.)  
-
-This alignment ensures the tensor complies with NPU processing requirements.  
-
-```
-inputs
-    images, INT8, [1, 640, 640, 3,  ], 0
-outputs
-    /0/model.33/m_kpt.0/Conv_output_0, FLOAT, [1, 80, 80, 192, ], 0 
-            ----> Key points per 3 anchor boxes
-    /0/model.33/m.0/Conv_output_0, FLOAT, [1, 80, 80, 64, ], 0	
-            ----> Object Box Info
-    /0/model.33/m_kpt.1/Conv_output_0, FLOAT, [1, 40, 40, 192, ], 0
-    /0/model.33/m.1/Conv_output_0, FLOAT, [1, 40, 40, 64, ], 0
-    /0/model.33/m_kpt.2/Conv_output_0, FLOAT, [1, 20, 20, 192, ], 0
-    /0/model.33/m.2/Conv_output_0, FLOAT, [1, 20, 20, 64, ], 0
-    /0/model.33/m_kpt.3/Conv_output_0, FLOAT, [1, 10, 10, 192, ], 0
-    /0/model.33/m.3/Conv_output_0, FLOAT, [1, 10, 10, 64, ], 0
-```
-
 **Pre-processing and Post-processing Parameters**  
 Yolo Pose models do not embed external pre-processing and post-processing parameters in the compiled `.dxnn` file.  
 
-- Parameters defined in: `pose_estimation/yolo_cfg.cpp`  
-- Parameters referenced in: `pose_demo.cpp`   
+- Parameters defined in: `demos/demo_utils/yolo_cfg.cpp`  
+- Parameters referenced in: `yolo_pose.cpp`   
 
 ```
 // pre/post parameter table
 YoloParam yoloParams[] = {
     [0] = yolov5s6_pose_640, // ----> p option : 0
-    [1] = yolov5s6_pose_1280
 };
 ```
 
@@ -380,7 +351,7 @@ SegmentationParam segCfg[] = {
 ```
 
 ```
-./bin/pidnet -m assets/models/DeepLabV3PlusMobileNetV2_2.dxnn -i sample/8.jpg
+./bin/segmentation -m assets/models/DeepLabV3PlusMobileNetV2_2.dxnn -i sample/8.jpg
 ```
 
 ![](./../resources/03_05_Ouput_of_Segmentation.png){ width=600px }
@@ -403,7 +374,7 @@ Benefits of Combined Pipeline
 - Object detection focuses on identifying and locating distinct object instances  
 
 ```
-./bin/od_pid -m0 assets/models/YOLOV5S_3.dxnn -m1 assets/models/DeepLabV3PlusMobileNetV2_2.dxnn -i sample/8.jpg
+./bin/od_segmentation -m0 assets/models/YOLOV5S_3.dxnn -p0 1 -m1 assets/models/DeepLabV3PlusMobileNetV2_2.dxnn -i sample/8.jpg
 ```
 
 ![](./../resources/03_06_Output_of_od_segmentation.png){ width=600px }

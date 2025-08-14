@@ -118,13 +118,13 @@ namespace common
 
     struct BBox
     {
-        float _xmin;
-        float _ymin;
-        float _xmax;
-        float _ymax;
-        float _width;
-        float _height;
-        std::vector<Point_f> _kpts;
+        float _xmin = 0.f;
+        float _ymin = 0.f;
+        float _xmax = 0.f;
+        float _ymax = 0.f;
+        float _width = 0.f;
+        float _height = 0.f;
+        std::vector<Point_f> _kpts = {};
         friend std::ostream& operator<<(std::ostream& os, const BBox& a)
         {
             os << a._xmin << ", " << a._ymin << ", " << a._width << ", " << a._height;
@@ -134,9 +134,9 @@ namespace common
     struct Object
     {
         BBox _bbox;
-        float _conf;
-        int _classId;
-        std::string _name;
+        float _conf = 0.f;
+        int _classId = 0;
+        std::string _name = "";
         friend std::ostream& operator<<(std::ostream& os, const Object& a)
         {
             os << "obj info : " << a._classId << " : " << a._bbox ;
@@ -149,8 +149,8 @@ namespace common
 
     struct DetectObject
     {
-        std::vector<Object> _detections;
-        int _num_of_detections;
+        std::vector<Object> _detections = {};
+        int _num_of_detections = 0;
         friend std::ostream& operator<<(std::ostream& os, const DetectObject& a)
         {
             os << "detected : " << a._num_of_detections ;
@@ -160,9 +160,9 @@ namespace common
 
     struct ClsObject
     {
-        int _top1;
-        std::vector<float> _scores;
-        std::string _name;
+        int _top1 = 0;
+        std::vector<float> _scores = {};
+        std::string _name = "";
     };
     
 } // namespace common

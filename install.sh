@@ -35,7 +35,7 @@ function help() {
     echo -e "Install necessary components and libraries for the project."
     echo -e ""
     echo -e "${COLOR_BOLD}Options:${COLOR_RESET}"
-    echo -e "  ${COLOR_GREEN}--arch <ARCH>${COLOR_RESET}            Specify the target CPU architecture. Valid options: [x86_64, aarch64, riscv64]."
+    echo -e "  ${COLOR_GREEN}--arch <ARCH>${COLOR_RESET}            Specify the target CPU architecture. Valid options: [x86_64, aarch64]."
     echo -e "  ${COLOR_GREEN}--dep${COLOR_RESET}                    Install core dependencies such as CMake, GCC, Ninja, etc."
     echo -e "  ${COLOR_GREEN}--opencv${COLOR_RESET}                 (Optional) Install the OpenCV package using system packages."
     echo -e "  ${COLOR_GREEN}--opencv-source-build${COLOR_RESET}    (Optional) Install the OpenCV package by compiling from source."
@@ -121,7 +121,6 @@ function install_dep() {
         fi
         sudo apt install ninja-build
         sudo apt-get -y install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
-        sudo apt-get -y install gcc-riscv64-linux-gnu g++-riscv64-linux-gnu
     fi
 
     install_python
@@ -136,8 +135,6 @@ function install_opencv() {
               arm64) toolchain_define="-D CMAKE_TOOLCHAIN_FILE=../platforms/linux/aarch64-gnu.toolchain.cmake -D CMAKE_INSTALL_PREFIX=$DX_SRC_DIR/extern/$target_arch "
               ;;
               aarch64) toolchain_define="-D CMAKE_TOOLCHAIN_FILE=../platforms/linux/aarch64-gnu.toolchain.cmake -D CMAKE_INSTALL_PREFIX=$DX_SRC_DIR/extern/$target_arch "
-              ;;
-              riscv64) toolchain_define="-D CMAKE_TOOLCHAIN_FILE=../platforms/linux/riscv64-gnu.toolchain.cmake -D CMAKE_INSTALL_PREFIX=$DX_SRC_DIR/extern/$target_arch "
               ;;
             esac  
             if [ $(uname -m) == "arm64" ] && [ $target_arch == "aarch64" ]; then  

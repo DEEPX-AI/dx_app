@@ -4,7 +4,7 @@ SCRIPT_DIR=$(realpath "$(dirname "$0")")
 BASE_URL="https://sdk.deepx.ai/"
 
 # default value
-SOURCE_PATH="res/models/models-1_60_1.tar.gz"
+SOURCE_PATH="res/models/models-2_0_0.tar.gz"
 OUTPUT_DIR="$SCRIPT_DIR/assets/models"
 SYMLINK_TARGET_PATH=""
 SYMLINK_ARGS=""

@@ -5,31 +5,21 @@
         "path": "./assets/models/YOLOV9S.dxnn",
         "param": {
             "name": "YOLOV9S",
-            "input_size" : 640,
+            "input_width" : 640,
+            "input_height" : 640,
             "score_threshold": 0.3,
             "iou_threshold": 0.4,
             "last_activation": "sigmoid",
             "decoding_method": "yolov9",
             "box_format": "center",
+            "final_outputs":[
+                "output0"
+            ],
             "layer": [
-              {
-                "name": "2",
-                "stride": 8,
-                "anchor_width": [],
-                "anchor_height": []
-              },
-              {
-                "name": "1",
-                "stride": 16,
-                "anchor_width": [],
-                "anchor_height": []
-              },
-              {
-                "name": "0",
-                "stride": 32,
-                "anchor_width": [],
-                "anchor_height": []
-              }
+                {
+                    "name": "output0",
+                    "shape":[1, 84, 8400]
+                }
             ]
         }
     },
