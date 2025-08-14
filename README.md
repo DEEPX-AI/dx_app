@@ -52,11 +52,9 @@ Install the followings first.
   ```shell
   ./install.sh --opencv  
   ```            
-  To specify the compilation environment as aarch64 or riscv64, use the **--arch** option.     
+  To specify the compilation environment as aarch64, use the **--arch** option.     
   ```shell
   ./install.sh --arch aarch64 --opencv
-  # or
-  # ./install.sh --arch riscv64 --opencv
   ```           
   If you want to use the Host PC's CPU and GPU acceleration, you need to build and install OpenCV manually.    
   This process is described at [install.sh](install.sh#L134). 
@@ -70,11 +68,9 @@ Install the followings first.
   ```shell
   ./build.sh --clean
   ```
-  To specify the compilation environment as aarch64 or riscv64, use the **--arch** option.     
+  To specify the compilation environment as aarch64, use the **--arch** option.     
   ```shell
   ./build.sh --arch aarch64
-  # or
-  # ./build.sh --arch riscv64
   ```              
                       
 ### Run Examples          

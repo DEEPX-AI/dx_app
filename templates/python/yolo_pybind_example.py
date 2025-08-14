@@ -1,66 +1,64 @@
-import os, cv2, json, time, argparse, queue, threading
+import os, cv2, json, time, argparse, queue, threading, sys
 import numpy as np
-from dx_engine import InferenceEngine
-from dx_engine import version as dx_version
+from packaging import version
+from dx_engine import InferenceEngine, Configuration
 from dx_postprocess import YoloPostProcess
 
+
+def draw_detections(frame_v, pp_output, colors):
+    for i in range(pp_output.shape[0]):
+        pt1 = pp_output[i, :2].astype(int)
+        pt2 = pp_output[i, 2:4].astype(int)
+        class_id = int(pp_output[i, 5]) if pp_output.shape[1] >= 6 else 0
+        cv2.rectangle(frame_v, pt1, pt2, colors[class_id % len(colors)], 2)
+        if pp_output.shape[1] > 6:
+            kpts = pp_output[i, 6:]
+            kpts_reshape = kpts.reshape(-1, 3)
+            for k in range(kpts_reshape.shape[0]):
+                kpt = kpts_reshape[k, :2].astype(int)
+                cv2.circle(frame_v, kpt, 1, (0, 0, 255), -1)
+    return frame_v
+
+
 class UserArgs:
-    def __init__(self, ypp:YoloPostProcess, frame, ratio, pad):
-        self.ypp_ = ypp
-        self.frame_ = frame
-        self.ratio_ = ratio
-        self.pad_ = pad
+    def __init__(self, frame, ratio, pad, target_output_tensor_idx, output_queue:queue.Queue):
+        self.frame = frame
+        self.ratio = ratio
+        self.pad = pad
+        self.target_output_tensor_idx = target_output_tensor_idx
+        self.output_queue = output_queue
 
-        
-def visualize(args):
-    
-    colors = np.random.randint(0, 256, [80, 3], np.uint8).tolist()
 
+def post_process_worker(ypp:YoloPostProcess, output_queue:queue.Queue, pp_output_queue:queue.Queue):
     while True:
-        if q.qsize() > 0:
-
-            q_item = q.get()
-            q.task_done()
-            
-            if q_item is None:
-                cv2.destroyAllWindows()
+        item = output_queue.get()
+        try:
+            if item is None:
+                # sentinel for shutdown
                 break
-            
-            if args.visualize:
-                
-                frame = q_item[0]
-                pp_output = q_item[1]
-                
-                # visualize
-                for i in range(pp_output.shape[0]):
-                    pt1, pt2, score, class_id = pp_output[i, :2].astype(int), pp_output[i, 2:4].astype(int), pp_output[i, 4], pp_output[i, 5].astype(int)
-                    frame = cv2.rectangle(frame, pt1, pt2, colors[class_id], 2)
-                    
-                    if pp_output.shape[1] > 6:
-                        kpts = pp_output[i, 6:]
-                        kpts_reshape = kpts.reshape(-1, 3)
-                        for k in range(kpts_reshape.shape[0]):
-                            kpt = kpts_reshape[k, :2].astype(int)
-                            kpt_score = kpts_reshape[k, -1]
-                            cv2.circle(frame, kpt, 1, (0, 0, 255), -1)
-                            
-                cv2.imshow('result', frame)
-                if cv2.waitKey(1) == ord('q'):
-                    cv2.destroyAllWindows()
-                    break
-        else: 
-            time.sleep(0.0001)
-                
-def pp_callback(ie_outputs, user_args):
-    if dx_version.__version__ == '1.1.0':
-        value:UserArgs = user_args
-    else:
-        value:UserArgs = user_args.value
-    pp_output_ = value.ypp_.Run(ie_outputs, value.ratio_, value.pad_)
-    q.put([value.frame_, pp_output_])
+            frame, ie_outputs, ratio, pad = item
+            pp_output = ypp.Run(ie_outputs, ratio, pad)
+            pp_output_queue.put((frame, pp_output))
+        finally:
+            output_queue.task_done()
+
+
+def wait_worker(ie:InferenceEngine, req_id_queue:queue.Queue, output_queue:queue.Queue):
+    while True:
+        item = req_id_queue.get()
+        try:
+            if item is None:
+                break
+            req_id, frame, ratio, pad, target_idx = item
+            ie_output = ie.wait(req_id)
+            if target_idx is not None:
+                ie_output = [ie_output[target_idx]]
+            output_queue.put((frame, ie_output, ratio, pad))
+        finally:
+            req_id_queue.task_done()
+
 
 def letter_box(image_src, new_shape=(512, 512), fill_color=(114, 114, 114), format=None):
-    
     src_shape = image_src.shape[:2] # height, width
     if isinstance(new_shape, int):
         new_shape = (new_shape, new_shape)
@@ -82,9 +80,15 @@ def letter_box(image_src, new_shape=(512, 512), fill_color=(114, 114, 114), form
     if format is not None:
         image_new = cv2.cvtColor(image_new, format)
     
-    return image_new, ratio, (dw, dh)    
-        
+    return image_new, ratio, (dw, dh)
+
+
 def run_example(args):
+
+    config = Configuration()
+    if version.parse(config.get_version()) < version.parse('3.0.0'):
+        print("DX-RT version 3.0.0 or higher is required. Please update DX-RT to the latest version.")
+        exit()
     
     # Load json config
     with open(args.config_path, "r") as f:
@@ -95,20 +99,48 @@ def run_example(args):
     
     # Initialize InferenceEngine
     ie = InferenceEngine(json_config["model"]["path"])
+
+    if version.parse(ie.get_model_version()) < version.parse('7'):
+        print("DXNN file format version 7 or higher is required. Please update/re-export the model.")
+        exit()
+
+    output_tensors_info = ie.get_output_tensors_info()
+    target_output_tensor_idx = None
+    if 'target_output_tensor_name' in json_config:
+        for i, tensor_info in enumerate(output_tensors_info):
+            if tensor_info['name'] == json_config['target_output_tensor_name']:
+                target_output_tensor_idx = i
+                break
     
-    if args.run_async: 
-        # Register callback function 
-        ie.register_callback(pp_callback)
-        
-        # Thread for Visualization
-        vis_thread = threading.Thread(target=visualize, args=(args,))
-        vis_thread.start()
-    else:
-        # Make color map
-        colors = np.random.randint(0, 256, [80, 3], np.uint8).tolist()
+    if target_output_tensor_idx is None:
+        layer_info = json_config['model']['param']['layer']
+        # Reorder layers to follow output tensors' name order
+        output_name_order = [ti.get('name') for ti in output_tensors_info if 'name' in ti]
+        name_to_layer = {layer.get('name'): layer for layer in layer_info if 'name' in layer}
+        # Validate that all output tensor names exist in layer_info
+        missing = [name for name in output_name_order if name not in name_to_layer]
+        if missing:
+            print(f"[Error] Output tensor name(s) not found in model.param.layer: {missing}. Please update the 'name' fields in model.param.layer to match the output tensor names.")
+            sys.exit(1)
+        reordered_layers = [name_to_layer[name] for name in output_name_order if name in name_to_layer]
+        json_config['model']['param']['layer'] = reordered_layers
     
-    # Initialize YoloPostProcess
+    # Initialize Post-Processor
     ypp = YoloPostProcess(json_config)
+
+    # Queues for pipeline
+    req_id_queue = queue.Queue()
+    output_queue = queue.Queue()
+    pp_output_queue = queue.Queue()
+
+    # Worker threads
+    pp_thread = threading.Thread(target=post_process_worker, args=(ypp, output_queue, pp_output_queue), daemon=True)
+    pp_thread.start()
+    wait_thread = threading.Thread(target=wait_worker, args=(ie, req_id_queue, output_queue), daemon=True)
+    wait_thread.start()
+
+    # Visualization color map (main thread only)
+    colors = np.random.randint(0, 256, [80, 3], np.uint8).tolist()
     
     # Initialize VideoCapture
     cap = cv2.VideoCapture(args.video_path)
@@ -116,70 +148,77 @@ def run_example(args):
     # Process video frames
     frame_idx = 0
     start = time.time()
+    stop = False
     while True:
-        
         ret, frame = cap.read()
-        
         if not ret:
             break
-        
+
         frame_idx += 1
 
-        # if frame_idx > 200:
-        #     json_config['model']["param"]['conf_threshold'] = 0.9
-        #     json_config['model']["param"]['score_threshold'] = 0.9
-        #     ypp.SetConfig(json_config)
-        
         # PreProcessing
         input_tensor, ratio, pad = letter_box(frame, (input_size, input_size), fill_color=(114, 114, 114), format=cv2.COLOR_BGR2RGB)
         
         if args.run_async: 
-            # UserArgs for callback function
-            user_args = UserArgs(ypp, frame, ratio, pad)
-        
-            # Run the inference engine asynchronously
-            req_id = ie.run_async([input_tensor], user_args)
+            req_id = ie.run_async([input_tensor])
+            # pass a copy of frame to decouple lifetime
+            req_id_queue.put((req_id, frame.copy(), ratio, pad, target_output_tensor_idx))
         else:
-            # Run the inference engine synchronously
+            # Synchronous: enqueue directly
             ie_output = ie.run([input_tensor])
-            
-            # PostProcessing
-            pp_output = ypp.Run(ie_output, ratio, pad)
-            
-            # Visualizing
-            if args.visualize:
-                
-                for i in range(pp_output.shape[0]):
-                    
-                    pt1, pt2, score, class_id = pp_output[i, :2].astype(int), pp_output[i, 2:4].astype(int), pp_output[i, 4], pp_output[i, 5].astype(int)
-                    input_tensor = cv2.rectangle(frame, pt1, pt2, colors[class_id], 2)
-                    
-                    if pp_output.shape[1] > 6:
-                        kpts = pp_output[i, 6:]
-                        kpts_reshape = kpts.reshape(-1, 3)
-                        for k in range(kpts_reshape.shape[0]):
-                            kpt = kpts_reshape[k, :2].astype(int)
-                            kpt_score = kpts_reshape[k, -1]
-                            cv2.circle(frame, kpt, 1, (0, 0, 255), -1)
-                cv2.imshow('result', frame)
-                if cv2.waitKey(1) == ord('q'):
-                    cv2.destroyAllWindows()
-                    break
-        
-        if args.run_async:
-            if not vis_thread.is_alive():
-                break
+            if target_output_tensor_idx is not None:
+                ie_output = [ie_output[target_output_tensor_idx]]
+            output_queue.put((frame.copy(), ie_output, ratio, pad))
 
+        # Consume available post-processed outputs and visualize
+        try:
+            while True:
+                frame_v, pp_output = pp_output_queue.get_nowait()
+                if args.visualize:
+                    frame_v = draw_detections(frame_v, pp_output, colors)
+                    cv2.imshow('result', frame_v)
+                    if cv2.waitKey(1) == ord('q'):
+                        stop = True
+                pp_output_queue.task_done()
+        except queue.Empty:
+            pass
+
+        if stop:
+            break
+
+    # Ensure async waits complete
     if args.run_async:
-        # Wait until the final inference
-        final_ie_output = ie.wait(req_id)
-    
-        # Finish
-        if vis_thread.is_alive():
-            q.join()
-            q.put(None)
-            vis_thread.join()
-    
+        try:
+            req_id_queue.join()
+        except Exception:
+            pass
+
+    # Ensure all queued outputs are processed by worker
+    try:
+        output_queue.join()
+    except Exception:
+        pass
+
+    # Flush and visualize any remaining post-processed outputs
+    try:
+        while True:
+            frame_v, pp_output = pp_output_queue.get_nowait()
+            if args.visualize:
+                frame_v = draw_detections(frame_v, pp_output, colors)
+                cv2.imshow('result', frame_v)
+                cv2.waitKey(1)
+            pp_output_queue.task_done()
+    except queue.Empty:
+        pass
+
+    # Stop worker threads
+    req_id_queue.put(None)
+    output_queue.put(None)
+    wait_thread.join(timeout=2.0)
+    pp_thread.join(timeout=2.0)
+
+    cv2.destroyAllWindows()
+
     end = time.time()
     print("FPS : ", frame_idx / (end - start))
     
@@ -195,8 +234,5 @@ if __name__ == "__main__":
     if not os.path.exists(args.config_path):
         parser.print_help()
         exit()
-        
-    if args.run_async:
-        q = queue.Queue()
         
     run_example(args)

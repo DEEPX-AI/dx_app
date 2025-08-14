@@ -1,7 +1,5 @@
 #include "classifier.hpp"
-
-using namespace std;
-using namespace rapidjson;
+#include <cxxopts.hpp>
 
 const char *usage =
     "classifier template\n"
@@ -16,30 +14,25 @@ void help()
 int main(int argc, char *argv[])
 {
 DXRT_TRY_CATCH_BEGIN
-    int arg_idx = 1;
-    string configPath = "";
+    std::string configPath = "";
 
-    if (argc == 1)
+    cxxopts::Options options("run_classifier", "classifier template application usage ");
+    options.add_options()
+        ("c, config", "use config json file for run application", cxxopts::value<std::string>(configPath))
+        ("h, help", "print usage")
+    ;
+    auto cmd = options.parse(argc, argv);
+    if(cmd.count("help"))
     {
-        std::cout << "Error: no arguments." << std::endl;
-        help();
-        exit(-1);
+        std::cout << options.help() << std::endl;
+        exit(0);
     }
 
-    while (arg_idx < argc) {
-        std::string arg(argv[arg_idx++]);
-        if (arg == "-c" || arg == "--config")
-                        configPath = strdup(argv[arg_idx++]);
-        else if (arg == "-h" || arg == "--help")
-                        help(), exit(0);
-        else
-                        help(), exit(0);
-    }
     if(configPath.empty())
     {
         std::cout << "error : no config json file arguments. " << std::endl;
-        help();
-        exit(-1);
+        std::cout << "Use -h or --help for usage information." << std::endl;
+        exit(0);
     }
 
     dxapp::AppConfig appConfig(configPath);
