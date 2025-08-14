@@ -7,10 +7,6 @@
 
 #include "dxrt/dxrt_api.h"
 
-#define DEFAULT_MODEL_PATH "/dxrt/models/DX_M1/v2p0/efficientnet-b0_argmax"
-#define DEFAULT_IMAGE_PATH "/dxrt/dataset/imagenet/val/"
-#define DEFAULT_IMAGE_LIST "/dxrt/dataset/imagenet/val_map.txt"
-
 #define NPU_ID 0
 #define IMAGE_WIDTH 224
 #define IMAGE_HEIGHT 224
@@ -144,7 +140,7 @@ int inference(std::string model_path, std::vector<std::string> image_gt_list, st
     {
         auto input = input_future.get();
         int gt = atoi(image_gt[1].c_str());
-        if((i+1) % image_gt_list.size() < (int)image_gt_list.size())
+        if((i+1) % image_gt_list.size() < image_gt_list.size())
         {
             image_gt = split(image_gt_list[(i+1) % image_gt_list.size()], ' ');
             input_future = std::async(std::launch::async, preprocess, image_gt[0], based_path);
@@ -219,23 +215,41 @@ void visualize(std::string model_path, std::string image_list_path, std::string 
 
 int main(int argc, char *argv[])
 {
-    std::string model_path = DEFAULT_MODEL_PATH;
-    std::string based_image_path = DEFAULT_IMAGE_PATH;
-    std::string image_list_path = DEFAULT_IMAGE_LIST;
+    std::string model_path = "";
+    std::string based_image_path = "";
+    std::string image_list_path = "";
     
     std::string app_name = "imagenet_classification_demo";
     cxxopts::Options options(app_name, app_name + " application usage ");
     options.add_options()
-        ("m, model_path", "classification model file (.dxnn, required)", cxxopts::value<std::string>(model_path)->default_value(DEFAULT_MODEL_PATH))
-        ("p, base_path", "input image files directory (required)", cxxopts::value<std::string>(based_image_path)->default_value(DEFAULT_IMAGE_PATH))
-        ("i, image_list", "imagenet image list txt file (required)", cxxopts::value<std::string>(image_list_path)->default_value(DEFAULT_IMAGE_LIST))
+        ("m, model_path", "classification model file (.dxnn, required)", cxxopts::value<std::string>(model_path))
+        ("p, base_path", "input image files directory (required)", cxxopts::value<std::string>(based_image_path))
+        ("i, image_list", "imagenet image list txt file (required)", cxxopts::value<std::string>(image_list_path))
         ("h, help", "print usage")
     ;
     auto cmd = options.parse(argc, argv);
-    if(cmd.count("help") || model_path.empty())
+    if(cmd.count("help"))
     {
         std::cout << options.help() << std::endl;
         exit(0);
+    }
+    if(model_path.empty())
+    {
+        std::cerr << "[ERROR] Model path is required. Use -m or --model_path option." << std::endl;
+        std::cerr << "Use -h or --help for usage information." << std::endl;
+        exit(1);
+    }
+    if(based_image_path.empty())
+    {
+        std::cerr << "[ERROR] Image path is required. Use -p or --base_path option." << std::endl;
+        std::cerr << "Use -h or --help for usage information." << std::endl;
+        exit(1);
+    }
+    if(image_list_path.empty()) 
+    {
+        std::cerr << "[ERROR] Image list path is required. Use -i or --image_list option." << std::endl;
+        std::cerr << "Use -h or --help for usage information." << std::endl;
+        exit(1);
     }
 
     visualize(model_path, image_list_path, based_image_path);

@@ -6,11 +6,11 @@
 #include <iostream>
 #include <sstream>
 
-#include "dxrt/dxrt_api.h"
-#include "common/objects.hpp"
-#include "utils/box_decode.hpp"
-#include "utils/nms.hpp"
-#include "utils/common_util.hpp"
+#include <dxrt/dxrt_api.h>
+#include <common/objects.hpp>
+#include <utils/box_decode.hpp>
+#include <utils/nms.hpp>
+#include <utils/common_util.hpp>
 
 namespace dxapp
 {
@@ -34,13 +34,6 @@ namespace yolo
         YOLOV9,
         CUSTOM_DECODE,
     };
-    enum PPUFormat
-    {
-        NONEPPU=0,
-        BBOX=32,
-        FACE=64,
-        POSE=256
-    };
     enum BBoxFormat
     {
         CXCYWH=0,
@@ -53,27 +46,34 @@ namespace yolo
     };
     struct Layers
     {
-        std::string name;
-        int stride;
+        std::string name = "";
+        int stride = 0;
         float scale = 0;
-        std::vector<float> anchor_width;
-        std::vector<float> anchor_height;
+        std::vector<int64_t> shape = {};
+        std::vector<float> anchor_width = {};
+        std::vector<float> anchor_height = {};
     };
     struct Params 
     {
-        std::vector<int64_t> _input_shape;
-        std::vector<std::vector<int64_t>> _outputShape;
-        float _score_threshold;
-        float _iou_threshold;
-        std::function<float(float)> _last_activation;
-        Decode _decode_method;
-        PPUFormat _ppu_format;
-        BBoxFormat _box_format;
-        KeyPointOrder _kpt_order;
-        int _kpt_count;
-        std::vector<Layers> _layers;
-        std::map<uint16_t, std::string> _classes;
-        int _numOfClasses;
+        // Configuration (small types first)
+        bool _is_onnx_output = false;
+        Decode _decode_method = Decode::YOLO_BASIC;
+        BBoxFormat _box_format = BBoxFormat::CXCYWH;
+        KeyPointOrder _kpt_order = KeyPointOrder::KPT_FRONT;
+        int _kpt_count = 0;
+        int _numOfClasses = 0;
+        float _objectness_threshold = 0.25f;
+        float _score_threshold = 0.3f;
+        float _iou_threshold = 0.5f;
+        
+        // Large objects (vectors, functions, maps)
+        dxapp::common::Size _input_size = {0, 0};
+        std::vector<std::vector<int64_t>> _outputShape = {};
+        std::function<float(float)> _last_activation = [](float x){return x;};
+        std::vector<Layers> _layers = {};
+        std::vector<std::string> _final_outputs = {};
+        std::map<uint16_t, std::string> _classes = {};
+        std::vector<std::pair<int, int>> _outputTensorIndexMap = {};
     };
 
     float exp(float x)
@@ -108,14 +108,10 @@ namespace yolo
         int _yoloxLocationIdx = 0;
         int _yoloxBoxScoreIdx = 0;
         int _yoloxClassScoreIdx = 0;
-        
-        int _scrfdClassScoreIdx = 0;
-        int _scrfdLocationIdx = 0;
-        int _scrfdKptIdx = 0;
 
-        std::vector<float*> _rawVector;
+        std::vector<float> _rawVector;
 
-        std::function<dxapp::common::BBox(std::function<float(float)>, std::vector<float*>, dxapp::common::Point, dxapp::common::Size, int, float)> _decode;
+        std::function<dxapp::common::BBox(std::function<float(float)>, std::vector<float>, dxapp::common::Point, dxapp::common::Size, int, float)> _decode;
 
     public:
         PostProcessing(dxapp::yolo::Params& params, dxapp::common::Size inputSize, dxapp::common::Size srcSize, dxapp::common::Size dstSize):_params(params),_inputSize(inputSize),_srcSize(srcSize),_dstSize(dstSize)
@@ -155,20 +151,14 @@ namespace yolo
                 _yoloxBoxScoreIdx = 1;
                 _yoloxClassScoreIdx = 2;
                 break;
+            case Decode::YOLO_FACE:
+                _decode = dxapp::decode::yoloFaceDecode;
+                break;
             case Decode::YOLOSCALE:
                 _decode = dxapp::decode::yoloScaledDecode;
                 break;    
             case Decode::CUSTOM_DECODE:
                 _decode = dxapp::decode::yoloCustomDecode;
-                break;
-            case Decode::YOLO_POSE:
-                _decode = dxapp::decode::yoloPoseDecode;
-                break;
-            case Decode::SCRFD:
-                _decode = dxapp::decode::SCRFDDecode;
-                _scrfdClassScoreIdx = 0;
-                _scrfdLocationIdx = 1;
-                _scrfdKptIdx = 2;
                 break;
             case Decode::YOLOV8:
                 _decode = dxapp::decode::yoloCustomDecode;
@@ -181,8 +171,8 @@ namespace yolo
         PostProcessing(){};
         ~PostProcessing(){};
         dxapp::common::DetectObject getResult(){return _result;};
-        void run(uint8_t* output_data, int64_t data_length)
-        // void run(std::vector<std::shared_ptr<dxrt::Tensor>> outputs)
+
+        void initialize_results()
         {
             for(auto &indices:_scoreIndices){
                 indices.clear();
@@ -190,19 +180,19 @@ namespace yolo
             _rawBoxes.clear();
             _result._detections.clear();
             _result._num_of_detections = 0;
+        }
 
-            if(_params._ppu_format > 0) // shape : [1, 124, ], numBoxes = 124
-                getBoxesFromPPUOutputs(output_data, data_length, _params._ppu_format);
-            else if(_params._outputShape.size() == 1 || dxapp::common::checkOrtLinking()) // ONNX outputs shape : [1, 16384, 85], numBoxes = 16384
-                getBoxesFromONNXOutputs(output_data, data_length); 
+        void run(dxrt::TensorPtrs output_data)
+        {
+            initialize_results();
+            if(_params._is_onnx_output && dxapp::common::checkOrtLinking()) // ONNX outputs shape : [1, 16384, 85], numBoxes = 16384
+                getBoxesFromONNXOutputs(output_data); 
             else if(_params._decode_method==Decode::YOLOX) // anchor free detector
                 getBoxesFromYoloXFormat(output_data, _yoloxLocationIdx, _yoloxBoxScoreIdx, _yoloxClassScoreIdx);
             else if(_params._decode_method==Decode::YOLO_FACE) // yolo face
-                getBoxesFromYoloFaceFormat(output_data, _params._kpt_order, _params._kpt_count);
+                getBoxesFromYoloFaceFormat(output_data, _params._kpt_count);
             else if(_params._decode_method==Decode::YOLO_POSE) // yolo pose 
                 getBoxesFromYoloPoseFormat(output_data, _params._kpt_order, _params._kpt_count);
-            else if(_params._decode_method==Decode::SCRFD) // face detection
-                getBoxesFromSCRFDFormat(output_data, _scrfdClassScoreIdx, _scrfdLocationIdx, _scrfdKptIdx, _params._kpt_count);
             else if(_params._decode_method==Decode::YOLOV8)
                 getBoxesFromYoloV8Format(output_data);
             else if(_params._decode_method==Decode::YOLOV9)
@@ -214,7 +204,7 @@ namespace yolo
             
             dxapp::common::nms(_rawBoxes, _scoreIndices, _params._iou_threshold, _params._classes, _postprocPaddedSize, _postprocScaleRatio, _result);
         };
-
+        
         static bool scoreComapre(const std::pair<float, int> &a, const std::pair<float, int> &b)
         {
             if(a.first > b.first)
@@ -223,151 +213,22 @@ namespace yolo
                 return false;
         };
 
-        void getBoxesFromPPUOutputs(uint8_t* outputs, int64_t numDetected, dxapp::yolo::PPUFormat ppuFormat)
+        void getBoxesFromONNXOutputs(dxrt::TensorPtrs outputs)
         {
             int boxIdx = 0;
-            /**
-             * FORMAT : BBOX = 32  (512 limit)
-             * FORMAT : FACE = 64  (256 limit)
-             * FORMAT : POSE = 256 (64 limit)
-            */
-            size_t ppuDataSize = (size_t)ppuFormat;
-            for(int64_t i=0;i<numDetected;i++)
-            {
-                uint8_t *raw_data = outputs + (i * ppuDataSize);
-                dxrt::DeviceBoundingBox_t *data = static_cast<dxrt::DeviceBoundingBox_t*>((void*)raw_data);
-                auto layer = _params._layers[data->layer_idx];
-                int stride = layer.stride;
-                int numGridX = data->grid_x;
-                int numGridY = data->grid_y;
-                
-                if(data->score < _params._score_threshold)
-                    continue;
-                
-                if(ppuFormat > dxapp::yolo::PPUFormat::BBOX)
-                    _scoreIndices[0].emplace_back(data->score, boxIdx);
-                else
-                    _scoreIndices[data->label].emplace_back(data->score, boxIdx);
-
-                dxapp::common::BBox temp;
-                switch (_params._decode_method)
-                {
-                case dxapp::yolo::YOLO_BASIC:
-                case dxapp::yolo::YOLO_POSE:
-                    temp = {
-                        (data->x * 2 - 0.5f + numGridX) * stride,
-                        (data->y * 2 - 0.5f + numGridY) * stride,
-                        0,
-                        0,
-                        (data->w * data->w * 4) * layer.anchor_width[data->box_idx],
-                        (data->h * data->h * 4) * layer.anchor_height[data->box_idx],
-                        {dxapp::common::Point_f(-1, -1, -1)}
-                    };
-                    break;
-                case dxapp::yolo::YOLOSCALE:
-                    temp = {
-                        (data->x * layer.scale - 0.5f * (layer.scale - 1) + numGridX) * stride,
-                        (data->y * layer.scale - 0.5f * (layer.scale - 1) + numGridY) * stride,
-                        0,
-                        0,
-                        (data->w * data->w * 4) * layer.anchor_width[data->box_idx],
-                        (data->h * data->h * 4) * layer.anchor_height[data->box_idx],
-                        {dxapp::common::Point_f(-1, -1, -1)}
-                    };
-                    break;
-                case dxapp::yolo::YOLOX:
-                    temp = {
-                        (numGridX + data->x) * stride,
-                        (numGridY + data->y) * stride,
-                        0,
-                        0,
-                        exp(data->w) * stride,
-                        exp(data->h) * stride,
-                        {dxapp::common::Point_f(-1, -1, -1)}
-                    };
-                    break;
-                case dxapp::yolo::SCRFD:
-                    temp = {
-                        (numGridX - data->x) * stride,
-                        (numGridY - data->y) * stride,
-                        (numGridX + data->w) * stride,
-                        (numGridY + data->h) * stride,
-                        2* data->w * stride,
-                        2* data->h * stride,
-                        {dxapp::common::Point_f(-1, -1, -1)}
-                    };
-                    break;
-                case dxapp::yolo::CUSTOM_DECODE:
-                    break;
-                };
-                if(_params._box_format == dxapp::yolo::BBoxFormat::CXCYWH)
-                {
-                    temp._xmin = temp._xmin - (temp._width/2);
-                    temp._ymin = temp._ymin - (temp._height/2);
-                    temp._xmax = temp._xmin + (temp._width/2);
-                    temp._ymax = temp._ymin + (temp._height/2);
-                }
-                else
-                {
-                    temp._width = temp._xmax - temp._xmin;
-                    temp._height = temp._ymax - temp._ymin;
-                }
-                boxIdx++;
-                if(ppuFormat == dxapp::yolo::PPUFormat::POSE)
-                {
-                    temp._kpts.clear();
-                    for(int idx = 0; idx < _params._kpt_count; idx++)
-                    {
-                        dxrt::DevicePose_t *kpt_data = static_cast<dxrt::DevicePose_t*>((void*)data);
-                        if((kpt_data->kpts[idx][2])<0.5)
-                        {
-                            temp._kpts.emplace_back(dxapp::common::Point_f(-1, -1));
-                        }
-                        else
-                        {
-                            temp._kpts.emplace_back(dxapp::common::Point_f(
-                                            (kpt_data->kpts[idx][0] * 2 - 0.5 + numGridX) * stride,
-                                            (kpt_data->kpts[idx][1] * 2 - 0.5 + numGridY) * stride,
-                                            0.5f
-                                            ));
-                        }
-                    }
-                }
-                else if(ppuFormat == dxapp::yolo::PPUFormat::FACE)
-                {
-                    temp._kpts.clear();
-                    for(int idx = 0; idx < _params._kpt_count; idx++)
-                    {
-                        dxrt::DeviceFace_t *kpt_data = static_cast<dxrt::DeviceFace_t*>((void*)data);
-                        temp._kpts.emplace_back(dxapp::common::Point_f(
-                                        (numGridX + kpt_data->kpts[idx][0]) * stride,
-                                        (numGridY + kpt_data->kpts[idx][1]) * stride,
-                                        0.5f
-                                        ));
-                    }
-                }
-                _rawBoxes.emplace_back(temp);
-            }
-            for(auto &indices:_scoreIndices)
-            {
-                sort(indices.begin(), indices.end(), scoreComapre);
-            }
-        };
-
-        void getBoxesFromONNXOutputs(uint8_t* outputs, int64_t numDetected)
-        {
-            int boxIdx = 0;
-            float score, score1;
-            auto* raw_data = (float*)outputs;
+            float objectness_score, class_score;
             if (_params._decode_method == dxapp::yolo::Decode::YOLOV8 ||
                 _params._decode_method == dxapp::yolo::Decode::YOLOV9)
             {
                 /**
-                 * @note Ultralytics models, which make yolov8/v5/v7 has same post processing methods
+                 * @note Ultralytics models, which make yolov9/v8/v5/v7 has same post processing methods
                  *      https://github.com/ultralytics/ultralytics/blob/main/examples/YOLOv8-ONNXRuntime-CPP/inference.cpp
                  */
-                auto strideNum = _params._outputShape.front()[2]; // 8400
-                auto signalResultNum = _params._outputShape.front()[1]; // 84
+                auto layer_idx = _params._outputTensorIndexMap[0].first;
+                auto tensor_key_idx = _params._outputTensorIndexMap[0].second;
+                auto strideNum = _params._layers[layer_idx].shape[2]; // 8400
+                auto signalResultNum = _params._layers[layer_idx].shape[1]; // 84
+                auto *raw_data = static_cast<float*>(outputs[tensor_key_idx]->data());
                 cv::Mat rawData = cv::Mat(signalResultNum, strideNum, CV_32F, raw_data);
                 rawData = rawData.t();
                 for(int64_t i=0;i<strideNum;++i)
@@ -396,8 +257,11 @@ namespace yolo
             }
             else if (_params._decode_method == dxapp::yolo::Decode::YOLO_FACE)
             {
-                auto num_detections = _params._outputShape.front()[1]; // 252000
-                auto num_elements = _params._outputShape.front()[2]; // 16 [x, y, w, h, obj_conf, 5x2 landmarks, cls_conf]
+                auto layer_idx = _params._outputTensorIndexMap[0].first;
+                auto tensor_key_idx = _params._outputTensorIndexMap[0].second;
+                auto num_detections = _params._layers[layer_idx].shape[1]; // 252000
+                auto num_elements = _params._layers[layer_idx].shape[2]; // 16
+                auto *raw_data = static_cast<float*>(outputs[tensor_key_idx]->data());
 
                 for(int64_t i=0;i<num_detections;i++)
                 {
@@ -409,8 +273,6 @@ namespace yolo
                     if (conf < _params._score_threshold) {
                         continue;
                     }
-                    // cout << fixed << setprecision(3);
-                    // cout << "[INFO] conf(" << conf << "), < _params._score_threshold(" << _params._score_threshold << ")" << endl;
 
                     _scoreIndices[0].emplace_back(conf, boxIdx);
                     dxapp::common::BBox temp {
@@ -433,28 +295,93 @@ namespace yolo
                             0.5f
                         ));
                     }
-                        
                     _rawBoxes.emplace_back(temp);
                     boxIdx++;
                 }
             }
-            else
+            else if (_params._decode_method == dxapp::yolo::Decode::SCRFD)
             {
-                for(int64_t i=0;i<_params._outputShape.front()[1];i++)
+                std::vector<int> strides = {8, 16, 32};
+
+                auto *score_8 = static_cast<float*>(outputs[_params._outputTensorIndexMap[0].second]->data());
+                auto *score_16 = static_cast<float*>(outputs[_params._outputTensorIndexMap[1].second]->data());
+                auto *score_32 = static_cast<float*>(outputs[_params._outputTensorIndexMap[2].second]->data());
+                std::vector<float*> score_list = {score_8, score_16, score_32};
+                auto *bbox_8 = static_cast<float*>(outputs[_params._outputTensorIndexMap[3].second]->data());
+                auto *bbox_16 = static_cast<float*>(outputs[_params._outputTensorIndexMap[4].second]->data());
+                auto *bbox_32 = static_cast<float*>(outputs[_params._outputTensorIndexMap[5].second]->data());
+                std::vector<float*> bbox_list = {bbox_8, bbox_16, bbox_32};
+                auto *kpt_8 = static_cast<float*>(outputs[_params._outputTensorIndexMap[6].second]->data());
+                auto *kpt_16 = static_cast<float*>(outputs[_params._outputTensorIndexMap[7].second]->data());
+                auto *kpt_32 = static_cast<float*>(outputs[_params._outputTensorIndexMap[8].second]->data());
+                std::vector<float*> kpt_list = {kpt_8, kpt_16, kpt_32};
+                for(int i=0;i<static_cast<int>(strides.size());i++)
                 {
-                    float* data = raw_data + (4 + 1 + _params._numOfClasses + (_params._kpt_count * 3)) * i;
-                    score1 = data[4];
-                    if(score1 > _params._score_threshold)
+                    int num_detections = std::pow(_inputSize._width / strides[i], 2) * 2;
+                    for(int j=0;j<num_detections;j++)
+                    {
+                        int box_idx = j * 4;
+                        int kpt_idx = j * 10;
+                        auto *score_ptr = score_list[i];
+                        auto *bbox_ptr = bbox_list[i];
+                        auto *kpt_ptr = kpt_list[i];
+                        if(score_ptr[j] > _params._score_threshold)
+                        {
+                            _scoreIndices[0].emplace_back(score_ptr[j], boxIdx);
+
+                            int grid_x = (j / 2) % (_inputSize._width / strides[i]);
+                            int grid_y = (j / 2) / (_inputSize._height / strides[i]);
+
+                            float cx = static_cast<float>(grid_x * strides[i]);
+                            float cy = static_cast<float>(grid_y * strides[i]);
+
+                            dxapp::common::BBox temp {
+                                        cx - (bbox_ptr[box_idx + 0] * strides[i]),
+                                        cy - (bbox_ptr[box_idx + 1] * strides[i]),
+                                        cx + (bbox_ptr[box_idx + 2] * strides[i]),
+                                        cy + (bbox_ptr[box_idx + 3] * strides[i]),
+                                        (bbox_ptr[box_idx + 0] + bbox_ptr[box_idx + 2]) * strides[i],
+                                        (bbox_ptr[box_idx + 1] + bbox_ptr[box_idx + 3]) * strides[i],
+                                        {dxapp::common::Point_f(-1, -1, -1)}
+                            };
+                            temp._kpts.clear();
+                            for(int idx = 0; idx < _params._kpt_count; idx++)
+                            {
+                                temp._kpts.emplace_back(dxapp::common::Point_f(
+                                                cx + (kpt_ptr[kpt_idx + (idx * 2) + 0] * strides[i]),
+                                                cy + (kpt_ptr[kpt_idx + (idx * 2) + 1] * strides[i]),
+                                                0.5f
+                                                ));
+                            }
+                            _rawBoxes.emplace_back(temp);
+                            boxIdx++;
+                        }
+                    }
+                }
+            }
+            else if (_params._decode_method <= dxapp::yolo::Decode::YOLO_POSE)
+            {
+                auto layer_idx = _params._outputTensorIndexMap[0].first;
+                auto tensor_key_idx = _params._outputTensorIndexMap[0].second;
+                auto num_detections = _params._layers[layer_idx].shape[1]; // 25200
+                auto num_elements = _params._layers[layer_idx].shape[2]; // 85 or pose : 17 * 3 + 4 + 1 + numOfClasses
+                auto *raw_data = static_cast<float*>(outputs[tensor_key_idx]->data());
+
+                for(int64_t i=0;i<num_detections;i++)
+                {
+                    float* data = raw_data + (num_elements * i);
+                    objectness_score = data[4];
+                    if(objectness_score > _params._objectness_threshold)
                     {
                         int max_cls = -1;
                         float max_score = _params._score_threshold;
                         for(int cls=0;cls<_params._numOfClasses;cls++)
                         {
-                            score = score1 * data[5+cls];
-                            if(score > max_score)
+                            class_score = objectness_score * data[5+cls];
+                            if(class_score > max_score)
                             {
                                 max_cls = cls;
-                                max_score = score;
+                                max_score = class_score;
                             }
                         }
                         if(max_cls > -1)
@@ -469,25 +396,22 @@ namespace yolo
                                         data[3],
                                         {dxapp::common::Point_f(-1, -1, -1)}
                             };
-                            if(_params._decode_method == dxapp::yolo::Decode::YOLO_POSE)
+                            temp._kpts.clear();
+                            for(int idx = 0; idx < _params._kpt_count; idx++)
                             {
-                                temp._kpts.clear();
-                                for(int idx = 0; idx < _params._kpt_count; idx++)
+                                int kptIdx = (idx * 3) + (4 + 1 + _params._numOfClasses);
+                                
+                                if((data[kptIdx + 2])<0.5)
                                 {
-                                    int kptIdx = (idx * 3) + (4 + 1 + _params._numOfClasses);
-                                    
-                                    if((data[kptIdx + 2])<0.5)
-                                    {
-                                        temp._kpts.emplace_back(dxapp::common::Point_f(-1, -1));
-                                    }
-                                    else
-                                    {
-                                        temp._kpts.emplace_back(dxapp::common::Point_f(
-                                                        data[kptIdx + 0],
-                                                        data[kptIdx + 1],
-                                                        0.5f
-                                                        ));
-                                    }
+                                    temp._kpts.emplace_back(dxapp::common::Point_f(-1, -1));
+                                }
+                                else
+                                {
+                                    temp._kpts.emplace_back(dxapp::common::Point_f(
+                                                    data[kptIdx + 0],
+                                                    data[kptIdx + 1],
+                                                    0.5f
+                                                    ));
                                 }
                             }
                             _rawBoxes.emplace_back(temp);
@@ -502,318 +426,156 @@ namespace yolo
             }
         };
 
-        void getBoxesFromYoloFaceFormat(uint8_t* outputs, KeyPointOrder kpt_order, int kpt_count)
+        void getBoxesFromYoloFaceFormat(dxrt::TensorPtrs outputs, int kpt_count)
         {
-            std::cout << "[ERR:dx-app] not supported yolo face decode function." << std::endl;
-            std::cout << "[ERR:dx-app] please using \"USE_ORT=ON\" option in dx_rt." << std::endl;
-        };
-        
-        void getBoxesFromYoloPoseFormat(uint8_t* outputs, KeyPointOrder kpt_order, int kpt_count)
-        {
+
             int boxIdx = 0;
-            float rawThreshold = inversSigmoid(_params._score_threshold);
-            float score, score1;
-            int first = -2, second = -1;
-            int first_block = 0, second_block = 0;
-            int first_layer_pitch = 1, second_layer_pitch = 1;
-            float* raw_data = (float*)outputs;
-            if(kpt_order == KeyPointOrder::KPT_FRONT)
-            {
-                first = -1, second = -2;
-            }
+            float objectness_score, class_score;
 
-            for(int i=0;i<(int)_params._layers.size();i++)
+            for(int i=0;i<(int)_params._outputTensorIndexMap.size();i++)
             {
-                auto layer = _params._layers[i];
-                int stride = layer.stride;
-                int numGridX = _params._input_shape[1] / layer.stride;
-                int numGridY = _params._input_shape[1] / layer.stride;
-                first += 2;
-                second += 2;
-                int first_pitch = _params._outputShape[first].back();
-                int second_pitch = _params._outputShape[second].back();
-                for(const auto &s: _params._outputShape[first])
-                    first_layer_pitch *= s;
-                for(const auto &s: _params._outputShape[second])
-                    second_layer_pitch *= s;
-                if(kpt_order == KeyPointOrder::KPT_FRONT)
-                    first_block = second_block + second_layer_pitch;
-                else
-                    second_block = first_block + first_layer_pitch;
-
-                for(int gY=0; gY<numGridY; gY++)
-                {
-                    for(int gX=0; gX<numGridX; gX++)
-                    {
-                        for(int box=0; box<(int)layer.anchor_width.size(); box++) // num : 3
-                        { 
-                            float *rawBuffer1, *rawBuffer2, *rawBuffer3;
-                            if (box == 0)
-                            {   
-                                rawBuffer1 = raw_data + first_layer_pitch + (gY * numGridX * first_pitch) 
-                                                          + (gX * first_pitch)
-                                                          + 0;
-                                rawBuffer2 = raw_data + first_layer_pitch + (gY * numGridX * first_pitch) 
-                                                          + (gX * first_pitch)
-                                                          + 6;
-                                rawBuffer3 = raw_data + second_layer_pitch + (gY * numGridX * second_pitch) 
-                                                          + (gX * second_pitch)
-                                                          + 0;
-                            }
-                            else if (box == 1)
-                            {
-                                rawBuffer1 = raw_data + second_layer_pitch + (gY * numGridX * second_pitch) 
-                                                          + (gX * second_pitch)
-                                                          + (13 * 3);
-                                rawBuffer2 = raw_data + second_layer_pitch + (gY * numGridX * second_pitch) 
-                                                          + (gX * second_pitch)
-                                                          + (13 * 3) + 6;
-                                rawBuffer3 = raw_data + second_layer_pitch + (gY * numGridX * second_pitch) 
-                                                          + (gX * second_pitch)
-                                                          + (17 * 3) + 6;
-                            }
-                            else if (box == 2)
-                            {
-                                rawBuffer1 = raw_data + second_layer_pitch + (gY * numGridX * second_pitch) 
-                                                          + (gX * second_pitch)
-                                                          + (30 * 3) + 6;
-                                rawBuffer2 = raw_data + second_layer_pitch + (gY * numGridX * second_pitch) 
-                                                          + (gX * second_pitch)
-                                                          + (30 * 3) + 12;
-                                rawBuffer3 = raw_data + second_layer_pitch + (gY * numGridX * second_pitch) 
-                                                          + (gX * second_pitch)
-                                                          + (34 * 3) + 12;
-                            }
-
-                            if(rawBuffer1[4]>rawThreshold)
-                            {
-                                score1 = _params._last_activation(rawBuffer1[4]);
-                                if(score1 > _params._score_threshold)
-                                {
-                                    int max_cls = -1;
-                                    float max_score = _params._score_threshold;
-                                    for(int cls=0; cls<_params._numOfClasses;cls++)
-                                    {
-                                        score = score1 * _params._last_activation(rawBuffer1[5+cls]); 
-                                        if (score > max_score)
-                                        {
-                                            max_score = score;                                            
-                                        }
-                                    }
-                                    if (max_cls > -1)
-                                    {
-                                        _scoreIndices[max_cls].emplace_back(max_score, boxIdx);
-                                        _rawVector.clear();
-                                        _rawVector.emplace_back(rawBuffer1);
-                                        _rawVector.emplace_back(rawBuffer2);
-                                        _rawVector.emplace_back(rawBuffer3);
-                                        dxapp::common::BBox temp = _decode(_params._last_activation, _rawVector, dxapp::common::Point(gX, gY), dxapp::common::Size(layer.anchor_width[box], layer.anchor_height[box]), stride, (float)kpt_count);
-                                        _rawBoxes.emplace_back(temp);
-                                        boxIdx++;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                first_block += second_block + second_layer_pitch;
-            }
-            for(auto &indices:_scoreIndices)
-            {
-                sort(indices.begin(), indices.end(), scoreComapre);
-            }
-        };
-
-        void getBoxesFromSCRFDFormat(uint8_t* outputs,  int classScoreIdx, int locationIdx, int kptIdx, int kpt_count)
-        {
-            int boxIdx = 0;
-            float score, score1;
-            float *data, *kpt;
-            /***
-             * The output order of the SCRFD model is: class 0, location 1, keypoint 2.
-             */
-            int classScore_pitch = _params._outputShape[classScoreIdx].back();
-            int location_pitch = _params._outputShape[locationIdx].back();
-            int keypoint_pitch = _params._outputShape[kptIdx].back();
-            int classScoreDataSzie = 1, locationDataSize = 1;
-            for(const auto &s:_params._outputShape[classScoreIdx])
-                classScoreDataSzie *= s;
-            for(const auto &s:_params._outputShape[locationIdx])
-                locationDataSize *= s;
-            for(int i=0;i<(int)_params._layers.size();i++)
-            {
-                auto layer = _params._layers[i];
-                int stride = layer.stride;
-                int numGridY = _params._input_shape[1] / layer.stride;
-                int numGridX = _params._input_shape[1] / layer.stride;
-                float* classScore_data = (float*)outputs;
-                float* location_data = classScore_data + classScoreDataSzie;
-                float* kpt_data = location_data + locationDataSize;
-                for(int gY=0; gY<numGridY; gY++)
-                {
-                    for(int gX=0; gX<numGridX; gX++)
-                    {
-                        float* score_data = classScore_data + (gY * numGridX * classScore_pitch) + (gX * classScore_pitch);
-                        for(int idx=0;idx<2;idx++)
-                        {
-                            score1 = score_data[idx];
-                            score = dxapp::yolo::sigmoid(score1);
-                            if(score > _params._score_threshold)
-                            {
-                                _scoreIndices[0].emplace_back(score, boxIdx);
-                                data = location_data + (gY * numGridX * location_pitch) + (gX * location_pitch) + (idx * 4);
-                                kpt = kpt_data + (gY * numGridX * keypoint_pitch) + (gX * keypoint_pitch) + (idx * kpt_count * 2);
-                                _rawVector.clear();
-                                _rawVector.emplace_back(data);
-                                _rawVector.emplace_back(kpt);
-                                dxapp::common::BBox temp = _decode(_params._last_activation, _rawVector, dxapp::common::Point(gX, gY), 
-                                                                   dxapp::common::Size(_params._input_shape[1], _params._input_shape[1]), stride, (float)kpt_count);
-                                _rawBoxes.emplace_back(temp);
-                                boxIdx++;
-                            }
-                        }
-                    }
-                }
-                classScoreIdx += 3;
-                locationIdx += 3;
-                kptIdx += 3;
-            }
-            for(auto &indices:_scoreIndices)
-            {
-                sort(indices.begin(), indices.end(), scoreComapre);
-            }
-        };
-    
-        void getBoxesFromYoloXFormat(uint8_t* outputs, int locationIndex, int boxScoreIndex, int classScoreIndex)
-        {
-            int boxIdx = 0;
-            float score, score1;
-            float *data, *classScore;
-            float* output_per_layers = (float*)outputs;
-            for(int i=0;i<(int)_params._layers.size();i++)
-            {
-                /***
-                 * The output order of the yolox model is: location 0, boxes score 1, class score 2.
-                 */
-                int location_pitch = _params._outputShape[locationIndex].back();
-                int boxes_pitch = _params._outputShape[boxScoreIndex].back();
-                int classes_pitch = _params._outputShape[classScoreIndex].back();
-                int locationDataSize = 1, boxesDataSize = 1, classesDataSize = 1;
-                for(const auto &s:_params._outputShape[locationIndex])
-                    locationDataSize *= s;
-                for(const auto &s:_params._outputShape[boxScoreIndex])
-                    boxesDataSize *= s;
-                for(const auto &s:_params._outputShape[classScoreIndex])
-                    classesDataSize *= s;
-                auto layer = _params._layers[i];
+                auto layer_idx = _params._outputTensorIndexMap[i].first;
+                auto tensor_key_idx = _params._outputTensorIndexMap[i].second;
+                auto layer = _params._layers[layer_idx];
                 float scale = layer.scale;
                 int stride = layer.stride;
-                int numGridX = _params._input_shape[1] / layer.stride;
-                int numGridY = _params._input_shape[1] / layer.stride;
-                float* location_data = output_per_layers;
-                float* boxScore_data = location_data + locationDataSize;
-                float* classScore_data = boxScore_data + boxesDataSize;
-                for(int gY=0; gY<numGridY; gY++)
-                {
-                    for(int gX=0; gX<numGridX; gX++)
-                    {
-                        score1 = boxScore_data[(gY * numGridX * boxes_pitch) + (gX * boxes_pitch)];
-                        if(score1 > _params._score_threshold)
-                        {
-                            data = location_data + (gY * numGridX * location_pitch) + (gX * location_pitch);
-                            classScore = classScore_data + (gY * numGridX * classes_pitch) + (gX * classes_pitch);
-                            int max_cls = -1;
-                            float max_score = _params._score_threshold;
-                            for(int cls=0;cls<_params._numOfClasses;cls++)
-                            {
-                                score = score1 * classScore[cls];
-                                if(score > max_score)
-                                {
-                                    max_cls = cls;
-                                    max_score = score;
-                                }
-                            }
-                            if(max_cls > -1)
-                            {
-                                _scoreIndices[max_cls].emplace_back(max_score, boxIdx);
-                                _rawVector.clear();
-                                _rawVector.emplace_back(data);
-                                dxapp::common::BBox temp = _decode(_params._last_activation, _rawVector, dxapp::common::Point(gX, gY), dxapp::common::Size(0, 0), stride, scale);
-                                _rawBoxes.emplace_back(temp);
-                                boxIdx++;
-                            }
-                        }
-                    }
-                }
-                boxScoreIndex += 3;
-                locationIndex += 3;
-                classScoreIndex += 3;
-                output_per_layers += locationDataSize + boxesDataSize + classesDataSize;
-            }
-            for(auto &indices:_scoreIndices)
-            {
-                sort(indices.begin(), indices.end(), scoreComapre);
-            }
-        };
-        
-        void getBoxesFromYoloFormat(uint8_t* outputs)
-        {
-            int boxIdx = 0;
-            float rawThreshold = inversSigmoid(_params._score_threshold);
-            float score, score1;
-            float* output_per_layers = (float*)outputs;
-
-            for(int i=0;i<(int)_params._layers.size();i++)
-            {
-                auto layer = _params._layers[i];
-                float scale = layer.scale;
-                int stride = layer.stride;
-                int numGridX = _params._input_shape[1] / layer.stride;
-                int numGridY = _params._input_shape[1] / layer.stride;
-                auto output_shape = _params._outputShape[i];
-                int layer_pitch = 1;
-                if(i > 0)
-                {
-                    for(const auto &s:_params._outputShape[i-1])
-                    {
-                        layer_pitch *= s;
-                    }
-                    output_per_layers += layer_pitch;
-                }
+                int numGridX = _inputSize._width / layer.stride;
+                int numGridY = _inputSize._height / layer.stride;
+                auto output_shape = _params._outputShape[tensor_key_idx];
+                auto* output_per_layer = static_cast<float*>(outputs[tensor_key_idx]->data());
                 for(int gY=0; gY<numGridY; gY++)
                 {
                     for(int gX=0; gX<numGridX; gX++)
                     {
                         for(int box=0; box<(int)layer.anchor_width.size(); box++)
                         { 
-                            float* data = output_per_layers + (gY * numGridX * output_shape.back())
-                                                                + (gX * output_shape.back())
-                                                                + (box * (_params._numOfClasses + 5));
-                            if(data[4]>rawThreshold)
+                            objectness_score = _params._last_activation(output_per_layer[((box * (_params._numOfClasses + 15) + 15) * numGridY * numGridX)
+                                                                        + (gY * numGridX) 
+                                                                        + gX]);
+
+                            if(objectness_score > _params._objectness_threshold)
                             {
-                                score1 = _params._last_activation(data[4]);
-                                if(score1 > _params._score_threshold)
+                                int max_cls = -1;
+                                float max_score = _params._score_threshold;
+                                for(int cls=0; cls<_params._numOfClasses;cls++)
                                 {
-                                    int max_cls = -1;
-                                    float max_score = _params._score_threshold;
-                                    for(int cls=0; cls<_params._numOfClasses;cls++)
+                                    float score = output_per_layer[((box * (_params._numOfClasses + 15) + 4 + cls) * numGridY * numGridX)
+                                                                        + (gY * numGridX) 
+                                                                        + gX];
+                                    class_score = objectness_score * _params._last_activation(score); 
+                                    if (class_score > max_score)
                                     {
-                                        score = score1 * _params._last_activation(data[5+cls]); 
-                                        if (score > max_score)
-                                        {
-                                            max_score = score;
-                                            max_cls = cls;
-                                        }
+                                        max_score = class_score;
+                                        max_cls = cls;
                                     }
-                                    if(max_cls > -1)
+                                }
+                                if(max_cls > -1)
+                                {
+                                    _scoreIndices[max_cls].emplace_back(max_score, boxIdx);
+                                    _rawVector.clear();
+                                    for(int j = 0; j < 4; j++)
                                     {
-                                        _scoreIndices[max_cls].emplace_back(max_score, boxIdx);
-                                        _rawVector.clear();
-                                        _rawVector.emplace_back(data);
-                                        dxapp::common::BBox temp = _decode(_params._last_activation, _rawVector, dxapp::common::Point(gX, gY), dxapp::common::Size(layer.anchor_width[box], layer.anchor_height[box]), stride, scale);
-                                        _rawBoxes.emplace_back(temp);
-                                        boxIdx++;
+                                        _rawVector.emplace_back(output_per_layer[((box * (_params._numOfClasses + 15) + j) * numGridY * numGridX)
+                                                                                    + (gY * numGridX) 
+                                                                                    + gX]);
                                     }
+                                    for(int j = 0; j < kpt_count; j++)
+                                    {
+                                        _rawVector.emplace_back(output_per_layer[((box * (_params._numOfClasses + 15) + 5 + (j * 2)) * numGridY * numGridX)
+                                                                                    + (gY * numGridX) 
+                                                                                    + gX]);
+                                        _rawVector.emplace_back(output_per_layer[((box * (_params._numOfClasses + 15) + 6 + (j * 2)) * numGridY * numGridX)
+                                                                                    + (gY * numGridX) 
+                                                                                    + gX]);
+                                    }
+                                    dxapp::common::BBox temp = _decode(_params._last_activation, _rawVector, dxapp::common::Point(gX, gY), dxapp::common::Size(layer.anchor_width[box], layer.anchor_height[box]), stride, scale);
+                                    _rawBoxes.emplace_back(temp);
+                                    boxIdx++;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            for(auto &indices:_scoreIndices)
+            {
+                sort(indices.begin(), indices.end(), scoreComapre);
+            }
+        };
+        
+        void getBoxesFromYoloPoseFormat(dxrt::TensorPtrs outputs, KeyPointOrder kpt_order, int kpt_count)
+        {
+            (void)outputs;  // Suppress unused parameter warning
+            (void)kpt_order; // Suppress unused parameter warning
+            (void)kpt_count; // Suppress unused parameter warning
+            std::cout << "[ERR:dx-app] not supported yolo pose decode function." << std::endl;
+            std::cout << "[ERR:dx-app] please using \"USE_ORT=ON\" option in dx_rt." << std::endl;
+        };
+    
+        void getBoxesFromYoloXFormat(dxrt::TensorPtrs outputs, int locationIndex, int boxScoreIndex, int classScoreIndex)
+        {
+            (void)outputs;         // Suppress unused parameter warning
+            (void)locationIndex;    // Suppress unused parameter warning
+            (void)boxScoreIndex;    // Suppress unused parameter warning
+            (void)classScoreIndex;  // Suppress unused parameter warning
+            std::cout << "[ERR:dx-app] not supported yolo x decode function." << std::endl;
+            std::cout << "[ERR:dx-app] please using \"USE_ORT=ON\" option in dx_rt." << std::endl;
+        };
+        
+        void getBoxesFromYoloFormat(dxrt::TensorPtrs outputs)
+        {
+            int boxIdx = 0;
+            float objectness_score, class_score;
+            for(int i=0;i<(int)_params._outputTensorIndexMap.size();i++)
+            {
+                auto layer_idx = _params._outputTensorIndexMap[i].first;
+                auto tensor_key_idx = _params._outputTensorIndexMap[i].second;
+                auto layer = _params._layers[layer_idx];
+                float scale = layer.scale;
+                int stride = layer.stride;
+                int numGridX = _inputSize._width / layer.stride;
+                int numGridY = _inputSize._height / layer.stride;
+                auto output_shape = _params._outputShape[tensor_key_idx];
+                auto* output_per_layer = static_cast<float*>(outputs[tensor_key_idx]->data());
+                for(int gY=0; gY<numGridY; gY++)
+                {
+                    for(int gX=0; gX<numGridX; gX++)
+                    {
+                        for(int box=0; box<(int)layer.anchor_width.size(); box++)
+                        { 
+                            objectness_score = _params._last_activation(output_per_layer[((box * (_params._numOfClasses + 5) + 4) * numGridY * numGridX)
+                                                                        + (gY * numGridX) 
+                                                                        + gX]);
+
+                            if(objectness_score > _params._objectness_threshold)
+                            {
+                                int max_cls = -1;
+                                float max_score = _params._score_threshold;
+                                for(int cls=0; cls<_params._numOfClasses;cls++)
+                                {
+                                    float score = output_per_layer[((box * (_params._numOfClasses + 5) + 5 + cls) * numGridY * numGridX)
+                                                                        + (gY * numGridX) 
+                                                                        + gX];
+                                    class_score = objectness_score * _params._last_activation(score); 
+                                    if (class_score > max_score)
+                                    {
+                                        max_score = class_score;
+                                        max_cls = cls;
+                                    }
+                                }
+                                if(max_cls > -1)
+                                {
+                                    _scoreIndices[max_cls].emplace_back(max_score, boxIdx);
+                                    _rawVector.clear();
+                                    for(int j = 0; j < 4; j++)
+                                    {
+                                        _rawVector.emplace_back(output_per_layer[((box * (_params._numOfClasses + 5) + j) * numGridY * numGridX)
+                                                                                    + (gY * numGridX) 
+                                                                                    + gX]);
+                                    }
+                                    dxapp::common::BBox temp = _decode(_params._last_activation, _rawVector, dxapp::common::Point(gX, gY), dxapp::common::Size(layer.anchor_width[box], layer.anchor_height[box]), stride, scale);
+                                    _rawBoxes.emplace_back(temp);
+                                    boxIdx++;
                                 }
                             }
                         }
@@ -826,44 +588,34 @@ namespace yolo
             }
         };
 
-        void getBoxesFromYoloV8Format(uint8_t* outputs)
+        void getBoxesFromYoloV8Format(dxrt::TensorPtrs outputs)
         {
             /**
-             * @note Ultralytics models, which make yolov8/v5/v7 has same post processing methods
+             * @note Ultralytics models, which make yolov9/v8/v5/v7 has same post processing methods
              *      https://github.com/ultralytics/ultralytics/blob/main/examples/YOLOv8-ONNXRuntime-CPP/inference.cpp
              * 
              * yolov8n.dxnn output shapes are follow.
-             *   Task[0] npu_0, NPU, 31902720bytes (input 1228800, output 6451200)
-             *      inputs
-             *      images, UINT8, [1, 640, 640, 3 ], 0
-             *      outputs
-             *      onnx::Reshape_583, FLOAT, [1, 4, 8400, 16 ], 0
-             *      onnx::Concat_617, FLOAT, [1, 8400, 1, 128 ], 0
+             *     Outputs
+             *      /model.22/Sigmoid_output_0, FLOAT, [1, 80, 8400 ]
+             *      /model.22/dfl/conv/Conv_output_0, FLOAT, [1, 1, 4, 8400]
              */
 
-
-            int64_t first_layer_size = 1;
-            for(auto &v:_params._outputShape.front())
-            {
-                first_layer_size *= v;
-            }
-
             int boxIdx = 0;
-            float rawThreshold = _params._score_threshold;
             float score;
-            float* output_per_layer01 = (float*)outputs;
-            float* output_per_layer02 = output_per_layer01 + first_layer_size;
-            auto strideNum = _params._outputShape.front()[2]; // 8400
-            auto pitchSize = _params._outputShape.front()[3]; // 16
-            auto scorePitchSize = _params._outputShape.back()[2]; // 128
+
+            int scores_tensor_idx = _params._outputTensorIndexMap[0].second;
+            int boxes_tensor_idx = _params._outputTensorIndexMap[1].second;
+            float* boxes_output_tensor = static_cast<float*>(outputs[boxes_tensor_idx]->data());
+            float* scores_output_tensor = static_cast<float*>(outputs[scores_tensor_idx]->data());
+            int boxes_pitch_size = outputs[boxes_tensor_idx]->shape()[3];
+            int score_pitch_size = outputs[scores_tensor_idx]->shape()[2];
+            std::vector<int> feature_strides = {8, 16, 32};
             int index = -1;
-            for(int i=0;i<(int)_params._layers.size();i++)
+            for(int i=0;i<(int)feature_strides.size();i++)
             {
-                auto layer = _params._layers[i];
-                float scale = layer.scale;
-                int stride = layer.stride;
-                int numGridX = _params._input_shape[1] / layer.stride;
-                int numGridY = _params._input_shape[1] / layer.stride;
+                int stride = feature_strides[i];
+                int numGridX = _params._input_size._width / stride;
+                int numGridY = _params._input_size._height / stride;
                 for(int gY=0; gY<numGridY; gY++)
                 {
                     for(int gX=0; gX<numGridX; gX++)
@@ -873,7 +625,8 @@ namespace yolo
                         float max_score = _params._score_threshold;
                         for(int cls=0;cls<_params._numOfClasses;cls++)
                         {
-                            score = *(float*)(output_per_layer02 + (128 * index) + cls);
+                            // score = *(float*)(scores_output_tensor + (score_pitch_size * index) + cls);
+                            score = scores_output_tensor[(cls * score_pitch_size) + index];
                             if(score > max_score)
                             {
                                 max_cls = cls;
@@ -884,10 +637,10 @@ namespace yolo
                         {
                             _scoreIndices[max_cls].emplace_back(max_score, boxIdx);
                             std::vector<float> data(4);
-                            float _605output01 = *(float*)(output_per_layer01 + (strideNum * 0 + index) * pitchSize);
-                            float _605output02 = *(float*)(output_per_layer01 + (strideNum * 1 + index) * pitchSize);
-                            float _608output01 = *(float*)(output_per_layer01 + (strideNum * 2 + index) * pitchSize);
-                            float _608output02 = *(float*)(output_per_layer01 + (strideNum * 3 + index) * pitchSize);
+                            float _605output01 = boxes_output_tensor[(0 * boxes_pitch_size) + index];
+                            float _605output02 = boxes_output_tensor[(1 * boxes_pitch_size) + index];
+                            float _608output01 = boxes_output_tensor[(2 * boxes_pitch_size) + index];
+                            float _608output02 = boxes_output_tensor[(3 * boxes_pitch_size) + index];
 
                             float _605output01_s = (_605output01 * (-1) + (0.5f + gX));
                             float _605output02_s = (_605output02 * (-1) + (0.5f + gY));
@@ -925,14 +678,16 @@ namespace yolo
 
         };
 
-        void getBoxesFromYoloV9Format(uint8_t* outputs)
+        void getBoxesFromYoloV9Format(dxrt::TensorPtrs outputs)
         {
+            (void)outputs; // Suppress unused parameter warning
             std::cout << "[ERR:dx-app] not supported yolov9 decode function." << std::endl;
             std::cout << "[ERR:dx-app] please using \"USE_ORT=ON\" option in dx_rt." << std::endl;
         };
         
-        void getBoxesFromCustomPostProcessing(uint8_t* outputs /* Users can add necessary parameters manually. */)
+        void getBoxesFromCustomPostProcessing(dxrt::TensorPtrs outputs /* Users can add necessary parameters manually. */)
         {
+            (void)outputs; // Suppress unused parameter warning
             /**
              * @brief adding your post processing code
              * 

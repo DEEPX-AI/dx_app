@@ -1,4 +1,32 @@
 # RELEASE_NOTES
+## v2.0.0 / 2025-08-14
+
+### 1. Changed
+- Moved the YOLO post-processing guide from 07_Python_Examples.md to a new, dedicated document 08_YOLO_Post_Processing_Pybind11.md.
+- Refactored yolo_pybind_example.py to use a RunAsync() + Wait() structure instead of callbacks. This ensures the output tensor order is correctly handled.
+- Major code refactoring and restructuring of demo applications
+- Consolidated common utilities into  directory
+- Removed deprecated and legacy codes
+- Update documentation and resources
+- YoloPostProcess now filters and selects the correct tensor by output_name when USE_ORT=ON
+
+### 2. Fixed
+- FPS calculation bug in yolo_multi
+- Removed postprocessing code for legacy PPU models
+- Fixed postprocessing logic to support new output shapes of YOLO models when USE_ORT=OFF
+
+### 3. Added
+- Added  to cleanly purge the pip-installed package and local build artifacts (shared library, dist-info/egg-info, and build directory).
+- Added version guards in templates/python/yolo_pybind_example.py to ensure compatibility with DX-RT ≥ 3.0.0 and DXNN model version ≥ 7
+- Enhanced the JSON configuration to support a target_output_tensor_name key and a name field for each layer parameter.
+- Added a feature to filter output tensor using the target_output_tensor_name provided in the JSON configuration
+- Added a feature to automatically reorder model layer parameters in the JSON configuration to match the model's actual output tensor sequence.
+- Enhanced demo applications
+- Added  for easy demo execution
+- Added SCRFD decoding method for run_detector example
+- Added postprocessing support for yolo_pose and yolo_face models (available only when USE_ORT=ON)
+- Listed supported YOLO model types for YoloPostProcess in README
+
 ## v1.11.0 / 2025-07-24
 
 ### 1. Changed

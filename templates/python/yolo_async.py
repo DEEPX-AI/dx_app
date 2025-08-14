@@ -4,7 +4,8 @@ import numpy as np
 import json
 import argparse
 from dx_engine import InferenceEngine
-from dx_engine import version as dx_version
+from dx_engine import Configuration
+from packaging import version
 
 import torch
 import torchvision
@@ -14,8 +15,6 @@ import threading
 import queue
 import time 
 import copy
-
-PPU_TYPES = ["BBOX", "POSE"]
 
 q = queue.Queue()   # queue of the inference jobs (just runAsync and callback function)
 callback_lock = threading.Lock()   # for inference copy lock
@@ -71,127 +70,32 @@ def intersection_filter(x:torch.Tensor):
     return x
 
 
-def onnx_decode(ie_outputs, cpu_byte):
-    import onnxruntime as ort
-    sess = ort.InferenceSession(cpu_byte)
-    input_names = [input.name for input in sess.get_inputs()]
-    input_dict = {}
-    
-    for i, input_name in enumerate(input_names):
-        input_dict.update(input_name, ie_outputs[i])
-    
-    ort_output = sess.run(None, input_dict)
-    return ort_output[0][0]
-
-def all_decode(ie_outputs, layer_config, n_classes):
+def all_decode(outputs, layer_config, n_classes):
     ''' slice outputs'''
-    outputs = []
-    outputs.append(ie_outputs[0][...,:(n_classes + 5)* len(layer_config[0]["anchor_width"])])
-    outputs.append(ie_outputs[1][...,:(n_classes + 5)* len(layer_config[0]["anchor_width"])])
-    outputs.append(ie_outputs[2][...,:(n_classes + 5)* len(layer_config[0]["anchor_width"])])
-    
     decoded_tensor = []
     
     for i, output in enumerate(outputs):
-        for l in range(len(layer_config[i]["anchor_width"])):
+        output = np.squeeze(output)
+        for l in range(len(layer_config[i+1]["anchor_width"])):
             start = l*(n_classes + 5)
             end = start + n_classes + 5
             
-            layer = layer_config[i]
+            layer = layer_config[i+1]
             stride = layer["stride"]
             grid_size = output.shape[2]
             meshgrid_x = np.arange(0, grid_size)
             meshgrid_y = np.arange(0, grid_size)
             grid = np.stack([np.meshgrid(meshgrid_y, meshgrid_x)], axis=-1)[...,0]
-            output[...,start+4:end] = sigmoid(output[...,start+4:end])
-            cxcy = output[...,start+0:start+2]
-            wh = output[...,start+2:start+4]
-            cxcy[...,0] = (sigmoid(cxcy[...,0]) * 2 - 0.5 + grid[0]) * stride
-            cxcy[...,1] = (sigmoid(cxcy[...,1]) * 2 - 0.5 + grid[1]) * stride
-            wh[...,0] = ((sigmoid(wh[...,0]) * 2) ** 2) * layer["anchor_width"][l]
-            wh[...,1] = ((sigmoid(wh[...,1]) * 2) ** 2) * layer["anchor_height"][l]
-            decoded_tensor.append(output[...,start+0:end].reshape(-1, n_classes + 5))
+            output[start+4:end,...] = sigmoid(output[start+4:end,...])
+            cxcy = output[start+0:start+2,...]
+            wh = output[start+2:start+4,...]
+            cxcy[0,...] = (sigmoid(cxcy[0,...]) * 2 - 0.5 + grid[0]) * stride
+            cxcy[1,...] = (sigmoid(cxcy[1,...]) * 2 - 0.5 + grid[1]) * stride
+            wh[0,...] = ((sigmoid(wh[0,...]) * 2) ** 2) * layer["anchor_width"][l]
+            wh[1,...] = ((sigmoid(wh[1,...]) * 2) ** 2) * layer["anchor_height"][l]
+            decoded_tensor.append(output[start+0:end,...].reshape(n_classes + 5, -1))
             
-    decoded_output = np.concatenate(decoded_tensor, axis=0)
-    
-    return decoded_output
-
-def ppu_decode_pose(ie_outputs, layer_config, n_classes):
-    ie_output = ie_outputs[0][0]
-    num_det = ie_output.shape[0]
-    decoded_tensor = []
-    for detected_idx in range(num_det):
-        tensor = np.zeros((n_classes + 5), dtype=float)
-        
-        data = ie_output[detected_idx].tobytes()
-
-        box = np.frombuffer(data[0:16], np.float32)
-        gy, gx, anchor, layer = np.frombuffer(data[16:20], np.uint8)
-        score = np.frombuffer(data[20:24], np.float32)
-        label = 0 # np.frombuffer(data[24:28], np.uint32)
-        kpts = np.frombuffer(data[28:232], np.float32)
-
-        if layer > len(layer_config):
-            break
-
-        w = layer_config[layer]["anchor_width"][anchor]
-        h = layer_config[layer]["anchor_height"][anchor]
-        s = layer_config[layer]["stride"]
-        
-        grid = np.array([gx, gy], np.float32)
-        anchor_wh = np.array([w, h], np.float32)
-        xc = (grid - 0.5 + (box[0:2] * 2)) * s
-        wh = box[2:4] ** 2 * 4 * anchor_wh
-
-        box = np.concatenate([xc, wh], axis=0)
-        tensor[:4] = box
-        tensor[4] = score
-        tensor[4+1+label] = score
-
-        # for i in range(17):
-        #     start = (n_classes + 5) + (i * 3) 
-        #     tensor[start:start+2] = (grid - 0.5 + (kpts[i*3:i*3+2] * 2)) * s
-        #     tensor[start+2:start+3] = kpts[i*3+2:i*3+3]
-
-        decoded_tensor.append(tensor)
-    if len(decoded_tensor) == 0:
-        decoded_tensor = np.zeros((n_classes + 5), dtype=float)
-    
-    decoded_output = np.stack(decoded_tensor)
-    
-    return decoded_output
-
-
-def ppu_decode(ie_outputs, layer_config, n_classes):
-    ie_output = ie_outputs[0][0]
-    num_det = ie_output.shape[0]
-    decoded_tensor = []
-    for detected_idx in range(num_det):
-        tensor = np.zeros((n_classes + 5), dtype=float)
-        data = ie_output[detected_idx].tobytes()
-        box = np.frombuffer(data[0:16], np.float32)
-        gy, gx, anchor, layer = np.frombuffer(data[16:20], np.uint8)
-        score = np.frombuffer(data[20:24], np.float32)
-        label = np.frombuffer(data[24:28], np.uint32)
-        if layer > len(layer_config):
-            break
-        w = layer_config[layer]["anchor_width"][anchor]
-        h = layer_config[layer]["anchor_height"][anchor]
-        s = layer_config[layer]["stride"]
-        
-        grid = np.array([gx, gy], np.float32)
-        anchor_wh = np.array([w, h], np.float32)
-        xc = (grid - 0.5 + (box[0:2] * 2)) * s
-        wh = box[2:4] ** 2 * 4 * anchor_wh
-        box = np.concatenate([xc, wh], axis=0)
-        tensor[:4] = box
-        tensor[4] = score
-        tensor[4+1+label] = score
-        decoded_tensor.append(tensor)
-    if len(decoded_tensor) == 0:
-        decoded_tensor = np.zeros((n_classes + 5), dtype=float)
-    
-    decoded_output = np.stack(decoded_tensor)
+    decoded_output = np.concatenate(decoded_tensor, axis=1).transpose(1, 0)
     
     return decoded_output
 
@@ -221,11 +125,13 @@ class AsyncYolo:
         self.input_size = (input_resolution, input_resolution)
         self.videomode = False
         self.result_output = queue.Queue()
-        self.ie.RegisterCallBack(self.pp_callback)
+        self.ie.register_callback(self.pp_callback)
+        self.ratio = None
+        self.offset = None
             
     def run(self, image):
         self.image = copy.deepcopy(image)
-        self.input_image, _, _ = letter_box(self.image, self.config.input_size, fill_color=(114, 114, 114), format=cv2.COLOR_BGR2RGB)
+        self.input_image, self.ratio, self.offset = letter_box(self.image, self.config.input_size, fill_color=(114, 114, 114), format=cv2.COLOR_BGR2RGB)
         self.req = self.ie.run_async([self.input_image], self)
         q.put(self.req)
         return self.req
@@ -239,39 +145,33 @@ class AsyncYolo:
     @staticmethod
     def pp_callback(ie_outputs, user_args):
         with callback_lock:
-            if dx_version.__version__ == '1.1.0':
-                value:AsyncYolo = user_args
-            else:
-                value:AsyncYolo = user_args.value
+            value:AsyncYolo = user_args
             value.result_output.put(ie_outputs)
             q.put(value.req)
         
 class PostProcessingRun:
-    def __init__(self, config:YoloConfig, output_task_order):
+    def __init__(self, config:YoloConfig, layer_idx):
         self.video_mode = False
         self.config = config
         self.inputsize_w = int(self.config.input_size[0])
         self.inputsize_h = int(self.config.input_size[1])
         self._queue = queue.Queue()
-        self.task_order = output_task_order
+        self.layer_idx = layer_idx
 
     def run(self, result_output):
         self.result_bbox = self.postprocessing(result_output)
         self._queue.put(self.result_bbox)
     
     def postprocessing(self, outputs):
-        if self.config.output_type == "BBOX":
-            decoded_tensor = ppu_decode(outputs, self.config.layers, len(self.config.classes))
-        elif self.config.output_type == "POSE":
-            decoded_tensor = ppu_decode_pose(outputs, self.config.layers, len(self.config.classes))
-        elif len(outputs) > 1:
+        if len(outputs) == 3:
             if self.config.decode_type in ["yolov8", "yolov9"]:
                 raise ValueError(
                     f"Decode type '{self.config.decode_type}' requires USE_ORT=ON. "
                     "Please enable ONNX Runtime support to use this decode type."
                 )
+            outputs = [outputs[i] for i in self.layer_idx]
             decoded_tensor = all_decode(outputs, self.config.layers, len(self.config.classes))
-        elif len(outputs) == 1:
+        elif len(outputs) == 1 or len(outputs) == 4:
             decoded_tensor = outputs[0]
         else:
             raise ValueError(f"[Error] Output Size {len(outputs)} is not supported !!")
@@ -299,25 +199,40 @@ class PostProcessingRun:
         print("[Result] Detected {} Boxes.".format(len(x)))
         return x
         
-    def save_result(self, input_image):
+    def save_result(self, image, ratio, offset):
         global callback_cnt
-        image = input_image
-        image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
         for idx, r in enumerate(self._queue.get().numpy()):
             pt1, pt2, conf, label = r[0:2].astype(int), r[2:4].astype(int), r[4], r[5].astype(int)
+            pt1, pt2 = self.transform_box(pt1, pt2, ratio, offset, image.shape)
             if not self.video_mode:
                 print("[{}] conf, classID, x1, y1, x2, y2, : {:.4f}, {}({}), {}, {}, {}, {}"
                       .format(idx, conf, self.config.classes[label], label, pt1[0], pt1[1], pt2[0], pt2[1]))
             image = cv2.rectangle(image, pt1, pt2, self.config.colors[label], 2)
         
         cv2.imwrite(str(callback_cnt)+ "-result.jpg", image)
+        print(f"save result image : {str(callback_cnt)+ '-result.jpg'}")
         callback_cnt += 1
+
+    def transform_box(self, pt1, pt2, ratio, offset, original_shape):
+        dw, dh = offset
+        pt1[0] = (pt1[0] - dw) / ratio[0]
+        pt1[1] = (pt1[1] - dh) / ratio[1]
+        pt2[0] = (pt2[0] - dw) / ratio[0]
+        pt2[1] = (pt2[1] - dh) / ratio[1]
+
+        pt1[0] = max(0, min(pt1[0], original_shape[1]))
+        pt1[1] = max(0, min(pt1[1], original_shape[0]))
+        pt2[0] = max(0, min(pt2[0], original_shape[1]))
+        pt2[1] = max(0, min(pt2[1], original_shape[0]))
+
+        return pt1, pt2
     
-    def get_result_frame(self, input_image):
+    def get_result_frame(self, input_image, ratio, offset):
         image = input_image
         image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
         for idx, r in enumerate(self._queue.get().numpy()):
             pt1, pt2, conf, label = r[0:2].astype(int), r[2:4].astype(int), r[4], r[5].astype(int)
+            pt1, pt2 = self.transform_box(pt1, pt2, ratio, offset, image.shape)
             image = cv2.rectangle(image, pt1, pt2, self.config.colors[label], 2)
         self._queue.task_done()
         return image
@@ -325,6 +240,11 @@ class PostProcessingRun:
 
 def run_example(config):
     global g_shutdown
+
+    if version.parse(Configuration().get_version()) < version.parse("3.0.0"):
+        print("DX-RT version 3.0.0 or higher is required. Please update DX-RT to the latest version.")
+        exit()
+
     model_path = config["model"]["path"]
     classes = config["output"]["classes"]
     score_threshold = config["model"]["param"]["score_threshold"]
@@ -343,13 +263,25 @@ def run_example(config):
     
     ''' make inference engine (dxrt)'''
     ie = InferenceEngine(model_path)
-    task_order = ie.task_order()
+    if version.parse(ie.get_model_version()) < version.parse('7'):
+        print("dxnn files format version 7 or higher is required. Please update/re-export the model.")
+        exit()
+    
+    tensor_names = ie.get_output_tensor_names()
+    layer_idx = []
+    for i in range(len(layers)):
+        for j in range(len(tensor_names)):
+            if layers[i]["name"] == tensor_names[j]:
+                layer_idx.append(j)
+                break
+    if len(layer_idx) == 0:
+        raise ValueError(f"[Error] Layer {layers} is not supported !!") 
     
     yolo_config = YoloConfig(model_path, classes, score_threshold, iou_threshold, layers, np.sqrt(ie.get_input_size() / 3), ie.get_output_tensors_info()[0]['dtype'], decode_type)
     
     async_thread = AsyncYolo(ie, yolo_config, classes, score_threshold, iou_threshold, layers)
     
-    pp_thread = PostProcessingRun(yolo_config, task_order)
+    pp_thread = PostProcessingRun(yolo_config, layer_idx)
     
     if video_mode == True:
         async_thread.set_videomode(True)
@@ -375,7 +307,7 @@ def run_example(config):
                 async_thread.result_output.task_done()
             
             if pp_thread._queue.qsize() > 0 :
-                result_frame = pp_thread.get_result_frame(async_thread.input_image)
+                result_frame = pp_thread.get_result_frame(async_thread.input_image, async_thread.ratio, async_thread.offset)
                 cv2.imshow("test", result_frame)
                 end_time = time.time()
                 total_time = (end_time - start_time) * 1000.0
@@ -406,7 +338,7 @@ def run_example(config):
                 async_thread.result_output.task_done()
                 
             if pp_thread._queue.qsize() > 0 :
-                pp_thread.save_result(async_thread.input_image)
+                pp_thread.save_result(async_thread.image, async_thread.ratio, async_thread.offset)
     
     return 0
                     

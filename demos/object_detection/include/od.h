@@ -9,11 +9,10 @@
 #include <opencv2/opencv.hpp>
 #include <atomic>
 #include <thread>
-#include "bbox.h"
 #include "yolo.h"
-#include "dxrt/dxrt_api.h"
-#include "common/objects.hpp"
-#include "utils/videostream.hpp"
+#include <dxrt/dxrt_api.h>
+#include <common/objects.hpp>
+#include <utils/videostream.hpp>
 #include <queue>
 
 class ObjectDetection
@@ -32,7 +31,7 @@ public:
     void Play();
     cv::Mat ResultFrame();
     std::pair<int, int> Position();
-    pair<int, int> Resolution();
+    std::pair<int, int> Resolution();
     uint64_t GetInferenceTime();
     uint64_t GetLatencyTime();
     uint64_t GetProcessingTime();
@@ -43,8 +42,7 @@ public:
     std::string &Name();
     void Toggle();
     void PostProc(std::vector<std::shared_ptr<dxrt::Tensor>>&);
-    void PostProc(void* outputs, int output_length);
-    dxapp::common::DetectObject GetScalingBBox(vector<BoundingBox>& bboxes);
+    dxapp::common::DetectObject GetScalingBBox(std::vector<BoundingBox>& bboxes);
     friend std::ostream& operator<<(std::ostream&, const ObjectDetection&);
 private:
     std::shared_ptr<dxrt::InferenceEngine> _ie;

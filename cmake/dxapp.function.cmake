@@ -27,6 +27,20 @@ macro(add_opencv)
   LIST(APPEND link_libs ${OpenCV_LIBS})
 endmacro(add_opencv)
 
+macro(add_demo_utils)
+  set(DEMO_UTILS_DIR ${CMAKE_SOURCE_DIR}/demos/demo_utils)
+  include_directories(${DEMO_UTILS_DIR}/include)
+  set(DEMO_UTILS_SRC 
+    ${DEMO_UTILS_DIR}/yolo_cfg.cpp
+    ${DEMO_UTILS_DIR}/yolo.cpp
+    ${DEMO_UTILS_DIR}/nms.cpp
+    ${DEMO_UTILS_DIR}/bbox.cpp
+    ${DEMO_UTILS_DIR}/image.cpp
+    ${DEMO_UTILS_DIR}/segmentation.cpp
+    ${DEMO_UTILS_DIR}/display.cpp
+  )
+endmacro(add_demo_utils)
+
 macro(add_dxrt_lib)
 if(MSVC)
   add_library(dxrt SHARED IMPORTED)

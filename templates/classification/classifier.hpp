@@ -7,8 +7,8 @@
 
 #include <opencv2/opencv.hpp>
 
-#include "post_process/classification_post_processing.hpp"
-#include "pre_process/classification_pre_processing.hpp"
+#include <post_process/classification_post_processing.hpp>
+#include <pre_process/classification_pre_processing.hpp>
 
 #include "app_parser.hpp"
 
@@ -28,16 +28,22 @@ public:
         rapidjson::Document doc;
         doc.Parse(config.modelInfo.c_str());
         std::string modelPath = doc["path"].GetString();
+        inputWidth = doc["input_width"].GetInt();
+        inputHeight = doc["input_height"].GetInt();
+        for(auto& output : doc["final_outputs"].GetArray())
+        {
+            finalOutputs.push_back(output.GetString());
+        }
         inferenceEngine = std::make_shared<dxrt::InferenceEngine>(modelPath);
+        if(!dxapp::common::minversionforRTandCompiler(inferenceEngine.get()))
+        {
+            std::cerr << "[DXAPP] [ER] The version of the compiled model is not compatible with the version of the runtime. Please compile the model again." << std::endl;
+            std::terminate();
+        }
         
-        inputShape = std::vector<int64_t>(inferenceEngine->inputs().front().shape());
-        outputShape = inferenceEngine->outputs().front().shape();
-        inputSize = inferenceEngine->input_size();
-        auto factorialShape = inputShape[1]*inputShape[1]*3;
-        if(!dxapp::common::checkOrtLinking() && static_cast<uint64_t>(factorialShape) != inputSize)
-            alignFactor = dxapp::common::get_align_factor(inputShape[1] * 3, 64);
-        else
-            alignFactor = false;
+        inputShape = std::vector<int64_t>(inferenceEngine->GetInputs().front().shape());
+        outputShape = inferenceEngine->GetOutputs().front().shape();
+        inputSize = inferenceEngine->GetInputSize();
 
         if(outputShape.size() == 1){
             is_argmax = true;
@@ -46,7 +52,6 @@ public:
         preConfig._dstShape = inputShape;
         preConfig._dstSize = inputSize;
         preConfig._inputFormat = config.inputFormat;
-        preConfig._alignFactor = alignFactor;
 
         postConfig._outputShape = outputShape;
         postConfig._outputType = is_argmax? OUTPUT_ARGMAX : OUTPUT_NONE_ARGMAX;
@@ -55,6 +60,9 @@ public:
     ~Classifier()=default;
     
     dxapp::AppConfig config;
+    int inputWidth;
+    int inputHeight;
+    std::vector<std::string> finalOutputs;
     std::vector<int64_t> inputShape;
     std::vector<int64_t> outputShape;
     uint64_t inputSize;
@@ -72,10 +80,20 @@ private:
                 "properties": {
                     "path": {
                         "type": "string"
+                    },
+                    "input_width": {
+                        "type": "number"
+                    },
+                    "input_height": {
+                        "type": "number"
+                    },
+                    "final_outputs": {
+                        "type": "array",
+                        "items": "string"
                     }
                 },
                 "required": [
-                    "path"
+                    "path", "input_width", "input_height", "final_outputs"
                 ]
             }
         )""";

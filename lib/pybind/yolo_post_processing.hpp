@@ -50,12 +50,9 @@ private:
              std::vector<float> &Keypoints,
              std::vector<float> &Results);
 
-    void ProcessPPU(std::vector<std::vector<std::pair<float, int>>> &ScoreIndices,
-                    std::vector<float> &Boxes,
-                    std::vector<float> &Keypoints,
-                    py::list &ie_output);
     void ProcessONNX(std::vector<std::vector<std::pair<float, int>>> &ScoreIndices,
                      std::vector<float> &Boxes,
+                     std::vector<float> &Keypoints,
                      py::list &ie_output);
     void ProcessRAW(std::vector<std::vector<std::pair<float, int>>> &ScoreIndices,
                     std::vector<float> &Boxes,

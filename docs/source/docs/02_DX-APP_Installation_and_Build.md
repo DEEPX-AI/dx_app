@@ -11,7 +11,7 @@ This section describes the hardware and software requirements for running **DX-A
 - **Storage:** 4GB or higher available disk space
 - The system **must** support connection to an **M1 M.2** module with the M.2 interface on the host PC. 
 
-![](./../resources/02_DX-M1_M.2_LPDDR5x2.png){ width=700px }
+![](./../resources/02_DX-M1_M.2_LPDDR5x2_PCP.png){ width=700px }
 
 
 **Note.** The **NPU Device Driver** and **DX-RT Library must** be installed. Refer to **DX-RT User Manual** for step-by-step installation instructions.  
@@ -27,8 +27,8 @@ This section describes the software requirements and installation steps for sett
 To run **DX-APP** on Linux, the following components **must** be installed.  
 
 - **OS**: Ubuntu 18.04 / 20.04 / 22.04 / 24.04 (x64)  
-- **Deepx M1 Driver Version**: v1.3.3 or higher  
-- **Deepx M1 Runtime Lib Version**: v2.8.2 or higher  
+- **Deepx M1 Driver Version**: v1.7.1 or higher  
+- **Deepx M1 Runtime Lib Version**: v3.0.0 or higher  
 
 All required components are included in the **DXNN All Suite (DX-AS)** package.  
 
@@ -74,7 +74,7 @@ You can check the available **DX-APP** installation options by running the follo
 Available options
 ```
 --help show this help
---arch target CPU architecture : [ x86_64, aarch64, riscv64 ]
+--arch target CPU architecture : [ x86_64, aarch64 ]
 --dep install dependencies : cmake, gcc, ninja, etc..
 --opencv (optional) install opencv pkg
 --opencv-source-build (optional) install opencv pkg by source build
@@ -112,6 +112,22 @@ Assets are downloaded and placed in the `assets/` directory. The available asset
 To test `dx_app`, run the following command.  
 ```
 ./scripts/run_detector.sh
+```
+You can also use the `run_demo.sh` script to conveniently run a variety of demo applications included with DX-APP. This script provides an interactive menu that allows you to quickly test different AI models and features without needing to remember or type out complex command-line arguments.
+
+To use the demo launcher, simply execute the following command in your terminal:
+
+```
+./run_demo.sh
+  0: Object Detection (YOLOv7)
+  1: Object Detection (YOLOv8N)
+  2: Object Detection (YOLOv9S)
+  3: Face Detection (YOLOV5S_Face)
+  4: Pose Estimation
+  5: Semantic Segmentation
+  6: Multi-Channel Object Detection (YOLOv5)
+  7: Multi-Model Object Detection (YOLOv5) & Segmentation
+which AI demo do you want to run:(timeout:10s, default:0)
 ```
 
 **4. Resolve Shared Library Errors**  

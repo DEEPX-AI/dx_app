@@ -4,12 +4,12 @@ import numpy as np
 import json
 import argparse
 from dx_engine import InferenceEngine
+from dx_engine import Configuration
+from packaging import version
 
 import torch
 import torchvision
 from ultralytics.utils import ops
-
-PPU_TYPES = ["BBOX", "POSE"]
 
 def sigmoid(x):
     return 1 / (1 + np.exp(-x))
@@ -39,190 +39,102 @@ def letter_box(image_src, new_shape=(512, 512), fill_color=(114, 114, 114), form
     
     return image_new, ratio, (dw, dh)    
 
-def ppu_decode_pose(ie_outputs, layer_config, n_classes):
-    ie_output = ie_outputs[0][0]
-    num_det = ie_output.shape[0]
-    decoded_tensor = []
-    for detected_idx in range(num_det):
-        tensor = np.zeros((n_classes + 5), dtype=float)
-        
-        data = ie_output[detected_idx].tobytes()
 
-        box = np.frombuffer(data[0:16], np.float32)
-        gy, gx, anchor, layer = np.frombuffer(data[16:20], np.uint8)
-        score = np.frombuffer(data[20:24], np.float32)
-        label = 0 # np.frombuffer(data[24:28], np.uint32)
-        kpts = np.frombuffer(data[28:232], np.float32)
-
-        if layer > len(layer_config):
-            break
-
-        w = layer_config[layer]["anchor_width"][anchor]
-        h = layer_config[layer]["anchor_height"][anchor]
-        s = layer_config[layer]["stride"]
-        
-        grid = np.array([gx, gy], np.float32)
-        anchor_wh = np.array([w, h], np.float32)
-        xc = (grid - 0.5 + (box[0:2] * 2)) * s
-        wh = box[2:4] ** 2 * 4 * anchor_wh
-
-        box = np.concatenate([xc, wh], axis=0)
-        tensor[:4] = box
-        tensor[4] = score
-        tensor[4+1+label] = score
-
-        # for i in range(17):
-        #     start = (n_classes + 5) + (i * 3) 
-        #     tensor[start:start+2] = (grid - 0.5 + (kpts[i*3:i*3+2] * 2)) * s
-        #     tensor[start+2:start+3] = kpts[i*3+2:i*3+3]
-
-        decoded_tensor.append(tensor)
-    if len(decoded_tensor) == 0:
-        decoded_tensor = np.zeros((n_classes + 5), dtype=float)
-    
-    decoded_output = np.stack(decoded_tensor)
-    
-    return decoded_output
-
-def ppu_decode(ie_outputs, layer_config, n_classes):
-    ie_output = ie_outputs[0][0]
-    num_det = ie_output.shape[0]
-    decoded_tensor = []
-    for detected_idx in range(num_det):
-        tensor = np.zeros((n_classes + 5), dtype=float)
-        data = ie_output[detected_idx].tobytes()
-        box = np.frombuffer(data[0:16], np.float32)
-        gy, gx, anchor, layer = np.frombuffer(data[16:20], np.uint8)
-        score = np.frombuffer(data[20:24], np.float32)
-        label = np.frombuffer(data[24:28], np.uint32)
-        if layer > len(layer_config):
-            break
-        w = layer_config[layer]["anchor_width"][anchor]
-        h = layer_config[layer]["anchor_height"][anchor]
-        s = layer_config[layer]["stride"]
-        
-        grid = np.array([gx, gy], np.float32)
-        anchor_wh = np.array([w, h], np.float32)
-        xc = (grid - 0.5 + (box[0:2] * 2)) * s
-        wh = box[2:4] ** 2 * 4 * anchor_wh
-        box = np.concatenate([xc, wh], axis=0)
-        tensor[:4] = box
-        tensor[4] = score
-        tensor[4+1+label] = score
-        decoded_tensor.append(tensor)
-    if len(decoded_tensor) == 0:
-        decoded_tensor = np.zeros((n_classes + 5), dtype=float)
-    
-    decoded_output = np.stack(decoded_tensor)
-    
-    return decoded_output
-    
-
-def all_decode(ie_outputs, layer_config, n_classes):
+def all_decode(outputs, layer_config, n_classes):
     ''' slice outputs'''
-    outputs = []
-    outputs.append(ie_outputs[0][...,:(n_classes + 5)* len(layer_config[0]["anchor_width"])])
-    outputs.append(ie_outputs[1][...,:(n_classes + 5)* len(layer_config[0]["anchor_width"])])
-    outputs.append(ie_outputs[2][...,:(n_classes + 5)* len(layer_config[0]["anchor_width"])])
-    
     decoded_tensor = []
-    
     for i, output in enumerate(outputs):
-        for l in range(len(layer_config[i]["anchor_width"])):
+        output = np.squeeze(output)
+        for l in range(len(layer_config[i+1]["anchor_width"])):
             start = l*(n_classes + 5)
             end = start + n_classes + 5
             
-            layer = layer_config[i]
+            layer = layer_config[i+1]
             stride = layer["stride"]
             grid_size = output.shape[2]
             meshgrid_x = np.arange(0, grid_size)
             meshgrid_y = np.arange(0, grid_size)
             grid = np.stack([np.meshgrid(meshgrid_y, meshgrid_x)], axis=-1)[...,0]
-            output[...,start+4:end] = sigmoid(output[...,start+4:end])
-            cxcy = output[...,start+0:start+2]
-            wh = output[...,start+2:start+4]
-            cxcy[...,0] = (sigmoid(cxcy[...,0]) * 2 - 0.5 + grid[0]) * stride
-            cxcy[...,1] = (sigmoid(cxcy[...,1]) * 2 - 0.5 + grid[1]) * stride
-            wh[...,0] = ((sigmoid(wh[...,0]) * 2) ** 2) * layer["anchor_width"][l]
-            wh[...,1] = ((sigmoid(wh[...,1]) * 2) ** 2) * layer["anchor_height"][l]
-            decoded_tensor.append(output[...,start+0:end].reshape(-1, n_classes + 5))
+            output[start+4:end,...] = sigmoid(output[start+4:end,...])
+            cxcy = output[start+0:start+2,...]
+            wh = output[start+2:start+4,...]
+            cxcy[0,...] = (sigmoid(cxcy[0,...]) * 2 - 0.5 + grid[0]) * stride
+            cxcy[1,...] = (sigmoid(cxcy[1,...]) * 2 - 0.5 + grid[1]) * stride
+            wh[0,...] = ((sigmoid(wh[0,...]) * 2) ** 2) * layer["anchor_width"][l]
+            wh[1,...] = ((sigmoid(wh[1,...]) * 2) ** 2) * layer["anchor_height"][l]
+            decoded_tensor.append(output[start+0:end,...].reshape(n_classes + 5, -1))
             
-    decoded_output = np.concatenate(decoded_tensor, axis=0)
+    decoded_output = np.concatenate(decoded_tensor, axis=1)
+    decoded_output = decoded_output.transpose(1, 0)
     
     return decoded_output
 
 
-def onnx_decode(ie_outputs, cpu_onnx_path):
-    import onnxruntime as ort
-    sess = ort.InferenceSession(cpu_onnx_path)
-    input_names = [input.name for input in sess.get_inputs()]
-    input_dict = {input_names[0]:ie_outputs[0], input_names[1]:ie_outputs[1], input_names[2]:ie_outputs[2]}
-    ort_output = sess.run(None, input_dict)
-    return ort_output[0][0]
+def transform_box(pt1, pt2, ratio, offset, original_shape):
+    dw, dh = offset
+    pt1[0] = (pt1[0] - dw) / ratio[0]
+    pt1[1] = (pt1[1] - dh) / ratio[1]
+    pt2[0] = (pt2[0] - dw) / ratio[0]
+    pt2[1] = (pt2[1] - dh) / ratio[1]
 
+    pt1[0] = max(0, min(pt1[0], original_shape[1]))
+    pt1[1] = max(0, min(pt1[1], original_shape[0]))
+    pt2[0] = max(0, min(pt2[0], original_shape[1]))
+    pt2[1] = max(0, min(pt2[1], original_shape[0]))
 
-def intersection_filter(x:torch.Tensor):
-    for i in range(x.shape[0] - 1):
-        for j in range(x.shape[0] - 1):
-            a = x[i]
-            b = x[j+1]
-            if a[5] != b[5]:
-                continue
-            x1_inter = max(a[0], b[0])
-            y1_inter = max(a[1], b[1])
-            x2_inter = min(a[2], b[2])
-            y2_inter = min(a[3], b[3])
-            if b[0] == x1_inter and b[1] == y1_inter and b[2] == x2_inter and b[3] == y2_inter:
-                if a[4] > b[4]:
-                    x[j+1][4] = 0
-                elif a[4] < b[4]:
-                    x[i][4] = 0
-    return x
-    
+    return pt1, pt2
 
 def run_example(config):
+    if version.parse(Configuration().get_version()) < version.parse("3.0.0"):
+        print("DX-RT version 3.0.0 or higher is required. Please update DX-RT to the latest version.")
+        exit()
+    
     model_path = config["model"]["path"]
     classes = config["output"]["classes"]
     n_classes = len(classes)
     score_threshold = config["model"]["param"]["score_threshold"]
-    iou_threshold = config["model"]["param"]["iou_threshold"]
     layers = config["model"]["param"]["layer"]
-    pp_type = config["model"]["param"]["decoding_method"]
+    final_output = config["model"]["param"]["final_outputs"][0]
     input_list = []
     
     for source in config["input"]["sources"]:
         if source["type"] == "image":
             input_list.append(source["path"])
-    if len(input_list) == 0 :
-        input_list.append("./sample/2.jpg")
+        else:
+            raise ValueError(f"[Error] Input Type {source['type']} is not supported !!")
     
     ''' make inference engine (dxrt)'''
     ie = InferenceEngine(model_path)
+    if version.parse(ie.get_model_version()) < version.parse('7'):
+        print("dxnn files format version 7 or higher is required. Please update/re-export the model.")
+        exit()
+
+    tensor_names = ie.get_output_tensor_names()
+    layer_idx = []
+    for i in range(len(layers)):
+        for j in range(len(tensor_names)):
+            if layers[i]["name"] == tensor_names[j]:
+                layer_idx.append(j)
+                break
+    if len(layer_idx) == 0:
+        raise ValueError(f"[Error] Layer {layers} is not supported !!") 
+
     input_size = np.sqrt(ie.get_input_size() / 3)
     count = 1
     for input_path in input_list:
         image_src = cv2.imread(input_path, cv2.IMREAD_COLOR)
-        image_input, _, _ = letter_box(image_src, new_shape=(int(input_size), int(input_size)), fill_color=(114, 114, 114), format=cv2.COLOR_BGR2RGB)
+        image_input, ratio, offset = letter_box(image_src, new_shape=(int(input_size), int(input_size)), fill_color=(114, 114, 114), format=cv2.COLOR_BGR2RGB)
         
         ''' detect image (1) run dxrt inference engine, (2) post processing'''
         ie_output = ie.run([image_input])
         print("dxrt inference Done! ")
         decoded_tensor = []
-        if ie.get_output_tensors_info()[0]['dtype'] in PPU_TYPES:
-            if pp_type in ["yolo_pose"]:
-                decoded_tensor = ppu_decode_pose(ie_output, layers, n_classes)
-            else:
-                decoded_tensor = ppu_decode(ie_output, layers, n_classes)
-        elif len(ie_output) > 1:
-            cpu_model_path = os.path.join(os.path.split(model_path)[0], "cpu_0.onnx")
-            if os.path.exists(cpu_model_path):
-                decoded_tensor = onnx_decode(ie_output, cpu_model_path)
-            else:
-                decoded_tensor = all_decode(ie_output, layers, n_classes)
-        elif len(ie_output) == 1:
-            decoded_tensor = ie_output[0]
+        if not final_output in ie.get_output_tensor_names():
+            ie_output = [ie_output[i] for i in layer_idx]
+            decoded_tensor = all_decode(ie_output, layers, n_classes)
         else:
-            raise ValueError(f"[Error] Output Size {len(ie_output)} is not supported !!")
+            decoded_tensor = ie_output[layer_idx[0]]
+
         print("decoding output Done! ")
 
         ''' post Processing '''
@@ -241,14 +153,15 @@ def run_example(config):
         
         ''' save result and print detected info '''
         print("[Result] Detected {} Boxes.".format(len(x)))
-        image = cv2.cvtColor(image_input, cv2.COLOR_RGB2BGR)
+        # image = cv2.cvtColor(image_input, cv2.COLOR_RGB2BGR)
         colors = np.random.randint(0, 256, [n_classes, 3], np.uint8).tolist()
         for idx, r in enumerate(x.numpy()):
             pt1, pt2, conf, label = r[0:2].astype(int), r[2:4].astype(int), r[4], r[5].astype(int)
+            pt1, pt2 = transform_box(pt1, pt2, ratio, offset, image_src.shape)
             print("[{}] conf, classID, x1, y1, x2, y2, : {:.4f}, {}({}), {}, {}, {}, {}"
                   .format(idx, conf, classes[label], label, pt1[0], pt1[1], pt2[0], pt2[1]))
-            image = cv2.rectangle(image, pt1, pt2, colors[label], 2)
-        cv2.imwrite(f"yolov5s_{count}.jpg", image)
+            image_src = cv2.rectangle(image_src, pt1, pt2, colors[label], 2)
+        cv2.imwrite(f"yolov5s_{count}.jpg", image_src)
         print(f"save file : yolov5s_{count}.jpg ")
         count += 1
     

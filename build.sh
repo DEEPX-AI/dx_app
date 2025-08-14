@@ -14,7 +14,7 @@ help() {
     echo -e "  ${COLOR_GREEN}--clean${COLOR_RESET}      Perform a clean build, removing previous build artifacts."
     echo -e "  ${COLOR_GREEN}--verbose${COLOR_RESET}    Show detailed build commands during the process."
     echo -e "  ${COLOR_GREEN}--type <TYPE>${COLOR_RESET}  Specify the CMake build type. Valid options: [Release, Debug, RelWithDebInfo]."
-    echo -e "  ${COLOR_GREEN}--arch <ARCH>${COLOR_RESET}  Specify the target CPU architecture. Valid options: [x86_64, aarch64, riscv64]."
+    echo -e "  ${COLOR_GREEN}--arch <ARCH>${COLOR_RESET}  Specify the target CPU architecture. Valid options: [x86_64, aarch64]."
     echo -e ""
     echo -e "  ${COLOR_GREEN}--python_exec <PATH>${COLOR_RESET} Specify the Python executable to use for the build."
     echo -e "                            If omitted, the default system 'python3' will be used."
@@ -39,6 +39,45 @@ help() {
         return 0
     fi
     exit 0
+}
+
+# Helper: uninstall dx_postprocess and clean artifacts
+uninstall_dx_postprocess() {
+    echo -e "${TAG_INFO} Uninstalling dx_postprocess from the current Python environment if installed..."
+    if ${python_exec} -m pip show dx_postprocess >/dev/null 2>&1; then
+        ${python_exec} -m pip uninstall -y dx_postprocess || true
+    else
+        echo -e "${TAG_WARN} dx_postprocess is not installed (pip show returned non-zero)."
+    fi
+
+    echo -e "${TAG_INFO} Removing dx_postprocess artifacts from current interpreter's site/dist-packages..."
+    SITE_PKGS=$(${python_exec} - <<'PY'
+import site, sys, sysconfig, os
+roots=set()
+paths = sysconfig.get_paths() or {}
+for k in ('purelib','platlib'):
+    p = paths.get(k)
+    if p:
+        roots.add(p)
+try:
+    up = site.getusersitepackages()
+    if up:
+        roots.add(up)
+except Exception:
+    pass
+prefix = os.path.realpath(sys.prefix)
+filtered = [r for r in roots if os.path.realpath(r).startswith(prefix)]
+print("\n".join(sorted(filtered)))
+PY
+)
+    for d in ${SITE_PKGS}; do
+        [ -d "$d" ] || continue
+        rm -f "$d"/dx_postprocess*.so "$d"/dx_postprocess*.pyd 2>/dev/null || true
+        rm -rf "$d"/dx_postprocess-*.dist-info "$d"/dx_postprocess*.egg-info "$d"/dx_postprocess 2>/dev/null || true
+    done
+
+    echo -e "${TAG_INFO} Removing local build artifacts for dx_postprocess..."
+    rm -rf lib/pybind/build lib/pybind/dist lib/pybind/dx_postprocess.egg-info 2>/dev/null || true
 }
 
 # cmake command
@@ -142,11 +181,12 @@ cmd+=(-DCMAKE_GENERATOR=Ninja)
 
 build_dir=build_"$target_arch"
 out_dir=bin
-pybind_biuld_dir=lib/pybind/build/ 
-pybind_dx_postprocess_dir=lib/pybind/dx_postprocess.egg-info/
 echo cmake args : ${cmd[@]}
+
 if [ $clean_build == "true" ]; then 
-    CLEAN_CMD="rm -rf $build_dir $pybind_biuld_dir $pybind_dx_postprocess_dir && [ $(uname -m) == "$target_arch" ] && rm -rf $out_dir"
+    # Uninstall python package and clean artifacts as part of clean build
+    uninstall_dx_postprocess
+    CLEAN_CMD="rm -rf $build_dir && [ $(uname -m) == \"$target_arch\" ] && rm -rf $out_dir"
     ${CLEAN_CMD}
     if [ $? -ne 0 ]; then
         echo -e "${TAG_WARN} Failed to clean build directory. try to clean again with 'sudo'."
@@ -188,6 +228,21 @@ fi
 if [ -f ./lib/pybind/setup.py ]; then
     echo "Installing dx_postprocess Python module..."
     cd ./lib/pybind
+    
+    if [ $build_type == "debug" ]; then
+        export CMAKE_BUILD_TYPE=Debug
+        export DEBUG=1
+        echo "Setting DEBUG mode for dx_postprocess build"
+    elif [ $build_type == "relwithdebinfo" ]; then
+        export CMAKE_BUILD_TYPE=RelWithDebInfo
+        export DEBUG=1
+        echo "Setting RelWithDebInfo mode for dx_postprocess build"
+    else
+        export CMAKE_BUILD_TYPE=Release
+        export DEBUG=0
+        echo "Setting RELEASE mode for dx_postprocess build"
+    fi
+    
     ${python_exec} -m pip install .
     install_result=$?
     cd ../..
