@@ -1,9 +1,12 @@
 #!/bin/bash
 SCRIPT_DIR=$(realpath "$(dirname "$0")")
+DX_APP_PATH=$(realpath -s "${SCRIPT_DIR}")
 
 # color env settings
 source ${SCRIPT_DIR}/scripts/color_env.sh
 source ${SCRIPT_DIR}/scripts/common_util.sh
+
+pushd ${DX_APP_PATH} >&2
 
 help() {
     echo -e "Usage: ${COLOR_CYAN}$0 [OPTIONS]${COLOR_RESET}"
@@ -201,33 +204,36 @@ fi
 mkdir -p $build_dir
 mkdir -p $out_dir
 rm -rf $build_dir/release/bin
-cd $build_dir
-cmake .. ${cmd[@]}
+pushd $build_dir >&2
+cmake .. ${cmd[@]} || {
+    echo -e "${TAG_ERROR} CMake configuration failed. Please check the output above."
+    exit 1
+}
 if [ $(uname -m) != "$target_arch" ]; then
-    cmake --build . --target install && cd ..
+    cmake --build . --target install || { echo -e "${TAG_ERROR} CMake build failed. Please check the output above."; exit 1; } && popd >&2
 else
-    cmake --build . --target install && cd .. && cp $build_dir/release/bin/* $out_dir/
+    cmake --build . --target install || { echo -e "${TAG_ERROR} CMake build failed. Please check the output above."; exit 1; } && popd >&2 && cp $build_dir/release/bin/* $out_dir/
     if [ $? -ne 1 ]; then
         echo Build Completed and executable copied to $out_dir/
     fi
 fi
 
-if [ -f ./templates/python/requirements.txt ]; then
-    echo Installing Python dependencies from ./templates/python/requirements.txt
-    pip install -r ./templates/python/requirements.txt
+if [ -f ${DX_APP_PATH}/templates/python/requirements.txt ]; then
+    echo Installing Python dependencies from ${DX_APP_PATH}/templates/python/requirements.txt
+    pip install -r ${DX_APP_PATH}/templates/python/requirements.txt
     if [ $? -ne 0 ]; then
         echo -e "${TAG_ERROR} Failed to install Python dependencies"
         exit 1
     fi
 else
-    echo -e "${TAG_ERROR} ./templates/python/requirements.txt not found"
+    echo -e "${TAG_ERROR} ${DX_APP_PATH}/templates/python/requirements.txt not found"
     exit 1
 fi
 
 # Install dx_postprocess Python module
-if [ -f ./lib/pybind/setup.py ]; then
+if [ -f ${DX_APP_PATH}/lib/pybind/setup.py ]; then
     echo "Installing dx_postprocess Python module..."
-    cd ./lib/pybind
+    pushd ${DX_APP_PATH}/lib/pybind >&2
     
     if [ $build_type == "debug" ]; then
         export CMAKE_BUILD_TYPE=Debug
@@ -245,7 +251,7 @@ if [ -f ./lib/pybind/setup.py ]; then
     
     ${python_exec} -m pip install .
     install_result=$?
-    cd ../..
+    popd >&2
     if [ $install_result -eq 0 ]; then
         echo "dx_postprocess module installed successfully"
         # Verify installation
@@ -280,3 +286,5 @@ else
     echo Build Failed.
     exit -1
 fi
+
+popd >&2

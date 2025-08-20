@@ -1,6 +1,10 @@
 #!/bin/bash
 SCRIPT_DIR=$(realpath "$(dirname "$0")")
 
+# color env settings
+source ${SCRIPT_DIR}/scripts/color_env.sh
+source ${SCRIPT_DIR}/scripts/common_util.sh
+
 BASE_URL="https://sdk.deepx.ai/"
 
 # default value
@@ -23,6 +27,27 @@ show_help() {
     exit 1
   fi
   exit 0
+}
+
+main() {
+    SCRIPT_DIR=$(realpath "$(dirname "$0")")
+    GET_RES_CMD="$SCRIPT_DIR/scripts/get_resource.sh --src_path=$SOURCE_PATH --output=$OUTPUT_DIR $SYMLINK_ARGS $FORCE_ARGS --extract"
+    echo "Get Resources from remote server ..."
+    echo "$GET_RES_CMD"
+
+    $GET_RES_CMD || {
+        local error_msg="Get resource failed!"
+        local hint_msg="If the issue persists, please try again with sudo and the --force option, like this: 'sudo ./setup_sample_models.sh --force'."
+        local origin_cmd="" # no need to run origin command
+        local suggested_action_cmd="sudo $GET_RES_CMD --force"
+
+        # handle_cmd_failure function arguments
+        #   - local error_message=$1
+        #   - local hint_message=$2
+        #   - local origin_cmd=$3
+        #   - local suggested_action_cmd=$4
+        handle_cmd_failure "$error_msg" "$hint_msg" "$origin_cmd" "$suggested_action_cmd"
+    }
 }
 
 # parse args
@@ -60,15 +85,6 @@ for i in "$@"; do
     shift
 done
 
-SCRIPT_DIR=$(realpath "$(dirname "$0")")
-GET_RES_CMD="$SCRIPT_DIR/scripts/get_resource.sh --src_path=$SOURCE_PATH --output=$OUTPUT_DIR $SYMLINK_ARGS $FORCE_ARGS --extract"
-echo "Get Resources from remote server ..."
-echo "$GET_RES_CMD"
-
-$GET_RES_CMD
-if [ $? -ne 0 ]; then
-    echo "Get resource failed!"
-    exit 1
-fi
+main
 
 exit 0
