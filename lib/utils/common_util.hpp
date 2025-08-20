@@ -365,7 +365,18 @@ catch (const std::exception& e) \
 
     inline bool isVersionGreaterOrEqual(const std::string& v1, const std::string& v2) 
     {
-        std::istringstream s1(v1), s2(v2);
+        // Remove 'v' prefix if present
+        std::string version1 = v1;
+        std::string version2 = v2;
+        
+        if (!version1.empty() && version1[0] == 'v') {
+            version1 = version1.substr(1);
+        }
+        if (!version2.empty() && version2[0] == 'v') {
+            version2 = version2.substr(1);
+        }
+        
+        std::istringstream s1(version1), s2(version2);
         int num1 = 0, num2 = 0;
         char dot;
 
@@ -387,10 +398,16 @@ catch (const std::exception& e) \
     {
         std::string rt_version = dxrt::Configuration::GetInstance().GetVersion();
         std::string compiler_version = ie->GetModelVersion();
+        
+        // Debug output to understand what versions we're comparing
+        // std::cout << "[DEBUG] RT version: " << rt_version << std::endl;
+        // std::cout << "[DEBUG] Compiler version: " << compiler_version << std::endl;
+        
         if(isVersionGreaterOrEqual(rt_version, "3.0.0"))
         {
             if(isVersionGreaterOrEqual(compiler_version, "v7"))
             {
+                // std::cout << "[DEBUG] Version check passed" << std::endl;
                 return true;
             }
             else{
@@ -400,6 +417,7 @@ catch (const std::exception& e) \
         else{
             std::cerr << "[DXAPP] [ER] DXRT library version is too low. (required: >= 3.0.0, current: " << rt_version << ")" << std::endl;
         }
+        std::cout << "[DEBUG] Version check failed" << std::endl;
         return false;
     }
 

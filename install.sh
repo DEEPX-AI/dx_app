@@ -18,7 +18,7 @@ source ${SCRIPT_DIR}/scripts/color_env.sh
 source ${SCRIPT_DIR}/scripts/common_util.sh
 
 # dependencies install script in host
-pushd .
+pushd ${DX_APP_PATH} >&2
 cmd=()
 DX_SRC_DIR=$PWD
 echo "DX_SRC_DIR the default one $DX_SRC_DIR"
@@ -356,4 +356,4 @@ fi
 install_dep
 install_opencv
 
-popd
+popd >&2

@@ -41,6 +41,7 @@ else()
     message(STATUS "vaapi not found")
 endif()
 
+set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED "ON")
 
 if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)

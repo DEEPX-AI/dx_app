@@ -52,6 +52,7 @@ int main(int argc, char *argv[])
 {
 DXRT_TRY_CATCH_BEGIN
     std::string imgFile="", videoFile="";
+    std::string rtspURL = "";
     std::string modelpath = "";
     int parameter = 0;
     bool cameraInput = false;
@@ -74,6 +75,7 @@ DXRT_TRY_CATCH_BEGIN
     ("i, image", "use image file input", cxxopts::value<std::string>(imgFile))
     ("v, video", "use video file input", cxxopts::value<std::string>(videoFile))
     ("c, camera", "use camera input", cxxopts::value<bool>(cameraInput)->default_value("false"))
+    ("r, rtsp", "use rtsp input (provide rtsp url)", cxxopts::value<std::string>(rtspURL))
     ("l, loop", "loop video file, if not set, will exit when video ends", cxxopts::value<bool>(loop)->default_value("false"))
     ("fps_only", "will not visualize, only show fps", cxxopts::value<bool>(fps_only)->default_value("false"))
     ("target_fps", "Adjusts FPS by skipping frames or sleeping if the video is faster or slower than the target FPS", 
@@ -91,7 +93,8 @@ DXRT_TRY_CATCH_BEGIN
     LOG_VALUE(videoFile);
     LOG_VALUE(imgFile);
     LOG_VALUE(cameraInput);
-    
+    LOG_VALUE(rtspURL);
+
     dxrt::InferenceOption op_od;
     op_od.devices.push_back(0); 
 
@@ -258,7 +261,7 @@ DXRT_TRY_CATCH_BEGIN
         return 0;
     }
 
-    if(!videoFile.empty() || cameraInput)
+    if(!videoFile.empty() || !rtspURL.empty() || cameraInput)
     {
         cv::VideoCapture cap;
         int camera_frame_width = 0;
@@ -277,6 +280,11 @@ DXRT_TRY_CATCH_BEGIN
 
         if(cameraInput)
         {
+            if(fps_only)
+            {
+                std::cout << "fps_only option is not supported for camera input. fps_only => false" << std::endl;
+                fps_only = false;
+            }
 #if _WIN32
             cap.open(0);
 #elif __linux__
@@ -289,6 +297,29 @@ DXRT_TRY_CATCH_BEGIN
                 std::cout << "Error: camera could not be opened." << std::endl;
                 return -1;
             }
+        }
+        else if(!rtspURL.empty())
+        {
+            if(fps_only)
+            {
+                std::cout << "fps_only option is not supported for camera input. fps_only => false" << std::endl;
+                fps_only = false;
+            }
+            // Try to open RTSP stream with timeout (10 seconds)
+            auto rtsp_start = std::chrono::steady_clock::now();
+            cap.open(rtspURL);
+            while (!cap.isOpened()) {
+                auto now = std::chrono::steady_clock::now();
+                auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - rtsp_start).count();
+                if (elapsed > 10) {
+                    std::cout << "Error: RTSP stream could not be opened within 10 seconds." << std::endl;
+                    throw std::runtime_error("Error: RTSP stream could not be opened within 10 seconds.");
+                }
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                cap.open(rtspURL); // Try again
+            }
+            camera_frame_width = (int)cap.get(cv::CAP_PROP_FRAME_WIDTH);
+            camera_frame_height = (int)cap.get(cv::CAP_PROP_FRAME_HEIGHT);
         }
         else
         {
