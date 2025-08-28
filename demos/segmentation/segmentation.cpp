@@ -60,7 +60,7 @@ struct SegmentationArgs {
 int main(int argc, char *argv[])
 {
 DXRT_TRY_CATCH_BEGIN
-    std::string imgFile="", videoFile="";
+    std::string imgFile="", videoFile="", cameraPath="";
     std::string modelpath = "";
     int parameter = 0;
     int segmentation_model_input_width = 0;
@@ -78,12 +78,13 @@ DXRT_TRY_CATCH_BEGIN
     std::string app_name = "segmentation model demo";
     cxxopts::Options options("segmentation", app_name + " application usage ");
     options.add_options()
-    ("m, model", "define dxnn model path", cxxopts::value<std::string>(modelpath))
-    ("p, parameter", "define segmentation parameter \n"
+    ("m, model", "(* required) define dxnn model path", cxxopts::value<std::string>(modelpath))
+    ("p, parameter", "(* required) define segmentation parameter \n"
                       "0: 19 classes ", cxxopts::value<int>(parameter)->default_value("0"))
     ("i, image", "use image file input", cxxopts::value<std::string>(imgFile))
     ("v, video", "use video file input", cxxopts::value<std::string>(videoFile))
     ("c, camera", "use camera input", cxxopts::value<bool>(cameraInput)->default_value("false"))
+    ("camera_path", "use camera input (provide camera path)", cxxopts::value<std::string>(cameraPath)->default_value("/dev/video0"))
     ("l, loop", "loop video file, if not set, will exit when video ends", cxxopts::value<bool>(loop)->default_value("false"))
     ("fps_only", "will not visualize, only show fps", cxxopts::value<bool>(fps_only)->default_value("false"))
     ("target_fps", "Adjusts FPS by skipping frames or sleeping if the video is faster or slower than the target FPS", 
@@ -301,7 +302,7 @@ DXRT_TRY_CATCH_BEGIN
 #if _WIN32
             cap.open(0);
 #elif __linux__
-            cap.open(0, cv::CAP_V4L2);
+            cap.open(cameraPath, cv::CAP_V4L2);
 #endif
             if(!cap.isOpened())
             {

@@ -18,7 +18,7 @@ DXRT_TRY_CATCH_BEGIN
 
     cxxopts::Options options("run_classifier", "classifier template application usage ");
     options.add_options()
-        ("c, config", "use config json file for run application", cxxopts::value<std::string>(configPath))
+        ("c, config", "(* required) use config json file for run application", cxxopts::value<std::string>(configPath))
         ("h, help", "print usage")
     ;
     auto cmd = options.parse(argc, argv);

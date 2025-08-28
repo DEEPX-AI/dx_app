@@ -18,12 +18,12 @@ int CAMERA_FRAME_HEIGHT = 600;
 
 const char *usage =
     "DNCNN demo\n"
-    "  -m, --model     define model path\n"
-    "  -i, --image     use image file input\n"
+    "  -m, --model     (* required) define model path\n"
+    "  -i, --image     (* required) use image file input\n"
     "  -v, --video     use video file input\n"
     "  -c, --camera    use camera input\n"
-    "(opt) --mean      set noise parameter (default 0.0)\n"
-    "(opt) --std       set noise parameter (default 15.0)\n"
+    "      --mean      set noise parameter (default 0.0)\n"
+    "      --std       set noise parameter (default 15.0)\n"
     "  -h, --help      show help\n";
 
 void help()

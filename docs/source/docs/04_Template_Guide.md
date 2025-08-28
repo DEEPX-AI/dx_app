@@ -45,9 +45,8 @@ Here is an example of an objection detection template.
 
 ```
 ./bin/run_detector -c example/run_detector/yolov5s3_example.json
-    ...
-    detected : 9
 ```
+Since the application is running in 'save' mode, five result images will be saved in the current directory with names like `result-app1.jpg`, `result-app2.jpg`, `result-app3.jpg`, `result-app4.jpg`, and `result-app5.jpg`.
 
 The `example/run_detector/yolov5s3_example.json` file is a sample configuration for running an object detection model. You can use this file as a reference to customize the input and output settings, and optionally modify the application section to control how detection results are displayed and saved.  
 
@@ -67,7 +66,7 @@ The `type` field in the JSON configuration defines how detection results are han
 In the previous example, the json file sets `type` as `none`.   
 If you want to save the output, change it to `save`.  
 
-![](./../resources/04_02_Sample_single-channel_output.png){ width=600px }
+![](./../resources/04_02_Sample_multi-channel_output.png){ width=600px }
 
 When using a YOLO model, post-processing parameters can be customized based on the official YOLOv5 configuration. You may also modify the class information directly in the JSON file, so no code recompilation is required.  
 
@@ -144,7 +143,9 @@ When `type` in the `sources` field of the `input` section is set to `video`, you
     ]
 },
 ```
-
+```
+./bin/run_detector -c example/run_detector/yolov5s3_realtime_example.json
+```
 ![](./../resources/04_03_Sample_multi-channel_output.png){ width=600px }
 
 If you are using a custom YOLO model that does **not** follow the standard decoding logic, or if you are **not** using the `yolo_basic` decoding method, you **must** implement a custom decode function.  

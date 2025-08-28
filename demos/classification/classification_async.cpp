@@ -40,10 +40,10 @@ DXRT_TRY_CATCH_BEGIN
     std::string app_name = "classification async";
     cxxopts::Options options("classification_async", app_name + " application usage ");
     options.add_options()
-        ("m, model_path", "classification model file (.dxnn, required)", cxxopts::value<std::string>(modelPath))
-        ("i, image_path", "input image file path(jpg, png, jpeg ..., required)", cxxopts::value<std::string>(imgFile))
+        ("m, model_path", "(* required) classification model file (.dxnn, required)", cxxopts::value<std::string>(modelPath))
+        ("i, image_path", "(* required) input image file path(jpg, png, jpeg ..., required)", cxxopts::value<std::string>(imgFile))
         ("width, input_width", "input width size", cxxopts::value<uint32_t>(input_w)->default_value("224"))
-        ("height, intpu_height", "input height size", cxxopts::value<uint32_t>(input_h)->default_value("224"))
+        ("height, input_height", "input height size", cxxopts::value<uint32_t>(input_h)->default_value("224"))
         ("class, class_size", "number of classes", cxxopts::value<uint32_t>(class_size)->default_value("1000"))
         ("l, loop", "Number of inference iterations to run", cxxopts::value<int>(loopTest)->default_value("30"))
         ("fps_only", "will not visualize, only show fps", cxxopts::value<bool>(fps_only)->default_value("false"))

@@ -31,7 +31,14 @@ Start by importing the necessary module.
 from dx_engine import InferenceEngine
 ```
 
-**Step 3. Create an Input Tensor**  
+**Step 3. Install Python Requirements**  
+Before running any Python templates, install the required dependencies:
+
+```
+pip install -r ./templates/python/requirements.txt
+```
+
+**Step 4. Create an Input Tensor**  
 First, create an inference engine instance by specifying the model path. Then, generate an input tensor based on the model’s input size.  
 ```
 import numpy as np
@@ -42,8 +49,8 @@ input_tensor = np.array(ie.input_size(), dtype=np.uint8)
 # Adjust the type according to the input data you are using
 ```
 
-**Step 4. Preparing an Image Aligned for the NPU**  
-Create and adjust an input image to meet the alignment requirements of the NPU.  
+**Step 5. Preparing an Image for Inference**  
+Prepare and adjust an input image to meet the requirements of the NPU.
 ```
 import numpy as np
 import cv2
