@@ -63,19 +63,20 @@ const char* usage =
     "object detection with image segmentation demo usage \n"
     "Usage:\n"
     "  od_segmentation [OPTION...]\n"
-    "[*]  -m0, --od_modelpath arg     object detection model include path\n"
-    "[*]  -m1, --seg_modelpath arg    segmentation model include path \n"
-    "[*]  -p0, --od_parameter arg     object detection parameter\n" 
-    "                                 0: yolov5s_320, 1: yolov5s_512, 2: yolov5s_640, 3: yolov7_640, 4: yolov8_640, 5: yolox_s_512, 6: yolov5s_face_640, 7: yolov9_640\n"
-    "[*]  -p1, --seg_parameter arg    segmentation parameter for cityscapes\n"
-    "                                 0: 19 classes (default)\n"
-    "     -i,  --image arg            use image file input\n"
-    "     -v,  --video arg            use video file input\n"
-    "     -c,  --camera               use camera input\n"
-    "     -l,  --loop                 loop video file, if not set, will exit when video ends\n"
-    "          --fps_only             will not visualize, only show fps\n"
-    "          --target_fps           Adjusts FPS by skipping frames or sleeping if the video is faster or slower than the target FPS\n"
-    "     -h,  --help                 show help\n";
+    "  -m0, --od_modelpath arg     (* required) object detection model include path\n"
+    "  -m1, --seg_modelpath arg    (* required) segmentation model include path \n"
+    "  -p0, --od_parameter arg     (* required) object detection parameter\n" 
+    "                              0: yolov5s_320, 1: yolov5s_512, 2: yolov5s_640, 3: yolov7_640, 4: yolov8_640, 5: yolox_s_512, 6: yolov5s_face_640, 7: yolov9_640\n"
+    "  -p1, --seg_parameter arg    (* required) segmentation parameter for cityscapes\n"
+    "                              0: 19 classes (default)\n"
+    "  -i,  --image arg            use image file input\n"
+    "  -v,  --video arg            use video file input\n"
+    "  -c,  --camera               use camera input\n"
+    "       --camera_path          provide camera path(default /dev/video0)\n"
+    "  -l,  --loop                 loop video file, if not set, will exit when video ends\n"
+    "       --fps_only             will not visualize, only show fps\n"
+    "       --target_fps           Adjusts FPS by skipping frames or sleeping if the video is faster or slower than the target FPS\n"
+    "  -h,  --help                 show help\n";
 void help()
 {
     std::cout << usage << std::endl;    
@@ -96,7 +97,7 @@ int main(int argc, char *argv[])
 {
 DXRT_TRY_CATCH_BEGIN
     int i = 1;
-    std::string imgFile="", videoFile="";
+    std::string imgFile="", videoFile="", cameraPath="/dev/video0";
     std::string od_modelpath = "", seg_modelpath = "";
     int od_parameter = 0, seg_parameter = 0;
     int segmentation_model_input_width = 0;
@@ -140,6 +141,8 @@ DXRT_TRY_CATCH_BEGIN
                                 fps_only = true;
         else if (arg == "--target_fps")
                                 target_fps = std::stoi(argv[i++]);
+        else if (arg == "--camera_path")
+                                cameraPath = argv[i++];
         else if (arg == "-h" || arg == "--help")
                                 help(), exit(0);
         else
@@ -406,7 +409,7 @@ DXRT_TRY_CATCH_BEGIN
 #if _WIN32
             cap.open(0);
 #elif __linux__
-            cap.open(0, cv::CAP_V4L2);
+            cap.open(cameraPath, cv::CAP_V4L2);
 #endif
             camera_frame_width = (int)cap.get(cv::CAP_PROP_FRAME_WIDTH);
             camera_frame_height = (int)cap.get(cv::CAP_PROP_FRAME_HEIGHT);

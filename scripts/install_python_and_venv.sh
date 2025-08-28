@@ -22,20 +22,32 @@ usage() {
     echo -e "                                  - For Ubuntu 20.04+, the OS default Python 3 will be used."
     echo -e "                                  - For Ubuntu 18.04, Python ${DEFAULT_MIN_PY_VERSION} "
     echo -e "                                    (or the value specified by the '--min_py_version' option) will be source-built."
+    echo -e ""
     echo -e "  ${COLOR_GREEN}--min_py_version=<VERSION>${COLOR_RESET}  Specify the minimum Python version. (default: ${DEFAULT_MIN_PY_VERSION})"
+    echo -e ""
     echo -e "  ${COLOR_GREEN}--venv_path=<PATH>${COLOR_RESET}          Specify the path for the virtual environment."
-    echo -e "                                If this option is omitted, no virtual environment will be created."
-    echo -e "  ${COLOR_GREEN}-f | --venv-force-remove${COLOR_RESET}         If specified, force remove existing virtual environment at --venv_path before creation."
-    echo -e "  ${COLOR_GREEN}-r | --venv-reuse${COLOR_RESET}                If specified, reuse existing virtual environment at --venv_path if it's valid, skipping creation."
+    echo -e "                                  - If this option is omitted, no virtual environment will be created."
+    echo -e ""
+    echo -e "  ${COLOR_GREEN}--symlink_target_path=<PATH>${COLOR_RESET} Specify the actual path where the virtual environment will be created."
+    echo -e "                                  - If specified, a symbolic link will be created at --venv_path pointing to this path."
+    echo -e "                                  - Only works when --venv_path is also specified."
+    echo -e ""
+    echo -e "  ${COLOR_GREEN}--system-site-packages${COLOR_RESET}      Set venv '--system-site-packages' option."    
+    echo -e "                                  - This option is applied only when venv is created. If you use '-venv-reuse', it is ignored. "
+    echo -e ""
+    echo -e "  ${COLOR_GREEN}-f | --venv-force-remove${COLOR_RESET}    If specified, force remove existing virtual environment at --venv_path before creation."
+    echo -e "  ${COLOR_GREEN}-r | --venv-reuse${COLOR_RESET}           If specified, reuse existing virtual environment at --venv_path if it's valid, skipping creation."
+    echo -e ""
     echo -e "  ${COLOR_GREEN}--help${COLOR_RESET}                      Display this help message and exit."
     echo -e ""
     echo -e "${COLOR_BOLD}Examples:${COLOR_RESET}"
-    echo -e "  ${COLOR_YELLOW}$0 --python_version=3.10.4 --venv_path=/opt/my_venv${COLOR_RESET}"
-    echo -e "  ${COLOR_YELLOW}$0 --python_version=3.9.18  # Installs Python, but no venv${COLOR_RESET}"
-    echo -e "  ${COLOR_YELLOW}$0 --venv_path=/usr/local/py_env # Installs default Python, creates venv${COLOR_RESET}"
     echo -e "  ${COLOR_YELLOW}$0 # Installs default Python, but no venv${COLOR_RESET}"
-    echo -e "  ${COLOR_YELLOW}$0 --venv_path=/opt/existing_venv --venv-reuse # Reuse existing venv${COLOR_RESET}"
-    echo -e "  ${COLOR_YELLOW}$0 --venv_path=/opt/old_venv --venv-force-remove # Force remove and recreate venv${COLOR_RESET}"
+    echo -e "  ${COLOR_YELLOW}$0 --python_version=3.10.4 --venv_path=./my_venv${COLOR_RESET}"
+    echo -e "  ${COLOR_YELLOW}$0 --python_version=3.9.18  # Installs Python, but no venv${COLOR_RESET}"
+    echo -e "  ${COLOR_YELLOW}$0 --venv_path=./my_venv # Installs default Python, creates venv${COLOR_RESET}"
+    echo -e "  ${COLOR_YELLOW}$0 --venv_path=./existing_venv --venv-reuse # Reuse existing venv${COLOR_RESET}"
+    echo -e "  ${COLOR_YELLOW}$0 --venv_path=./old_venv --venv-force-remove # Force remove and recreate venv${COLOR_RESET}"
+    echo -e "  ${COLOR_YELLOW}$0 --venv_path=./my_venv --symlink_target_path=/tmp/actual_venv # Create venv at /tmp/actual_venv with symlink at ./my_venv${COLOR_RESET}"
     echo -e ""
     exit 0
 }
@@ -353,10 +365,14 @@ function check_venv_validity() {
 #   $1: DX_PYTHON_EXEC - The command to execute the installed Python (e.g., python3.10).
 #   $2: VENV_PATH - The desired path for the virtual environment.
 #   $3: SKIP_VENV_CREATION_FLAG - 'y' to skip venv creation, 'n' otherwise.
+#   $4: VENV_MAKE_ARGS
+#   $5: VENV_SYMLINK_TARGET_PATH - Optional path where the actual venv will be created (if set, VENV_PATH becomes a symlink)
 setup_venv() {
     local DX_PYTHON_EXEC="${1}"
     local VENV_PATH="${2}"
     local SKIP_VENV_CREATION_FLAG="${3}"
+    local VENV_MAKE_ARGS="${4}"
+    local VENV_SYMLINK_TARGET_PATH="${5}"
 
     # Temporarily disable 'set -x' for cleaner output during venv setup steps
     local OPT_X_STATE="$-"
@@ -371,15 +387,53 @@ setup_venv() {
         return 1
     fi
 
+    # Determine actual venv creation path
+    local VENV_ORIGIN_DIR="${VENV_PATH}"
+    
+    # Convert relative path to absolute path
+    if [[ "${VENV_ORIGIN_DIR}" != /* ]]; then
+        VENV_ORIGIN_DIR="$(pwd)/${VENV_ORIGIN_DIR}"
+    fi
+    
+    if [ -n "${VENV_SYMLINK_TARGET_PATH}" ]; then
+        VENV_ORIGIN_DIR="${VENV_SYMLINK_TARGET_PATH}"
+        echo -e "${TAG_INFO} Creating python venv to symlink target path: ${VENV_ORIGIN_DIR}"
+    else
+        echo -e "${TAG_INFO} Creating python venv to this path: ${VENV_ORIGIN_DIR}"
+    fi
+
     if [ "${SKIP_VENV_CREATION_FLAG}" != "y" ]; then
-        echo -e "${TAG_INFO} Setting up Virtual Environment at ${VENV_PATH} using ${DX_PYTHON_EXEC}..."
-        if ! "${DX_PYTHON_EXEC}" -m venv "${VENV_PATH}"; then
-            print_colored "Failed to create virtual environment at ${VENV_PATH}." >&2
+        echo -e "${TAG_INFO} Setting up Virtual Environment at ${VENV_ORIGIN_DIR} using ${DX_PYTHON_EXEC}..."
+        if ! "${DX_PYTHON_EXEC}" -m venv "${VENV_ORIGIN_DIR}" ${VENV_MAKE_ARGS}; then
+            print_colored "Failed to create virtual environment at ${VENV_ORIGIN_DIR}." >&2
             case "${OPT_X_STATE}" in *x*) set -x;; esac # Restore set -x before returning
             return 1
         fi
     else
         echo -e "${TAG_INFO} Skipping virtual environment creation as --venv-reuse was specified and venv is valid."
+    fi
+
+    # Create symbolic link if needed
+    if [ -n "${VENV_SYMLINK_TARGET_PATH}" ]; then
+        echo -e "${TAG_INFO} Creating symbolic link from ${VENV_PATH} to ${VENV_ORIGIN_DIR}..."
+        
+        # Remove any existing symlink or directory at VENV_PATH
+        if [ -e "${VENV_PATH}" ]; then
+            rm -rf "${VENV_PATH}"
+        fi
+        
+        # Ensure the parent directory exists
+        mkdir -p "$(dirname "${VENV_PATH}")"
+        
+        # Create the symbolic link using absolute path
+        local VENV_SYMLINK_TARGET_REAL_PATH
+        VENV_SYMLINK_TARGET_REAL_PATH=$(readlink -f "${VENV_ORIGIN_DIR}")
+        if ! ln -s "${VENV_SYMLINK_TARGET_REAL_PATH}" "${VENV_PATH}"; then
+            print_colored "Failed to create symbolic link: ${VENV_PATH} -> ${VENV_SYMLINK_TARGET_REAL_PATH}" "ERROR" >&2
+            case "${OPT_X_STATE}" in *x*) set -x;; esac # Restore set -x before returning
+            return 1
+        fi
+        echo -e "${TAG_INFO} Created symbolic link: ${VENV_PATH} -> ${VENV_SYMLINK_TARGET_REAL_PATH}"
     fi
 
     # Activate the venv temporarily for pip operations
@@ -424,8 +478,10 @@ main() {
     local PYTHON_VERSION=""
     local MIN_PY_VERSION=$DEFAULT_MIN_PY_VERSION
     local VENV_PATH="" # Initialize as empty string
-    local FORCE_REMOVE_VENV="n" # New variable
-    local REUSE_VENV="n"        # New variable
+    local VENV_SYMLINK_TARGET_PATH=""
+    local FORCE_REMOVE_VENV="n"
+    local REUSE_VENV="n"
+    local VENV_SYSTEM_SITE_PACKAGES_ARGS=""
     local SKIP_VENV_CREATION="n" # Flag to control venv creation in setup_venv
 
     local UBUNTU_VERSION=$(lsb_release -rs) # Get Ubuntu version once
@@ -435,23 +491,24 @@ main() {
         case $i in
             --python_version=*)
                 PYTHON_VERSION="${i#*=}"
-                shift # past argument=value
                 ;;
             --min_py_version=*)
                 MIN_PY_VERSION="${i#*=}"
-                shift # past argument=value
                 ;;
             --venv_path=*)
                 VENV_PATH="${i#*=}"
-                shift # past argument=value
+                ;;
+            --symlink_target_path=*)
+                VENV_SYMLINK_TARGET_PATH="${i#*=}"
                 ;;
             -f|--venv-force-remove)
                 FORCE_REMOVE_VENV="y"
-                shift # past argument
                 ;;
             -r|--venv-reuse)
                 REUSE_VENV="y"
-                shift # past argument
+                ;;
+            --system-site-packages)
+                VENV_SYSTEM_SITE_PACKAGES_ARGS="--system-site-packages"
                 ;;
             --help)
                 usage
@@ -474,6 +531,12 @@ main() {
         exit 1
     fi
 
+    # Validate symlink_target_path requires venv_path
+    if [ -n "${VENV_SYMLINK_TARGET_PATH}" ] && [ -z "${VENV_PATH}" ]; then
+        print_colored "--symlink_target_path can only be used when --venv_path is also specified." "ERROR" >&2
+        exit 1
+    fi
+
     # Handle --venv-force-remove and --venv-reuse conflicts
     if [ "${FORCE_REMOVE_VENV}" = "y" ] && [ "${REUSE_VENV}" = "y" ]; then
         print_colored "Cannot use both --venv-force-remove and --venv-reuse simultaneously. Please choose one." "ERROR" >&2
@@ -482,30 +545,45 @@ main() {
 
     # Check if venv_path exists and handle based on options
     if [ -n "$VENV_PATH" ]; then # Only proceed if VENV_PATH was provided
-        if [ -e "$VENV_PATH" ]; then # Venv path exists
-            if [ "${FORCE_REMOVE_VENV}" = "y" ]; then
-                echo -e "${TAG_INFO} --venv-force-remove specified. Removing existing virtual environment at ${VENV_PATH}..." >&2
-                if ! rm -rf "${VENV_PATH}"; then
-                    print_colored "Failed to remove existing virtual environment at ${VENV_PATH}. Aborting." "ERROR" >&2
-                    exit 1
-                fi
-            elif [ "${REUSE_VENV}" = "y" ]; then
-                if check_venv_validity "${VENV_PATH}"; then
-                    echo -e "${TAG_INFO} --venv-reuse specified and existing virtual environment is valid. Skipping venv creation." >&2
-                    SKIP_VENV_CREATION="y"
-                else
-                    echo -e "${TAG_WARN} --venv-reuse specified, but existing virtual environment at ${VENV_PATH} is invalid. Attempting to recreate it." >&2
-                    # Fallback to normal creation if invalid, try to remove it first
-                    if ! rm -rf "${VENV_PATH}"; then
-                        print_colored "Failed to remove invalid virtual environment at ${VENV_PATH}. Aborting." "ERROR" >&2
+        # Also check symlink target path if specified
+        local CHECK_PATHS=("${VENV_PATH}")
+        if [ -n "${VENV_SYMLINK_TARGET_PATH}" ]; then
+            CHECK_PATHS+=("${VENV_SYMLINK_TARGET_PATH}")
+        fi
+        
+        for CHECK_PATH in "${CHECK_PATHS[@]}"; do
+            if [ -e "$CHECK_PATH" ]; then # Path exists
+                if [ "${FORCE_REMOVE_VENV}" = "y" ]; then
+                    echo -e "${TAG_INFO} --venv-force-remove specified. Removing existing path at ${CHECK_PATH}..." >&2
+                    if ! rm -rf "${CHECK_PATH}"; then
+                        print_colored "Failed to remove existing path at ${CHECK_PATH}. Aborting." "ERROR" >&2
                         exit 1
                     fi
+                elif [ "${REUSE_VENV}" = "y" ]; then
+                    # For reuse, only check the final venv path (VENV_PATH), not the symlink target
+                    if [ "${CHECK_PATH}" = "${VENV_PATH}" ]; then
+                        if check_venv_validity "${VENV_PATH}"; then
+                            echo -e "${TAG_INFO} --venv-reuse specified and existing virtual environment is valid. Skipping venv creation." >&2
+                            SKIP_VENV_CREATION="y"
+                        else
+                            echo -e "${TAG_WARN} --venv-reuse specified, but existing virtual environment at ${VENV_PATH} is invalid. Attempting to recreate it." >&2
+                            # Remove both paths if invalid
+                            for REMOVE_PATH in "${CHECK_PATHS[@]}"; do
+                                if [ -e "${REMOVE_PATH}" ]; then
+                                    if ! rm -rf "${REMOVE_PATH}"; then
+                                        print_colored "Failed to remove invalid path at ${REMOVE_PATH}. Aborting." "ERROR" >&2
+                                        exit 1
+                                    fi
+                                fi
+                            done
+                        fi
+                    fi
+                else
+                    print_colored "Path already exists: ${CHECK_PATH}. Please remove it or choose a different path, or use --venv-force-remove to force recreation, or --venv-reuse to reuse it." "HINT" >&2
+                    exit 1
                 fi
-            else
-                print_colored "Virtual environment path already exists: ${VENV_PATH}. Please remove it or choose a different path, or use --venv-force-remove to force recreation, or --venv-reuse to reuse it." "HINT" >&2
-                exit 1
             fi
-        fi
+        done
     fi
 
     echo -e "${TAG_INFO} Starting Python installation and environment setup..."
@@ -530,12 +608,17 @@ main() {
     # Conditionally call setup_venv based on VENV_PATH
     if [ -n "${VENV_PATH}" ]; then
         echo -e "${TAG_INFO} Virtual Environment Path: ${VENV_PATH}"
-        setup_venv "${INSTALLED_PYTHON_EXEC}" "${VENV_PATH}" "${SKIP_VENV_CREATION}"
+
+        setup_venv "${INSTALLED_PYTHON_EXEC}" "${VENV_PATH}" "${SKIP_VENV_CREATION}" "${VENV_SYSTEM_SITE_PACKAGES_ARGS}" "${VENV_SYMLINK_TARGET_PATH}"
         if [ $? -ne 0 ]; then
             print_colored "Virtual environment setup failed. Exiting." "ERROR" >&2
             exit 1
         fi
         echo -e "${TAG_SUCC} Script execution completed successfully."
+        if [ -n "${VENV_SYMLINK_TARGET_PATH}" ]; then
+            echo -e "${TAG_INFO} Virtual environment created at: ${VENV_SYMLINK_TARGET_PATH}"
+            echo -e "${TAG_INFO} Symbolic link created at: ${VENV_PATH}"
+        fi
         echo -e "${TAG_INFO} To activate the virtual environment, run:"
         echo -e "${COLOR_BRIGHT_YELLOW_ON_BLACK}  source ${VENV_PATH}/bin/activate ${COLOR_RESET}"
     else
