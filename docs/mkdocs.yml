@@ -53,7 +53,7 @@ plugins:
       #
       #cover: false
       cover_title: DXNN Application (DX-APP) User Manual
-      cover_subtitle: 2025/06/23
+      cover_subtitle: v2.0.0
       cover_logo: img/deepx.png
       custom_template_path: docs/stylesheets
       #back_cover: true
@@ -79,7 +79,7 @@ plugins:
       #render_js: true
       #headless_chrome_path: headless-chromium
       #
-      output_path: ../DEEPX_DX-APP_UM_250623.pdf
+      output_path: ../DEEPX_DX-APP_UM_v2.0.0.pdf
       #enabled_if_env: ENABLE_PDF_EXPORT
       #
       #debug_html: true

@@ -127,7 +127,7 @@ int ApplicationJsonParser(std::string configPath, AppConfig* dst)
         {
             g_full_screan = true;
 #ifdef __linux__
-            std::ifstream graphics_info_file("/sys/class/graphics/fb0/viertual_size");
+            std::ifstream graphics_info_file("/sys/class/graphics/fb0/virtual_size");
             if(!graphics_info_file)
             {
                 std::cout << "Failed to open framebuffer info, It will be set FHD size" << std::endl;
@@ -277,7 +277,7 @@ DXRT_TRY_CATCH_BEGIN
 
     cxxopts::Options options("yolo_multi", "yolo multi channels application usage ");
     options.add_options()
-        ("c, config", "use config json file for run application", cxxopts::value<std::string>(configPath))
+        ("c, config", "(* required) use config json file for run application", cxxopts::value<std::string>(configPath))
         ("t, test", "test mode", cxxopts::value<bool>(loggingVersion)->default_value("false"))
         ("window_size", "FPS by average over the last {window_size} seconds (default: 60)", cxxopts::value<double>(window_size)->default_value("60"))
         ("h, help", "print usage")

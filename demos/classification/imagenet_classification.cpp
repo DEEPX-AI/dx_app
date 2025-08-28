@@ -222,9 +222,9 @@ int main(int argc, char *argv[])
     std::string app_name = "imagenet_classification_demo";
     cxxopts::Options options(app_name, app_name + " application usage ");
     options.add_options()
-        ("m, model_path", "classification model file (.dxnn, required)", cxxopts::value<std::string>(model_path))
-        ("p, base_path", "input image files directory (required)", cxxopts::value<std::string>(based_image_path))
-        ("i, image_list", "imagenet image list txt file (required)", cxxopts::value<std::string>(image_list_path))
+        ("m, model_path", "(* required) classification model file (.dxnn, required)", cxxopts::value<std::string>(model_path))
+        ("p, base_path", "(* required) input image files directory (required)", cxxopts::value<std::string>(based_image_path))
+        ("i, image_list", "(* required) imagenet image list txt file (required)", cxxopts::value<std::string>(image_list_path))
         ("h, help", "print usage")
     ;
     auto cmd = options.parse(argc, argv);

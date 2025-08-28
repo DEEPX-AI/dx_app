@@ -52,7 +52,7 @@ int main(int argc, char *argv[])
 {
 DXRT_TRY_CATCH_BEGIN
     std::string imgFile="", videoFile="";
-    std::string rtspURL = "";
+    std::string rtspURL = "", cameraPath = "";
     std::string modelpath = "";
     int parameter = 0;
     bool cameraInput = false;
@@ -68,13 +68,14 @@ DXRT_TRY_CATCH_BEGIN
     std::string app_name = "object detection model demo";
     cxxopts::Options options("yolo", app_name + " application usage ");
     options.add_options()
-    ("m, model", "define dxnn model path", cxxopts::value<std::string>(modelpath))
-    ("p, parameter", "define object detection parameter \n"
+    ("m, model", "(* required) define dxnn model path", cxxopts::value<std::string>(modelpath))
+    ("p, parameter", "(* required) define object detection parameter \n"
                      "0: yolov5s_320, 1: yolov5s_512, 2: yolov5s_640, 3: yolov7_512, 4: yolov7_640, 5: yolov8_640, 6: yolox_s_512, 7: yolov5s_face_640, 8: yolov3_512, 9: yolov4_416, 10: yolov9_640", 
                      cxxopts::value<int>(parameter)->default_value("0"))
     ("i, image", "use image file input", cxxopts::value<std::string>(imgFile))
     ("v, video", "use video file input", cxxopts::value<std::string>(videoFile))
     ("c, camera", "use camera input", cxxopts::value<bool>(cameraInput)->default_value("false"))
+    ("camera_path", "use camera input (provide camera path)", cxxopts::value<std::string>(cameraPath)->default_value("/dev/video0"))
     ("r, rtsp", "use rtsp input (provide rtsp url)", cxxopts::value<std::string>(rtspURL))
     ("l, loop", "loop video file, if not set, will exit when video ends", cxxopts::value<bool>(loop)->default_value("false"))
     ("fps_only", "will not visualize, only show fps", cxxopts::value<bool>(fps_only)->default_value("false"))
@@ -282,13 +283,14 @@ DXRT_TRY_CATCH_BEGIN
         {
             if(fps_only)
             {
-                std::cout << "fps_only option is not supported for camera input. fps_only => false" << std::endl;
+                std::cout << "fps_only and target_fps option is not supported for camera input. fps_only => false, target_fps => off" << std::endl;
                 fps_only = false;
+                target_fps = 0;
             }
 #if _WIN32
             cap.open(0);
 #elif __linux__
-            cap.open(0, cv::CAP_V4L2);
+            cap.open(cameraPath, cv::CAP_V4L2);
 #endif
             camera_frame_width = (int)cap.get(cv::CAP_PROP_FRAME_WIDTH);
             camera_frame_height = (int)cap.get(cv::CAP_PROP_FRAME_HEIGHT);
@@ -302,8 +304,9 @@ DXRT_TRY_CATCH_BEGIN
         {
             if(fps_only)
             {
-                std::cout << "fps_only option is not supported for camera input. fps_only => false" << std::endl;
+                std::cout << "fps_only and target_fps option is not supported for camera input. fps_only => false, target_fps => off" << std::endl;
                 fps_only = false;
+                target_fps = 0;
             }
             // Try to open RTSP stream with timeout (10 seconds)
             auto rtsp_start = std::chrono::steady_clock::now();
@@ -323,6 +326,11 @@ DXRT_TRY_CATCH_BEGIN
         }
         else
         {
+            if(fps_only)
+            {
+                std::cout << "target_fps option is not supported for fps_only=on. target_fps => off" << std::endl;
+                target_fps = 0;
+            }
             cap.open(videoFile);
             if(!cap.isOpened())
             {

@@ -2,26 +2,30 @@
     "description": "run yolo detector",
     "usage": "detection",
     "model": {
-        "path": "./assets/models/YOLOV5S_1.dxnn",
+        "path": "./assets/models/YOLOV5S_6.dxnn",
         "param": {
-            "name": "YOLOV5S_1",
-            "input_width" : 640,
-            "input_height" : 640,
+            "name": "YOLOV5S_6",
+            "input_width": 640,
+            "input_height": 640,
             "score_threshold": 0.3,
             "iou_threshold": 0.4,
             "last_activation": "sigmoid",
             "decoding_method": "yolo_basic",
             "box_format": "center",
-            "final_outputs":[
-                "output0"
+            "final_outputs": [
+                "1487"
             ],
             "layer": [
                 {
-                    "name": "output0",
-                    "shape":[1, 25200, 85]
+                    "name": "1487",
+                    "shape": [
+                        1,
+                        25200,
+                        85
+                    ]
                 },
                 {
-                    "name": "378",
+                    "name": "635",
                     "stride": 8,
                     "anchor_width": [
                         10,
@@ -35,7 +39,7 @@
                     ]
                 },
                 {
-                    "name": "439",
+                    "name": "927",
                     "stride": 16,
                     "anchor_width": [
                         30,
@@ -49,7 +53,7 @@
                     ]
                 },
                 {
-                    "name": "500",
+                    "name": "1219",
                     "stride": 32,
                     "anchor_width": [
                         116,
@@ -65,9 +69,9 @@
             ]
         }
     },
-    "input":{
-        "format":"RGB",
-        "sources":[
+    "input": {
+        "format": "RGB",
+        "sources": [
             {
                 "type": "image",
                 "path": "./sample/1.jpg"
@@ -185,4 +189,3 @@
         ]
     }
 }
-
