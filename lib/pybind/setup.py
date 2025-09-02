@@ -9,7 +9,7 @@ import subprocess
 from pathlib import Path
 
 # Check if pybind11 exists, if not download it
-pybind11_dir = Path(__file__).parent.parent.parent / "extern" / "pybind11"
+pybind11_dir = Path(__file__).absolute().parent.parent.parent / "extern" / "pybind11"
 
 if not pybind11_dir.exists():
     print(f"Downloading pybind11 to {pybind11_dir}...")
