@@ -19,6 +19,8 @@
 - Removed postprocessing code for legacy PPU models
 - Fixed postprocessing logic to support new output shapes of YOLO models when USE_ORT=OFF
 - fix typo error in framebuffer info file path (yolo_multi app)
+- Improve error messages for output tensor size mismatch and missing in Yolo post processing
+- Rename output tensors in json config 'yolov5s6_example.json'
 
 ### 3. Added
 - Added  to cleanly purge the pip-installed package and local build artifacts (shared library, dist-info/egg-info, and build directory).

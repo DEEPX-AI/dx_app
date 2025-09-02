@@ -281,9 +281,9 @@ public:
         }
         if(params._layers.empty())
         {
-            if(ORT_OPTION_DEFAULT)
+            if(!ORT_OPTION_DEFAULT)
             {
-                throw std::invalid_argument("Layer information is missing. Please check the input json configuration file");
+                throw std::invalid_argument("[DXAPP] [ER] Layer information is missing. This is only supported when USE_ORT=ON. Please modify and rebuild.");
             }
         }
         auto outputDataInfo = inferenceEngine->GetOutputs();

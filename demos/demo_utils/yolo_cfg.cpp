@@ -19,7 +19,7 @@ YoloLayerParam createYoloLayerParam(std::string _name, int _gx, int _gy, int _nu
         return s;
 }
 
-// YOLOv3 configuration for 512x512 input resolution - classic object detection model
+// YOLOv3 configuration for 512x512 input resolution - classic object detection model (YOLOV3_1.dxnn)
 YoloParam yolov3_512 = {
     512,  // height
     512,  // width
@@ -40,7 +40,7 @@ YoloParam yolov3_512 = {
     PostProcType::OD
 };
 
-// YOLOv4 configuration for 416x416 input resolution - improved accuracy with CSP backbone
+// YOLOv4 configuration for 416x416 input resolution - improved accuracy with CSP backbone (YOLOV4_3.dxnn)
 YoloParam yolov4_416 = {
     416,  // height
     416,  // width
@@ -61,7 +61,7 @@ YoloParam yolov4_416 = {
     PostProcType::OD
 };
 
-// YOLOv5s configuration for 320x320 input resolution - lightweight model for real-time detection
+// YOLOv5s configuration for 320x320 input resolution - lightweight model for real-time detection (YOLOV5S_4.dxnn)
 YoloParam yolov5s_320 = {
     320,  // height
     320,  // width
@@ -82,7 +82,7 @@ YoloParam yolov5s_320 = {
     PostProcType::OD
 };
 
-// YOLOv5s configuration for 512x512 input resolution - balanced performance and accuracy
+// YOLOv5s configuration for 512x512 input resolution - balanced performance and accuracy (YOLOV5S_3.dxnn)
 YoloParam yolov5s_512 = {
     512,
     512,
@@ -101,7 +101,7 @@ YoloParam yolov5s_512 = {
     PostProcType::OD
 };
 
-// YOLOv5s configuration for 640x640 input resolution - high accuracy detection model
+// YOLOv5s configuration for 640x640 input resolution - high accuracy detection model (YOLOV5S_6.dxnn)
 YoloParam yolov5s_640 = {
     640,
     640,
@@ -120,7 +120,7 @@ YoloParam yolov5s_640 = {
     PostProcType::OD
 };
 
-// YOLOX-S configuration for 512x512 input resolution - anchor-free detection with decoupled head
+// YOLOX-S configuration for 512x512 input resolution - anchor-free detection with decoupled head (YOLOX-S.dxnn)
 YoloParam yolox_s_512 = {
     512,
     512,
@@ -136,7 +136,7 @@ YoloParam yolox_s_512 = {
     PostProcType::OD
 };
 
-// YOLOv7 configuration for 640x640 input resolution - improved architecture with auxiliary heads
+// YOLOv7 configuration for 640x640 input resolution - improved architecture with auxiliary heads (YoloV7.dxnn)
 YoloParam yolov7_640 = {
     640,
     640,
@@ -155,7 +155,7 @@ YoloParam yolov7_640 = {
     PostProcType::OD
 };
 
-// YOLOv7 configuration for 512x512 input resolution - optimized for speed and accuracy balance
+// YOLOv7 configuration for 512x512 input resolution - optimized for speed and accuracy balance (YOLOv7_512.dxnn)
 YoloParam yolov7_512 = {
     512,
     512,
@@ -174,7 +174,7 @@ YoloParam yolov7_512 = {
     PostProcType::OD
 };
 
-// YOLOv8 configuration for 640x640 input resolution - anchor-free detection with classification-free head
+// YOLOv8 configuration for 640x640 input resolution - anchor-free detection with classification-free head (YoloV8N.dxnn)
 YoloParam yolov8_640 = {
     640,
     640,
@@ -192,7 +192,7 @@ YoloParam yolov8_640 = {
     PostProcType::YOLOV8
 };
 
-// YOLOv9 configuration for 640x640 input resolution - latest YOLO version with improved architecture
+// YOLOv9 configuration for 640x640 input resolution - latest YOLO version with improved architecture (YOLOV9S.dxnn)
 YoloParam yolov9_640 = {
     640,
     640,
@@ -208,7 +208,7 @@ YoloParam yolov9_640 = {
     PostProcType::YOLOV8
 };
 
-// YOLOv5s6 pose estimation configuration for 640x640 input resolution - human pose detection
+// YOLOv5s6 pose estimation configuration for 640x640 input resolution - human pose detection (YOLOV5Pose640_1.dxnn)
 YoloParam yolov5s6_pose_640 = {
     640,
     640,
@@ -224,7 +224,7 @@ YoloParam yolov5s6_pose_640 = {
     PostProcType::POSE
 };
 
-// YOLOv5s face detection configuration for 640x640 input resolution - specialized for face detection
+// YOLOv5s face detection configuration for 640x640 input resolution - specialized for face detection (YOLOV5S_Face-1.dxnn)
 YoloParam yolov5s_face_640 = {
     640,
     640,
