@@ -25,7 +25,7 @@
                     ]
                 },
                 {
-                    "name": "635",
+                    "name": "611",
                     "stride": 8,
                     "anchor_width": [
                         10,
@@ -39,7 +39,7 @@
                     ]
                 },
                 {
-                    "name": "927",
+                    "name": "903",
                     "stride": 16,
                     "anchor_width": [
                         30,
@@ -53,7 +53,7 @@
                     ]
                 },
                 {
-                    "name": "1219",
+                    "name": "1195",
                     "stride": 32,
                     "anchor_width": [
                         116,

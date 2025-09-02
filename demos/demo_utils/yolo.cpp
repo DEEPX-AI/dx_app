@@ -108,10 +108,14 @@ bool Yolo::LayerReorder(dxrt::Tensors output_info)
             }
         }
     }
-
+    if(temp.size() != output_info.size())
+    {
+        std::cerr << "[DXAPP] [ER] Yolo::LayerReorder : Output tensor size mismatch. Please check the model output configuration." << std::endl;
+        return false;
+    }
     if(temp.empty())
     {
-        std::cerr << "[DXAPP] [ER] Yolo::LayerReorder : No output tensor found. Please check the model output configuration and the output tensor names." << std::endl;
+        std::cerr << "[DXAPP] [ER] Yolo::LayerReorder : Layer information is missing. This is only supported when USE_ORT=ON. Please modify and rebuild." << std::endl;
         return false;
     }
     cfg.layers.clear();
