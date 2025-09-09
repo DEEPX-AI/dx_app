@@ -77,11 +77,11 @@ Install the followings first.
 - To run the application, please refer to the script.       
   **ImageNet Classification**         
   ```shell 
-  $ ./scripts/run_classifier.sh
+  ./scripts/run_classifier.sh
   ```                 
   **Yolov5-s-512 ObjectDetection**         
   ```shell 
-  $ ./scripts/run_detector.sh
+  ./scripts/run_detector.sh
   ```                  
 - If error while loading shared library (libdxrt.so), Try to update Library Cache.      
   ```shell

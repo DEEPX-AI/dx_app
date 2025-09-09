@@ -20,7 +20,7 @@
             "layer":[
                 {
                     "name":"704",
-                    "shape":[1, 25500, 16]
+                    "shape":[1, 25200, 16]
                 },
                 {
                     "name":"/model.23/m.0/Conv_output_0",

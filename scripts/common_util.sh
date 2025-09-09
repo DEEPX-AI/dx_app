@@ -66,10 +66,24 @@ handle_cmd_failure() {
     local hint_message=$2
     local origin_cmd=$3
     local suggested_action_cmd=$4
+    local suggested_action_message="Would you like to perform the suggested action now?"
+    local message_type="ERROR"
+
+    handle_cmd_interactive "$error_message" "$hint_message" "$origin_cmd" "$suggested_action_cmd" "$suggested_action_message" "$message_type"
+}
+
+# Interactive command handler with user confirmation
+handle_cmd_interactive() {
+    local message=$1
+    local hint_message=$2
+    local origin_cmd=$3
+    local suggested_action_cmd=$4
+    local suggested_action_message=$5
+    local message_type=$6
     
-    print_colored_v2 "ERROR" "${error_message}"
+    print_colored_v2 "${message_type}" "${error_message}"
     print_colored_v2 "HINT" "${hint_message}"
-    print_colored_v2 "YELLOW" "Would you like to perform the suggested action now? [Y/n] (Default is 'y' after 10 seconds of no input. This process will be aborted if you enter 'n')"
+    print_colored_v2 "YELLOW" "${suggested_action_message} [Y/n] (Default is 'y' after 10 seconds of no input. This process will be aborted if you enter 'n')"
     read -t 10 -p ">> " user_input
     user_input=${user_input:-Y}
     if [[ "${user_input,,}" == "n" ]]; then
@@ -285,6 +299,10 @@ delete_dir() {
     if [ ! -e "$path" ] && [[ "$path" == *"*"* ]]; then
         print_colored_v2 "DEBUG" "No paths found matching pattern: $path"
     fi
+}
+
+delete_path() {
+    delete_dir "$1"
 }
 
 # Function to delete symlinks and their target files
