@@ -80,15 +80,16 @@ handle_cmd_interactive() {
     local suggested_action_cmd=$4
     local suggested_action_message=$5
     local message_type=$6
+    local default_input=${7:-Y}
     
-    print_colored_v2 "${message_type}" "${error_message}"
+    print_colored_v2 "${message_type}" "${message}"
     print_colored_v2 "HINT" "${hint_message}"
-    print_colored_v2 "YELLOW" "${suggested_action_message} [Y/n] (Default is 'y' after 10 seconds of no input. This process will be aborted if you enter 'n')"
+    print_colored_v2 "YELLOW" "${suggested_action_message} [y/n] (Default is '${default_input}' after 10 seconds of no input. This process will be aborted if you enter 'n')"
     read -t 10 -p ">> " user_input
-    user_input=${user_input:-Y}
+    user_input=${user_input:-$default_input}
     if [[ "${user_input,,}" == "n" ]]; then
         print_colored_v2 "INFO" "This process aborted by user."
-        exit 1
+        return 5
     else
         if [ -n "$suggested_action_cmd" ]; then
             print_colored_v2 "INFO" "Suggested action will be performed."
@@ -100,11 +101,13 @@ handle_cmd_interactive() {
 
         if [ -n "$origin_cmd" ]; then
             eval "$origin_cmd" || {
-                print_colored_v2 "ERROR" "${error_message}"
+                print_colored_v2 "ERROR" "${message}"
                 exit 1
             }
         fi
     fi
+
+    return 0
 }
 
 # OS Check function
@@ -375,4 +378,19 @@ delete_symlinks() {
             print_colored_v2 "DEBUG" "Skip to delete symlink, because it is not a symlink: $symlink"
         fi
     done
+}
+
+check_docker_compose() {
+    if command -v docker &> /dev/null; then
+        if docker compose version &> /dev/null; then
+            echo "✅ The 'docker compose' command works properly."
+            return 0
+        else
+            echo "⚠️ 'docker' is installed, but the 'compose' command is not available."
+            return 1
+        fi
+    else
+        echo "❌ 'docker' is not installed on the system."
+        return 1
+    fi
 }
