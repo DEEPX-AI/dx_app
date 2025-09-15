@@ -1,8 +1,10 @@
-add_executable(od_ddr yolo_ddrnet.cpp yolo.cpp bbox.cpp display.cpp nms.cpp)
-add_executable(od_pid yolo_pidnet.cpp yolo.cpp bbox.cpp display.cpp nms.cpp)
-
+add_demo_utils()
 add_dxrt_lib()
 add_opencv()
 
-add_target(od_ddr)
-add_target(od_pid)
+add_executable(od_segmentation 
+    ${DEMO_UTILS_SRC}
+    yolo_and_segmentation.cpp
+)
+
+add_target(od_segmentation)

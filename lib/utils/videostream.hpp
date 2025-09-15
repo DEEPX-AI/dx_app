@@ -4,14 +4,13 @@
 #include <opencv2/opencv.hpp>
 #include <common/objects.hpp>
 #include <utils/common_util.hpp>
-#include "dxrt/dxrt_api.h"
+#include <dxrt/dxrt_api.h>
 #include "color_table.hpp"
+#include <cstdio> 
 
 #if __riscv
 #include "v1/isp_eyenix.h"
 #endif
-
-using namespace std;
 
 
 typedef enum{
@@ -78,7 +77,7 @@ public:
 //for Input Alignment
     bool _need_preproc = false;
     int _align_factor = 0;
-    vector<uint8_t> _imgBuffer;
+    std::vector<uint8_t> _imgBuffer;
 
     VideoStream(AppInputType srcType, std::string srcPath, int preLoadNum, dxapp::common::Size npuSize, AppInputFormat npuColorFormat, dxapp::common::Size dstSize, std::shared_ptr<dxrt::InferenceEngine> inferenceEngine, int cam_fps = 30, int cam_width = 1280, int cam_height = 720)
             : _srcType(srcType), _srcPath(srcPath), _preLoadNum(preLoadNum), _npuSize(npuSize), _npuColorFormat(npuColorFormat), _dstSize(dstSize), _inferenceEngine(inferenceEngine), _cam_fps(cam_fps), _cam_width(cam_width), _cam_height(cam_height)
@@ -183,10 +182,10 @@ public:
                     printf("=========================== \n");
                     _video.open(_gstCameraPipeline, cv::CAP_GSTREAMER);
 #else
-                    _video.open(stoi(_srcPath), cv::CAP_V4L2);
+                    _video.open(std::stoi(_srcPath), cv::CAP_V4L2);
 #endif // USE_VAAPI
 #elif _WIN32
-                    _video.open(stoi(_srcPath));
+                    _video.open(std::stoi(_srcPath));
 #endif
                 }
                 _video.set(cv::CAP_PROP_FPS, _cam_fps);
@@ -284,13 +283,13 @@ public:
         }
 
     //Input Alignment
-        auto npu_input_length = _inferenceEngine->input_size();
-        auto npu_input_shape = _inferenceEngine->inputs().front().shape();
+        auto npu_input_length = _inferenceEngine->GetInputSize();
+        auto npu_input_shape = _inferenceEngine->GetInputs().front().shape();
         uint64_t factorize_shape = npu_input_shape[1] * npu_input_shape[1] * 3;
         if(factorize_shape != npu_input_length)
         {
             _need_preproc = true;
-            _imgBuffer = vector<uint8_t>(npu_input_length, 0);
+            _imgBuffer = std::vector<uint8_t>(npu_input_length, 0);
             _align_factor = dxapp::common::get_align_factor(_npuSize._width * 3, 64);
         }
 
@@ -414,18 +413,6 @@ public:
                 break;
         }
     };    
-    
-    void data_pre_processing(uint8_t* src, uint8_t* dst)
-    {
-        int copy_size = (int)(_npuSize._width * 3);
-        for(int y=0; y<_npuSize._height; ++y)
-        {
-            memcpy(&dst[y * (copy_size + _align_factor)],
-                &src[y * copy_size], 
-                copy_size
-                );
-        }
-    };
 
     bool Preprocess(void)
     {   
@@ -488,24 +475,11 @@ public:
                 {
                     return nullptr;
                 }
-                if(_need_preproc)
-                {
-                    data_pre_processing(_preImg_runtime.data, _imgBuffer.data());
-                    img.data = _imgBuffer.data();
-                }
-                else
-                    img = _preImg_runtime;
+                img = _preImg_runtime;
             }         
             else
             {
-                
-                if(_need_preproc)
-                {
-                    data_pre_processing(_preImg[_preGetCnt].data, _imgBuffer.data());
-                    img.data = _imgBuffer.data();
-                }
-                else
-                    img = _preImg[_preGetCnt];
+                img = _preImg[_preGetCnt];
                 _preGetCnt++;            
                 if(_preGetCnt>=_preLoadNum)
                 {
@@ -538,11 +512,14 @@ public:
     void DrawCaption(cv::Mat& dst, dxapp::common::Object& obj)
     {
         int textBaseLine = 0;
-        auto textSize = cv::getTextSize(obj._name, cv::FONT_HERSHEY_SIMPLEX, 0.4, 1, &textBaseLine);
+        char scoreStr[16];
+        snprintf(scoreStr, sizeof(scoreStr), "%.2f", obj._conf);
+        std::string caption = obj._name + "=" + scoreStr;
+        auto textSize = cv::getTextSize(caption, cv::FONT_HERSHEY_SIMPLEX, 0.4, 1, &textBaseLine);
         cv::rectangle(dst, cv::Point(obj._bbox._xmin, obj._bbox._ymin - textSize.height),
                             cv::Point(obj._bbox._xmin + textSize.width, obj._bbox._ymin),
                             dxapp::common::color_table[obj._classId], cv::FILLED);
-        cv::putText(dst, obj._name, cv::Point(obj._bbox._xmin, obj._bbox._ymin), cv::FONT_HERSHEY_SIMPLEX, 0.4, cv::Scalar(255,255,255));       
+        cv::putText(dst, caption, cv::Point(obj._bbox._xmin, obj._bbox._ymin), cv::FONT_HERSHEY_SIMPLEX, 0.4, cv::Scalar(255,255,255));       
     };
     
     void DrawPoseKpt(cv::Mat& dst, dxapp::common::Object& obj)

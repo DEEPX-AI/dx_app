@@ -9,7 +9,7 @@ import subprocess
 from pathlib import Path
 
 # Check if pybind11 exists, if not download it
-pybind11_dir = Path(__file__).parent.parent.parent / "extern" / "pybind11"
+pybind11_dir = Path(__file__).absolute().parent.parent.parent / "extern" / "pybind11"
 
 if not pybind11_dir.exists():
     print(f"Downloading pybind11 to {pybind11_dir}...")
@@ -50,13 +50,40 @@ for src in sources:
         print(f"Error: Source file {src} not found!")
         sys.exit(1)
 
+# 빌드 타입 감지
+build_type = os.environ.get('CMAKE_BUILD_TYPE', 'Release').lower()
+debug_mode = os.environ.get('DEBUG', '0') == '1'
+
+print(f"Build type detection:")
+print(f"  CMAKE_BUILD_TYPE: {os.environ.get('CMAKE_BUILD_TYPE', 'Not set')}")
+print(f"  DEBUG: {os.environ.get('DEBUG', 'Not set')}")
+print(f"  Detected build_type: {build_type}")
+print(f"  Detected debug_mode: {debug_mode}")
+
+# 컴파일러 플래그 설정
+extra_compile_args = []
+extra_link_args = []
+
+if build_type == 'debug' or debug_mode:
+    extra_compile_args.extend(['-g', '-O0', '-DDEBUG'])
+    extra_link_args.extend(['-g'])
+    print("Building dx_postprocess in DEBUG mode")
+    print(f"  Compile flags: {extra_compile_args}")
+    print(f"  Link flags: {extra_link_args}")
+else:
+    extra_compile_args.extend(['-O3', '-DNDEBUG'])
+    print("Building dx_postprocess in RELEASE mode")
+    print(f"  Compile flags: {extra_compile_args}")
+
 # Define the extension
 ext_modules = [
     Pybind11Extension(
         "dx_postprocess",
         sources,
-        include_dirs=["."],  # Add current directory to include path
+        include_dirs=["."],
         cxx_std=14,
+        extra_compile_args=extra_compile_args,
+        extra_link_args=extra_link_args,
     ),
 ]
 

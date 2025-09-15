@@ -1,7 +1,6 @@
 #include "detector.hpp"
 
-using namespace std;
-using namespace rapidjson;
+#include <cxxopts.hpp>
 
 const char *usage =
     "detector template\n"
@@ -16,31 +15,25 @@ void help()
 int main(int argc, char *argv[])
 {
     DXRT_TRY_CATCH_BEGIN
-    int arg_idx = 1;
     std::string configPath = "";
-    char key;
+    char key = 0;
 
-    if (argc == 1)
+    cxxopts::Options options("run_detector", "detector template application usage ");
+    options.add_options()
+        ("c, config", "(* required) use config json file for run application", cxxopts::value<std::string>(configPath))
+        ("h, help", "print usage")
+    ;
+    auto cmd = options.parse(argc, argv);
+    if(cmd.count("help"))
     {
-        std::cout << "Error: no arguments." << std::endl;
-        help();
-        exit(-1);
-    }
-
-    while (arg_idx < argc) {
-        std::string arg(argv[arg_idx++]);
-        if (arg == "-c" || arg == "--config")
-                        configPath = strdup(argv[arg_idx++]);
-        else if (arg == "-h" || arg == "--help")
-                        help(), exit(0);
-        else
-                        help(), exit(0);
+        std::cout << options.help() << std::endl;
+        exit(0);
     }
     if(configPath.empty())
     {
         std::cout << "error : no config json file arguments. " << std::endl;
-        help();
-        exit(-1);
+        std::cout << "Use -h or --help for usage information." << std::endl;
+        exit(0);
     }
 
     dxapp::AppConfig appConfig(configPath);
@@ -60,7 +53,7 @@ int main(int argc, char *argv[])
         if(appConfig.appType == REALTIME)
         {
             cv::imshow("result", detector.totalView());
-            key = (char)cv::waitKey(1);
+            key = static_cast<char>(cv::waitKey(1));
         }
         else
         {
@@ -71,7 +64,7 @@ int main(int argc, char *argv[])
             else
             {
                 std::cout << "press 'q' to quit. " << std::endl;
-                key = (char)getchar();
+                key = static_cast<char>(getchar());
                 std::cout << "pressed key " << key << std::endl;
             }
         }

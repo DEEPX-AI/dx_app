@@ -1,7 +1,7 @@
 This chapter provides an overview of the DEEPX SDK architecture and explains each core component, and describes the overview and key features of DX-APP. 
 
 ## DEEPX SDK Architecture  
-![](./../resources/01_SDK_Architecture.drawio.png)
+![](./../resources/01_SDK_Architecture.drawio_r2.png)
 
 **DEEPX SDK** is an all-in-one software development platform that streamlines the process of compiling, optimizing, simulating, and deploying AI inference applications on DEEPX NPUs (Neural Processing Units). It provides a complete toolchain, from AI model creation to runtime deployment, optimized for edge and embedded systems, enabling developers to build high-performance AI applications with minimal effort.  
 

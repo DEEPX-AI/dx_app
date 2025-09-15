@@ -8,12 +8,12 @@
 
 #include <opencv2/opencv.hpp>
 
-#include "post_process/yolo_post_processing.hpp"
+#include <post_process/yolo_post_processing.hpp>
 
-#include "dxrt/dxrt_api.h"
-#include "common/objects.hpp"
-#include "utils/videostream.hpp"
-#include "app_parser.hpp"
+#include <dxrt/dxrt_api.h>
+#include <common/objects.hpp>
+#include <utils/videostream.hpp>
+#include <app_parser.hpp>
 
 class DetectorApp
 {
@@ -28,7 +28,7 @@ public :
         _processName = "proc_"+_name;
         _inferName = "infer_"+_name;
 
-        _inputSize = dxapp::common::Size((int)_params._input_shape[1],(int)_params._input_shape[1]);
+        _inputSize = _params._input_size;
 
         _vStream = VideoStream(_inputType, _videoPath, sourceInfo.numOfFrames, _inputSize, _inputFormat, _dstSize, _inferenceEngine);        
         _srcSize = _vStream._srcSize;
@@ -38,16 +38,24 @@ public :
         _processed_count = 0;
         _fps_time_s = std::chrono::high_resolution_clock::now();
         _fps_time_e = std::chrono::high_resolution_clock::now();
-        outputsMemory = (uint8_t*)operator new(_inferenceEngine->output_size());
+        
+        _outputBufferSize = _inferenceEngine->GetOutputSize();
+        _bufferPoolSize = 5;
+        _currentBufferIndex = 0;
+        for (int i = 0; i < _bufferPoolSize; ++i) {
+            _bufferPool.push_back(std::vector<uint8_t>(_outputBufferSize));
+        }
     };
-
-    void runPostProcess(uint8_t* output_data, int64_t data_length)
+    
+    void runPostProcess(dxrt::TensorPtrs outputs)
     {
         std::unique_lock<std::mutex> _uniqueLock(_lock);
-        _postProcessing.run(output_data, data_length);
+        _postProcessing.run(outputs);
         _processed_count += 1;
         _fps_time_e = std::chrono::high_resolution_clock::now();
         _processTime = std::chrono::duration_cast<std::chrono::microseconds>(_fps_time_e - _fps_time_s).count();
+        
+        _currentOutputBuffer = nullptr;
     };
 
     cv::Mat getResultFrame()
@@ -110,11 +118,13 @@ public :
 
         while(!_quit.load())
         {    
-            if(outputsMemory == nullptr)
+            std::vector<uint8_t>* outputBuffer = nullptr;
             {
-                std::this_thread::sleep_for(std::chrono::microseconds(100));
-                continue;
+                std::unique_lock<std::mutex> poolLock(_bufferPoolMutex);
+                outputBuffer = &_bufferPool[_currentBufferIndex];
+                _currentBufferIndex = (_currentBufferIndex + 1) % _bufferPoolSize; // Circular access
             }
+            
             if(!_quit.load())
             {
                 inf_data = _vStream.GetInputStream();
@@ -132,7 +142,10 @@ public :
                         continue;
                 }
                 _fps_time_s = std::chrono::high_resolution_clock::now();
-                int req = _inferenceEngine->RunAsync(inf_data, (void*)this, (void*)outputsMemory);
+                _profiler.Start(_inferName);
+                
+                _currentOutputBuffer = outputBuffer;
+                std::ignore = _inferenceEngine->RunAsync(inf_data, (void*)this, (void*)outputBuffer->data());
                 _frame_count += 1;
             }
             if(_processed_count > 0)
@@ -144,7 +157,7 @@ public :
                 int64_t fps = 1000000 / new_average;
                 _fps_previous_average_time = new_average;
                 std::string fpsCaption = "FPS : " + std::to_string((int)fps);
-                cv::Size fpsCaptionSize = cv::getTextSize(fpsCaption, cv::FONT_HERSHEY_PLAIN, 3, 2, nullptr);
+                // cv::Size fpsCaptionSize = cv::getTextSize(fpsCaption, cv::FONT_HERSHEY_PLAIN, 3, 2, nullptr);
                 // cv::putText(outputImg, fpsCaption, cv::Point(outputImg.size().width - fpsCaptionSize.width, outputImg.size().height - fpsCaptionSize.height), cv::FONT_HERSHEY_PLAIN, 3, cv::Scalar(255, 255, 255),2);
                 if(_appType == NONE)
                     std::cout << results <<std::endl;
@@ -154,7 +167,7 @@ public :
                     _result_frame_count++;
                 }
             }
-            _inferTime = _inferenceEngine->latency();
+            _inferTime = _inferenceEngine->GetLatency();
             std::this_thread::sleep_for(std::chrono::microseconds(1));
         };
         while(_frame_count != _processed_count)
@@ -181,11 +194,12 @@ public :
     };
 
     uint8_t* get_outputMem(){
-        return outputsMemory;
+        return nullptr;
     };
 
     ~DetectorApp(){
-        operator delete(outputsMemory);
+        std::unique_lock<std::mutex> poolLock(_bufferPoolMutex);
+        _bufferPool.clear();
     };
 
 private:
@@ -236,7 +250,13 @@ private:
     
     bool _get_frame_result = true;
     
-    uint8_t * outputsMemory = nullptr;
+    // Circular buffer pool for dynamic memory management
+    std::vector<std::vector<uint8_t>> _bufferPool;
+    std::mutex _bufferPoolMutex;
+    size_t _outputBufferSize;
+    size_t _bufferPoolSize;
+    size_t _currentBufferIndex; // Index for circular buffer access
+    std::vector<uint8_t>* _currentOutputBuffer; // Pointer to current buffer
 
 };
 
@@ -249,41 +269,65 @@ public:
         if(!is_valid)
         {
             std::cout << config.modelInfo << std::endl;
-            std::cout << "model params is invalid parsing" << std::endl;
-            std::terminate();
+            throw std::invalid_argument("model params is invalid parsing");
         }
 
         readModelInfo(config.modelInfo.c_str());
-        inferenceEngine = std::make_shared<dxrt::InferenceEngine>(modelPath);
+        auto inferenceOption = dxrt::InferenceOption();
+        inferenceEngine = std::make_shared<dxrt::InferenceEngine>(modelPath, inferenceOption);
+        if(!dxapp::common::minversionforRTandCompiler(inferenceEngine.get()))
+        {
+            throw std::runtime_error("[DXAPP] [ER] The version of the compiled model is not compatible with the version of the runtime. Please compile the model again.");
+        }
         if(params._layers.empty())
         {
-            if(ORT_OPTION_DEFAULT)
+            if(!ORT_OPTION_DEFAULT)
             {
-                throw std::invalid_argument("Layer information is missing. Please check the input json configuration file");
+                throw std::invalid_argument("[DXAPP] [ER] Layer information is missing. This is only supported when USE_ORT=ON. Please modify and rebuild.");
             }
         }
-        inputShape = std::vector<int64_t>(inferenceEngine->inputs().front().shape());
-        auto outputDataInfo = inferenceEngine->outputs();
+        auto outputDataInfo = inferenceEngine->GetOutputs();
         for(auto &info:outputDataInfo) 
         {
             outputShape.emplace_back(info.shape());
         }
-        inputSize = inferenceEngine->input_size();
-        int64_t f = inputShape[1] * inputShape[1] * 3;
-        // for(auto &s:inputShape)
-        // {
-        //     f *= s;
-        // }
-        if(f != inputSize)
-            alignFactor = dxapp::common::get_align_factor(inputShape[1] * 3, 64);
-        else
-            alignFactor = false;
 
         params._classes = config.classes;
         params._numOfClasses = config.numOfClasses;
-        params._input_shape = inputShape;
         params._outputShape = outputShape;
+        for(int i = 0; i < (int)params._final_outputs.size(); i++)
+        {
+            for(int j = 0; j < (int)inferenceEngine->GetOutputTensorNames().size(); j++)
+            {
+                if(inferenceEngine->GetOutputTensorNames()[j] == params._final_outputs[i])
+                {
+                    params._outputTensorIndexMap.emplace_back(std::make_pair(i, j));
+                    break;
+                }
+            }
+        }
+        if(params._outputTensorIndexMap.size() > 0)
+            params._is_onnx_output = true;
 
+        if(!params._is_onnx_output)
+        {
+            for(int i = 0; i < (int)params._layers.size(); i++)
+            {
+                for(int j = 0; j < (int)inferenceEngine->GetOutputTensorNames().size(); j++)
+                {
+                    if(inferenceEngine->GetOutputTensorNames()[j] == params._layers[i].name)
+                    {
+                        params._outputTensorIndexMap.emplace_back(std::make_pair(i, j));
+                        break;
+                    }
+                }
+            }
+        }
+        if(!params._is_onnx_output && params._outputTensorIndexMap.size() < inferenceEngine->GetOutputTensorNames().size())
+        {
+            throw std::invalid_argument("[DXAPP] [ER] output tensor index list is not enough. Please check the model output configuration and the output tensor names.");
+        }
+        
         size_t all_image_count = 0;
         for(auto const& source_info : config.sourcesInfo)
         {
@@ -292,23 +336,6 @@ public:
         }
         if(all_image_count == config.sourcesInfo.size())
             is_all_image = true;
-
-        dxrt::DataType outputTensorType = inferenceEngine->outputs().front().type();
-        switch (outputTensorType)
-        {
-        case dxrt::DataType::BBOX:
-            params._ppu_format = dxapp::yolo::PPUFormat::BBOX;
-            break;
-        case dxrt::DataType::FACE:
-            params._ppu_format = dxapp::yolo::PPUFormat::FACE;
-            break;
-        case dxrt::DataType::POSE:
-            params._ppu_format = dxapp::yolo::PPUFormat::POSE;
-            break;
-        default:
-            params._ppu_format = dxapp::yolo::PPUFormat::NONEPPU;
-            break;
-        }
 
         int div = dxapp::common::divideBoard(config.sourcesInfo.size());
 
@@ -319,17 +346,14 @@ public:
             apps.emplace_back(std::make_shared<DetectorApp>(inferenceEngine, config.sourcesInfo[i], config.inputFormat, config.appType, 
                                     params, i, dstPosition, dstSize));
         }
-        std::function<int(std::vector<std::shared_ptr<dxrt::Tensor>>, void*)> postProcCallBack = \
-        [&](std::vector<std::shared_ptr<dxrt::Tensor>> outputs, void* arg)
+        std::function<int(dxrt::TensorPtrs, void*)> postProcCallBack = \
+        [&](dxrt::TensorPtrs outputs, void* arg)
         {
             DetectorApp* app = (DetectorApp*)arg;
-            int64_t dataLength = outputs.front()->shape().front();
-            if(dxapp::common::compareVersions(DXRT_VERSION, "2.6.3"))
-                dataLength = outputs.front()->shape()[1];
-            app->runPostProcess(app->get_outputMem(), dataLength);
+            app->runPostProcess(outputs);
             return 0;
         };
-        inferenceEngine->RegisterCallBack(postProcCallBack);
+        inferenceEngine->RegisterCallback(postProcCallBack);
         
         resultView = cv::Mat(config.videoOutResolution._height, config.videoOutResolution._width, CV_8UC3, cv::Scalar(0, 0, 0));
     };
@@ -450,7 +474,8 @@ public:
             std::unique_lock<std::mutex> _uniqueLock(lock);
             cv.wait(_uniqueLock, [&](){return !_wait.load();});
         }
-        while(true)
+        std::this_thread::sleep_for(std::chrono::microseconds(100000));
+        for(int idx = 0; idx < static_cast<int>(apps.size()); idx++)
         {
             int processed_complete = 0;
             for(int idx = 0; idx < static_cast<int>(apps.size()); idx++)
@@ -468,6 +493,7 @@ public:
                 break;
             }
         }
+        quitThread();
     };
 
     void readModelInfo(const char* modelInfo)
@@ -476,9 +502,15 @@ public:
         doc.Parse(modelInfo);
         modelPath = doc["path"].GetString();
         auto modelParam = doc["param"].GetObject();
+        params._objectness_threshold = modelParam.HasMember("objectness_threshold")?modelParam["objectness_threshold"].GetFloat():0.25f;
         params._score_threshold = modelParam["score_threshold"].GetFloat();
         params._iou_threshold = modelParam["iou_threshold"].GetFloat();
         params._kpt_count = 0;
+        params._input_size = dxapp::common::Size(modelParam["input_width"].GetInt(), modelParam["input_height"].GetInt());
+        for(auto &output : modelParam["final_outputs"].GetArray())
+        {
+            params._final_outputs.push_back(output.GetString());
+        }
         
         std::string read = "";
         read = modelParam.HasMember("last_activation")?modelParam["last_activation"].GetString():"";
@@ -495,14 +527,20 @@ public:
         else if(read=="yolo_scale")
             params._decode_method = dxapp::yolo::Decode::YOLOSCALE;
         else if(read=="yolo_pose")
+        {
             params._decode_method = dxapp::yolo::Decode::YOLO_POSE;
+            params._kpt_count = modelParam["kpt_count"].GetInt();
+        }
         else if(read=="yolo_face")
         {
             params._decode_method = dxapp::yolo::Decode::YOLO_FACE;
             params._kpt_count = modelParam["kpt_count"].GetInt();
         }
         else if(read=="scrfd")
+        {
             params._decode_method = dxapp::yolo::Decode::SCRFD;
+            params._kpt_count = modelParam["kpt_count"].GetInt();
+        }
         else if(read=="yolov8")
             params._decode_method = dxapp::yolo::Decode::YOLOV8;
         else if(read=="yolov9")
@@ -517,42 +555,37 @@ public:
             params._box_format = dxapp::yolo::BBoxFormat::XYX2Y2;
         else
             params._box_format = dxapp::yolo::BBoxFormat::CXCYWH;
-        
-        if(params._decode_method == dxapp::yolo::Decode::YOLO_POSE)
-        {
-            read = modelParam["kpt_order"].GetString();
-            if(read=="end")
-                params._kpt_order = dxapp::yolo::KeyPointOrder::BBOX_FRONT;
-            else
-                params._kpt_order = dxapp::yolo::KeyPointOrder::KPT_FRONT;
-            params._kpt_count = modelParam["kpt_count"].GetInt();
-        }
-        else if(params._decode_method == dxapp::yolo::Decode::SCRFD)
-        {
-            params._kpt_count = modelParam["kpt_count"].GetInt();
-        }
 
         for(auto &d:modelParam["layer"].GetArray()){
             auto o = d.GetObject();
             dxapp::yolo::Layers l = {};
             l.name = o["name"].GetString();
-            l.stride = o["stride"].GetInt();
+            l.stride = o.HasMember("stride")? o["stride"].GetInt() : 0;
             l.scale = o.HasMember("scale")? o["scale"].GetFloat() : 0;
-            for(auto &w:o["anchor_width"].GetArray()){
-                l.anchor_width.emplace_back(w.GetFloat());
+            if(o.HasMember("shape"))
+            {
+                for(auto &s:o["shape"].GetArray()){
+                    l.shape.emplace_back(s.GetInt());
+                }
             }
-            for(auto &h:o["anchor_height"].GetArray()){
-                l.anchor_height.emplace_back(h.GetFloat());
+            if(o.HasMember("anchor_width"))
+            {
+                for(auto &w:o["anchor_width"].GetArray()){
+                    l.anchor_width.emplace_back(w.GetFloat());
+                }
+            }
+            if(o.HasMember("anchor_height"))
+            {
+                for(auto &h:o["anchor_height"].GetArray()){
+                    l.anchor_height.emplace_back(h.GetFloat());
+                }
             }
             params._layers.emplace_back(l);
         }
     };
     
     dxapp::AppConfig config;
-    std::vector<int64_t> inputShape;
     std::vector<std::vector<int64_t>> outputShape;
-    int inputSize;
-    int alignFactor;
     bool is_all_image = false;
     
     std::shared_ptr<dxrt::InferenceEngine> inferenceEngine;
@@ -577,6 +610,12 @@ private:
                     "param": {
                         "type": "object",
                         "properties": {
+                            "input_width": {
+                                "type": "number"
+                            },
+                            "input_height": {
+                                "type": "number"
+                            },
                             "score_threshold": {
                                 "type": "number"
                             },
@@ -590,13 +629,18 @@ private:
                                 "type": "string"
                             },
                             "box_format": {
-                                "type": "string"
+                                "type": "string",
+                                "enum": ["corner", "center"]
                             },
                             "kpt_order": {
                                 "type": "string"
                             },
                             "kpt_count": {
                                 "type": "number"
+                            },
+                            "final_outputs":{
+                                "type": "array",
+                                "items": "string"
                             },
                             "layer": {
                                 "type": "array",
@@ -619,16 +663,20 @@ private:
                                         },
                                         "scale":{
                                             "type": "number"
+                                        },
+                                        "shape":{
+                                            "type": "array",
+                                            "items": "number"
                                         }
                                     },
                                     "required": [
-                                        "name", "stride", "anchor_width", "anchor_height"
+                                        "name"
                                     ]
                                 }
                             }
                         },
                         "required": [
-                            "score_threshold", "iou_threshold", "decoding_method", "box_format"
+                            "input_width", "input_height", "score_threshold", "iou_threshold", "decoding_method", "box_format"
                         ]
                     }
                 },

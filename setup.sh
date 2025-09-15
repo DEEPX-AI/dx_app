@@ -12,6 +12,8 @@ source ${SCRIPT_DIR}/scripts/common_util.sh
 ENABLE_DEBUG_LOGS=0   # New flag for debug logging
 DOCKER_VOLUME_PATH=${DOCKER_VOLUME_PATH}
 FORCE_ARGS=""
+FORCE_REMOVE_MODELS=0
+FORCE_REMOVE_VIDEOS=0
 
 pushd $SCRIPT_DIR
 
@@ -21,6 +23,8 @@ show_help() {
     print_colored "Options:" "GREEN"
     print_colored "  --docker_volume_path=<path>    Set Docker volume path (required in container mode)" "GREEN"
     print_colored "  [--force]                      Force overwrite if the file already exists" "GREEN"
+    print_colored "  [--force-remove-models]        Force remove models if they exist" "GREEN"
+    print_colored "  [--force-remove-videos]        Force remove videos if they exist" "GREEN"
     print_colored "  [--verbose]                    Enable verbose (debug) logging." "GREEN"
     print_colored "  [--help]                       Show this help message" "GREEN"
 
@@ -46,6 +50,14 @@ for i in "$@"; do
             ;;
         --force)
             FORCE_ARGS="--force"
+            shift
+            ;;
+        --force-remove-models)
+            FORCE_REMOVE_MODELS=1
+            shift
+            ;;
+        --force-remove-videos)
+            FORCE_REMOVE_VIDEOS=1
             shift
             ;;
         --verbose)
@@ -95,6 +107,9 @@ setup_assets() {
     MODEL_REAL_PATH=$(readlink -f "$MODEL_PATH")
     # Check and set up models
     if [ ! -d "$MODEL_REAL_PATH" ] || [ "$FORCE_ARGS" != "" ]; then
+        if [ $FORCE_REMOVE_MODELS -eq 1 ]; then
+            FORCE_ARGS="--force"
+        fi
         print_colored " models directory not found. Running setup models script... ($MODEL_REAL_PATH)" "INFO"
         ./setup_sample_models.sh $SETUP_MODEL_ARGS $FORCE_ARGS || { print_colored "Setup models script failed." "ERROR"; rm -rf $MODEL_PATH; exit 1; }
     else
@@ -105,6 +120,9 @@ setup_assets() {
     VIDEO_REAL_PATH=$(readlink -f "$VIDEO_PATH")
     # Check and set up models
     if [ ! -d "$VIDEO_REAL_PATH" ] || [ "$FORCE_ARGS" != "" ]; then
+        if [ $FORCE_REMOVE_VIDEOS -eq 1 ]; then
+            FORCE_ARGS="--force"
+        fi
         print_colored " Video directory not found. Running setup models script... ($VIDEO_REAL_PATH)" "INFO"
         ./setup_sample_videos.sh $SETUP_VIDEO_ARGS $FORCE_ARGS || { print_colored "Setup videos script failed." "ERROR"; rm -rf $VIDEO_PATH; exit 1; }
     else

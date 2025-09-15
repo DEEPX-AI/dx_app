@@ -1,15 +1,10 @@
 #include <cmath>
-#include <chrono>
-#include <future>
 #include <iostream>
-#include <algorithm>
 #include <string>
-#include <iostream>
 #include <thread>
-
 #include <opencv2/opencv.hpp>
 
-#include "dxrt/dxrt_api.h"
+#include <dxrt/dxrt_api.h>
 #include "utils/common_util.hpp"
 
 #define INPUT_CAPTURE_PERIOD_MS 1
@@ -23,12 +18,12 @@ int CAMERA_FRAME_HEIGHT = 600;
 
 const char *usage =
     "DNCNN demo\n"
-    "  -m, --model     define model path\n"
-    "  -i, --image     use image file input\n"
+    "  -m, --model     (* required) define model path\n"
+    "  -i, --image     (* required) use image file input\n"
     "  -v, --video     use video file input\n"
     "  -c, --camera    use camera input\n"
-    "(opt) --mean      set noise parameter (default 0.0)\n"
-    "(opt) --std       set noise parameter (default 15.0)\n"
+    "      --mean      set noise parameter (default 0.0)\n"
+    "      --std       set noise parameter (default 15.0)\n"
     "  -h, --help      show help\n";
 
 void help()
@@ -72,11 +67,11 @@ DXRT_TRY_CATCH_BEGIN
     while (arg_idx < argc) {
         std::string arg(argv[arg_idx++]);
         if (arg == "-m" || arg == "--model")
-                        modelPath = strdup(argv[arg_idx++]);
+                        modelPath = argv[arg_idx++];
         else if (arg == "-i" || arg == "--image")
-                        imgFile = strdup(argv[arg_idx++]);
+                        imgFile = argv[arg_idx++];
         else if (arg == "-v" || arg == "--video")
-                        videoFile = strdup(argv[arg_idx++]);
+                        videoFile = argv[arg_idx++];
         else if (arg == "-c" || arg == "--camera")
                         cameraInput = true;
         else if (arg == "--mean")
@@ -90,6 +85,13 @@ DXRT_TRY_CATCH_BEGIN
     }
 
     dxrt::InferenceEngine ie(modelPath);
+    
+    if(!dxapp::common::minversionforRTandCompiler(&ie))
+    {
+        std::cerr << "[DXAPP] [ER] The version of the compiled model is not compatible with the version of the runtime. Please compile the model again." << std::endl;
+        return -1;
+    }
+
     auto& profiler = dxrt::Profiler::GetInstance();
 
     auto input_shape = ie.inputs().front().shape();

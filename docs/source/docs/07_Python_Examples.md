@@ -1,4 +1,4 @@
-This section describes how to run inference and post-processing on DeepX NPUs using Python. It includes examples for image classification and object detection (YOLO series), as well as post-processing acceleration via Pybind11.
+This section describes how to run inference and post-processing on DeepX NPUs using Python. It includes examples for image classification and object detection (YOLO series).
 
 ---
 
@@ -31,7 +31,14 @@ Start by importing the necessary module.
 from dx_engine import InferenceEngine
 ```
 
-**Step 3. Create an Input Tensor**  
+**Step 3. Install Python Requirements**  
+Before running any Python templates, install the required dependencies:
+
+```
+pip install -r ./templates/python/requirements.txt
+```
+
+**Step 4. Create an Input Tensor**  
 First, create an inference engine instance by specifying the model path. Then, generate an input tensor based on the model’s input size.  
 ```
 import numpy as np
@@ -42,34 +49,22 @@ input_tensor = np.array(ie.input_size(), dtype=np.uint8)
 # Adjust the type according to the input data you are using
 ```
 
-**Step 4. Preparing an Image Aligned for the NPU**  
-Create and adjust an input image to meet the alignment requirements of the NPU.  
+**Step 5. Preparing an Image for Inference**  
+Prepare and adjust an input image to meet the requirements of the NPU.
 ```
 import numpy as np
 import cv2
 from dx_engine import InferenceEngine
 
-def preprocessing(image, new_shape=(224, 224), align=64, format=None):
+def preprocessing(image, new_shape=(224, 224), format=None):
     image = cv2.resize(image, new_shape)
     h, w, c = image.shape
     if format is not None:
         image = cv2.cvtColor(image, format)
-    if align == 0 :
-        return image
-    length = w * c
-    align_factor = align - (length - (length & (-align)))
-    image = np.reshape(image, (h, w * c))
-    dummy = np.full([h, align_factor], 0, dtype=np.uint8)
-    image_input = np.concatenate([image, dummy], axis=-1)
-
-    return image_input
+    return image
 
 ie = InferenceEngine("assets/models/EfficientNetB0_4.dxnn")
 image_src = cv2.imread("images/1.jpg", cv2.IMREAD_COLOR)
-if ie.input_size() == 224 * 224 * 3:
-    align = 0
-else:
-    align = 64
 
 image_input = preprocessing(image_src, new_shape=(224, 224), align=align, format = cv2.COLOR_BGR2RGB)
 ```
@@ -104,27 +99,8 @@ ie = InferenceEngine("./assets/models/EfficientNetB0_4.dxnn")
 
 - **3.** Prepare the Input Tensor  
   : Input and output tensor shapes follow the format: [N, H, W, C]    
-  : Input data **must** be aligned to the nearest multiple of 64 bytes.  
 
 
-**Note.** You **must** refer to the `python/imageNet_example.py` and re-arrange input data.  
-
-```
-def preprocessing(image, new_shape=(224, 224), align=64, format=None):
-    image = cv2.resize(image, new_shape)
-    h, w, c = image.shape
-    if format is not None:
-        image = cv2.cvtColor(image, format)
-    if align == 0 :
-        return image
-    length = w * c
-    align_factor = align - (length - (length & (-align)))
-    image = np.reshape(image, (h, w * c))
-    dummy = np.full([h, align_factor], 0, dtype=np.uint8)
-    image_input = np.concatenate([image, dummy], axis=-1)
-
-    return image_input
-```
 
 **Output Handling**  
 Using ArgMax Layer  
@@ -150,11 +126,6 @@ print("[{}] Top1 Result : class {} ({})".format(input_path, output, classes[outp
 Using GAP or FC Layer  
 If the final layer is a Global Average Pooling (GAP) or Fully Connected (FC) layer.  
 - Output shape: `[1, 1, 1, num_classes]`  
-
-Due to DeepX NPU architecture constraints, the number of channels (including output classes) **must** be aligned based on the following rule.  
-
-- If the channel count is less than 64, it is aligned to the nearest multiple of 16 bytes.  
-- If the channel count is 64 or greater, it is aligned to the nearest multiple of 64 bytes.  
 
 Apply Softmax to convert logits into class probabilities  
 ```
@@ -203,7 +174,6 @@ python template/python/yolov5s_example.py --config example/run_detector/yolov5s3
 ```
 
 **Steps**  
-After model conversion, you can optionally perform CPU-based post-processing by using the `cpu_0.onnx` output file in conjunction with the compiled `.dxnn` model.  
 To do this, modify the Python application as needed, referring to the example implementation in `./python/yolov5s_example.py`.
 
 ![](./../resources/07_01_Run_YoloV5S_Python.png){ width=600px }
@@ -223,13 +193,6 @@ ie = InferenceEngine("./assets/models/YOLOV5S_3.dxnn")
 YOLO models typically have 255 output channels  
 
 - (80 classes + 1 objectness + 4 bbox) × 3 anchors = 255  
-
-Due to DeepX NPU architecture constraints, the number of channels (including output classes) **must** be aligned based on the following rule.  
-
-- If the channel count is less than 64, it is aligned to the nearest multiple of 16 bytes.  
-- If the channel count is 64 or greater, it is aligned to the nearest multiple of 64 bytes.  
-
-Final output is 256 channels  
  
 - **4.** Decode the Output  
 
@@ -283,154 +246,3 @@ for idx, r in enumerate(x.numpy()):
 cv2.imwrite("yolov5s.jpg", image)
 print("save file : yolov5s.jpg ")
 ```
-
----
-
-## YOLO Post-Processing Optimization Using Pybind11
-
-### Overview
-
-Post-processing for YOLO models can be implemented in Python using libraries such as numpy and `torchvision.ops.nms`. This is demonstrated in `/template/python/yolov5s_example.py` and `/template/python/yolov_async.py`.  
-
-However, these Python-based implementations may not offer optimal performance in terms of latency, particularly for real-time applications.  
-
-To maximize FPS (Frames Per Second) in time-sensitive scenarios, it's recommended to implement performance-critical post-processing steps—such as score filtering, bounding box decoding, and Non-Maximum Suppression (NMS)—in C++, and integrate them into Python using Pybind11.  
-
-This approach significantly reduces latency by offloading heavy computations to native C++ code while maintaining the usability of Python.  
-
-
-The typical YOLO post-processing pipeline consists of the following steps.  
-
-- Score filtering  
-- Bounding box decoding  
-- NMS (Non-Maximum Suppression)  
-
-
-These steps involve intensive matrix operations and iterative loops, making them performance-critical. Executing them in C++ is significantly more efficient than in Python, especially for real-time applications.  
-
-To address this, DX-APP provides the dx_postprocess module, which includes the YoloPostProcess class, an optimized C++ implementation of YOLO post-processing exposed to Python with Pybind11.  
-
-By using YoloPostProcess, users can perform end-to-end YOLO post-processing with a single function call, supporting a variety of YOLO model types with minimal effort and maximum performance.  
-
-
-###  Supported Use Cases for  YoloPostProcess
-
-The behavior of YOLO post-processing can vary depending on the model type and runtime configuration. Even within the same YOLO version, the post-processing flow may differ based on  
-
-- Whether PPU (Post-Processing Unit) was enabled during model compilation via DX-COM  
-- Whether `USE_ORT=ON` was set during DX-RT runtime build  
-
-To simplify integration, the `Run()` method of the YoloPostProcess class automatically handles these variations.  
-
-- If PPU is enabled, all model types (e.g., BBOX, FACE, POSE) are supported without additional configuration.  
-- If PPU is disabled, support depends on the `USE_ORT`setting during build time.  
-
-For models compiled without PPU, the availability of post-processing via YoloPostProcess depends on whether `USE_ORT=ON` was enabled during DX-RT build configuration.  
-The table below summarizes current support.   
-
-
-| Model    | `USE_ORT = ON`  | `USE_ORT = OFF` | 
-|----------|-----------------|-----------------|
-| YOLOv5   |       O         |      O          |
-| YOLOv7   |       O         |      O          |
-| YOLOX    |       O         |      O          |
-| YOLOv8   |       O         |      X          |
-| YOLOv9   |       O         |      X          |
-
-
-
-**Note.** When `USE_ORT=OFF`, YOLOv8 and YOLOv9 models are currently **not supported** by the YoloPostProcess class. Support for these configurations is planned in future releases.  
-
-In the meantime, users can implement custom post-processing by modifying the `ProcessRAW()` function located in `lib/pybind/yolo_post_processing.cpp`.  This allows full control over decoding, score filtering, and NMS for unsupported configurations.
-
-
-### Run  YoloPostProcess Python Example  
-
-The following example demonstrates how to perform YOLO post-processing using the YoloPostProcess class from the `dx_postprocess` module.
-```
-$ python template/python/yolo_pybind_example.py --video_path /path/to/your/video_file --config_path /path/to/your/config_file --run_async --visualize
-```
-
-This script takes a video file as input and performs Pre-processing, Inference, and Post-processing (synchronous or asynchronous).  
-
-After processing all frames, the average FPS (Frames Per Second) is calculated as:  
-`\[ \text{FPS} = \frac{\text{Total Frames}}{\text{Total Processing Time (in seconds)}} \]`
-
-**Command-Line Arguments**  
-
-- `--video_path`: Path to the input video file  
-- `--config_path`: Path to the JSON config file containing model path and post-processing parameters  
-- `--run_async`: Use asynchronous inference with `RunAsync()`, where post-processing is performed inside the callback function. If **not** specified, synchronous inference with `Run()` is used, and preprocessing, inference, and post-processing are executed sequentially for each frame.  
-- `--visualize`: Enables visualization of detection results  
-
-Preconfigured JSON config files for supported YOLO models are available in the `./test` directory.  
-
-**Post-Processing with `YoloPostProcess` Class**  
-
-- **1.** Import the Module  
-```
-from dx_postprocess import YoloPostProcess
-```
-
-- **2.** Initialize the Post-Processor  
-Pass the config file path to initialize YoloPostProcess.  
-```
-ypp = YoloPostProcess(json_config)
-```
-
-This sets up model-specific decoding parameters (e.g., class count, anchor sizes, thresholds).  
-
-**For Synchronous Inference Mode**  
-When `--run_async` is **not** specified,  
-
-- Pre-processing → Inference → Post-processing  
-- All steps run sequentially for each frame using `Run()`  
-
-```
-# Initialize InferenceEngine
-ie = InferenceEngine(json_config["model"]["path"])
-
-# Pre-Processing
-input_tensor, _, _ = letter_box(frame, (input_size, input_size), fill_color=(114, 114, 114), format=cv2.COLOR_BGR2RGB)
-
-# Run the inference engine synchronously
-ie_output = ie.Run(input_tensor)
-
-# Post-Processing
-pp_output = ypp.Run(ie_output)
-```
-
-**For Asynchronous Inference Mode**  
-When `--run_async` is specified,  
-
-- Uses `RunAsync()`  
-- Post-processing occurs inside the callback function, allowing pipelined execution and improved throughput  
-
-```
-def pp_callback(ie_outputs, user_args):
-    value:UserArgs = user_args.value
-    pp_output_ = value.ypp_.Run(ie_outputs)
-    q.put([value.input_tensor_, pp_output_])
-
-class UserArgs:
-    def __init__(self, ypp:YoloPostProcess, input_tensor):
-        self.ypp_ = ypp
-        self.input_tensor_ = input_tensor
-
-# Initialize InferenceEngine
-ie = InferenceEngine(json_config["model"]["path"])
-
-# Register callback function
-ie.RegisterCallBack(pp_callback)
-
-# UserArgs for callback function
-user_args = UserArgs(ypp, input_tensor)
-
-# Pre-Processing
-input_tensor, _, _ = letter_box(frame, (input_size, input_size), fill_color=(114, 114, 114), format=cv2.COLOR_BGR2RGB)
-
-# Run inference asynchronously
-req_id = ie.RunAsync(input_tensor, user_args)
-```
-
----

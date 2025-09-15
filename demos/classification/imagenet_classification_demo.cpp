@@ -5,7 +5,7 @@
 #include <opencv2/opencv.hpp>
 #include <cxxopts.hpp>
 
-#include "dxrt/dxrt_api.h"
+#include <dxrt/dxrt_api.h>
 #include "rapidjson/error/en.h"
 #include "rapidjson/document.h"
 #include "rapidjson/rapidjson.h"
@@ -28,9 +28,6 @@
 #define MODEL_NAME "EfficientNetB0"
 #define CHIP_NAME "DX-M1"
 #define TOPS 23.0
-
-using namespace std;
-using namespace rapidjson;
 
 template <typename... Args>
 std::string string_format(const std::string &format, Args... args)
@@ -116,19 +113,17 @@ uint8_t *preprocess(std::string image_path, int image_index)
         cv::resize(image, resized, cv::Size(IMAGE_WIDTH, IMAGE_HEIGHT));
     }
     cv::cvtColor(resized, input, cv::COLOR_BGR2RGB);
-    uint8_t *tensor = new uint8_t[IMAGE_HEIGHT * (IMAGE_WIDTH * 3 + 32)];
-    rearrange_for_im2col(input.data, tensor);
-    return tensor;
+    return input.data;
 }
 
-vector<void*> preprocessAll(string image_path)
+std::vector<void*> preprocessAll(std::string image_path)
 {
-    vector<void*> ret;
+    std::vector<void*> ret;
     for(int i=0;i<NUM_IMAGES;i++)
     {
         if(i%1000==0)
         {
-            cout << "preprocessing: " << i << endl;
+            std::cout << "preprocessing: " << i << std::endl;
         }
         ret.emplace_back(
             (void*)preprocess(image_path, i)
@@ -137,18 +132,18 @@ vector<void*> preprocessAll(string image_path)
     return ret;
 }
 
-void GenerateGT(string labelPath, int numImages, int *GroundTruth)
+void GenerateGT(std::string labelPath, int numImages, int *GroundTruth)
 {
     std::ifstream f(labelPath);
-    string json((istreambuf_iterator<char>(f)), (istreambuf_iterator<char>()));
-    Document doc;
+    std::string json((std::istreambuf_iterator<char>(f)), (std::istreambuf_iterator<char>()));
+    rapidjson::Document doc;
     doc.Parse(json.c_str());
     StringBuffer buffer;
-    PrettyWriter<StringBuffer> writer(buffer);
+    rapidjson::PrettyWriter<rapidjson::StringBuffer> writer(buffer);
     doc.Accept(writer);
     for(int i=0; i<numImages; i++)
     {
-        string dataset_name = get_imagenet_name(i);
+        std::string dataset_name = get_imagenet_name(i);
         GroundTruth[i] = doc[dataset_name.c_str()].GetInt();
     }    
 }
@@ -181,16 +176,21 @@ int main(int argc, char *argv[])
     mutex resultLock;
     int numBuf = NUM_BUFFS;
     dxrt::InferenceEngine ie(model_path);
+    if(!dxapp::common::minversionforRTandCompiler(&ie))
+    {
+        std::cerr << "[DXAPP] [ER] The version of the compiled model is not compatible with the version of the runtime. Please compile the model again." << std::endl;
+        return -1;
+    }
     auto& profiler = dxrt::Profiler::GetInstance();
-    atomic<int> gridIdx {0};
-    atomic<int> gInfCnt {0};
-    atomic<int> correct {0};
+    std::atomic<int> gridIdx {0};
+    std::atomic<int> gInfCnt {0};
+    std::atomic<int> correct {0};
     double accuracy = 0;
     double fps = 0;
-    atomic<bool> exit_flag {false};
+    std::atomic<bool> exit_flag {false};
     bool results[NUM_IMAGES] = {false};
-    std::function<int(vector<shared_ptr<dxrt::Tensor>>, void*)> postProcCallBack = \
-        [&](vector<shared_ptr<dxrt::Tensor>> outputs, void *args)
+    std::function<int(std::vector<std::shared_ptr<dxrt::Tensor>>, void*)> postProcCallBack = \
+        [&](std::vector<std::shared_ptr<dxrt::Tensor>> outputs, void *args)
         {
             int id = (uint64_t)args;
             gInfCnt.store(id);
@@ -221,7 +221,7 @@ int main(int argc, char *argv[])
     cv::resizeWindow(window_name, 1920, 1080);
     //cv::moveWindow(window_name, 0, 0);
 
-    thread ( [&](void) {
+    std::thread ( [&](void) {
         while(1)
         {
             volatile int cnt = 0;
@@ -246,7 +246,7 @@ int main(int argc, char *argv[])
         }
     }).detach();
 
-    thread ( [&](void) {        
+    std::thread ( [&](void) {        
         cv::Mat grid;
         int grid_size = GRID_WIDTH * GRID_HEIGHT;
         while(!exit_flag.load())
