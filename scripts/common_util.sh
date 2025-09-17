@@ -18,8 +18,8 @@ print_colored() {
         "OK") printf "${COLOR_BG_GREEN}[OK]${COLOR_RESET}${COLOR_BRIGHT_GREEN} %s ${COLOR_RESET}\n" "$message" >&2 ;;
         "FAIL") printf "${COLOR_BG_RED}[FAIL]${COLOR_RESET}${COLOR_BRIGHT_RED} %s ${COLOR_RESET}\n" "$message" >&2 ;;
         "INFO") printf "${COLOR_BG_BLUE}[INFO]${COLOR_RESET}${COLOR_BRIGHT_BLUE} %s ${COLOR_RESET}\n" "$message" >&2 ;;
-        "WARNING") printf "${COLOR_BG_YELLOW}[WARNING]${COLOR_RESET}${COLOR_BRIGHT_YELLOW} %s ${COLOR_RESET}\n" "$message" >&2 ;;
-        "DEBUG") printf "${COLOR_BG_YELLOW}[DEBUG]${COLOR_RESET}${COLOR_BRIGHT_YELLOW} %s ${COLOR_RESET}\n" "$message" >&2 ;;
+        "WARNING") printf "${COLOR_BLACK_ON_YELLOW}[WARNING]${COLOR_RESET}${COLOR_BRIGHT_YELLOW} %s ${COLOR_RESET}\n" "$message" >&2 ;;
+        "DEBUG") printf "${COLOR_BLACK_ON_YELLOW}[DEBUG]${COLOR_RESET}${COLOR_BRIGHT_YELLOW} %s ${COLOR_RESET}\n" "$message" >&2 ;;
         "HINT") printf "${COLOR_BG_GREEN}[HINT]${COLOR_RESET}${COLOR_BRIGHT_GREEN_ON_BLACK} %s ${COLOR_RESET}\n" "$message" >&2 ;;
         "SKIP") printf "${COLOR_WHITE_ON_GRAY}[SKIP]${COLOR_RESET}${COLOR_BRIGHT_WHITE_ON_GRAY} %s ${COLOR_RESET}\n" "$message" >&2 ;;
 
@@ -128,8 +128,7 @@ os_check() {
     # Check if /etc/os-release exists
     if [ ! -f /etc/os-release ]; then
         print_colored "/etc/os-release file not found. Cannot determine OS information." "ERROR"
-        popd >&2
-        exit 1
+        return 1
     fi
     
     # Get OS information from /etc/os-release using grep and sed
@@ -161,8 +160,7 @@ os_check() {
     if [ "$os_supported" = false ]; then
         print_colored "Unsupported operating system: $OS_ID" "ERROR"
         print_colored "Supported operating systems: $supported_os_names and their compatible distributions" "HINT"
-        popd >&2
-        exit 1
+        return 1
     fi
     
     # Check OS version support based on detected OS
@@ -190,8 +188,7 @@ os_check() {
             ;;
         *)
             print_colored "Internal error: Unsupported OS in version check" "ERROR"
-            popd >&2
-            exit 1
+            return 1
             ;;
     esac
     
@@ -199,12 +196,12 @@ os_check() {
         print_colored "Unsupported $detected_os version: $OS_VERSION_ID" "ERROR"
         print_colored "Supported $detected_os versions: $supported_versions" "HINT"
         print_colored "Please upgrade to a supported $detected_os version." "HINT"
-        popd >&2
-        exit 1
+        return 1
     fi
     
     print_colored "$detected_os $OS_VERSION_ID is supported." "INFO"
     print_colored "[OK] OS check completed successfully." "INFO"
+    return 0
 }
 
 # Architecture Check function
@@ -229,8 +226,7 @@ arch_check() {
     
     if [ -z "$SYSTEM_ARCH" ]; then
         print_colored "Failed to determine system architecture using uname -m" "ERROR"
-        popd >&2
-        exit 1
+        return 1
     fi
     
     print_colored "Detected architecture: $SYSTEM_ARCH" "INFO"
@@ -251,12 +247,13 @@ arch_check() {
     if [ "$arch_supported" = false ]; then
         print_colored "Unsupported architecture: $SYSTEM_ARCH" "ERROR"
         print_colored "Supported architectures: $supported_arch_names" "HINT"
-        popd >&2
-        exit 1
+        return 1
     fi
     
     print_colored "Architecture $SYSTEM_ARCH is supported." "INFO"
     print_colored "[OK] Architecture check completed successfully." "INFO"
+
+    return 0
 }
 
 delete_dir() {
