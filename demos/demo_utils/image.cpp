@@ -14,17 +14,17 @@ void PreProc(cv::Mat& src, cv::Mat& dest, bool keepRatio, bool bgr2rgb, uint8_t 
         if(ratioSrc < ratioDest)
         {
             newHeight = dest.rows;
-            newWidth = newHeight * ratioSrc;
+            newWidth = static_cast<int>(newHeight * ratioSrc);
         }
         else
         {
             newWidth = dest.cols;
-            newHeight = newWidth / ratioSrc;
+            newHeight = static_cast<int>(newWidth / ratioSrc);
         }
         cv::Mat src2;
         cv::resize(src, src2, cv::Size(newWidth, newHeight), 0, 0, cv::INTER_LINEAR);
-        dw = (dest.cols - src2.cols)/2.;
-        dh = (dest.rows - src2.rows)/2.;
+        dw = (dest.cols - src2.cols)/2.f;
+        dh = (dest.rows - src2.rows)/2.f;
         top    = (uint16_t)round(dh - 0.1);
         bottom = (uint16_t)round(dh + 0.1);
         left   = (uint16_t)round(dw - 0.1);

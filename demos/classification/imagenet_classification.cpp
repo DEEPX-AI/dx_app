@@ -73,7 +73,7 @@ cv::Mat make_board(int count, double accuracy, double latency)
     double acc = accuracy * 100;
 
     int font = cv::FONT_HERSHEY_COMPLEX;
-    float s1 = 0.7;
+    float s1 = 0.7f;
     int th1 = 2;
     int stride = 40;
     auto linetype = cv::LINE_AA;

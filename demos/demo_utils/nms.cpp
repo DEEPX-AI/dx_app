@@ -19,7 +19,7 @@ float CalcIOU(float* box, float* truth)
     float union_area = \
         (box[2]-box[0])*(box[3]-box[1]) + (truth[2]-truth[0])*(truth[3]-truth[1]) \
         - overlap_area;
-    return overlap_area * 1.0 / union_area;
+    return overlap_area * 1.f / union_area;
 }
 
 void NmsOneClass(
@@ -32,7 +32,7 @@ void NmsOneClass(
 {
     float iou;
     int i, j;
-    int numCandidates = ScoreIndices[cls].size();
+    int numCandidates = static_cast<int>(ScoreIndices[cls].size());
     std::vector<bool> valid(numCandidates);
     std::fill_n(valid.begin(), numCandidates, true);
     for(i=0;i<numCandidates;i++)
@@ -77,7 +77,7 @@ void Nms(
     int startClass
 )
 {
-    for(size_t cls=startClass;cls<numClass;cls++)
+    for(int cls=startClass;cls<static_cast<int>(numClass);cls++)
     {
         NmsOneClass(cls, ClassNames, ScoreIndices, Boxes, Keypoints, IouThreshold, Result);
     }
