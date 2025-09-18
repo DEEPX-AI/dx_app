@@ -347,14 +347,14 @@ DXRT_TRY_CATCH_BEGIN
         }
         std::vector<std::vector<uint8_t>> odOutputs(FRAME_BUFFERS);
         std::vector<std::vector<uint8_t>> segOutputs(FRAME_BUFFERS);
-        for(int i=0;i<FRAME_BUFFERS;i++) {
-            odOutputs[i] = std::vector<uint8_t>(ieOD.GetOutputSize());
-            segOutputs[i] = std::vector<uint8_t>(ieSEG.GetOutputSize());
+        for(int j=0;j<FRAME_BUFFERS;j++) {
+            odOutputs[j] = std::vector<uint8_t>(ieOD.GetOutputSize());
+            segOutputs[j] = std::vector<uint8_t>(ieSEG.GetOutputSize());
         }
         std::thread display_result_thread_obj(display_result_thread, loop_count);
 
         auto s = std::chrono::high_resolution_clock::now();
-        for(int i=0; i<loop_count; i++)
+        for(int j=0; j<loop_count; j++)
         {
             frames[index] = frame;
             /* PreProcessing */
@@ -364,7 +364,7 @@ DXRT_TRY_CATCH_BEGIN
             std::ignore = ieSEG.RunAsync(segInput.data, &od_seg_args, (void*)segOutputs[index].data());
             std::ignore = ieOD.RunAsync(odInput.data, &od_seg_args, (void*)odOutputs[index].data());
             index = (index + 1) % FRAME_BUFFERS;
-            if(i == 0)
+            if(j == 0)
                 display_start = 1;
         }
 
@@ -397,9 +397,9 @@ DXRT_TRY_CATCH_BEGIN
 
         std::vector<std::vector<uint8_t>> odOutputs(FRAME_BUFFERS);
         std::vector<std::vector<uint8_t>> segOutputs(FRAME_BUFFERS);
-        for(int i=0;i<FRAME_BUFFERS;i++) {
-            odOutputs[i] = std::vector<uint8_t>(ieOD.GetOutputSize());
-            segOutputs[i] = std::vector<uint8_t>(ieSEG.GetOutputSize());
+        for(int j=0;j<FRAME_BUFFERS;j++) {
+            odOutputs[j] = std::vector<uint8_t>(ieOD.GetOutputSize());
+            segOutputs[j] = std::vector<uint8_t>(ieSEG.GetOutputSize());
         }
 
         std::thread display_result_thread_obj(display_result_thread, 0);
@@ -434,7 +434,6 @@ DXRT_TRY_CATCH_BEGIN
         auto s = std::chrono::high_resolution_clock::now();
 
         while(true) {
-            cv::Mat frame;
             cap >> frame;
 
             if(frame_skip > 0) {

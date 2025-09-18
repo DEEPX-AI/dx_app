@@ -297,7 +297,6 @@ DXRT_TRY_CATCH_BEGIN
         auto s = std::chrono::high_resolution_clock::now();
 
         while(true) {
-            cv::Mat frame;
             cap >> frame;
 
             if(frame_skip > 0) {
