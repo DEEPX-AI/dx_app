@@ -1,3 +1,16 @@
+## Version 2.1.0 (Sep 2025)
+- Windows Environment Support
+DX-APP now fully supports the Windows operating system! In response to user requests, we've expanded compatibility beyond macOS and Linux to include Windows, enabling a broader range of development environments to take advantage of DX-APP.
+  - **OS**: Windows 10 / 11
+  - **Deepx M1 Driver Version**: v1.7.1 or higher
+  - **Deepx M1 Runtime Lib Version**: v3.1.0 or higher
+  - **Python**: Version 3.8 or higher (required for Python module support)
+  - **Compiler**: Visual Studio Community 2022 (required for building C++ examples)
+- Fix Windows MSBuild compilation warnings by replacing implicit type casts with explicit static_cast
+- Add automated build script (build.bat) for automatic build and Visual Studio solution generation
+- Enhance build script documentation and usage instructions
+- Update CMake configuration in build.bat to use C++17 and enhance documentation for build script
+
 ## Version 2.0.0 (August 2025)
 - Major code refactoring and restructuring of demo applications.
 - Update on Tensor Index Assignment in Yolo Layer Reordering
@@ -16,4 +29,4 @@
 - demo : multi channel oject detection   
 - template : classification     
 - template : object detection    
-- template : python example (sync/async/pybind c++) 
+- template : python example (sync/async/pybind c++)
