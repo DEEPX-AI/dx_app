@@ -88,8 +88,13 @@ else()
 endif()
 
 if(ENABLE_DEBUG_INFO)
+    message(STATUS "Debug info enabled")
     if (NOT MSVC) 
         add_compile_options(-g -rdynamic)
+        message(STATUS "Debug info enabled for g++/clang++")
+    
+        set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+        message(STATUS "Debug info enabled for sonarlint")
     endif()
 endif()
 
@@ -138,3 +143,4 @@ message(STATUS "CMAKE_CURRENT_SOURCE_DIR: ${CMAKE_CURRENT_SOURCE_DIR}")
 message(STATUS "CMAKE_CURRENT_LIST_DIR: ${CMAKE_CURRENT_LIST_DIR}")
 message(STATUS "CMAKE_CURRENT_BINARY_DIR: ${CMAKE_CURRENT_BINARY_DIR}")
 message(STATUS "DXRT_INSTALLED_DIR: ${DXRT_INSTALLED_DIR}")
+

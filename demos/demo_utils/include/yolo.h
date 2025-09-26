@@ -11,10 +11,14 @@
 
 enum class PostProcType
 {
-    OD = 0,
+    YOLO_LEGACY = 0,
     POSE,
     FACE,
-    YOLOV8
+    YOLO_U,
+    
+    // Aliases for backward compatibility
+    OD = YOLO_LEGACY,
+    YOLOV8 = YOLO_U
 };
 
 struct YoloLayerParam
@@ -86,7 +90,7 @@ struct YoloParam
     std::vector<std::string> classNames = {};    // Class name list
 
     // Post-processing type
-    PostProcType postproc_type = PostProcType::OD;
+    PostProcType postproc_type = PostProcType::YOLO_LEGACY;
 
     // Default constructor
     YoloParam() = default;

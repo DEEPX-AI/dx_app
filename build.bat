@@ -22,11 +22,12 @@ IF NOT EXIST "%BUILD_DIR%" (
     mkdir "%BUILD_DIR%"
 )
 
-REM Configure with CMake (Visual Studio 2022 generator, MSVC, C++14)
+REM Configure with CMake (Visual Studio 2022 generator, MSVC, C++17)
 cmake -S . -B "%BUILD_DIR%" ^
     -G "Visual Studio 17 2022" ^
     -A x64 ^
-    -DCMAKE_CXX_STANDARD=14 ^
+    -T v143 ^
+    -DCMAKE_CXX_STANDARD=17 ^
     -DDXRT_DIR="%DXRT_DIR%" ^
     -DOpenCV_DIR="%OpenCV_DIR%"
 

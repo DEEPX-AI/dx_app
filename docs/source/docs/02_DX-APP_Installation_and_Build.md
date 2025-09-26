@@ -4,14 +4,14 @@ This chapter describes the system requirements and the installation instructions
 
 This section describes the hardware and software requirements for running **DX-APP**.
 
-**Hardware  Requirements**  
-
+**Hardware  Requirements***Step 4. Verify Environment Variables**  
+Ensure `DXRT_DIR` is properly set a**Note.** The generated solution file (`dxapp.sln`) must be opened with Visual Studio 2022.d accessible to CMAKE.
 - **CPU:** amd64(x86_64), aarch64(arm64)
 - **RAM:** 8GB RAM (16GB RAM or higher is recommended)
 - **Storage:** 4GB or higher available disk space
 - The system **must** support connection to an **M1 M.2** module with the M.2 interface on the host PC. 
 
-![](./../resources/02_DX-M1_M.2_LPDDR5x2_PCP.png){ width=700px }
+![](./../resources/02_DX-M1_M.2_LPDDR5x2_PCP.png)
 
 
 **Note.** The **NPU Device Driver** and **DX-RT Library must** be installed. Refer to **DX-RT User Manual** for step-by-step installation instructions.  
@@ -141,38 +141,17 @@ This section describes the software requirements and installation steps for sett
 To run **DX-APP** on Windows, the following components **must** be installed.  
 
 - **OS**: Windows 10 / 11  
-- **Deepx M1 Driver Version**: v1.3.3 or higher  
-- **Deepx M1 Runtime Lib Version**: v2.8.2 or higher  
+- **Deepx M1 Driver Version**: v1.7.1 or higher  
+- **Deepx M1 Runtime Lib Version**: v3.0.0 or higher
 - **Python**: Version 3.8 or higher (required for Python module support)  
 - **Compiler**: Visual Studio Community 2022 (required for building C++ examples)  
 
 
 ### Install DX-RT and M1 Windows Device Driver  
    
-DEEPX provides an official Windows installer for **DXNN Runtime (DX-RT)**, which includes the required runtime libraries and M1 device driver.  
+DEEPX provides an official Windows installer for **DXNN Runtime (DX-RT)**, which includes the required runtime libraries and M1 device driver.
 
-- Installer Format: `DXNN_Runtime_v[version]_windows_[architecture].exe`  
-- Example: `DXNN_Runtime_v2.8.2_windows_amd64.exe`  
-- Default Directory Path: `C:/DevTools/DXNN/dxrt_v[version]`  
-
-For detailed instructions, refer to **Section. Execute Installer** in **DX-RT User Manual**.
-
-**To Install DX-RT components,** simply run the included installer.  
-```
-DXNN_Runtime_v2025.03-1_beta-06_windows_amd64.exe
-```
-
-By default, `dx_rt` is installed in  
-```
-C:\DevTools\DEEPX\DXNN\v2025.03-1_beta-06\DXRT
-```
-
-**To install M1 device driver,**  
-
-- If you add the installation path to the `PATH` environment variable as `DXRT_DIR`, you can build and run `dx_app` without any modification to `dx_app/CMakeSettings.json`.  
-- The M1 Device Driver will be installed with version **11.34.15.609**.  
-
-![](./../resources/02_02_DXRT_DIR_PATH_Registration.png){ width=700px }
+For detailed instructions, refer to [DX-RT Framework & Windows Device Driver Installation Guide](https://github.com/DEEPX-AI/dx_rt/blob/main/docs/docs/03_Installation_on_Windows.md).
 
 
 ### Install Visual Studio Community 2022  
@@ -187,7 +166,7 @@ To use **DX-APP** on Windows, Visual Studio Community 2022 **must** be installed
 - **3.** (Optional) Select additional workloads or individual components as needed  
 - **4.** Click **Install** to begin the installation process  
 
-![](./../resources/02_03_Visual_Studio_Community_2022.png){ width=700px }
+![](./../resources/02_03_Visual_Studio_Community_2022.png)
 
 **Note.** If Visual Studio Community 2022 is **not** installed, you may be prompted to install the **Microsoft Visual C++ Redistributable** (`VC_redist.x64.exe`) with administrator permissions.  
 
@@ -208,7 +187,7 @@ If manual installation is required, follow the steps below.
 
 **Note.** This step is essential to allow Visual Studio to automatically detect and use VCPKG-managed packages like OpenCV.  
 
-![](./../resources/02_04_VCPKG_ROOT_Variable.png){ width=500px }
+![](./../resources/02_04_VCPKG_ROOT_Variable.png)
 
 ### Build and Install dx_app in Visual Studio Community 2022  
 
@@ -216,11 +195,13 @@ To build and run the `dx_app` application on Windows, follow the steps below usi
 
 **Step 1. Open Project Folder**  
 
-- **1.** Launch Visual Studio Community 2022  
+- **1.** Launch Visual Studio Community 2022
 - **2.** From the start screen, select **Open a local folder**  
-- **3.** Navigate to and select the `dx_app` project folder   
+- **3.** Navigate to and select the `dx_app` project folder
 
-![](./../resources/02_05_Opening_dx_app.png){ width=700px }
+**IMPORTANT:** You must use Visual Studio 2022. Other versions (VS 2019, VS Code, etc.) are not supported.   
+
+![](./../resources/02_05_Opening_dx_app.png)
 
 **Step 2. Project Configuration**  
 Upon opening the project,  
@@ -228,7 +209,7 @@ Upon opening the project,
 - Dependencies specified in `vcpkg.json` will be automatically downloaded and installed into the `vcpkg_installed` directory.  
 - CMake will automatically generate the build cache and configuration.  
 
-![](./../resources/02_06_CMake_Cache_Configuration.png){ width=700px }
+![](./../resources/02_06_CMake_Cache_Configuration.png)
 
 **Step 3. (Optional) Edit CMakeSettings**  
 If needed, you can manually specify the following environment variables in `CMakeSettings.json`.  
@@ -261,18 +242,97 @@ Ensure the required runtime libraries are accessible with the system’s `PATH` 
 
 **Note.** If you are using `dx_app/vcpkg.json`, OpenCV will be automatically downloaded and installed into `vcpkg_installed/x64-windows` directory during CMake configuration step. 
 
-![](./../resources/02_07_Manually_Installation_Path.png){ width=700px }
+![](./../resources/02_07_Manually_Installation_Path.png)
 
 
 **Step 5. Build and Install `dx_app`**  
-To build and install the dx_app application.  
+To build and install the dx_app application:
 
-- **1.** In Visual Studio Community 2022, go to the **Build** menu  
+- **1.** Go to the **Build** menu  
 - **2.** Click **Build All** (or **Rebuild All**) to begin the build process  
 
 Upon successful compilation, the application executable will be generated under the `bin/` directory.
 
-![](./../resources/02_08_Install_dxapp_to_install.png){ width=600px }
+![](./../resources/02_08_Install_dxapp_to_install.png)
+
+
+### Alternative Build Method: Using build.bat Script
+
+For users who prefer a more automated approach, **DX-APP** provides a `build.bat` script that streamlines the entire build process. This script automatically handles CMake configuration, build, and installation steps.
+
+**Key Features of build.bat:**
+
+- **Automated Build Process**: Handles the complete build pipeline from configuration to installation
+- **Environment Validation**: Automatically checks for required environment variables (`DXRT_DIR`) 
+- **Visual Studio 2022 Integration**: Generates Visual Studio 2022 solution files for development
+- **Organized Build Structure**: Creates builds in the `build_vs2022` directory for clean organization
+- **Release Configuration**: Builds and installs in optimize1d Release mode
+- **Error Handling**: Comprehensive error checking at each build stage
+
+**Prerequisites:**
+
+- **DXRT_DIR Environment Variable**: Must be set to DX-RT installation directory
+- **Visual Studio 2022**: With Desktop development with C++ workload
+- **CMake**: Accessible from command line
+
+**Using build.bat:**
+
+**Step 1. Run the Build Script**  
+Execute the build script from the project root directory:
+```
+build.bat
+```
+
+**Step 2. Build Process Overview**  
+The script performs the following operations automatically:
+![](./../resources/02_09_Running_build_bat_Script.png)
+
+1. **Environment Validation**: Verifies that `DXRT_DIR` is set and the directory exists
+2. **Build Directory Creation**: Creates `build_vs2022` directory if it doesn't exist
+3. **CMake Configuration**: Configures the project using Visual Studio 2022 generator with x64 architecture
+4. **Solution Generation**: Creates `dxapp.sln` in the `build_vs2022` directory 
+5. **Release Build**: Compiles the project in Release configuration
+6. **Installation**: Installs the built binaries to the appropriate directories
+
+**Step 3. Visual Studio Integration**  
+After successful execution, you can:
+
+- **IMPORTANT**: Open the generated solution file at `build_vs2022\dxapp.sln` **using Visual Studio 2022**
+- Use Visual Studio 2022 for debugging, development, and further customization
+- Access all project targets and configurations through the Visual Studio 2022 interface
+
+**Step 4. Solution-Based Development**  
+Once the `dxapp.sln` file is generated, you can use Visual Studio 2022 for comprehensive development workflows:
+
+![](./../resources/02_10_Install_Process_Using_DXApp_Solution.png)
+
+- **Complete Application Build & Install**: Build the entire DX-APP application and install all components through the solution
+- **Individual Target Building**: Build specific components or modules independently by selecting individual projects within the solution
+- **Development Flexibility**: Utilize Visual Studio 2022's full IDE capabilities for debugging, testing, and code modification
+- **Project Management**: Access and manage all sub-projects and dependencies through the unified solution interface
+
+This approach provides both comprehensive build capabilities and granular control over individual solution components. 
+
+**Note:** The generated solution file (`dxapp.sln`) **must be opened with Visual Studio 2022**. Opening with other versions may cause compatibility issues or build failures.
+
+**Build Output Structure:**
+```
+dx_app/
+├── build_vs2022/           # Build directory created by build.bat
+│   ├── dxapp.sln         # Visual Studio 2022 solution file
+│   ├── *.vcxproj          # Project files for each target
+│   └── Release/           # Compiled binaries and libraries
+├── bin/                   # Installed executables
+└── lib/                   # Installed libraries
+```
+
+**Troubleshooting:**
+
+- **Environment Variable Issues**: If `DXRT_DIR` is not set, the script will display an error and exit
+- **Build Failures**: Check that all prerequisites are properly installed
+- **OpenCV Dependencies**: Ensure OpenCV is properly configured as described in previous sections
+
+**Note.** The `build.bat` script is equivalent to the manual Visual Studio build process but provides a more streamlined and automated experience. Both methods produce identical results, so choose the approach that best fits your workflow.
 
 
 ### Run Example Demo Executable Files On Windows  
@@ -292,7 +352,7 @@ OpenCV Dependency Handling
   : You **must** manually add the OpenCV library and DLL directories to the `PATH`, or  
   : You **must** manually modify the batch file variables, `OPENCV_LIB_PATH` and  `OPENCV_DLL_PATH`.  
 
-![](./../resources/02_09_Output_of_run_classifier.png){ width=700px }
+![](./../resources/02_11_Output_of_run_classifier.png)
 
 **Step 2. Run the Demo**  
 Once setup is complete,  
