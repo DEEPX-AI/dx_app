@@ -176,7 +176,7 @@ python template/python/yolov5s_example.py --config example/run_detector/yolov5s3
 **Steps**  
 To do this, modify the Python application as needed, referring to the example implementation in `./python/yolov5s_example.py`.
 
-![](./../resources/07_01_Run_YoloV5S_Python.png){ width=600px }
+![](./../resources/07_01_Run_YoloV5S_Python.png)
 
 - **1.** Import the Inference Module which is a callable inference engine module.
 ```

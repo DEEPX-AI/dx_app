@@ -1,0 +1,61 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "check-and-setup-venv",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "if [ -z \"$VIRTUAL_ENV\" ]; then echo \"No venv active, setting up...\"; if [ ! -d \"venv\" ]; then python3 -m venv venv; fi; source venv/bin/activate && pip install --upgrade pip; else echo \"Virtual environment already active\"; fi"
+        ]
+      },
+      "windows": {
+        "command": "powershell",
+        "args": [
+          "-Command",
+          "if (-not $env:VIRTUAL_ENV) { Write-Host 'No venv active, setting up...'; if (-not (Test-Path 'venv')) { python -m venv venv }; .\\venv\\Scripts\\Activate.ps1; pip install --upgrade pip } else { Write-Host 'Virtual environment already active' }"
+        ]
+      },
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "build",
+      "type": "shell",
+      "dependsOn": "check-and-setup-venv",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && echo \"Building project...\" && ./build.sh --type debug"
+        ]
+      },
+      "windows": {
+        "command": "powershell",
+        "args": [
+          "-Command",
+          "try { .\\venv\\Scripts\\Activate.ps1 } catch {}; Write-Host 'Building project...'; build.bat"
+        ]
+      },
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared"
+      },
+      "problemMatcher": ["$gcc"]
+    }
+  ]
+}

@@ -66,7 +66,7 @@ bin\imagenet_classification.exe -m assets\models\EfficientNetB0_4.dxnn -i exampl
 
 - Output Example  
 
-![](./../resources/03_01_Output_of_imagenet.png){ width=400px }
+![](./../resources/03_01_Output_of_imagenet.png)
 
 The output shows the accuracy of the classification result is **74.3%** and the frame rate (fps) is **634**.  
 
@@ -104,7 +104,7 @@ This demo performs object detection on a single input stream using a YOLOv5 mode
 
 In this example, a person is detected with **confidence 0.877**, and the bounding box is defined by the four coordinates.
 
-![](./../resources/03_02_Output_of_yolo.png){ width=600px }
+![](./../resources/03_02_Output_of_yolo.png)
 
 **Pre-processing and Post-processing Parameters**  
 YOLO models in **DX-APP** require external configuration for pre-processing and post-processing parameters. These parameters are not embedded in the `.dxnn` model.file.  
@@ -152,7 +152,7 @@ This demo performs object detection on multiple input streams simultaneously usi
 
 ```
 
-![](./../resources/03_03_Output_of_yolo_multi.png){ width=700px }
+![](./../resources/03_03_Output_of_yolo_multi.png)
 
 
 **JSON Configuration for Multi-Channel YOLO Demo**  
@@ -283,7 +283,7 @@ This section explains how to run pose estimation demos based on Ultralytics YOLO
 
 The YOLO pose model predicts human key points for each detected person within an image or video frame.  
 
-![](./../resources/03_04_Output_of_YOLO_Pose_Estimation.png){ width=600px }
+![](./../resources/03_04_Output_of_YOLO_Pose_Estimation.png)
 
 **Pre-processing and Post-processing Parameters**  
 Yolo Pose models do not embed external pre-processing and post-processing parameters in the compiled `.dxnn` file.  
@@ -354,7 +354,7 @@ SegmentationParam segCfg[] = {
 ./bin/segmentation -m assets/models/DeepLabV3PlusMobileNetV2_2.dxnn -i sample/8.jpg
 ```
 
-![](./../resources/03_05_Ouput_of_Segmentation.png){ width=600px }
+![](./../resources/03_05_Ouput_of_Segmentation.png)
 
 
 **Semantic Segmentation - Object Detection Demo**  
@@ -377,6 +377,6 @@ Benefits of Combined Pipeline
 ./bin/od_segmentation -m0 assets/models/YOLOV5S_3.dxnn -p0 1 -m1 assets/models/DeepLabV3PlusMobileNetV2_2.dxnn -i sample/8.jpg
 ```
 
-![](./../resources/03_06_Output_of_od_segmentation.png){ width=600px }
+![](./../resources/03_06_Output_of_od_segmentation.png)
 
 ---
