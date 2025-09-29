@@ -77,13 +77,19 @@ bool Yolo::LayerReorder(dxrt::Tensors output_info)
     {
         if(cfg.onnxOutputName == output_info[i].name())
         {
-            cfg.numBoxes = output_info.front().shape()[1];
+            if(cfg.numBoxes == 0)
+            {
+                cfg.numBoxes = cfg.postproc_type == PostProcType::YOLOV8 ? 
+                        static_cast<uint32_t>(output_info[i].shape()[2]) : 
+                        static_cast<uint32_t>(output_info[i].shape()[1]);
+            }
             std::cout << "cfg.numBoxes: " << cfg.numBoxes << std::endl; 
             onnxOutputIdx.emplace_back(i);
             Boxes.clear();
             Keypoints.clear();
-            Boxes = std::vector<float>(cfg.numBoxes*4);
-            Keypoints = std::vector<float>(cfg.numBoxes*51);
+            
+            Boxes = std::vector<float>(static_cast<size_t>(cfg.numBoxes) * 4);
+            Keypoints = std::vector<float>(static_cast<size_t>(cfg.numBoxes) * 51);
         }
     }
     if(onnxOutputIdx.size() > 0)
