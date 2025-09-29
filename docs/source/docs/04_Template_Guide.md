@@ -35,7 +35,7 @@ The `example/run_classifier/imagenet_example.json` file is a sample configuratio
 
 For a detailed explanation of how classification works, refer to **Section. Classification Template Guide**.  
 
-![](./../resources/04_01_Output_of_run_classifier.png){ width=400px }
+![](./../resources/04_01_Output_of_run_classifier.png)
 
 ---
 
@@ -66,7 +66,7 @@ The `type` field in the JSON configuration defines how detection results are han
 In the previous example, the json file sets `type` as `none`.   
 If you want to save the output, change it to `save`.  
 
-![](./../resources/04_02_Sample_multi-channel_output.png){ width=600px }
+![](./../resources/04_02_Sample_multi-channel_output.png)
 
 When using a YOLO model, post-processing parameters can be customized based on the official YOLOv5 configuration. You may also modify the class information directly in the JSON file, so no code recompilation is required.  
 
@@ -146,7 +146,7 @@ When `type` in the `sources` field of the `input` section is set to `video`, you
 ```
 ./bin/run_detector -c example/run_detector/yolov5s3_realtime_example.json
 ```
-![](./../resources/04_03_Sample_multi-channel_output.png){ width=600px }
+![](./../resources/04_03_Sample_multi-channel_output.png)
 
 If you are using a custom YOLO model that does **not** follow the standard decoding logic, or if you are **not** using the `yolo_basic` decoding method, you **must** implement a custom decode function.  
 

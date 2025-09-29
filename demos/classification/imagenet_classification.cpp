@@ -1,36 +1,42 @@
 #include <future>
 #include <thread>
 #include <iostream>
+#include <sstream>
+#include <iomanip>
+#include <fstream>
 
 #include <opencv2/opencv.hpp>
 #include <cxxopts.hpp>
 
 #include "dxrt/dxrt_api.h"
 
-#define NPU_ID 0
-#define IMAGE_WIDTH 224
-#define IMAGE_HEIGHT 224
+// Replace macros with constexpr constants
+constexpr int NPU_ID = 0;
+constexpr int IMAGE_WIDTH = 224;
+constexpr int IMAGE_HEIGHT = 224;
 
 // for visualization
-#define MODEL_NAME "EfficientNetB0"
-#define CHIP_NAME "DX-M1"
-#define TOPS 23.0
+constexpr const char* MODEL_NAME = "EfficientNetB0";
+constexpr const char* CHIP_NAME = "DX-M1";
+constexpr double TOPS = 23.0;
 
-template <typename... Args>
-std::string string_format(const std::string &format, Args... args)
-{
-    int size_s = std::snprintf(nullptr, 0, format.c_str(), args...) + 1; // Extra space for '\0'
-    if (size_s <= 0)
-    {
-        throw std::runtime_error("Error during formatting.");
-    }
-    auto size = static_cast<size_t>(size_s);
-    std::unique_ptr<char[]> buf(new char[size]);
-    std::snprintf(buf.get(), size, format.c_str(), args...);
-    return std::string(buf.get(), buf.get() + size - 1); // We don't want the '\0' inside
+std::string format_imagenet_info(int count) {
+    return "ImageNet 2012  " + std::to_string(count);
 }
 
-std::vector<std::string> get_list(std::string file_path)
+std::string format_accuracy_info(double accuracy) {
+    std::ostringstream oss;
+    oss << std::fixed << std::setprecision(1) << "Accuracy (%)  " << accuracy;
+    return oss.str();
+}
+
+std::string format_framerate_info(double frame_rate) {
+    std::ostringstream oss;
+    oss << std::fixed << std::setprecision(0) << "Frame Rate (fps)  " << frame_rate;
+    return oss.str();
+}
+
+std::vector<std::string> get_list(const std::string& file_path)
 {
     std::ifstream f(file_path);
     std::vector<std::string> list;
@@ -45,26 +51,23 @@ std::vector<std::string> get_list(std::string file_path)
     return list;
 }
 
-std::string* split(std::string str, char seperator)  
+std::vector<std::string> split(const std::string& str, char separator)  
 {  
-    int currIndex = 0, i = 0;  
-    int startIndex = 0, endIndex = 0;  
-    std::string* result = new std::string[2];
-    while (i <= (int)str.length())  
-    {  
-        if (str[i] == seperator || i == (int)str.length())  
-        {  
-            endIndex = i;  
-            std::string subStr = "";  
-            subStr.append(str, startIndex, endIndex - startIndex);  
-            result[currIndex] = subStr;  
-            currIndex += 1;  
-            startIndex = endIndex + 1;  
-        }  
-        i++;  
+    std::vector<std::string> result;
+    std::stringstream ss(str);
+    std::string token;
+    
+    while (std::getline(ss, token, separator)) {
+        result.push_back(token);
     }
+    
+    // Ensure we have exactly 2 elements for backward compatibility
+    if (result.size() < 2) {
+        result.resize(2);
+    }
+    
     return result;
-}  
+}
 
 cv::Mat make_board(int count, double accuracy, double latency)
 {
@@ -82,55 +85,52 @@ cv::Mat make_board(int count, double accuracy, double latency)
     cv::Point pt(18, 105);
     cv::Mat board(260, 300, CV_8UC3, cv::Scalar(179, 102, 0));
 
-    cv::putText(board, string_format("ImageNet 2012  %d", count), pt, font, s1, color, th1, linetype);
+    cv::putText(board, format_imagenet_info(count), pt, font, s1, color, th1, linetype);
     pt.y += stride;
-    cv::putText(board, string_format("Accuracy (%)  %.1f", acc), pt, font, s1, color, th1, linetype);
+    cv::putText(board, format_accuracy_info(acc), pt, font, s1, color, th1, linetype);
     pt.y += stride;
-    cv::putText(board, string_format("Frame Rate (fps)  %.0f", frame_rate), pt, font, s1, color, th1, linetype);
+    cv::putText(board, format_framerate_info(frame_rate), pt, font, s1, color, th1, linetype);
 
     return board;
 }
 
-std::string get_imagenet_name(int index)
-{
-    return string_format("ILSVRC2012_val_%08d", index + 1);
-}
-
-void rearrange_for_im2col(uint8_t *src, uint8_t *dst)
+void rearrange_for_im2col(const uint8_t *src, uint8_t *dst)
 {
     constexpr int size = IMAGE_WIDTH * 3;
     for (int y = 0; y < IMAGE_HEIGHT; y++)
         memcpy(&dst[y * (size + 32)], &src[y * size], size);
 }
 
-uint8_t *preprocess(std::string image_path, std::string based_path)
+std::vector<uint8_t> preprocess(const std::string& image_path, const std::string& based_path)
 {
-    auto image = cv::imread(based_path+"/"+image_path);
-    cv::Mat resized, input;
-    if (image.cols == IMAGE_WIDTH && image.rows == IMAGE_HEIGHT)
-    {
+    std::vector<uint8_t> tensor(IMAGE_WIDTH * IMAGE_HEIGHT * 3);
+    
+    std::string full_path = based_path + "/" + image_path;
+    cv::Mat image = cv::imread(full_path, cv::IMREAD_COLOR);
+    
+    cv::Mat resized;
+    cv::Mat input(cv::Size(IMAGE_WIDTH, IMAGE_HEIGHT), CV_8UC3, tensor.data());
+
+    if (image.cols == IMAGE_WIDTH && image.rows == IMAGE_HEIGHT) {
         resized = image;
-    }
-    else
-    {
+    } else {
         cv::resize(image, resized, cv::Size(IMAGE_WIDTH, IMAGE_HEIGHT));
     }
+    
     cv::cvtColor(resized, input, cv::COLOR_BGR2RGB);
-    uint8_t *tensor = new uint8_t[IMAGE_HEIGHT * (IMAGE_WIDTH * 3 + 32)];
-    rearrange_for_im2col(input.data, tensor);
     return tensor;
 }
 
-int inference(std::string model_path, std::vector<std::string> image_gt_list, std::string based_path, int *count, double *accuracy, double *latency, bool *exit_flag, bool *results)
+int inference(const std::string& model_path, const std::vector<std::string>& image_gt_list, 
+              const std::string& based_path, int *count, double *accuracy, double *latency, 
+              bool *exit_flag, std::vector<bool>& results)
 {
     // initialize inference engine
     dxrt::InferenceOption io;
-    io.useORT = false;
     dxrt::InferenceEngine ie(model_path, io);
-    std::string* image_gt = new std::string[2];
 
-    std::future<uint8_t *> input_future;
-    image_gt = split(image_gt_list[0], ' ');
+    std::future<std::vector<uint8_t>> input_future;
+    std::vector<std::string> image_gt = split(image_gt_list[0], ' ');
     input_future = std::async(std::launch::async, preprocess, image_gt[0], based_path);
 
     int correct = 0;
@@ -139,7 +139,7 @@ int inference(std::string model_path, std::vector<std::string> image_gt_list, st
     while(true)
     {
         auto input = input_future.get();
-        int gt = atoi(image_gt[1].c_str());
+        int gt = std::stoi(image_gt[1]); // Use std::stoi instead of atoi
         if((i+1) % image_gt_list.size() < image_gt_list.size())
         {
             image_gt = split(image_gt_list[(i+1) % image_gt_list.size()], ' ');
@@ -147,10 +147,8 @@ int inference(std::string model_path, std::vector<std::string> image_gt_list, st
         }
 
         double tick_run = cv::getTickCount();
-        auto output = ie.Run(input);
-        double time_run = ((double)cv::getTickCount() - tick_run) / (double)cv::getTickFrequency();
-        if(input!=NULL)
-            delete input;
+        auto output = ie.Run(input.data());
+        double time_run = ((double)cv::getTickCount() - tick_run) / cv::getTickFrequency();
 
         int ret = *(uint16_t*)output.front()->data();
         inference_count++;
@@ -170,29 +168,33 @@ int inference(std::string model_path, std::vector<std::string> image_gt_list, st
     return 0;
 }
 
-void visualize(std::string model_path, std::string image_list_path, std::string based_image_path)
+void visualize(const std::string& model_path, const std::string& image_list_path, 
+               const std::string& based_image_path)
 {
     int count = 0;
     double accuracy = 0;
     double latency = 0;
     bool exit_flag = false;
     std::vector<std::string> image_gt_list = get_list(image_list_path);
-    bool* results = new bool[image_gt_list.size()];
-    std::future<int> value_future = std::async(std::launch::async, inference, model_path, image_gt_list, based_image_path,&count, &accuracy, &latency, &exit_flag, results);
 
-    cv::Mat image, constant;
+    std::vector<bool> results(image_gt_list.size());
+    std::future<int> value_future = std::async(std::launch::async, inference, model_path, image_gt_list, based_image_path, &count, &accuracy, &latency, &exit_flag, std::ref(results));
+
+    cv::Mat image;
+    cv::Mat constant;
     std::string window_name = "ImageNet Classification";
 
-    std::string* image_gt = new std::string[2];
+    std::vector<std::string> image_gt;
 
     cv::namedWindow(window_name, cv::WINDOW_NORMAL);
     cv::moveWindow(window_name, 0, 0);
 
-    while (1)
+    while (true)
     {
-        if (count == (int)image_gt_list.size()) count = 0;
-        std::future<uint8_t *> input_future;
+        if (count == static_cast<int>(image_gt_list.size())) count = 0;
+        
         image_gt = split(image_gt_list[count], ' ');
+        
         image = cv::imread(based_image_path+"/"+image_gt[0], cv::IMREAD_ANYCOLOR);
         cv::resize(image, constant, cv::Size(260,260));
 
@@ -203,13 +205,13 @@ void visualize(std::string model_path, std::string image_list_path, std::string 
         cv::imshow(window_name, view);
 
         int key = cv::waitKey(10);
-        if (key == 27)
+        if (key == 27 || key == 'q')
         {
             exit_flag = true;
             break;
         }
-
     }
+    
     value_future.get();
 }
 
