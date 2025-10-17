@@ -203,6 +203,8 @@ YoloParam yolov9_640 = {
     80,
     "output0",
     {
+        createYoloLayerParam("/model.22/Sigmoid_output_0", 80, 8400, 3, {}, {}, { 0 }),
+        createYoloLayerParam("/model.22/dfl/conv/Conv_output_0", 4, 8400, 3, {}, {}, { 1 }),
     },
     { "person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck", "boat", "trafficlight", "firehydrant", "stopsign", "parkingmeter", "bench", "bird", "cat", "dog", "horse", "sheep", "cow", "elephant", "bear", "zebra", "giraffe", "backpack", "umbrella", "handbag", "tie", "suitcase", "frisbee", "skis", "snowboard", "sportsball", "kite", "baseballbat", "baseballglove", "skateboard", "surfboard", "tennisracket", "bottle", "wineglass", "cup", "fork", "knife", "spoon", "bowl", "banana", "apple", "sandwich", "orange", "broccoli", "carrot", "hotdog", "pizza", "donut", "cake", "chair", "couch", "pottedplant", "bed", "diningtable", "toilet", "tv", "laptop", "mouse", "remote", "keyboard", "cellphone", "microwave", "oven", "toaster", "sink", "refrigerator", "book", "clock", "vase", "scissors", "teddybear", "hairdrier", "toothbrush"},
     PostProcType::YOLO_U
@@ -240,5 +242,64 @@ YoloParam yolov5s_face_640 = {
         createYoloLayerParam("/model.23/m.2/Conv_output_0", 20, 20, 3, { 146.0, 231.0, 335.0 }, { 217.0, 300.0, 433.0 }, { 2 })
     },
     {"face"},
+    PostProcType::FACE
+};
+
+// YOLOv5s configuration for 320x320 input resolution - optimized model for postprocessing (by PPU)
+YoloParam yolov5s_320_ppu = {
+    320,  // height
+    320,  // width
+    0.25f, // confThreshold
+    0.3f,  // scoreThreshold
+    0.4f,  // iouThreshold
+    0,   // numBoxes
+    80,   // numClasses
+    "BBOX", // onnx output name
+    {     // if use_ort = off, layers config
+        createYoloLayerParam("ppu_0", 40, 40, 3, { 10.0f, 16.0f, 33.0f }, { 13.0f, 30.0f, 23.0f }, { 0 }),
+        createYoloLayerParam("ppu_1", 20, 20, 3, { 30.0f, 62.0f, 59.0f }, { 61.0f, 45.0f, 119.0f }, { 1 }),
+        createYoloLayerParam("ppu_2", 10, 10, 3, { 116.0f, 156.0f, 373.0f }, { 90.0f, 198.0f, 326.0f }, { 2 })
+    },
+    // classNames
+    { "person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck", "boat", "trafficlight", "firehydrant", "stopsign", "parkingmeter", "bench", "bird", "cat", "dog", "horse", "sheep", "cow", "elephant", "bear", "zebra", "giraffe", "backpack", "umbrella", "handbag", "tie", "suitcase", "frisbee", "skis", "snowboard", "sportsball", "kite", "baseballbat", "baseballglove", "skateboard", "surfboard", "tennisracket", "bottle", "wineglass", "cup", "fork", "knife", "spoon", "bowl", "banana", "apple", "sandwich", "orange", "broccoli", "carrot", "hotdog", "pizza", "donut", "cake", "chair", "couch", "pottedplant", "bed", "diningtable", "toilet", "tv", "laptop", "mouse", "remote", "keyboard", "cellphone", "microwave", "oven", "toaster", "sink", "refrigerator", "book", "clock", "vase", "scissors", "teddybear", "hairdrier", "toothbrush"},
+    // postproc_type (0: yolo, 1: yolo pose, 2: yolo face)
+    PostProcType::YOLO_LEGACY
+};
+
+YoloParam yolov5_pose_640_ppu = {
+    640,
+    640,
+    0.3f,
+    0.3f,
+    0.4f,
+    0,
+    1,
+    "POSE",
+    {
+        createYoloLayerParam("ppu_0", 80, 80, 3, { 19.0, 44.0, 38.0 }, { 27.0, 40.0, 94.0 }, { 0 }),
+        createYoloLayerParam("ppu_1", 40, 40, 3, { 96.0, 86.0, 180.0 }, { 68.0, 152.0, 137.0 }, { 1 }),
+        createYoloLayerParam("ppu_2", 20, 20, 3, { 140.0, 303.0, 238.0 }, { 301.0, 264.0, 542.0 }, { 2 }),
+        createYoloLayerParam("ppu_3", 10, 10, 3, { 436.0, 739.0, 925.0 }, { 615.0, 380.0, 792.0 }, { 3 })
+    },
+    {"person"},
+    PostProcType::POSE
+};
+
+
+YoloParam scrfd_face_640_ppu = {
+    640,
+    640,
+    0.3f,
+    0.3f,
+    0.4f,
+    0,
+    1,
+    "FACE",
+    {
+        createYoloLayerParam("ppu_0", 80, 80, 3, {}, {}, { 0 }),
+        createYoloLayerParam("ppu_1", 40, 40, 3, {}, {}, { 1 }),
+        createYoloLayerParam("ppu_2", 20, 20, 3, {}, {}, { 2 })
+    },
+    {"person"},
     PostProcType::FACE
 };

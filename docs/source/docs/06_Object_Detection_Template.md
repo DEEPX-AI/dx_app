@@ -49,6 +49,7 @@ Supported scenarios include
 
 - Post-Processing with `USE_ORT=ON`  
 - Post-Processing with `USE_ORT=OFF`  
+- Post-Processing with `PPU` (Post Processing Unit instead CPU)
 - (Optional) Custom Post-Processing  
 
 ---
@@ -65,9 +66,9 @@ Refer to `dx_app/lib/post_process/yolo_post_processing.hpp` - line.204 for the R
 
 ---
 
-## Post-Processing Using USE_ORT=OFF and No PPU
+## Post-Processing Using USE_ORT=OFF
 
-If PPU is **disabled** and the model is executed with `USE_ORT=OFF`, the model output will consist of three blobs.
+If executed with `USE_ORT=OFF`, the model output will consist of three blobs.
 ```
 inputs
     images, UINT8, [1, 512, 512, 3, ], 0
@@ -85,6 +86,112 @@ Required Post-Processing Steps
 - **3.** Non-Maximum Suppression (NMS): Filter overlapping boxes and retain only the highest-confidence detections.  
 
 Refer to `dx_app/lib/post_process/yolo_post_processing.hpp` for implementation details.  
+
+---
+
+## Post-Processing Using PPU
+
+The Post-Processing Unit (PPU) is a hardware-accelerated module that performs the confidence score calculation, the threshold filtering, and the extraction of valid bounding boxes (BBox).  
+
+PPU Output Format  
+The PPU outputs a list of filtered bounding boxes containing  
+
+- Box coordinates (in `xywh`, `cxcywh`, or `x1y1x2y2` format)  
+- Class labels  
+- Confidence scores  
+
+Developer Action  
+After receiving the PPU output, only the following steps are required  
+
+- **1.** BBox decoding (format conversion: e.g., `cxcywh` → `xmin`, `ymin`, `xmax`, `ymax`)  
+- **2.** Non-Maximum Suppression (NMS)  
+
+This reduces PCIe bandwidth usage and minimizes latency by limiting data transferred to the host.  
+A single loop can complete post-processing.  
+
+An example model using PPU is `YOLOV5S_PPU.dxnn`. Running the example command is as follows.  
+```
+run_model -m ./assets/models/YOLOV5S_PPU.dxnn
+```
+
+The output of the example model is as follows.  
+```
+  Inputs
+     -  images, UINT8, [1, 320, 960 ]
+  Outputs
+    -  BBOX, BBOX, [1, unknown ]
+```
+
+Accessing PPU Output  
+The PPU format is available in `datatypes.h` dxrt include path. You can access the result data using the following code.  
+```cpp
+#include <dxrt/dxrt_api.h>
+
+auto outputs = ie.Run(input_data);
+dxrt::DeviceBoundingBox_t* raw_data =
+  static_cast<dxrt::DeviceBoundingBox_t*>(outputs.front()->data());
+```
+
+The structure used for bounding boxes is as follows.  
+```
+typedef struct DXRT_API {
+    float x;
+    float y;
+    float w;
+    float h;
+    uint8_t grid_y;
+    uint8_t grid_x;
+    uint8_t box_idx;
+    uint8_t layer_idx;
+    float score;
+    uint32_t label;
+    char padding[4];
+} DeviceBoundingBox_t;
+```
+
+Interpreting PPU Output  
+The inference result from PPU is **not** returned in a standard multi-dimensional tensor format (e.g., `[N, C, H, W]`). Instead, the output is shaped as `[1, num_boxes]`.  
+
+Each entry represents a bounding box and contains the following fields  
+
+- `x, y, w, h`: Bounding box in center format (`cxcywh`)  
+- `grid`: Grid cell index  
+- `box_idx`: Anchor index  
+- `layer_idx`: Detection layer index  
+- `score`: Confidence score  
+- `label`: Class ID  
+- `padding[4]`: 4-byte alignment for 32-byte struct size  
+
+You will need to use a loop to convert the output into the `DeviceBoundingBox_t` structure and then handle post-processing from there.  
+
+```cpp
+auto outputs = ie.run(input_data);
+dxrt::DeviceBoundingBox_t* raw_data = static_cast<dxrt::DeviceBoundingBox_t*>(outputs.front()->data());
+for (int i = 0; i < outputs.front()->shape()[0]; i++) {
+    auto data = raw_data[i];
+    // Your post-processing logic here
+}
+```
+
+Refer to `dx_app/demos/demo_utils/yolo.cpp` - line.277 for the following example.  
+```cpp
+/* Example of dxrt::DeviceBoundingBox_t */
+box_temp[0] = (data[i].x * 2. - 0.5 + gX) * stride; // cx
+box_temp[1] = (data[i].y * 2. - 0.5 + gY) * stride; // cy
+box_temp[2] = pow((data[i].w * 2.), 2) * layer.anchorWidth[data[i].box_idx]; // w
+box_temp[3] = pow((data[i].h * 2.), 2) * layer.anchorHeight[data[i].box_idx]; // h
+
+x1 = box_temp[0] - box_temp[2] / 2.; /*x1*/
+y1 = box_temp[1] - box_temp[3] / 2.; /*y1*/
+x2 = box_temp[0] + box_temp[2] / 2.; /*x2*/
+y2 = box_temp[1] + box_temp[3] / 2.; /*y2*/
+```
+
+Decoding and Applying NMS  
+After struct conversion, the `cxcywh` format **must** be translated to corner format (`xmin, ymin, xmax, ymax`). This enables accurate rendering and overlap calculations.  
+Following decoding, apply Non-Maximum Suppression (NMS) to remove overlapping bounding boxes and retain only high-confidence predictions.  
+
+Refer to `dx_app/demos/demo_utils/yolo.cpp` - line.154 for the Reference Implementation.  
 
 ---
 

@@ -220,7 +220,7 @@ fi
 
 if [ -f ${DX_APP_PATH}/templates/python/requirements.txt ]; then
     echo Installing Python dependencies from ${DX_APP_PATH}/templates/python/requirements.txt
-    pip install -r ${DX_APP_PATH}/templates/python/requirements.txt
+    pip install -r ${DX_APP_PATH}/templates/python/requirements.txt --timeout 1200
     if [ $? -ne 0 ]; then
         echo -e "${TAG_ERROR} Failed to install Python dependencies"
         exit 1

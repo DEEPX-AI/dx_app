@@ -112,13 +112,31 @@ To use the demo launcher, simply execute the following command in your terminal:
   0: Object Detection (YOLOv7)
   1: Object Detection (YOLOv8N)
   2: Object Detection (YOLOv9S)
-  3: Face Detection (YOLOV5S_Face)
-  4: Pose Estimation
-  5: Semantic Segmentation
-  6: Multi-Channel Object Detection (YOLOv5)
-  7: Multi-Model Object Detection (YOLOv5) & Segmentation
-which AI demo do you want to run:(timeout:10s, default:0)
+  3: Object Detection With PPU (YOLOv5S-320)
+  4: Face Detection (YOLOV5S_Face)
+  5: Face Detection With PPU (SCRFD500M-640)
+  6: Pose Estimation
+  7: Pose Estimation With PPU (YOLOv5Pose-640)
+  8: Semantic Segmentation
+  9: Multi-Channel Object Detection (YOLOv5)
+  10: Multi-Channel Object Detection With PPU (YOLOv5-320)
+  11: Multi-Model Object Detection (YOLOv5) & Segmentation
+  which AI demo do you want to run:(timeout:10s, default:0)
 ```
+
+**Post-Processing Unit (PPU) Acceleration**
+
+"PPU" stands for Post Processing Unit acceleration, which handles bounding box decoding and score thresholding functions directly on the NPU hardware instead of the CPU. This approach significantly improves inference performance by reducing CPU overhead that occurs during post-processing on the CPU.
+
+**Key Benefits of PPU:**
+- Improved Processing Speed: Parallel execution of inference and post-processing operations
+- Enhanced Throughput: Particularly beneficial for real-time applications requiring high frame rates
+
+**PPU-Enabled Demo Options:**
+- Option 3: Object Detection With PPU (YOLOv5S-320)
+- Option 5: Face Detection With PPU (SCRFD500M-640)  
+- Option 7: Pose Estimation With PPU (YOLOv5Pose-640)
+- Option 10: Multi-Channel Object Detection With PPU (YOLOv5-320)
 
 **4. Resolve Shared Library Errors**  
 If you encounter shared library errors (e.g., `libdxrt.so`), update the system’s library cache. 
