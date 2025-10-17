@@ -65,9 +65,9 @@ Refer to `dx_app/lib/post_process/yolo_post_processing.hpp` - line.204 for the R
 
 ---
 
-## Post-Processing Using USE_ORT=OFF and No PPU
+## Post-Processing Using USE_ORT=OFF
 
-If PPU is **disabled** and the model is executed with `USE_ORT=OFF`, the model output will consist of three blobs.
+If executed with `USE_ORT=OFF`, the model output will consist of three blobs.
 ```
 inputs
     images, UINT8, [1, 512, 512, 3, ], 0

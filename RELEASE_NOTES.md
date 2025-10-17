@@ -4,6 +4,9 @@
 ### 1. Changed
 - Enhance build script documentation and usage instructions
 - Update cmake configuration in build.bat to use C++17 and v143 for enhance documentation windows build script(visual studio 2022)
+- Model package updated from version 2.0.0 to 2.1.0 to support PPU models
+- Improved demo script with additional PPU-Demo (3, 5, 7, 10)
+- Added CPU-specific PyTorch wheel source (https://download.pytorch.org/whl/cpu) in templates/python/requirements.txt.
 
 ### 2. Fixed
 - Fix Windows MSBuild compilation warnings by replacing implicit type casts with explicit static_cast
@@ -11,6 +14,8 @@
 - Update numBoxes calculation based on post-processing type in LayerReorder
 - Rename YOLO post-processing types and add aliasing for backward compatibility
 - Add VSCode configuration files for usability
+- Fixed errors that occurred when using VAAPI with camera input
+- Enhanced yolo application to display final FPS even when forcefully terminated during camera input usage
 
 ### 3. Added
 - Windows Environment Support
@@ -21,6 +26,8 @@ DX-APP now fully supports the Windows operating system! In response to user requ
   - **Python**: Version 3.8 or higher (required for Python module support)
   - **Compiler**: Visual Studio Community 2022 (required for building C++ examples)
 - Add automated build script (build.bat) for automatic build and Visual Studio solution generation
+- Three new PPU data types : BBOX (for object detection) / POSE (for pose estimation keypoints) / FACE (for face detection landmarks)
+- Enhanced post-processing functions to support PPU inference output format
 
 ## v2.0.0 / 2025-08-14
 

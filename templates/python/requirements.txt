@@ -1,6 +1,7 @@
 matplotlib
 opencv-python
-torch --find-links https://download.pytorch.org/whl/cpu
-torchvision --find-links https://download.pytorch.org/whl/cpu
+--find-links https://download.pytorch.org/whl/cpu
+torch
+torchvision
 ultralytics
 packaging

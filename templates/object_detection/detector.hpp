@@ -275,7 +275,7 @@ public:
         readModelInfo(config.modelInfo.c_str());
         auto inferenceOption = dxrt::InferenceOption();
         inferenceEngine = std::make_shared<dxrt::InferenceEngine>(modelPath, inferenceOption);
-        if(!dxapp::common::minversionforRTandCompiler(inferenceEngine.get()))
+        if(!(dxapp::common::minversionforRTandCompiler(inferenceEngine.get()) || inferenceEngine.get()->IsPPU()))
         {
             throw std::runtime_error("[DXAPP] [ER] The version of the compiled model is not compatible with the version of the runtime. Please compile the model again.");
         }
