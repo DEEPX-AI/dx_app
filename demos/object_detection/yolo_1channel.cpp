@@ -5,6 +5,8 @@
 #include <string.h>
 #include <errno.h>
 #include <map>
+#include <csignal>
+#include <unistd.h>
 
 #include <opencv2/opencv.hpp>
 #include <opencv2/core.hpp>
@@ -24,7 +26,7 @@
 // pre/post parameter table
 extern YoloParam yolov5s_320, yolov5s_512, yolov5s_640, 
 yolov7_512, yolov7_640, yolov8_640, yolox_s_512, yolov5s_face_640, yolov3_512, yolov4_416,
-yolov9_640;
+yolov9_640, yolov5s_320_ppu, scrfd_face_640_ppu;
 std::vector<YoloParam> yoloParams = {
     yolov5s_320,
     yolov5s_512,
@@ -36,8 +38,26 @@ std::vector<YoloParam> yoloParams = {
     yolov5s_face_640,
     yolov3_512,
     yolov4_416,
-    yolov9_640
+    yolov9_640,
+    yolov5s_320_ppu,
+    scrfd_face_640_ppu
 };
+
+// Global variables for signal handling
+volatile sig_atomic_t g_interrupted = 0;
+volatile sig_atomic_t g_graceful_exit = 0;
+std::chrono::high_resolution_clock::time_point g_start_time;
+int g_frame_count = 0;
+bool g_is_camera_mode = false;
+
+// Signal handler for SIGINT (Ctrl+C)
+void signal_handler(int signal) {
+    if (signal == SIGINT) {
+        std::cout << "\n[SIGINT] Ctrl + C pressed, process will be shutdown" << std::endl;
+        g_interrupted = 1;
+        g_graceful_exit = 1;
+    }
+}
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
 struct OdEstimationArgs {
@@ -70,7 +90,8 @@ DXRT_TRY_CATCH_BEGIN
     options.add_options()
     ("m, model", "(* required) define dxnn model path", cxxopts::value<std::string>(modelpath))
     ("p, parameter", "(* required) define object detection parameter \n"
-                     "0: yolov5s_320, 1: yolov5s_512, 2: yolov5s_640, 3: yolov7_512, 4: yolov7_640, 5: yolov8_640, 6: yolox_s_512, 7: yolov5s_face_640, 8: yolov3_512, 9: yolov4_416, 10: yolov9_640", 
+                     "0: yolov5s_320, 1: yolov5s_512, 2: yolov5s_640, 3: yolov7_512, 4: yolov7_640, 5: yolov8_640, 6: yolox_s_512, 7: yolov5s_face_640, 8: yolov3_512, 9: yolov4_416, 10: yolov9_640"
+                     ", 11: yolov5s_320_ppu (optimized for PPU postprocessing), 12: scrfd_face_640_ppu (optimized for PPU postprocessing)", 
                      cxxopts::value<int>(parameter)->default_value("0"))
     ("i, image", "use image file input", cxxopts::value<std::string>(imgFile))
     ("v, video", "use video file input", cxxopts::value<std::string>(videoFile))
@@ -96,17 +117,26 @@ DXRT_TRY_CATCH_BEGIN
     LOG_VALUE(cameraInput);
     LOG_VALUE(rtspURL);
 
+    // Register signal handler for Ctrl+C
+    signal(SIGINT, signal_handler);
+
     dxrt::InferenceOption op_od;
     op_od.devices.push_back(0); 
 
     dxrt::InferenceEngine ie(modelpath, op_od);
 
-    if(!dxapp::common::minversionforRTandCompiler(&ie))
+    if(!(dxapp::common::minversionforRTandCompiler(&ie) || ie.IsPPU()))
     {
         std::cerr << "[DXAPP] [ER] The version of the compiled model is not compatible with the version of the runtime. Please compile the model again." << std::endl;
         return -1;
     }
-    
+
+    if(parameter < 0 || parameter >= static_cast<int>(yoloParams.size()))
+    {
+        std::cerr << "[DXAPP] [ER] The parameter is out of range. Please check the parameter." << std::endl;
+        return -1;
+    }
+
     auto odCfg = yoloParams[parameter];
     Yolo yolo = Yolo(odCfg);
     if(!yolo.LayerReorder(ie.GetOutputs()))
@@ -281,6 +311,7 @@ DXRT_TRY_CATCH_BEGIN
 
         if(cameraInput)
         {
+            g_is_camera_mode = true;  // Set camera mode flag
             if(fps_only)
             {
                 std::cout << "fps_only and target_fps option is not supported for camera input. fps_only => false, target_fps => off" << std::endl;
@@ -342,10 +373,19 @@ DXRT_TRY_CATCH_BEGIN
         std::cout << "VideoCapture Resolution: " << camera_frame_width << " x " << camera_frame_height << std::endl;
 
         auto s = std::chrono::high_resolution_clock::now();
+        g_start_time = s;  // Store start time for signal handler
 
         while(true) {
-            cap >> frame;
+            // Check for interrupt signal (Ctrl+C) - graceful shutdown
+            if(g_interrupted) {
+                std::cout << "[SIGINT] Gracefully stopping capture loop..." << std::endl;
+                display_exit = 1;
+                app_quit = true;
+                break;
+            }
 
+            cap >> frame;
+            
             if(frame_skip > 0) {
                 cap.set(cv::CAP_PROP_POS_FRAMES, cap.get(cv::CAP_PROP_POS_FRAMES) + frame_skip);
             }
@@ -374,6 +414,7 @@ DXRT_TRY_CATCH_BEGIN
 
             index = (index + 1) % FRAME_BUFFERS;
             frame_count++;
+            g_frame_count = frame_count;  // Update global frame count for signal handler
 
             if(display_start == -1) {
                 display_start = 1;
@@ -405,6 +446,11 @@ DXRT_TRY_CATCH_BEGIN
         display_result_thread_obj.join();
 
         auto e = std::chrono::high_resolution_clock::now();
+        
+        // Print performance info (including graceful shutdown case)
+        if(g_graceful_exit) {
+            std::cout << "\n[GRACEFUL EXIT] Performance statistics:" << std::endl;
+        }
         std::cout << "[DXAPP] [INFO] total time : " << std::chrono::duration_cast<std::chrono::microseconds>(e - s).count() << " us" << std::endl;
         std::cout << "[DXAPP] [INFO] per frame time : " << std::chrono::duration_cast<std::chrono::microseconds>(e - s).count() / frame_count << " us" << std::endl;
         std::cout << "[DXAPP] [INFO] fps : " << frame_count / (std::chrono::duration_cast<std::chrono::milliseconds>(e - s).count() / 1000.0) << std::endl;

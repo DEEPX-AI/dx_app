@@ -113,6 +113,7 @@ private:
 
     int anchorSize = 0;
     bool is_onnx_output = false;
+    bool is_ppu_output = false;
     std::vector<int32_t> onnxOutputIdx={};
 
 public:
@@ -128,6 +129,7 @@ public:
     std::vector<BoundingBox> PostProc(dxrt::TensorPtrs& dataSrc);
 
     void onnx_post_processing(dxrt::TensorPtrs &outputs, int64_t num_elements);
+    void ppu_post_processing(dxrt::TensorPtrs &outputs);
     void raw_post_processing(dxrt::TensorPtrs &outputs);
 
     // Utility functions

@@ -173,7 +173,7 @@ DXRT_TRY_CATCH_BEGIN
 
     dxrt::InferenceEngine ieOD(od_modelpath, op_od);
     dxrt::InferenceEngine ieSEG(seg_modelpath, op_seg);
-    if(!dxapp::common::minversionforRTandCompiler(&ieOD) 
+    if(!(dxapp::common::minversionforRTandCompiler(&ieOD) || ieOD.IsPPU()) 
         || !dxapp::common::minversionforRTandCompiler(&ieSEG))
     {
         std::cerr << "[DXAPP] [ER] The version of the compiled model is not compatible with the version of the runtime. Please compile the model again." << std::endl;
