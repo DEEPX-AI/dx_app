@@ -10,6 +10,14 @@ DX-APP now fully supports the Windows operating system! In response to user requ
 - Add automated build script (build.bat) for automatic build and Visual Studio solution generation
 - Enhance build script documentation and usage instructions
 - Update CMake configuration in build.bat to use C++17 and enhance documentation for build script
+- Added CPU-specific PyTorch wheel source (https://download.pytorch.org/whl/cpu) in templates/python/requirements.txt.
+- Fixed errors that occurred when using VAAPI with camera input
+- Enhanced yolo application to display final FPS even when forcefully terminated during camera input usage
+- Three new PPU data types : BBOX (for object detection) / POSE (for pose estimation keypoints) / FACE (for face detection landmarks)
+  - Handles bounding box decoding and score thresholding functions directly on the NPU hardware instead of the CPU.
+  - Key Benefits of PPU : Particularly beneficial for real-time applications requiring high frame rates
+  - Model package updated from version 2.0.0 to 2.1.0 to support PPU models
+  - Improved demo script with additional PPU-Demo (3, 5, 7, 10)
 
 ## Version 2.0.0 (August 2025)
 - Major code refactoring and restructuring of demo applications.

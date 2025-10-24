@@ -252,58 +252,6 @@ catch (const std::exception& e) \
         return path.substr(pos+1);
     }
 
-    inline bool checkOrtLinking()
-    {
-#ifdef __linux__
-        std::ostringstream command;
-        command << "ldconfig -p | grep dxrt.so";
-
-        FILE* pipe = popen(command.str().c_str(), "r");
-        if (!pipe) {
-            std::cerr << "Failed to run ldconfig command." << std::endl;
-            return false;
-        }
-
-        char buffer[128];
-        std::string result;
-        while (fgets(buffer, sizeof(buffer), pipe) != nullptr) {
-            result += buffer;
-        }
-        pclose(pipe);
-
-        if(result.empty())
-            return false;
-
-        std::string file_path;
-        size_t pos = result.find("=>");
-        if(pos == std::string::npos) return false;
-
-        file_path = result.substr(pos+3);
-        file_path.erase(file_path.find_last_not_of('\n') + 1);
-
-        if(!pathValidation(file_path))
-            return false;
-
-        command.str("");
-        command << "ldd " << file_path << " | grep libonnxruntime.so";
-
-        pipe = popen(command.str().c_str(), "r");
-        if(!pipe) {
-            std::cerr << "Failed to run ldd command" << std::endl;
-            return false;
-        }
-        result = "";
-        while(fgets(buffer, sizeof(buffer), pipe) != nullptr) {
-            result += buffer;
-        }
-        pclose(pipe);
-
-        return !result.empty();
-#elif _WIN32
-        return ORT_OPTION_DEFAULT;
-#endif
-    }
-
     inline std::string getLocalTimeString()
     {
         std::time_t now = std::time(nullptr);
@@ -411,13 +359,12 @@ catch (const std::exception& e) \
                 return true;
             }
             else{
-                std::cerr << "[DXAPP] [ER] Compiler version is too low. (required: >= 7, current: " << compiler_version << ")" << std::endl;
+                std::cout << "[DXAPP] [WARN] Compiler version is too low. (required: >= 7, current: " << compiler_version << ")" << std::endl;
             }
         }
         else{
-            std::cerr << "[DXAPP] [ER] DXRT library version is too low. (required: >= 3.0.0, current: " << rt_version << ")" << std::endl;
+            std::cout << "[DXAPP] [WARN] DXRT library version is too low. (required: >= 3.0.0, current: " << rt_version << ")" << std::endl;
         }
-        std::cout << "[DEBUG] Version check failed" << std::endl;
         return false;
     }
 

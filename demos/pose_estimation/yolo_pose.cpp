@@ -26,9 +26,9 @@
 #endif
 
 // pre/post parameter table
-extern YoloParam yolov5s6_pose_640;
+extern YoloParam yolov5s6_pose_640, yolov5_pose_640_ppu;
 YoloParam yoloParams[] = {
-    yolov5s6_pose_640
+    yolov5s6_pose_640, yolov5_pose_640_ppu
 };
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
@@ -62,7 +62,7 @@ DXRT_TRY_CATCH_BEGIN
     options.add_options()
     ("m, model", "(* required) define dxnn model path", cxxopts::value<std::string>(modelpath))
     ("p, parameter", "(* required) define pose estimation parameter \n"
-                      "0: yolov5s6_pose_640", cxxopts::value<int>(parameter)->default_value("0"))
+                      "0: yolov5s6_pose_640, 1: yolov5_pose_640_ppu (optimized)", cxxopts::value<int>(parameter)->default_value("0"))
     ("i, image", "use image file input", cxxopts::value<std::string>(imgFile))
     ("v, video", "use video file input", cxxopts::value<std::string>(videoFile))
     ("c, camera", "use camera input", cxxopts::value<bool>(cameraInput)->default_value("false"))
@@ -91,7 +91,7 @@ DXRT_TRY_CATCH_BEGIN
     op_pose.devices.push_back(0); 
 
     dxrt::InferenceEngine ie(modelpath, op_pose);
-    if(!dxapp::common::minversionforRTandCompiler(&ie))
+    if(!(dxapp::common::minversionforRTandCompiler(&ie) || ie.IsPPU()))
     {
         std::cerr << "[DXAPP] [ER] The version of the compiled model is not compatible with the version of the runtime. Please compile the model again." << std::endl;
         return -1;

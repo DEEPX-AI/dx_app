@@ -49,7 +49,7 @@ YoloPostProcess::YoloPostProcess(py::dict config)
             }
 
             std::string decoding_method = param_dict.contains("decoding_method") ? param_dict["decoding_method"].cast<std::string>() : "yolo_basic";
-            if (decoding_method == "yolo_basic" || decoding_method == "yolo_scale" || decoding_method == "yolox" || decoding_method == "yolo_pose" || decoding_method == "yolo_face")
+            if (decoding_method == "yolo_basic" || decoding_method == "yolo_scale" || decoding_method == "yolox" || decoding_method == "yolo_pose" || decoding_method == "yolo_face" || decoding_method == "scrfd")
             {
                 _param._decodeMethod = decoding_method;
 
@@ -57,7 +57,7 @@ YoloPostProcess::YoloPostProcess(py::dict config)
                 {
                     _param._numKeypoints = 17;
                 }
-                else if (decoding_method == "yolo_face")
+                else if (decoding_method == "yolo_face" || decoding_method == "scrfd")
                 {
                     _param._numKeypoints = 5;
                 }
@@ -398,6 +398,127 @@ void YoloPostProcess::NMS(std::vector<std::vector<std::pair<float, int>>> &Score
     }
 }
 
+void YoloPostProcess::ProcessPPU(std::vector<std::vector<std::pair<float, int>>> &ScoreIndices,
+                                 std::vector<float> &Boxes,
+                                 std::vector<float> &Keypoints,
+                                 py::list &ie_output)
+{
+    int boxIdx = 0;
+    int box0, box1, box2, box3;
+    py::array output_arr = py::cast<py::array>(ie_output[0]);
+    py::buffer_info output_arr_info = output_arr.request();
+    int8_t *output_arr_ptr = static_cast<int8_t *>(output_arr_info.ptr);
+
+    for (int i = 0; i < output_arr_info.shape[1]; i++)
+    {
+
+        int8_t *data = output_arr_ptr + i * output_arr_info.shape[2];
+
+        float *box = reinterpret_cast<float *>(data);
+
+        uint8_t gY = *(data + 16);
+        uint8_t gX = *(data + 17);
+        uint8_t anchorIdx = *(data + 18);
+        uint8_t layerIdx = *(data + 19);
+
+        float score = *reinterpret_cast<float *>(data + 20);
+
+        if (score > _param._scoreThreshold)
+        {
+            uint32_t label;
+            float *kpts;
+            if (output_arr_info.shape[2] == 32)
+            {
+                label = *reinterpret_cast<uint32_t *>(data + 24);
+            }
+            else if (output_arr_info.shape[2] == 64)
+            {
+                label = 0;
+                kpts = reinterpret_cast<float *>(data + 24);
+            }
+            else if (output_arr_info.shape[2] == 256)
+            {
+                label = 0;
+                kpts = reinterpret_cast<float *>(data + 28);
+            }
+            else
+            {
+                std::cerr << "[Error] Unknown PPU Type !" << std::endl;
+                std::terminate();
+            }
+
+            ScoreIndices[label].emplace_back(score, boxIdx);
+
+            YoloLayerParam layer = _param._layers[layerIdx];
+
+            if (_param._decodeMethod == "yolo_basic" || _param._decodeMethod == "yolo_pose")
+            {
+                box0 = (box[0] * 2. - 0.5 + gX) * layer._stride;
+                box1 = (box[1] * 2. - 0.5 + gY) * layer._stride;
+                box2 = (box[2] * box[2] * 4.) * layer._anchorWidth[anchorIdx];
+                box3 = (box[3] * box[3] * 4.) * layer._anchorHeight[anchorIdx];
+            }
+            else if (_param._decodeMethod == "yolo_scale")
+            {
+                box0 = (box[0] * layer._scaleXY - 0.5 * (layer._scaleXY - 1) + gX) * layer._stride;
+                box1 = (box[1] * layer._scaleXY - 0.5 * (layer._scaleXY - 1) + gY) * layer._stride;
+                box2 = (box[2] * box[2] * 4.) * layer._anchorWidth[anchorIdx];
+                box3 = (box[3] * box[3] * 4.) * layer._anchorHeight[anchorIdx];
+            }
+            else if (_param._decodeMethod == "yolox")
+            {
+                box0 = (gX + box[0]) * layer._stride;
+                box1 = (gY + box[1]) * layer._stride;
+                box2 = exp(box[2]) * layer._stride;
+                box3 = exp(box[3]) * layer._stride;
+            }
+            else if (_param._decodeMethod == "scrfd")
+            {
+                box0 = (gX - box[0]) * layer._stride;
+                box1 = (gY - box[1]) * layer._stride;
+                box2 = (gX + box[2]) * layer._stride;
+                box3 = (gY + box[3]) * layer._stride;
+            }
+
+            if (_param._boxFormat == "corner")
+            {
+                Boxes.push_back(box0); /*x1*/
+                Boxes.push_back(box1); /*y1*/
+                Boxes.push_back(box2); /*x2*/
+                Boxes.push_back(box3); /*y2*/
+            }
+            else if (_param._boxFormat == "center")
+            {
+                Boxes.push_back(box0 - box2 / 2.); /*x1*/
+                Boxes.push_back(box1 - box3 / 2.); /*y1*/
+                Boxes.push_back(box0 + box2 / 2.); /*x2*/
+                Boxes.push_back(box1 + box3 / 2.); /*y2*/
+            }
+
+            if (_param._decodeMethod == "yolo_pose")
+            {
+                for (int k = 0; k < _param._numKeypoints; k++)
+                {
+                    Keypoints.push_back((kpts[3 * k + 0] * 2 - 0.5 + gX) * layer._stride);
+                    Keypoints.push_back((kpts[3 * k + 1] * 2 - 0.5 + gY) * layer._stride);
+                    Keypoints.push_back(_lastActivation(kpts[3 * k + 2]));
+                }
+            }
+            else if (_param._decodeMethod == "scrfd")
+            {
+                for (int k = 0; k < _param._numKeypoints; k++)
+                {
+                    Keypoints.push_back((kpts[2 * k + 0] + gX) * layer._stride);
+                    Keypoints.push_back((kpts[2 * k + 1] + gY) * layer._stride);
+                    Keypoints.push_back(0.5f);
+                }
+            }
+
+            boxIdx++;
+        }
+    }
+}
+
 void YoloPostProcess::ProcessONNX(std::vector<std::vector<std::pair<float, int>>> &ScoreIndices,
                                   std::vector<float> &Boxes,
                                   std::vector<float> &Keypoints,
@@ -718,7 +839,13 @@ py::array_t<float> YoloPostProcess::Run(py::list ie_output,
 
         if (output_arr_info.ndim == 3)
         {
-            ProcessONNX(ScoreIndices, Boxes, Keypoints, ie_output);
+            if (output_arr_info.shape[2] == 32 || output_arr_info.shape[2] == 64 || output_arr_info.shape[2] == 256)
+            {
+                ProcessPPU(ScoreIndices, Boxes, Keypoints, ie_output);
+            }
+            else{
+                ProcessONNX(ScoreIndices, Boxes, Keypoints, ie_output);
+            }
         }
         else
         {

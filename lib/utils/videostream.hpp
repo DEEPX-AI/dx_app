@@ -146,23 +146,22 @@ public:
             case CAMERA :
                 _srcMode = RUNTIME;
 
-                if (_srcPath.find("/") != std::string::npos)
+                if (_srcPath.find("/dev/video") != std::string::npos)
                 {
 #ifdef __linux__
 #ifdef USE_VAAPI
-                    // _gstVideoPipeline = "filesrc location=" + _srcPath + " ! decodebin ! queue ! videoconvert ! appsink";
-                    _gstVideoPipeline = "filesrc location=" + _srcPath + " ! \
-                                        queue leaky=no max-size-buffers=30 max-size-bytes=0 max-size-time=0 ! \
-                                        qtdemux ! vaapidecodebin !  \
-                                        queue leaky=no max-size-buffers=5 max-size-bytes=0 max-size-time=0 ! \
-                                        videoconvert qos=false ! videoscale method=0 add-borders=false qos=false ! \
-                                        video/x-raw,width=" + std::to_string(640) + ",height=" + std::to_string(360) + ",pixel-aspect-ratio=1/1 ! \
-                                        queue leaky=no max-size-buffers=30 max-size-bytes=0 max-size-time=0 ! \
+                    bool opened = false;
+                    
+                    _gstCameraPipeline = "v4l2src device=" + _srcPath + " ! \
+                                        videoconvert ! videoscale ! \
+                                        video/x-raw,width=" + std::to_string(_cam_width) + ",height=" + std::to_string(_cam_height) + " ! \
                                         appsink";
-
-                    _video.open(_gstVideoPipeline, cv::CAP_GSTREAMER);
+                    _video.open(_gstCameraPipeline, cv::CAP_GSTREAMER);
+                    if(_video.isOpened()) {
+                        opened = true;
+                    }
                     printf("=========================== \n");
-                    std::cout << "video gstVidePipeline: " << _gstVideoPipeline << std::endl;
+                    std::cout << "camera device gstCameraPipeline: " << _gstCameraPipeline << std::endl;
                     printf("=========================== \n");
 #else
                     _video.open(_srcPath);
@@ -176,9 +175,13 @@ public:
                 {
 #ifdef __linux__
 #ifdef USE_VAAPI
-                    _gstCameraPipeline = "v4l2src device=/dev/video0 ! videoconvert ! appsink";
+
+                    _gstCameraPipeline = "v4l2src device=/dev/video" + _srcPath + " ! \
+                                        videoconvert ! videoscale ! \
+                                        video/x-raw,width=" + std::to_string(_cam_width) + ",height=" + std::to_string(_cam_height) + " ! \
+                                        appsink";
                     printf("=========================== \n");
-                    std::cout << "camera gstCameraPipeline: " << _gstCameraPipeline << std::endl;
+                    std::cout << "camera device gstCameraPipeline: " << _gstCameraPipeline << std::endl;
                     printf("=========================== \n");
                     _video.open(_gstCameraPipeline, cv::CAP_GSTREAMER);
 #else
