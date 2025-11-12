@@ -146,12 +146,14 @@ is_python_installed() {
 # ---
 # Arguments:
 #   $1: TARGET_INSTALL_PY_VERSION (optional) - The specific Python version to install.
-#         If empty, the OS default Python 3 version will be installed for Ubuntu 20.04+.
+#         If empty, the OS default Python 3 version will be installed for Ubuntu 20.04+ and Debian 11+.
 #         For Ubuntu 18.04, MIN_PY_VERSION will be used if TARGET_INSTALL_PY_VERSION is empty.
-#   $2: UBUNTU_VERSION - The current Ubuntu release version.
+#   $2: OS_ID - The operating system ID (ubuntu, debian, etc.)
+#   $3: OS_VERSION - The current OS release version (e.g., "20.04" for Ubuntu, "12" for Debian)
 install_python_and_dependencies() {
     local TARGET_INSTALL_PY_VERSION="${1}"
-    local UBUNTU_VERSION="${2}"
+    local OS_ID="${2}"
+    local OS_VERSION="${3}"
 
     # Temporarily disable 'set -e' for controlled error handling and 'set -x' for cleaner output capture
     local OPT_E_STATE="$-"
@@ -162,7 +164,7 @@ install_python_and_dependencies() {
     exec 3>&1 # Save stdout to fd 3
     exec >&2  # Redirect stdout to stderr
 
-    echo -e "${TAG_INFO} Starting Python installation/dependency checks for ${TARGET_INSTALL_PY_VERSION:-default}..."
+    echo -e "${TAG_INFO} Starting Python installation/dependency checks for ${TARGET_INSTALL_PY_VERSION:-default} on ${OS_ID} ${OS_VERSION}..."
 
     local DX_PYTHON_EXEC_OUT="" # This will hold the command to execute the installed python
     local INSTALL_STATUS=0
@@ -177,12 +179,12 @@ install_python_and_dependencies() {
     if [ -n "${PY_MAJOR_MINOR}" ]; then
         PYTHON_EXE_NAME="python${PY_MAJOR_MINOR}"
     else
-        PYTHON_EXE_NAME="python3" # Default for Ubuntu 20.04+
+        PYTHON_EXE_NAME="python3" # Default for modern OS versions
     fi
 
     # Check if Python is already installed OR if a higher suitable version exists
     local IS_INSTALLED_RESULT
-    IS_INSTALLED_RESULT=$(is_python_installed "${UBUNTU_VERSION}" "${TARGET_INSTALL_PY_VERSION}" "${MIN_PY_VERSION}")
+    IS_INSTALLED_RESULT=$(is_python_installed "${OS_VERSION}" "${TARGET_INSTALL_PY_VERSION}" "${MIN_PY_VERSION}")
     
     if [ -n "${IS_INSTALLED_RESULT}" ]; then
         DX_PYTHON_EXEC_OUT="${IS_INSTALLED_RESULT}"
@@ -190,7 +192,9 @@ install_python_and_dependencies() {
         echo -e "${TAG_INFO} Ensuring required development and venv packages for ${DX_PYTHON_EXEC_OUT} are installed."
         
         # Install dev/venv packages even if main interpreter is skipped
-        if [ "$UBUNTU_VERSION" = "24.04" ] || [ "$UBUNTU_VERSION" = "22.04" ] || [ "$UBUNTU_VERSION" = "20.04" ]; then
+        # For Ubuntu and Debian modern versions (Ubuntu 20.04+, Debian 11+)
+        if { [ "$OS_ID" = "ubuntu" ] && { [ "$OS_VERSION" = "24.04" ] || [ "$OS_VERSION" = "22.04" ] || [ "$OS_VERSION" = "20.04" ]; }; } || \
+           { [ "$OS_ID" = "debian" ] && { [ "$OS_VERSION" = "12" ] || [ "$OS_VERSION" = "11" ]; }; }; then
             local TARGET_MAJOR_MINOR=$(echo "${DX_PYTHON_EXEC_OUT}" | sed -n 's/.*python\([0-9]\.[0-9]\+\).*/\1/p')
             if [ -z "${TARGET_MAJOR_MINOR}" ]; then TARGET_MAJOR_MINOR="3"; fi # Fallback for 'python3'
 
@@ -204,7 +208,8 @@ install_python_and_dependencies() {
                 elif ! sudo apt install -y gnupg gpg-agent; then
                     print_colored "Failed to install gnupg gpg-agent." "ERROR"
                     INSTALL_STATUS=1
-                elif ! sudo add-apt-repository -y ppa:deadsnakes/ppa; then
+                # Only add deadsnakes PPA for Ubuntu (not needed for Debian)
+                elif [ "$OS_ID" = "ubuntu" ] && ! sudo add-apt-repository -y ppa:deadsnakes/ppa; then
                     print_colored "Failed to add deadsnakes PPA." "ERROR"
                     INSTALL_STATUS=1
                 elif ! sudo apt-get update; then
@@ -217,11 +222,13 @@ install_python_and_dependencies() {
             fi
         fi
         # Source-built Python usually includes venv, dev headers etc. if built correctly.
-        # No extra apt installs needed here for 18.04 source builds.
+        # No extra apt installs needed here for Ubuntu 18.04 source builds.
     else
         echo -e "${TAG_INFO} No suitable Python installation found. Proceeding with requested installation."
 
-        if [ "$UBUNTU_VERSION" = "24.04" ] || [ "$UBUNTU_VERSION" = "22.04" ] || [ "$UBUNTU_VERSION" = "20.04" ]; then
+        # Modern Ubuntu and Debian versions (Ubuntu 20.04+, Debian 11+)
+        if { [ "$OS_ID" = "ubuntu" ] && { [ "$OS_VERSION" = "24.04" ] || [ "$OS_VERSION" = "22.04" ] || [ "$OS_VERSION" = "20.04" ]; }; } || \
+           { [ "$OS_ID" = "debian" ] && { [ "$OS_VERSION" = "12" ] || [ "$OS_VERSION" = "11" ]; }; }; then
             if [ -n "${TARGET_INSTALL_PY_VERSION}" ]; then
                 echo -e "${TAG_INFO} Installing python ${PY_MAJOR_MINOR} version using apt..."
                 if ! sudo apt-get update; then
@@ -230,7 +237,8 @@ install_python_and_dependencies() {
                 elif ! sudo apt install -y gnupg gpg-agent; then
                     print_colored "Failed to install gnupg gpg-agent." "ERROR"
                     INSTALL_STATUS=1
-                elif ! sudo add-apt-repository -y ppa:deadsnakes/ppa; then
+                # Only add deadsnakes PPA for Ubuntu (not needed for Debian)
+                elif [ "$OS_ID" = "ubuntu" ] && ! sudo add-apt-repository -y ppa:deadsnakes/ppa; then
                     print_colored "Failed to add deadsnakes PPA." "ERROR"
                     INSTALL_STATUS=1
                 elif ! sudo apt-get update; then
@@ -252,7 +260,8 @@ install_python_and_dependencies() {
                 fi
                 DX_PYTHON_EXEC_OUT="python3"
             fi
-        elif [ "$UBUNTU_VERSION" = "18.04" ]; then
+        # Ubuntu 18.04 - requires source build for modern Python versions
+        elif [ "$OS_ID" = "ubuntu" ] && [ "$OS_VERSION" = "18.04" ]; then
             if [ ! -n "${TARGET_INSTALL_PY_VERSION}" ]; then
                 TARGET_INSTALL_PY_VERSION=${MIN_PY_VERSION}
             fi
@@ -300,7 +309,7 @@ install_python_and_dependencies() {
                 fi
             fi
         else
-            print_colored "Unsupported Ubuntu version: $UBUNTU_VERSION" "ERROR"
+            print_colored "Unsupported OS version: $OS_ID $OS_VERSION" "ERROR"
             INSTALL_STATUS=1
         fi
     fi
@@ -445,16 +454,32 @@ setup_venv() {
     fi
 
     echo -e "${TAG_INFO} Upgrading pip, wheel, and setuptools..."
-    local UBUNTU_VERSION=$(lsb_release -rs)
-    echo -e "${TAG_INFO} *** UBUNTU_VERSION(${UBUNTU_VERSION}) ***"
+    
+    # Get OS information
+    local OS_ID=""
+    local OS_VERSION=""
+    
+    if [ -f /etc/os-release ]; then
+        OS_ID=$(grep "^ID=" /etc/os-release | sed 's/^ID=//' | tr -d '"')
+    fi
+    OS_VERSION=$(lsb_release -rs)
+    
+    echo -e "${TAG_INFO} *** OS: ${OS_ID} ${OS_VERSION} ***"
 
     local PIP_INSTALL_STATUS=0
-    if [ "$UBUNTU_VERSION" = "24.04" ]; then
+    
+    # For Ubuntu 24.04 - only upgrade setuptools
+    if [ "$OS_ID" = "ubuntu" ] && [ "$OS_VERSION" = "24.04" ]; then
       if ! pip install --upgrade setuptools; then PIP_INSTALL_STATUS=1; fi
-    elif [ "$UBUNTU_VERSION" = "22.04" ] || [ "$UBUNTU_VERSION" = "20.04" ] || [ "$UBUNTU_VERSION" = "18.04" ]; then
+    # For Debian 12 (similar to Ubuntu 24.04) - only upgrade setuptools  
+    elif [ "$OS_ID" = "debian" ] && [ "$OS_VERSION" = "12" ]; then
+      if ! pip install --upgrade setuptools; then PIP_INSTALL_STATUS=1; fi
+    # For Ubuntu 22.04, 20.04, 18.04 and Debian 11 - upgrade pip, wheel, setuptools
+    elif { [ "$OS_ID" = "ubuntu" ] && { [ "$OS_VERSION" = "22.04" ] || [ "$OS_VERSION" = "20.04" ] || [ "$OS_VERSION" = "18.04" ]; }; } || \
+         { [ "$OS_ID" = "debian" ] && [ "$OS_VERSION" = "11" ]; }; then
       if ! pip install --upgrade pip wheel setuptools; then PIP_INSTALL_STATUS=1; fi
     else
-      echo -e "${TAG_WARN} Unsupported Ubuntu version for specific pip upgrade rules: ${UBUNTU_VERSION}" >&2
+      echo -e "${TAG_WARN} Unsupported OS version for specific pip upgrade rules: ${OS_ID} ${OS_VERSION}" >&2
       if ! pip install --upgrade pip wheel setuptools; then PIP_INSTALL_STATUS=1; fi # Fallback to general upgrade
     fi
 
@@ -484,7 +509,19 @@ main() {
     local VENV_SYSTEM_SITE_PACKAGES_ARGS=""
     local SKIP_VENV_CREATION="n" # Flag to control venv creation in setup_venv
 
-    local UBUNTU_VERSION=$(lsb_release -rs) # Get Ubuntu version once
+    # Get OS information using lsb_release (supports both Ubuntu and Debian)
+    local OS_ID=""
+    local OS_VERSION=""
+    
+    # Extract OS ID from /etc/os-release
+    if [ -f /etc/os-release ]; then
+        OS_ID=$(grep "^ID=" /etc/os-release | sed 's/^ID=//' | tr -d '"')
+    fi
+    
+    # Get OS version using lsb_release
+    OS_VERSION=$(lsb_release -rs)
+    
+    echo -e "${TAG_INFO} Detected OS: ${OS_ID} ${OS_VERSION}"
 
     # Parse command-line arguments
     for i in "$@"; do
@@ -591,7 +628,7 @@ main() {
 
     # Call install_python_and_dependencies and capture its output (the python executable path)
     local INSTALLED_PYTHON_EXEC
-    INSTALLED_PYTHON_EXEC=$(install_python_and_dependencies "${PYTHON_VERSION}" "${UBUNTU_VERSION}")
+    INSTALLED_PYTHON_EXEC=$(install_python_and_dependencies "${PYTHON_VERSION}" "${OS_ID}" "${OS_VERSION}")
     local INSTALL_PY_STATUS=$? # Capture the exit status of install_python_and_dependencies
 
     if [ ${INSTALL_PY_STATUS} -ne 0 ]; then

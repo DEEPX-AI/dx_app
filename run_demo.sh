@@ -47,18 +47,42 @@ echo "9: Multi-Channel Object Detection (YOLOv5)"
 echo "10: Multi-Channel Object Detection With PPU (YOLOv5-320)"
 echo "11: Multi-Model Object Detection (YOLOv5) & Segmentation"
 
-read -t 10 -p "which AI demo do you want to run:(timeout:10s, default:0)" select
+# Advanced version with user input handling
+prompt="which AI demo do you want to run? (default:0): "
+printf "%s" "$prompt"
+
+for ((i=20; i>0; i--)); do
+    # Check for user input (non-blocking)
+    read -t 0.1 -n 1 input 2>/dev/null
+    if [ $? -eq 0 ]; then
+        # User started typing
+        read -r rest_input
+        select="$input$rest_input"
+        break
+    fi
+    
+    # Update countdown
+    printf "\r%s(%ds) \033[K" "$prompt" "$i"
+    sleep 0.9  # Compensate for the 0.1s read timeout
+done
+
+# If no input, set default
+if [ -z "$select" ]; then
+    printf "\r%s(timeout) \033[K\n" "$prompt"
+    select=0
+    echo "Using default: 0"
+fi
 
 case $select in
-    0)$WRC/bin/yolo -m assets/models/YoloV7.dxnn -p 4 -v assets/videos/snowboard.mp4 --target_fps 30 -l;;
-    1)$WRC/bin/yolo -m assets/models/YoloV8N.dxnn -p 5 -v assets/videos/boat.mp4 --target_fps 30 -l;;
-    2)$WRC/bin/yolo -m assets/models/YOLOV9S.dxnn -p 10 -v assets/videos/carrierbag.mp4 --target_fps 30 -l;;
-    3)$WRC/bin/yolo -m assets/models/YOLOV5S_PPU.dxnn -p 11 -v assets/videos/boat.mp4 --target_fps 30 -l;;
-    4)$WRC/bin/yolo -m assets/models/YOLOV5S_Face-1.dxnn -p 7 -v assets/videos/dance-group.mov --target_fps 30 -l;;
-    5)$WRC/bin/yolo -m assets/models/SCRFD500M_PPU.dxnn -p 12 -v assets/videos/dance-group.mov --target_fps 30 -l;;
-    6)$WRC/bin/pose -m assets/models/YOLOV5Pose640_1.dxnn -v assets/videos/dance-solo.mov --target_fps 30 -l;;
-    7)$WRC/bin/pose -m assets/models/YOLOV5Pose_PPU.dxnn -p 1 -v assets/videos/dance-solo.mov --target_fps 30 -l;;
-    8)$WRC/bin/segmentation -m assets/models/DeepLabV3PlusMobileNetV2_2.dxnn -v assets/videos/blackbox-city-road.mp4 --target_fps 30 -l;;
+    0)$WRC/bin/yolo -m assets/models/YoloV7.dxnn -p 4 -v assets/videos/snowboard.mp4 -l;;
+    1)$WRC/bin/yolo -m assets/models/YoloV8N.dxnn -p 5 -v assets/videos/boat.mp4 -l;;
+    2)$WRC/bin/yolo -m assets/models/YOLOV9S.dxnn -p 10 -v assets/videos/carrierbag.mp4 -l;;
+    3)$WRC/bin/yolo -m assets/models/YOLOV5S_PPU.dxnn -p 11 -v assets/videos/boat.mp4 -l;;
+    4)$WRC/bin/yolo -m assets/models/YOLOV5S_Face-1.dxnn -p 7 -v assets/videos/dance-group.mov -l;;
+    5)$WRC/bin/yolo -m assets/models/SCRFD500M_PPU.dxnn -p 12 -v assets/videos/dance-group.mov -l;;
+    6)$WRC/bin/pose -m assets/models/YOLOV5Pose640_1.dxnn -v assets/videos/dance-solo.mov -l;;
+    7)$WRC/bin/pose -m assets/models/YOLOV5Pose_PPU.dxnn -p 1 -v assets/videos/dance-solo.mov -l;;
+    8)$WRC/bin/segmentation -m assets/models/DeepLabV3PlusMobileNetV2_2.dxnn -v assets/videos/blackbox-city-road.mp4 -l;;
     9)$WRC/bin/yolo_multi -c example/yolo_multi/yolo_multi_demo.json;;
     10)$WRC/bin/yolo_multi -c example/yolo_multi/ppu_yolo_multi_demo.json;;
     11)$WRC/bin/od_segmentation -m0 assets/models/YOLOV5S_6.dxnn -p0 2 -m1 assets/models/DeepLabV3PlusMobileNetV2_2.dxnn -v assets/videos/blackbox-city-road2.mov -l;;

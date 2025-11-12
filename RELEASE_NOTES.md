@@ -1,5 +1,5 @@
 # RELEASE_NOTES
-## v2.1.0 / 2025-09-18
+## v2.1.0 / 2025-11-11
 
 ### 1. Changed
 - Enhance build script documentation and usage instructions
@@ -16,6 +16,7 @@
 - Add VSCode configuration files for usability
 - Fixed errors that occurred when using VAAPI with camera input
 - Enhanced yolo application to display final FPS even when forcefully terminated during camera input usage
+- Enhance user input handling for run_demo selection with a countdown timer (20s)
 
 ### 3. Added
 - Windows Environment Support
