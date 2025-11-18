@@ -58,15 +58,17 @@ usage() {
 # Outputs the executable path to stdout if found and usable.
 # Logs to stderr.
 # Arguments:
-#   $1: UBUNTU_VERSION - Current Ubuntu release version (e.g., "20.04")
-#   $2: REQUESTED_PY_VERSION (optional) - The specific Python version requested (e.g., "3.8.2").
+#   $1: OS_ID - The operating system ID (ubuntu, debian, etc.)
+#   $2: OS_VERSION - Current OS release version (e.g., "20.04" for Ubuntu, "12" for Debian)
+#   $3: REQUESTED_PY_VERSION (optional) - The specific Python version requested (e.g., "3.8.2").
 #                                         If empty, means OS default/MIN_PY_VERSION is implied.
-#   $3: MIN_REQUIRED_PY_VERSION - The absolute minimum Python version required by the script.
+#   $4: MIN_REQUIRED_PY_VERSION - The absolute minimum Python version required by the script.
 # ---
 is_python_installed() {
-    local UBUNTU_VERSION="${1}"
-    local REQUESTED_PY_VERSION="${2}"
-    local MIN_REQUIRED_PY_VERSION="${3}"
+    local OS_ID="${1}"
+    local OS_VERSION="${2}"
+    local REQUESTED_PY_VERSION="${3}"
+    local MIN_REQUIRED_PY_VERSION="${4}"
     local PYTHON_EXECUTABLES=("python3.12" "python3.11" "python3.10" "python3.9" "python3.8" "python3") # Order matters: higher to lower
 
     local REQ_VER_NUM=0
@@ -85,8 +87,10 @@ is_python_installed() {
         local current_version_full=""
         local current_version_num=0
 
-        # Try apt path first for newer Ubuntus, or if command exists
-        if { [ "$UBUNTU_VERSION" = "24.04" ] || [ "$UBUNTU_VERSION" = "22.04" ] || [ "$UBUNTU_VERSION" = "20.04" ]; } || command -v "${cmd}" &>/dev/null; then
+        # Try apt path first for modern OS versions, or if command exists
+        if { [ "$OS_ID" = "ubuntu" ] && { [ "$OS_VERSION" = "24.04" ] || [ "$OS_VERSION" = "22.04" ] || [ "$OS_VERSION" = "20.04" ]; }; } || \
+           { [ "$OS_ID" = "debian" ] && { [ "$OS_VERSION" = "12" ] || [ "$OS_VERSION" = "11" ]; }; } || \
+           command -v "${cmd}" &>/dev/null; then
             if [ -x "${check_path}" ]; then
                 current_exec="${check_path}"
                 current_version_full=$("${current_exec}" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}")' 2>/dev/null || echo "unknown")
@@ -184,7 +188,7 @@ install_python_and_dependencies() {
 
     # Check if Python is already installed OR if a higher suitable version exists
     local IS_INSTALLED_RESULT
-    IS_INSTALLED_RESULT=$(is_python_installed "${OS_VERSION}" "${TARGET_INSTALL_PY_VERSION}" "${MIN_PY_VERSION}")
+    IS_INSTALLED_RESULT=$(is_python_installed "${OS_ID}" "${OS_VERSION}" "${TARGET_INSTALL_PY_VERSION}" "${MIN_PY_VERSION}")
     
     if [ -n "${IS_INSTALLED_RESULT}" ]; then
         DX_PYTHON_EXEC_OUT="${IS_INSTALLED_RESULT}"
