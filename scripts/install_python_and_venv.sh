@@ -154,10 +154,12 @@ is_python_installed() {
 #         For Ubuntu 18.04, MIN_PY_VERSION will be used if TARGET_INSTALL_PY_VERSION is empty.
 #   $2: OS_ID - The operating system ID (ubuntu, debian, etc.)
 #   $3: OS_VERSION - The current OS release version (e.g., "20.04" for Ubuntu, "12" for Debian)
+#   $4: MIN_PY_VERSION - The minimum Python version required
 install_python_and_dependencies() {
     local TARGET_INSTALL_PY_VERSION="${1}"
     local OS_ID="${2}"
     local OS_VERSION="${3}"
+    local MIN_PY_VERSION="${4}"
 
     # Temporarily disable 'set -e' for controlled error handling and 'set -x' for cleaner output capture
     local OPT_E_STATE="$-"
@@ -169,6 +171,12 @@ install_python_and_dependencies() {
     exec >&2  # Redirect stdout to stderr
 
     echo -e "${TAG_INFO} Starting Python installation/dependency checks for ${TARGET_INSTALL_PY_VERSION:-default} on ${OS_ID} ${OS_VERSION}..."
+
+    # If no specific version is requested, use MIN_PY_VERSION as the target
+    if [ -z "${TARGET_INSTALL_PY_VERSION}" ]; then
+        TARGET_INSTALL_PY_VERSION="${MIN_PY_VERSION}"
+        echo -e "${TAG_INFO} No specific Python version requested. Using minimum required version: ${MIN_PY_VERSION}"
+    fi
 
     local DX_PYTHON_EXEC_OUT="" # This will hold the command to execute the installed python
     local INSTALL_STATUS=0
@@ -233,42 +241,27 @@ install_python_and_dependencies() {
         # Modern Ubuntu and Debian versions (Ubuntu 20.04+, Debian 11+)
         if { [ "$OS_ID" = "ubuntu" ] && { [ "$OS_VERSION" = "24.04" ] || [ "$OS_VERSION" = "22.04" ] || [ "$OS_VERSION" = "20.04" ]; }; } || \
            { [ "$OS_ID" = "debian" ] && { [ "$OS_VERSION" = "12" ] || [ "$OS_VERSION" = "11" ]; }; }; then
-            if [ -n "${TARGET_INSTALL_PY_VERSION}" ]; then
-                echo -e "${TAG_INFO} Installing python ${PY_MAJOR_MINOR} version using apt..."
-                if ! sudo apt-get update; then
-                    print_colored "Failed to update apt repositories" "ERROR"
-                    INSTALL_STATUS=1
-                elif ! sudo apt install -y gnupg gpg-agent; then
-                    print_colored "Failed to install gnupg gpg-agent." "ERROR"
-                    INSTALL_STATUS=1
-                # Only add deadsnakes PPA for Ubuntu (not needed for Debian)
-                elif [ "$OS_ID" = "ubuntu" ] && ! sudo add-apt-repository -y ppa:deadsnakes/ppa; then
-                    print_colored "Failed to add deadsnakes PPA." "ERROR"
-                    INSTALL_STATUS=1
-                elif ! sudo apt-get update; then
-                    print_colored "Failed to update apt repositories after adding PPA." "ERROR"
-                    INSTALL_STATUS=1
-                elif ! sudo apt-get install -y python${PY_MAJOR_MINOR} python${PY_MAJOR_MINOR}-dev python${PY_MAJOR_MINOR}-venv; then
-                    print_colored "apt installation failed for python${PY_MAJOR_MINOR}." "ERROR"
-                    INSTALL_STATUS=1
-                fi
-                DX_PYTHON_EXEC_OUT="python${PY_MAJOR_MINOR}"
-            else
-                echo -e "${TAG_INFO} Installing OS default python3 version and dependencies using apt..."
-                if ! sudo apt-get update; then
-                    print_colored "Failed to update apt repositories" "ERROR"
-                    INSTALL_STATUS=1
-                elif ! sudo apt-get install -y python3 python3-dev python3-venv; then
-                    print_colored "apt installation failed for python3." "ERROR"
-                    INSTALL_STATUS=1
-                fi
-                DX_PYTHON_EXEC_OUT="python3"
+            echo -e "${TAG_INFO} Installing python ${PY_MAJOR_MINOR} version using apt..."
+            if ! sudo apt-get update; then
+                print_colored "Failed to update apt repositories" "ERROR"
+                INSTALL_STATUS=1
+            elif ! sudo apt install -y gnupg gpg-agent; then
+                print_colored "Failed to install gnupg gpg-agent." "ERROR"
+                INSTALL_STATUS=1
+            # Only add deadsnakes PPA for Ubuntu (not needed for Debian)
+            elif [ "$OS_ID" = "ubuntu" ] && ! sudo add-apt-repository -y ppa:deadsnakes/ppa; then
+                print_colored "Failed to add deadsnakes PPA." "ERROR"
+                INSTALL_STATUS=1
+            elif ! sudo apt-get update; then
+                print_colored "Failed to update apt repositories after adding PPA." "ERROR"
+                INSTALL_STATUS=1
+            elif ! sudo apt-get install -y python${PY_MAJOR_MINOR} python${PY_MAJOR_MINOR}-dev python${PY_MAJOR_MINOR}-venv; then
+                print_colored "apt installation failed for python${PY_MAJOR_MINOR}." "ERROR"
+                INSTALL_STATUS=1
             fi
+            DX_PYTHON_EXEC_OUT="python${PY_MAJOR_MINOR}"
         # Ubuntu 18.04 - requires source build for modern Python versions
         elif [ "$OS_ID" = "ubuntu" ] && [ "$OS_VERSION" = "18.04" ]; then
-            if [ ! -n "${TARGET_INSTALL_PY_VERSION}" ]; then
-                TARGET_INSTALL_PY_VERSION=${MIN_PY_VERSION}
-            fi
             PY_MAJOR_MINOR=$(echo "${TARGET_INSTALL_PY_VERSION}" | cut -d. -f1,2) # Ensure PY_MAJOR_MINOR is set for source build
             echo -e "${TAG_INFO} Installing python ${TARGET_INSTALL_PY_VERSION} version using source build..."
             if ! sudo apt-get update; then INSTALL_STATUS=1; fi
@@ -632,7 +625,7 @@ main() {
 
     # Call install_python_and_dependencies and capture its output (the python executable path)
     local INSTALLED_PYTHON_EXEC
-    INSTALLED_PYTHON_EXEC=$(install_python_and_dependencies "${PYTHON_VERSION}" "${OS_ID}" "${OS_VERSION}")
+    INSTALLED_PYTHON_EXEC=$(install_python_and_dependencies "${PYTHON_VERSION}" "${OS_ID}" "${OS_VERSION}" "${MIN_PY_VERSION}")
     local INSTALL_PY_STATUS=$? # Capture the exit status of install_python_and_dependencies
 
     if [ ${INSTALL_PY_STATUS} -ne 0 ]; then
