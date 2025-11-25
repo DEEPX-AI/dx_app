@@ -26,7 +26,7 @@
 // pre/post parameter table
 extern YoloParam yolov5s_320, yolov5s_512, yolov5s_640, 
 yolov7_512, yolov7_640, yolov8_640, yolox_s_512, yolov5s_face_640, yolov3_512, yolov4_416,
-yolov9_640, yolov5s_320_ppu, scrfd_face_640_ppu;
+yolov9_640, yolov5s_512_ppu, scrfd_face_640_ppu;
 std::vector<YoloParam> yoloParams = {
     yolov5s_320,
     yolov5s_512,
@@ -39,7 +39,7 @@ std::vector<YoloParam> yoloParams = {
     yolov3_512,
     yolov4_416,
     yolov9_640,
-    yolov5s_320_ppu,
+    yolov5s_512_ppu,
     scrfd_face_640_ppu
 };
 
@@ -91,7 +91,7 @@ DXRT_TRY_CATCH_BEGIN
     ("m, model", "(* required) define dxnn model path", cxxopts::value<std::string>(modelpath))
     ("p, parameter", "(* required) define object detection parameter \n"
                      "0: yolov5s_320, 1: yolov5s_512, 2: yolov5s_640, 3: yolov7_512, 4: yolov7_640, 5: yolov8_640, 6: yolox_s_512, 7: yolov5s_face_640, 8: yolov3_512, 9: yolov4_416, 10: yolov9_640"
-                     ", 11: yolov5s_320_ppu (optimized for PPU postprocessing), 12: scrfd_face_640_ppu (optimized for PPU postprocessing)", 
+                     ", 11: yolov5s_512_ppu (optimized for PPU postprocessing), 12: scrfd_face_640_ppu (optimized for PPU postprocessing)", 
                      cxxopts::value<int>(parameter)->default_value("0"))
     ("i, image", "use image file input", cxxopts::value<std::string>(imgFile))
     ("v, video", "use video file input", cxxopts::value<std::string>(videoFile))

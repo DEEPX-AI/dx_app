@@ -87,17 +87,13 @@ is_python_installed() {
         local current_version_full=""
         local current_version_num=0
 
-        # Try apt path first for modern OS versions, or if command exists
-        if { [ "$OS_ID" = "ubuntu" ] && { [ "$OS_VERSION" = "24.04" ] || [ "$OS_VERSION" = "22.04" ] || [ "$OS_VERSION" = "20.04" ]; }; } || \
-           { [ "$OS_ID" = "debian" ] && { [ "$OS_VERSION" = "12" ] || [ "$OS_VERSION" = "11" ]; }; } || \
-           command -v "${cmd}" &>/dev/null; then
-            if [ -x "${check_path}" ]; then
-                current_exec="${check_path}"
-                current_version_full=$("${current_exec}" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}")' 2>/dev/null || echo "unknown")
-            elif command -v "${cmd}" &>/dev/null; then # Fallback to PATH check if not at /usr/bin
-                current_exec=$(command -v "${cmd}")
-                current_version_full=$("${current_exec}" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}")' 2>/dev/null || echo "unknown")
-            fi
+        # Check standard paths and PATH
+        if [ -x "${check_path}" ]; then
+            current_exec="${check_path}"
+            current_version_full=$("${current_exec}" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}")' 2>/dev/null || echo "unknown")
+        elif command -v "${cmd}" &>/dev/null; then
+            current_exec=$(command -v "${cmd}")
+            current_version_full=$("${current_exec}" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}")' 2>/dev/null || echo "unknown")
         fi
 
         # If not found via apt-like paths or command, try source-built path explicitly
@@ -146,6 +142,276 @@ is_python_installed() {
 }
 
 # ---
+## Add deadsnakes PPA safely with prerequisite checks (Ubuntu only)
+# Returns 0 on success, 1 on failure
+# ---
+add_deadsnakes_ppa_if_needed() {
+    local OS_ID="${1}"
+    
+    # Only for Ubuntu
+    if [ "$OS_ID" != "ubuntu" ]; then
+        return 0
+    fi
+    
+    # Check if PPA is already added
+    if grep -q "^deb.*deadsnakes" /etc/apt/sources.list /etc/apt/sources.list.d/* 2>/dev/null; then
+        echo -e "${TAG_INFO} deadsnakes PPA already added. Skipping." >&2
+        return 0
+    fi
+    
+    echo -e "${TAG_INFO} Adding deadsnakes PPA for Ubuntu..." >&2
+    
+    # Install prerequisites
+    if ! dpkg -s software-properties-common >/dev/null 2>&1; then
+        if ! sudo apt-get install -y software-properties-common 2>&1 | tee -a /tmp/ppa_setup.log >&2; then
+            echo -e "${TAG_WARN} Failed to install software-properties-common" >&2
+            return 1
+        fi
+    fi
+    
+    # Install GPG tools and CA certificates
+    if ! sudo apt-get install -y gnupg gpg-agent ca-certificates 2>&1 | tee -a /tmp/ppa_setup.log >&2; then
+        echo -e "${TAG_WARN} Failed to install GPG tools or CA certificates" >&2
+        return 1
+    fi
+    
+    # Add PPA
+    if ! sudo add-apt-repository -y ppa:deadsnakes/ppa 2>&1 | tee /tmp/ppa_add.log >&2; then
+        echo -e "${TAG_WARN} Failed to add deadsnakes PPA" >&2
+        return 1
+    fi
+    
+    # Update apt cache
+    if ! sudo apt-get update 2>&1 | tee /tmp/apt_update.log >&2; then
+        echo -e "${TAG_WARN} apt-get update failed after adding PPA" >&2
+        return 1
+    fi
+    
+    echo -e "${TAG_INFO} deadsnakes PPA added successfully" >&2
+    sudo rm -f /tmp/ppa_add.log /tmp/apt_update.log /tmp/ppa_setup.log
+    return 0
+}
+
+# ---
+## Check if Python packages are available via apt
+# Returns 0 if available, 1 otherwise
+# ---
+check_python_apt_availability() {
+    local PY_MAJOR_MINOR="${1}"
+    
+    echo -e "${TAG_INFO} Checking if python${PY_MAJOR_MINOR} packages are available via apt..." >&2
+    
+    # Check if the main package and dev/venv packages are available
+    local MAIN_PKG=$(apt-cache search "^python${PY_MAJOR_MINOR}$" 2>/dev/null | grep -c "^python${PY_MAJOR_MINOR} ")
+    local DEV_PKG=$(apt-cache search "^python${PY_MAJOR_MINOR}-dev$" 2>/dev/null | grep -c "^python${PY_MAJOR_MINOR}-dev ")
+    local VENV_PKG=$(apt-cache search "^python${PY_MAJOR_MINOR}-venv$" 2>/dev/null | grep -c "^python${PY_MAJOR_MINOR}-venv ")
+    
+    if [ "$MAIN_PKG" -gt 0 ] && [ "$DEV_PKG" -gt 0 ] && [ "$VENV_PKG" -gt 0 ]; then
+        echo -e "${TAG_INFO} python${PY_MAJOR_MINOR} packages are available via apt" >&2
+        return 0
+    else
+        echo -e "${TAG_INFO} python${PY_MAJOR_MINOR} packages are NOT available via apt (main:$MAIN_PKG, dev:$DEV_PKG, venv:$VENV_PKG)" >&2
+        return 1
+    fi
+}
+
+# ---
+## Install Python via apt
+# Returns 0 on success, 1 on failure
+# ---
+install_python_via_apt() {
+    local PY_MAJOR_MINOR="${1}"
+    
+    echo -e "${TAG_INFO} Installing python${PY_MAJOR_MINOR} via apt..." >&2
+    
+    # Check if already installed
+    if command -v "python${PY_MAJOR_MINOR}" &>/dev/null && \
+       dpkg -s "python${PY_MAJOR_MINOR}-dev" >/dev/null 2>&1 && \
+       dpkg -s "python${PY_MAJOR_MINOR}-venv" >/dev/null 2>&1; then
+        echo -e "${TAG_SKIP} python${PY_MAJOR_MINOR} and dependencies are already installed" >&2
+        return 0
+    fi
+    
+    # Install packages
+    if sudo apt-get install -y python${PY_MAJOR_MINOR} python${PY_MAJOR_MINOR}-dev python${PY_MAJOR_MINOR}-venv 2>&1 | tee /tmp/apt_install.log >&2; then
+        # Verify installation
+        if command -v "python${PY_MAJOR_MINOR}" &>/dev/null; then
+            echo -e "${TAG_INFO} python${PY_MAJOR_MINOR} installed successfully via apt" >&2
+            sudo rm -f /tmp/apt_install.log
+            return 0
+        else
+            echo -e "${TAG_WARN} apt install completed but python${PY_MAJOR_MINOR} command not found" >&2
+            return 1
+        fi
+    else
+        echo -e "${TAG_WARN} apt installation failed for python${PY_MAJOR_MINOR}" >&2
+        return 1
+    fi
+}
+
+# ---
+## Install Python via source build
+# Returns 0 on success, 1 on failure
+# ---
+install_python_via_source() {
+    local TARGET_INSTALL_PY_VERSION="${1}"
+    local PY_MAJOR_MINOR="${2}"
+    
+    echo -e "${TAG_INFO} Installing python ${TARGET_INSTALL_PY_VERSION} via source build..." >&2
+    
+    # Install build dependencies
+    if ! sudo apt-get update; then
+        echo -e "${TAG_ERROR} Failed to update apt repositories for source build" >&2
+        return 1
+    fi
+    
+    if ! sudo apt-get install -y --no-install-recommends \
+        build-essential \
+        wget \
+        curl \
+        ca-certificates \
+        libssl-dev \
+        zlib1g-dev \
+        libncurses5-dev \
+        libncursesw5-dev \
+        libreadline-dev \
+        libsqlite3-dev \
+        libgdbm-dev \
+        libdb5.3-dev \
+        libbz2-dev \
+        libexpat1-dev \
+        liblzma-dev \
+        tk-dev \
+        libffi-dev \
+        uuid-dev 2>&1 | tee /tmp/build_deps.log >&2; then
+        echo -e "${TAG_ERROR} Failed to install build dependencies" >&2
+        return 1
+    fi
+    
+    # Build Python from source
+    local BUILD_DIR="/tmp/python_build_$$"
+    mkdir -p "${BUILD_DIR}"
+    
+    if ! (cd "${BUILD_DIR}" && \
+        wget --no-check-certificate "https://www.python.org/ftp/python/${TARGET_INSTALL_PY_VERSION}/Python-${TARGET_INSTALL_PY_VERSION}.tgz" && \
+        tar xzf "Python-${TARGET_INSTALL_PY_VERSION}.tgz" && \
+        cd "Python-${TARGET_INSTALL_PY_VERSION}" && \
+        ./configure --enable-optimizations && \
+        make -j$(nproc) && \
+        sudo make altinstall) 2>&1 | tee /tmp/source_build.log >&2; then
+        echo -e "${TAG_ERROR} Source build failed for Python ${TARGET_INSTALL_PY_VERSION}" >&2
+        sudo rm -rf "${BUILD_DIR}"
+        return 1
+    fi
+    
+    sudo rm -rf "${BUILD_DIR}"
+    
+    # Verify installation
+    if command -v "python${PY_MAJOR_MINOR}" &>/dev/null; then
+        local INSTALLED_VERSION=$("python${PY_MAJOR_MINOR}" --version 2>&1 | awk '{print $2}')
+        echo -e "${TAG_INFO} Python ${INSTALLED_VERSION} installed successfully via source build" >&2
+        sudo rm -f /tmp/source_build.log /tmp/build_deps.log
+        return 0
+    else
+        echo -e "${TAG_ERROR} Source build completed but python${PY_MAJOR_MINOR} command not found" >&2
+        return 1
+    fi
+}
+
+# ---
+## Install generic python3 dev/venv packages as fallback
+# Returns 0 on success, 1 on failure
+# ---
+install_generic_python3_dev_venv() {
+    echo -e "${TAG_INFO} Installing generic python3 dev/venv packages as fallback..." >&2
+    if sudo apt-get install -y python3-dev python3-venv 2>&1 | tee /tmp/apt_install_devvenv_fallback.log >&2; then
+        echo -e "${TAG_INFO} Successfully installed generic python3 dev/venv packages" >&2
+        sudo rm -f /tmp/apt_install_devvenv_fallback.log
+        return 0
+    else
+        echo -e "${TAG_ERROR} Failed to install generic python3 dev/venv packages" >&2
+        sudo rm -f /tmp/apt_install_devvenv_fallback.log
+        return 1
+    fi
+}
+
+# ---
+## Ensure dev and venv packages are installed for a given Python version
+# Returns 0 on success, 1 on failure
+# Arguments:
+#   $1: PYTHON_EXEC - Python executable path (e.g., python3.10, /usr/bin/python3.11)
+#   $2: OS_ID - The operating system ID (ubuntu, debian, etc.)
+# ---
+ensure_python_dev_venv_packages() {
+    local PYTHON_EXEC="${1}"
+    local OS_ID="${2}"
+    
+    # Only for Ubuntu/Debian with apt-based Python
+    if [ "$OS_ID" != "ubuntu" ] && [ "$OS_ID" != "debian" ]; then
+        return 0
+    fi
+    
+    # Extract version from Python executable
+    local PYTHON_VERSION_FOR_PKG=$(echo "${PYTHON_EXEC}" | sed -n 's/.*python\([0-9]\.[0-9]\+\).*/\1/p')
+    
+    # If it's a standard python command without version, try to get version
+    if [ -z "${PYTHON_VERSION_FOR_PKG}" ]; then
+        PYTHON_VERSION_FOR_PKG=$("${PYTHON_EXEC}" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")' 2>/dev/null || echo "")
+    fi
+    
+    if [ -z "${PYTHON_VERSION_FOR_PKG}" ]; then
+        echo -e "${TAG_WARN} Could not determine Python version for dev/venv package check" >&2
+        return 0
+    fi
+    
+    # Step 1: Always install generic python3-dev and python3-venv first (base requirement)
+    echo -e "${TAG_INFO} Installing generic python3-dev and python3-venv packages..." >&2
+    install_generic_python3_dev_venv || {
+        echo -e "${TAG_WARN} Failed to install generic python3 dev/venv packages" >&2
+        return 1
+    }
+    
+    # Step 2: Check if version-specific packages are needed
+    local NEED_VERSION_SPECIFIC=0
+    if ! dpkg -s "python${PYTHON_VERSION_FOR_PKG}-dev" >/dev/null 2>&1; then
+        echo -e "${TAG_INFO} python${PYTHON_VERSION_FOR_PKG}-dev is not installed" >&2
+        NEED_VERSION_SPECIFIC=1
+    fi
+    if ! dpkg -s "python${PYTHON_VERSION_FOR_PKG}-venv" >/dev/null 2>&1; then
+        echo -e "${TAG_INFO} python${PYTHON_VERSION_FOR_PKG}-venv is not installed" >&2
+        NEED_VERSION_SPECIFIC=1
+    fi
+    
+    # Step 3: Install version-specific packages if available
+    if [ $NEED_VERSION_SPECIFIC -eq 1 ]; then
+        echo -e "${TAG_INFO} Attempting to install version-specific dev/venv packages for python${PYTHON_VERSION_FOR_PKG}..." >&2
+        
+        # Update apt and add PPA if needed
+        sudo apt-get update >/dev/null 2>&1
+        
+        if [ "$OS_ID" = "ubuntu" ]; then
+            add_deadsnakes_ppa_if_needed "$OS_ID"
+        fi
+        
+        # Try to install version-specific packages
+        if check_python_apt_availability "$PYTHON_VERSION_FOR_PKG"; then
+            if sudo apt-get install -y python${PYTHON_VERSION_FOR_PKG}-dev python${PYTHON_VERSION_FOR_PKG}-venv 2>&1 | tee /tmp/apt_install_devvenv.log >&2; then
+                echo -e "${TAG_INFO} Successfully installed python${PYTHON_VERSION_FOR_PKG} dev/venv packages" >&2
+                sudo rm -f /tmp/apt_install_devvenv.log
+            else
+                echo -e "${TAG_WARN} Failed to install python${PYTHON_VERSION_FOR_PKG} dev/venv packages, but generic packages are already installed" >&2
+            fi
+        else
+            echo -e "${TAG_INFO} python${PYTHON_VERSION_FOR_PKG} dev/venv packages not available via apt, using generic packages" >&2
+        fi
+    else
+        echo -e "${TAG_SKIP} python${PYTHON_VERSION_FOR_PKG}-dev and python${PYTHON_VERSION_FOR_PKG}-venv are already installed" >&2
+    fi
+    
+    return 0
+}
+
+# ---
 ## Install Python and its dependencies (dev, venv)
 # ---
 # Arguments:
@@ -172,10 +438,24 @@ install_python_and_dependencies() {
 
     echo -e "${TAG_INFO} Starting Python installation/dependency checks for ${TARGET_INSTALL_PY_VERSION:-default} on ${OS_ID} ${OS_VERSION}..."
 
-    # If no specific version is requested, use MIN_PY_VERSION as the target
+    # Store the originally requested version for is_python_installed check
+    local REQUESTED_PY_VERSION_FOR_CHECK="${TARGET_INSTALL_PY_VERSION}"
+    
+    # If no specific version is requested, compare system Python with MIN_PY_VERSION
     if [ -z "${TARGET_INSTALL_PY_VERSION}" ]; then
-        TARGET_INSTALL_PY_VERSION="${MIN_PY_VERSION}"
-        echo -e "${TAG_INFO} No specific Python version requested. Using minimum required version: ${MIN_PY_VERSION}"
+        echo -e "${TAG_INFO} No specific version requested, checking system Python version..."
+        SYSTEM_PY_VERSION=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}")' 2>/dev/null || echo "0.0.0")
+        echo -e "${TAG_INFO} System Python version: ${SYSTEM_PY_VERSION}"
+        echo -e "${TAG_INFO} Minimum required version: ${MIN_PY_VERSION}"
+        SYSTEM_VER_NUM=$(printf "%02d%02d%02d" $(echo "${SYSTEM_PY_VERSION}" | tr '.' ' '))
+        MIN_VER_NUM=$(printf "%02d%02d%02d" $(echo "${MIN_PY_VERSION}" | tr '.' ' '))
+        if [ "${SYSTEM_VER_NUM}" -ge "${MIN_VER_NUM}" ]; then
+            echo -e "${TAG_INFO} System Python (${SYSTEM_PY_VERSION}) meets minimum requirement. Using system Python."
+            TARGET_INSTALL_PY_VERSION="${SYSTEM_PY_VERSION}"
+        else
+            echo -e "${TAG_INFO} System Python (${SYSTEM_PY_VERSION}) is below minimum requirement. Will install ${MIN_PY_VERSION}."
+            TARGET_INSTALL_PY_VERSION="${MIN_PY_VERSION}"
+        fi
     fi
 
     local DX_PYTHON_EXEC_OUT="" # This will hold the command to execute the installed python
@@ -186,124 +466,63 @@ install_python_and_dependencies() {
         PY_MAJOR_MINOR=$(echo "${TARGET_INSTALL_PY_VERSION}" | cut -d. -f1,2)
     fi
 
-    # Determine the Python executable name based on requested version or default
-    local PYTHON_EXE_NAME=""
-    if [ -n "${PY_MAJOR_MINOR}" ]; then
-        PYTHON_EXE_NAME="python${PY_MAJOR_MINOR}"
-    else
-        PYTHON_EXE_NAME="python3" # Default for modern OS versions
-    fi
-
     # Check if Python is already installed OR if a higher suitable version exists
+    # Pass empty string if no specific version was originally requested, so any version >= MIN_PY_VERSION is accepted
     local IS_INSTALLED_RESULT
-    IS_INSTALLED_RESULT=$(is_python_installed "${OS_ID}" "${OS_VERSION}" "${TARGET_INSTALL_PY_VERSION}" "${MIN_PY_VERSION}")
+    IS_INSTALLED_RESULT=$(is_python_installed "${OS_ID}" "${OS_VERSION}" "${REQUESTED_PY_VERSION_FOR_CHECK}" "${MIN_PY_VERSION}")
     
     if [ -n "${IS_INSTALLED_RESULT}" ]; then
         DX_PYTHON_EXEC_OUT="${IS_INSTALLED_RESULT}"
         echo -e "${TAG_SKIP} A suitable Python installation is already present (${DX_PYTHON_EXEC_OUT})."
-        echo -e "${TAG_INFO} Ensuring required development and venv packages for ${DX_PYTHON_EXEC_OUT} are installed."
         
-        # Install dev/venv packages even if main interpreter is skipped
-        # For Ubuntu and Debian modern versions (Ubuntu 20.04+, Debian 11+)
-        if { [ "$OS_ID" = "ubuntu" ] && { [ "$OS_VERSION" = "24.04" ] || [ "$OS_VERSION" = "22.04" ] || [ "$OS_VERSION" = "20.04" ]; }; } || \
-           { [ "$OS_ID" = "debian" ] && { [ "$OS_VERSION" = "12" ] || [ "$OS_VERSION" = "11" ]; }; }; then
-            local TARGET_MAJOR_MINOR=$(echo "${DX_PYTHON_EXEC_OUT}" | sed -n 's/.*python\([0-9]\.[0-9]\+\).*/\1/p')
-            if [ -z "${TARGET_MAJOR_MINOR}" ]; then TARGET_MAJOR_MINOR="3"; fi # Fallback for 'python3'
-
-            # Check if dev and venv packages are already installed
-            if dpkg -s "python${TARGET_MAJOR_MINOR}-dev" >/dev/null 2>&1 && dpkg -s "python${TARGET_MAJOR_MINOR}-venv" >/dev/null 2>&1; then
-                echo -e "${TAG_SKIP} Python${TARGET_MAJOR_MINOR}-dev and python${TARGET_MAJOR_MINOR}-venv are already installed. Skipping."
-            else
-                if ! sudo apt-get update; then
-                    print_colored "Failed to update apt repositories" "ERROR"
-                    INSTALL_STATUS=1
-                elif ! sudo apt install -y gnupg gpg-agent; then
-                    print_colored "Failed to install gnupg gpg-agent." "ERROR"
-                    INSTALL_STATUS=1
-                # Only add deadsnakes PPA for Ubuntu (not needed for Debian)
-                elif [ "$OS_ID" = "ubuntu" ] && ! sudo add-apt-repository -y ppa:deadsnakes/ppa; then
-                    print_colored "Failed to add deadsnakes PPA." "ERROR"
-                    INSTALL_STATUS=1
-                elif ! sudo apt-get update; then
-                    print_colored "Failed to update apt repositories after adding PPA." "ERROR"
-                    INSTALL_STATUS=1
-                elif ! sudo apt-get install -y python${TARGET_MAJOR_MINOR}-dev python${TARGET_MAJOR_MINOR}-venv; then
-                    print_colored "Failed to install python${TARGET_MAJOR_MINOR}-dev and/or python${TARGET_MAJOR_MINOR}-venv." "ERROR"
-                    INSTALL_STATUS=1
-                fi
-            fi
-        fi
-        # Source-built Python usually includes venv, dev headers etc. if built correctly.
-        # No extra apt installs needed here for Ubuntu 18.04 source builds.
+        # Ensure dev/venv packages are installed
+        ensure_python_dev_venv_packages "${DX_PYTHON_EXEC_OUT}" "${OS_ID}"
     else
-        echo -e "${TAG_INFO} No suitable Python installation found. Proceeding with requested installation."
-
-        # Modern Ubuntu and Debian versions (Ubuntu 20.04+, Debian 11+)
-        if { [ "$OS_ID" = "ubuntu" ] && { [ "$OS_VERSION" = "24.04" ] || [ "$OS_VERSION" = "22.04" ] || [ "$OS_VERSION" = "20.04" ]; }; } || \
+        echo -e "${TAG_INFO} No suitable Python installation found. Proceeding with installation..."
+        
+        # Unified installation process for all supported OS versions
+        if { [ "$OS_ID" = "ubuntu" ] && { [ "$OS_VERSION" = "24.04" ] || [ "$OS_VERSION" = "22.04" ] || [ "$OS_VERSION" = "20.04" ] || [ "$OS_VERSION" = "18.04" ]; }; } || \
            { [ "$OS_ID" = "debian" ] && { [ "$OS_VERSION" = "12" ] || [ "$OS_VERSION" = "11" ]; }; }; then
-            echo -e "${TAG_INFO} Installing python ${PY_MAJOR_MINOR} version using apt..."
-            if ! sudo apt-get update; then
-                print_colored "Failed to update apt repositories" "ERROR"
-                INSTALL_STATUS=1
-            elif ! sudo apt install -y gnupg gpg-agent; then
-                print_colored "Failed to install gnupg gpg-agent." "ERROR"
-                INSTALL_STATUS=1
-            # Only add deadsnakes PPA for Ubuntu (not needed for Debian)
-            elif [ "$OS_ID" = "ubuntu" ] && ! sudo add-apt-repository -y ppa:deadsnakes/ppa; then
-                print_colored "Failed to add deadsnakes PPA." "ERROR"
-                INSTALL_STATUS=1
-            elif ! sudo apt-get update; then
-                print_colored "Failed to update apt repositories after adding PPA." "ERROR"
-                INSTALL_STATUS=1
-            elif ! sudo apt-get install -y python${PY_MAJOR_MINOR} python${PY_MAJOR_MINOR}-dev python${PY_MAJOR_MINOR}-venv; then
-                print_colored "apt installation failed for python${PY_MAJOR_MINOR}." "ERROR"
-                INSTALL_STATUS=1
+            
+            # Step 1: Update apt cache
+            echo -e "${TAG_INFO} Updating apt repositories..." >&2
+            if ! sudo apt-get update 2>&1 | tee /tmp/apt_update_initial.log >&2; then
+                echo -e "${TAG_WARN} Initial apt-get update had warnings/errors, continuing..." >&2
             fi
-            DX_PYTHON_EXEC_OUT="python${PY_MAJOR_MINOR}"
-        # Ubuntu 18.04 - requires source build for modern Python versions
-        elif [ "$OS_ID" = "ubuntu" ] && [ "$OS_VERSION" = "18.04" ]; then
-            PY_MAJOR_MINOR=$(echo "${TARGET_INSTALL_PY_VERSION}" | cut -d. -f1,2) # Ensure PY_MAJOR_MINOR is set for source build
-            echo -e "${TAG_INFO} Installing python ${TARGET_INSTALL_PY_VERSION} version using source build..."
-            if ! sudo apt-get update; then INSTALL_STATUS=1; fi
-            if [ ${INSTALL_STATUS} -eq 0 ] && \
-                ! sudo apt-get install -y --no-install-recommends \
-                build-essential \
-                wget \
-                curl \
-                ca-certificates \
-                libssl-dev \
-                zlib1g-dev \
-                libncurses5-dev \
-                libncursesw5-dev \
-                libreadline-dev \
-                libsqlite3-dev \
-                libgdbm-dev \
-                libdb5.3-dev \
-                libbz2-dev \
-                libexpat1-dev \
-                liblzma-dev \
-                tk-dev \
-                libffi-dev \
-                uuid-dev; then INSTALL_STATUS=1; fi
-
-            if [ ${INSTALL_STATUS} -eq 0 ]; then
-                # Ensure we are in a clean directory before attempting to build
-                local BUILD_DIR="${SCRIPT_DIR}/python_build"
-                mkdir -p "${BUILD_DIR}"
-                pushd "${BUILD_DIR}" >/dev/null # Push current directory, suppress output
-
-                if ! wget --no-check-certificate "https://www.python.org/ftp/python/${TARGET_INSTALL_PY_VERSION}/Python-${TARGET_INSTALL_PY_VERSION}.tgz" || \
-                    ! tar xvf "Python-${TARGET_INSTALL_PY_VERSION}.tgz" || \
-                    ! (cd "Python-${TARGET_INSTALL_PY_VERSION}" && ./configure --enable-optimizations && make -j$(nproc) && sudo make altinstall); then
-                    print_colored "Source build for Python ${TARGET_INSTALL_PY_VERSION} failed." "ERROR"
+            
+            # Step 2: Add deadsnakes PPA if Ubuntu
+            if [ "$OS_ID" = "ubuntu" ]; then
+                add_deadsnakes_ppa_if_needed "$OS_ID"
+                # PPA failure is not critical, we'll try apt anyway and fall back to source build
+            fi
+            
+            # Step 3: Check if Python packages are available via apt
+            if check_python_apt_availability "$PY_MAJOR_MINOR"; then
+                # Step 4: Try apt installation
+                if install_python_via_apt "$PY_MAJOR_MINOR"; then
+                    DX_PYTHON_EXEC_OUT="python${PY_MAJOR_MINOR}"
+                    echo -e "${TAG_INFO} Successfully installed python${PY_MAJOR_MINOR} via apt" >&2
+                else
+                    echo -e "${TAG_WARN} apt installation failed, will try source build..." >&2
+                fi
+            else
+                echo -e "${TAG_INFO} Python${PY_MAJOR_MINOR} not available via apt, will try source build..." >&2
+            fi
+            
+            # Step 5: If apt installation failed or not available, try source build
+            if [ -z "${DX_PYTHON_EXEC_OUT}" ]; then
+                if install_python_via_source "$TARGET_INSTALL_PY_VERSION" "$PY_MAJOR_MINOR"; then
+                    DX_PYTHON_EXEC_OUT="python${PY_MAJOR_MINOR}"
+                    echo -e "${TAG_INFO} Successfully installed python${PY_MAJOR_MINOR} via source build" >&2
+                else
+                    echo -e "${TAG_ERROR} Both apt and source build failed for python${PY_MAJOR_MINOR}" >&2
                     INSTALL_STATUS=1
                 fi
-                popd >/dev/null # Pop back to original directory
-                rm -rf "${BUILD_DIR}" # Clean up build directory
-
-                if [ ${INSTALL_STATUS} -eq 0 ]; then
-                    DX_PYTHON_EXEC_OUT="python${PY_MAJOR_MINOR}" # Set executable for source build
-                fi
+            fi
+            
+            # Step 6: Ensure dev/venv packages are installed after successful Python installation
+            if [ -n "${DX_PYTHON_EXEC_OUT}" ]; then
+                ensure_python_dev_venv_packages "${DX_PYTHON_EXEC_OUT}" "${OS_ID}"
             fi
         else
             print_colored "Unsupported OS version: $OS_ID $OS_VERSION" "ERROR"
@@ -311,11 +530,12 @@ install_python_and_dependencies() {
         fi
     fi
 
-    if [ ${INSTALL_STATUS} -eq 0 ]; then
+    if [ ${INSTALL_STATUS} -eq 0 ] && [ -n "${DX_PYTHON_EXEC_OUT}" ]; then
         echo -e "${TAG_INFO} Python installation/dependency checks done. Resolved Python executable: ${DX_PYTHON_EXEC_OUT}"
         echo "${DX_PYTHON_EXEC_OUT}" >&3 # Output the python executable path to original stdout (fd 3)
     else
         echo "" >&3 # Output empty string on failure
+        INSTALL_STATUS=1
     fi
 
     # Restore original stdout and stderr
@@ -425,7 +645,7 @@ setup_venv() {
         
         # Remove any existing symlink or directory at VENV_PATH
         if [ -e "${VENV_PATH}" ]; then
-            rm -rf "${VENV_PATH}"
+            sudo rm -rf "${VENV_PATH}"
         fi
         
         # Ensure the parent directory exists
@@ -468,12 +688,9 @@ setup_venv() {
     # For Ubuntu 24.04 - only upgrade setuptools
     if [ "$OS_ID" = "ubuntu" ] && [ "$OS_VERSION" = "24.04" ]; then
       if ! pip install --upgrade setuptools; then PIP_INSTALL_STATUS=1; fi
-    # For Debian 12 (similar to Ubuntu 24.04) - only upgrade setuptools  
-    elif [ "$OS_ID" = "debian" ] && [ "$OS_VERSION" = "12" ]; then
-      if ! pip install --upgrade setuptools; then PIP_INSTALL_STATUS=1; fi
     # For Ubuntu 22.04, 20.04, 18.04 and Debian 11 - upgrade pip, wheel, setuptools
     elif { [ "$OS_ID" = "ubuntu" ] && { [ "$OS_VERSION" = "22.04" ] || [ "$OS_VERSION" = "20.04" ] || [ "$OS_VERSION" = "18.04" ]; }; } || \
-         { [ "$OS_ID" = "debian" ] && [ "$OS_VERSION" = "11" ]; }; then
+         { [ "$OS_ID" = "debian" ] && { [ "$OS_VERSION" = "11" ] || [ "$OS_VERSION" = "12" ]; }; }; then
       if ! pip install --upgrade pip wheel setuptools; then PIP_INSTALL_STATUS=1; fi
     else
       echo -e "${TAG_WARN} Unsupported OS version for specific pip upgrade rules: ${OS_ID} ${OS_VERSION}" >&2
@@ -589,7 +806,7 @@ main() {
             if [ -e "$CHECK_PATH" ]; then # Path exists
                 if [ "${FORCE_REMOVE_VENV}" = "y" ]; then
                     echo -e "${TAG_INFO} --venv-force-remove specified. Removing existing path at ${CHECK_PATH}..." >&2
-                    if ! rm -rf "${CHECK_PATH}"; then
+                    if ! sudo rm -rf "${CHECK_PATH}"; then
                         print_colored "Failed to remove existing path at ${CHECK_PATH}. Aborting." "ERROR" >&2
                         exit 1
                     fi
@@ -604,7 +821,7 @@ main() {
                             # Remove both paths if invalid
                             for REMOVE_PATH in "${CHECK_PATHS[@]}"; do
                                 if [ -e "${REMOVE_PATH}" ]; then
-                                    if ! rm -rf "${REMOVE_PATH}"; then
+                                    if ! sudo rm -rf "${REMOVE_PATH}"; then
                                         print_colored "Failed to remove invalid path at ${REMOVE_PATH}. Aborting." "ERROR" >&2
                                         exit 1
                                     fi

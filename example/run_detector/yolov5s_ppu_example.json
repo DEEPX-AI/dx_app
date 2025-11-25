@@ -5,8 +5,8 @@
         "path": "./assets/models/YOLOV5S_PPU.dxnn",
         "param": {
             "name": "YOLOV5S_3",
-            "input_width" : 320,
-            "input_height" : 320,
+            "input_width" : 512,
+            "input_height" : 512,
             "score_threshold": 0.3,
             "iou_threshold": 0.4,
             "last_activation": "sigmoid",

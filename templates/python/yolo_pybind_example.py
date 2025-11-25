@@ -4,6 +4,8 @@ from packaging import version
 from dx_engine import InferenceEngine, Configuration
 from dx_postprocess import YoloPostProcess
 
+CHECK_MODEL_VERSION = False
+MIN_MODEL_VERSION = "7"
 
 def draw_detections(frame_v, pp_output, colors):
     for i in range(pp_output.shape[0]):
@@ -100,9 +102,10 @@ def run_example(args):
     # Initialize InferenceEngine
     ie = InferenceEngine(json_config["model"]["path"])
 
-    if version.parse(ie.get_model_version()) < version.parse('7'):
-        print("DXNN file format version 7 or higher is required. Please update/re-export the model.")
-        exit()
+    if CHECK_MODEL_VERSION:
+        if version.parse(ie.get_model_version()) < version.parse(MIN_MODEL_VERSION):
+            print(f"DXNN file format version {MIN_MODEL_VERSION} or higher is required. Please update/re-export the model.")
+            exit(1)
 
     output_tensors_info = ie.get_output_tensors_info()
     target_output_tensor_idx = None
