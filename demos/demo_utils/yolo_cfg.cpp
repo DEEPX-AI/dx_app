@@ -245,6 +245,25 @@ YoloParam yolov5s_face_640 = {
     PostProcType::FACE
 };
 
+// YOLOv5s configuration for 512x512 input resolution - optimized model for postprocessing (by PPU)
+YoloParam yolov5s_512_ppu = {
+    512,
+    512,
+    0.25f,
+    0.3f,
+    0.4f,
+    0,
+    80,
+    "BBOX", 
+    {
+        createYoloLayerParam("ppu_0", 64, 64, 3, { 10.0f, 16.0f, 33.0f }, { 13.0f, 30.0f, 23.0f }, { 0 }),
+        createYoloLayerParam("ppu_1", 32, 32, 3, { 30.0f, 62.0f, 59.0f }, { 61.0f, 45.0f, 119.0f }, { 1 }),
+        createYoloLayerParam("ppu_2", 16, 16, 3, { 116.0f, 156.0f, 373.0f }, { 90.0f, 198.0f, 326.0f }, { 2 })
+    },
+    { "person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck", "boat", "trafficlight", "firehydrant", "stopsign", "parkingmeter", "bench", "bird", "cat", "dog", "horse", "sheep", "cow", "elephant", "bear", "zebra", "giraffe", "backpack", "umbrella", "handbag", "tie", "suitcase", "frisbee", "skis", "snowboard", "sportsball", "kite", "baseballbat", "baseballglove", "skateboard", "surfboard", "tennisracket", "bottle", "wineglass", "cup", "fork", "knife", "spoon", "bowl", "banana", "apple", "sandwich", "orange", "broccoli", "carrot", "hotdog", "pizza", "donut", "cake", "chair", "couch", "pottedplant", "bed", "diningtable", "toilet", "tv", "laptop", "mouse", "remote", "keyboard", "cellphone", "microwave", "oven", "toaster", "sink", "refrigerator", "book", "clock", "vase", "scissors", "teddybear", "hairdrier", "toothbrush"},
+    PostProcType::YOLO_LEGACY
+};
+
 // YOLOv5s configuration for 320x320 input resolution - optimized model for postprocessing (by PPU)
 YoloParam yolov5s_320_ppu = {
     320,  // height

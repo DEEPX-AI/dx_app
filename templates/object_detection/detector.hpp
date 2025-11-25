@@ -325,7 +325,14 @@ public:
         }
         if(!params._is_onnx_output && params._outputTensorIndexMap.size() < inferenceEngine->GetOutputTensorNames().size())
         {
-            throw std::invalid_argument("[DXAPP] [ER] output tensor index list is not enough. Please check the model output configuration and the output tensor names.");
+            if(inferenceEngine.get()->IsPPU())
+            {
+                std::cout << "[DXAPP] [WR] output tensor index list is not enough. But the model is PPU model, so skip the error check." << std::endl;
+            }
+            else
+            {
+                throw std::invalid_argument("[DXAPP] [ER] output tensor index list is not enough. Please check the model output configuration and the output tensor names.");
+            }
         }
         
         size_t all_image_count = 0;

@@ -37,14 +37,14 @@ WRC=$DX_APP_PATH
 echo "0: Object Detection (YOLOv7)"
 echo "1: Object Detection (YOLOv8N)"
 echo "2: Object Detection (YOLOv9S)"
-echo "3: Object Detection With PPU (YOLOv5S-320)"
+echo "3: Object Detection With PPU (YOLOv5S-512)"
 echo "4: Face Detection (YOLOV5S_Face)"
 echo "5: Face Detection With PPU (SCRFD500M-640)"
 echo "6: Pose Estimation"
 echo "7: Pose Estimation With PPU (YOLOv5Pose-640)"
 echo "8: Semantic Segmentation"
 echo "9: Multi-Channel Object Detection (YOLOv5)"
-echo "10: Multi-Channel Object Detection With PPU (YOLOv5-320)"
+echo "10: Multi-Channel Object Detection With PPU (YOLOv5-512)"
 echo "11: Multi-Model Object Detection (YOLOv5) & Segmentation"
 
 # Advanced version with user input handling

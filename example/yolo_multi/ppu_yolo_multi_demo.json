@@ -1,7 +1,7 @@
 {
     "usage": "multi",
     "model_path": "./assets/models/YOLOV5S_PPU.dxnn",
-    "model_name": "yolov5s_320_ppu",
+    "model_name": "yolov5s_512_ppu",
 
     "video_sources": [
         [ "./assets/videos/dron-citry-road.mov", "offline", 60 ],
