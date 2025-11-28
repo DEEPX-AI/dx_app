@@ -69,6 +69,8 @@ image_src = cv2.imread("images/1.jpg", cv2.IMREAD_COLOR)
 image_input = preprocessing(image_src, new_shape=(224, 224), align=align, format = cv2.COLOR_BGR2RGB)
 ```
 
+---
+
 ### Run ImageNet Python Example (Classification) 
 
 This section demonstrates how to run image classification examples using Python on DeepX NPUs.  
@@ -142,6 +144,8 @@ def postprocessing(outputs, n_classes):
     output = postprocessing(ie_output[0], len(classes))
     print("[{}] Top1 Result : class {} ({})".format(input_path, output, classes[output]))
 ```
+
+---
 
 ### Run YoloV5S Python Example (Object Detection)  
 

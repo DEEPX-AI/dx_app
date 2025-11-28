@@ -1,14 +1,16 @@
-This section describes how to run classification and object detection tasks using the **DX-APP** application template system. Templates allow you to execute demos by simply modifying a JSON configuration file—no code changes are required.  
+This section describes how to run classification and object detection tasks using the **DX-APP** application template system. Templates allow developers to execute demos by simply modifying a JSON configuration file—no code changes are required.  
 
-Currently, the supported application templates are Classification and YOLO-based Object Detection.  
+**Supported Application Templates**
 
-**Note.** If your YOLO model requires custom decoding logic, you **must** manually update the yoloCustomDecode function located in `lib/utils/ box_decode.hpp`.  
+The following application templates are currently supported:
 
-Related Sections are as follows.  
+- Classification Templates
+- Object Detection Templates
+- Python Examples Templates
 
-- Section. Classification Templates  
-- Section. Object Detection Templates  
-- Section. Python Examples Templates  
+!!! note "NOTE" 
+
+    If your YOLO model requires custom decoding logic, you **must** manually update the yoloCustomDecode function located in `lib/utils/ box_decode.hpp`.  
 
 ---
 
@@ -184,7 +186,10 @@ anchor, int stride, float scale)
 };
 ```
 
-**Note.** Once you modify the code, you **must** recompile it.
+!!! note "NOTE" 
+
+    Once you modify the code, you **must** recompile it.
+
 ```
 ./build.sh
 ```
