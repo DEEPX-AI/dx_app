@@ -1,11 +1,11 @@
-## Version 2.1.0 (Sep 2025)
+## Version 2.1.0 (Nov 2025)
 - Windows Environment Support
 DX-APP now fully supports the Windows operating system! In response to user requests, we've expanded compatibility beyond Linux to include Windows, enabling a broader range of development environments to take advantage of DX-APP.
-  - **OS**: Windows 10 / 11
-  - **Deepx M1 Driver Version**: v1.7.1 or higher
-  - **Deepx M1 Runtime Lib Version**: v3.1.0 or higher
-  - **Python**: Version 3.8 or higher (required for Python module support)
-  - **Compiler**: Visual Studio Community 2022 (required for building C++ examples)
+    - **OS**: Windows 10 / 11
+    - **Deepx M1 Driver Version**: v1.7.1 or higher
+    - **Deepx M1 Runtime Lib Version**: v3.1.0 or higher
+    - **Python**: Version 3.8 or higher (required for Python module support)
+    - **Compiler**: Visual Studio Community 2022 (required for building C++ examples)
 - Fix Windows MSBuild compilation warnings by replacing implicit type casts with explicit static_cast
 - Add automated build script (build.bat) for automatic build and Visual Studio solution generation
 - Enhance build script documentation and usage instructions
@@ -14,10 +14,14 @@ DX-APP now fully supports the Windows operating system! In response to user requ
 - Fixed errors that occurred when using VAAPI with camera input
 - Enhanced yolo application to display final FPS even when forcefully terminated during camera input usage
 - Three new PPU data types : BBOX (for object detection) / POSE (for pose estimation keypoints) / FACE (for face detection landmarks)
-  - Handles bounding box decoding and score thresholding functions directly on the NPU hardware instead of the CPU.
-  - Key Benefits of PPU : Particularly beneficial for real-time applications requiring high frame rates
-  - Model package updated from version 2.0.0 to 2.1.0 to support PPU models
-  - Improved demo script with additional PPU-Demo (3, 5, 7, 10)
+    - Handles bounding box decoding and score thresholding functions directly on the NPU hardware instead of the CPU.
+    - Key Benefits of PPU : Particularly beneficial for real-time applications requiring high frame rates
+    - Model package updated from version 2.0.0 to 2.1.0 to support PPU models
+    - Improved demo script with additional PPU-Demo (1, 4, 6, 8, 11)
+
+**Known Issues.** 
+- DeepLabV3 Semantic Segmentation model accuracy may be slightly degraded in dx-compiler(dx_com) v2.1.0. This will be fixed in the next release. The DeepLabV3 model used in the demo was converted using dx-compiler v2.0.0.
+- When using the PPU model for face detection & pose estimation, dx-compiler v2.1.0 does not currently support converting face and pose models to PPU format. This feature will be added in a future release. The PPU models used in the demo were converted using dx-compiler v1.0.0(dx_com v1.60.1).
 
 ## Version 2.0.0 (August 2025)
 - Major code refactoring and restructuring of demo applications.

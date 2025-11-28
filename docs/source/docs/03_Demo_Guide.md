@@ -11,7 +11,11 @@ This chapter introduces a quick-start experience using pre-built demo applicatio
 - **Classification**: Basic Classification, ImageNet Classification  
 - **Object Detection**: Yolo Object Detection, Yolo Object Detection - Multi Channel  
 - **Pose Estimation**: Human Pose Estimation  
-- **Segmentation**: Semantic Segmentation DeepLabV3 (CityScape dataset Only), Semantic Segmentation DeepLabV3 (CityScape dataset Only) + Yolo Object Detection  
+- **Segmentation**: Semantic Segmentation DeepLabV3 (CityScape dataset Only), Semantic Segmentation DeepLabV3 (CityScape dataset Only) + Yolo Object Detection
+
+**Known Issues.** 
+- DeepLabV3 Semantic Segmentation model accuracy may be slightly degraded in dx-compiler(dx_com) v2.1.0. This will be fixed in the next release. The DeepLabV3 model used in the demo was converted using dx-compiler v2.0.0.
+- When using the PPU model for face detection & pose estimation, dx-compiler v2.1.0 does not currently support converting face and pose models to PPU format. This feature will be added in a future release. The PPU models used in the demo were converted using dx-compiler v1.0.0(dx_com v1.60.1).
 
 ---
 
