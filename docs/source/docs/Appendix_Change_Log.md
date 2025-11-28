@@ -1,4 +1,4 @@
-## Version 2.1.0 (Nov 2025)
+## Version 2.1.0 (Nov. 2025)
 - Windows Environment Support
 DX-APP now fully supports the Windows operating system! In response to user requests, we've expanded compatibility beyond Linux to include Windows, enabling a broader range of development environments to take advantage of DX-APP.
     - **OS**: Windows 10 / 11
@@ -23,7 +23,9 @@ DX-APP now fully supports the Windows operating system! In response to user requ
 - DeepLabV3 Semantic Segmentation model accuracy may be slightly degraded in dx-compiler(dx_com) v2.1.0. This will be fixed in the next release. The DeepLabV3 model used in the demo was converted using dx-compiler v2.0.0.
 - When using the PPU model for face detection & pose estimation, dx-compiler v2.1.0 does not currently support converting face and pose models to PPU format. This feature will be added in a future release. The PPU models used in the demo were converted using dx-compiler v1.0.0(dx_com v1.60.1).
 
-## Version 2.0.0 (August 2025)
+---
+
+## Version 2.0.0 (Sep. 2025)
 - Major code refactoring and restructuring of demo applications.
 - Update on Tensor Index Assignment in Yolo Layer Reordering
 - demos/demo_utils/yolo_cfg.cpp Structure Changes: To accommodate different post-processing methods based on the USE_ORT setting in RT, the final output name of the ONNX model is now received as a separate parameter.
@@ -31,7 +33,9 @@ DX-APP now fully supports the Windows operating system! In response to user requ
 - yolo_pybind_example.py Refactoring: Refactored the code to use a RunAsync() + Wait() structure instead of callbacks. This change ensures the correct handling of the output tensor order.
 - Improved FPS calculation for the YOLO multi-demo.
 
-## Version 1.10.0 (June 2025)
+---
+
+## Version 1.10.0 (Jun. 2025)
 - Initial create dx-app   
 - demo : classification    
 - demo : object detection    

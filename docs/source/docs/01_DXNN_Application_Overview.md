@@ -23,7 +23,9 @@ This chapter provides an overview of the DEEPX SDK architecture and explains eac
 
 You can quickly evaluate inference capabilities without modifying the source code and easily adapt the templates for custom applications. These templates significantly reduce the overhead of environment configuration and manual implementation.
 
-**Note.** Application performance may vary depending on host system specifications. Each demo includes pre-processing, post-processing, and graphics processing operations.
+!!! note "NOTE" 
+
+    Application performance may vary depending on host system specifications. Each demo includes pre-processing, post-processing, and graphics processing operations.
 
 
 ### Demos

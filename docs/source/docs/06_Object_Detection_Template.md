@@ -2,7 +2,7 @@ This section explains how to use the Object Detection Template to execute YOLO-s
 
 ---
 
-## Run Object Detection Template (Yolo Model)
+## Object Detection Template Example (Yolo Model)
 
 To run an object detection model using YOLOv5.
 
@@ -24,7 +24,9 @@ Output Display Options
 - `realtime`:	Displays results in a window (GUI)  
 - `none`:	Continuously prints detection count (default)  
 
-**Note.** The current example file sets `type: none`. To save video output, change it to `save`.  
+!!! note "NOTE" 
+
+    The current example file sets `type: none`. To save video output, change it to `save`.  
 
 Supported Post-Processing Methods  
 The detection template supports various decoding methods tailored to different YOLO variants.  
@@ -91,39 +93,65 @@ Refer to `dx_app/lib/post_process/yolo_post_processing.hpp` for implementation d
 
 ## Post-Processing Using PPU
 
-The Post-Processing Unit (PPU) is a hardware-accelerated module that performs the confidence score calculation, the threshold filtering, and the extraction of valid bounding boxes (BBox).  
+**The Post-Processing Unit (PPU)** is a hardware-accelerated module integrated into the NPU pipeline. It executes critical final-stage operations, including confidence score calculation, threshold filtering, and the extraction of valid bounding boxes (BBox). 
 
-PPU Output Format  
-The PPU outputs a list of filtered bounding boxes containing  
+**PPU Output Format**  
 
-- Box coordinates (in `xywh`, `cxcywh`, or `x1y1x2y2` format)  
+Unlike standard tensor outputs, the PPU outputs a list of filtered bounding boxes directly. This eliminates the need for the host to process large intermediate feature maps.
+The PPU outputs a list of filtered bounding boxes containing
+
+
+- Box coordinates (in `xywh`, `cxcywh`, or `x1y1x2y2` format, defined by the model)
 - Class labels  
 - Confidence scores  
 
-Developer Action  
-After receiving the PPU output, only the following steps are required  
+**Developer Action Required**
+After receiving the PPU output, the developer is only required to perform the subsequent, minimal post-processing steps on the host CPU. These two steps can typically be completed efficiently within a single loop, minimizing host CPU overhead:
 
-- **1.** BBox decoding (format conversion: e.g., `cxcywh` → `xmin`, `ymin`, `xmax`, `ymax`)  
-- **2.** Non-Maximum Suppression (NMS)  
+**1. BBox Format Conversion (Decoding)** : Decoding the coordinates from the model's native format (e.g., converting cxcywh to the corner format: xmin , ymin , xmax , ymax)
 
-This reduces PCIe bandwidth usage and minimizes latency by limiting data transferred to the host.  
-A single loop can complete post-processing.  
+**2. Non-Maximum Suppression (NMS)** : Filtering out highly overlapping bounding boxes to retain only the highest confidence predictions.
 
-An example model using PPU is `YOLOV5S_PPU.dxnn`. Running the example command is as follows.  
+
+**Model Execution Command**
+
+The PPU-compiled model file, `YOLOV5S_PPU.dxnn`, can be executed using the following command:
+
 ```
 run_model -m ./assets/models/YOLOV5S_PPU.dxnn
 ```
 
-The output of the example model is as follows.  
+**Input and Output Specifications**
+
+The expected input and output tensor specifications during model execution are as follows: 
 ```
+Model Input Tensors:
+  - images
+Model Output Tensors:
+  - BBOX
+
+Tasks:
+  [ ] -> npu_0 -> []
+  Task[0] npu_0, NPU, NPU memory usage 111,518,912 bytes (input 786,432 bytes, output 8,257,536 bytes)
   Inputs
-     -  images, UINT8, [1, 320, 960 ]
+     -  images, UINT8, [1, 512, 512, 3 ]
   Outputs
-    -  BBOX, BBOX, [1, unknown ]
+    -  BBOX, BBOX, [1, 64, 64, 128 ]
 ```
 
-Accessing PPU Output  
-The PPU format is available in `datatypes.h` dxrt include path. You can access the result data using the following code.  
+| Type   | Name   | Data Type (dtype) | Shape            |  Description                                  |
+|--------|--------|-------------------|------------------|-----------------------------------------------|
+| input  | images | UINT8             | [1, 512, 512, 3] | Input images UINT8 [1, 320, 960]	Input image data with batch size 1, 3 channels, height 320, and width 960. |
+| output | BBOX   | BBOX (PPU Format) | [1, num dets]    | The output is in the **PPU-specific Bounding Box format**. The size is dynamically determined by the number of detected boxes. |
+
+
+**Accessing PPU Output Data**
+
+To access the results from the PPU inference on the Host memory, specific data structures from the `dxrt` library must be used. The PPU format structure is defined in the `datatypes.h` header file within the `dxrt` include path.
+
+Code Example for Result Access (C++) 
+The following C++ snippet demonstrates how to obtain a pointer to the bounding box data from the output list provided by the inference engine (`ie`).
+
 ```cpp
 #include <dxrt/dxrt_api.h>
 
@@ -132,7 +160,10 @@ dxrt::DeviceBoundingBox_t* raw_data =
   static_cast<dxrt::DeviceBoundingBox_t*>(outputs.front()->data());
 ```
 
-The structure used for bounding boxes is as follows.  
+Bounding Box Structure Fields
+
+The structure used for bounding boxes, `dxrt::DeviceBoundingBox_t`, contains at least the following initial fields:
+  
 ```
 typedef struct DXRT_API {
     float x;
@@ -149,10 +180,17 @@ typedef struct DXRT_API {
 } DeviceBoundingBox_t;
 ```
 
-Interpreting PPU Output  
-The inference result from PPU is **not** returned in a standard multi-dimensional tensor format (e.g., `[N, C, H, W]`). Instead, the output is shaped as `[1, num_boxes]`.  
+**Interpreting and Host Post-Processing PPU Output for Object Detection**
 
-Each entry represents a bounding box and contains the following fields  
+The inference result from PPU is delivered in a highly optimized, non-standard tensor format, significantly streamlining the final stages of object detection. This section details the output structure and the required host-side post-processing steps.
+
+**PPU Output Structure and Format**
+
+The PPU output is shaped as `[1, num_boxes]`, where `num_boxes` is the count of valid bounding boxes filtered by the PPU. Each entry in this array represents a detected object and maps directly to the `dxrt::DeviceBoundingBox_t` structure.
+
+Bounding Box Fields
+
+The fields contained within each bounding box entry are.
 
 - `x, y, w, h`: Bounding box in center format (`cxcywh`)  
 - `grid`: Grid cell index  
@@ -162,7 +200,17 @@ Each entry represents a bounding box and contains the following fields
 - `label`: Class ID  
 - `padding[4]`: 4-byte alignment for 32-byte struct size  
 
-You will need to use a loop to convert the output into the `DeviceBoundingBox_t` structure and then handle post-processing from there.  
+**Host Post-Processing Requirements**
+
+After receiving the PPU output, only two steps are required on the host (CPU) to finalize the detection results
+
+Accessing the Struct Conversion
+
+The raw PPU output data must be cast to the dxrt::DeviceBoundingBox_t structure for iteration and processing.
+
+C++ Access Loop
+
+The following code snippet demonstrates how to access the raw data and iterate through the detected bounding boxes:
 
 ```cpp
 auto outputs = ie.run(input_data);
@@ -173,7 +221,7 @@ for (int i = 0; i < outputs.front()->shape()[0]; i++) {
 }
 ```
 
-Refer to `dx_app/demos/demo_utils/yolo.cpp` - line.277 for the following example.  
+**Reference.** Refer to `dx_app/demos/demo_utils/yolo.cpp` for the following example.  
 ```cpp
 /* Example of dxrt::DeviceBoundingBox_t */
 box_temp[0] = (data[i].x * 2. - 0.5 + gX) * stride; // cx
@@ -265,7 +313,9 @@ anchor, int stride, float scale)
 };
 ```
 
-**Note.** Once you modify the code, you **must** recompile it.
+!!! note "NOTE" 
+
+    Once you modify the code, you **must** recompile it.
 ```
 ./build.sh
 ```
