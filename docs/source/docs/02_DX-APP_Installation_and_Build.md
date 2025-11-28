@@ -109,19 +109,20 @@ To use the demo launcher, simply execute the following command in your terminal:
 
 ```
 ./run_demo.sh
-  0: Object Detection (YOLOv7)
-  1: Object Detection (YOLOv8N)
-  2: Object Detection (YOLOv9S)
-  3: Object Detection With PPU (YOLOv5S-320)
-  4: Face Detection (YOLOV5S_Face)
-  5: Face Detection With PPU (SCRFD500M-640)
-  6: Pose Estimation
-  7: Pose Estimation With PPU (YOLOv5Pose-640)
-  8: Semantic Segmentation
-  9: Multi-Channel Object Detection (YOLOv5)
-  10: Multi-Channel Object Detection With PPU (YOLOv5-320)
-  11: Multi-Model Object Detection (YOLOv5) & Segmentation
-  which AI demo do you want to run:(timeout:10s, default:0)
+0: Object Detection (YOLOv7)
+1: Object Detection with PPU (YOLOv7-640)
+2: Object Detection (YOLOv8N)
+3: Object Detection (YOLOv9S)
+4: Object Detection With PPU (YOLOv5S-512)
+5: Face Detection (YOLOV5S_Face)
+6: Face Detection With PPU (SCRFD500M-640)
+7: Pose Estimation
+8: Pose Estimation With PPU (YOLOv5Pose-640)
+9: Semantic Segmentation
+10: Multi-Channel Object Detection (YOLOv5)
+11: Multi-Channel Object Detection With PPU (YOLOv5-512)
+12: Multi-Model Object Detection (YOLOv5) & Segmentation
+which AI demo do you want to run? (default:0): (20s)
 ```
 
 **Post-Processing Unit (PPU) Acceleration**
@@ -133,10 +134,11 @@ To use the demo launcher, simply execute the following command in your terminal:
 - Enhanced Throughput: Particularly beneficial for real-time applications requiring high frame rates
 
 **PPU-Enabled Demo Options:**
-- Option 3: Object Detection With PPU (YOLOv5S-320)
-- Option 5: Face Detection With PPU (SCRFD500M-640)  
-- Option 7: Pose Estimation With PPU (YOLOv5Pose-640)
-- Option 10: Multi-Channel Object Detection With PPU (YOLOv5-320)
+- Option 1: Object Detection With PPU (YoloV7-640)
+- Option 4: Object Detection With PPU (YOLOv5S-512)
+- Option 6: Face Detection With PPU (SCRFD500M-640)  
+- Option 8: Pose Estimation With PPU (YOLOv5Pose-640)
+- Option 11: Multi-Channel Object Detection With PPU (YOLOv5-512)
 
 **4. Resolve Shared Library Errors**  
 If you encounter shared library errors (e.g., `libdxrt.so`), update the system’s library cache. 
