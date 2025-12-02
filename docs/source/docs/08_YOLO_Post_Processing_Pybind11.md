@@ -40,16 +40,19 @@ Among the models provided by DX-APP, the following cases support **`YoloPostProc
 
 | Model                    | USE_ORT = ON | USE_ORT = OFF | Config                                    |
 |-------------------------|----------------|-----------------|-------------------------------------------|
+| SCRFD500M_PPU           | O              | O               | [SCRFD500M_PPU.json](../../../test/data/SCRFD500M_PPU.json) |
 | YOLOV3_1           | O              | O               | [YOLOV3_1.json](../../../test/data/YOLOV3_1.json) |
 | YOLOV4_3          | O              | X               | [YOLOV4_3.json](../../../test/data/YOLOV4_3.json) |
+| YOLOV5Pose_PPU    | O              | O               | [YOLOV5Pose_PPU.json](../../../test/data/YOLOV5Pose_PPU.json) |
 | YOLOV5Pose640_1    | O              | X               | [YOLOV5Pose640_1.json](../../../test/data/YOLOV5Pose640_1.json) |
 | YOLOV5S_1          | O              | O               | [YOLOV5S_1.json](../../../test/data/YOLOV5S_1.json) |
 | YOLOV5S_3         | O              | O               | [YOLOV5S_3.json](../../../test/data/YOLOV5S_3.json) |
 | YOLOV5S_4          | O              | O               | [YOLOV5S_4.json](../../../test/data/YOLOV5S_4.json) |
 | YOLOV5S_6          | O              | O               | [YOLOV5S_6.json](../../../test/data/YOLOV5S_6.json) |
 | YOLOV5S_Face-1     | O              | X               | [YOLOV5S_Face-1.json](../../../test/data/YOLOV5S_Face-1.json) |
+| YOLOV5S_PPU     | O              | O               | [YOLOV5S_PPU.json](../../../test/data/YOLOV5S_PPU.json) |
 | YOLOV5X_2          | O              | O               | [YOLOV5X_2.json](../../../test/data/YOLOV5X_2.json) |
-| YOLOv7_512         | O              | O               | [YOLOV7_512.json](../../../test/data/YOLOV7_512.json) |
+| YOLOv7_512         | O              | O               | [YOLOv7_512.json](../../../test/data/YOLOv7_512.json) |
 | YoloV7             | O              | O               | [YoloV7.json](../../../test/data/YoloV7.json) |
 | YoloV8N            | O              | X               | [YoloV8N.json](../../../test/data/YoloV8N.json) |
 | YOLOV9S            | O              | X               | [YOLOV9S.json](../../../test/data/YOLOV9S.json) |
@@ -83,9 +86,17 @@ After processing all frames, the average FPS (Frames Per Second) is calculated a
 - `--video_path`: Path to the input video file  
 - `--config_path`: Path to the JSON config file containing model path and post-processing parameters  
 - `--run_async`: Use asynchronous inference with `RunAsync()`, where post-processing is performed inside the callback function. If **not** specified, synchronous inference with `Run()` is used, and preprocessing, inference, and post-processing are executed sequentially for each frame.  
-- `--visualize`: Enables visualization of detection results  
+- `--visualize`: Enables visualization of detection results
 
-**Post-Processing with `YoloPostProcess` Class**  
+Alternatively, you can use the **`run_demo_python.sh`** script to quickly run various Python examples with pre-configured settings:
+```bash
+$ ./run_demo_python.sh
+```
+This interactive script provides a menu of available Python examples, including both pure Python implementations and optimized Pybind11-based examples.
+
+---
+
+### Post-Processing with `YoloPostProcess` Class  
 
 - **1.** Import the Module  
 ```

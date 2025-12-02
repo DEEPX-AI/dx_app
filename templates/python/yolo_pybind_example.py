@@ -7,6 +7,28 @@ from dx_postprocess import YoloPostProcess
 CHECK_MODEL_VERSION = False
 MIN_MODEL_VERSION = "7"
 
+SKELETON = [
+    [15, 13], [13, 11], [16, 14], [14, 12], [11, 12], [5, 11], [6, 12],
+    [5, 6],   [5, 7],   [6, 8],   [7, 9],   [8, 10],  [1, 2],  [0, 1],
+    [0, 2],   [1, 3],   [2, 4],   [3, 5],   [4, 6]
+]
+
+POSE_LIMB_COLOR = [
+    (51, 153, 255), (51, 153, 255), (51, 153, 255), (51, 153, 255),
+    (255, 51, 255), (255, 51, 255), (255, 51, 255), (255, 128, 0),
+    (255, 128, 0),  (255, 128, 0),  (255, 128, 0),  (255, 128, 0),
+    (0, 255, 0),    (0, 255, 0),    (0, 255, 0),    (0, 255, 0),
+    (0, 255, 0),    (0, 255, 0),    (0, 255, 0)
+]
+
+POSE_KPT_COLOR = [
+    (0, 255, 0),    (0, 255, 0),    (0, 255, 0),    (0, 255, 0),
+    (0, 255, 0),    (255, 128, 0),  (255, 128, 0),  (255, 128, 0),
+    (255, 128, 0),  (255, 128, 0),  (255, 128, 0),  (51, 153, 255),
+    (51, 153, 255), (51, 153, 255), (51, 153, 255), (51, 153, 255),
+    (51, 153, 255)
+]
+
 def draw_detections(frame_v, pp_output, colors):
     for i in range(pp_output.shape[0]):
         pt1 = pp_output[i, :2].astype(int)
@@ -16,9 +38,25 @@ def draw_detections(frame_v, pp_output, colors):
         if pp_output.shape[1] > 6:
             kpts = pp_output[i, 6:]
             kpts_reshape = kpts.reshape(-1, 3)
-            for k in range(kpts_reshape.shape[0]):
+            num_kpts = kpts_reshape.shape[0]
+            
+            # Draw Skeleton only for Pose (17 keypoints)
+            if num_kpts == 17:
+                for j, sk in enumerate(SKELETON):
+                    idx1, idx2 = sk[0], sk[1]
+                    if idx1 < num_kpts and idx2 < num_kpts:
+                        pt_a = kpts_reshape[idx1, :2].astype(int)
+                        pt_b = kpts_reshape[idx2, :2].astype(int)
+                        conf_a = kpts_reshape[idx1, 2]
+                        conf_b = kpts_reshape[idx2, 2]
+                        
+                        if conf_a > 0.5 and conf_b > 0.5:
+                             cv2.line(frame_v, pt_a, pt_b, POSE_LIMB_COLOR[j], 2, cv2.LINE_AA)
+
+            # Draw Keypoints
+            for k in range(num_kpts):
                 kpt = kpts_reshape[k, :2].astype(int)
-                cv2.circle(frame_v, kpt, 1, (0, 0, 255), -1)
+                cv2.circle(frame_v, kpt, 3, (0, 9, 255), -1)
     return frame_v
 
 
