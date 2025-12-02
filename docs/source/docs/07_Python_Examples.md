@@ -250,3 +250,26 @@ for idx, r in enumerate(x.numpy()):
 cv2.imwrite("yolov5s.jpg", image)
 print("save file : yolov5s.jpg ")
 ```
+
+---
+
+### Quick Start with [`run_demo_python.sh`](../../../run_demo_python.sh)
+
+For a quick and easy way to run various Python examples, use the interactive demo script:
+
+```bash
+$ ./run_demo_python.sh
+```
+
+This script provides a user-friendly menu to select and run pre-configured examples, including:
+
+- **Pure Python Examples**: Manual post-processing implementations for learning purposes
+  - Object Detection Sync (YOLOv5)
+  - Object Detection Async (YOLOv7)
+  
+- **Pybind11 Examples**: Optimized C++ post-processing for production use
+  - Face Detection (SCRFD500M_PPU)
+  - Pose Estimation (YOLOv5Pose_PPU)
+  - Object Detection (YOLOv5S_PPU, YOLOv7, YOLOv8N, YOLOv9S)
+
+The script automatically handles model paths, video inputs, and visualization settings.
