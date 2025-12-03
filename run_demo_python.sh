@@ -67,7 +67,7 @@ fi
 
 # Define common paths
 PY_TEMPLATE_DIR="templates/python"
-TEST_DATA_DIR="test/data"
+TEST_DATA_DIR="example/dx_postprocess"
 VIDEO_DIR="assets/videos"
 
 # Video files

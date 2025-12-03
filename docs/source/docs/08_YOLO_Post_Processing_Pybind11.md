@@ -40,25 +40,25 @@ Among the models provided by DX-APP, the following cases support **`YoloPostProc
 
 | Model                    | USE_ORT = ON | USE_ORT = OFF | Config                                    |
 |-------------------------|----------------|-----------------|-------------------------------------------|
-| SCRFD500M_PPU           | O              | O               | [SCRFD500M_PPU.json](../../../test/data/SCRFD500M_PPU.json) |
-| YOLOV3_1           | O              | O               | [YOLOV3_1.json](../../../test/data/YOLOV3_1.json) |
-| YOLOV4_3          | O              | X               | [YOLOV4_3.json](../../../test/data/YOLOV4_3.json) |
-| YOLOV5Pose_PPU    | O              | O               | [YOLOV5Pose_PPU.json](../../../test/data/YOLOV5Pose_PPU.json) |
-| YOLOV5Pose640_1    | O              | X               | [YOLOV5Pose640_1.json](../../../test/data/YOLOV5Pose640_1.json) |
-| YOLOV5S_1          | O              | O               | [YOLOV5S_1.json](../../../test/data/YOLOV5S_1.json) |
-| YOLOV5S_3         | O              | O               | [YOLOV5S_3.json](../../../test/data/YOLOV5S_3.json) |
-| YOLOV5S_4          | O              | O               | [YOLOV5S_4.json](../../../test/data/YOLOV5S_4.json) |
-| YOLOV5S_6          | O              | O               | [YOLOV5S_6.json](../../../test/data/YOLOV5S_6.json) |
-| YOLOV5S_Face-1     | O              | X               | [YOLOV5S_Face-1.json](../../../test/data/YOLOV5S_Face-1.json) |
-| YOLOV5S_PPU     | O              | O               | [YOLOV5S_PPU.json](../../../test/data/YOLOV5S_PPU.json) |
-| YOLOV5X_2          | O              | O               | [YOLOV5X_2.json](../../../test/data/YOLOV5X_2.json) |
-| YOLOv7_512         | O              | O               | [YOLOv7_512.json](../../../test/data/YOLOv7_512.json) |
-| YoloV7             | O              | O               | [YoloV7.json](../../../test/data/YoloV7.json) |
-| YoloV8N            | O              | X               | [YoloV8N.json](../../../test/data/YoloV8N.json) |
-| YOLOV9S            | O              | X               | [YOLOV9S.json](../../../test/data/YOLOV9S.json) |
-| YOLOX-S_1          | O              | X               | [YOLOX-S_1.json](../../../test/data/YOLOX-S_1.json) |
+| SCRFD500M_PPU           | O              | O               | [SCRFD500M_PPU.json](../../../example/dx_postprocess/SCRFD500M_PPU.json) |
+| YOLOV3_1           | O              | O               | [YOLOV3_1.json](../../../example/dx_postprocess/YOLOV3_1.json) |
+| YOLOV4_3          | O              | X               | [YOLOV4_3.json](../../../example/dx_postprocess/YOLOV4_3.json) |
+| YOLOV5Pose_PPU    | O              | O               | [YOLOV5Pose_PPU.json](../../../example/dx_postprocess/YOLOV5Pose_PPU.json) |
+| YOLOV5Pose640_1    | O              | X               | [YOLOV5Pose640_1.json](../../../example/dx_postprocess/YOLOV5Pose640_1.json) |
+| YOLOV5S_1          | O              | O               | [YOLOV5S_1.json](../../../example/dx_postprocess/YOLOV5S_1.json) |
+| YOLOV5S_3         | O              | O               | [YOLOV5S_3.json](../../../example/dx_postprocess/YOLOV5S_3.json) |
+| YOLOV5S_4          | O              | O               | [YOLOV5S_4.json](../../../example/dx_postprocess/YOLOV5S_4.json) |
+| YOLOV5S_6          | O              | O               | [YOLOV5S_6.json](../../../example/dx_postprocess/YOLOV5S_6.json) |
+| YOLOV5S_Face-1     | O              | X               | [YOLOV5S_Face-1.json](../../../example/dx_postprocess/YOLOV5S_Face-1.json) |
+| YOLOV5S_PPU     | O              | O               | [YOLOV5S_PPU.json](../../../example/dx_postprocess/YOLOV5S_PPU.json) |
+| YOLOV5X_2          | O              | O               | [YOLOV5X_2.json](../../../example/dx_postprocess/YOLOV5X_2.json) |
+| YOLOv7_512         | O              | O               | [YOLOv7_512.json](../../../example/dx_postprocess/YOLOv7_512.json) |
+| YoloV7             | O              | O               | [YoloV7.json](../../../example/dx_postprocess/YoloV7.json) |
+| YoloV8N            | O              | X               | [YoloV8N.json](../../../example/dx_postprocess/YoloV8N.json) |
+| YOLOV9S            | O              | X               | [YOLOV9S.json](../../../example/dx_postprocess/YOLOV9S.json) |
+| YOLOX-S_1          | O              | X               | [YOLOX-S_1.json](../../../example/dx_postprocess/YOLOX-S_1.json) |
 
-Preconfigured JSON config files for supported YOLO models are available in the [test/data](../../../test/data) directory.  
+Preconfigured JSON config files for supported YOLO models are available in the [example/dx_postprocess](../../../example/dx_postprocess) directory.  
 
 **Alternative for unsupported cases**: For models or configurations not supported by **`YoloPostProcess`**, you can refer to the [`lib/pybind`](../../../lib/pybind) codes to implement custom C++ post-processing code and wrap it with Pybind11. This allows you to create optimized post-processing tailored to the specific characteristics of your model.
 
@@ -73,7 +73,7 @@ $ python template/python/yolo_pybind_example.py --video_path /path/to/your/video
 
 **Quick Example**:
 ```
-python templates/python/yolo_pybind_example.py --video_path assets/videos/dance-group.mov --config test/data/YoloV7.json --run_async --visualize
+python templates/python/yolo_pybind_example.py --video_path assets/videos/dance-group.mov --config example/dx_postprocess/YoloV7.json --run_async --visualize
 ```
 
 This script takes a video file as input and performs Pre-processing, Inference, and Post-processing (synchronous or asynchronous).  
