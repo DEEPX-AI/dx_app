@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstdint>
+#include <dxrt/tensor.h>
 #include <map>
 #include <string>
 #include <vector>
@@ -185,7 +187,10 @@ namespace yolo
         void run(dxrt::TensorPtrs output_data)
         {
             initialize_results();
-            if(_params._is_onnx_output && dxapp::common::checkOrtLinking()) // ONNX outputs shape : [1, 16384, 85], numBoxes = 16384
+            auto first_output = output_data.front();
+            if(first_output->type() >= dxrt::DataType::BBOX)
+                getBoxesFromPPUOutputs(output_data);
+            else if(_params._is_onnx_output) // ONNX outputs shape : [1, 16384, 85], numBoxes = 16384
                 getBoxesFromONNXOutputs(output_data); 
             else if(_params._decode_method==Decode::YOLOX) // anchor free detector
                 getBoxesFromYoloXFormat(output_data, _yoloxLocationIdx, _yoloxBoxScoreIdx, _yoloxClassScoreIdx);
@@ -425,6 +430,151 @@ namespace yolo
                 sort(indices.begin(), indices.end(), scoreComapre);
             }
         };
+
+        void getBoxesFromPPUOutputs(dxrt::TensorPtrs &outputs)
+        {
+            int boxIdx = 0;
+            auto numDetected = static_cast<int64_t>(outputs.front()->shape()[1]);
+            auto ppuType = outputs.front()->type();
+            uint32_t ppuDataSize = 0;
+            switch (ppuType)
+            {
+                case dxrt::DataType::BBOX:
+                    ppuDataSize = sizeof(dxrt::DeviceBoundingBox_t);
+                    break;
+                case dxrt::DataType::POSE:
+                    ppuDataSize = sizeof(dxrt::DevicePose_t);
+                    break;
+                case dxrt::DataType::FACE:
+                    ppuDataSize = sizeof(dxrt::DeviceFace_t);
+                    break;
+                default:
+                    std::cerr << "PPU output format is not supported in YOLO post processing\n";
+                    return;
+            }
+            for(int64_t i=0;i<numDetected;i++)
+            {
+                uint8_t *raw_data = (uint8_t*)outputs.front()->data() + (i * ppuDataSize);
+                dxrt::DeviceBoundingBox_t *data = static_cast<dxrt::DeviceBoundingBox_t*>((void*)raw_data);
+                auto layer = _params._layers[data->layer_idx];
+                int stride = layer.stride;
+                int numGridX = data->grid_x;
+                int numGridY = data->grid_y;
+                
+                if(data->score < _params._score_threshold)
+                    continue;
+                
+                if(ppuDataSize > sizeof(dxrt::DeviceBoundingBox_t))
+                    _scoreIndices[0].emplace_back(data->score, boxIdx);
+                else
+                    _scoreIndices[data->label].emplace_back(data->score, boxIdx);
+
+                dxapp::common::BBox temp;
+                switch (_params._decode_method)
+                {
+                case dxapp::yolo::YOLO_BASIC:
+                case dxapp::yolo::YOLO_POSE:
+                    temp = {
+                        (data->x * 2 - 0.5f + numGridX) * stride,
+                        (data->y * 2 - 0.5f + numGridY) * stride,
+                        0,
+                        0,
+                        (data->w * data->w * 4) * layer.anchor_width[data->box_idx],
+                        (data->h * data->h * 4) * layer.anchor_height[data->box_idx],
+                        {dxapp::common::Point_f(-1, -1, -1)}
+                    };
+                    break;
+                case dxapp::yolo::YOLOSCALE:
+                    temp = {
+                        (data->x * layer.scale - 0.5f * (layer.scale - 1) + numGridX) * stride,
+                        (data->y * layer.scale - 0.5f * (layer.scale - 1) + numGridY) * stride,
+                        0,
+                        0,
+                        (data->w * data->w * 4) * layer.anchor_width[data->box_idx],
+                        (data->h * data->h * 4) * layer.anchor_height[data->box_idx],
+                        {dxapp::common::Point_f(-1, -1, -1)}
+                    };
+                    break;
+                case dxapp::yolo::YOLOX:
+                    temp = {
+                        (numGridX + data->x) * stride,
+                        (numGridY + data->y) * stride,
+                        0,
+                        0,
+                        exp(data->w) * stride,
+                        exp(data->h) * stride,
+                        {dxapp::common::Point_f(-1, -1, -1)}
+                    };
+                    break;
+                case dxapp::yolo::SCRFD:
+                    temp = {
+                        (numGridX - data->x) * stride,
+                        (numGridY - data->y) * stride,
+                        (numGridX + data->w) * stride,
+                        (numGridY + data->h) * stride,
+                        2* data->w * stride,
+                        2* data->h * stride,
+                        {dxapp::common::Point_f(-1, -1, -1)}
+                    };
+                    break;
+                case dxapp::yolo::CUSTOM_DECODE:
+                default:
+                    std::cerr << "PPU output format is not supported in YOLO post processing\n";
+                    break;
+                };
+                if(_params._box_format == dxapp::yolo::BBoxFormat::CXCYWH)
+                {
+                    temp._xmin = temp._xmin - (temp._width/2);
+                    temp._ymin = temp._ymin - (temp._height/2);
+                    temp._xmax = temp._xmin + (temp._width/2);
+                    temp._ymax = temp._ymin + (temp._height/2);
+                }
+                else
+                {
+                    temp._width = temp._xmax - temp._xmin;
+                    temp._height = temp._ymax - temp._ymin;
+                }
+                boxIdx++;
+                if(_params._decode_method == dxapp::yolo::YOLO_POSE)
+                {
+                    temp._kpts.clear();
+                    for(int idx = 0; idx < _params._kpt_count; idx++)
+                    {
+                        dxrt::DevicePose_t *kpt_data = static_cast<dxrt::DevicePose_t*>((void*)data);
+                        if((kpt_data->kpts[idx][2])<0.5)
+                        {
+                            temp._kpts.emplace_back(dxapp::common::Point_f(-1, -1));
+                        }
+                        else
+                        {
+                            temp._kpts.emplace_back(dxapp::common::Point_f(
+                                            (kpt_data->kpts[idx][0] * 2 - 0.5 + numGridX) * stride,
+                                            (kpt_data->kpts[idx][1] * 2 - 0.5 + numGridY) * stride,
+                                            0.5f
+                                            ));
+                        }
+                    }
+                }
+                else if(_params._decode_method == dxapp::yolo::SCRFD)
+                {
+                    temp._kpts.clear();
+                    for(int idx = 0; idx < _params._kpt_count; idx++)
+                    {
+                        dxrt::DeviceFace_t *kpt_data = static_cast<dxrt::DeviceFace_t*>((void*)data);
+                        temp._kpts.emplace_back(dxapp::common::Point_f(
+                                        (numGridX + kpt_data->kpts[idx][0]) * stride,
+                                        (numGridY + kpt_data->kpts[idx][1]) * stride,
+                                        0.5f
+                                        ));
+                    }
+                }
+                _rawBoxes.emplace_back(temp);
+            }
+            for(auto &indices:_scoreIndices)
+            {
+                sort(indices.begin(), indices.end(), scoreComapre);
+            }
+        }
 
         void getBoxesFromYoloFaceFormat(dxrt::TensorPtrs outputs, int kpt_count)
         {

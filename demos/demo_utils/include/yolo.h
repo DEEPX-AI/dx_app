@@ -11,34 +11,38 @@
 
 enum class PostProcType
 {
-    OD = 0,
+    YOLO_LEGACY = 0,
     POSE,
     FACE,
-    YOLOV8
+    YOLO_U,
+    
+    // Aliases for backward compatibility
+    OD = YOLO_LEGACY,
+    YOLOV8 = YOLO_U
 };
 
 struct YoloLayerParam
 {
     // Layer name identifier
-    std::string name;
-    
+    std::string name = "";
+
     // Grid dimensions
-    int32_t numGridX;    // Number of grid cells in X direction
-    int32_t numGridY;    // Number of grid cells in Y direction
-    
+    int32_t numGridX = 0;    // Number of grid cells in X direction
+    int32_t numGridY = 0;    // Number of grid cells in Y direction
+
     // Number of anchor boxes per grid cell
-    int32_t numBoxes;
-    
+    int32_t numBoxes = 0;
+
     // Anchor box dimensions
-    std::vector<float> anchorWidth;   // Width of anchor boxes
-    std::vector<float> anchorHeight;  // Height of anchor boxes
-    
+    std::vector<float> anchorWidth = {};   // Width of anchor boxes
+    std::vector<float> anchorHeight = {};  // Height of anchor boxes
+
     // Tensor indices for layer outputs
-    std::vector<int32_t> tensorIdx;
-    
+    std::vector<int32_t> tensorIdx = {};
+
     // Scale factors for x,y coordinates
-    float scaleX{0.0f};  // X coordinate scale factor
-    float scaleY{0.0f};  // Y coordinate scale factor
+    float scaleX = 0.0f;  // X coordinate scale factor
+    float scaleY = 0.0f;  // Y coordinate scale factor
 
     // Default constructor
     YoloLayerParam() = default;
@@ -62,31 +66,32 @@ struct YoloLayerParam
 
     void Show();
 };
+
 struct YoloParam
 {
     // Image dimension variables
-    int32_t height{0};
-    int32_t width{0};
+    int32_t height = 0;
+    int32_t width = 0;
 
     // Threshold variables
-    float confThreshold{0.0f};  // Confidence threshold
-    float scoreThreshold{0.0f}; // Score threshold  
-    float iouThreshold{0.0f};   // IoU threshold
+    float confThreshold = 0.0f;  // Confidence threshold
+    float scoreThreshold = 0.0f; // Score threshold  
+    float iouThreshold = 0.0f;   // IoU threshold
 
     // Object detection variables
-    uint32_t numBoxes{0};      // Number of bounding boxes
-    uint32_t numClasses{0};    // Number of classes
+    uint32_t numBoxes = 0;      // Number of bounding boxes
+    uint32_t numClasses = 0;    // Number of classes
 
     // onnx output name
     std::string onnxOutputName = "";
 
     // Layer and class information
-    std::vector<YoloLayerParam> layers{};     // YOLO layer parameters
-    std::vector<std::string> classNames{};    // Class name list
-    
+    std::vector<YoloLayerParam> layers = {};     // YOLO layer parameters
+    std::vector<std::string> classNames = {};    // Class name list
+
     // Post-processing type
-    PostProcType postproc_type{PostProcType::OD};
-    
+    PostProcType postproc_type = PostProcType::YOLO_LEGACY;
+
     // Default constructor
     YoloParam() = default;
 
@@ -108,6 +113,7 @@ private:
 
     int anchorSize = 0;
     bool is_onnx_output = false;
+    bool is_ppu_output = false;
     std::vector<int32_t> onnxOutputIdx={};
 
 public:
@@ -123,6 +129,7 @@ public:
     std::vector<BoundingBox> PostProc(dxrt::TensorPtrs& dataSrc);
 
     void onnx_post_processing(dxrt::TensorPtrs &outputs, int64_t num_elements);
+    void ppu_post_processing(dxrt::TensorPtrs &outputs);
     void raw_post_processing(dxrt::TensorPtrs &outputs);
 
     // Utility functions

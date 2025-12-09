@@ -275,7 +275,7 @@ public:
         readModelInfo(config.modelInfo.c_str());
         auto inferenceOption = dxrt::InferenceOption();
         inferenceEngine = std::make_shared<dxrt::InferenceEngine>(modelPath, inferenceOption);
-        if(!dxapp::common::minversionforRTandCompiler(inferenceEngine.get()))
+        if(!(dxapp::common::minversionforRTandCompiler(inferenceEngine.get()) || inferenceEngine.get()->IsPPU()))
         {
             throw std::runtime_error("[DXAPP] [ER] The version of the compiled model is not compatible with the version of the runtime. Please compile the model again.");
         }
@@ -325,7 +325,14 @@ public:
         }
         if(!params._is_onnx_output && params._outputTensorIndexMap.size() < inferenceEngine->GetOutputTensorNames().size())
         {
-            throw std::invalid_argument("[DXAPP] [ER] output tensor index list is not enough. Please check the model output configuration and the output tensor names.");
+            if(inferenceEngine.get()->IsPPU())
+            {
+                std::cout << "[DXAPP] [WR] output tensor index list is not enough. But the model is PPU model, so skip the error check." << std::endl;
+            }
+            else
+            {
+                throw std::invalid_argument("[DXAPP] [ER] output tensor index list is not enough. Please check the model output configuration and the output tensor names.");
+            }
         }
         
         size_t all_image_count = 0;
@@ -475,25 +482,23 @@ public:
             cv.wait(_uniqueLock, [&](){return !_wait.load();});
         }
         std::this_thread::sleep_for(std::chrono::microseconds(100000));
-        for(int idx = 0; idx < static_cast<int>(apps.size()); idx++)
-        {
+        while (true) {
             int processed_complete = 0;
-            for(int idx = 0; idx < static_cast<int>(apps.size()); idx++)
+            for (int idx = 0; idx < static_cast<int>(apps.size()); idx++)
             {
                 auto ret = apps[idx]->save();
-                if(ret < 0){
+                if (ret < 0) {
                     idx--;
                     continue;
                 }
                 processed_complete++;
             }
-            if(processed_complete == static_cast<int>(apps.size()))
+            if (processed_complete == static_cast<int>(apps.size()))
             {
                 quitThread();
                 break;
             }
         }
-        quitThread();
     };
 
     void readModelInfo(const char* modelInfo)

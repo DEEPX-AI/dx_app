@@ -23,9 +23,9 @@ YoloLayerParam createYoloLayerParam(std::string _name, int _gx, int _gy, int _nu
 YoloParam yolov3_512 = {
     512,  // height
     512,  // width
-    0.25, // confThreshold
-    0.3,  // scoreThreshold
-    0.4,  // iouThreshold
+    0.25f, // confThreshold
+    0.3f,  // scoreThreshold
+    0.4f,  // iouThreshold
     0,   // numBoxes
     80,   // numClasses
     "515", // onnx output name
@@ -37,16 +37,16 @@ YoloParam yolov3_512 = {
     // classNames
     { "person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck", "boat", "trafficlight", "firehydrant", "stopsign", "parkingmeter", "bench", "bird", "cat", "dog", "horse", "sheep", "cow", "elephant", "bear", "zebra", "giraffe", "backpack", "umbrella", "handbag", "tie", "suitcase", "frisbee", "skis", "snowboard", "sportsball", "kite", "baseballbat", "baseballglove", "skateboard", "surfboard", "tennisracket", "bottle", "wineglass", "cup", "fork", "knife", "spoon", "bowl", "banana", "apple", "sandwich", "orange", "broccoli", "carrot", "hotdog", "pizza", "donut", "cake", "chair", "couch", "pottedplant", "bed", "diningtable", "toilet", "tv", "laptop", "mouse", "remote", "keyboard", "cellphone", "microwave", "oven", "toaster", "sink", "refrigerator", "book", "clock", "vase", "scissors", "teddybear", "hairdrier", "toothbrush"},
     // postproc_type (0: yolo, 1: yolo pose, 2: yolo face)
-    PostProcType::OD
+    PostProcType::YOLO_LEGACY
 };
 
 // YOLOv4 configuration for 416x416 input resolution - improved accuracy with CSP backbone (YOLOV4_3.dxnn)
 YoloParam yolov4_416 = {
     416,  // height
     416,  // width
-    0.25, // confThreshold
-    0.3,  // scoreThreshold
-    0.4,  // iouThreshold
+    0.25f, // confThreshold
+    0.3f,  // scoreThreshold
+    0.4f,  // iouThreshold
     0,   // numBoxes
     80,   // numClasses
     "2441", // onnx output name
@@ -58,16 +58,16 @@ YoloParam yolov4_416 = {
     // classNames
     { "person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck", "boat", "trafficlight", "firehydrant", "stopsign", "parkingmeter", "bench", "bird", "cat", "dog", "horse", "sheep", "cow", "elephant", "bear", "zebra", "giraffe", "backpack", "umbrella", "handbag", "tie", "suitcase", "frisbee", "skis", "snowboard", "sportsball", "kite", "baseballbat", "baseballglove", "skateboard", "surfboard", "tennisracket", "bottle", "wineglass", "cup", "fork", "knife", "spoon", "bowl", "banana", "apple", "sandwich", "orange", "broccoli", "carrot", "hotdog", "pizza", "donut", "cake", "chair", "couch", "pottedplant", "bed", "diningtable", "toilet", "tv", "laptop", "mouse", "remote", "keyboard", "cellphone", "microwave", "oven", "toaster", "sink", "refrigerator", "book", "clock", "vase", "scissors", "teddybear", "hairdrier", "toothbrush"},
     // postproc_type (0: yolo, 1: yolo pose, 2: yolo face)
-    PostProcType::OD
+    PostProcType::YOLO_LEGACY
 };
 
 // YOLOv5s configuration for 320x320 input resolution - lightweight model for real-time detection (YOLOV5S_4.dxnn)
 YoloParam yolov5s_320 = {
     320,  // height
     320,  // width
-    0.25, // confThreshold
-    0.3,  // scoreThreshold
-    0.4,  // iouThreshold
+    0.25f, // confThreshold
+    0.3f,  // scoreThreshold
+    0.4f,  // iouThreshold
     0,   // numBoxes
     80,   // numClasses
     "output", // onnx output name
@@ -79,16 +79,16 @@ YoloParam yolov5s_320 = {
     // classNames
     { "person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck", "boat", "trafficlight", "firehydrant", "stopsign", "parkingmeter", "bench", "bird", "cat", "dog", "horse", "sheep", "cow", "elephant", "bear", "zebra", "giraffe", "backpack", "umbrella", "handbag", "tie", "suitcase", "frisbee", "skis", "snowboard", "sportsball", "kite", "baseballbat", "baseballglove", "skateboard", "surfboard", "tennisracket", "bottle", "wineglass", "cup", "fork", "knife", "spoon", "bowl", "banana", "apple", "sandwich", "orange", "broccoli", "carrot", "hotdog", "pizza", "donut", "cake", "chair", "couch", "pottedplant", "bed", "diningtable", "toilet", "tv", "laptop", "mouse", "remote", "keyboard", "cellphone", "microwave", "oven", "toaster", "sink", "refrigerator", "book", "clock", "vase", "scissors", "teddybear", "hairdrier", "toothbrush"},
     // postproc_type (0: yolo, 1: yolo pose, 2: yolo face)
-    PostProcType::OD
+    PostProcType::YOLO_LEGACY
 };
 
 // YOLOv5s configuration for 512x512 input resolution - balanced performance and accuracy (YOLOV5S_3.dxnn)
 YoloParam yolov5s_512 = {
     512,
     512,
-    0.25,
-    0.3,
-    0.4,
+    0.25f,
+    0.3f,
+    0.4f,
     0,
     80,
     "output", 
@@ -98,16 +98,16 @@ YoloParam yolov5s_512 = {
         createYoloLayerParam("500", 16, 16, 3, { 116.0f, 156.0f, 373.0f }, { 90.0f, 198.0f, 326.0f }, { 2 })
     },
     { "person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck", "boat", "trafficlight", "firehydrant", "stopsign", "parkingmeter", "bench", "bird", "cat", "dog", "horse", "sheep", "cow", "elephant", "bear", "zebra", "giraffe", "backpack", "umbrella", "handbag", "tie", "suitcase", "frisbee", "skis", "snowboard", "sportsball", "kite", "baseballbat", "baseballglove", "skateboard", "surfboard", "tennisracket", "bottle", "wineglass", "cup", "fork", "knife", "spoon", "bowl", "banana", "apple", "sandwich", "orange", "broccoli", "carrot", "hotdog", "pizza", "donut", "cake", "chair", "couch", "pottedplant", "bed", "diningtable", "toilet", "tv", "laptop", "mouse", "remote", "keyboard", "cellphone", "microwave", "oven", "toaster", "sink", "refrigerator", "book", "clock", "vase", "scissors", "teddybear", "hairdrier", "toothbrush"},
-    PostProcType::OD
+    PostProcType::YOLO_LEGACY
 };
 
 // YOLOv5s configuration for 640x640 input resolution - high accuracy detection model (YOLOV5S_6.dxnn)
 YoloParam yolov5s_640 = {
     640,
     640,
-    0.25,
-    0.3,
-    0.4,
+    0.25f,
+    0.3f,
+    0.4f,
     0,
     80,
     "1487",
@@ -117,32 +117,32 @@ YoloParam yolov5s_640 = {
         createYoloLayerParam("1195", 20, 20, 3, { 116.0f, 156.0f, 373.0f }, { 90.0f, 198.0f, 326.0f }, { 2 })
     },
     { "person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck", "boat", "trafficlight", "firehydrant", "stopsign", "parkingmeter", "bench", "bird", "cat", "dog", "horse", "sheep", "cow", "elephant", "bear", "zebra", "giraffe", "backpack", "umbrella", "handbag", "tie", "suitcase", "frisbee", "skis", "snowboard", "sportsball", "kite", "baseballbat", "baseballglove", "skateboard", "surfboard", "tennisracket", "bottle", "wineglass", "cup", "fork", "knife", "spoon", "bowl", "banana", "apple", "sandwich", "orange", "broccoli", "carrot", "hotdog", "pizza", "donut", "cake", "chair", "couch", "pottedplant", "bed", "diningtable", "toilet", "tv", "laptop", "mouse", "remote", "keyboard", "cellphone", "microwave", "oven", "toaster", "sink", "refrigerator", "book", "clock", "vase", "scissors", "teddybear", "hairdrier", "toothbrush"},
-    PostProcType::OD
+    PostProcType::YOLO_LEGACY
 };
 
 // YOLOX-S configuration for 512x512 input resolution - anchor-free detection with decoupled head (YOLOX-S.dxnn)
 YoloParam yolox_s_512 = {
     512,
     512,
-    0.25,
-    0.3,
-    0.4,
+    0.25f,
+    0.3f,
+    0.4f,
     0,
     80,
     "output",
     {
     },
     { "person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck", "boat", "trafficlight", "firehydrant", "stopsign", "parkingmeter", "bench", "bird", "cat", "dog", "horse", "sheep", "cow", "elephant", "bear", "zebra", "giraffe", "backpack", "umbrella", "handbag", "tie", "suitcase", "frisbee", "skis", "snowboard", "sportsball", "kite", "baseballbat", "baseballglove", "skateboard", "surfboard", "tennisracket", "bottle", "wineglass", "cup", "fork", "knife", "spoon", "bowl", "banana", "apple", "sandwich", "orange", "broccoli", "carrot", "hotdog", "pizza", "donut", "cake", "chair", "couch", "pottedplant", "bed", "diningtable", "toilet", "tv", "laptop", "mouse", "remote", "keyboard", "cellphone", "microwave", "oven", "toaster", "sink", "refrigerator", "book", "clock", "vase", "scissors", "teddybear", "hairdrier", "toothbrush"},
-    PostProcType::OD
+    PostProcType::YOLO_LEGACY
 };
 
 // YOLOv7 configuration for 640x640 input resolution - improved architecture with auxiliary heads (YoloV7.dxnn)
 YoloParam yolov7_640 = {
     640,
     640,
-    0.25,
-    0.3,
-    0.4,
+    0.25f,
+    0.3f,
+    0.4f,
     0,
     80,
     "output",
@@ -152,16 +152,16 @@ YoloParam yolov7_640 = {
         createYoloLayerParam("onnx::Reshape_559", 20, 20, 3, { 142.0, 192.0, 459.0 }, { 110.0, 243.0, 401.0 }, { 2 })
     },
     { "person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck", "boat", "trafficlight", "firehydrant", "stopsign", "parkingmeter", "bench", "bird", "cat", "dog", "horse", "sheep", "cow", "elephant", "bear", "zebra", "giraffe", "backpack", "umbrella", "handbag", "tie", "suitcase", "frisbee", "skis", "snowboard", "sportsball", "kite", "baseballbat", "baseballglove", "skateboard", "surfboard", "tennisracket", "bottle", "wineglass", "cup", "fork", "knife", "spoon", "bowl", "banana", "apple", "sandwich", "orange", "broccoli", "carrot", "hotdog", "pizza", "donut", "cake", "chair", "couch", "pottedplant", "bed", "diningtable", "toilet", "tv", "laptop", "mouse", "remote", "keyboard", "cellphone", "microwave", "oven", "toaster", "sink", "refrigerator", "book", "clock", "vase", "scissors", "teddybear", "hairdrier", "toothbrush"},
-    PostProcType::OD
+    PostProcType::YOLO_LEGACY
 };
 
 // YOLOv7 configuration for 512x512 input resolution - optimized for speed and accuracy balance (YOLOv7_512.dxnn)
 YoloParam yolov7_512 = {
     512,
     512,
-    0.15,
-    0.25,
-    0.4,
+    0.15f,
+    0.25f,
+    0.4f,
     0,
     80,
     "output",
@@ -171,16 +171,16 @@ YoloParam yolov7_512 = {
         createYoloLayerParam("onnx::Reshape_559", 16, 16, 3, { 142.0f, 192.0f, 459.0f }, { 110.0f, 243.0f, 401.0f }, { 2 })
     },
     { "person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck", "boat", "trafficlight", "firehydrant", "stopsign", "parkingmeter", "bench", "bird", "cat", "dog", "horse", "sheep", "cow", "elephant", "bear", "zebra", "giraffe", "backpack", "umbrella", "handbag", "tie", "suitcase", "frisbee", "skis", "snowboard", "sportsball", "kite", "baseballbat", "baseballglove", "skateboard", "surfboard", "tennisracket", "bottle", "wineglass", "cup", "fork", "knife", "spoon", "bowl", "banana", "apple", "sandwich", "orange", "broccoli", "carrot", "hotdog", "pizza", "donut", "cake", "chair", "couch", "pottedplant", "bed", "diningtable", "toilet", "tv", "laptop", "mouse", "remote", "keyboard", "cellphone", "microwave", "oven", "toaster", "sink", "refrigerator", "book", "clock", "vase", "scissors", "teddybear", "hairdrier", "toothbrush"},
-    PostProcType::OD
+    PostProcType::YOLO_LEGACY
 };
 
 // YOLOv8 configuration for 640x640 input resolution - anchor-free detection with classification-free head (YoloV8N.dxnn)
 YoloParam yolov8_640 = {
     640,
     640,
-    0.3,
-    0.3,
-    0.4,
+    0.3f,
+    0.3f,
+    0.4f,
     8400,
     80,
     "output0",
@@ -189,32 +189,34 @@ YoloParam yolov8_640 = {
         createYoloLayerParam("/model.22/dfl/conv/Conv_output_0", 4, 8400, 3, {}, {}, { 1 }),
     },
     { "person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck", "boat", "trafficlight", "firehydrant", "stopsign", "parkingmeter", "bench", "bird", "cat", "dog", "horse", "sheep", "cow", "elephant", "bear", "zebra", "giraffe", "backpack", "umbrella", "handbag", "tie", "suitcase", "frisbee", "skis", "snowboard", "sportsball", "kite", "baseballbat", "baseballglove", "skateboard", "surfboard", "tennisracket", "bottle", "wineglass", "cup", "fork", "knife", "spoon", "bowl", "banana", "apple", "sandwich", "orange", "broccoli", "carrot", "hotdog", "pizza", "donut", "cake", "chair", "couch", "pottedplant", "bed", "diningtable", "toilet", "tv", "laptop", "mouse", "remote", "keyboard", "cellphone", "microwave", "oven", "toaster", "sink", "refrigerator", "book", "clock", "vase", "scissors", "teddybear", "hairdrier", "toothbrush"},
-    PostProcType::YOLOV8
+    PostProcType::YOLO_U
 };
 
 // YOLOv9 configuration for 640x640 input resolution - latest YOLO version with improved architecture (YOLOV9S.dxnn)
 YoloParam yolov9_640 = {
     640,
     640,
-    0.3,
-    0.3,
-    0.4,
+    0.3f,
+    0.3f,
+    0.4f,
     8400,
     80,
     "output0",
     {
+        createYoloLayerParam("/model.22/Sigmoid_output_0", 80, 8400, 3, {}, {}, { 0 }),
+        createYoloLayerParam("/model.22/dfl/conv/Conv_output_0", 4, 8400, 3, {}, {}, { 1 }),
     },
     { "person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck", "boat", "trafficlight", "firehydrant", "stopsign", "parkingmeter", "bench", "bird", "cat", "dog", "horse", "sheep", "cow", "elephant", "bear", "zebra", "giraffe", "backpack", "umbrella", "handbag", "tie", "suitcase", "frisbee", "skis", "snowboard", "sportsball", "kite", "baseballbat", "baseballglove", "skateboard", "surfboard", "tennisracket", "bottle", "wineglass", "cup", "fork", "knife", "spoon", "bowl", "banana", "apple", "sandwich", "orange", "broccoli", "carrot", "hotdog", "pizza", "donut", "cake", "chair", "couch", "pottedplant", "bed", "diningtable", "toilet", "tv", "laptop", "mouse", "remote", "keyboard", "cellphone", "microwave", "oven", "toaster", "sink", "refrigerator", "book", "clock", "vase", "scissors", "teddybear", "hairdrier", "toothbrush"},
-    PostProcType::YOLOV8
+    PostProcType::YOLO_U
 };
 
 // YOLOv5s6 pose estimation configuration for 640x640 input resolution - human pose detection (YOLOV5Pose640_1.dxnn)
 YoloParam yolov5s6_pose_640 = {
     640,
     640,
-    0.3,
-    0.3,
-    0.4,
+    0.3f,
+    0.3f,
+    0.4f,
     0,
     1,
     "detections",
@@ -228,9 +230,9 @@ YoloParam yolov5s6_pose_640 = {
 YoloParam yolov5s_face_640 = {
     640,
     640,
-    0.25,
-    0.3,
-    0.4,
+    0.25f,
+    0.3f,
+    0.4f,
     0,
     1,
     "704",
@@ -240,5 +242,83 @@ YoloParam yolov5s_face_640 = {
         createYoloLayerParam("/model.23/m.2/Conv_output_0", 20, 20, 3, { 146.0, 231.0, 335.0 }, { 217.0, 300.0, 433.0 }, { 2 })
     },
     {"face"},
+    PostProcType::FACE
+};
+
+// YOLOv5s configuration for 512x512 input resolution - optimized model for postprocessing (by PPU)
+YoloParam yolov5s_512_ppu = {
+    512,
+    512,
+    0.25f,
+    0.3f,
+    0.4f,
+    0,
+    80,
+    "BBOX", 
+    {
+        createYoloLayerParam("ppu_0", 64, 64, 3, { 10.0f, 16.0f, 33.0f }, { 13.0f, 30.0f, 23.0f }, { 0 }),
+        createYoloLayerParam("ppu_1", 32, 32, 3, { 30.0f, 62.0f, 59.0f }, { 61.0f, 45.0f, 119.0f }, { 1 }),
+        createYoloLayerParam("ppu_2", 16, 16, 3, { 116.0f, 156.0f, 373.0f }, { 90.0f, 198.0f, 326.0f }, { 2 })
+    },
+    { "person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck", "boat", "trafficlight", "firehydrant", "stopsign", "parkingmeter", "bench", "bird", "cat", "dog", "horse", "sheep", "cow", "elephant", "bear", "zebra", "giraffe", "backpack", "umbrella", "handbag", "tie", "suitcase", "frisbee", "skis", "snowboard", "sportsball", "kite", "baseballbat", "baseballglove", "skateboard", "surfboard", "tennisracket", "bottle", "wineglass", "cup", "fork", "knife", "spoon", "bowl", "banana", "apple", "sandwich", "orange", "broccoli", "carrot", "hotdog", "pizza", "donut", "cake", "chair", "couch", "pottedplant", "bed", "diningtable", "toilet", "tv", "laptop", "mouse", "remote", "keyboard", "cellphone", "microwave", "oven", "toaster", "sink", "refrigerator", "book", "clock", "vase", "scissors", "teddybear", "hairdrier", "toothbrush"},
+    PostProcType::YOLO_LEGACY
+};
+
+// YOLOv5s configuration for 320x320 input resolution - optimized model for postprocessing (by PPU)
+YoloParam yolov5s_320_ppu = {
+    320,  // height
+    320,  // width
+    0.25f, // confThreshold
+    0.3f,  // scoreThreshold
+    0.4f,  // iouThreshold
+    0,   // numBoxes
+    80,   // numClasses
+    "BBOX", // onnx output name
+    {     // if use_ort = off, layers config
+        createYoloLayerParam("ppu_0", 40, 40, 3, { 10.0f, 16.0f, 33.0f }, { 13.0f, 30.0f, 23.0f }, { 0 }),
+        createYoloLayerParam("ppu_1", 20, 20, 3, { 30.0f, 62.0f, 59.0f }, { 61.0f, 45.0f, 119.0f }, { 1 }),
+        createYoloLayerParam("ppu_2", 10, 10, 3, { 116.0f, 156.0f, 373.0f }, { 90.0f, 198.0f, 326.0f }, { 2 })
+    },
+    // classNames
+    { "person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck", "boat", "trafficlight", "firehydrant", "stopsign", "parkingmeter", "bench", "bird", "cat", "dog", "horse", "sheep", "cow", "elephant", "bear", "zebra", "giraffe", "backpack", "umbrella", "handbag", "tie", "suitcase", "frisbee", "skis", "snowboard", "sportsball", "kite", "baseballbat", "baseballglove", "skateboard", "surfboard", "tennisracket", "bottle", "wineglass", "cup", "fork", "knife", "spoon", "bowl", "banana", "apple", "sandwich", "orange", "broccoli", "carrot", "hotdog", "pizza", "donut", "cake", "chair", "couch", "pottedplant", "bed", "diningtable", "toilet", "tv", "laptop", "mouse", "remote", "keyboard", "cellphone", "microwave", "oven", "toaster", "sink", "refrigerator", "book", "clock", "vase", "scissors", "teddybear", "hairdrier", "toothbrush"},
+    // postproc_type (0: yolo, 1: yolo pose, 2: yolo face)
+    PostProcType::YOLO_LEGACY
+};
+
+YoloParam yolov5_pose_640_ppu = {
+    640,
+    640,
+    0.3f,
+    0.3f,
+    0.4f,
+    0,
+    1,
+    "POSE",
+    {
+        createYoloLayerParam("ppu_0", 80, 80, 3, { 19.0, 44.0, 38.0 }, { 27.0, 40.0, 94.0 }, { 0 }),
+        createYoloLayerParam("ppu_1", 40, 40, 3, { 96.0, 86.0, 180.0 }, { 68.0, 152.0, 137.0 }, { 1 }),
+        createYoloLayerParam("ppu_2", 20, 20, 3, { 140.0, 303.0, 238.0 }, { 301.0, 264.0, 542.0 }, { 2 }),
+        createYoloLayerParam("ppu_3", 10, 10, 3, { 436.0, 739.0, 925.0 }, { 615.0, 380.0, 792.0 }, { 3 })
+    },
+    {"person"},
+    PostProcType::POSE
+};
+
+
+YoloParam scrfd_face_640_ppu = {
+    640,
+    640,
+    0.3f,
+    0.3f,
+    0.4f,
+    0,
+    1,
+    "FACE",
+    {
+        createYoloLayerParam("ppu_0", 80, 80, 3, {}, {}, { 0 }),
+        createYoloLayerParam("ppu_1", 40, 40, 3, {}, {}, { 1 }),
+        createYoloLayerParam("ppu_2", 20, 20, 3, {}, {}, { 2 })
+    },
+    {"person"},
     PostProcType::FACE
 };

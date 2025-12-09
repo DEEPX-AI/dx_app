@@ -1,0 +1,29 @@
+{
+    "target_output_tensor_name": "FACE",
+    "model": {
+        "path": "./assets/models/SCRFD500M_PPU.dxnn",
+        "param": {
+            "input_size" : 640,
+            "score_threshold": 0.3,
+            "iou_threshold": 0.4,
+            "decoding_method": "scrfd",
+            "box_format": "corner",
+            "layer": [
+                {
+                    "stride": 8
+                },
+                {
+                    "stride": 16
+                },
+                {
+                    "stride": 32
+                }
+            ]
+        }
+    },
+    "output": {
+        "classes": [
+            "face"
+        ]
+    }
+}

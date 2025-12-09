@@ -1,0 +1,203 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        // Video Demo Configurations
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "YOLO YoloV8N",
+            "program": "${workspaceFolder}/bin/yolo",
+            "args": ["-m", "assets/models/YoloV8N.dxnn", "-p", "5", "-v", "assets/videos/boat.mp4", "--target_fps", "30", "-l"],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": true,
+            "preLaunchTask": "build"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "YOLO YOLOV9S",
+            "program": "${workspaceFolder}/bin/yolo",
+            "args": ["-m", "assets/models/YOLOV9S.dxnn", "-p", "10", "-v", "assets/videos/carrierbag.mp4", "--target_fps", "30", "-l"],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": true,
+            "preLaunchTask": "build"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "YOLO Face Detection",
+            "program": "${workspaceFolder}/bin/yolo",
+            "args": ["-m", "assets/models/YOLOV5S_Face-1.dxnn", "-p", "7", "-v", "assets/videos/dance-group.mov", "--target_fps", "30", "-l"],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": true,
+            "preLaunchTask": "build"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Pose Estimation",
+            "program": "${workspaceFolder}/bin/pose",
+            "args": ["-m", "assets/models/YOLOV5Pose640_1.dxnn", "-v", "assets/videos/dance-solo.mov", "--target_fps", "30", "-l"],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": true,
+            "preLaunchTask": "build"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Segmentation",
+            "program": "${workspaceFolder}/bin/segmentation",
+            "args": ["-m", "assets/models/DeepLabV3PlusMobileNetV2_2.dxnn", "-v", "assets/videos/blackbox-city-road.mp4", "--target_fps", "30", "-l"],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": true,
+            "preLaunchTask": "build"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "YOLO Multi Demo",
+            "program": "${workspaceFolder}/bin/yolo_multi",
+            "args": ["-c", "example/yolo_multi/yolo_multi_demo.json"],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": true,
+            "preLaunchTask": "build"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Object Detection + Segmentation",
+            "program": "${workspaceFolder}/bin/od_segmentation",
+            "args": ["-m0", "assets/models/YOLOV5S_6.dxnn", "-p0", "2", "-m1", "assets/models/DeepLabV3PlusMobileNetV2_2.dxnn", "-v", "assets/videos/blackbox-city-road2.mov", "-l"],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": true,
+            "preLaunchTask": "build"
+        },
+        // Image Demo Configurations
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Classification - EfficientNetB0",
+            "program": "${workspaceFolder}/bin/classification",
+            "args": ["-m", "assets/models/EfficientNetB0_4.dxnn", "-i", "sample/ILSVRC2012/1.jpeg"],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": true,
+            "preLaunchTask": "build"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Classification Async - EfficientNetB0",
+            "program": "${workspaceFolder}/bin/classification_async",
+            "args": ["-m", "assets/models/EfficientNetB0_4.dxnn", "-i", "sample/ILSVRC2012/1.jpeg"],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": true,
+            "preLaunchTask": "build"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "ImageNet Classification",
+            "program": "${workspaceFolder}/bin/imagenet_classification",
+            "args": ["-m", "assets/models/EfficientNetB0_4.dxnn", "-i", "example/imagenet_classification/imagenet_val_map.txt", "-p", "sample/ILSVRC2012/"],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": true,
+            "preLaunchTask": "build"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Object Detection + Segmentation",
+            "program": "${workspaceFolder}/bin/od_segmentation",
+            "args": ["-m0", "assets/models/YOLOV5S_3.dxnn", "-p0", "1", "-m1", "assets/models/DeepLabV3PlusMobileNetV2_2.dxnn", "-i", "sample/8.jpg"],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": true,
+            "preLaunchTask": "build"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Pose Estimation",
+            "program": "${workspaceFolder}/bin/pose",
+            "args": ["-m", "assets/models/YOLOV5Pose640_1.dxnn", "-i", "sample/7.jpg", "-p", "0"],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": true,
+            "preLaunchTask": "build"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Run Classifier Example",
+            "program": "${workspaceFolder}/bin/run_classifier",
+            "args": ["-c", "example/run_classifier/imagenet_example.json"],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": true,
+            "preLaunchTask": "build"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Run Detector Example",
+            "program": "${workspaceFolder}/bin/run_detector",
+            "args": ["-c", "example/run_detector/yolov5s3_example.json"],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": true,
+            "preLaunchTask": "build"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Segmentation",
+            "program": "${workspaceFolder}/bin/segmentation",
+            "args": ["-m", "assets/models/DeepLabV3PlusMobileNetV2_2.dxnn", "-i", "sample/8.jpg"],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": true,
+            "preLaunchTask": "build"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "YOLO",
+            "program": "${workspaceFolder}/bin/yolo",
+            "args": ["-m", "assets/models/YOLOV5S_3.dxnn", "-i", "sample/1.jpg", "-p", "1"],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": true,
+            "preLaunchTask": "build"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "YOLO Multi Example",
+            "program": "${workspaceFolder}/bin/yolo_multi",
+            "args": ["-c", "./example/yolo_multi/yolo_multi_demo.json"],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": true,
+            "preLaunchTask": "build"
+        }
+    ]
+}
+
+/*
+# demo commands, used in run_demo.sh
+bin/yolo -m assets/models/YoloV8N.dxnn -p 5 -v assets/videos/boat.mp4 --target_fps 30 -l
+bin/yolo -m assets/models/YOLOV9S.dxnn -p 10 -v assets/videos/carrierbag.mp4 --target_fps 30 -l
+bin/yolo -m assets/models/YOLOV5S_Face-1.dxnn -p 7 -v assets/videos/dance-group.mov --target_fps 30 -l
+bin/pose -m assets/models/YOLOV5Pose640_1.dxnn -v assets/videos/dance-solo.mov --target_fps 30 -l
+bin/segmentation -m assets/models/DeepLabV3PlusMobileNetV2_2.dxnn -v assets/videos/blackbox-city-road.mp4 --target_fps 30 -l
+bin/yolo_multi -c example/yolo_multi/yolo_multi_demo.json
+bin/od_segmentation -m0 assets/models/YOLOV5S_6.dxnn -p0 2 -m1 assets/models/DeepLabV3PlusMobileNetV2_2.dxnn -v assets/videos/blackbox-city-road2.mov -l
+
+# demo commands used in ./bin/*
+bin/classification -m assets/models/EfficientNetB0_4.dxnn -i sample/ILSVRC2012/1.jpeg
+bin/classification_async -m assets/models/EfficientNetB0_4.dxnn -i sample/ILSVRC2012/1.jpeg
+bin/imagenet_classification -m assets/models/EfficientNetB0_4.dxnn -i example/imagenet_classification/imagenet_val_map.txt -p sample/ILSVRC2012/
+bin/od_segmentation -m0 assets/models/YOLOV5S_3.dxnn -p0 1 -m1 assets/models/DeepLabV3PlusMobileNetV2_2.dxnn -i sample/8.jpg
+bin/pose -m assets/models/YOLOV5Pose640_1.dxnn -i sample/7.jpg -p 0
+bin/run_classifier -c example/run_classifier/imagenet_example.json
+bin/run_detector -c example/run_detector/yolov5s3_example.json
+bin/segmentation -m assets/models/DeepLabV3PlusMobileNetV2_2.dxnn -i sample/8.jpg
+bin/yolo -m assets/models/YOLOV5S_3.dxnn -i sample/1.jpg -p 1
+bin/yolo_multi -c ./example/yolo_multi/yolo_multi_demo.json
+*/

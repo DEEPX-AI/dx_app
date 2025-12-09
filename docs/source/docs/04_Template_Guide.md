@@ -1,14 +1,16 @@
-This section describes how to run classification and object detection tasks using the **DX-APP** application template system. Templates allow you to execute demos by simply modifying a JSON configuration file—no code changes are required.  
+This section describes how to run classification and object detection tasks using the **DX-APP** application template system. Templates allow developers to execute demos by simply modifying a JSON configuration file—no code changes are required.  
 
-Currently, the supported application templates are Classification and YOLO-based Object Detection.  
+**Supported Application Templates**
 
-**Note.** If your YOLO model requires custom decoding logic, you **must** manually update the yoloCustomDecode function located in `lib/utils/ box_decode.hpp`.  
+The following application templates are currently supported:
 
-Related Sections are as follows.  
+- Classification Templates
+- Object Detection Templates
+- Python Examples Templates
 
-- Section. Classification Templates  
-- Section. Object Detection Templates  
-- Section. Python Examples Templates  
+!!! note "NOTE" 
+
+    If your YOLO model requires custom decoding logic, you **must** manually update the yoloCustomDecode function located in `lib/utils/ box_decode.hpp`.  
 
 ---
 
@@ -35,7 +37,7 @@ The `example/run_classifier/imagenet_example.json` file is a sample configuratio
 
 For a detailed explanation of how classification works, refer to **Section. Classification Template Guide**.  
 
-![](./../resources/04_01_Output_of_run_classifier.png){ width=400px }
+![](./../resources/04_01_Output_of_run_classifier.png)
 
 ---
 
@@ -66,7 +68,7 @@ The `type` field in the JSON configuration defines how detection results are han
 In the previous example, the json file sets `type` as `none`.   
 If you want to save the output, change it to `save`.  
 
-![](./../resources/04_02_Sample_multi-channel_output.png){ width=600px }
+![](./../resources/04_02_Sample_multi-channel_output.png)
 
 When using a YOLO model, post-processing parameters can be customized based on the official YOLOv5 configuration. You may also modify the class information directly in the JSON file, so no code recompilation is required.  
 
@@ -146,7 +148,7 @@ When `type` in the `sources` field of the `input` section is set to `video`, you
 ```
 ./bin/run_detector -c example/run_detector/yolov5s3_realtime_example.json
 ```
-![](./../resources/04_03_Sample_multi-channel_output.png){ width=600px }
+![](./../resources/04_03_Sample_multi-channel_output.png)
 
 If you are using a custom YOLO model that does **not** follow the standard decoding logic, or if you are **not** using the `yolo_basic` decoding method, you **must** implement a custom decode function.  
 
@@ -184,7 +186,10 @@ anchor, int stride, float scale)
 };
 ```
 
-**Note.** Once you modify the code, you **must** recompile it.
+!!! note "NOTE" 
+
+    Once you modify the code, you **must** recompile it.
+
 ```
 ./build.sh
 ```

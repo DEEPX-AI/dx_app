@@ -26,9 +26,9 @@ void Segmentation(float *input, uint8_t *output, int rows, int cols, Segmentatio
      *  When need_transpose is True (use-ort on mode), the output data format is [1, 19, 640, 640].
      *  Test results show that FPS improves by 1.5x when use-ort is off.
      */
-    bool need_transpose = shape[1] == numClasses? true : false;
+    bool need_transpose = static_cast<int>(shape[1]) == numClasses? true : false;
     int compare_max_idx, compare_channel_idx;
-    int pitch = shape[3];
+    int pitch = static_cast<int>(shape[3]);
     for(int h=0;h<rows;h++)
     {
         for(int w=0;w<cols;w++)

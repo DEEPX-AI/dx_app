@@ -7,14 +7,14 @@
 struct BoundingBox
 {
     // Member variables ordered by initialization sequence
-    int label;
-    float score;
-    std::string labelname;
-    float box[4];
-    float kpt[51];
+    int label = -1;
+    float score = 0.0f;
+    std::string labelname = "";
+    float box[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+    float kpt[51] = {0.0f};
 
-    ~BoundingBox() = default;
     BoundingBox() = default;
+    ~BoundingBox() = default;
     
     // Constructor with initialization list
     BoundingBox(unsigned int _label, std::string const & _labelname, float _score,

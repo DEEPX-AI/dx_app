@@ -44,6 +44,19 @@ help() {
     exit 0
 }
 
+# Helper function to remove files/directories with optional sudo fallback
+safe_remove() {
+    local cmd="$1"
+    shift
+    if ! $cmd "$@" 2>/dev/null; then
+        echo -e "${TAG_WARN} Failed to clean, trying again with 'sudo'."
+        sudo $cmd "$@" 2>/dev/null || {
+            echo -e "${TAG_ERROR} Failed to clean '${@}' directory"
+            exit 1
+        }
+    fi
+}
+
 # Helper: uninstall dx_postprocess and clean artifacts
 uninstall_dx_postprocess() {
     echo -e "${TAG_INFO} Uninstalling dx_postprocess from the current Python environment if installed..."
@@ -75,12 +88,12 @@ PY
 )
     for d in ${SITE_PKGS}; do
         [ -d "$d" ] || continue
-        rm -f "$d"/dx_postprocess*.so "$d"/dx_postprocess*.pyd 2>/dev/null || true
-        rm -rf "$d"/dx_postprocess-*.dist-info "$d"/dx_postprocess*.egg-info "$d"/dx_postprocess 2>/dev/null || true
+        safe_remove rm -f "$d"/dx_postprocess*.so "$d"/dx_postprocess*.pyd
+        safe_remove rm -rf "$d"/dx_postprocess-*.dist-info "$d"/dx_postprocess*.egg-info "$d"/dx_postprocess
     done
 
     echo -e "${TAG_INFO} Removing local build artifacts for dx_postprocess..."
-    rm -rf lib/pybind/build lib/pybind/dist lib/pybind/dx_postprocess.egg-info 2>/dev/null || true
+    safe_remove rm -rf lib/pybind/build lib/pybind/dist lib/pybind/dx_postprocess.egg-info
 }
 
 # cmake command
@@ -189,15 +202,13 @@ echo cmake args : ${cmd[@]}
 if [ $clean_build == "true" ]; then 
     # Uninstall python package and clean artifacts as part of clean build
     uninstall_dx_postprocess
-    CLEAN_CMD="rm -rf $build_dir && [ $(uname -m) == \"$target_arch\" ] && rm -rf $out_dir"
-    ${CLEAN_CMD}
-    if [ $? -ne 0 ]; then
-        echo -e "${TAG_WARN} Failed to clean build directory. try to clean again with 'sudo'."
-        sudo ${CLEAN_CMD} 
-        if [ $? -ne 0 ]; then
-            echo -e "${TAG_ERROR} Failed to clean build directory"
-            exit 1
-        fi
+    
+    echo -e "${TAG_INFO} Cleaning build directories..."
+    
+    
+    safe_remove rm -rf "$build_dir"
+    if [ $(uname -m) == "$target_arch" ]; then
+        safe_remove rm -rf "$out_dir"
     fi
 fi
 
@@ -220,7 +231,7 @@ fi
 
 if [ -f ${DX_APP_PATH}/templates/python/requirements.txt ]; then
     echo Installing Python dependencies from ${DX_APP_PATH}/templates/python/requirements.txt
-    pip install -r ${DX_APP_PATH}/templates/python/requirements.txt
+    pip install -r ${DX_APP_PATH}/templates/python/requirements.txt --timeout 1200
     if [ $? -ne 0 ]; then
         echo -e "${TAG_ERROR} Failed to install Python dependencies"
         exit 1

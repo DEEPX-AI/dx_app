@@ -1,4 +1,6 @@
 #include <algorithm>
+#include <cstdint>
+#include <dxrt/datatype.h>
 #include <opencv2/opencv.hpp>
 #include <utils/common_util.hpp>
 #include "yolo.h"
@@ -73,17 +75,31 @@ Yolo::Yolo(YoloParam &_cfg) :cfg(_cfg)
 
 bool Yolo::LayerReorder(dxrt::Tensors output_info)
 {
+    if(static_cast<int>(output_info.front().type()) >= static_cast<int>(dxrt::DataType::BBOX))
+    {
+        std::cout << "[DXAPP] [INFO] This model is BBOX/POSE/FACE output. Skip reordering." << std::endl;
+        is_ppu_output = true;
+        is_onnx_output = false;
+        return true;
+    }
+
     for(size_t i=0;i<output_info.size();i++)
     {
         if(cfg.onnxOutputName == output_info[i].name())
         {
-            cfg.numBoxes = output_info.front().shape()[1];
+            if(cfg.numBoxes == 0)
+            {
+                cfg.numBoxes = cfg.postproc_type == PostProcType::YOLOV8 ? 
+                        static_cast<uint32_t>(output_info[i].shape()[2]) : 
+                        static_cast<uint32_t>(output_info[i].shape()[1]);
+            }
             std::cout << "cfg.numBoxes: " << cfg.numBoxes << std::endl; 
             onnxOutputIdx.emplace_back(i);
             Boxes.clear();
             Keypoints.clear();
-            Boxes = std::vector<float>(cfg.numBoxes*4);
-            Keypoints = std::vector<float>(cfg.numBoxes*51);
+            
+            Boxes = std::vector<float>(static_cast<size_t>(cfg.numBoxes) * 4);
+            Keypoints = std::vector<float>(static_cast<size_t>(cfg.numBoxes) * 51);
         }
     }
     if(onnxOutputIdx.size() > 0)
@@ -91,23 +107,26 @@ bool Yolo::LayerReorder(dxrt::Tensors output_info)
         cfg.Show();
         std::cout << "YOLO created : " << cfg.numBoxes << " boxes, " << cfg.numClasses << " classes, "<< std::endl;
         cfg.layers.clear();
+        is_onnx_output = true;
         return true;
     }
-    
+
     std::vector<YoloLayerParam> temp;
-    for(size_t i=0;i<output_info.size();i++)
+
+    for(size_t i=0;i<cfg.layers.size();i++)
     {   
-        for(size_t j=0;j<cfg.layers.size();j++)
+        for(size_t j=0;j<output_info.size();j++)
         {
-            if(output_info[i].name() == cfg.layers[j].name)
+            if(output_info[j].name() == cfg.layers[i].name)
             {
-                cfg.layers[j].tensorIdx.clear();
-                cfg.layers[j].tensorIdx.push_back(static_cast<int32_t>(i));
-                temp.emplace_back(cfg.layers[j]);
+                cfg.layers[i].tensorIdx.clear();
+                cfg.layers[i].tensorIdx.push_back(static_cast<int32_t>(j));
+                temp.emplace_back(cfg.layers[i]);
                 break;
             }
         }
     }
+
     if(temp.size() != output_info.size())
     {
         std::cerr << "[DXAPP] [ER] Yolo::LayerReorder : Output tensor size mismatch. Please check the model output configuration." << std::endl;
@@ -138,8 +157,8 @@ std::vector<BoundingBox> Yolo::PostProc(dxrt::TensorPtrs& dataSrc)
         ScoreIndices[label].clear();
     }
     Result.clear();
-
-    if(cfg.layers.empty())
+    
+    if(is_onnx_output)
     {
         for(auto &data:dataSrc)
         {
@@ -150,6 +169,10 @@ std::vector<BoundingBox> Yolo::PostProc(dxrt::TensorPtrs& dataSrc)
                 break;
             }
         }
+    }
+    else if(is_ppu_output)
+    {
+        ppu_post_processing(dataSrc);
     }
     else
     {
@@ -248,6 +271,135 @@ void Yolo::onnx_post_processing(dxrt::TensorPtrs &outputs, int64_t num_elements)
             }
             else continue;
         }
+    }
+}
+
+void Yolo::ppu_post_processing(dxrt::TensorPtrs &outputs) {
+    int boxIdx = 0;
+    auto first_output = outputs.front();
+    std::vector<float> box_temp(4);
+    switch (first_output->type())
+    {
+        case dxrt::DataType::BBOX:
+            {
+                auto num_elements = first_output->shape()[1]; // 0 : batch, 1 : num_elements
+                auto *data = static_cast<dxrt::DeviceBoundingBox_t*>(first_output->data());
+                for(int i=0;i<num_elements;++i)
+                {
+                    if(data[i].score > cfg.scoreThreshold)
+                    {
+                        if(data[i].label >= cfg.numClasses)
+                        {
+                            std::cerr << "[DXAPP] [WARN] The label id " << data[i].label << " is out of range. Please check the model output." << std::endl;
+                            continue;
+                        }
+                        ScoreIndices[data[i].label].emplace_back(data[i].score, boxIdx);
+                        auto layer = cfg.layers[data[i].layer_idx];
+                        int strideX = cfg.width / layer.numGridX;
+                        int strideY = cfg.height / layer.numGridY;
+                        int gX = data[i].grid_x;
+                        int gY = data[i].grid_y;
+                        float scale_x_y = layer.scaleX;
+                        if(layer.anchorHeight.size() > 0)
+                        {
+                            if(scale_x_y==0)
+                            {
+                                box_temp[0] = (data[i].x * 2. - 0.5 + gX) * strideX;
+                                box_temp[1] = (data[i].y * 2. - 0.5 + gY) * strideY;
+                            }
+                            else
+                            {
+                                box_temp[0] = (data[i].x * scale_x_y  - 0.5 * (scale_x_y - 1) + gX) * strideX;
+                                box_temp[1] = (data[i].y * scale_x_y  - 0.5 * (scale_x_y - 1) + gY) * strideY;
+                            }
+                            box_temp[2] = pow((data[i].w * 2.), 2) * layer.anchorWidth[data[i].box_idx];
+                            box_temp[3] = pow((data[i].h * 2.), 2) * layer.anchorHeight[data[i].box_idx];
+                        }
+                        else
+                        {
+                            box_temp[0] = data[i].x * strideX;
+                            box_temp[1] = data[i].y * strideY;
+                            box_temp[2] = std::exp(data[i].w) * strideX;
+                            box_temp[3] = std::exp(data[i].h) * strideY;
+                        }
+                        Boxes[boxIdx*4+0] = box_temp[0] - box_temp[2] / 2.; /*x1*/
+                        Boxes[boxIdx*4+1] = box_temp[1] - box_temp[3] / 2.; /*y1*/
+                        Boxes[boxIdx*4+2] = box_temp[0] + box_temp[2] / 2.; /*x2*/
+                        Boxes[boxIdx*4+3] = box_temp[1] + box_temp[3] / 2.; /*y2*/
+                        boxIdx++;
+                    }
+                }
+            }
+            break;
+        case dxrt::DataType::POSE:
+            {
+                auto num_elements = first_output->shape()[1]; // 0 : batch, 1 : num_elements
+                auto *data = static_cast<dxrt::DevicePose_t*>(first_output->data());
+                for(int i=0;i<num_elements;++i)
+                {
+                    if(data[i].score > cfg.scoreThreshold)
+                    {
+                        ScoreIndices[0].emplace_back(data[i].score, boxIdx);
+                        auto layer = cfg.layers[data[i].layer_idx];
+                        int strideX = cfg.width / layer.numGridX;
+                        int strideY = cfg.height / layer.numGridY;
+                        int gX = data[i].grid_x;
+                        int gY = data[i].grid_y;
+                        box_temp[0] = (data[i].x * 2. - 0.5 + gX) * strideX;
+                        box_temp[1] = (data[i].y * 2. - 0.5 + gY) * strideY;
+                        box_temp[2] = pow((data[i].w * 2.), 2) * layer.anchorWidth[data[i].box_idx];
+                        box_temp[3] = pow((data[i].h * 2.), 2) * layer.anchorHeight[data[i].box_idx];
+                        Boxes[boxIdx*4+0] = box_temp[0] - box_temp[2] / 2.; /*x1*/
+                        Boxes[boxIdx*4+1] = box_temp[1] - box_temp[3] / 2.; /*y1*/
+                        Boxes[boxIdx*4+2] = box_temp[0] + box_temp[2] / 2.; /*x2*/
+                        Boxes[boxIdx*4+3] = box_temp[1] + box_temp[3] / 2.; /*y2*/
+                        
+                        for(int k = 0; k < 17; k++)
+                        {
+                            Keypoints[boxIdx*51+k*3+0] = (data[i].kpts[k][0] * 2 - 0.5 + gX) * strideX;
+                            Keypoints[boxIdx*51+k*3+1] = (data[i].kpts[k][1] * 2 - 0.5 + gY) * strideY;
+                            Keypoints[boxIdx*51+k*3+2] = data[i].kpts[k][2];
+                        }
+                        boxIdx++;
+                    }
+                }
+            }
+            break;
+        case dxrt::DataType::FACE:
+            {
+                auto num_elements = first_output->shape()[1]; // 0 : batch, 1 : num_elements
+                auto *data = static_cast<dxrt::DeviceFace_t*>(first_output->data());
+                for(int i=0;i<num_elements;++i)
+                {
+                    if(data[i].score > cfg.scoreThreshold)
+                    {
+                        ScoreIndices[0].emplace_back(data[i].score, boxIdx);
+                        auto layer = cfg.layers[data[i].layer_idx];
+                        int strideX = cfg.width / layer.numGridX;
+                        int strideY = cfg.height / layer.numGridY;
+                        int gX = data[i].grid_x;
+                        int gY = data[i].grid_y;
+                        Boxes[boxIdx*4+0] = (gX - data[i].x) * strideX;
+                        Boxes[boxIdx*4+1] = (gY - data[i].y) * strideY;
+                        Boxes[boxIdx*4+2] = (gX + data[i].w) * strideX;
+                        Boxes[boxIdx*4+3] = (gY + data[i].h) * strideY;
+
+                        for(int k = 0; k < 5; k++)
+                        {
+                            Keypoints[boxIdx*51+k*3+0] = (data[i].kpts[k][0] + gX) * strideX;
+                            Keypoints[boxIdx*51+k*3+1] = (data[i].kpts[k][1] + gY) * strideY;
+                            Keypoints[boxIdx*51+k*3+2] = 0.5;
+                        }
+                        boxIdx++;
+                    }
+                }
+            }
+            break;
+        default:
+            {
+                std::cout << "[DXAPP] [INFO] This model is not supported output type. Skip post-processing." << std::endl;
+            }
+            break;
     }
 }
 

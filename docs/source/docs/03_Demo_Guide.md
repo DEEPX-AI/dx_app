@@ -1,23 +1,23 @@
-This chapter introduces a quick-start experience using pre-built demo applications provided by **DX-APP**. These applications allow developers to evaluate DeepX NPU performance on common vision AI tasks such as classification, detection, and segmentation. Developers can modify the examples or use them as templates to build custom applications.  
+This chapter introduces a quick-start experience using pre-built demo applications provided by **DX-APP**. These applications allow developers to evaluate DeepX NPU performance on common vision AI tasks. Developers can modify the examples or use them as templates to build custom applications.  
 
-**Note.** Performance results may vary depending on host system specifications, as the demos include host-side pre-processing, post-processing, and rendering operations.  
+Available C++ Demo Applications
+
+DX-APP currently provides the following C++ demonstration applications:
+
+- Classification: Basic Classification, ImageNet Classification
+- Object Detection: YOLO Object Detection, YOLO Object Detection - Multi Channel
+- Pose Estimation: Human Pose Estimation
+- Segmentation: Semantic Segmentation DeepLabV3 (CityScape dataset Only) , Sema
+
+!!! note "NOTE" 
+
+    Performance results may vary depending on host system specifications, as the demos include host-side pre-processing, post-processing, and rendering operations.  
+
+**Known Issues.** 
+- DeepLabV3 Semantic Segmentation model accuracy may be slightly degraded in dx-compiler(dx_com) v2.1.0. This will be fixed in the next release. The DeepLabV3 model used in the demo was converted using dx-compiler v2.0.0.
+- When using the PPU model for face detection & pose estimation, dx-compiler v2.1.0 does not currently support converting face and pose models to PPU format. This feature will be added in a future release. The PPU models used in the demo were converted using dx-compiler v1.0.0(dx_com v1.60.1).
 
 ---
-
-## C++ Demo Application List  
-
-**DX-APP** provides the following C++ demo applications.  
-
-- **Classification**: Basic Classification, ImageNet Classification  
-- **Object Detection**: Yolo Object Detection, Yolo Object Detection - Multi Channel  
-- **Pose Estimation**: Human Pose Estimation  
-- **Segmentation**: Semantic Segmentation DeepLabV3 (CityScape dataset Only), Semantic Segmentation DeepLabV3 (CityScape dataset Only) + Yolo Object Detection  
-
----
-
-## Running Demo Executables  
-
-Each demo can be executed on Linux or Windows.  
 
 ### Classification  
 
@@ -66,10 +66,11 @@ bin\imagenet_classification.exe -m assets\models\EfficientNetB0_4.dxnn -i exampl
 
 - Output Example  
 
-![](./../resources/03_01_Output_of_imagenet.png){ width=400px }
+![](./../resources/03_01_Output_of_imagenet.png)
 
 The output shows the accuracy of the classification result is **74.3%** and the frame rate (fps) is **634**.  
 
+---
 
 ### Object Detection  
 
@@ -104,7 +105,7 @@ This demo performs object detection on a single input stream using a YOLOv5 mode
 
 In this example, a person is detected with **confidence 0.877**, and the bounding box is defined by the four coordinates.
 
-![](./../resources/03_02_Output_of_yolo.png){ width=600px }
+![](./../resources/03_02_Output_of_yolo.png)
 
 **Pre-processing and Post-processing Parameters**  
 YOLO models in **DX-APP** require external configuration for pre-processing and post-processing parameters. These parameters are not embedded in the `.dxnn` model.file.  
@@ -152,7 +153,7 @@ This demo performs object detection on multiple input streams simultaneously usi
 
 ```
 
-![](./../resources/03_03_Output_of_yolo_multi.png){ width=700px }
+![](./../resources/03_03_Output_of_yolo_multi.png)
 
 
 **JSON Configuration for Multi-Channel YOLO Demo**  
@@ -269,6 +270,7 @@ To run a demo using an **RTSP** video stream, configure the input source in the 
 
 This enables real-time inference directly from network video streams using DEEPX NPU.  
 
+---
 
 ### Pose Estimation  
 
@@ -283,7 +285,7 @@ This section explains how to run pose estimation demos based on Ultralytics YOLO
 
 The YOLO pose model predicts human key points for each detected person within an image or video frame.  
 
-![](./../resources/03_04_Output_of_YOLO_Pose_Estimation.png){ width=600px }
+![](./../resources/03_04_Output_of_YOLO_Pose_Estimation.png)
 
 **Pre-processing and Post-processing Parameters**  
 Yolo Pose models do not embed external pre-processing and post-processing parameters in the compiled `.dxnn` file.  
@@ -305,6 +307,7 @@ To configure custom pose estimation parameters
 
 This setup ensures that the NPU output is properly decoded into keypoint coordinates and bounding boxes.  
 
+---
 
 ### Segmentation  
 This section explains how to run semantic segmentation demos based on YOLOv5 models. Both semantic segmentation models are supported.  
@@ -320,10 +323,11 @@ This demo describes an example of semantic segmentation based on the DeepLabV3Pl
 
 This model performs pixel-wise classification, assigning a semantic label to each pixel in the input image. This allows for dense and structured scene understanding.  
 
-**Notes.**  
+!!! note "NOTE"  
 
-- Load `DeepLabV3PlusMobileNetV2_2.dxnn` in the segmentation pipeline.  
-- Use the **Cityscape** class index mappings to interpret the output mask.  
+    - Load `DeepLabV3PlusMobileNetV2_2.dxnn` in the segmentation pipeline.  
+    - Use the **Cityscape** class index mappings to interpret the output mask.  
+
 
 ```
 /* class_index, class_name, colorB, G, R */
@@ -354,7 +358,7 @@ SegmentationParam segCfg[] = {
 ./bin/segmentation -m assets/models/DeepLabV3PlusMobileNetV2_2.dxnn -i sample/8.jpg
 ```
 
-![](./../resources/03_05_Ouput_of_Segmentation.png){ width=600px }
+![](./../resources/03_05_Ouput_of_Segmentation.png)
 
 
 **Semantic Segmentation - Object Detection Demo**  
@@ -377,6 +381,6 @@ Benefits of Combined Pipeline
 ./bin/od_segmentation -m0 assets/models/YOLOV5S_3.dxnn -p0 1 -m1 assets/models/DeepLabV3PlusMobileNetV2_2.dxnn -i sample/8.jpg
 ```
 
-![](./../resources/03_06_Output_of_od_segmentation.png){ width=600px }
+![](./../resources/03_06_Output_of_od_segmentation.png)
 
 ---
