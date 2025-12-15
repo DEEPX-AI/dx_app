@@ -139,10 +139,33 @@ Tasks:
     -  BBOX, BBOX, [1, 64, 64, 128 ]
 ```
 
-| Type   | Name   | Data Type (dtype) | Shape            |  Description                                  |
-|--------|--------|-------------------|------------------|-----------------------------------------------|
-| input  | images | UINT8             | [1, 512, 512, 3] | Input images UINT8 [1, 320, 960]	Input image data with batch size 1, 3 channels, height 320, and width 960. |
-| output | BBOX   | BBOX (PPU Format) | [1, num dets]    | The output is in the **PPU-specific Bounding Box format**. The size is dynamically determined by the number of detected boxes. |
+<table style="width: 100%; table-layout: fixed; font-size: 12px;">
+  <thead>
+    <tr>
+      <th style="width: 15%; text-align: center;">Type</th>
+      <th style="width: 15%; text-align: center;">Name</th>
+      <th style="width: 15%; text-align: center;">Data Type</th>
+      <th style="width: 20%; text-align: center;">Shape</th>
+      <th style="width: 35%; text-align: left;">Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style="text-align: center;">input</td>
+      <td style="text-align: center;">images</td>
+      <td style="text-align: center;">UINT8</td>
+      <td style="text-align: center;"><code>[1, 512, 512, 3]</code></td>
+      <td>Input image data with batch size 1, 3 channels,<br>height 512, and width 512</td>
+    </tr>
+    <tr>
+      <td style="text-align: center;">output</td>
+      <td style="text-align: center;">BBOX</td>
+      <td style="text-align: center;">BBOX<br>(PPU Format)</td>
+      <td style="text-align: center;"><code>[1, num_dets]</code></td>
+      <td>PPU-specific Bounding Box format.<br>Size is dynamically determined by<br>the number of detected boxes</td>
+    </tr>
+  </tbody>
+</table>
 
 
 **Accessing PPU Output Data**
