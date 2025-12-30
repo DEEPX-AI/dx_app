@@ -2,7 +2,7 @@ This section explains how to use the Object Detection Template to execute YOLO-s
 
 ---
 
-## Object Detection Template Example (Yolo Model)
+## Run Object Detection Template (Yolo Model)
 
 To run an object detection model using YOLOv5.
 
@@ -24,9 +24,7 @@ Output Display Options
 - `realtime`:	Displays results in a window (GUI)  
 - `none`:	Continuously prints detection count (default)  
 
-!!! note "NOTE" 
-
-    The current example file sets `type: none`. To save video output, change it to `save`.  
+**Note.** The current example file sets `type: none`. To save video output, change it to `save`.  
 
 Supported Post-Processing Methods  
 The detection template supports various decoding methods tailored to different YOLO variants.  
@@ -51,7 +49,6 @@ Supported scenarios include
 
 - Post-Processing with `USE_ORT=ON`  
 - Post-Processing with `USE_ORT=OFF`  
-- Post-Processing with `PPU` (Post Processing Unit instead CPU)
 - (Optional) Custom Post-Processing  
 
 ---
@@ -68,9 +65,9 @@ Refer to `dx_app/lib/post_process/yolo_post_processing.hpp` - line.204 for the R
 
 ---
 
-## Post-Processing Using USE_ORT=OFF
+## Post-Processing Using USE_ORT=OFF and No PPU
 
-If executed with `USE_ORT=OFF`, the model output will consist of three blobs.
+If PPU is **disabled** and the model is executed with `USE_ORT=OFF`, the model output will consist of three blobs.
 ```
 inputs
     images, UINT8, [1, 512, 512, 3, ], 0
@@ -88,181 +85,6 @@ Required Post-Processing Steps
 - **3.** Non-Maximum Suppression (NMS): Filter overlapping boxes and retain only the highest-confidence detections.  
 
 Refer to `dx_app/lib/post_process/yolo_post_processing.hpp` for implementation details.  
-
----
-
-## Post-Processing Using PPU
-
-**The Post-Processing Unit (PPU)** is a hardware-accelerated module integrated into the NPU pipeline. It executes critical final-stage operations, including confidence score calculation, threshold filtering, and the extraction of valid bounding boxes (BBox). 
-
-**PPU Output Format**  
-
-Unlike standard tensor outputs, the PPU outputs a list of filtered bounding boxes directly. This eliminates the need for the host to process large intermediate feature maps.
-The PPU outputs a list of filtered bounding boxes containing
-
-
-- Box coordinates (in `xywh`, `cxcywh`, or `x1y1x2y2` format, defined by the model)
-- Class labels  
-- Confidence scores  
-
-**Developer Action Required**
-After receiving the PPU output, the developer is only required to perform the subsequent, minimal post-processing steps on the host CPU. These two steps can typically be completed efficiently within a single loop, minimizing host CPU overhead:
-
-**1. BBox Format Conversion (Decoding)** : Decoding the coordinates from the model's native format (e.g., converting cxcywh to the corner format: xmin , ymin , xmax , ymax)
-
-**2. Non-Maximum Suppression (NMS)** : Filtering out highly overlapping bounding boxes to retain only the highest confidence predictions.
-
-
-**Model Execution Command**
-
-The PPU-compiled model file, `YOLOV5S_PPU.dxnn`, can be executed using the following command:
-
-```
-run_model -m ./assets/models/YOLOV5S_PPU.dxnn
-```
-
-**Input and Output Specifications**
-
-The expected input and output tensor specifications during model execution are as follows: 
-```
-Model Input Tensors:
-  - images
-Model Output Tensors:
-  - BBOX
-
-Tasks:
-  [ ] -> npu_0 -> []
-  Task[0] npu_0, NPU, NPU memory usage 111,518,912 bytes (input 786,432 bytes, output 8,257,536 bytes)
-  Inputs
-     -  images, UINT8, [1, 512, 512, 3 ]
-  Outputs
-    -  BBOX, BBOX, [1, 64, 64, 128 ]
-```
-
-<table style="width: 100%; table-layout: fixed; font-size: 12px;">
-  <thead>
-    <tr>
-      <th style="width: 15%; text-align: center;">Type</th>
-      <th style="width: 15%; text-align: center;">Name</th>
-      <th style="width: 15%; text-align: center;">Data Type</th>
-      <th style="width: 20%; text-align: center;">Shape</th>
-      <th style="width: 35%; text-align: left;">Description</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td style="text-align: center;">input</td>
-      <td style="text-align: center;">images</td>
-      <td style="text-align: center;">UINT8</td>
-      <td style="text-align: center;"><code>[1, 512, 512, 3]</code></td>
-      <td>Input image data with batch size 1, 3 channels,<br>height 512, and width 512</td>
-    </tr>
-    <tr>
-      <td style="text-align: center;">output</td>
-      <td style="text-align: center;">BBOX</td>
-      <td style="text-align: center;">BBOX<br>(PPU Format)</td>
-      <td style="text-align: center;"><code>[1, num_dets]</code></td>
-      <td>PPU-specific Bounding Box format.<br>Size is dynamically determined by<br>the number of detected boxes</td>
-    </tr>
-  </tbody>
-</table>
-
-
-**Accessing PPU Output Data**
-
-To access the results from the PPU inference on the Host memory, specific data structures from the `dxrt` library must be used. The PPU format structure is defined in the `datatypes.h` header file within the `dxrt` include path.
-
-Code Example for Result Access (C++) 
-The following C++ snippet demonstrates how to obtain a pointer to the bounding box data from the output list provided by the inference engine (`ie`).
-
-```cpp
-#include <dxrt/dxrt_api.h>
-
-auto outputs = ie.Run(input_data);
-dxrt::DeviceBoundingBox_t* raw_data =
-  static_cast<dxrt::DeviceBoundingBox_t*>(outputs.front()->data());
-```
-
-Bounding Box Structure Fields
-
-The structure used for bounding boxes, `dxrt::DeviceBoundingBox_t`, contains at least the following initial fields:
-  
-```
-typedef struct DXRT_API {
-    float x;
-    float y;
-    float w;
-    float h;
-    uint8_t grid_y;
-    uint8_t grid_x;
-    uint8_t box_idx;
-    uint8_t layer_idx;
-    float score;
-    uint32_t label;
-    char padding[4];
-} DeviceBoundingBox_t;
-```
-
-**Interpreting and Host Post-Processing PPU Output for Object Detection**
-
-The inference result from PPU is delivered in a highly optimized, non-standard tensor format, significantly streamlining the final stages of object detection. This section details the output structure and the required host-side post-processing steps.
-
-**PPU Output Structure and Format**
-
-The PPU output is shaped as `[1, num_boxes]`, where `num_boxes` is the count of valid bounding boxes filtered by the PPU. Each entry in this array represents a detected object and maps directly to the `dxrt::DeviceBoundingBox_t` structure.
-
-Bounding Box Fields
-
-The fields contained within each bounding box entry are.
-
-- `x, y, w, h`: Bounding box in center format (`cxcywh`)  
-- `grid`: Grid cell index  
-- `box_idx`: Anchor index  
-- `layer_idx`: Detection layer index  
-- `score`: Confidence score  
-- `label`: Class ID  
-- `padding[4]`: 4-byte alignment for 32-byte struct size  
-
-**Host Post-Processing Requirements**
-
-After receiving the PPU output, only two steps are required on the host (CPU) to finalize the detection results
-
-Accessing the Struct Conversion
-
-The raw PPU output data must be cast to the dxrt::DeviceBoundingBox_t structure for iteration and processing.
-
-C++ Access Loop
-
-The following code snippet demonstrates how to access the raw data and iterate through the detected bounding boxes:
-
-```cpp
-auto outputs = ie.run(input_data);
-dxrt::DeviceBoundingBox_t* raw_data = static_cast<dxrt::DeviceBoundingBox_t*>(outputs.front()->data());
-for (int i = 0; i < outputs.front()->shape()[0]; i++) {
-    auto data = raw_data[i];
-    // Your post-processing logic here
-}
-```
-
-**Reference.** Refer to `dx_app/demos/demo_utils/yolo.cpp` for the following example.  
-```cpp
-/* Example of dxrt::DeviceBoundingBox_t */
-box_temp[0] = (data[i].x * 2. - 0.5 + gX) * stride; // cx
-box_temp[1] = (data[i].y * 2. - 0.5 + gY) * stride; // cy
-box_temp[2] = pow((data[i].w * 2.), 2) * layer.anchorWidth[data[i].box_idx]; // w
-box_temp[3] = pow((data[i].h * 2.), 2) * layer.anchorHeight[data[i].box_idx]; // h
-
-x1 = box_temp[0] - box_temp[2] / 2.; /*x1*/
-y1 = box_temp[1] - box_temp[3] / 2.; /*y1*/
-x2 = box_temp[0] + box_temp[2] / 2.; /*x2*/
-y2 = box_temp[1] + box_temp[3] / 2.; /*y2*/
-```
-
-Decoding and Applying NMS  
-After struct conversion, the `cxcywh` format **must** be translated to corner format (`xmin, ymin, xmax, ymax`). This enables accurate rendering and overlap calculations.  
-Following decoding, apply Non-Maximum Suppression (NMS) to remove overlapping bounding boxes and retain only high-confidence predictions.  
-
-Refer to `dx_app/demos/demo_utils/yolo.cpp` - line.154 for the Reference Implementation.  
 
 ---
 
@@ -336,9 +158,7 @@ anchor, int stride, float scale)
 };
 ```
 
-!!! note "NOTE" 
-
-    Once you modify the code, you **must** recompile it.
+**Note.** Once you modify the code, you **must** recompile it.
 ```
 ./build.sh
 ```

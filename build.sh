@@ -2,6 +2,14 @@
 SCRIPT_DIR=$(realpath "$(dirname "$0")")
 DX_APP_PATH=$(realpath -s "${SCRIPT_DIR}")
 
+# Calculate number of CPU cores to use (half of available cores)
+NUM_CORES=$(nproc)
+BUILD_JOBS=$((NUM_CORES / 2))
+# Ensure at least 1 job
+if [ $BUILD_JOBS -lt 1 ]; then
+    BUILD_JOBS=1
+fi
+
 # color env settings
 source ${SCRIPT_DIR}/scripts/color_env.sh
 source ${SCRIPT_DIR}/scripts/common_util.sh
@@ -44,19 +52,6 @@ help() {
     exit 0
 }
 
-# Helper function to remove files/directories with optional sudo fallback
-safe_remove() {
-    local cmd="$1"
-    shift
-    if ! $cmd "$@" 2>/dev/null; then
-        echo -e "${TAG_WARN} Failed to clean, trying again with 'sudo'."
-        sudo $cmd "$@" 2>/dev/null || {
-            echo -e "${TAG_ERROR} Failed to clean '${@}' directory"
-            exit 1
-        }
-    fi
-}
-
 # Helper: uninstall dx_postprocess and clean artifacts
 uninstall_dx_postprocess() {
     echo -e "${TAG_INFO} Uninstalling dx_postprocess from the current Python environment if installed..."
@@ -65,35 +60,6 @@ uninstall_dx_postprocess() {
     else
         echo -e "${TAG_WARN} dx_postprocess is not installed (pip show returned non-zero)."
     fi
-
-    echo -e "${TAG_INFO} Removing dx_postprocess artifacts from current interpreter's site/dist-packages..."
-    SITE_PKGS=$(${python_exec} - <<'PY'
-import site, sys, sysconfig, os
-roots=set()
-paths = sysconfig.get_paths() or {}
-for k in ('purelib','platlib'):
-    p = paths.get(k)
-    if p:
-        roots.add(p)
-try:
-    up = site.getusersitepackages()
-    if up:
-        roots.add(up)
-except Exception:
-    pass
-prefix = os.path.realpath(sys.prefix)
-filtered = [r for r in roots if os.path.realpath(r).startswith(prefix)]
-print("\n".join(sorted(filtered)))
-PY
-)
-    for d in ${SITE_PKGS}; do
-        [ -d "$d" ] || continue
-        safe_remove rm -f "$d"/dx_postprocess*.so "$d"/dx_postprocess*.pyd
-        safe_remove rm -rf "$d"/dx_postprocess-*.dist-info "$d"/dx_postprocess*.egg-info "$d"/dx_postprocess
-    done
-
-    echo -e "${TAG_INFO} Removing local build artifacts for dx_postprocess..."
-    safe_remove rm -rf lib/pybind/build lib/pybind/dist lib/pybind/dx_postprocess.egg-info
 }
 
 # cmake command
@@ -103,6 +69,7 @@ verbose=false
 target_arch=$(uname -m)
 build_type=release  
 build_gtest=false
+build_with_codec=false
 
 # global variaibles
 python_exec=""
@@ -125,7 +92,7 @@ while (( $# )); do
             shift;;
         --python_exec)
             shift
-            python_exec_input=$(realpath "$1")
+            python_exec_input=$1
             shift;;
         --venv_path)
             shift
@@ -133,6 +100,9 @@ while (( $# )); do
             shift;;
         --test)
             build_gtest=true;
+            shift;;
+        --v3codec)
+            build_with_codec=true;
             shift;;
         *)
             help "error" "Invalid argument : $1"
@@ -154,7 +124,7 @@ fi
 # Check if python_exec 
 if [ -n "${python_exec_input}" ]; then
     if [ ! -f "${python_exec_input}" ]; then
-        echo -e "${TAG_ERROR} --python_exec is set to '${python_exec_input}'. but, Python executable path does not exist: ${python_exec}. Please check the path." >&2
+        echo -e "${TAG_ERROR} --python_exec is set to '${python_exec_input}'. but, Python executable path does not exist: ${python_exec_input}. Please check the path." >&2
         exit 1
     else
         echo -e "${TAG_INFO} --python_exec is set to '${python_exec_input}'"
@@ -185,6 +155,16 @@ if [ $build_gtest == "true" ]; then
     cmd+=(-DUSE_DXAPP_TEST=True);
 fi
 
+if [ $build_with_codec == "true" ]; then
+    if [ ! -d "${DX_APP_PATH}/third_party/v3_codec" ]; then
+        echo -e "${TAG_WARN} v3_codec directory not found at ${DX_APP_PATH}/third_party/v3_codec. Disabling codec build."
+        build_with_codec=false
+    else
+        cmd+=(-DUSE_V3_CODEC=True);
+        cmd+=(-DV3_CODEC_DIR=${DX_APP_PATH}/third_party/v3_codec);
+    fi
+fi
+
 cmd+=(-DCMAKE_VERBOSE_MAKEFILE=$verbose)
 
 if [ $build_type == "release" ] || [ $build_type == "debug" ] || [ $build_type == "relwithdebinfo" ]; then
@@ -202,100 +182,101 @@ echo cmake args : ${cmd[@]}
 if [ $clean_build == "true" ]; then 
     # Uninstall python package and clean artifacts as part of clean build
     uninstall_dx_postprocess
-    
-    echo -e "${TAG_INFO} Cleaning build directories..."
-    
-    
-    safe_remove rm -rf "$build_dir"
-    if [ $(uname -m) == "$target_arch" ]; then
-        safe_remove rm -rf "$out_dir"
+    CLEAN_CMD="rm -rf $build_dir && [ $(uname -m) == \"$target_arch\" ] && rm -rf bin && rm -rf lib && rm -rf include"
+    ${CLEAN_CMD}
+    if [ $? -ne 0 ]; then
+        echo -e "${TAG_WARN} Failed to clean build directory. try to clean again with 'sudo'."
+        sudo ${CLEAN_CMD} 
+        if [ $? -ne 0 ]; then
+            echo -e "${TAG_ERROR} Failed to clean build directory"
+            exit 1
+        fi
     fi
 fi
 
-mkdir -p $build_dir
-mkdir -p $out_dir
-rm -rf $build_dir/release/bin
+mkdir -p $build_dir 
+rm -rf $build_dir/release 
 pushd $build_dir >&2
 cmake .. ${cmd[@]} || {
     echo -e "${TAG_ERROR} CMake configuration failed. Please check the output above."
     exit 1
 }
+echo -e "${TAG_INFO} Using $BUILD_JOBS parallel jobs (half of $NUM_CORES available cores)"
+
 if [ $(uname -m) != "$target_arch" ]; then
-    cmake --build . --target install || { echo -e "${TAG_ERROR} CMake build failed. Please check the output above."; exit 1; } && popd >&2
+    cmake --build . --target install --parallel $BUILD_JOBS || { echo -e "${TAG_ERROR} CMake build failed. Please check the output above."; exit 1; } && popd >/dev/null 2>&1
 else
-    cmake --build . --target install || { echo -e "${TAG_ERROR} CMake build failed. Please check the output above."; exit 1; } && popd >&2 && cp $build_dir/release/bin/* $out_dir/
+    cmake --build . --target install --parallel $BUILD_JOBS || { echo -e "${TAG_ERROR} CMake build failed. Please check the output above."; exit 1; } && popd >/dev/null 2>&1 && cp -r $build_dir/release/* ./
     if [ $? -ne 1 ]; then
-        echo Build Completed and executable copied to $out_dir/
+        echo Build Completed and executable copied to $(pwd)
     fi
-fi
-
-if [ -f ${DX_APP_PATH}/templates/python/requirements.txt ]; then
-    echo Installing Python dependencies from ${DX_APP_PATH}/templates/python/requirements.txt
-    pip install -r ${DX_APP_PATH}/templates/python/requirements.txt --timeout 1200
-    if [ $? -ne 0 ]; then
-        echo -e "${TAG_ERROR} Failed to install Python dependencies"
-        exit 1
-    fi
-else
-    echo -e "${TAG_ERROR} ${DX_APP_PATH}/templates/python/requirements.txt not found"
-    exit 1
-fi
-
-# Install dx_postprocess Python module
-if [ -f ${DX_APP_PATH}/lib/pybind/setup.py ]; then
-    echo "Installing dx_postprocess Python module..."
-    pushd ${DX_APP_PATH}/lib/pybind >&2
-    
-    if [ $build_type == "debug" ]; then
-        export CMAKE_BUILD_TYPE=Debug
-        export DEBUG=1
-        echo "Setting DEBUG mode for dx_postprocess build"
-    elif [ $build_type == "relwithdebinfo" ]; then
-        export CMAKE_BUILD_TYPE=RelWithDebInfo
-        export DEBUG=1
-        echo "Setting RelWithDebInfo mode for dx_postprocess build"
-    else
-        export CMAKE_BUILD_TYPE=Release
-        export DEBUG=0
-        echo "Setting RELEASE mode for dx_postprocess build"
-    fi
-    
-    ${python_exec} -m pip install .
-    install_result=$?
-    popd >&2
-    if [ $install_result -eq 0 ]; then
-        echo "dx_postprocess module installed successfully"
-        # Verify installation
-        ${python_exec} -c "import dx_postprocess; print('dx_postprocess module verification: OK')" 2>/dev/null;
-        if [ $? -ne 0 ]; then
-            echo -e "${TAG_ERROR} dx_postprocess module import failed"
-            exit 1
-        fi 
-    else
-        echo -e "${TAG_ERROR} Failed to install dx_postprocess module"
-        exit 1
-    fi
-
-    if [ -n "$venv_path" ]; then
-        echo -e "${TAG_INFO} To activate the virtual environment, run:"
-        echo -e "${COLOR_BRIGHT_YELLOW_ON_BLACK}  source ${venv_path}/bin/activate ${COLOR_RESET}"
-    fi
-else
-    echo -e "${TAG_ERROR} ./lib/pybind/setup.py not found"
-    exit 1
 fi
 
 if [ -e $build_dir/release/bin ]; then
+    # Install dx_postprocess Python module if available
+    if [ -d "src/bindings/python/dx_postprocess" ]; then
+        echo ""
+        echo -e "${COLOR_CYAN}${COLOR_BOLD}Installing dx_postprocess Python module...${COLOR_RESET}"
+        echo -e "${COLOR_CYAN}  → Python: ${python_exec}${COLOR_RESET}"
+        echo -e "${COLOR_CYAN}  → Build type: ${build_type}${COLOR_RESET}"
+        
+        # Set build type for CMake (normalize to CMake format)
+        case "${build_type,,}" in
+            "debug")
+                cmake_build_type="Debug"
+                strip_option="false"
+                ;;
+            "release")
+                cmake_build_type="Release"
+                strip_option="true"
+                ;;
+            "relwithdebinfo")
+                cmake_build_type="RelWithDebInfo"
+                strip_option="false"
+                ;;
+            *)
+                cmake_build_type="Release"
+                strip_option="true"
+                ;;
+        esac
+        
+        pushd "src/bindings/python/dx_postprocess" >/dev/null 2>&1
+        
+        if SKBUILD_CMAKE_ARGS="-DCMAKE_BUILD_TYPE=${cmake_build_type}" \
+           SKBUILD_INSTALL_STRIP="${strip_option}" \
+           PROJECT_ROOT="${DX_APP_PATH}" \
+           ${python_exec} -m pip install . ; then
+            echo -e "${COLOR_GREEN}${COLOR_BOLD}dx_postprocess installation completed successfully!${COLOR_RESET}"
+            
+            INSTALL_LOCATION=$(${python_exec} -c "import sys; print(sys.prefix)" 2>/dev/null)
+            if [ $? -eq 0 ]; then
+                echo -e "${COLOR_GREEN}  ✓ Installed to: ${INSTALL_LOCATION}${COLOR_RESET}"
+            fi
+        else
+            echo -e "${COLOR_RED}${COLOR_BOLD}dx_postprocess installation failed!${COLOR_RESET}"
+            echo -e "${TAG_ERROR} Python module installation is required for complete build"
+            popd >/dev/null 2>&1
+            exit 1
+        fi
+        
+        popd >/dev/null 2>&1
+        echo ""
+    fi
+
     echo Build Done. "($build_type)"
     echo =================================================
         echo clean_build : $clean_build
         echo verbose : $verbose
         echo build_type : $build_type
         echo target_arch : $target_arch
-    echo =================================================
+    echo =================================================    
+    echo ""
+    echo -e "${COLOR_GREEN}${COLOR_BOLD}please export LD_LIBRARY_PATH to $(pwd)/lib${COLOR_RESET}"
+    echo -e "${COLOR_GREEN}${COLOR_BOLD}insert command line : \"export LD_LIBRARY_PATH=\$(pwd)/lib:\$LD_LIBRARY_PATH\"${COLOR_RESET}"
+    echo ""
 else
     echo Build Failed.
     exit -1
 fi
 
-popd >&2
+popd >/dev/null 2>&1

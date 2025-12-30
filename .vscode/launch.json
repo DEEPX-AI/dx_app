@@ -4,178 +4,24 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
-        // Video Demo Configurations
         {
-            "type": "cppdbg",
-            "request": "launch",
-            "name": "YOLO YoloV8N",
-            "program": "${workspaceFolder}/bin/yolo",
-            "args": ["-m", "assets/models/YoloV8N.dxnn", "-p", "5", "-v", "assets/videos/boat.mp4", "--target_fps", "30", "-l"],
-            "cwd": "${workspaceFolder}",
-            "stopAtEntry": true,
-            "preLaunchTask": "build"
+        "name": "Python: Launch Script",
+        "type": "debugpy",
+        "request": "launch",
+        "program": "${workspaceFolder}/src/python_example/object_detection/yolov5/yolov5_sync.py",  // 실행할 Python 스크립트 경로
+        "console": "integratedTerminal",
+        "python": "/home/yjsong/venv/dx_app_venv/bin/python3", // 가상환경의 파이썬으로 실행
+        "env": { 
+          "PYTHONPATH": "/home/yjsong/venv/dx_app_venv/lib/python3.12/site-packages:/home/yjsong/.local/lib/python3.12/site-packages "
         },
-        {
-            "type": "cppdbg",
-            "request": "launch",
-            "name": "YOLO YOLOV9S",
-            "program": "${workspaceFolder}/bin/yolo",
-            "args": ["-m", "assets/models/YOLOV9S.dxnn", "-p", "10", "-v", "assets/videos/carrierbag.mp4", "--target_fps", "30", "-l"],
-            "cwd": "${workspaceFolder}",
-            "stopAtEntry": true,
-            "preLaunchTask": "build"
-        },
-        {
-            "type": "cppdbg",
-            "request": "launch",
-            "name": "YOLO Face Detection",
-            "program": "${workspaceFolder}/bin/yolo",
-            "args": ["-m", "assets/models/YOLOV5S_Face-1.dxnn", "-p", "7", "-v", "assets/videos/dance-group.mov", "--target_fps", "30", "-l"],
-            "cwd": "${workspaceFolder}",
-            "stopAtEntry": true,
-            "preLaunchTask": "build"
-        },
-        {
-            "type": "cppdbg",
-            "request": "launch",
-            "name": "Pose Estimation",
-            "program": "${workspaceFolder}/bin/pose",
-            "args": ["-m", "assets/models/YOLOV5Pose640_1.dxnn", "-v", "assets/videos/dance-solo.mov", "--target_fps", "30", "-l"],
-            "cwd": "${workspaceFolder}",
-            "stopAtEntry": true,
-            "preLaunchTask": "build"
-        },
-        {
-            "type": "cppdbg",
-            "request": "launch",
-            "name": "Segmentation",
-            "program": "${workspaceFolder}/bin/segmentation",
-            "args": ["-m", "assets/models/DeepLabV3PlusMobileNetV2_2.dxnn", "-v", "assets/videos/blackbox-city-road.mp4", "--target_fps", "30", "-l"],
-            "cwd": "${workspaceFolder}",
-            "stopAtEntry": true,
-            "preLaunchTask": "build"
-        },
-        {
-            "type": "cppdbg",
-            "request": "launch",
-            "name": "YOLO Multi Demo",
-            "program": "${workspaceFolder}/bin/yolo_multi",
-            "args": ["-c", "example/yolo_multi/yolo_multi_demo.json"],
-            "cwd": "${workspaceFolder}",
-            "stopAtEntry": true,
-            "preLaunchTask": "build"
-        },
-        {
-            "type": "cppdbg",
-            "request": "launch",
-            "name": "Object Detection + Segmentation",
-            "program": "${workspaceFolder}/bin/od_segmentation",
-            "args": ["-m0", "assets/models/YOLOV5S_6.dxnn", "-p0", "2", "-m1", "assets/models/DeepLabV3PlusMobileNetV2_2.dxnn", "-v", "assets/videos/blackbox-city-road2.mov", "-l"],
-            "cwd": "${workspaceFolder}",
-            "stopAtEntry": true,
-            "preLaunchTask": "build"
-        },
-        // Image Demo Configurations
-        {
-            "type": "cppdbg",
-            "request": "launch",
-            "name": "Classification - EfficientNetB0",
-            "program": "${workspaceFolder}/bin/classification",
-            "args": ["-m", "assets/models/EfficientNetB0_4.dxnn", "-i", "sample/ILSVRC2012/1.jpeg"],
-            "cwd": "${workspaceFolder}",
-            "stopAtEntry": true,
-            "preLaunchTask": "build"
-        },
-        {
-            "type": "cppdbg",
-            "request": "launch",
-            "name": "Classification Async - EfficientNetB0",
-            "program": "${workspaceFolder}/bin/classification_async",
-            "args": ["-m", "assets/models/EfficientNetB0_4.dxnn", "-i", "sample/ILSVRC2012/1.jpeg"],
-            "cwd": "${workspaceFolder}",
-            "stopAtEntry": true,
-            "preLaunchTask": "build"
-        },
-        {
-            "type": "cppdbg",
-            "request": "launch",
-            "name": "ImageNet Classification",
-            "program": "${workspaceFolder}/bin/imagenet_classification",
-            "args": ["-m", "assets/models/EfficientNetB0_4.dxnn", "-i", "example/imagenet_classification/imagenet_val_map.txt", "-p", "sample/ILSVRC2012/"],
-            "cwd": "${workspaceFolder}",
-            "stopAtEntry": true,
-            "preLaunchTask": "build"
-        },
-        {
-            "type": "cppdbg",
-            "request": "launch",
-            "name": "Object Detection + Segmentation",
-            "program": "${workspaceFolder}/bin/od_segmentation",
-            "args": ["-m0", "assets/models/YOLOV5S_3.dxnn", "-p0", "1", "-m1", "assets/models/DeepLabV3PlusMobileNetV2_2.dxnn", "-i", "sample/8.jpg"],
-            "cwd": "${workspaceFolder}",
-            "stopAtEntry": true,
-            "preLaunchTask": "build"
-        },
-        {
-            "type": "cppdbg",
-            "request": "launch",
-            "name": "Pose Estimation",
-            "program": "${workspaceFolder}/bin/pose",
-            "args": ["-m", "assets/models/YOLOV5Pose640_1.dxnn", "-i", "sample/7.jpg", "-p", "0"],
-            "cwd": "${workspaceFolder}",
-            "stopAtEntry": true,
-            "preLaunchTask": "build"
-        },
-        {
-            "type": "cppdbg",
-            "request": "launch",
-            "name": "Run Classifier Example",
-            "program": "${workspaceFolder}/bin/run_classifier",
-            "args": ["-c", "example/run_classifier/imagenet_example.json"],
-            "cwd": "${workspaceFolder}",
-            "stopAtEntry": true,
-            "preLaunchTask": "build"
-        },
-        {
-            "type": "cppdbg",
-            "request": "launch",
-            "name": "Run Detector Example",
-            "program": "${workspaceFolder}/bin/run_detector",
-            "args": ["-c", "example/run_detector/yolov5s3_example.json"],
-            "cwd": "${workspaceFolder}",
-            "stopAtEntry": true,
-            "preLaunchTask": "build"
-        },
-        {
-            "type": "cppdbg",
-            "request": "launch",
-            "name": "Segmentation",
-            "program": "${workspaceFolder}/bin/segmentation",
-            "args": ["-m", "assets/models/DeepLabV3PlusMobileNetV2_2.dxnn", "-i", "sample/8.jpg"],
-            "cwd": "${workspaceFolder}",
-            "stopAtEntry": true,
-            "preLaunchTask": "build"
-        },
-        {
-            "type": "cppdbg",
-            "request": "launch",
-            "name": "YOLO",
-            "program": "${workspaceFolder}/bin/yolo",
-            "args": ["-m", "assets/models/YOLOV5S_3.dxnn", "-i", "sample/1.jpg", "-p", "1"],
-            "cwd": "${workspaceFolder}",
-            "stopAtEntry": true,
-            "preLaunchTask": "build"
-        },
-        {
-            "type": "cppdbg",
-            "request": "launch",
-            "name": "YOLO Multi Example",
-            "program": "${workspaceFolder}/bin/yolo_multi",
-            "args": ["-c", "./example/yolo_multi/yolo_multi_demo.json"],
-            "cwd": "${workspaceFolder}",
-            "stopAtEntry": true,
-            "preLaunchTask": "build"
-        }
+        "args": [
+            "--model", "${workspaceFolder}/assets/models/YOLOV5S_4.dxnn",
+            "--video", "${workspaceFolder}/assets/videos/dogs.mp4",
+            "--no-display"
+        ],
+        "justMyCode": false,
+        "stopOnEntry": false,
+      }
     ]
 }
 

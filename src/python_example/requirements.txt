@@ -1,0 +1,7 @@
+# DeepX packages (not available on PyPI, install from source)
+# - dx-engine: from DX-RT
+# - dx-postprocess: from DX-APP
+
+numpy>=1.19.5
+opencv-python>=4.5.1
+packaging>=20.0

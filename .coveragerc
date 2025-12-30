@@ -1,0 +1,76 @@
+[run]
+# 커버리지 측정 대상 소스 디렉토리
+source = src/python_example
+
+# Branch coverage 활성화 (if/else 분기 추적)
+branch = True
+
+# 커버리지 측정에서 제외할 파일 패턴
+omit =
+    # 유틸리티 파일 (task별 테스트에서 제외)
+    */labels.py
+    # 테스트 파일 자체
+    */tests/*
+    */test_*.py
+    # Python 캐시
+    */__pycache__/*
+    */.*
+    # 가상환경
+    */venv/*
+    */env/*
+    */site-packages/*
+    # 빌드 산출물
+    */build/*
+    */dist/*
+
+[report]
+# 커버리지 리포트에서 제외할 코드 라인 (정규식 패턴)
+exclude_lines =
+    # 기본 pragma (명시적으로 제외 표시한 코드)
+    pragma: no cover
+    
+    # Python 표준 패턴
+    def __repr__
+    def __str__
+    raise AssertionError
+    raise NotImplementedError
+    @abstractmethod
+    
+    # Import/타입 체크 에러
+    except ImportError:
+    except ModuleNotFoundError:
+    if TYPE_CHECKING:
+    
+    # Pass 문
+    ^\s*pass\s*$
+    ^\s*\.\.\.\s*$
+
+# 출력 정밀도 (소수점 자리수)
+precision = 2
+
+# 누락된 라인 번호 표시
+show_missing = True
+
+# 100% 커버된 파일은 요약에서 제외 (선택사항)
+skip_covered = False
+
+# 빈 파일은 리포트에서 제외
+skip_empty = True
+
+# 정렬 방식 (Cover: 커버리지 낮은 순)
+sort = Cover
+
+[html]
+# HTML 리포트 출력 디렉토리
+directory = htmlcov
+
+# HTML 리포트 제목
+title = Python Example Test Coverage Report
+
+[xml]
+# XML 리포트 출력 (CI/CD에서 사용)
+output = coverage.xml
+
+[json]
+# JSON 리포트 출력 (분석 도구용)
+output = coverage.json

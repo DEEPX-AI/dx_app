@@ -1,9 +1,14 @@
-## PR 307 NOTHING NEW
-## PR 306 NOTHING NEW
-## PR 304 NOTHING NEW
-## PR 303 NOTHING NEW
-## PR 302 NOTHING NEW
-## PR 301 NOTHING NEW
-## PR 300 NOTHING NEW
-## PR 299 NOTHING NEW
-## PR 298 NOTHING NEW
+## PR 284
+### 1. Changed
+- Update cmake configuration in build.bat to use C++17 and v143 for windows build (visual studio 2022)
+### 2. Fixed
+### 3. Added
+## PR 283
+### 1. Changed
+### 2. Fixed
+- Improve tensor allocation in imagenet classification example
+- Update numBoxes calculation based on post-processing type in LayerReorder
+- Rename YOLO post-processing types and add aliasing for backward compatibility
+- Add VSCode configuration files for usability
+### 3. Added
+## PR 281 NOTHING NEW
