@@ -1,7 +1,7 @@
 macro(add_target name)
   target_include_directories( ${name} PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
-    ${CMAKE_SOURCE_DIR}/extern/
+    ${CMAKE_SOURCE_DIR}/third_party/
     ${CMAKE_SOURCE_DIR}/lib/
   )
 if(${STD_FS_NO_LIB_NEEDED})

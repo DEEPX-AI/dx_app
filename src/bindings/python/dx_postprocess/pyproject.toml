@@ -1,0 +1,16 @@
+[build-system]
+requires = ["scikit-build-core[pyproject]>=0.9.0", "pybind11"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "dx-postprocess"
+version = "1.0.0"
+description = "High-performance post-processing library with C++ implementation and Python bindings - can significantly improve performance over pure Python solutions"
+license = {text = "Proprietary"}
+authors = [{name = "DEEPX", email = "yjsong@deepx.ai"}]
+requires-python = ">= 3.8"
+
+dependencies = [
+    "numpy>=1.19.5",
+    "pybind11==2.12.0",
+]

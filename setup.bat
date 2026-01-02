@@ -1,7 +1,7 @@
 @echo off
 setlocal
 
-set "MODELS_URL=https://sdk.deepx.ai/res/models/models-2_0_0.tar.gz"
+set "MODELS_URL=https://sdk.deepx.ai/res/models/models-2_2_0.tar.gz"
 set "VIDEOS_URL=https://sdk.deepx.ai/res/video/sample_videos.tar.gz"
 set "MODELS_PATH=assets\models"
 set "VIDEOS_PATH=assets\videos"

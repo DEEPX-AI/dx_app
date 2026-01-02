@@ -1,23 +1,23 @@
-This chapter introduces a quick-start experience using pre-built demo applications provided by **DX-APP**. These applications allow developers to evaluate DeepX NPU performance on common vision AI tasks. Developers can modify the examples or use them as templates to build custom applications.  
+This chapter introduces a quick-start experience using pre-built demo applications provided by **DX-APP**. These applications allow developers to evaluate DeepX NPU performance on common vision AI tasks such as classification, detection, and segmentation. Developers can modify the examples or use them as templates to build custom applications.  
 
-Available C++ Demo Applications
-
-DX-APP currently provides the following C++ demonstration applications:
-
-- Classification: Basic Classification, ImageNet Classification
-- Object Detection: YOLO Object Detection, YOLO Object Detection - Multi Channel
-- Pose Estimation: Human Pose Estimation
-- Segmentation: Semantic Segmentation DeepLabV3 (CityScape dataset Only) , Sema
-
-!!! note "NOTE" 
-
-    Performance results may vary depending on host system specifications, as the demos include host-side pre-processing, post-processing, and rendering operations.  
-
-**Known Issues.** 
-- DeepLabV3 Semantic Segmentation model accuracy may be slightly degraded in dx-compiler(dx_com) v2.1.0. This will be fixed in the next release. The DeepLabV3 model used in the demo was converted using dx-compiler v2.0.0.
-- When using the PPU model for face detection & pose estimation, dx-compiler v2.1.0 does not currently support converting face and pose models to PPU format. This feature will be added in a future release. The PPU models used in the demo were converted using dx-compiler v1.0.0(dx_com v1.60.1).
+**Note.** Performance results may vary depending on host system specifications, as the demos include host-side pre-processing, post-processing, and rendering operations.  
 
 ---
+
+## C++ Demo Application List  
+
+**DX-APP** provides the following C++ demo applications.  
+
+- **Classification**: Basic Classification, ImageNet Classification  
+- **Object Detection**: Yolo Object Detection, Yolo Object Detection - Multi Channel  
+- **Pose Estimation**: Human Pose Estimation  
+- **Segmentation**: Semantic Segmentation DeepLabV3 (CityScape dataset Only), Semantic Segmentation DeepLabV3 (CityScape dataset Only) + Yolo Object Detection  
+
+---
+
+## Running Demo Executables  
+
+Each demo can be executed on Linux or Windows.  
 
 ### Classification  
 
@@ -70,7 +70,6 @@ bin\imagenet_classification.exe -m assets\models\EfficientNetB0_4.dxnn -i exampl
 
 The output shows the accuracy of the classification result is **74.3%** and the frame rate (fps) is **634**.  
 
----
 
 ### Object Detection  
 
@@ -270,7 +269,6 @@ To run a demo using an **RTSP** video stream, configure the input source in the 
 
 This enables real-time inference directly from network video streams using DEEPX NPU.  
 
----
 
 ### Pose Estimation  
 
@@ -307,7 +305,6 @@ To configure custom pose estimation parameters
 
 This setup ensures that the NPU output is properly decoded into keypoint coordinates and bounding boxes.  
 
----
 
 ### Segmentation  
 This section explains how to run semantic segmentation demos based on YOLOv5 models. Both semantic segmentation models are supported.  
@@ -323,11 +320,10 @@ This demo describes an example of semantic segmentation based on the DeepLabV3Pl
 
 This model performs pixel-wise classification, assigning a semantic label to each pixel in the input image. This allows for dense and structured scene understanding.  
 
-!!! note "NOTE"  
+**Notes.**  
 
-    - Load `DeepLabV3PlusMobileNetV2_2.dxnn` in the segmentation pipeline.  
-    - Use the **Cityscape** class index mappings to interpret the output mask.  
-
+- Load `DeepLabV3PlusMobileNetV2_2.dxnn` in the segmentation pipeline.  
+- Use the **Cityscape** class index mappings to interpret the output mask.  
 
 ```
 /* class_index, class_name, colorB, G, R */

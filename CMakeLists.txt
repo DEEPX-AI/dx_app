@@ -1,4 +1,5 @@
 cmake_minimum_required(VERSION 3.14)
+get_filename_component(PROJECT_ROOT ${CMAKE_SOURCE_DIR} ABSOLUTE)
 
 if(MSVC)
     if(NOT DEFINED DXRT_DIR OR NOT EXISTS ${DXRT_DIR})
@@ -12,12 +13,12 @@ if(MSVC)
     endif()
     string(REPLACE "\\" "/" OpenCV_DIR ${OpenCV_DIR})
     message(STATUS "The variable OpenCV_DIR is set: ${OpenCV_DIR}")
+    set(DXAPP_WITH_SHAREDLIB FALSE)
 endif()
 
 project(dxapp DESCRIPTION "DEEPX Application Templates")
 
-get_filename_component(PROJECT_ROOT_DIR ${CMAKE_SOURCE_DIR} ABSOLUTE)
-add_compile_definitions(PROJECT_ROOT_DIR="${PROJECT_ROOT_DIR}")
+add_compile_definitions(PROJECT_ROOT_DIR="${PROJECT_ROOT}")
 
 if (MSVC)
     if (DEFINED ENV{WindowsSdkDir})
@@ -43,9 +44,25 @@ endif()
 
 set(CMAKE_CXX_STANDARD 14)
 if(MSVC)
-    set(CMAKE_CXX_STANDARD 17)
- endif()
+set(CMAKE_CXX_STANDARD 17)
+endif()
 set(CMAKE_CXX_STANDARD_REQUIRED "ON")
+
+
+# Determine if filesystem library linking is needed
+set(STD_FS_NO_LIB_NEEDED FALSE)
+if(CMAKE_CXX_STANDARD GREATER 17 OR CMAKE_CXX_STANDARD EQUAL 17)
+    if(MSVC)
+        # MSVC with C++17 has filesystem in standard library
+        set(STD_FS_NO_LIB_NEEDED TRUE)
+    elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL "9.0")
+        # GCC 9.0+ with C++17 has filesystem in standard library
+        set(STD_FS_NO_LIB_NEEDED TRUE)
+    elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL "9.0")
+        # Clang 9.0+ with C++17 has filesystem in standard library
+        set(STD_FS_NO_LIB_NEEDED TRUE)
+    endif()
+endif()
 
 if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
     set(CMAKE_INSTALL_PREFIX "${CMAKE_BINARY_DIR}/release" CACHE PATH "Default install path" FORCE)
@@ -57,13 +74,6 @@ if(NOT "${CMAKE_HOST_SYSTEM_PROCESSOR}" STREQUAL "${CMAKE_SYSTEM_PROCESSOR}")
     set(CROSS_COMPILE TRUE)
 else()
     set(CROSS_COMPILE FALSE)
-endif()
-
-set(STD_FS_NO_LIB_NEEDED FALSE)
-if(CMAKE_CXX_STANDARD GREATER 17 OR CMAKE_CXX_STANDARD EQUAL 17)
-    set(STD_FS_NO_LIB_NEEDED TRUE)
-elseif(MSVC)
-    set(STD_FS_NO_LIB_NEEDED TRUE)
 endif()
 
 include(dxapp.cfg)
@@ -84,7 +94,7 @@ if(MSVC)
     add_compile_options(-D_CRT_SECURE_NO_WARNINGS)
     add_definitions(-DNOMINMAX)
 else()
-    add_compile_options(-W -Wall -pthread -fstrict-volatile-bitfields -fPIC)
+    add_compile_options(-W -Wall -Wextra -pthread -O3 -fstrict-volatile-bitfields -fPIC)
 endif()
 
 if(ENABLE_DEBUG_INFO)
@@ -107,22 +117,12 @@ if(MSVC)
     string(REPLACE "\n" ";" PYTHON_PATH_LIST "${PYTHON_PATHS}")
     list(GET PYTHON_PATH_LIST 0 Python_EXECUTABLE)
     message(STATUS "Selected Python Executable : ${Python_EXECUTABLE}")
-else()
-    execute_process(
-        COMMAND which python
-        OUTPUT_VARIABLE Python_EXECUTABLE 
-        OUTPUT_STRIP_TRAILING_WHITESPACE
-    )
 endif()
 
-add_subdirectory(templates/classification)
-add_subdirectory(templates/object_detection)
-
-add_subdirectory(demos/object_detection)
-add_subdirectory(demos/classification)
-add_subdirectory(demos/pose_estimation)
-add_subdirectory(demos/object_det_and_seg)
-add_subdirectory(demos/segmentation)
+if(DXAPP_WITH_SHAREDLIB)
+add_subdirectory(src/postprocess)
+endif()
+add_subdirectory(src/cpp_example)
 
 if(EXISTS "${CMAKE_SOURCE_DIR}/test" AND USE_DXAPP_TEST)
     add_subdirectory(test)
@@ -143,4 +143,3 @@ message(STATUS "CMAKE_CURRENT_SOURCE_DIR: ${CMAKE_CURRENT_SOURCE_DIR}")
 message(STATUS "CMAKE_CURRENT_LIST_DIR: ${CMAKE_CURRENT_LIST_DIR}")
 message(STATUS "CMAKE_CURRENT_BINARY_DIR: ${CMAKE_CURRENT_BINARY_DIR}")
 message(STATUS "DXRT_INSTALLED_DIR: ${DXRT_INSTALLED_DIR}")
-

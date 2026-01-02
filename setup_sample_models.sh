@@ -8,7 +8,7 @@ source ${SCRIPT_DIR}/scripts/common_util.sh
 BASE_URL="https://sdk.deepx.ai/"
 
 # default value
-SOURCE_PATH="res/models/models-2_1_0.tar.gz"
+SOURCE_PATH="res/models/models-2_2_0.tar.gz"
 OUTPUT_DIR="$SCRIPT_DIR/assets/models"
 SYMLINK_TARGET_PATH=""
 SYMLINK_ARGS=""
