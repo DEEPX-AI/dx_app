@@ -2,6 +2,8 @@ This chapter focuses on accelerating YOLO post-processing in Python using Pybind
 
 ---
 
+## YOLO Post-Processing Optimization Using Pybind11
+
 ### Overview
 
 Post-processing for YOLO models can be implemented in Python using libraries such as numpy and `torchvision.ops.nms`. This is demonstrated in [`templates/python/yolov5s_example.py`](../../../templates/python/yolov5s_example.py) and [`/templates/python/yolov_async.py`](../../../templates/python/yolo_async.py).  
@@ -26,43 +28,35 @@ To address this, DX-APP provides the **`dx_postprocess`** module, which includes
 
 By using **`YoloPostProcess`**, users can perform end-to-end YOLO post-processing with a single function call, supporting a variety of YOLO model types with minimal effort and maximum performance.  
 
----
 
 ###  Supported Use Cases for  YoloPostProcess
 
 **`YoloPostProcess`** demonstrates how C++ code can be wrapped with Pybind11 to optimize post-processing in Python environments. It shows how to implement performance-critical post-processing steps (score filtering, bounding box decoding, NMS, etc.) in C++ and make them available for use in Python.
 
-!!! note "IMPORTANT"
-
-    **`YoloPostProcess`** is not a universal solution that supports post-processing for all YOLO series models. It is an example implementation designed to work only with specific models and configurations.
+**Important**: **`YoloPostProcess`** is not a universal solution that supports post-processing for all YOLO series models. It is an example implementation designed to work only with specific models and configurations.
 
 Among the models provided by DX-APP, the following cases support **`YoloPostProcess`**:
 
 | Model                    | USE_ORT = ON | USE_ORT = OFF | Config                                    |
 |-------------------------|----------------|-----------------|-------------------------------------------|
-| SCRFD500M_PPU           | O              | O               | [SCRFD500M_PPU.json](../../../example/dx_postprocess/SCRFD500M_PPU.json) |
-| YOLOV3_1           | O              | O               | [YOLOV3_1.json](../../../example/dx_postprocess/YOLOV3_1.json) |
-| YOLOV4_3          | O              | X               | [YOLOV4_3.json](../../../example/dx_postprocess/YOLOV4_3.json) |
-| YOLOV5Pose_PPU    | O              | O               | [YOLOV5Pose_PPU.json](../../../example/dx_postprocess/YOLOV5Pose_PPU.json) |
-| YOLOV5Pose640_1    | O              | X               | [YOLOV5Pose640_1.json](../../../example/dx_postprocess/YOLOV5Pose640_1.json) |
-| YOLOV5S_1          | O              | O               | [YOLOV5S_1.json](../../../example/dx_postprocess/YOLOV5S_1.json) |
-| YOLOV5S_3         | O              | O               | [YOLOV5S_3.json](../../../example/dx_postprocess/YOLOV5S_3.json) |
-| YOLOV5S_4          | O              | O               | [YOLOV5S_4.json](../../../example/dx_postprocess/YOLOV5S_4.json) |
-| YOLOV5S_6          | O              | O               | [YOLOV5S_6.json](../../../example/dx_postprocess/YOLOV5S_6.json) |
-| YOLOV5S_Face-1     | O              | X               | [YOLOV5S_Face-1.json](../../../example/dx_postprocess/YOLOV5S_Face-1.json) |
-| YOLOV5S_PPU     | O              | O               | [YOLOV5S_PPU.json](../../../example/dx_postprocess/YOLOV5S_PPU.json) |
-| YOLOV5X_2          | O              | O               | [YOLOV5X_2.json](../../../example/dx_postprocess/YOLOV5X_2.json) |
-| YOLOv7_512         | O              | O               | [YOLOv7_512.json](../../../example/dx_postprocess/YOLOv7_512.json) |
-| YoloV7             | O              | O               | [YoloV7.json](../../../example/dx_postprocess/YoloV7.json) |
-| YoloV8N            | O              | X               | [YoloV8N.json](../../../example/dx_postprocess/YoloV8N.json) |
-| YOLOV9S            | O              | X               | [YOLOV9S.json](../../../example/dx_postprocess/YOLOV9S.json) |
-| YOLOX-S_1          | O              | X               | [YOLOX-S_1.json](../../../example/dx_postprocess/YOLOX-S_1.json) |
+| YOLOV3_1           | O              | O               | [YOLOV3_1.json](../../../test/data/YOLOV3_1.json) |
+| YOLOV4_3          | O              | X               | [YOLOV4_3.json](../../../test/data/YOLOV4_3.json) |
+| YOLOV5Pose640_1    | O              | X               | [YOLOV5Pose640_1.json](../../../test/data/YOLOV5Pose640_1.json) |
+| YOLOV5S_1          | O              | O               | [YOLOV5S_1.json](../../../test/data/YOLOV5S_1.json) |
+| YOLOV5S_3         | O              | O               | [YOLOV5S_3.json](../../../test/data/YOLOV5S_3.json) |
+| YOLOV5S_4          | O              | O               | [YOLOV5S_4.json](../../../test/data/YOLOV5S_4.json) |
+| YOLOV5S_6          | O              | O               | [YOLOV5S_6.json](../../../test/data/YOLOV5S_6.json) |
+| YOLOV5S_Face-1     | O              | X               | [YOLOV5S_Face-1.json](../../../test/data/YOLOV5S_Face-1.json) |
+| YOLOV5X_2          | O              | O               | [YOLOV5X_2.json](../../../test/data/YOLOV5X_2.json) |
+| YOLOv7_512         | O              | O               | [YOLOV7_512.json](../../../test/data/YOLOV7_512.json) |
+| YoloV7             | O              | O               | [YoloV7.json](../../../test/data/YoloV7.json) |
+| YoloV8N            | O              | X               | [YoloV8N.json](../../../test/data/YoloV8N.json) |
+| YOLOV9S            | O              | X               | [YOLOV9S.json](../../../test/data/YOLOV9S.json) |
+| YOLOX-S_1          | O              | X               | [YOLOX-S_1.json](../../../test/data/YOLOX-S_1.json) |
 
-Preconfigured JSON config files for supported YOLO models are available in the [example/dx_postprocess](../../../example/dx_postprocess) directory.  
+Preconfigured JSON config files for supported YOLO models are available in the [test/data](../../../test/data) directory.  
 
 **Alternative for unsupported cases**: For models or configurations not supported by **`YoloPostProcess`**, you can refer to the [`lib/pybind`](../../../lib/pybind) codes to implement custom C++ post-processing code and wrap it with Pybind11. This allows you to create optimized post-processing tailored to the specific characteristics of your model.
-
----
 
 ### Run  YoloPostProcess Python Example  
 
@@ -73,7 +67,7 @@ $ python template/python/yolo_pybind_example.py --video_path /path/to/your/video
 
 **Quick Example**:
 ```
-python templates/python/yolo_pybind_example.py --video_path assets/videos/dance-group.mov --config example/dx_postprocess/YoloV7.json --run_async --visualize
+python templates/python/yolo_pybind_example.py --video_path assets/videos/dance-group.mov --config test/data/YoloV7.json --run_async --visualize
 ```
 
 This script takes a video file as input and performs Pre-processing, Inference, and Post-processing (synchronous or asynchronous).  
@@ -86,17 +80,9 @@ After processing all frames, the average FPS (Frames Per Second) is calculated a
 - `--video_path`: Path to the input video file  
 - `--config_path`: Path to the JSON config file containing model path and post-processing parameters  
 - `--run_async`: Use asynchronous inference with `RunAsync()`, where post-processing is performed inside the callback function. If **not** specified, synchronous inference with `Run()` is used, and preprocessing, inference, and post-processing are executed sequentially for each frame.  
-- `--visualize`: Enables visualization of detection results
+- `--visualize`: Enables visualization of detection results  
 
-Alternatively, you can use the **`run_demo_python.sh`** script to quickly run various Python examples with pre-configured settings:
-```bash
-$ ./run_demo_python.sh
-```
-This interactive script provides a menu of available Python examples, including both pure Python implementations and optimized Pybind11-based examples.
-
----
-
-### Post-Processing with `YoloPostProcess` Class  
+**Post-Processing with `YoloPostProcess` Class**  
 
 - **1.** Import the Module  
 ```

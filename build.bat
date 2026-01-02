@@ -28,6 +28,8 @@ cmake -S . -B "%BUILD_DIR%" ^
     -A x64 ^
     -T v143 ^
     -DCMAKE_CXX_STANDARD=17 ^
+    -DCMAKE_TOOLCHAIN_FILE="%VCPKG_ROOT%\scripts\buildsystems\vcpkg.cmake" ^
+    -DVCPKG_TARGET_TRIPLET=x64-windows ^
     -DDXRT_DIR="%DXRT_DIR%" ^
     -DOpenCV_DIR="%OpenCV_DIR%"
 

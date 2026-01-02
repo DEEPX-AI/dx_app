@@ -1,0 +1,438 @@
+import argparse
+import os
+import sys
+import time
+from pathlib import Path
+from typing import List, Tuple
+
+import cv2
+import numpy as np
+from dx_engine import Configuration, InferenceEngine, InferenceOption
+from packaging import version
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
+
+from utils.labels import get_labels
+from utils.performance_summary import (
+    print_image_processing_summary,
+    print_sync_performance_summary,
+)
+
+
+class YOLOv7_PPU:
+
+    def __init__(self, model_path: str):
+
+        self.model_path = model_path
+
+        option = InferenceOption()
+        if not option.get_use_ort():  # pragma: no cover
+            print(
+                "[ERROR] USE_ORT=OFF is not supported in this example. Please build DX-RT with USE_ORT=ON option."
+            )
+            exit(1)
+
+        self.ie = InferenceEngine(model_path)
+
+        # if version.parse(self.ie.get_model_version()) < version.parse(
+        #     "7"
+        # ):  # pragma: no cover
+        #     print(
+        #         "[ERROR] .dxnn format version 7 or higher is required. Please update DX-COM to the latest version and re-compile the ONNX model."
+        #     )
+        #     exit(1)
+
+        input_tensors_info = self.ie.get_input_tensors_info()
+
+        self.input_height = input_tensors_info[0]["shape"][1]
+        self.input_width = input_tensors_info[0]["shape"][2]
+
+        print(f"\n[INFO] Model loaded: {model_path}")
+        print(f"[INFO] Model input size (WxH): {self.input_width}x{self.input_height}")
+
+        self.obj_threshold = 0.25
+        self.score_threshold = 0.3
+        self.nms_threshold = 0.45
+        self.classes = get_labels("coco80")
+
+        self.color_palette = np.random.uniform(0, 255, size=(len(self.classes), 3))
+
+    def letterbox(
+        self, img: np.ndarray, new_shape: Tuple[int, int]
+    ) -> Tuple[np.ndarray, Tuple[int, int]]:
+
+        shape = img.shape[:2]
+
+        r = min(new_shape[0] / shape[0], new_shape[1] / shape[1])
+
+        new_unpad = int(round(shape[1] * r)), int(round(shape[0] * r))
+        dw, dh = (new_shape[1] - new_unpad[0]) / 2, (new_shape[0] - new_unpad[1]) / 2
+
+        if shape[::-1] != new_unpad:
+            img = cv2.resize(img, new_unpad, interpolation=cv2.INTER_LINEAR)
+
+        top, bottom = int(round(dh - 0.1)), int(round(dh + 0.1))
+        left, right = int(round(dw - 0.1)), int(round(dw + 0.1))
+        img = cv2.copyMakeBorder(
+            img, top, bottom, left, right, cv2.BORDER_CONSTANT, value=(114, 114, 114)
+        )
+
+        return img, (top, left)
+
+    def convert_to_original_coordinates(self, detections: np.ndarray) -> np.ndarray:
+
+        if len(detections) == 0:
+            return detections
+
+        detections[:, 0] = np.clip(
+            (detections[:, 0] - self.pad[1]) / self.gain, 0, self.img_width - 1
+        )
+        detections[:, 1] = np.clip(
+            (detections[:, 1] - self.pad[0]) / self.gain, 0, self.img_height - 1
+        )
+        detections[:, 2] = np.clip(
+            (detections[:, 2] - self.pad[1]) / self.gain, 0, self.img_width - 1
+        )
+        detections[:, 3] = np.clip(
+            (detections[:, 3] - self.pad[0]) / self.gain, 0, self.img_height - 1
+        )
+
+        return detections
+
+    def draw_detections(self, img: np.ndarray, detections: np.ndarray) -> None:
+
+        for detection in detections:
+            x1, y1, x2, y2, score, class_id = detection
+
+            color = self.color_palette[int(class_id)]
+
+            cv2.rectangle(img, (int(x1), int(y1)), (int(x2), int(y2)), color, 2)
+
+            label = f"{self.classes[int(class_id)]}: {score:.2f}"
+            (label_width, label_height), _ = cv2.getTextSize(
+                label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1
+            )
+
+            label_x = int(x1)
+            label_y = int(y1) - 10 if int(y1) - 10 > label_height else int(y1) + 10
+
+            cv2.rectangle(
+                img,
+                (label_x, label_y - label_height),
+                (label_x + label_width, label_y + label_height),
+                color,
+                cv2.FILLED,
+            )
+
+            cv2.putText(
+                img,
+                label,
+                (label_x, label_y),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.5,
+                (0, 0, 0),
+                1,
+                cv2.LINE_AA,
+            )
+
+    def preprocess(self, img: np.ndarray) -> np.ndarray:
+
+        self.img_height, self.img_width = img.shape[:2]
+        self.gain = min(
+            self.input_height / self.img_height, self.input_width / self.img_width
+        )
+
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
+        input_tensor, self.pad = self.letterbox(
+            img, (self.input_width, self.input_height)
+        )
+
+        return input_tensor
+
+    def postprocess(self, output_tensors: List[np.ndarray]) -> np.ndarray:
+
+        if len(output_tensors) == 0 or output_tensors[0].ndim == 2:
+            return np.empty((0, 6), dtype=np.float32)
+
+        anchors_by_stride = {
+            8: np.array([[12, 16], [19, 36], [40, 28]], dtype=np.float32),
+            16: np.array([[36, 75], [76, 55], [72, 146]], dtype=np.float32),
+            32: np.array([[142, 110], [192, 243], [459, 401]], dtype=np.float32),
+        }
+
+        output_tensor = output_tensors[0][0]
+
+        if output_tensor.shape[1] != 32:
+            print(f"[ERROR] Expected 32 channels, got {output_tensor.shape[1]}")
+            return np.empty((0, 57), dtype=np.float32)
+
+        boxes = output_tensor[:, :16].view(np.float32).reshape(-1, 4)
+
+        grid_info = output_tensor[:, 16:20].view(np.uint8)
+        gY = grid_info[:, 0].astype(np.float32)
+        gX = grid_info[:, 1].astype(np.float32)
+        anchor_idx = grid_info[:, 2]
+        layer_idx = grid_info[:, 3]
+
+        scores = output_tensor[:, 20:24].view(np.float32).flatten()
+
+        labels = output_tensor[:, 24:28].view(np.uint32).flatten()
+
+        strides = np.array([8, 16, 32], dtype=np.float32)
+        stride = strides[layer_idx]
+
+        anchor_w = np.zeros(len(boxes), dtype=np.float32)
+        anchor_h = np.zeros(len(boxes), dtype=np.float32)
+
+        for s in anchors_by_stride.keys():
+            stride_mask = stride == s
+            if np.any(stride_mask):
+                anchors = anchors_by_stride[s]
+                anchor_w[stride_mask] = anchors[anchor_idx[stride_mask], 0]
+                anchor_h[stride_mask] = anchors[anchor_idx[stride_mask], 1]
+
+        boxes_cx = (boxes[:, 0] * 2.0 - 0.5 + gX) * stride
+        boxes_cy = (boxes[:, 1] * 2.0 - 0.5 + gY) * stride
+        boxes_w = (boxes[:, 2] ** 2 * 4.0) * anchor_w
+        boxes_h = (boxes[:, 3] ** 2 * 4.0) * anchor_h
+
+        # (left, top, right, bottom)
+        boxes_x1y1x2y2 = np.column_stack(
+            [
+                boxes_cx - boxes_w * 0.5,
+                boxes_cy - boxes_h * 0.5,
+                boxes_cx + boxes_w * 0.5,
+                boxes_cy + boxes_h * 0.5,
+            ]
+        )
+
+        # (left, top, width, height)
+        boxes_x1y1wh = np.column_stack(
+            [
+                boxes_x1y1x2y2[:, 0],
+                boxes_x1y1x2y2[:, 1],
+                boxes_x1y1x2y2[:, 2] - boxes_x1y1x2y2[:, 0],
+                boxes_x1y1x2y2[:, 3] - boxes_x1y1x2y2[:, 1],
+            ]
+        )
+
+        indices = cv2.dnn.NMSBoxes(
+            boxes_x1y1wh.tolist(),
+            scores.tolist(),
+            self.score_threshold,
+            self.nms_threshold,
+        )
+
+        if len(indices) > 0:
+            keep = np.array(indices).reshape(-1)
+            return np.column_stack(
+                [boxes_x1y1x2y2[keep], scores[keep], labels[keep]]
+            ).astype(np.float32)
+
+        return np.empty((0, 6), dtype=np.float32)
+
+    def image_inference(self, image_path: str, display: bool = True):
+
+        t_start = time.perf_counter()
+        img = cv2.imread(image_path)
+
+        if img is None:
+            print(f"[ERROR] Failed to load image: {image_path}")
+            exit(1)
+
+        print(f"\n[INFO] Input image: {image_path}")
+        print(f"[INFO] Image resolution (WxH): {img.shape[1]}x{img.shape[0]}")
+
+        t0 = time.perf_counter()
+        input_tensor = self.preprocess(img)
+
+        t1 = time.perf_counter()
+        output_tensors = self.ie.run([input_tensor])
+
+        t2 = time.perf_counter()
+        detections = self.postprocess(output_tensors)
+
+        t3 = time.perf_counter()
+        detections_scaled = self.convert_to_original_coordinates(detections)
+
+        self.draw_detections(img, detections_scaled)
+        t4 = time.perf_counter()
+
+        print_image_processing_summary(t_start, t0, t1, t2, t3, t4)
+
+        if display:
+            cv2.imshow("Output", img)
+            cv2.waitKey(0)
+            cv2.destroyAllWindows()
+        else:
+            root = Path(__file__).absolute().parents[4]
+            out_dir = root / "artifacts" / "python_example" / "object_detection"
+            out_dir.mkdir(parents=True, exist_ok=True)
+
+            script = Path(__file__).stem
+            model_name = Path(self.model_path).stem
+            input_name = Path(image_path).stem
+            save_path = out_dir / f"{script}-{model_name}-{input_name}.jpg"
+
+            cv2.imwrite(save_path, img)
+
+            print(f"[SUCCESS] Output saved: {save_path}")
+
+    def stream_inference(self, source, display: bool = True):
+
+        metrics = {
+            "sum_read": 0.0,
+            "sum_preprocess": 0.0,
+            "sum_inference": 0.0,
+            "sum_postprocess": 0.0,
+            "sum_render": 0.0,
+        }
+
+        cap = cv2.VideoCapture(source)
+        if not cap.isOpened():
+            print(f"[ERROR] Failed to open input source: {source}")
+            exit(1)
+
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+        if isinstance(source, int):
+            cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+            print(f"\n[INFO] Camera index: {source}")
+        elif isinstance(source, str) and source.startswith("rtsp://"):
+            cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+            print(f"\n[INFO] RTSP URL: {source}")
+        else:
+            print(f"\n[INFO] Video file: {source}")
+
+        print(f"[INFO] Input source resolution (WxH): {width}x{height}")
+
+        if total_frames > 0:
+            print(f"[INFO] Total frames: {total_frames}")
+        if fps > 0:
+            print(f"[INFO] Input source FPS: {fps:.2f}")
+
+        print("\n[INFO] Starting inference...")
+
+        try:
+            cnt = 0
+            start_time = time.perf_counter()
+            while True:
+
+                t_start = time.perf_counter()
+                ok, frame_bgr = cap.read()
+
+                if not ok:
+                    break
+
+                cnt += 1
+
+                t0 = time.perf_counter()
+                input_tensor = self.preprocess(frame_bgr)
+
+                t1 = time.perf_counter()
+                output_tensors = self.ie.run([input_tensor])
+
+                t2 = time.perf_counter()
+                detections = self.postprocess(output_tensors)
+
+                t3 = time.perf_counter()
+
+                metrics["sum_read"] += t0 - t_start
+                metrics["sum_preprocess"] += t1 - t0
+                metrics["sum_inference"] += t2 - t1
+                metrics["sum_postprocess"] += t3 - t2
+
+                if display:
+                    detections_scaled = self.convert_to_original_coordinates(detections)
+                    self.draw_detections(frame_bgr, detections_scaled)
+
+                    cv2.imshow("Output", frame_bgr)
+                    key = cv2.waitKey(1) & 0xFF
+
+                    t4 = time.perf_counter()
+                    metrics["sum_render"] += t4 - t3
+
+                    if key == ord("q") or key == 27:
+                        print("\n[INFO] User requested to quit")
+                        break
+
+        except KeyboardInterrupt:
+            print("\n[INFO] Interrupted by user (Ctrl+C)")
+        except Exception as e:
+            print(f"\n[ERROR] Unexpected error: {e}")
+        finally:
+            if cnt == 0:
+                print("[WARNING] No frames processed")
+            else:
+                elapsed = time.perf_counter() - start_time
+                print_sync_performance_summary(metrics, cnt, elapsed, display)
+
+            cap.release()
+            cv2.destroyAllWindows()
+
+
+def parse_arguments():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--model", type=str, required=True, help="Input your DXNN model."
+    )
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument("--image", type=str, help="Path to input image.")
+    group.add_argument("--video", type=str, help="Path to input video.")
+    group.add_argument(
+        "--camera", type=int, help="Camera device index (e.g., 0 for default camera)."
+    )
+    group.add_argument(
+        "--rtsp", type=str, help="RTSP stream URL (e.g., rtsp://ip:port/stream)."
+    )
+    parser.add_argument(
+        "--no-display",
+        dest="display",
+        action="store_false",
+        help="Do not display output window.",
+    )
+    parser.set_defaults(display=True)
+    return parser.parse_args()
+
+
+if __name__ == "__main__":  # pragma: no cover
+
+    config = Configuration()
+    if version.parse(config.get_version()) < version.parse("3.0.0"):
+        print(
+            "[ERROR] DX-RT v3.0.0 or higher is required. Please update DX-RT to the latest version."
+        )
+        exit(1)
+
+    args = parse_arguments()
+
+    if not os.path.exists(args.model):
+        print(
+            "[ERROR] .dxnn model file does not exist. Please input correct model path."
+        )
+        exit(1)
+
+    if args.image:
+        if not os.path.exists(args.image):
+            print("[ERROR] image file does not exist. Please input correct image path.")
+            exit(1)
+
+    elif args.video:
+        if not os.path.exists(args.video):
+            print("[ERROR] video file does not exist. Please input correct video path.")
+            exit(1)
+
+    model = YOLOv7_PPU(args.model)
+
+    if args.image:
+        model.image_inference(args.image, display=args.display)
+    elif args.video:
+        model.stream_inference(args.video, display=args.display)
+    elif args.camera is not None:
+        model.stream_inference(args.camera, display=args.display)
+    elif args.rtsp:
+        model.stream_inference(args.rtsp, display=args.display)
