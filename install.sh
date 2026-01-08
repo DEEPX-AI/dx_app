@@ -11,7 +11,7 @@ VENV_REUSE="n"
 ENABLE_DEBUG_LOGS=0
 
 # Global variables for script configuration
-MIN_PY_VERSION="3.11.0"
+MIN_PY_VERSION="3.8.0"
 
 # color env settings
 source ${SCRIPT_DIR}/scripts/color_env.sh
@@ -132,9 +132,9 @@ function install_opencv() {
         toolchain_define="-D CMAKE_INSTALL_PREFIX=/usr/local "
         if [ $(uname -m) != "$target_arch" ]; then
             case "$target_arch" in
-              arm64) toolchain_define="-D CMAKE_TOOLCHAIN_FILE=../platforms/linux/aarch64-gnu.toolchain.cmake -D CMAKE_INSTALL_PREFIX=$DX_SRC_DIR/extern/$target_arch "
+              arm64) toolchain_define="-D CMAKE_TOOLCHAIN_FILE=../platforms/linux/aarch64-gnu.toolchain.cmake -D CMAKE_INSTALL_PREFIX=$DX_SRC_DIR/third_party/$target_arch "
               ;;
-              aarch64) toolchain_define="-D CMAKE_TOOLCHAIN_FILE=../platforms/linux/aarch64-gnu.toolchain.cmake -D CMAKE_INSTALL_PREFIX=$DX_SRC_DIR/extern/$target_arch "
+              aarch64) toolchain_define="-D CMAKE_TOOLCHAIN_FILE=../platforms/linux/aarch64-gnu.toolchain.cmake -D CMAKE_INSTALL_PREFIX=$DX_SRC_DIR/third_party/$target_arch "
               ;;
             esac  
             if [ $(uname -m) == "arm64" ] && [ $target_arch == "aarch64" ]; then  

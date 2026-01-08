@@ -1,0 +1,129 @@
+#!/bin/bash
+
+# SPDX-License-Identifier: Apache-2.0
+# Copyright 2024 deepx.ai
+
+if [ $# -lt 1 ]; then
+    echo "Usage:"
+    echo "Build Images : $0 build <DX_RT_TAR_PATH> <UBUNTU_VERSION>"
+    echo "Load Images : $0 load <image tar file>"
+    echo "Run Container : $0 run"
+    echo "Remove Container & images : $0 rmi"
+    exit 1
+fi
+
+ACTION=$1
+echo $ACTION
+
+# Extract the path for 'build' action
+DX_RT_TAR_PATH=""
+if [ "$ACTION" = "build" ]; then
+    if [ $# -lt 2 ]; then
+        echo "Error: Path to DX_RT_TAR_PATH must be specified."
+        exit 1
+    fi
+    DX_RT_TAR_PATH="$2"
+    UBUNTU_VERSION="$3"
+    
+    if [ ! -f "$DX_RT_TAR_PATH" ]; then
+        echo "Error: Specified path '$DX_RT_TAR_PATH' does not exist."
+        exit 1
+    fi
+    echo "FILE PATH: $DX_RT_TAR_PATH"
+    # Extract file name and copy to the current directory
+    RT_FILE=$(basename "$DX_RT_TAR_PATH")
+    cp "$DX_RT_TAR_PATH" "./$RT_FILE"
+fi
+
+IMAGE_TAR_PATH=""
+if [ "$ACTION" = "load" ]; then
+    if [ $# -lt 2 ]; then
+        echo "Error: Path to image tar file must be specified."
+        exit 1
+    fi
+    IMAGE_TAR_PATH="$2"
+
+    if [ ! -f "$IMAGE_TAR_PATH" ]; then
+        echo "Error: Specified path '$IMAGE_TAR_PATH' does not exist."
+        exit 1
+    fi
+
+    echo "IMAGE TAR File: $IMAGE_TAR_PATH"
+fi
+
+devices=""
+
+for i in {0..23}; do
+  device="/dev/dxrt$i"
+  if [ -e "$device" ]; then
+    devices="$devices --device=$device"
+  fi
+done
+
+DXAPP_BUILD_OPTIONS="-f Dockerfile --build-arg UBUNTU_VERSION=$UBUNTU_VERSION -t dxapp . "
+DXAPP_RUN_OPTIONS="--volume="/tmp/.X11-unix:/tmp/.X11-unix:rw" --env=XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR" --env=DISPLAY="$DISPLAY" --env=DOCKER_VOLUME_PATH="/deepx/workspace" --volume /mnt/regression_storage:/mnt/regression_storage --volume /dev:/dev --volume /lib/modules:/lib/modules --volume /lib/udev/rules.d:/lib/udev/rules.d --volume /usr/src:/usr/src --volume /var/run/dbus/system_bus_socket:/var/run/dbus/system_bus_socket --security-opt apparmor=unconfined -it -d dxapp"
+
+# Check the first argument
+case $ACTION in
+    build)
+        # Run 'Docker build'
+        export DOCKER_BUILDKIT=1
+        sudo docker build $DXAPP_BUILD_OPTIONS
+        ;;
+    load)
+        if [ ! -f "$IMAGE_TAR_PATH" ]; then
+            echo "Error: Specified path '$IMAGE_TAR_PATH' does not exist."
+            exit 1
+        fi
+        sudo docker load -i $IMAGE_TAR_PATH
+        sudo docker images
+        ;;
+    run)
+        # Run 'Docker run'
+        sudo systemctl stop dxrt.service
+
+        PID=$(pgrep -f "dxrtd")
+        if [ -n "$PID" ]; then
+            echo "The process 'dxrtd' (PID: $PID) is currently running. Terminating it now."
+            kill -9 "$PID"
+            echo "The process has been terminated."
+        else
+            echo "The process 'dxrtd' is not running."
+        fi
+
+        xhost +local:root
+        
+        CONTAINER_ID=$(sudo docker ps -aq -f name=dxapp)
+        if [ -n "$CONTAINER_ID" ]; then
+            echo "dxapp container already exists. Checking if it is running."
+            if [ -z "$(sudo docker ps -q -f name=dxapp)" ]; then
+                echo "Restarting the existing container."
+                sudo docker start dxapp
+            else
+                echo "Container is already running."
+            fi
+        else
+            echo "Creating and starting a new container."
+            sudo docker run --name dxapp $devices $DXAPP_RUN_OPTIONS
+        fi
+        sudo docker exec -it dxapp /bin/bash
+        ;;
+    rmi)
+        # Remove 'Docker image'
+        CONTAINER_ID=$(sudo docker ps -aq -f name=dxapp)
+        if [ -n "$CONTAINER_ID" ]; then
+            echo "Removing dxapp container."
+            sudo docker rm -f $CONTAINER_ID
+        fi
+        echo "Removing dxapp image."
+        sudo docker rmi dxapp
+        ;;
+    *)
+        echo "Invalid action: $ACTION"
+        echo "Usage:"
+        echo "Build Images : $0 build <DX_RT_TAR_PATH>"
+        echo "Load Images : $0 load <image tar file>"
+        echo "Run Container : $0 run"
+        echo "Remove Container & images : $0 rmi"
+        ;;
+esac
