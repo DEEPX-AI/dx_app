@@ -27,6 +27,7 @@ help() {
     echo -e "  ${COLOR_GREEN}--type <TYPE>${COLOR_RESET}  Specify the CMake build type. Valid options: [Release, Debug, RelWithDebInfo]."
     echo -e "  ${COLOR_GREEN}--arch <ARCH>${COLOR_RESET}  Specify the target CPU architecture. Valid options: [x86_64, aarch64]."
     echo -e "  ${COLOR_GREEN}--make_so${COLOR_RESET}    Build postprocess shared library for dynamic linking (default: disabled)."
+    echo -e "  ${COLOR_GREEN}--coverage${COLOR_RESET}   Enable code coverage reporting (adds --coverage flags)."
     echo -e ""
     echo -e "  ${COLOR_GREEN}--python_exec <PATH>${COLOR_RESET} Specify the Python executable to use for the build."
     echo -e "                            If omitted, the default system 'python3' will be used."
@@ -72,6 +73,7 @@ build_type=release
 build_gtest=false
 build_with_codec=false
 build_with_sharedlib=false
+enable_coverage=false
 
 # global variaibles
 python_exec=""
@@ -105,6 +107,9 @@ while (( $# )); do
             shift;;
         --make_so)
             build_with_sharedlib=true;
+            shift;;
+        --coverage)
+            enable_coverage=true;
             shift;;
         --v3codec)
             build_with_codec=true;
@@ -172,6 +177,11 @@ fi
 
 if [ $build_with_sharedlib == "true" ]; then
     cmd+=(-DDXAPP_WITH_SHAREDLIB=True);
+fi
+
+if [ $enable_coverage == "true" ]; then
+    cmd+=(-DENABLE_COVERAGE=ON);
+    echo -e "${TAG_INFO} Code coverage enabled"
 fi
 
 cmd+=(-DCMAKE_VERBOSE_MAKEFILE=$verbose)

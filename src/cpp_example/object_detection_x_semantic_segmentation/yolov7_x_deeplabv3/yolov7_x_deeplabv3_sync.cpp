@@ -553,7 +553,13 @@ int main(int argc, char* argv[]) {
         auto s = std::chrono::high_resolution_clock::now();
         do {
             cv::Mat image;
+            auto t_read_start = std::chrono::high_resolution_clock::now();
             video >> image;
+            auto t_read_end = std::chrono::high_resolution_clock::now();
+
+            if (image.empty()) {
+                break;
+            }
 
             cv::Mat yolo_preprocessed_image(yolo_post_processor.get_input_height(),
                                        yolo_post_processor.get_input_width(), CV_8UC3);
@@ -592,6 +598,8 @@ int main(int argc, char* argv[]) {
                 }
                 processCount++;
 
+                profiling_metrics.sum_read +=
+                    std::chrono::duration<double, std::milli>(t_read_end - t_read_start).count();
                 profiling_metrics.sum_yolo_preprocess += 
                     std::chrono::duration<double, std::milli>(t1 - t0).count();
                 profiling_metrics.sum_deeplab_preprocess += 
