@@ -33,7 +33,9 @@ site_url: 'https://developer.deepx.ai/'
 nav:
   - DXNN Application Overview: docs/01_DXNN_Application_Overview.md
   - DX-APP Installation and Build: docs/02_DX-APP_Installation_and_Build.md
-  - DX-APP CPP Examples: docs/03_DX-APP_CPP_Example_Usage_Guide.md
+  - CPP Examples: 
+    - Guides: docs/03_DX-APP_CPP_Example_Usage_Guide.md
+    - Tests: docs/04_DX-APP_CPP_Example_Test.md
   - Python Examples:
     - Guides: docs/04_DX-APP_Python_Example_Usage_Guide.md
     - Tests: docs/05_DX-APP_Python_Example_Test.md
