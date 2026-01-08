@@ -48,11 +48,11 @@ plugins:
   - include-markdown
   - with-pdf:
       author: DEEPX.ai
-      copyright: ⓒ Copyright 2025 DEEPX All Rights Reserved.
+      copyright: ⓒ Copyright 2026 DEEPX All Rights Reserved.
       #
       #cover: false
       cover_title: DXNN Application (DX-APP) User Manual
-      cover_subtitle: v3.0.0 (Nov 2025)
+      cover_subtitle: v3.0.0 (Nov 2026)
       cover_logo: img/deepx.png
       custom_template_path: docs/stylesheets
       output_path: ../DEEPX_DX-APP_UM_v3.0.0.pdf
@@ -92,4 +92,4 @@ extra_javascript:
   - javascripts/mathjax.js
   - https://polyfill.io/v3/polyfill.min.js?features=es6
   - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
-copyright: ⓒ Copyright 2025 <a href="http://deepx.ai">DEEPX</a>. All Rights Reserved.
+copyright: ⓒ Copyright 2026 <a href="http://deepx.ai">DEEPX</a>. All Rights Reserved.

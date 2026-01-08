@@ -281,58 +281,60 @@ if [ -e $build_dir/release/bin ]; then
     echo =================================================    
     echo ""
     
-    # Interactive prompt for LD_LIBRARY_PATH setup
-    echo -e "${COLOR_CYAN}${COLOR_BOLD}Choose how to set up library path:${COLOR_RESET}"
-    echo -e "  ${COLOR_GREEN}1)${COLOR_RESET} Export LD_LIBRARY_PATH (current session only, temporary)"
-    echo -e "  ${COLOR_GREEN}2)${COLOR_RESET} Copy libs to /usr/local/lib and run ldconfig (system-wide, permanent)"
-    echo ""
-    echo -e "${COLOR_YELLOW}Press Enter for option 1 (default), or type 2 for option 2.${COLOR_RESET}"
-    echo -e "${COLOR_YELLOW}No response within 10 seconds will skip both options.${COLOR_RESET}"
-    echo ""
-    
-    # Read user input with 10 second timeout
-    read -t 10 -p "Select option [1]: " user_choice
-    read_status=$?
-    
-    if [ $read_status -gt 128 ]; then
-        # Timeout occurred (no input within 10 seconds)
+    if [ "$build_with_sharedlib" == "true" ]; then
+        # Interactive prompt for LD_LIBRARY_PATH setup (only when building shared lib)
+        echo -e "${COLOR_CYAN}${COLOR_BOLD}Choose how to set up library path:${COLOR_RESET}"
+        echo -e "  ${COLOR_GREEN}1)${COLOR_RESET} Export LD_LIBRARY_PATH (current session only, temporary)"
+        echo -e "  ${COLOR_GREEN}2)${COLOR_RESET} Copy libs to /usr/local/lib and run ldconfig (system-wide, permanent)"
         echo ""
-        echo -e "${COLOR_YELLOW}${COLOR_BOLD}Timeout: No option selected. Skipping library path setup.${COLOR_RESET}"
-        echo -e "${COLOR_GREEN}${COLOR_BOLD}To manually set up later, use the provided scripts:${COLOR_RESET}"
-        echo -e "${COLOR_GREEN}  - Temporary (session): ${COLOR_CYAN}source ./scripts/setup_postprocess_lib.sh --session${COLOR_RESET}"
-        echo -e "${COLOR_GREEN}  - Permanent (system):  ${COLOR_CYAN}./scripts/setup_postprocess_lib.sh --system${COLOR_RESET}"
+        echo -e "${COLOR_YELLOW}Press Enter for option 1 (default), or type 2 for option 2.${COLOR_RESET}"
+        echo -e "${COLOR_YELLOW}No response within 10 seconds will skip both options.${COLOR_RESET}"
         echo ""
-        echo -e "${COLOR_GREEN}${COLOR_BOLD}To remove the configuration:${COLOR_RESET}"
-        echo -e "${COLOR_GREEN}  - Temporary (session): ${COLOR_CYAN}source ./scripts/unsetup_postprocess_lib.sh --session${COLOR_RESET}"
-        echo -e "${COLOR_GREEN}  - Permanent (system):  ${COLOR_CYAN}./scripts/unsetup_postprocess_lib.sh --system${COLOR_RESET}"
-    elif [ "$user_choice" == "2" ]; then
-        # Option 2: Copy to /usr/local/lib and run ldconfig
-        echo ""
-        echo -e "${COLOR_CYAN}${COLOR_BOLD}Copying libraries to /usr/local/lib...${COLOR_RESET}"
-        if sudo cp $(pwd)/lib/libdxapp_*_postprocess.so /usr/local/lib/ 2>/dev/null; then
-            echo -e "${COLOR_GREEN}  ✓ Libraries copied to /usr/local/lib${COLOR_RESET}"
-            echo -e "${COLOR_CYAN}${COLOR_BOLD}Running ldconfig...${COLOR_RESET}"
-            if sudo ldconfig; then
-                echo -e "${COLOR_GREEN}  ✓ ldconfig completed successfully${COLOR_RESET}"
-                echo -e "${COLOR_GREEN}${COLOR_BOLD}Library path is now permanently configured (system-wide).${COLOR_RESET}"
+        
+        # Read user input with 10 second timeout
+        read -t 10 -p "Select option [1]: " user_choice
+        read_status=$?
+        
+        if [ $read_status -gt 128 ]; then
+            # Timeout occurred (no input within 10 seconds)
+            echo ""
+            echo -e "${COLOR_YELLOW}${COLOR_BOLD}Timeout: No option selected. Skipping library path setup.${COLOR_RESET}"
+            echo -e "${COLOR_GREEN}${COLOR_BOLD}To manually set up later, use the provided scripts:${COLOR_RESET}"
+            echo -e "${COLOR_GREEN}  - Temporary (session): ${COLOR_CYAN}source ./scripts/setup_postprocess_lib.sh --session${COLOR_RESET}"
+            echo -e "${COLOR_GREEN}  - Permanent (system):  ${COLOR_CYAN}./scripts/setup_postprocess_lib.sh --system${COLOR_RESET}"
+            echo ""
+            echo -e "${COLOR_GREEN}${COLOR_BOLD}To remove the configuration:${COLOR_RESET}"
+            echo -e "${COLOR_GREEN}  - Temporary (session): ${COLOR_CYAN}source ./scripts/unsetup_postprocess_lib.sh --session${COLOR_RESET}"
+            echo -e "${COLOR_GREEN}  - Permanent (system):  ${COLOR_CYAN}./scripts/unsetup_postprocess_lib.sh --system${COLOR_RESET}"
+        elif [ "$user_choice" == "2" ]; then
+            # Option 2: Copy to /usr/local/lib and run ldconfig
+            echo ""
+            echo -e "${COLOR_CYAN}${COLOR_BOLD}Copying libraries to /usr/local/lib...${COLOR_RESET}"
+            if sudo cp $(pwd)/lib/libdxapp_*_postprocess.so /usr/local/lib/ 2>/dev/null; then
+                echo -e "${COLOR_GREEN}  ✓ Libraries copied to /usr/local/lib${COLOR_RESET}"
+                echo -e "${COLOR_CYAN}${COLOR_BOLD}Running ldconfig...${COLOR_RESET}"
+                if sudo ldconfig; then
+                    echo -e "${COLOR_GREEN}  ✓ ldconfig completed successfully${COLOR_RESET}"
+                    echo -e "${COLOR_GREEN}${COLOR_BOLD}Library path is now permanently configured (system-wide).${COLOR_RESET}"
+                else
+                    echo -e "${COLOR_RED}${COLOR_BOLD}Failed to run ldconfig.${COLOR_RESET}"
+                fi
             else
-                echo -e "${COLOR_RED}${COLOR_BOLD}Failed to run ldconfig.${COLOR_RESET}"
+                echo -e "${COLOR_RED}${COLOR_BOLD}Failed to copy libraries to /usr/local/lib.${COLOR_RESET}"
+                echo -e "${TAG_WARN} You may need to manually run: sudo cp $(pwd)/lib/libdxapp_*_postprocess.so /usr/local/lib && sudo ldconfig"
             fi
         else
-            echo -e "${COLOR_RED}${COLOR_BOLD}Failed to copy libraries to /usr/local/lib.${COLOR_RESET}"
-            echo -e "${TAG_WARN} You may need to manually run: sudo cp $(pwd)/lib/libdxapp_*_postprocess.so /usr/local/lib && sudo ldconfig"
+            # Option 1 (default): Export LD_LIBRARY_PATH
+            echo ""
+            echo -e "${COLOR_CYAN}${COLOR_BOLD}Setting LD_LIBRARY_PATH for current session...${COLOR_RESET}"
+            export LD_LIBRARY_PATH=$(pwd)/lib:$LD_LIBRARY_PATH
+            echo -e "${COLOR_GREEN}  ✓ LD_LIBRARY_PATH exported: $(pwd)/lib${COLOR_RESET}"
+            echo -e "${COLOR_YELLOW}${COLOR_BOLD}Note: This setting is temporary and will be lost when the terminal session ends.${COLOR_RESET}"
+            echo -e "${COLOR_YELLOW}To make it permanent, add the following line to your ~/.bashrc or ~/.profile:${COLOR_RESET}"
+            echo -e "${COLOR_GREEN}  export LD_LIBRARY_PATH=$(pwd)/lib:\$LD_LIBRARY_PATH${COLOR_RESET}"
         fi
-    else
-        # Option 1 (default): Export LD_LIBRARY_PATH
         echo ""
-        echo -e "${COLOR_CYAN}${COLOR_BOLD}Setting LD_LIBRARY_PATH for current session...${COLOR_RESET}"
-        export LD_LIBRARY_PATH=$(pwd)/lib:$LD_LIBRARY_PATH
-        echo -e "${COLOR_GREEN}  ✓ LD_LIBRARY_PATH exported: $(pwd)/lib${COLOR_RESET}"
-        echo -e "${COLOR_YELLOW}${COLOR_BOLD}Note: This setting is temporary and will be lost when the terminal session ends.${COLOR_RESET}"
-        echo -e "${COLOR_YELLOW}To make it permanent, add the following line to your ~/.bashrc or ~/.profile:${COLOR_RESET}"
-        echo -e "${COLOR_GREEN}  export LD_LIBRARY_PATH=$(pwd)/lib:\$LD_LIBRARY_PATH${COLOR_RESET}"
     fi
-    echo ""
 else
     echo Build Failed.
     exit -1
