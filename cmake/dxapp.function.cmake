@@ -1,7 +1,7 @@
 macro(add_target name)
   target_include_directories( ${name} PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
-    ${CMAKE_SOURCE_DIR}/extern/
+    ${CMAKE_SOURCE_DIR}/third_party/
     ${CMAKE_SOURCE_DIR}/lib/
   )
 if(${STD_FS_NO_LIB_NEEDED})
@@ -51,20 +51,18 @@ if(MSVC)
   add_library(dxrt SHARED IMPORTED)
   if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     set_target_properties(dxrt PROPERTIES
-      IMPORTED_IMPLIB "${DXRT_DIR}\\lib\\dxrtdbg.lib"
-      IMPORTED_LOCATION "${DXRT_DIR}\\lib\\dxrtdbg.dll"
-      INTERFACE_INCLUDE_DIRECTORIES "${DXRT_DIR}\\include"
+      IMPORTED_LOCATION "${DXRT_DLL_DIR}"
+      INTERFACE_INCLUDE_DIRECTORIES "${DXRT_INCLUDE_DIR}"
     )
   else()
     set_target_properties(dxrt PROPERTIES
-      IMPORTED_IMPLIB "${DXRT_DIR}\\lib\\dxrt.lib"
-      IMPORTED_LOCATION "${DXRT_DIR}\\lib\\dxrt.dll"
-      INTERFACE_INCLUDE_DIRECTORIES "${DXRT_DIR}\\include"
+      IMPORTED_LOCATION "${DXRT_DLL_DIR}"
+      INTERFACE_INCLUDE_DIRECTORIES "${DXRT_INCLUDE_DIR}"
     )
   endif()
   LIST(APPEND link_libs dxrt)
 else()
-  if(CROSS_COMPILE)
+  if(CROSS_COMPILE OR MSVC)
     if(DXRT_INSTALLED_DIR)
       add_library(dxrt SHARED IMPORTED)
       set_target_properties(dxrt PROPERTIES

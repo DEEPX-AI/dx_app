@@ -13,13 +13,13 @@ This chapter provides an overview of the DEEPX SDK architecture and explains eac
 
 **DX-STREAM** is a custom GStreamer plugin that enables real-time streaming data integration into AI inference applications on DEEPX NPU. It provides a modular pipeline framework with configurable elements for preprocessing, inference, and postprocessing, tailored to vision AI work. DX-Stream allows developers to build flexible, high-performance applications for use cases such as video analytics, smart cameras, and edge AI systems.  
 
-**DX-APP** is a sample application that demonstrates how to run compiled models on actual DEEPX NPU using DX-RT. It includes ready-to-use code for common vision tasks such as object detection, face recognition, and image classification. DX-APP helps developers quickly set up the runtime environment and serves as a template for building and customizing their own AI applications.  
+**DX-APP** is a collection of "per-model examples" that run compiled models on DEEPX NPUs via DX-RT. It ships runnable examples for key vision tasks—object detection, face recognition, image classification—and shares common processing logic so you can copy and lightly modify what you need. DX-APP helps you stand up the runtime quickly and serves as a practical starting point for building and customizing your own applications. Below are representative run examples.   
 
 ---
 
 ## DX-APP Features
 
-**DX-APP** is a set of application templates designed to demonstrate the performance and deployment of AI models on DEEPX NPUs. It provides ready-to-use examples for image classification, object detection, segmentation, and pose estimation.
+**DX-APP** provides ready-to-use examples for image classification, object detection, segmentation, and pose estimation.
 
 You can quickly evaluate inference capabilities without modifying the source code and easily adapt the templates for custom applications. These templates significantly reduce the overhead of environment configuration and manual implementation.
 
@@ -28,51 +28,62 @@ You can quickly evaluate inference capabilities without modifying the source cod
     Application performance may vary depending on host system specifications. Each demo includes pre-processing, post-processing, and graphics processing operations.
 
 
-### Demos
+### Example Catalog
 
-**DX-APP** demos are optimized to showcase pre-compiled models on DEEPX NPUs with minimal setup. Each demo represents a common AI task and can be executed using images, videos, or live camera input.
+**DX-APP** examples are optimized to showcase pre-compiled models on DEEPX NPUs with minimal setup. Each example demo represents a common AI task and can be executed using images, videos, or live camera input.
 
-**Classification**  
+**Classification (EfficientNetB0)**  
 
-- Executes classification models with image inputs (e.g., `224x224`).  
-- Outputs the Top-1 predicted class.  
-- Example: `example/run_classifier/imagenet_example.json`
+- Input: image (e.g., `224x224`) / Output: Top-1 class
+- Example run
+```bash
+./bin/efficientnet_async -m ./assets/models/EfficientNetB0_4.dxnn -i ./sample/ILSVRC2012/0.jpeg -l 1
+./bin/efficientnet_sync  -m ./assets/models/EfficientNetB0_4.dxnn -i ./sample/ILSVRC2012/0.jpeg -l 1
+```
 
-**Object Detection**  
+**Object Detection (YOLOv8N)**  
 
-This demo supports image, video (mp4, mov, avi), and camera input.  
+- Input: image/video/camera/RTSP / Output: boxes rendered and logged
+- Example run
+```bash
+./bin/yolov8_async -m ./assets/models/YoloV8N.dxnn -i ./sample/img/1.jpg --no-display -l 1
+./bin/yolov8_sync  -m ./assets/models/YoloV8N.dxnn -i ./sample/img/1.jpg --no-display -l 1 -s
+```
 
-- For image input, outputs result.jpg and prints detected objects to the terminal.  
-- For video input, displays bounding boxes on the output video.  
+**Face Detection (SCRFD)**  
 
-**Pose Estimation**  
+- Input: image / Output: face boxes, landmarks, log
+- Example run
+```bash
+./bin/scrfd_async -m ./assets/models/SCRFD500M_1.dxnn -i ./sample/img/face_sample.jpg --no-display -l 1
+./bin/scrfd_sync  -m ./assets/models/SCRFD500M_1.dxnn -i ./sample/img/face_sample.jpg --no-display -l 1 -s
+```
 
-- Detects people and estimates keypoints (joints) using image, video, or camera input.  
-- The output includes both bounding boxes and joint coordinates rendered on screen.  
-  
-**Segmentation**  
+**Pose Estimation (YOLOv5 Pose)**  
 
-This demo uses two models to perform segmentation.   
+- Input: image/video/camera / Output: person boxes + keypoints
+- Example run
+```bash
+./bin/yolov5pose_async -m ./assets/models/YOLOV5Pose640_1.dxnn -i ./sample/img/1.jpg --no-display -l 1
+./bin/yolov5pose_sync  -m ./assets/models/YOLOV5Pose640_1.dxnn -i ./sample/img/1.jpg --no-display -l 1 -s
+```
 
-- For image input, saves results to result.jpg and prints info to the terminal.  
-- For video input, displays output with both detection boxes and segmentation masks.  
+**Segmentation (DeepLabV3+)**  
 
+- Input: image/video/camera / Output: boxes + masks rendered, results saved
+- Example run
+```bash
+./bin/deeplabv3_async -m ./assets/models/DeepLabV3PlusMobileNetV2_2.dxnn -i ./sample/img/8.jpg --no-display -l 1
+./bin/deeplabv3_sync  -m ./assets/models/DeepLabV3PlusMobileNetV2_2.dxnn -i ./sample/img/8.jpg --no-display -l 1 -s
+```
 
-### Templates
+**Composite (Object Detection x Semantic Segmentation)**  
 
-**DX-APP** provides lightweight Application Templates that run classification or detection models by modifying only the JSON configuration. No code changes required.
-
-**Classification**  
-
-- Supports various classification models with image or binary input.  
-- Outputs the Top-1 class by adjusting JSON fields.  
-- Example JSON: `example/run_classifier/imagenet_example.json`  
-
-**Object Detection**  
-
-- Supports YOLO-series models using image, binary, video, RTSP stream, or camera input.  
-- Built on multi-threading for multi-channel and real-time processing.  
-- Supports dynamic input source expansion and grid-style output display.  
-- Example JSON: `example/run_detector/yolov5s3_example.json`
+- Input: image/video/camera / Output: detection boxes plus segmentation masks rendered together
+- Example run
+```bash
+./bin/yolov7_x_deeplabv3_async -m ./assets/models/YoloV7.dxnn,./assets/models/DeepLabV3PlusMobileNetV2_2.dxnn -i ./sample/img/1.jpg --no-display -l 1
+./bin/yolov7_x_deeplabv3_sync  -m ./assets/models/YoloV7.dxnn,./assets/models/DeepLabV3PlusMobileNetV2_2.dxnn -i ./sample/img/1.jpg --no-display -l 1 -s
+```
 
 ---

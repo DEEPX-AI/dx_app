@@ -7,19 +7,15 @@ theme:
   language: en
   font:
     text: Noto Sans Display
-    #text: Noto Serif
-    #code: Noto Sans
     code: Roboto Mono 
   logo: ./img/deepx.png
   favicon: ./img/favicon.png
   palette:
-    # Palette toggle for light mode
     - scheme: default
       primary: black
       toggle:
         icon: material/brightness-7 
         name: Switch to dark mode
-    # Palette toggle for dark mode
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
       primary: black
@@ -37,73 +33,35 @@ site_url: 'https://developer.deepx.ai/'
 nav:
   - DXNN Application Overview: docs/01_DXNN_Application_Overview.md
   - DX-APP Installation and Build: docs/02_DX-APP_Installation_and_Build.md
-  - Demo Guide: docs/03_Demo_Guide.md
-  - Template Guide: docs/04_Template_Guide.md
-  - Classification Template: docs/05_Classification_Template.md
-  - Object Detection Template: docs/06_Object_Detection_Template.md
-  - Python Examples: docs/07_Python_Examples.md
-  - YOLO Post-Processing (Pybind11): docs/08_YOLO_Post_Processing_Pybind11.md
+  - DX-APP CPP Examples: docs/03_DX-APP_CPP_Example_Usage_Guide.md
+  - Python Examples:
+    - Guides: docs/04_DX-APP_Python_Example_Usage_Guide.md
+    - Tests: docs/05_DX-APP_Python_Example_Test.md
+  - Post-processing:
+    - C++: docs/06_DX-APP_CPP_PostProcess_Overview.md
+    - Python Binding: docs/07_DX-APP_Pybind_PostProcess_Overview.md
+  - Project README: docs/08_DX-APP_Project_Overview.md
   - Change Log: docs/Appendix_Change_Log.md
 
 plugins:
   - search
+  - include-markdown
   - with-pdf:
       author: DEEPX.ai
       copyright: ⓒ Copyright 2025 DEEPX All Rights Reserved.
       #
       #cover: false
       cover_title: DXNN Application (DX-APP) User Manual
-      cover_subtitle: v2.1.0 (Nov 2025)
+      cover_subtitle: v3.0.0 (Nov 2025)
       cover_logo: img/deepx.png
       custom_template_path: docs/stylesheets
-      #back_cover: true
-      #
-      #toc_title: TOC TITLE TEXT
-      #heading_shift: false
-      #toc_level: 3
-      #ordered_chapter_level: 2
-      #excludes_children:
-      #    - 'release-notes/:upgrading'
-      #    - 'release-notes/:changelog'
-      #
-      #exclude_pages:
-      #    - 'bugs/'
-      #    - 'appendix/contribute/'
-      #convert_iframe:
-      #    - src: IFRAME SRC
-      #      img: POSTER IMAGE URL
-      #      text: ALTERNATE TEXT
-      #    - src: ...
-      #two_columns_level: 3
-      #
-      #render_js: true
-      #headless_chrome_path: headless-chromium
-      #
-      output_path: ../DEEPX_DX-APP_UM_v2.1.0.pdf
-      #enabled_if_env: ENABLE_PDF_EXPORT
-      #
-      #debug_html: true
-      #show_anchors: true
-      #verbose: true
-#  - mkdocs-video
+      output_path: ../DEEPX_DX-APP_UM_v3.0.0.pdf
 extra:
   homepage: https://developer.deepx.ai
-#  version:
-#    provider: mike
-#    default: stable
   generator: false
   social:
-#     - icon: fontawesome/brands/github
-#       link: https://github.com/deepx-ai
      - icon: fontawesome/brands/linkedin
        link: https://www.linkedin.com/company/deepx-corporation/
-#  alternate:
-#    - name: English
-#      link: /en/    
-#      lang: en
-#    - name: Korean
-#      link: /kr/
-#      lang: kr
 extra_css: 
   - stylesheets/extra.css
 markdown_extensions:

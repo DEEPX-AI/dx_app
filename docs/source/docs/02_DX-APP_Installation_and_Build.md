@@ -23,15 +23,15 @@ This section describes the hardware and software requirements for running **DX-A
 
 ## Installation on Linux
 
-This section describes the software requirements and installation steps for setting up **DX-APP** on Ubuntu-based systems.
+This section describes the software requirements and installation steps for setting up **DX-APP** on Ubuntu-based and Debian-based systems.
 
 ### Software Requirements on Linux  
 
 To run **DX-APP** on Linux, the following components **must** be installed.  
 
-- **OS**: Ubuntu 18.04 / 20.04 / 22.04 / 24.04 (x64)  
-- **Deepx M1 Driver Version**: v1.7.1 or higher  
-- **Deepx M1 Runtime Lib Version**: v3.0.0 or higher  
+- **OS**: Ubuntu 18.04 / 20.04 / 22.04 / 24.04 (x64) and Debian 12 / Debian 13 (x64)
+- **Deepx M1 Driver Version**: v1.7.1 or higher
+- **Deepx M1 Runtime Lib Version**: v3.0.0 or higher
 
 All required components are included in the **DXNN All Suite (DX-AS)** package.  
 
@@ -103,32 +103,6 @@ To download required models and sample videos, run the following command.
 
 Assets are downloaded and placed in the `assets/` directory. The available assets include models for Classification, Object Detection, and Segmentation.  
 
-To test `dx_app`, run the following command.  
-```
-./scripts/run_detector.sh
-```
-You can also use the `run_demo.sh` script to conveniently run a variety of demo applications included with DX-APP. This script provides an interactive menu that allows you to quickly test different AI models and features without needing to remember or type out complex command-line arguments.
-
-To use the demo launcher, simply execute the following command in your terminal:
-
-```
-./run_demo.sh
-0: Object Detection (YOLOv7)
-1: Object Detection with PPU (YOLOv7-640)
-2: Object Detection (YOLOv8N)
-3: Object Detection (YOLOv9S)
-4: Object Detection With PPU (YOLOv5S-512)
-5: Face Detection (YOLOV5S_Face)
-6: Face Detection With PPU (SCRFD500M-640)
-7: Pose Estimation
-8: Pose Estimation With PPU (YOLOv5Pose-640)
-9: Semantic Segmentation
-10: Multi-Channel Object Detection (YOLOv5)
-11: Multi-Channel Object Detection With PPU (YOLOv5-512)
-12: Multi-Model Object Detection (YOLOv5) & Segmentation
-which AI demo do you want to run? (default:0): (20s)
-```
-
 **Post-Processing Unit (PPU) Acceleration Integration**
 
 DX-APP utilizes PPU Acceleration to maximize inference efficiency on NPU hardware.
@@ -146,7 +120,6 @@ The PPU is engineered to offload computationally intensive post-processing tasks
 - Option 4: Object Detection With PPU (YOLOv5S-512)
 - Option 6: Face Detection With PPU (SCRFD500M-640)  
 - Option 8: Pose Estimation With PPU (YOLOv5Pose-640)
-- Option 11: Multi-Channel Object Detection With PPU (YOLOv5-512)
 
 **4. Resolve Shared Library Errors**  
 If you encounter shared library errors (e.g., `libdxrt.so`), update the system’s library cache. 
@@ -173,18 +146,24 @@ This section details the software requirements and sequential installation steps
 
 To run **DX-APP** on Windows, the following components **must** be installed.  
 
-- **OS**: Windows 10 / 11  
-- **Deepx M1 Driver Version**: v1.7.1 or higher  
-- **Deepx M1 Runtime Lib Version**: v3.0.0 or higher
+- **OS**: Windows 10 or later  
 - **Python**: Version 3.8 or higher (required for Python module support)  
 - **Compiler**: Visual Studio Community 2022 (required for building C++ examples)  
 
 
-### Install DX-RT and M1 Windows Device Driver  
+### Install DX-RT and M1 Windows Driver  
    
 DEEPX provides an official Windows installer for **DXNN Runtime (DX-RT)**, which includes the required runtime libraries and M1 device driver.
 
-For detailed instructions, refer to [DX-RT Framework & Windows Device Driver Installation Guide](https://github.com/DEEPX-AI/dx_rt/blob/main/docs/docs/03_Installation_on_Windows.md).
+**Prerequisite checklist (DX-RT Windows Driver)**
+
+- Microsoft Visual C++ 2015-2022 Redistributable (x64) 
+- DEEPX NPU device (e.g., DX-M1) connected via PCIe slot, M.2 slot, or USB 4.0 (USB4 PCIe tunneling required)
+- Administrator privileges for driver installation
+
+Visual Studio Community 2022 is the build toolchain (IDE + compiler), while the Microsoft Visual C++ 2015-2022 Redistributable provides the runtime DLLs needed to run the built apps.
+
+For detailed instructions, refer to [DeepX NPU Windows Runtime & Driver](https://github.com/DEEPX-AI/dx_rt_windows).
 
 
 ### Install Visual Studio Community 2022  
@@ -203,10 +182,10 @@ To use **DX-APP** on Windows, Visual Studio Community 2022 **must** be installed
 
 !!! note "NOTE" 
 
-    If Visual Studio Community 2022 is **not** installed, you may be prompted to install the **Microsoft Visual C++ Redistributable** (`VC_redist.x64.exe`) with administrator permissions.  
+    Visual Studio Community 2022 is required; other versions are not tested.  
 
 
-### (Optional) Install VCPKG  
+### Install VCPKG  
 
 VCPKG is a C++ package manager used for handling third-party dependencies like OpenCV.
 
@@ -227,6 +206,7 @@ If manual installation is required, follow the steps below.
     This step is essential to allow Visual Studio to automatically detect and use VCPKG-managed packages like OpenCV.  
 
 ![](./../resources/02_04_VCPKG_ROOT_Variable.png)
+
 
 ### Build and Install dx_app in Visual Studio Community 2022  
 
@@ -261,17 +241,17 @@ If needed, you can manually specify the following environment variables in `CMak
 ```
 {
     "name": "CMAKE_TOOLCHAIN_FILE",
-    "value": "${env.VCPKG_ROOT}\\scripts\\buildsystems\\vcpkg.cmake",
+    "value": "${env.VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
     "type": "STRING"
 },
 {
     "name": "DXRT_DIR",
-    "value": "C:\\DevTools\\DEEPX\\DXNN\\v2025.03-1_beta-06\\DXRT",
+    "value": "path/to/dx_rt/installed",
     "type": "STRING"
 },
 {
     "name": "OpenCV_DIR",
-    "value": "${projectDir}\\vcpkg_installed\\x64-windows",
+    "value": "${projectDir}/vcpkg_installed/x64-windows/share/opencv",
     "type": "STRING"
 }
 ```
@@ -299,121 +279,75 @@ Upon successful compilation, the application executable will be generated under 
 ![](./../resources/02_08_Install_dxapp_to_install.png)
 
 
-### Alternative Build Method: Using build.bat Script
+### Alternative Build Method: Using build.bat (generates build_internal.bat)
 
-This method provides an automated alternative to the manual build process described in **Section 2.3.5.** Visual Studio IDE build. The build.bat script is designed to streamline the entire compilation pipline by automatically handling CMake configuration, building, and installation steps.
+The updated `build.bat` now generates `build_internal.bat` from `CMakeSettings.json` and drives both the DX-APP build and the pybind C++ module build.
 
-**Key Features of build.bat:**
+**Key behaviors**
 
-- **Automated Pipeline**: Handles the complete build pipeline from configuration to installation
-- **Environment Validation**: Automatically checks for required environment variables (such as `DXRT_DIR`) 
-- **Visual Studio 2022 Integration**: Generates Visual Studio 2022 solution files for development
-- **Organized Output**: Creates builds in the `build_vs2022` directory for clean organization
-- **Default Configuration**: Builds and installs the application in optimized Release mode
+- Generates `build_internal.bat` based on the selected CMake configuration (toolchain, paths, generator).
+- Validates environment (e.g., `DXRT_DIR`) and cleans stale CMake cache to avoid generator/toolset mismatches.
+- Builds and installs DX-APP executables/libraries, then builds the pybind C++ module.
 
-**Prerequisites:**
+**Prerequisites**
 
-- **DXRT_DIR Variable**: Must be set as an environment variable pointing to DX-RT installation directory
-- **Visual Studio 2022**: Installed With Desktop development with C++ workload
-- **CMake**: Mulst be accessible Accessible from command line interface
+- `DXRT_DIR` set to the DX-RT installation directory
+- Visual Studio 2022 with Desktop development with C++ workload
+- CMake available in `PATH`
 
-**Usage Steps**
+**Usage**
 
-**Step 1. Run the Build Script**  
-Execute the build script from the project root directory:
+From the project root:
 ```
 build.bat
 ```
 
-**Step 2. Build Process Overview**  
-The script performs the following operations automatically:
-![](./../resources/02_09_Running_build_bat_Script.png)
+`build_internal.bat` is written alongside, then executed to configure, build, and install outputs. Use the generated `dxapp.sln` (under the build directory, ./out/build/x64-Release/) if you want to open in Visual Studio 2022 for further development.
 
-1. **Environment Validation**: Verifies that `DXRT_DIR` is set and the directory exists
-2. **Build Directory Creation**: Creates `build_vs2022` directory if it doesn't exist
-3. **CMake Configuration**: Configures the project using Visual Studio 2022 generator with x64 architecture
-4. **Solution Generation**: Creates `dxapp.sln` in the `build_vs2022` directory 
-5. **Release Build**: Compiles the project in Release configuration
-6. **Installation**: Installs the built binaries to the appropriate directories
+**Visual Studio solution Generation**  
 
-**Step 3. Visual Studio Integration**  
 After successful execution of build.bat, the scripts generates the necessary solution files for development within the IDE.
 
-- **[IMPORTANT]** Open Solution: Open the generated solution file at `build_vs2022\dxapp.sln`  **using Visual Studio 2022**
+- **[IMPORTANT]** Open Solution: Open the generated solution file at `out\build\x64-Release\dxapp.sln`  **using Visual Studio 2022**
 (NOTE. Opening with other versions may cause compatibility issues or build failures.)
 - **Access & Customization**: Use Visual Studio 2022 for debugging, development, and further customization. All project targets and configurations are accessible through the VS 2022 interface.
 
-**Step 4. Solution-Based Development**  
-Once the `dxapp.sln` file is generated, you can use Visual Studio 2022 for comprehensive development workflows:
-
-![](./../resources/02_10_Install_Process_Using_DXApp_Solution.png)
-
-- **Complete Application Build & Install**: Build the entire DX-APP application and install all components through the solution
-- **Individual Target Building**: Build specific components or modules independently by selecting individual projects within the solution
-- **Development Flexibility**: Utilize Visual Studio 2022's full IDE capabilities for debugging, testing, and code modification
-
 **Build Output Structure:**
+
 ```
 dx_app/
-├── build_vs2022/           # Build directory created by build.bat
-│   ├── dxapp.sln         # Visual Studio 2022 solution file
-│   ├── *.vcxproj          # Project files for each target
-│   └── Release/           # Compiled binaries and libraries
+├── out/                   # Build directory created by build.bat
+│   ├── build/             # CMake build files
+│   │   ├── x64-Release/   # Release build configuration
+│   │   │   ├── dxapp.sln  # Visual Studio 2022 solution file
+│   │   │   ├── *.vcxproj  # Project files for each target
+│   │   │   └── ...        # Other build artifacts
+│   │   └── ...
+│   └── install/           # Installation directory
 ├── bin/                   # Installed executables
 └── lib/                   # Installed libraries
 ```
 
-**Troubleshooting:**
-
-- **Environment Variable Issues**: If `DXRT_DIR` is not set, the script will display an error and exit
-- **Build Failures**: Check that all prerequisites are properly installed
-- **OpenCV Dependencies**: Ensure OpenCV is properly configured as described in previous sections
-
-**Build Model Equivalence**
-
-- **Equivalence**: The build.bat script is functionally equivalent to the manual Visual Studio build process (Section 2.3.5).
-- **Recommendation**: Both methods produce identical results; select the approach that best fits your workflow—the **automated script** for speed, or the **manual process** for granular control from the start.
-
-
-### Run Example Demo Executable Files On Windows  
+### Run Example Executable Files On Windows  
 
 After building and installing dx_app, you can execute the demo applications using provided batch scripts.  
 
 **Step 1. Execute `setup.bat`**  
+
 Run the `setup.bat` script to automatically download all required models and sample videos.  
 
 - The downloaded assets will be placed in the `assets` folder.  
 - The assets include models for Classification, Object Detection, and Segmentation.  
 
-OpenCV Dependency Handling  
+**Step 2. Run Examples**  
 
-- If OpenCV was installed using vcpkg, it will be located in the `vcpkg_installed/x64-windows` directory. The batch files automatically append this path in the `PATH` environment variable.  
-- If OpenCV is installed manually (e.g., custom installation),  
-  : You **must** manually add the OpenCV library and DLL directories to the `PATH`, or  
-  : You **must** manually modify the batch file variables, `OPENCV_LIB_PATH` and  `OPENCV_DLL_PATH`.  
+You can run the examples using the same command line instructions as in Linux, but using the `.exe` extension for executables.
 
-![](./../resources/02_11_Output_of_run_classifier.png)
-
-**Step 2. Run the Demo**  
-Once setup is complete,  
-
-- Navigate to the `bin/` directory.  
-- Run the desired demo using the appropriate batch file.  
-
-For example, to launch the classification demo as follows (`run_classifier.bat`)  
+- classification example:
+```shell
+./bin/efficientnet_async.exe -m ./assets/models/EfficientNetB0_4.dxnn -i ./sample/ILSVRC2012/0.jpeg 
 ```
-@echo off
-setlocal
-
-set "OPENCV_LIB_PATH=%~dp0\vcpkg_installed\x64-windows\lib\"
-set "OPENCV_DLL_PATH=%~dp0\vcpkg_installed\x64-windows\bin\"
-set PATH=%OPENCV_LIB_PATH%;%OPENCV_DLL_PATH%;%PATH%
-set "APP_JSON_PATH=%~dp0\example\imagenet_example.json"
-start cmd /K "%~dp0\bin\run_classifier.exe" -c %APP_JSON_PATH%
-
-endlocal
+- object detection example:
+```shell
+./bin/yolov8_sync.exe  -m ./assets/models/YoloV8N.dxnn -i ./sample/img/1.jpg -l 10
 ```
-
-This will execute the classification demo using the downloaded model and sample image. The result will be displayed in the terminal and saved to the output directory if applicable.  
-
----
