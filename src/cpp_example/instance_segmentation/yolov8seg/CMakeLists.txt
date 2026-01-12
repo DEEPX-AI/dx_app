@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.14)
 project(yolov8seg DESCRIPTION "DEEPX C++ Example For Semantic Segmentation Programs")
 
 if(NOT CMAKE_CXX_STANDARD)

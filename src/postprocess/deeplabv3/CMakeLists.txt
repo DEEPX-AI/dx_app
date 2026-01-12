@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.14)
 project(libdeeplabv3 DESCRIPTION "DEEPX C++ Library For Deeplabv3 Post-Processing")
 
 if(NOT CMAKE_CXX_STANDARD)

@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.14)
 project(cpp_example DESCRIPTION "DEEPX C++ Example For Object Detection Programs")
 
 if(NOT CMAKE_CXX_STANDARD)
