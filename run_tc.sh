@@ -163,10 +163,17 @@ run_cpp_tests() {
     RUN_CLI=true
     RUN_E2E=true
     
-    if [ "$CLI_ONLY" = true ]; then
+    # Handle test selection flags
+    if [ "$CLI_ONLY" = true ] && [ "$E2E_ONLY" = false ] && [ "$E2E_QUICK" = false ]; then
+        # Only CLI flag specified
         RUN_E2E=false
-    elif [ "$E2E_ONLY" = true ]; then
-        RUN_CLI=false
+    elif [ "$E2E_ONLY" = true ] || [ "$E2E_QUICK" = true ]; then
+        # E2E flags specified
+        if [ "$CLI_ONLY" = false ]; then
+            # Only E2E, no CLI
+            RUN_CLI=false
+        fi
+        # If both CLI and E2E flags are set, run both
     fi
     
     # Check for coverage build if --coverage is specified
@@ -400,8 +407,8 @@ done
 print_header "dx_app Test Suite Runner"
 print_info "Test directory: ${TEST_DIR}"
 
-# Validate options
-if [ "$CLI_ONLY" = true ] && [ "$E2E_ONLY" = true ]; then
+# Validate options - allow --cli with --e2e-quick for combined testing
+if [ "$CLI_ONLY" = true ] && [ "$E2E_ONLY" = true ] && [ "$E2E_QUICK" = false ]; then
     print_error "Cannot specify both --cli and --e2e"
     usage
     exit 1

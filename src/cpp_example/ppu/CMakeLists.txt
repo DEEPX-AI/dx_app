@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.14)
 project(object_detection_x_semantic_segmentation DESCRIPTION "DEEPX Multi-Model Examples combining Object Detection and Semantic Segmentation")
 
 if(NOT CMAKE_CXX_STANDARD)
