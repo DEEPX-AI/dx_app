@@ -54,6 +54,19 @@ help() {
     exit 0
 }
 
+# Helper function to remove files/directories with optional sudo fallback
+safe_remove() {
+    local cmd="$1"
+    shift
+    if ! $cmd "$@" 2>/dev/null; then
+        echo -e "${TAG_WARN} Failed to clean, trying again with 'sudo'."
+        sudo $cmd "$@" 2>/dev/null || {
+            echo -e "${TAG_ERROR} Failed to clean '${@}' directory"
+            exit 1
+        }
+    fi
+}
+
 # Helper: uninstall dx_postprocess and clean artifacts
 uninstall_dx_postprocess() {
     echo -e "${TAG_INFO} Uninstalling dx_postprocess from the current Python environment if installed..."

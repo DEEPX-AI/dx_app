@@ -7,9 +7,11 @@ from pathlib import Path
 
 import pytest
 
+from conftest import is_executable, resolve_bin_dir
+
 
 PROJECT_ROOT = Path(__file__).parent.parent.parent
-BIN_DIR = PROJECT_ROOT / "bin"
+BIN_DIR = resolve_bin_dir()
 LIB_DIR = PROJECT_ROOT / "lib"
 
 
@@ -20,7 +22,7 @@ def get_executables():
     
     executables = []
     for file in BIN_DIR.iterdir():
-        if file.is_file() and file.stat().st_mode & 0o111:
+        if is_executable(file):
             executables.append(file.name)
     
     return sorted(executables)
@@ -53,7 +55,7 @@ def test_invalid_arguments(executable, bin_dir):
         pytest.skip(f"Executable not found: {executable_path}")
     
     # Skip demo_multi_channel as it has different argument handling
-    if executable == "demo_multi_channel":
+    if Path(executable).stem == "demo_multi_channel":
         pytest.skip("demo_multi_channel has different argument handling")
     
     env = setup_environment()
@@ -92,7 +94,7 @@ def test_no_arguments(executable, bin_dir):
         pytest.skip(f"Executable not found: {executable_path}")
     
     # Skip demo_multi_channel as it might behave differently
-    if executable == "demo_multi_channel":
+    if Path(executable).stem == "demo_multi_channel":
         pytest.skip("demo_multi_channel has different behavior")
     
     env = setup_environment()
