@@ -14,11 +14,13 @@ from pathlib import Path
 
 import pytest
 
+from conftest import resolve_bin_dir
+
 from performance_collector import get_collector, PerformanceMetrics
 
 
 PROJECT_ROOT = Path(__file__).parent.parent.parent
-BIN_DIR = PROJECT_ROOT / "bin"
+BIN_DIR = resolve_bin_dir()
 LIB_DIR = PROJECT_ROOT / "lib"
 ASSETS_DIR = PROJECT_ROOT / "assets"
 SAMPLE_DIR = PROJECT_ROOT / "sample"
@@ -107,6 +109,18 @@ EXECUTABLES_WITH_NO_DISPLAY = [
     "yolox_async",
     "yolox_sync",
 ]
+
+
+def _with_async_sync_marks(names):
+    """Attach async/sync markers at collection time so -m filtering works."""
+    params = []
+    for name in names:
+        marker = pytest.mark.async_exec if "_async" in name else pytest.mark.sync_exec
+        params.append(pytest.param(name, marks=marker))
+    return params
+
+
+EXECUTABLE_PARAMS = _with_async_sync_marks(EXECUTABLES_WITH_NO_DISPLAY)
 
 
 def setup_environment():
@@ -246,20 +260,16 @@ def get_model_group(executable: str) -> str:
 
 
 @pytest.mark.e2e
-@pytest.mark.parametrize("executable", EXECUTABLES_WITH_NO_DISPLAY)
-def test_image_inference_e2e(executable, bin_dir, request):
+@pytest.mark.parametrize("executable", EXECUTABLE_PARAMS)
+def test_image_inference_e2e(executable, bin_dir):
     """
     Test image inference with --no-display option
     
     Runs actual inference on a real image to verify the executable works end-to-end
     """
-    # Add async/sync marker dynamically based on executable name
-    if "_async" in executable:
-        request.node.add_marker(pytest.mark.async_exec)
-    else:
-        request.node.add_marker(pytest.mark.sync_exec)
-    
     executable_path = bin_dir / executable
+    if os.name == "nt":
+        executable_path = executable_path.with_suffix(".exe")
     
     if not executable_path.exists():
         pytest.skip(f"Executable not found: {executable_path}")
@@ -326,20 +336,16 @@ def test_image_inference_e2e(executable, bin_dir, request):
 
 
 @pytest.mark.e2e
-@pytest.mark.parametrize("executable", EXECUTABLES_WITH_NO_DISPLAY)
-def test_video_inference_e2e(executable, bin_dir, request):
+@pytest.mark.parametrize("executable", EXECUTABLE_PARAMS)
+def test_video_inference_e2e(executable, bin_dir):
     """
     Test video inference with --no-display option
     
     Runs actual inference on a real video to verify the executable works end-to-end
     """
-    # Add async/sync marker dynamically based on executable name
-    if "_async" in executable:
-        request.node.add_marker(pytest.mark.async_exec)
-    else:
-        request.node.add_marker(pytest.mark.sync_exec)
-    
     executable_path = bin_dir / executable
+    if os.name == "nt":
+        executable_path = executable_path.with_suffix(".exe")
     
     if not executable_path.exists():
         pytest.skip(f"Executable not found: {executable_path}")

@@ -282,7 +282,23 @@ On success, C++ example binaries and required libraries are placed under `bin/` 
 
 ### 8.4. Run example applications
 
-#### C++ (YOLOv9 object detection)
+#### 8.4.1 Quick demo launchers
+
+From the project root, you can quickly try multiple demos via helper scripts:
+
+```shell
+# C++ demo launcher
+./run_demo.sh
+
+# Python demo launcher
+./run_demo_python.sh
+```
+
+Just run the script and either:
+- type a menu number, or
+- wait for the timeout to use the default option (`0`: YOLOv7).
+
+#### 8.4.2 C++ (YOLOv9 object detection)
 
 ```shell
 # Image inference (sync)
@@ -296,16 +312,16 @@ On success, C++ example binaries and required libraries are placed under `bin/` 
   -v assets/videos/dance-group.mov
 ```
 
-#### Python (YOLOv9 object detection)
+#### 8.4.3 Python (YOLOv9 object detection)
 
 ```shell
 # Python sync example
-python src/python_example/object_detection/yolov9/yolov9_sync.py \
+python3 src/python_example/object_detection/yolov9/yolov9_sync.py \
   --model assets/models/YOLOV9S.dxnn \
   --image sample/img/1.jpg
 
 # Python async + C++ post-processing
-python src/python_example/object_detection/yolov9/yolov9_async_cpp_postprocess.py \
+python3 src/python_example/object_detection/yolov9/yolov9_async_cpp_postprocess.py \
   --model assets/models/YOLOV9S.dxnn \
   --video assets/videos/dance-group.mov
 ```
