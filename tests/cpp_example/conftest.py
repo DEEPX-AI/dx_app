@@ -15,8 +15,25 @@ from performance_collector import get_collector
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
+
+def resolve_bin_dir() -> Path:
+    """Return the bin directory, handling Windows Release layout."""
+    if os.name == "nt":
+        # MSVC builds place binaries under bin/Release (or Debug)
+        return PROJECT_ROOT / "bin" / "Release"
+    return PROJECT_ROOT / "bin"
+
+def is_executable(path: Path) -> bool:
+    """Cross-platform executable check."""
+    if not path.is_file():
+        return False
+    if os.name == "nt":
+        return path.suffix.lower() == ".exe"
+    return os.access(path, os.X_OK)
+
+
 # Path to bin directory
-BIN_DIR = PROJECT_ROOT / "bin"
+BIN_DIR = resolve_bin_dir()
 BUILD_DIR = PROJECT_ROOT / "build"
 
 

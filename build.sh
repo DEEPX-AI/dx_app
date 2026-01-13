@@ -62,7 +62,7 @@ uninstall_dx_postprocess() {
     else
         echo -e "${TAG_WARN} dx_postprocess is not installed (pip show returned non-zero)."
     fi
-}
+}save_
 
 # cmake command
 cmd=()

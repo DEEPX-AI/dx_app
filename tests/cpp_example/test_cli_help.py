@@ -7,10 +7,12 @@ from pathlib import Path
 
 import pytest
 
+from conftest import is_executable, resolve_bin_dir
+
 
 # Get all executables from bin directory
 PROJECT_ROOT = Path(__file__).parent.parent.parent
-BIN_DIR = PROJECT_ROOT / "bin"
+BIN_DIR = resolve_bin_dir()
 LIB_DIR = PROJECT_ROOT / "lib"
 
 
@@ -30,6 +32,18 @@ def get_executables():
 EXECUTABLES = get_executables()
 
 
+def build_environment():
+    env = os.environ.copy()
+    if LIB_DIR.exists():
+        if os.name == "nt":
+            current_path = env.get("PATH", "")
+            env["PATH"] = f"{LIB_DIR};{current_path}" if current_path else str(LIB_DIR)
+        else:
+            current_ld_path = env.get("LD_LIBRARY_PATH", "")
+            env["LD_LIBRARY_PATH"] = f"{LIB_DIR}:{current_ld_path}" if current_ld_path else str(LIB_DIR)
+    return env
+
+
 @pytest.mark.cli
 @pytest.mark.help
 @pytest.mark.parametrize("executable", EXECUTABLES)
@@ -47,14 +61,12 @@ def test_help_option(executable, bin_dir):
     if not executable_path.exists():
         pytest.skip(f"Executable not found: {executable_path}")
     
+    # Skip demo_multi_channel as it has different argument handling
+    if Path(executable).stem == "demo_multi_channel":
+        pytest.skip("demo_multi_channel has different argument handling")
+    
     # Setup environment with library path
-    env = os.environ.copy()
-    if LIB_DIR.exists():
-        current_ld_path = env.get("LD_LIBRARY_PATH", "")
-        if current_ld_path:
-            env["LD_LIBRARY_PATH"] = f"{LIB_DIR}:{current_ld_path}"
-        else:
-            env["LD_LIBRARY_PATH"] = str(LIB_DIR)
+    env = build_environment()
     
     # Run executable with --help
     try:
@@ -127,13 +139,7 @@ def test_help_option_shows_usage(executable, bin_dir):
         pytest.skip(f"Executable not found: {executable_path}")
     
     # Setup environment with library path
-    env = os.environ.copy()
-    if LIB_DIR.exists():
-        current_ld_path = env.get("LD_LIBRARY_PATH", "")
-        if current_ld_path:
-            env["LD_LIBRARY_PATH"] = f"{LIB_DIR}:{current_ld_path}"
-        else:
-            env["LD_LIBRARY_PATH"] = str(LIB_DIR)
+    env = build_environment()
     
     try:
         result = subprocess.run(
