@@ -328,7 +328,10 @@ int main(int argc, char* argv[]) {
                 if (loopTest == 1 && saveVideo) {
                     cv::imwrite("result.jpg", result_image);
                 }
-                if(!fps_only) cv::imshow("result", result_image);
+                if(!fps_only){
+                    cv::imshow("result", result_image); 
+                    std::ignore = cv::waitKey(1);
+                } 
 
                 profiling_metrics.sum_preprocess +=
                     std::chrono::duration<double, std::milli>(t1 - t0).count();
