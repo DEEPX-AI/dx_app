@@ -67,6 +67,8 @@ MODEL_MAPPING = {
     "yolov9_sync": "YOLOV9S.dxnn",
     "yolox_async": "YOLOX-S_1.dxnn",
     "yolox_sync": "YOLOX-S_1.dxnn",
+    "yolov26_async": "yolo26s-1.dxnn",
+    "yolov26_sync": "yolo26s-1.dxnn",
 }
 
 # Executables that support --no-display option
@@ -108,6 +110,8 @@ EXECUTABLES_WITH_NO_DISPLAY = [
     "yolov9_sync",
     "yolox_async",
     "yolox_sync",
+    "yolov26_async",
+    "yolov26_sync"
 ]
 
 
@@ -255,13 +259,15 @@ def get_model_group(executable: str) -> str:
         return 'yolov12'
     elif 'yolox' in executable:
         return 'yolox'
+    elif 'yolov26' in executable:
+        return 'yolov26'
     
     return 'unknown'
 
 
 @pytest.mark.e2e
 @pytest.mark.parametrize("executable", EXECUTABLE_PARAMS)
-def test_image_inference_e2e(executable, bin_dir):
+def test_image_inference_e2e(executable, bin_dir, loop_count):
     """
     Test image inference with --no-display option
     
@@ -288,16 +294,16 @@ def test_image_inference_e2e(executable, bin_dir):
             "-d", str(model_path[1]),
             "-i", str(TEST_IMAGE),
             "--no-display",
-            "-l", "50"  # 50 iterations
+            "-l", str(loop_count)
         ]
     else:
-        # Build command: executable -m model -i image --no-display -l 50
+        # Build command: executable -m model -i image --no-display -l <loop_count>
         cmd = [
             str(executable_path),
             "-m", str(model_path),
             "-i", str(TEST_IMAGE),
             "--no-display",
-            "-l", "50"  # 50 iterations
+            "-l", str(loop_count)
         ]
     
     try:

@@ -52,8 +52,8 @@ echo "6: Face Detection With PPU (SCRFD500M-640)"
 echo "7: Pose Estimation"
 echo "8: Pose Estimation With PPU (YOLOv5Pose-640)"
 echo "9: Semantic Segmentation"
-echo "10: Multi-Channel Object Detection (YOLOv5)"
-echo "11: Multi-Model Object Detection (YOLOv7) & Segmentation"
+echo "10: Multi-Model Object Detection (YOLOv7) & Segmentation"
+echo "11: Object Detection (YOLOv26S)"
 
 # Advanced version with user input handling
 prompt="which AI demo do you want to run? (default:0): "
@@ -92,8 +92,8 @@ case $select in
     7)$WRC/bin/yolov5pose_async -m assets/models/YOLOV5Pose640_1.dxnn -v assets/videos/dance-solo.mov;;
     8)$WRC/bin/yolov5pose_ppu_async -m assets/models/YOLOV5Pose_PPU.dxnn -v assets/videos/dance-solo.mov;;
     9)$WRC/bin/deeplabv3_async -m assets/models/DeepLabV3PlusMobileNetV2_2.dxnn -v assets/videos/blackbox-city-road.mp4;;
-    10)$WRC/bin/demo_multi_channel assets/models/YOLOV5S_3.dxnn assets/videos/snowboard.mp4 assets/videos/blackbox-city-road.mp4 assets/videos/boat.mp4 assets/videos/carrierbag.mp4;;
-    11)$WRC/bin/yolov7_x_deeplabv3_async -y assets/models/YoloV7.dxnn -d assets/models/DeepLabV3PlusMobileNetV2_2.dxnn -v assets/videos/blackbox-city-road2.mov;;
+    10)$WRC/bin/yolov7_x_deeplabv3_async -y assets/models/YoloV7.dxnn -d assets/models/DeepLabV3PlusMobileNetV2_2.dxnn -v assets/videos/blackbox-city-road2.mov;;
+    11)$WRC/bin/yolov26_async -m assets/models/yolo26s-1.dxnn -v assets/videos/snowboard.mp4;;
 esac
 
 popd

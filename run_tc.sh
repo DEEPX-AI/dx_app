@@ -69,14 +69,17 @@ run_python_tests() {
     RUN_E2E=true
     RUN_COVERAGE=true
     
-    if [ "$CLI_ONLY" = true ]; then
+    # Test selection rules (allow combining CLI + E2E when both flags are set)
+    if [ "$CLI_ONLY" = true ] && [ "$E2E_ONLY" = false ] && [ "$E2E_QUICK" = false ]; then
         RUN_INTEGRATION=false
         RUN_E2E=false
         RUN_COVERAGE=false
     elif [ "$E2E_ONLY" = true ]; then
-        RUN_CLI=false
         RUN_INTEGRATION=false
         RUN_COVERAGE=false
+        if [ "$CLI_ONLY" = false ]; then
+            RUN_CLI=false
+        fi
     fi
     
     if [ "$SKIP_COVERAGE" = true ]; then
@@ -194,11 +197,49 @@ run_cpp_tests() {
             print_info "Found coverage instrumentation ($GCNO_FILES .gcno files)"
         fi
     fi
+
+    # If coverage is on and both CLI/E2E are requested, run them together once
+    if [ "$CPP_COVERAGE" = true ] && [ "$RUN_CLI" = true ] && [ "$RUN_E2E" = true ]; then
+        print_info "Running C++ CLI+E2E in one pytest run for merged coverage..."
+        PYTEST_COMBINED_CMD=(pytest -m "cli or e2e" --tb=short -v --coverage)
+
+        if [ "$E2E_QUICK" = true ]; then
+            print_info "Quick mode: Image tests only for E2E"
+            PYTEST_COMBINED_CMD+=(-k "test_image_inference_e2e or cli")
+        fi
+
+        if [ -n "$LOOP_COUNT" ]; then
+            PYTEST_COMBINED_CMD+=(--loop "$LOOP_COUNT")
+        fi
+
+        if "${PYTEST_COMBINED_CMD[@]}"; then
+            CPP_CLI_RESULT=0
+            CPP_E2E_RESULT=0
+            print_success "C++ CLI+E2E tests passed"
+        else
+            COMBINED_STATUS=$?
+            CPP_CLI_RESULT=$COMBINED_STATUS
+            CPP_E2E_RESULT=$COMBINED_STATUS
+            print_error "C++ CLI+E2E tests failed"
+        fi
+
+        # Skip separate runs; results already recorded
+        RUN_CLI=false
+        RUN_E2E=false
+    fi
     
     # 1. CLI Tests
     if [ "$RUN_CLI" = true ]; then
         print_info "Running C++ CLI tests..."
-        if pytest -m cli --tb=short -v; then
+        PYTEST_CLI_CMD=(pytest -m cli --tb=short -v)
+        if [ "$CPP_COVERAGE" = true ]; then
+            PYTEST_CLI_CMD+=(--coverage)
+        fi
+        if [ -n "$LOOP_COUNT" ]; then
+            PYTEST_CLI_CMD+=(--loop "$LOOP_COUNT")
+        fi
+
+        if "${PYTEST_CLI_CMD[@]}"; then
             CPP_CLI_RESULT=0
             print_success "C++ CLI tests passed"
         else
@@ -212,21 +253,19 @@ run_cpp_tests() {
         print_info "Running C++ E2E tests..."
         
         # Build pytest command
+        PYTEST_E2E_CMD=(pytest -m e2e --tb=short -v)
         if [ "$E2E_QUICK" = true ]; then
             print_info "Quick mode: Image tests only"
-            PYTEST_FILTER="-k test_image_inference_e2e"
-        else
-            PYTEST_FILTER=""
+            PYTEST_E2E_CMD+=(-k test_image_inference_e2e)
         fi
-        
-        # Add --coverage flag to pytest if coverage mode is enabled
         if [ "$CPP_COVERAGE" = true ]; then
-            PYTEST_E2E_CMD="pytest -m e2e ${PYTEST_FILTER} --coverage --tb=short -v"
-        else
-            PYTEST_E2E_CMD="pytest -m e2e ${PYTEST_FILTER} --tb=short -v"
+            PYTEST_E2E_CMD+=(--coverage)
         fi
-        
-        if eval $PYTEST_E2E_CMD; then
+        if [ -n "$LOOP_COUNT" ]; then
+            PYTEST_E2E_CMD+=(--loop "$LOOP_COUNT")
+        fi
+
+        if "${PYTEST_E2E_CMD[@]}"; then
             CPP_E2E_RESULT=0
             if [ "$E2E_QUICK" = true ]; then
                 print_success "C++ E2E image tests passed"
@@ -324,6 +363,7 @@ CPP_COVERAGE=false
 CLI_ONLY=false
 E2E_ONLY=false
 E2E_QUICK=false
+LOOP_COUNT=""
 
 usage() {
     echo "Usage: $0 [OPTIONS]"
@@ -336,6 +376,7 @@ usage() {
     echo "  --e2e-quick       Run only E2E image tests (faster, skips video tests)"
     echo "  --skip-coverage   Skip coverage tests for Python"
     echo "  --coverage        Generate C++ code coverage report (requires --cpp or full run)"
+    echo "  --loop <N>        Override loop count for C++ E2E image tests (default: 50)"
     echo "  --quick           Run only CLI tests (no E2E) - same as --cli"
     echo "  -h, --help        Show this help message"
     echo ""
@@ -390,6 +431,10 @@ while [[ $# -gt 0 ]]; do
             QUICK_MODE=true
             CLI_ONLY=true  # --quick is same as --cli
             shift
+            ;;
+        --loop)
+            LOOP_COUNT="$2"
+            shift 2
             ;;
         -h|--help)
             usage

@@ -7,8 +7,6 @@ if(NOT CMAKE_CXX_STANDARD)
 endif()
 
 add_subdirectory(classification)
-add_subdirectory(input_source_process_example)
-add_subdirectory(multi_channel_process_example)
 add_subdirectory(object_detection)
 add_subdirectory(object_detection_x_semantic_segmentation)
 add_subdirectory(semantic_segmentation)

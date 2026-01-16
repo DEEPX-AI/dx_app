@@ -251,14 +251,6 @@ YOLOV10_CONFIG = ModelConfig(
     class_name="YOLOv10",
     model_filename="YOLOV10N-1.dxnn",
     ort_on_output_shapes=[(1, 300, 6)],
-    ort_off_output_shapes=[
-        (1, 80, 80, 80),
-        (1, 64, 80, 80),
-        (1, 80, 40, 40),
-        (1, 64, 40, 40),
-        (1, 80, 20, 20),
-        (1, 64, 20, 20),
-    ],
     postprocess_result_shape=(1, 6),
 )
 
@@ -269,14 +261,6 @@ YOLOV11_CONFIG = ModelConfig(
     class_name="YOLOv11",
     model_filename="YOLOV11N.dxnn",
     ort_on_output_shapes=[(1, 84, 8400)],
-    ort_off_output_shapes=[
-        (1, 80, 80, 80),
-        (1, 64, 80, 80),
-        (1, 80, 40, 40),
-        (1, 64, 40, 40),
-        (1, 80, 20, 20),
-        (1, 64, 20, 20),
-    ],
     postprocess_result_shape=(1, 6),
 )
 
@@ -287,14 +271,16 @@ YOLOV12_CONFIG = ModelConfig(
     class_name="YOLOv12",
     model_filename="YOLOV12N-1.dxnn",
     ort_on_output_shapes=[(1, 84, 8400)],
-    ort_off_output_shapes=[
-        (1, 80, 80, 80),
-        (1, 64, 80, 80),
-        (1, 80, 40, 40),
-        (1, 64, 40, 40),
-        (1, 80, 20, 20),
-        (1, 64, 20, 20),
-    ],
+    postprocess_result_shape=(1, 6),
+)
+
+YOLOV26_CONFIG = ModelConfig(
+    name="yolov26",
+    task=TaskType.OBJECT_DETECTION,
+    base_path="object_detection/yolov26",
+    class_name="YOLOv26",
+    model_filename="yolo26s-1.dxnn",
+    ort_on_output_shapes=[(1, 300, 6)],
     postprocess_result_shape=(1, 6),
 )
 

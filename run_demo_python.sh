@@ -52,6 +52,7 @@ echo "6: Face Detection With PPU (SCRFD500M-640)"
 echo "7: Pose Estimation"
 echo "8: Pose Estimation With PPU (YOLOv5Pose-640)"
 echo "9: Semantic Segmentation"
+echo "10: Object Detection (YOLOv26S)"
 
 # Advanced version with user input handling
 prompt="which AI demo do you want to run? (default:0): "
@@ -90,6 +91,7 @@ case $select in
     7)python3 "$WRC/src/python_example/object_detection/yolov5pose/yolov5pose_async.py" --model assets/models/YOLOV5Pose640_1.dxnn --video assets/videos/dance-solo.mov;;
     8)python3 "$WRC/src/python_example/ppu/yolov5pose_ppu/yolov5pose_ppu_async.py" --model assets/models/YOLOV5Pose_PPU.dxnn --video assets/videos/dance-solo.mov;;
     9)python3 "$WRC/src/python_example/semantic_segmentation/deeplabv3/deeplabv3_async.py" --model assets/models/DeepLabV3PlusMobileNetV2_2.dxnn --video assets/videos/blackbox-city-road.mp4;;
+    10)python3 "$WRC/src/python_example/object_detection/yolov26/yolov26_async.py" --model assets/models/yolo26s-1.dxnn --video assets/videos/snowboard.mp4;;
 esac
 
 popd

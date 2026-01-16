@@ -2,18 +2,19 @@
 #include <dxrt/dxrt_api.h>
 #include <yolov7_postprocess.h>
 
-#include <atomic>  // For thread-safe counters
-#include <chrono>  // For timing measurements
+#include <atomic>
+#include <chrono>
 #include <common_util.hpp>
-#include <condition_variable>  // For thread synchronization
+#include <condition_variable>
 #include <cxxopts.hpp>
-#include <iomanip>  // For std::setprecision
+#include <exception>
+#include <iomanip>
 #include <iostream>
-#include <memory>  // For smart pointers
+#include <memory>
 #include <opencv2/opencv.hpp>
 #include <queue>
 #include <thread>
-#include <vector>  // STL vector container
+#include <vector>
 
 /**
  * @brief Asynchronous multi-model example combining YOLOv7 object detection and
@@ -46,27 +47,8 @@ struct CombinedResults {
     CombinedResults(const std::vector<YOLOv7Result>& det, const DeepLabv3Result& seg)
         : detections(det), segmentation(seg) {}
 
-    CombinedResults(const CombinedResults& other)
-        : detections(other.detections), segmentation(other.segmentation) {}
-
-    CombinedResults& operator=(const CombinedResults& other) {
-        if (this != &other) {
-            detections = other.detections;
-            segmentation = other.segmentation;
-        }
-        return *this;
-    }
-
-    CombinedResults(CombinedResults&& other) noexcept
-        : detections(std::move(other.detections)), segmentation(std::move(other.segmentation)) {}
-
-    CombinedResults& operator=(CombinedResults&& other) noexcept {
-        if (this != &other) {
-            detections = std::move(other.detections);
-            segmentation = std::move(other.segmentation);
-        }
-        return *this;
-    }
+    CombinedResults(std::vector<YOLOv7Result>&& det, DeepLabv3Result&& seg)
+        : detections(std::move(det)), segmentation(std::move(seg)) {}
 };
 
 // Profiling metrics structure for dual models
@@ -98,6 +80,108 @@ struct ProfilingMetrics {
     std::mutex metrics_mutex;
 };
 
+struct DisplayArgs {
+    std::shared_ptr<CombinedResults> combined_results;
+    std::shared_ptr<cv::Mat> original_frame;
+
+    YOLOv7PostProcess *ypp = nullptr;
+    DeepLabv3PostProcess *dlpp = nullptr;
+    int *processed_count = nullptr;
+    bool is_no_show = false;
+    bool is_video_save = false;
+
+    // Timing information
+    double t_yolo_preprocess = 0.0;
+    double t_deeplab_preprocess = 0.0;
+    double t_yolo_inference = 0.0;
+    double t_deeplab_inference = 0.0;
+    double t_yolo_postprocess = 0.0;
+    double t_deeplab_postprocess = 0.0;
+    ProfilingMetrics *metrics = nullptr;
+
+    DisplayArgs() = default;
+};
+
+struct DetectionArgs {
+    cv::Mat current_frame;
+    dxrt::InferenceEngine *yolo_ie = nullptr;
+    dxrt::InferenceEngine *deeplab_ie = nullptr;
+    YOLOv7PostProcess *ypp = nullptr;
+    DeepLabv3PostProcess *dlpp = nullptr;
+    ProfilingMetrics *metrics = nullptr;
+    int *processed_count = nullptr;
+    int yolo_request_id = 0;
+    int deeplab_request_id = 0;
+    bool is_no_show = false;
+    bool is_video_save = false;
+
+    // Timing information
+    double t_yolo_preprocess = 0.0;
+    double t_deeplab_preprocess = 0.0;
+    std::chrono::high_resolution_clock::time_point t_yolo_async_start;
+    std::chrono::high_resolution_clock::time_point t_deeplab_async_start;
+
+    DetectionArgs() = default;
+};
+
+// --- 2. SafeQueue implementation ---
+
+template <typename T>
+class SafeQueue {
+   private:
+    std::queue<T> queue_;
+    std::mutex mutex_;
+    std::condition_variable condition_;
+    size_t max_size_;
+
+   public:
+    SafeQueue(size_t max_size = MAX_QUEUE_SIZE) : max_size_(max_size) {}
+
+    void push(T item) {
+        std::unique_lock<std::mutex> lock(mutex_);
+        condition_.wait(lock, [this] { return queue_.size() < max_size_; });
+        queue_.push(std::move(item));
+        condition_.notify_one();
+    }
+
+    T pop() {
+        std::unique_lock<std::mutex> lock(mutex_);
+        condition_.wait(lock, [this] { return !queue_.empty(); });
+        T item = std::move(queue_.front());
+        queue_.pop();
+        condition_.notify_one();
+        return item;
+    }
+
+    bool try_pop(T& item) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (queue_.empty()) return false;
+        item = std::move(queue_.front());
+        queue_.pop();
+        condition_.notify_one();
+        return true;
+    }
+
+    bool try_push(T item) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (queue_.size() >= max_size_) return false;
+        queue_.push(std::move(item));
+        condition_.notify_one();
+        return true;
+    }
+
+    bool empty() {
+        std::lock_guard<std::mutex> lock(mutex_);
+        return queue_.empty();
+    }
+
+    void notify_all() {
+        condition_.notify_all();
+    }
+};
+
+// --- 3. Helper function define ---
+
 // Generate color for each detection class ID
 cv::Scalar get_coco_class_color(int class_id) {
     std::srand(class_id + 100);  // Different seed than segmentation
@@ -109,7 +193,7 @@ cv::Scalar get_coco_class_color(int class_id) {
 
 // Generate color for each segmentation class ID (Cityscapes palette)
 cv::Scalar get_cityscapes_class_color(int class_id) {
-    std::vector<cv::Scalar> colors = {
+    static const std::vector<cv::Scalar> colors = {
         cv::Scalar(128, 64, 128),   // road
         cv::Scalar(244, 35, 232),   // sidewalk
         cv::Scalar(70, 70, 70),     // building
@@ -204,7 +288,7 @@ cv::Mat scale_segmentation_mask(const cv::Mat& mask, int orig_width, int orig_he
 /**
  * @brief Visualize combined results - both detection boxes and segmentation masks
  */
-cv::Mat draw_combined_results(const cv::Mat& frame, const CombinedResults& results,
+cv::Mat draw_combined_results(const cv::Mat& frame, CombinedResults& results,
                               const std::vector<int>& pad_xy, const float letterbox_scale,
                               const float seg_alpha = 0.4f) {
     static std::vector<int> pad_xy_static{0, 0};
@@ -239,8 +323,7 @@ cv::Mat draw_combined_results(const cv::Mat& frame, const CombinedResults& resul
     }
 
     // Then, draw detection boxes on top
-    std::vector<YOLOv7Result> detections_copy = results.detections;
-    for (auto& detection : detections_copy) {
+    for (auto& detection : results.detections) {
         scale_coordinates(detection, pad_xy, letterbox_scale);
 
         // Get class-specific color for detection
@@ -279,280 +362,135 @@ cv::Mat draw_combined_results(const cv::Mat& frame, const CombinedResults& resul
     return result;
 }
 
-struct MultiModelArgs {
-    CombinedResults* combined_results;
-    cv::Mat* current_frame;
-    dxrt::InferenceEngine* yolo_ie;
-    dxrt::InferenceEngine* deeplab_ie;
-    YOLOv7PostProcess* ypp;
-    DeepLabv3PostProcess* dlpp;
-    std::mutex output_postprocess_lk;
-    int* processed_count = nullptr;
-    int yolo_request_id = 0;
-    int deeplab_request_id = 0;
-    bool is_no_show = false;
-    bool is_video_save = false;
+// --- 4. Thread function define ---
 
-    // Timing information
-    double t_yolo_preprocess = 0.0;
-    double t_deeplab_preprocess = 0.0;
-    std::chrono::high_resolution_clock::time_point t_yolo_async_start;
-    std::chrono::high_resolution_clock::time_point t_deeplab_async_start;
-    ProfilingMetrics* metrics = nullptr;
+void post_process_thread_func(SafeQueue<std::shared_ptr<DetectionArgs>> *wait_queue,
+                              SafeQueue<std::shared_ptr<DisplayArgs>> *display_queue,
+                              std::atomic<int> *appQuit) {
+    while (appQuit->load() == -1) std::this_thread::sleep_for(std::chrono::microseconds(10));
 
-    MultiModelArgs()
-        : combined_results(nullptr),
-          current_frame(nullptr),
-          yolo_ie(nullptr),
-          deeplab_ie(nullptr),
-          ypp(nullptr),
-          dlpp(nullptr),
-          processed_count(nullptr),
-          yolo_request_id(0),
-          deeplab_request_id(0),
-          is_no_show(false),
-          is_video_save(false),
-          t_yolo_preprocess(0.0),
-          t_deeplab_preprocess(0.0),
-          metrics(nullptr) {}
-
-    ~MultiModelArgs() {
-        if (combined_results != nullptr) {
-            delete combined_results;
-            combined_results = nullptr;
+    while (appQuit->load() == 0 || !wait_queue->empty()) {
+        std::shared_ptr<DetectionArgs> args;
+        if (!wait_queue->try_pop(args)) {
+            if (appQuit->load() != 0) break;
+            std::this_thread::sleep_for(std::chrono::microseconds(10));
+            continue;
         }
-    }
-};
 
-struct MultiModelDisplayArgs {
-    CombinedResults* combined_results;
-    cv::Mat* original_frame;
-    YOLOv7PostProcess* ypp;
-    DeepLabv3PostProcess* dlpp;
-    std::mutex display_lk;
-    bool is_no_show = false;
-    bool is_video_save = false;
-    int* processed_count = nullptr;
+        // Wait for both model outputs
+        auto yolo_outputs = args->yolo_ie->Wait(args->yolo_request_id);
+        auto t_yolo_end = std::chrono::high_resolution_clock::now();
 
-    // Timing information
-    double t_yolo_preprocess = 0.0;
-    double t_deeplab_preprocess = 0.0;
-    double t_yolo_inference = 0.0;
-    double t_deeplab_inference = 0.0;
-    double t_yolo_postprocess = 0.0;
-    double t_deeplab_postprocess = 0.0;
-    ProfilingMetrics* metrics = nullptr;
+        auto deeplab_outputs = args->deeplab_ie->Wait(args->deeplab_request_id);
+        auto t_deeplab_end = std::chrono::high_resolution_clock::now();
 
-    MultiModelDisplayArgs()
-        : combined_results(nullptr),
-          original_frame(nullptr),
-          ypp(nullptr),
-          dlpp(nullptr),
-          is_no_show(false),
-          is_video_save(false),
-          processed_count(nullptr),
-          t_yolo_preprocess(0.0),
-          t_deeplab_preprocess(0.0),
-          t_yolo_inference(0.0),
-          t_deeplab_inference(0.0),
-          t_yolo_postprocess(0.0),
-          t_deeplab_postprocess(0.0),
-          metrics(nullptr) {}
+        double yolo_inference_time =
+            std::chrono::duration<double, std::milli>(t_yolo_end - args->t_yolo_async_start).count();
+        double deeplab_inference_time =
+            std::chrono::duration<double, std::milli>(t_deeplab_end - args->t_deeplab_async_start).count();
 
-    ~MultiModelDisplayArgs() {
-        if (combined_results != nullptr) {
-            delete combined_results;
-            combined_results = nullptr;
+        // Postprocess YOLOv7
+        std::vector<YOLOv7Result> detection_results;
+        try {
+            detection_results = args->ypp->postprocess(yolo_outputs);
+        } catch (const std::exception& e) {
+            std::cerr << "[DXAPP] [ER] Exception during YOLOv7 postprocessing: \n"
+                      << e.what() << std::endl;
+            appQuit->store(1);
+            continue;
         }
-    }
-};
+        auto t2 = std::chrono::high_resolution_clock::now();
+        double yolo_postprocess_time =
+            std::chrono::duration<double, std::milli>(t2 - t_yolo_end).count();
 
-// Thread-safe queue wrapper for multi-model processing
-class MultiModelSafeQueue {
-   private:
-    std::queue<MultiModelArgs*> queue_;
-    std::mutex mutex_;
-    std::condition_variable condition_;
-    size_t max_size_;
+        // Postprocess DeepLabV3
+        DeepLabv3Result segmentation_result;
+        try {
+            segmentation_result = args->dlpp->postprocess(deeplab_outputs);
+        } catch (const std::exception& e) {
+            std::cerr << "[DXAPP] [ER] Exception during DeepLabV3 postprocessing: \n"
+                      << e.what() << std::endl;
+            appQuit->store(1);
+            continue;
+        }
+        auto t3 = std::chrono::high_resolution_clock::now();
+        double deeplab_postprocess_time =
+            std::chrono::duration<double, std::milli>(t3 - t2).count();
 
-   public:
-    MultiModelSafeQueue(size_t max_size = MAX_QUEUE_SIZE) : max_size_(max_size) {}
+        if (args->metrics) {
+            std::lock_guard<std::mutex> lock(args->metrics->metrics_mutex);
+            args->metrics->infer_last_ts = std::max(t_yolo_end, t_deeplab_end);
+            args->metrics->infer_completed++;
+            args->metrics->inflight_current--;
+        }
 
-    void push(MultiModelArgs* item) {
-        std::unique_lock<std::mutex> lock(mutex_);
-        condition_.wait(lock, [this] { return queue_.size() < max_size_; });
-        queue_.push(item);
-        condition_.notify_one();
-    }
+        auto d_args = std::make_shared<DisplayArgs>();
+        d_args->combined_results = std::make_shared<CombinedResults>(
+            std::move(detection_results), std::move(segmentation_result));
+        if (!args->current_frame.empty()) {
+            d_args->original_frame = std::make_shared<cv::Mat>(args->current_frame.clone());
+        }
+        d_args->ypp = args->ypp;
+        d_args->dlpp = args->dlpp;
+        d_args->processed_count = args->processed_count;
+        d_args->is_no_show = args->is_no_show;
+        d_args->is_video_save = args->is_video_save;
+        d_args->t_yolo_preprocess = args->t_yolo_preprocess;
+        d_args->t_deeplab_preprocess = args->t_deeplab_preprocess;
+        d_args->t_yolo_inference = yolo_inference_time;
+        d_args->t_deeplab_inference = deeplab_inference_time;
+        d_args->t_yolo_postprocess = yolo_postprocess_time;
+        d_args->t_deeplab_postprocess = deeplab_postprocess_time;
+        d_args->metrics = args->metrics;
 
-    MultiModelArgs* pop() {
-        std::unique_lock<std::mutex> lock(mutex_);
-        condition_.wait(lock, [this] { return !queue_.empty(); });
-        MultiModelArgs* item = queue_.front();
-        queue_.pop();
-        condition_.notify_one();
-        return item;
-    }
-
-    bool empty() const {
-        std::lock_guard<std::mutex> lock(const_cast<std::mutex&>(mutex_));
-        return queue_.empty();
-    }
-
-    size_t size() const {
-        std::lock_guard<std::mutex> lock(const_cast<std::mutex&>(mutex_));
-        return queue_.size();
-    }
-};
-
-void multi_model_post_process_thread_func(MultiModelSafeQueue* wait_queue,
-                                          std::queue<MultiModelDisplayArgs*>* display_queue,
-                                          std::atomic<int>* appQuit) {
-    while (appQuit->load() == -1) {
-        std::this_thread::sleep_for(std::chrono::microseconds(10));
-    }
-    std::cout << "[DXAPP] [INFO] multi-model post processing thread start" << std::endl;
-
-    std::vector<std::unique_ptr<MultiModelDisplayArgs>> display_args_list;
-    display_args_list.reserve(ASYNC_BUFFER_SIZE);
-
-    while (appQuit->load() == 0) {
-        if (wait_queue->size() > 0) {
-            MultiModelArgs* args = wait_queue->pop();
-            auto display_args = std::unique_ptr<MultiModelDisplayArgs>(new MultiModelDisplayArgs());
-
-            // Wait for both model outputs
-            auto yolo_outputs = args->yolo_ie->Wait(args->yolo_request_id);
-            auto t_yolo_end = std::chrono::high_resolution_clock::now();
-            
-            // Calculate inference times
-            auto deeplab_outputs = args->deeplab_ie->Wait(args->deeplab_request_id);
-            auto t_deeplab_end = std::chrono::high_resolution_clock::now();
-
-            double yolo_inference_time =
-                std::chrono::duration<double, std::milli>(t_yolo_end - args->t_yolo_async_start)
-                    .count();
-            double deeplab_inference_time = std::chrono::duration<double, std::milli>(
-                                                t_deeplab_end - args->t_deeplab_async_start)
-                                                .count();
-
-            // Start postprocess timing for YOLO
-            auto t1 = std::chrono::high_resolution_clock::now();
-            auto detection_results = args->ypp->postprocess(yolo_outputs);
-            auto t2 = std::chrono::high_resolution_clock::now();
-            double yolo_postprocess_time =
-                std::chrono::duration<double, std::milli>(t2 - t1).count();
-
-            // Start postprocess timing for DeepLab
-            auto segmentation_result = args->dlpp->postprocess(deeplab_outputs);
-            auto t3 = std::chrono::high_resolution_clock::now();
-            double deeplab_postprocess_time =
-                std::chrono::duration<double, std::milli>(t3 - t2).count();
-
-            // Update inflight tracking
-            if (args->metrics) {
-                std::unique_lock<std::mutex> metrics_lock(args->metrics->metrics_mutex);
-
-                args->metrics->infer_last_ts = std::max(t_yolo_end, t_deeplab_end);
-                args->metrics->infer_completed++;
-
-                // Update inflight tracking - decrease current count
-                auto dt = std::chrono::duration<double>(args->metrics->infer_last_ts -
-                                                        args->metrics->inflight_last_ts)
-                              .count();
-                args->metrics->inflight_time_sum += args->metrics->inflight_current * dt;
-                args->metrics->inflight_last_ts = args->metrics->infer_last_ts;
-                args->metrics->inflight_current--;
-            }
-
-            // Combine results
-            CombinedResults combined(detection_results, segmentation_result);
-
-            {
-                std::unique_lock<std::mutex> lock(args->output_postprocess_lk);
-                display_args->combined_results = new CombinedResults(combined);
-                display_args->original_frame = new cv::Mat(args->current_frame->clone());
-                display_args->processed_count = args->processed_count;
-                display_args->ypp = args->ypp;
-                display_args->dlpp = args->dlpp;
-                display_args->is_no_show = args->is_no_show;
-                display_args->is_video_save = args->is_video_save;
-
-                // Copy timing information
-                display_args->t_yolo_preprocess = args->t_yolo_preprocess;
-                display_args->t_deeplab_preprocess = args->t_deeplab_preprocess;
-                display_args->t_yolo_inference = yolo_inference_time;
-                display_args->t_deeplab_inference = deeplab_inference_time;
-                display_args->t_yolo_postprocess = yolo_postprocess_time;
-                display_args->t_deeplab_postprocess = deeplab_postprocess_time;
-                display_args->metrics = args->metrics;
-
-                display_queue->push(display_args.get());
-                display_args_list.push_back(std::move(display_args));
-            }
+        while (!display_queue->try_push(d_args)) {
+            if (appQuit->load() != 0) break;
+            std::this_thread::sleep_for(std::chrono::microseconds(100));
         }
     }
 }
 
-void multi_model_display_thread_func(std::queue<MultiModelDisplayArgs*>* display_queue,
-                                     std::atomic<int>* appQuit, cv::VideoWriter* writer,
-                                     std::vector<int>* pad_xy, float* scale_factor) {
-    while (appQuit->load() == -1) {
-        std::this_thread::sleep_for(std::chrono::microseconds(10));
-    }
+void display_thread_func(SafeQueue<std::shared_ptr<DisplayArgs>> *display_queue,
+                         std::atomic<int> *appQuit, cv::VideoWriter *writer,
+                         std::vector<int> *pad_xy, float *scale_factor) {
+    while (appQuit->load() == -1) std::this_thread::sleep_for(std::chrono::microseconds(10));
 
-    std::cout << "[DXAPP] [INFO] multi-model display thread start" << std::endl;
-    while (appQuit->load() == 0) {
-        if (!display_queue->empty()) {
-            auto args = display_queue->front();
-            display_queue->pop();
+    while (appQuit->load() == 0 || !display_queue->empty()) {
+        std::shared_ptr<DisplayArgs> args;
+        if (!display_queue->try_pop(args)) {
+            if (appQuit->load() != 0) break;
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            continue;
+        }
+        if (!args || !args->original_frame) continue;
 
-            // Start render timing
-            auto render_start = std::chrono::high_resolution_clock::now();
+        auto render_start = std::chrono::high_resolution_clock::now();
+        auto processed_frame =
+            draw_combined_results(*args->original_frame, *args->combined_results, *pad_xy, *scale_factor);
 
-            // Draw combined results (segmentation + detection)
-            auto processed_frame = draw_combined_results(
-                *args->original_frame, *args->combined_results, *pad_xy, *scale_factor);
-
-            {
-                std::unique_lock<std::mutex> lock(args->display_lk);
-
-                if (args->combined_results != nullptr) {
-                    delete args->combined_results;
-                    args->combined_results = nullptr;
-                }
-                (*args->processed_count)++;
-                
-                if (processed_frame.dims != 0) {
-                    if (args->is_video_save) {
-                        *writer << processed_frame;
-                    }
-                    if (!args->is_no_show) {
-                        cv::imshow("YOLOv7 + DeepLabV3 Combined Result", processed_frame);
-                        if (cv::waitKey(1) == 'q') {
-                            args->is_no_show = true;
-                            appQuit->store(1);
-                        }
-                    }
-                }
-                
-                // Calculate render time
-                auto render_end = std::chrono::high_resolution_clock::now();
-                double render_time =
-                    std::chrono::duration<double, std::milli>(render_end - render_start).count();
-                
-                // Update metrics with timing information
-                if (args->metrics) {
-                    std::unique_lock<std::mutex> metrics_lock(args->metrics->metrics_mutex);
-                    args->metrics->sum_yolo_preprocess += args->t_yolo_preprocess;
-                    args->metrics->sum_deeplab_preprocess += args->t_deeplab_preprocess;
-                    args->metrics->sum_yolo_inference += args->t_yolo_inference;
-                    args->metrics->sum_deeplab_inference += args->t_deeplab_inference;
-                    args->metrics->sum_yolo_postprocess += args->t_yolo_postprocess;
-                    args->metrics->sum_deeplab_postprocess += args->t_deeplab_postprocess;
-                    args->metrics->sum_render += render_time;
-                }
+        if (!processed_frame.empty()) {
+            if (args->is_video_save) *writer << processed_frame;
+            if (!args->is_no_show) {
+                cv::imshow("YOLOv7 + DeepLabV3 Combined Result", processed_frame);
+                if (cv::waitKey(1) == 'q') appQuit->store(1);
             }
+        }
+
+        if (args->processed_count) (*args->processed_count)++;
+
+        auto render_end = std::chrono::high_resolution_clock::now();
+        double render_time =
+            std::chrono::duration<double, std::milli>(render_end - render_start).count();
+
+        if (args->metrics) {
+            std::lock_guard<std::mutex> lock(args->metrics->metrics_mutex);
+            args->metrics->sum_yolo_preprocess += args->t_yolo_preprocess;
+            args->metrics->sum_deeplab_preprocess += args->t_deeplab_preprocess;
+            args->metrics->sum_yolo_inference += args->t_yolo_inference;
+            args->metrics->sum_deeplab_inference += args->t_deeplab_inference;
+            args->metrics->sum_yolo_postprocess += args->t_yolo_postprocess;
+            args->metrics->sum_deeplab_postprocess += args->t_deeplab_postprocess;
+            args->metrics->sum_render += render_time;
         }
     }
 }
@@ -624,10 +562,10 @@ void print_performance_summary(const ProfilingMetrics& metrics, int total_frames
 
     std::cout << "\n";
     print_model_block("YOLOv7", avg_yolo_pre, yolo_pre_fps, avg_yolo_inf, yolo_inf_fps,
-                       avg_yolo_post, yolo_post_fps);
+                      avg_yolo_post, yolo_post_fps);
     std::cout << "--------------------------------------------------" << std::endl;
     print_model_block("DeepLabV3", avg_deeplab_pre, deeplab_pre_fps, avg_deeplab_inf,
-                       deeplab_inf_fps, avg_deeplab_post, deeplab_post_fps);
+                      deeplab_inf_fps, avg_deeplab_post, deeplab_post_fps);
     std::cout << "--------------------------------------------------" << std::endl;
     std::cout << " * Actual throughput via async inference" << std::endl;
     std::cout << "   (shared across YOLOv7 and DeepLabV3 pipelines)" << std::endl;
@@ -635,14 +573,12 @@ void print_performance_summary(const ProfilingMetrics& metrics, int total_frames
     std::cout << " " << std::left << std::setw(19) << "Async Throughput"
               << " :    " << std::fixed << std::setprecision(1) << infer_tp << " FPS"
               << std::endl;
-    auto print_inflight_line = [&](const std::string& name) {
-        std::cout << " " << std::left << std::setw(15) << name << std::right
-                  << std::setw(8) << metrics.infer_completed << " completed    "
-                  << std::setw(6) << std::fixed << std::setprecision(1) << inflight_avg
-                  << " avg    max " << metrics.inflight_max << std::endl;
-    };
-    print_inflight_line("YOLOv7");
-    print_inflight_line("DeepLabV3");
+    std::cout << " " << std::left << std::setw(19) << "Infer Completed"
+              << " :    " << metrics.infer_completed << std::endl;
+    std::cout << " " << std::left << std::setw(19) << "Infer Inflight Avg"
+              << " :    " << std::fixed << std::setprecision(1) << inflight_avg << std::endl;
+    std::cout << " " << std::left << std::setw(19) << "Infer Inflight Max"
+              << " :      " << metrics.inflight_max << std::endl;
     std::cout << "--------------------------------------------------" << std::endl;
 
     double overall_fps = (total_time_sec > 0) ? total_frames / total_time_sec : 0.0;
@@ -664,7 +600,7 @@ int main(int argc, char* argv[]) {
     std::string yoloModelPath = "", deeplabModelPath = "", imgFile = "", videoFile = "", rtspUrl = "";
     int cameraIndex = -1;
     bool fps_only = false, saveVideo = false;
-    int loopTest = 1, loopCount = 1, processCount = 0;
+    int loopTest = 1, processCount = 0;
 
     std::string app_name = "YOLOv7 + DeepLabV3 Multi-Model Async Example";
     cxxopts::Options options(app_name, app_name + " application usage ");
@@ -707,7 +643,7 @@ int main(int argc, char* argv[]) {
         std::cerr << "Use -h or --help for usage information." << std::endl;
         exit(1);
     }
-    
+
     int sourceCount = 0;
     if (!imgFile.empty()) sourceCount++;
     if (!videoFile.empty()) sourceCount++;
@@ -721,8 +657,6 @@ int main(int argc, char* argv[]) {
         std::cerr << "Use -h or --help for usage information." << std::endl;
         exit(1);
     }
-
-    loopCount = loopTest;
 
     // Initialize both inference engines
     dxrt::InferenceOption io;
@@ -738,7 +672,7 @@ int main(int argc, char* argv[]) {
         return -1;
     }
 
-    // Get model input dimensions (assuming both models have same input size)
+    // Get model input dimensions
     auto yolo_input_shape = yolo_ie.GetInputs().front().shape();
     auto deeplab_input_shape = deeplab_ie.GetInputs().front().shape();
 
@@ -758,344 +692,201 @@ int main(int argc, char* argv[]) {
               << deeplab_input_height << std::endl;
 
     // Prepare async buffers for both models
-    std::vector<std::vector<uint8_t>> yolo_input_buffers(ASYNC_BUFFER_SIZE);
-    std::vector<std::vector<uint8_t>> yolo_output_buffers(ASYNC_BUFFER_SIZE);
-    std::vector<std::vector<uint8_t>> deeplab_input_buffers(ASYNC_BUFFER_SIZE);
-    std::vector<std::vector<uint8_t>> deeplab_output_buffers(ASYNC_BUFFER_SIZE);
+    std::vector<std::vector<uint8_t>> yolo_input_buffers(ASYNC_BUFFER_SIZE,
+                                                         std::vector<uint8_t>(yolo_ie.GetInputSize()));
+    std::vector<std::vector<uint8_t>> yolo_output_buffers(ASYNC_BUFFER_SIZE,
+                                                          std::vector<uint8_t>(yolo_ie.GetOutputSize()));
+    std::vector<std::vector<uint8_t>> deeplab_input_buffers(ASYNC_BUFFER_SIZE,
+                                                            std::vector<uint8_t>(deeplab_ie.GetInputSize()));
+    std::vector<std::vector<uint8_t>> deeplab_output_buffers(ASYNC_BUFFER_SIZE,
+                                                             std::vector<uint8_t>(deeplab_ie.GetOutputSize()));
 
-    for (auto& input_buffer : yolo_input_buffers) {
-        input_buffer = std::vector<uint8_t>(yolo_ie.GetInputSize());
-    }
-    for (auto& output_buffer : yolo_output_buffers) {
-        output_buffer = std::vector<uint8_t>(yolo_ie.GetOutputSize());
-    }
-    for (auto& input_buffer : deeplab_input_buffers) {
-        input_buffer = std::vector<uint8_t>(deeplab_ie.GetInputSize());
-    }
-    for (auto& output_buffer : deeplab_output_buffers) {
-        output_buffer = std::vector<uint8_t>(deeplab_ie.GetOutputSize());
-    }
-
-    MultiModelSafeQueue wait_queue;
-    std::queue<MultiModelDisplayArgs*> display_queue;
+    SafeQueue<std::shared_ptr<DetectionArgs>> wait_queue;
+    SafeQueue<std::shared_ptr<DisplayArgs>> display_queue;
     ProfilingMetrics profiling_metrics;
 
-    std::thread post_process_thread(multi_model_post_process_thread_func, &wait_queue,
-                                    &display_queue, &appQuit);
     cv::VideoWriter writer;
-    std::vector<int> yolo_pad_xy{0, 0};
-    float yolo_scale_factor = 1.f;
-    std::vector<int> deeplabv3_pad_xy{0, 0};
 
-    std::thread display_thread(multi_model_display_thread_func, &display_queue, &appQuit, &writer,
-                               &yolo_pad_xy, &yolo_scale_factor);
+    // Calculate letterbox padding and scale factor
+    float yolo_scale_factor =
+        std::min(static_cast<float>(yolo_input_width) / static_cast<float>(SHOW_WINDOW_SIZE_W),
+                 static_cast<float>(yolo_input_height) / static_cast<float>(SHOW_WINDOW_SIZE_H));
+    int letterbox_pad_x = static_cast<int>(
+        std::max(0.f, (static_cast<float>(yolo_input_width) - SHOW_WINDOW_SIZE_W * yolo_scale_factor) / 2.f));
+    int letterbox_pad_y = static_cast<int>(
+        std::max(0.f, (static_cast<float>(yolo_input_height) - SHOW_WINDOW_SIZE_H * yolo_scale_factor) / 2.f));
+    std::vector<int> yolo_pad_xy{letterbox_pad_x, letterbox_pad_y};
+    std::vector<int> deeplab_pad_xy{0, 0};
 
-    // Image processing
-    if (!imgFile.empty()) {
+    std::thread post_thread(post_process_thread_func, &wait_queue, &display_queue, &appQuit);
+    std::thread disp_thread(display_thread_func, &display_queue, &appQuit, &writer, &yolo_pad_xy,
+                            &yolo_scale_factor);
 
+    cv::VideoCapture video;
+    bool is_image = !imgFile.empty();
+    if (is_image) { /* Image logic below */
+    } else if (cameraIndex >= 0)
+        video.open(cameraIndex);
+    else if (!rtspUrl.empty())
+        video.open(rtspUrl);
+    else
+        video.open(videoFile);
 
-        cv::Mat image = cv::imread(imgFile, cv::IMREAD_COLOR);
-        if (image.empty()) {
-            std::cerr << "[ERROR] Image file is not valid." << std::endl;
-            exit(1);
-        }
+    if (!is_image && !video.isOpened()) return -1;
 
-        std::cout << "[INFO] Image resolution (WxH): " << image.cols << "x" << image.rows
-                  << std::endl;
-        std::cout << "[INFO] Total frames: " << loopCount << std::endl;
+    // Video Save Setup
+    if (saveVideo) {
+        double fps = video.get(cv::CAP_PROP_FPS);
+        writer.open("result.mp4", cv::VideoWriter::fourcc('M', 'J', 'P', 'G'), fps > 0 ? fps : 30.0,
+                    cv::Size(SHOW_WINDOW_SIZE_W, SHOW_WINDOW_SIZE_H));
+    }
 
-        cv::resize(image, image, cv::Size(SHOW_WINDOW_SIZE_W, SHOW_WINDOW_SIZE_H),
-                   cv::INTER_LINEAR);
+    std::vector<cv::Mat> images(ASYNC_BUFFER_SIZE,
+                                cv::Mat(SHOW_WINDOW_SIZE_H, SHOW_WINDOW_SIZE_W, CV_8UC3));
+    int index = 0, submitted_frames = 0;
+    auto s_time = std::chrono::high_resolution_clock::now();
 
-        yolo_scale_factor = std::min(yolo_input_width / static_cast<float>(image.cols),
-                                     yolo_input_height / static_cast<float>(image.rows));
-        int letterbox_pad_x =
-            std::max(0.f, (yolo_input_width - image.cols * yolo_scale_factor) / 2);
-        int letterbox_pad_y =
-            std::max(0.f, (yolo_input_height - image.rows * yolo_scale_factor) / 2);
-        yolo_pad_xy = {letterbox_pad_x, letterbox_pad_y};
-
-        auto s = std::chrono::high_resolution_clock::now();
-
-        std::vector<std::unique_ptr<MultiModelArgs>> multi_model_args_list;
-        multi_model_args_list.reserve(ASYNC_BUFFER_SIZE);
-        int index = 0;
-
-        do {
-            index = (index + 1) % ASYNC_BUFFER_SIZE;
+    if (is_image) {
+        cv::Mat img = cv::imread(imgFile);
+        for (int i = 0; i < loopTest; ++i) {
+            auto t0 = std::chrono::high_resolution_clock::now();
+            cv::resize(img, images[index], cv::Size(SHOW_WINDOW_SIZE_W, SHOW_WINDOW_SIZE_H));
 
             // Preprocess for YOLOv7
-            auto t0_yolo = std::chrono::high_resolution_clock::now();
-            cv::Mat yolo_preprocessed_image = cv::Mat(yolo_input_height, yolo_input_width, CV_8UC3,
-                                                      yolo_input_buffers[index].data());
-            make_letterbox_image(image, yolo_preprocessed_image, cv::COLOR_BGR2RGB, yolo_pad_xy);
+            cv::Mat yolo_pre(yolo_input_height, yolo_input_width, CV_8UC3,
+                             yolo_input_buffers[index].data());
+            make_letterbox_image(images[index], yolo_pre, cv::COLOR_BGR2RGB, yolo_pad_xy);
             auto t1_yolo = std::chrono::high_resolution_clock::now();
-            double yolo_preprocess_time =
-                std::chrono::duration<double, std::milli>(t1_yolo - t0_yolo).count();
 
             // Preprocess for DeepLabV3
-            auto t0_deeplab = std::chrono::high_resolution_clock::now();
-            cv::Mat deeplab_preprocessed_image =
-                cv::Mat(deeplab_input_height, deeplab_input_width, CV_8UC3,
-                        deeplab_input_buffers[index].data());
-            std::vector<int> deeplab_pad_xy = {0, 0};  // Assuming same padding for simplicity
-            make_letterbox_image(image, deeplab_preprocessed_image, cv::COLOR_BGR2RGB,
-                                 deeplab_pad_xy);
+            cv::Mat deeplab_pre(deeplab_input_height, deeplab_input_width, CV_8UC3,
+                                deeplab_input_buffers[index].data());
+            make_letterbox_image(images[index], deeplab_pre, cv::COLOR_BGR2RGB, deeplab_pad_xy);
             auto t1_deeplab = std::chrono::high_resolution_clock::now();
-            double deeplab_preprocess_time =
-                std::chrono::duration<double, std::milli>(t1_deeplab - t0_deeplab).count();
 
-            // Start async inference for both models
-            auto yolo_req_id = yolo_ie.RunAsync(yolo_preprocessed_image.data, nullptr,
+            double yolo_preprocess_time =
+                std::chrono::duration<double, std::milli>(t1_yolo - t0).count();
+            double deeplab_preprocess_time =
+                std::chrono::duration<double, std::milli>(t1_deeplab - t1_yolo).count();
+
+            auto yolo_req_id = yolo_ie.RunAsync(yolo_pre.data, nullptr,
                                                 yolo_output_buffers[index].data());
-            auto deeplab_req_id = deeplab_ie.RunAsync(deeplab_preprocessed_image.data, nullptr,
+            auto deeplab_req_id = deeplab_ie.RunAsync(deeplab_pre.data, nullptr,
+                                                      deeplab_output_buffers[index].data());
+
+            auto args = std::make_shared<DetectionArgs>();
+            args->yolo_ie = &yolo_ie;
+            args->deeplab_ie = &deeplab_ie;
+            args->ypp = &yolo_post_processor;
+            args->dlpp = &deeplab_post_processor;
+            args->current_frame = images[index].clone();
+            args->yolo_request_id = yolo_req_id;
+            args->deeplab_request_id = deeplab_req_id;
+            args->processed_count = &processCount;
+            args->metrics = &profiling_metrics;
+            args->t_yolo_preprocess = yolo_preprocess_time;
+            args->t_deeplab_preprocess = deeplab_preprocess_time;
+            args->t_yolo_async_start = t1_yolo;
+            args->t_deeplab_async_start = t1_deeplab;
+            args->is_no_show = fps_only;
+
+            while (!wait_queue.try_push(args)) {
+                if (appQuit.load() == 1) break;
+                std::this_thread::sleep_for(std::chrono::microseconds(100));
+            }
+            if (appQuit.load() == 1) break;
+            submitted_frames++;
+            if (appQuit.load() == -1) appQuit.store(0);
+            index = (index + 1) % ASYNC_BUFFER_SIZE;
+        }
+    } else {
+        while (true) {
+            cv::Mat frame;
+            auto tr0 = std::chrono::high_resolution_clock::now();
+            video >> frame;
+            if (frame.empty()) break;
+            auto tr1 = std::chrono::high_resolution_clock::now();
+            {
+                std::lock_guard<std::mutex> lk(profiling_metrics.metrics_mutex);
+                profiling_metrics.sum_read +=
+                    std::chrono::duration<double, std::milli>(tr1 - tr0).count();
+            }
+
+            auto t0 = std::chrono::high_resolution_clock::now();
+            cv::resize(frame, images[index], cv::Size(SHOW_WINDOW_SIZE_W, SHOW_WINDOW_SIZE_H));
+
+            // Preprocess for YOLOv7
+            cv::Mat yolo_pre(yolo_input_height, yolo_input_width, CV_8UC3,
+                             yolo_input_buffers[index].data());
+            make_letterbox_image(images[index], yolo_pre, cv::COLOR_BGR2RGB, yolo_pad_xy);
+            auto t1_yolo = std::chrono::high_resolution_clock::now();
+
+            // Preprocess for DeepLabV3
+            cv::Mat deeplab_pre(deeplab_input_height, deeplab_input_width, CV_8UC3,
+                                deeplab_input_buffers[index].data());
+            make_letterbox_image(images[index], deeplab_pre, cv::COLOR_BGR2RGB, deeplab_pad_xy);
+            auto t1_deeplab = std::chrono::high_resolution_clock::now();
+
+            double yolo_preprocess_time =
+                std::chrono::duration<double, std::milli>(t1_yolo - t0).count();
+            double deeplab_preprocess_time =
+                std::chrono::duration<double, std::milli>(t1_deeplab - t1_yolo).count();
+
+            auto yolo_req_id = yolo_ie.RunAsync(yolo_pre.data, nullptr,
+                                                yolo_output_buffers[index].data());
+            auto deeplab_req_id = deeplab_ie.RunAsync(deeplab_pre.data, nullptr,
                                                       deeplab_output_buffers[index].data());
             auto t2 = std::chrono::high_resolution_clock::now();
 
-            // Update inflight tracking
-            {
-                std::unique_lock<std::mutex> metrics_lock(profiling_metrics.metrics_mutex);
-                if (profiling_metrics.first_inference) {
-                    profiling_metrics.infer_first_ts = t1_yolo;
-                    profiling_metrics.inflight_last_ts = t2;
-                    profiling_metrics.first_inference = false;
-                } else {
-                    auto dt = std::chrono::duration<double>(t2 - profiling_metrics.inflight_last_ts)
-                                  .count();
-                    profiling_metrics.inflight_time_sum += profiling_metrics.inflight_current * dt;
-                    profiling_metrics.inflight_last_ts = t2;
-                }
-                profiling_metrics.inflight_current++;
-                if (profiling_metrics.inflight_current > profiling_metrics.inflight_max) {
-                    profiling_metrics.inflight_max = profiling_metrics.inflight_current;
-                }
-            }
-
-            // Create MultiModelArgs
-            auto args = std::unique_ptr<MultiModelArgs>(new MultiModelArgs());
+            auto args = std::make_shared<DetectionArgs>();
             args->yolo_ie = &yolo_ie;
             args->deeplab_ie = &deeplab_ie;
             args->ypp = &yolo_post_processor;
             args->dlpp = &deeplab_post_processor;
-            args->current_frame = &image;
-            args->combined_results = nullptr;
+            args->current_frame = images[index].clone();
             args->yolo_request_id = yolo_req_id;
             args->deeplab_request_id = deeplab_req_id;
             args->processed_count = &processCount;
-            args->is_no_show = fps_only;
-            args->is_video_save = saveVideo;
+            args->metrics = &profiling_metrics;
             args->t_yolo_preprocess = yolo_preprocess_time;
             args->t_deeplab_preprocess = deeplab_preprocess_time;
             args->t_yolo_async_start = t1_yolo;
             args->t_deeplab_async_start = t1_deeplab;
-            args->metrics = &profiling_metrics;
+            args->is_no_show = fps_only;
+            args->is_video_save = saveVideo;
 
-            wait_queue.push(args.get());
-            multi_model_args_list.push_back(std::move(args));
-            if (appQuit.load() == -1) {
-                appQuit.store(0);
+            {
+                std::lock_guard<std::mutex> lk(profiling_metrics.metrics_mutex);
+                if (profiling_metrics.first_inference) {
+                    profiling_metrics.infer_first_ts = t1_yolo;
+                    profiling_metrics.inflight_last_ts = t2;
+                    profiling_metrics.first_inference = false;
+                }
+                profiling_metrics.inflight_current++;
+                if (profiling_metrics.inflight_current > profiling_metrics.inflight_max)
+                    profiling_metrics.inflight_max = profiling_metrics.inflight_current;
+            }
+
+            while (!wait_queue.try_push(args)) {
+                if (appQuit.load() == 1) break;
+                std::this_thread::sleep_for(std::chrono::microseconds(100));
             }
             if (appQuit.load() == 1) break;
-        } while (--loopTest);
-
-        // Wait for all processing to complete
-        while (processCount < loopCount && appQuit.load() == 0) {
-            std::this_thread::sleep_for(std::chrono::microseconds(10));
-        }
-        appQuit.store(1);
-        post_process_thread.join();
-        display_thread.join();
-
-        auto e = std::chrono::high_resolution_clock::now();
-        double total_time =
-            std::chrono::duration_cast<std::chrono::milliseconds>(e - s).count() / 1000.0;
-
-        print_performance_summary(profiling_metrics, processCount, total_time, !fps_only);
-
-    } else {
-        cv::VideoCapture video;
-        std::string source_info;
-        bool is_file = !videoFile.empty();
-
-        if (cameraIndex >= 0) {
-            video.open(cameraIndex);
-            source_info = "Camera index: " + std::to_string(cameraIndex);
-        } else if (!rtspUrl.empty()) {
-            video.open(rtspUrl);
-            source_info = "RTSP URL: " + rtspUrl;
-        } else {
-            video.open(videoFile);
-            source_info = "Video file: " + videoFile;
-            std::cout << "loopTest is set to 1 when a video file is provided." << std::endl;
-            loopTest = 1;
-        }
-
-        if (!video.isOpened()) {
-            std::cerr << "[ERROR] Failed to open input source." << std::endl;
-            exit(1);
-        }
-
-        // Print video information
-        int video_width = static_cast<int>(video.get(cv::CAP_PROP_FRAME_WIDTH));
-        int video_height = static_cast<int>(video.get(cv::CAP_PROP_FRAME_HEIGHT));
-        double video_fps = video.get(cv::CAP_PROP_FPS);
-        int total_frames = static_cast<int>(video.get(cv::CAP_PROP_FRAME_COUNT));
-
-        std::cout << "[INFO] " << source_info << std::endl;
-        std::cout << "[INFO] Video resolution (WxH): " << video_width << "x" << video_height
-                  << std::endl;
-        std::cout << "[INFO] Video FPS: " << std::fixed << std::setprecision(2) << video_fps
-                  << std::endl;
-        if (is_file) {
-            std::cout << "[INFO] Total frames: " << total_frames << std::endl;
-            loopCount = total_frames;
-        } else {
-            loopCount = std::numeric_limits<int>::max();
-        }
-
-        if (fps_only) {
-            std::cout << "Processing video stream... Only FPS will be displayed." << std::endl;
-        }
-        if (saveVideo) {
-            writer = cv::VideoWriter("result.mp4", cv::VideoWriter::fourcc('M', 'J', 'P', 'G'),
-                                     video_fps > 0 ? video_fps : 30.0,
-                                     cv::Size(SHOW_WINDOW_SIZE_W, SHOW_WINDOW_SIZE_H));
-            if (!writer.isOpened()) {
-                std::cerr << "[ERROR] Failed to open video writer." << std::endl;
-                exit(1);
-            }
-        }
-        
-        yolo_scale_factor = std::min(yolo_input_width / static_cast<float>(SHOW_WINDOW_SIZE_W),
-                                     yolo_input_height / static_cast<float>(SHOW_WINDOW_SIZE_H));
-        int letterbox_pad_x =
-            std::max(0.f, (yolo_input_width - SHOW_WINDOW_SIZE_W * yolo_scale_factor) / 2);
-        int letterbox_pad_y =
-            std::max(0.f, (yolo_input_height - SHOW_WINDOW_SIZE_H * yolo_scale_factor) / 2);
-        yolo_pad_xy = {letterbox_pad_x, letterbox_pad_y};
-
-        auto s = std::chrono::high_resolution_clock::now();
-
-        std::vector<std::unique_ptr<MultiModelArgs>> multi_model_args_list;
-        multi_model_args_list.reserve(ASYNC_BUFFER_SIZE);
-        std::vector<cv::Mat> images(ASYNC_BUFFER_SIZE);
-        for (auto& img : images) {
-            img = cv::Mat(SHOW_WINDOW_SIZE_H, SHOW_WINDOW_SIZE_W, CV_8UC3);
-        }
-        int index = 0;
-        int submitted_frames = 0;
-        do {
-            index = (index + 1) % ASYNC_BUFFER_SIZE;
-            cv::Mat frame;
-            
-            auto t_read_start = std::chrono::high_resolution_clock::now();
-            video >> frame;
-            auto t_read_end = std::chrono::high_resolution_clock::now();
-
-            if (frame.empty()) {
-                break;
-            }
             submitted_frames++;
-
-            {
-                std::unique_lock<std::mutex> metrics_lock(profiling_metrics.metrics_mutex);
-                profiling_metrics.sum_read +=
-                    std::chrono::duration<double, std::milli>(t_read_end - t_read_start).count();
-            }
-
-            // Start preprocess timing
-            cv::resize(frame, images[index], cv::Size(SHOW_WINDOW_SIZE_W, SHOW_WINDOW_SIZE_H),
-                       cv::INTER_LINEAR);
-            auto t0_yolo = std::chrono::high_resolution_clock::now();
-            cv::Mat yolo_preprocessed_image = cv::Mat(yolo_post_processor.get_input_height(),
-                                                      yolo_post_processor.get_input_width(),
-                                                      CV_8UC3, yolo_input_buffers[index].data());
-            make_letterbox_image(images[index], yolo_preprocessed_image, cv::COLOR_BGR2RGB,
-                                 yolo_pad_xy);
-            auto t1_yolo = std::chrono::high_resolution_clock::now();
-            double yolo_preprocess_time =
-                std::chrono::duration<double, std::milli>(t1_yolo - t0_yolo).count();
-
-            auto t0_deeplab = std::chrono::high_resolution_clock::now();
-            cv::Mat deeplabv3_preprocessed_image = cv::Mat(
-                deeplab_post_processor.get_input_height(), deeplab_post_processor.get_input_width(),
-                CV_8UC3, deeplab_input_buffers[index].data());
-            make_letterbox_image(images[index], deeplabv3_preprocessed_image, cv::COLOR_BGR2RGB,
-                                 deeplabv3_pad_xy);
-            auto t1_deeplab = std::chrono::high_resolution_clock::now();
-            double deeplab_preprocess_time =
-                std::chrono::duration<double, std::milli>(t1_deeplab - t0_deeplab).count();
-
-            auto yolo_req_id = yolo_ie.RunAsync(yolo_preprocessed_image.data, nullptr,
-                                                yolo_output_buffers[index].data());
-            auto deeplab_req_id = deeplab_ie.RunAsync(deeplabv3_preprocessed_image.data, nullptr,
-                                                   deeplab_output_buffers[index].data());
-            auto t2 = std::chrono::high_resolution_clock::now();
-
-            // Update inflight tracking
-            {
-                std::unique_lock<std::mutex> metrics_lock(profiling_metrics.metrics_mutex);
-
-                if (profiling_metrics.first_inference) {
-                    profiling_metrics.infer_first_ts = t1_yolo;
-                    profiling_metrics.inflight_last_ts = t2;
-                    profiling_metrics.first_inference = false;
-                } else {
-                    auto dt = std::chrono::duration<double>(t2 - profiling_metrics.inflight_last_ts)
-                                  .count();
-                    profiling_metrics.inflight_time_sum += profiling_metrics.inflight_current * dt;
-                    profiling_metrics.inflight_last_ts = t2;
-                }
-
-                profiling_metrics.inflight_current++;
-                if (profiling_metrics.inflight_current > profiling_metrics.inflight_max) {
-                    profiling_metrics.inflight_max = profiling_metrics.inflight_current;
-                }
-            }
-
-            // Create MultiModelArgs
-            auto args = std::unique_ptr<MultiModelArgs>(new MultiModelArgs());
-            args->yolo_ie = &yolo_ie;
-            args->deeplab_ie = &deeplab_ie;
-            args->ypp = &yolo_post_processor;
-            args->dlpp = &deeplab_post_processor;
-            args->current_frame = &images[index];
-            args->combined_results = nullptr;
-            args->yolo_request_id = yolo_req_id;
-            args->deeplab_request_id = deeplab_req_id;
-            args->processed_count = &processCount;
-            args->is_no_show = fps_only;
-            args->is_video_save = saveVideo;
-            args->t_yolo_preprocess = yolo_preprocess_time;
-            args->t_deeplab_preprocess = deeplab_preprocess_time;
-            args->t_yolo_async_start = t1_yolo;
-            args->t_deeplab_async_start = t1_deeplab;
-            args->metrics = &profiling_metrics;
-
-            wait_queue.push(args.get());
-            multi_model_args_list.push_back(std::move(args));
-            if (appQuit.load() == -1) {
-                appQuit.store(0);
-            }
-            if (appQuit.load() == 1) break;
-        } while (true);
-
-        loopCount = submitted_frames;
-
-        // Wait for all processing to complete
-        while (processCount < loopCount && appQuit.load() == 0) {
-            std::this_thread::sleep_for(std::chrono::microseconds(10));
+            if (appQuit.load() == -1) appQuit.store(0);
+            index = (index + 1) % ASYNC_BUFFER_SIZE;
         }
-        appQuit.store(1);
-        post_process_thread.join();
-        display_thread.join();
-
-        auto e = std::chrono::high_resolution_clock::now();
-        double total_time =
-            std::chrono::duration_cast<std::chrono::milliseconds>(e - s).count() / 1000.0;
-
-        print_performance_summary(profiling_metrics, processCount, total_time, !fps_only);
     }
+
+    while (processCount < submitted_frames && appQuit.load() <= 0)
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    appQuit.store(1);
+    if (post_thread.joinable()) post_thread.join();
+    if (disp_thread.joinable()) disp_thread.join();
+
+    auto e_time = std::chrono::high_resolution_clock::now();
+    double total_time = std::chrono::duration<double>(e_time - s_time).count();
+    print_performance_summary(profiling_metrics, processCount, total_time, !fps_only);
 
     std::cout << "\nMulti-model example completed successfully!" << std::endl;
     DXRT_TRY_CATCH_END
