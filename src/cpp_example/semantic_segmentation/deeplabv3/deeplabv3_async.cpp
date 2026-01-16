@@ -1,17 +1,18 @@
 #include <dxrt/dxrt_api.h>
 
-#include <atomic>  // For thread-safe counters
-#include <chrono>  // For timing measurements
+#include <atomic>
+#include <chrono>
 #include <common_util.hpp>
-#include <condition_variable>  // For thread synchronization
+#include <condition_variable>
 #include <cxxopts.hpp>
-#include <iomanip>  // For std::setprecision
+#include <exception>
+#include <iomanip>
 #include <iostream>
-#include <memory>  // For smart pointers
+#include <memory>
 #include <opencv2/opencv.hpp>
 #include <queue>
 #include <thread>
-#include <vector>  // STL vector container
+#include <vector>
 
 #include "deeplabv3_postprocess.h"
 
@@ -20,7 +21,7 @@
  *
  * - Supports image, video, and camera input sources.
  * - Performs post-processing on model inference results (argmax, class prediction,
- * semantic segmentation mask generation, etc.).
+ *   semantic segmentation mask generation, etc.).
  * - Visualization and result saving are available using OpenCV.
  * - Command-line options allow configuration of model path, input files, loop
  * count, FPS measurement, and result saving.
@@ -60,7 +61,7 @@ struct ProfilingMetrics {
 cv::Scalar get_class_color(int class_id) {
     // Use predefined colors for better visualization of semantic classes
     // Cityscapes color palette for urban scene segmentation
-    std::vector<cv::Scalar> colors = {
+    static const std::vector<cv::Scalar> colors = {
         cv::Scalar(128, 64, 128),   // road
         cv::Scalar(244, 35, 232),   // sidewalk
         cv::Scalar(70, 70, 70),     // building
@@ -90,12 +91,84 @@ cv::Scalar get_class_color(int class_id) {
     return cv::Scalar(0, 0, 0);
 }
 
+struct DisplayArgs {
+    std::shared_ptr<DeepLabv3Result> segmentation_result;
+    std::shared_ptr<cv::Mat> original_frame;
+
+    DeepLabv3PostProcess *dlpp = nullptr;
+    int *processed_count = nullptr;
+    bool is_no_show = false;
+    bool is_video_save = false;
+    double t_preprocess = 0.0;
+    double t_inference = 0.0;
+    double t_postprocess = 0.0;
+    ProfilingMetrics *metrics = nullptr;
+    std::vector<int> pad_xy{0, 0};
+
+    DisplayArgs() = default;
+};
+
+struct DetectionArgs {
+    cv::Mat current_frame;
+    dxrt::InferenceEngine *ie = nullptr;
+    DeepLabv3PostProcess *dlpp = nullptr;
+    ProfilingMetrics *metrics = nullptr;
+    int *processed_count = nullptr;
+    int request_id = 0;
+    bool is_no_show = false;
+    bool is_video_save = false;
+    double t_preprocess = 0.0;
+    std::chrono::high_resolution_clock::time_point t_run_async_start;
+    std::vector<int> pad_xy{0, 0};
+
+    DetectionArgs() = default;
+};
+
+// --- 2. SafeQueue implementation ---
+
+template <typename T>
+class SafeQueue {
+   private:
+    std::queue<T> queue_;
+    std::mutex mutex_;
+    std::condition_variable condition_;
+    size_t max_size_;
+
+   public:
+    SafeQueue(size_t max_size = MAX_QUEUE_SIZE) : max_size_(max_size) {}
+
+    void push(T item, int timeout_ms = 1000) {
+        std::unique_lock<std::mutex> lock(mutex_);
+        if (!condition_.wait_for(lock, std::chrono::milliseconds(timeout_ms),
+                                 [this] { return queue_.size() < max_size_; })) {
+            throw std::runtime_error("Queue push timeout");
+        }
+        queue_.push(std::move(item));
+        condition_.notify_one();
+    }
+
+    T pop() {
+        std::unique_lock<std::mutex> lock(mutex_);
+        condition_.wait(lock, [this] { return !queue_.empty(); });
+        T item = std::move(queue_.front());
+        queue_.pop();
+        condition_.notify_one();
+        return item;
+    }
+
+    bool empty() {
+        std::lock_guard<std::mutex> lock(mutex_);
+        return queue_.empty();
+    }
+};
+
+// --- 3. Helper function define ---
+
 /**
  * @brief Resize the input image to the specified size and apply letterbox
  * padding for preprocessing semantic segmentation.
  * @param image Original input image
- * @param preprocessed_image Mat object to store the preprocessed result
- * (already sized)
+ * @param preprocessed_image Mat object to store the preprocessed result (already sized)
  * @param color_space Color space conversion code (e.g., cv::COLOR_BGR2RGB)
  * @param pad_xy [x, y] vector for padding size
  */
@@ -133,7 +206,6 @@ void make_letterbox_image(const cv::Mat& image, cv::Mat& preprocessed_image, con
  * @param orig_width Original image width
  * @param orig_height Original image height
  * @param pad_xy [x, y] vector for padding size
- * @param letterbox_scale Scale factor used for letterbox
  * @return Resized segmentation mask
  */
 cv::Mat scale_segmentation_mask(const cv::Mat& mask, int orig_width, int orig_height,
@@ -163,7 +235,6 @@ cv::Mat scale_segmentation_mask(const cv::Mat& mask, int orig_width, int orig_he
  * @param frame Original image
  * @param segmentation_result Segmentation result containing mask
  * @param pad_xy [x, y] vector for padding size
- * @param letterbox_scale Scale factor used for letterbox
  * @param alpha Blending factor for overlay (0.0 = original image, 1.0 = only mask)
  * @return Visualized image (Mat)
  */
@@ -203,251 +274,107 @@ cv::Mat draw_segmentation(const cv::Mat& frame, const DeepLabv3Result& segmentat
     return result;
 }
 
-struct SegmentationArgs {
-    DeepLabv3Result* segmentation_result;
-    cv::Mat* current_frame;
-    dxrt::InferenceEngine* ie;
-    DeepLabv3PostProcess* dlpp;
-    std::mutex output_postprocess_lk;
-    int* processed_count = nullptr;
-    int request_id = 0;
-    bool is_no_show = false;
-    bool is_video_save = false;
+// --- 4. Thread function define ---
 
-    // Timing information
-    double t_preprocess = 0.0;
-    std::chrono::high_resolution_clock::time_point t_run_async_start;
-    ProfilingMetrics* metrics = nullptr;
-
-    // Constructor for proper initialization
-    SegmentationArgs()
-        : segmentation_result(nullptr),
-          current_frame(nullptr),
-          ie(nullptr),
-          dlpp(nullptr),
-          processed_count(nullptr),
-          request_id(0),
-          is_no_show(false),
-          is_video_save(false),
-          t_preprocess(0.0),
-          metrics(nullptr) {}
-
-    // Destructor for proper cleanup
-    ~SegmentationArgs() {
-        if (segmentation_result != nullptr) {
-            delete segmentation_result;
-            segmentation_result = nullptr;
-        }
-    }
-};
-
-struct SegmentationDisplayArgs {
-    DeepLabv3Result* segmentation_result;
-    cv::Mat* original_frame;
-    DeepLabv3PostProcess* dlpp;
-    std::mutex display_lk;
-    bool is_no_show = false;
-    bool is_video_save = false;
-    int* processed_count = nullptr;
-
-    // Timing information
-    double t_preprocess = 0.0;
-    double t_inference = 0.0;
-    double t_postprocess = 0.0;
-    ProfilingMetrics* metrics = nullptr;
-
-    SegmentationDisplayArgs()
-        : segmentation_result(nullptr),
-          original_frame(nullptr),
-          dlpp(nullptr),
-          is_no_show(false),
-          is_video_save(false),
-          processed_count(nullptr),
-          t_preprocess(0.0),
-          t_inference(0.0),
-          t_postprocess(0.0),
-          metrics(nullptr) {}
-
-    ~SegmentationDisplayArgs() {
-        if (segmentation_result != nullptr) {
-            delete segmentation_result;
-            segmentation_result = nullptr;
-        }
-    }
-};
-
-// Thread-safe queue wrapper for segmentation
-class SegmentationSafeQueue {
-   private:
-    std::queue<SegmentationArgs*> queue_;
-    std::mutex mutex_;
-    std::condition_variable condition_;
-    size_t max_size_;
-
-   public:
-    SegmentationSafeQueue(size_t max_size = MAX_QUEUE_SIZE) : max_size_(max_size) {}
-
-    void push(SegmentationArgs* item) {
-        std::unique_lock<std::mutex> lock(mutex_);
-        condition_.wait(lock, [this] { return queue_.size() < max_size_; });
-        queue_.push(item);
-        condition_.notify_one();
-    }
-
-    SegmentationArgs* pop() {
-        std::unique_lock<std::mutex> lock(mutex_);
-        condition_.wait(lock, [this] { return !queue_.empty(); });
-        SegmentationArgs* item = queue_.front();
-        queue_.pop();
-        condition_.notify_one();
-        return item;
-    }
-
-    bool empty() const {
-        std::lock_guard<std::mutex> lock(const_cast<std::mutex&>(mutex_));
-        return queue_.empty();
-    }
-
-    size_t size() const {
-        std::lock_guard<std::mutex> lock(const_cast<std::mutex&>(mutex_));
-        return queue_.size();
-    }
-};
-
-void post_process_thread_func(SegmentationSafeQueue* wait_queue,
-                              std::queue<SegmentationDisplayArgs*>* display_queue,
-                              std::atomic<int>* appQuit) {
-    while (appQuit->load() == -1) {
-        std::this_thread::sleep_for(std::chrono::microseconds(10));
-    }
-    std::cout << "[DXAPP] [INFO] post processing thread start" << std::endl;
-
-    std::vector<std::unique_ptr<SegmentationDisplayArgs>> display_args_list;
-    display_args_list.reserve(ASYNC_BUFFER_SIZE);
+void post_process_thread_func(SafeQueue<std::shared_ptr<DetectionArgs>> *wait_queue,
+                              SafeQueue<std::shared_ptr<DisplayArgs>> *display_queue,
+                              std::atomic<int> *appQuit) {
+    while (appQuit->load() == -1) std::this_thread::sleep_for(std::chrono::microseconds(10));
 
     while (appQuit->load() == 0) {
-        if (wait_queue->size() > 0) {
-            SegmentationArgs* args = wait_queue->pop();
-            auto display_args =
-                std::unique_ptr<SegmentationDisplayArgs>(new SegmentationDisplayArgs());
+        if (wait_queue->empty()) {
+            std::this_thread::sleep_for(std::chrono::microseconds(10));
+            continue;
+        }
+        auto args = wait_queue->pop();
 
-            // outputs: inference 결과 텐서 벡터
-            auto outputs = args->ie->Wait(args->request_id);
+        auto outputs = args->ie->Wait(args->request_id);
+        auto t1 = std::chrono::high_resolution_clock::now();
+        double inference_time =
+            std::chrono::duration<double, std::milli>(t1 - args->t_run_async_start).count();
 
-            // Calculate inference time
-            auto t1 = std::chrono::high_resolution_clock::now();
-            double inference_time =
-                std::chrono::duration<double, std::milli>(t1 - args->t_run_async_start).count();
+        // Postprocess timing
+        DeepLabv3Result segmentation_result;
+        try {
+            segmentation_result = args->dlpp->postprocess(outputs);
+        } catch (const std::exception& e) {
+            std::cerr << "[DXAPP] [ER] Exception during postprocessing: \n"
+                      << e.what() << std::endl;
+            appQuit->store(1);
+            continue;
+        }
+        auto t2 = std::chrono::high_resolution_clock::now();
+        double postprocess_time = std::chrono::duration<double, std::milli>(t2 - t1).count();
 
-            // Start postprocess timing
-            auto segmentation_result = args->dlpp->postprocess(outputs);
+        if (args->metrics) {
+            std::lock_guard<std::mutex> lock(args->metrics->metrics_mutex);
+            args->metrics->infer_last_ts = t1;
+            args->metrics->infer_completed++;
+            args->metrics->inflight_current--;
+        }
 
-            // Calculate postprocess time
-            auto t2 = std::chrono::high_resolution_clock::now();
-            double postprocess_time = std::chrono::duration<double, std::milli>(t2 - t1).count();
+        auto d_args = std::make_shared<DisplayArgs>();
+        d_args->segmentation_result =
+            std::make_shared<DeepLabv3Result>(std::move(segmentation_result));
+        if (!args->current_frame.empty()) {
+            d_args->original_frame = std::make_shared<cv::Mat>(args->current_frame.clone());
+        }
+        d_args->dlpp = args->dlpp;
+        d_args->processed_count = args->processed_count;
+        d_args->is_no_show = args->is_no_show;
+        d_args->is_video_save = args->is_video_save;
+        d_args->t_preprocess = args->t_preprocess;
+        d_args->t_inference = inference_time;
+        d_args->t_postprocess = postprocess_time;
+        d_args->metrics = args->metrics;
+        d_args->pad_xy = args->pad_xy;
 
-            // Update inflight tracking
-            if (args->metrics) {
-                std::unique_lock<std::mutex> metrics_lock(args->metrics->metrics_mutex);
+        display_queue->push(d_args);
+    }
+}
 
-                args->metrics->infer_last_ts = t1;
-                args->metrics->infer_completed++;
+void display_thread_func(SafeQueue<std::shared_ptr<DisplayArgs>> *display_queue,
+                         std::atomic<int> *appQuit, cv::VideoWriter *writer) {
+    while (appQuit->load() == -1) std::this_thread::sleep_for(std::chrono::microseconds(10));
 
-                // Update inflight tracking - decrease current count
-                auto dt =
-                    std::chrono::duration<double>(t1 - args->metrics->inflight_last_ts).count();
-                args->metrics->inflight_time_sum += args->metrics->inflight_current * dt;
-                args->metrics->inflight_last_ts = t1;
-                args->metrics->inflight_current--;
+    while (appQuit->load() == 0 || !display_queue->empty()) {
+        if (display_queue->empty()) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            continue;
+        }
+
+        auto args = display_queue->pop();
+        if (!args || !args->original_frame) continue;
+
+        auto render_start = std::chrono::high_resolution_clock::now();
+        auto processed_frame =
+            draw_segmentation(*args->original_frame, *args->segmentation_result, args->pad_xy);
+
+        if (!processed_frame.empty()) {
+            if (args->is_video_save) *writer << processed_frame;
+            if (!args->is_no_show) {
+                cv::imshow("result", processed_frame);
+                if (cv::waitKey(1) == 'q') appQuit->store(1);
             }
+        }
 
-            // segmentation_result를 동적할당하여 복사
-            {
-                std::unique_lock<std::mutex> lock(args->output_postprocess_lk);
-                display_args->segmentation_result = new DeepLabv3Result(segmentation_result);
-                display_args->original_frame = new cv::Mat(args->current_frame->clone());
-                display_args->processed_count = args->processed_count;
-                display_args->dlpp = args->dlpp;
-                display_args->is_no_show = args->is_no_show;
-                display_args->is_video_save = args->is_video_save;
+        if (args->processed_count) (*args->processed_count)++;
 
-                // Copy timing information
-                display_args->t_preprocess = args->t_preprocess;
-                display_args->t_inference = inference_time;
-                display_args->t_postprocess = postprocess_time;
-                display_args->metrics = args->metrics;
+        auto render_end = std::chrono::high_resolution_clock::now();
+        double render_time =
+            std::chrono::duration<double, std::milli>(render_end - render_start).count();
 
-                display_queue->push(display_args.get());
-
-                display_args_list.push_back(std::move(display_args));  // unique_ptr로 소유권 이전
-            }
+        if (args->metrics) {
+            std::lock_guard<std::mutex> lock(args->metrics->metrics_mutex);
+            args->metrics->sum_preprocess += args->t_preprocess;
+            args->metrics->sum_inference += args->t_inference;
+            args->metrics->sum_postprocess += args->t_postprocess;
+            args->metrics->sum_render += render_time;
         }
     }
 }
 
-void display_thread_func(std::queue<SegmentationDisplayArgs*>* display_queue,
-                         std::atomic<int>* appQuit, cv::VideoWriter* writer,
-                         std::vector<int>* pad_xy) {
-    while (appQuit->load() == -1) {
-        std::this_thread::sleep_for(std::chrono::microseconds(10));
-    }
-
-    std::cout << "[DXAPP] [INFO] display thread start" << std::endl;
-    while (appQuit->load() == 0) {
-        if (!display_queue->empty()) {
-            // DisplayArgs 포인터를 안전하게 pop 받음
-            auto args = display_queue->front();
-            display_queue->pop();
-
-            // Start render timing
-            auto render_start = std::chrono::high_resolution_clock::now();
-
-            // segmentation 결과를 시각화하여 draw_segmentation에 전달
-            auto processed_frame =
-                draw_segmentation(*args->original_frame, *args->segmentation_result, *pad_xy);
-
-            {
-                std::unique_lock<std::mutex> lock(args->display_lk);
-
-                if (args->segmentation_result != nullptr) {
-                    delete args->segmentation_result;
-                    args->segmentation_result = nullptr;
-                }
-                (*args->processed_count)++;
-
-                if (processed_frame.dims != 0) {
-                    if (args->is_video_save) {
-                        *writer << processed_frame;
-                    }
-                    if (!args->is_no_show) {
-                        cv::imshow("result", processed_frame);
-                        if (cv::waitKey(1) == 'q') {
-                            args->is_no_show = true;
-                            appQuit->store(1);
-                        }
-                    }
-                }
-                
-                // Calculate render time
-                auto render_end = std::chrono::high_resolution_clock::now();
-                double render_time =
-                    std::chrono::duration<double, std::milli>(render_end - render_start).count();
-
-                // Update metrics with timing information
-                if (args->metrics) {
-                    std::unique_lock<std::mutex> metrics_lock(args->metrics->metrics_mutex);
-                    args->metrics->sum_preprocess += args->t_preprocess;
-                    args->metrics->sum_inference += args->t_inference;
-                    args->metrics->sum_postprocess += args->t_postprocess;
-                    args->metrics->sum_render += render_time;
-                }
-            }
-        }
-    }
-}
-
-
-void print_performance_summary(const ProfilingMetrics& metrics, int total_frames,
+void print_performance_summary(const ProfilingMetrics &metrics, int total_frames,
                                double total_time_sec, bool display_on) {
     if (metrics.infer_completed == 0) return;
 
@@ -517,18 +444,17 @@ void print_performance_summary(const ProfilingMetrics& metrics, int total_frames
     std::cout << "==================================================" << std::endl;
 }
 
-
 int main(int argc, char* argv[]) {
     DXRT_TRY_CATCH_BEGIN
     std::atomic<int> appQuit(-1);
     std::string modelPath = "", imgFile = "", videoFile = "", rtspUrl = "";
     int cameraIndex = -1;
     bool fps_only = false, saveVideo = false;
-    int loopTest = 1, loopCount = 1, processCount = 0;
+    int loopTest = 1, processCount = 0;
 
     std::string app_name = "DeepLabv3 Post-Processing Async Example";
     cxxopts::Options options(app_name, app_name + " application usage ");
-    options.add_options()("m, model_path", "object detection model file (.dxnn, required)",
+    options.add_options()("m, model_path", "semantic segmentation model file (.dxnn, required)",
                           cxxopts::value<std::string>(modelPath))(
         "i, image_path", "input image file path(jpg, png, jpeg ...)",
         cxxopts::value<std::string>(imgFile))("v, video_path",
@@ -557,6 +483,7 @@ int main(int argc, char* argv[]) {
         std::cerr << "Use -h or --help for usage information." << std::endl;
         exit(1);
     }
+
     int sourceCount = 0;
     if (!imgFile.empty()) sourceCount++;
     if (!videoFile.empty()) sourceCount++;
@@ -570,8 +497,7 @@ int main(int argc, char* argv[]) {
         std::cerr << "Use -h or --help for usage information." << std::endl;
         exit(1);
     }
-    loopCount = loopTest;
-    // Initialize DeepLabv3 inference engine
+
     dxrt::InferenceOption io;
     dxrt::InferenceEngine ie(modelPath, io);
     if (!dxapp::common::minversionforRTandCompiler(&ie)) {
@@ -585,294 +511,151 @@ int main(int argc, char* argv[]) {
     auto input_shape = ie.GetInputs().front().shape();
     int input_height = static_cast<int>(input_shape[1]);
     int input_width = static_cast<int>(input_shape[2]);
-
     auto post_processor = DeepLabv3PostProcess(input_width, input_height);
+
     // Print model input size
     std::cout << "[INFO] Model input size (WxH): " << input_width << "x" << input_height
               << std::endl;
 
-    std::vector<std::vector<uint8_t>> input_buffers(ASYNC_BUFFER_SIZE);
-    std::vector<std::vector<uint8_t>> output_buffers(ASYNC_BUFFER_SIZE);
-    for (auto& input_buffer : input_buffers) {
-        input_buffer = std::vector<uint8_t>(ie.GetInputSize());
-    }
-    for (auto& output_buffer : output_buffers) {
-        output_buffer = std::vector<uint8_t>(ie.GetOutputSize());
-    }
+    std::vector<std::vector<uint8_t>> input_buffers(ASYNC_BUFFER_SIZE,
+                                                    std::vector<uint8_t>(ie.GetInputSize()));
+    std::vector<std::vector<uint8_t>> output_buffers(ASYNC_BUFFER_SIZE,
+                                                     std::vector<uint8_t>(ie.GetOutputSize()));
 
-    SegmentationSafeQueue wait_queue;
-    std::queue<SegmentationDisplayArgs*> display_queue;
+    SafeQueue<std::shared_ptr<DetectionArgs>> wait_queue;
+    SafeQueue<std::shared_ptr<DisplayArgs>> display_queue;
     ProfilingMetrics profiling_metrics;
 
-    std::thread post_process_thread(post_process_thread_func, &wait_queue, &display_queue,
-                                    &appQuit);
     cv::VideoWriter writer;
     std::vector<int> pad_xy = {0, 0};
 
-    std::thread display_thread(display_thread_func, &display_queue, &appQuit, &writer, &pad_xy);
+    std::thread post_thread(post_process_thread_func, &wait_queue, &display_queue, &appQuit);
+    std::thread disp_thread(display_thread_func, &display_queue, &appQuit, &writer);
 
+    cv::VideoCapture video;
+    bool is_image = !imgFile.empty();
+    if (is_image) { /* Image logic below */
+    } else if (cameraIndex >= 0)
+        video.open(cameraIndex);
+    else if (!rtspUrl.empty())
+        video.open(rtspUrl);
+    else
+        video.open(videoFile);
 
-    if (!imgFile.empty()) {
+    if (!is_image && !video.isOpened()) return -1;
 
-        cv::Mat image = cv::imread(imgFile, cv::IMREAD_COLOR);
-        if (image.empty()) {
-            std::cerr << "[ERROR] Image file is not valid." << std::endl;
-            exit(1);
-        }
-
-        // Print original image resolution
-        std::cout << "[INFO] Image resolution (WxH): " << image.cols << "x" << image.rows
-                  << std::endl;
-        std::cout << "[INFO] Total frames: " << loopCount << std::endl;
-
-        cv::resize(image, image, cv::Size(SHOW_WINDOW_SIZE_W, SHOW_WINDOW_SIZE_H),
-                   cv::INTER_LINEAR);
-
-        auto s = std::chrono::high_resolution_clock::now();
-
-        // Create SegmentationArgs objects with proper lifetime management
-        std::vector<std::unique_ptr<SegmentationArgs>> segmentation_args_list;
-        segmentation_args_list.reserve(ASYNC_BUFFER_SIZE);
-        int index = 0;
-        do {
-            index = (index + 1) % ASYNC_BUFFER_SIZE;
-
-            // Start preprocess timing
-            auto t0 = std::chrono::high_resolution_clock::now();
-
-            cv::Mat preprocessed_image =
-                cv::Mat(post_processor.get_input_height(), post_processor.get_input_width(),
-                        CV_8UC3, input_buffers[index].data());
-
-            make_letterbox_image(image, preprocessed_image, cv::COLOR_BGR2RGB, pad_xy);
-
-            // Calculate preprocess time and start async inference
-            auto t1 = std::chrono::high_resolution_clock::now();
-            double preprocess_time = std::chrono::duration<double, std::milli>(t1 - t0).count();
-
-            auto req_id =
-                ie.RunAsync(preprocessed_image.data, nullptr, output_buffers[index].data());
-            auto t2 = std::chrono::high_resolution_clock::now();
-
-            // Update inflight tracking
-            {
-                std::unique_lock<std::mutex> metrics_lock(profiling_metrics.metrics_mutex);
-
-                if (profiling_metrics.first_inference) {
-                    profiling_metrics.infer_first_ts = t1;
-                    profiling_metrics.inflight_last_ts = t2;
-                    profiling_metrics.first_inference = false;
-                } else {
-                    auto dt = std::chrono::duration<double>(t2 - profiling_metrics.inflight_last_ts)
-                                  .count();
-                    profiling_metrics.inflight_time_sum += profiling_metrics.inflight_current * dt;
-                    profiling_metrics.inflight_last_ts = t2;
-                }
-
-                profiling_metrics.inflight_current++;
-                if (profiling_metrics.inflight_current > profiling_metrics.inflight_max) {
-                    profiling_metrics.inflight_max = profiling_metrics.inflight_current;
-                }
-            }
-
-            // Create SegmentationArgs with proper lifetime
-            auto args = std::unique_ptr<SegmentationArgs>(new SegmentationArgs());
-            args->ie = &ie;
-            args->dlpp = &post_processor;
-            args->current_frame = &image;
-            args->segmentation_result = nullptr;
-            args->request_id = req_id;
-            args->processed_count = &processCount;
-            args->is_no_show = fps_only;
-            args->is_video_save = saveVideo;
-            args->t_preprocess = preprocess_time;
-            args->t_run_async_start = t1;
-            args->metrics = &profiling_metrics;
-
-            wait_queue.push(args.get());
-            segmentation_args_list.push_back(std::move(args));
-            if (appQuit.load() == -1) {
-                appQuit.store(0);
-            }
-            if (appQuit.load() == 1) break;
-        } while (--loopTest);
-
-        // Wait for all processing to complete
-        while (processCount < loopCount && appQuit.load() == 0) {
-            std::this_thread::sleep_for(std::chrono::microseconds(10));
-        }
-        appQuit.store(1);
-        post_process_thread.join();
-        display_thread.join();
-
-        auto e = std::chrono::high_resolution_clock::now();
-        double total_time =
-            std::chrono::duration_cast<std::chrono::milliseconds>(e - s).count() / 1000.0;
-
-        print_performance_summary(profiling_metrics, processCount, total_time, !fps_only);
-
-    } else {
-        cv::VideoCapture video;
-        std::string source_info;
-        bool is_file = !videoFile.empty();
-
-        if (cameraIndex >= 0) {
-            video.open(cameraIndex);
-            source_info = "Camera index: " + std::to_string(cameraIndex);
-        } else if (!rtspUrl.empty()) {
-            video.open(rtspUrl);
-            source_info = "RTSP URL: " + rtspUrl;
-        } else {
-            video.open(videoFile);
-            source_info = "Video file: " + videoFile;
-            std::cout << "loopTest is set to 1 when a video file is provided." << std::endl;
-            loopTest = 1;
-        }
-
-        if (!video.isOpened()) {
-            std::cerr << "[ERROR] Failed to open input source." << std::endl;
-            exit(1);
-        }
-
-        // Print video information
-        int video_width = static_cast<int>(video.get(cv::CAP_PROP_FRAME_WIDTH));
-        int video_height = static_cast<int>(video.get(cv::CAP_PROP_FRAME_HEIGHT));
-        double video_fps = video.get(cv::CAP_PROP_FPS);
-        int total_frames = static_cast<int>(video.get(cv::CAP_PROP_FRAME_COUNT));
-
-        std::cout << "[INFO] " << source_info << std::endl;
-        std::cout << "[INFO] Video resolution (WxH): " << video_width << "x" << video_height
-                  << std::endl;
-        std::cout << "[INFO] Video FPS: " << std::fixed << std::setprecision(2) << video_fps
-                  << std::endl;
-        if (is_file) {
-            std::cout << "[INFO] Total frames: " << total_frames << std::endl;
-            loopCount = total_frames;
-        } else {
-            loopCount = std::numeric_limits<int>::max();
-        }
-
-        if (fps_only) {
-            std::cout << "Processing video stream... Only FPS will be displayed." << std::endl;
-        }
-        if (saveVideo) {
-            writer = cv::VideoWriter("result.mp4", cv::VideoWriter::fourcc('M', 'J', 'P', 'G'),
-                                     video_fps > 0 ? video_fps : 30.0,
-                                     cv::Size(SHOW_WINDOW_SIZE_W, SHOW_WINDOW_SIZE_H));
-            if (!writer.isOpened()) {
-                std::cerr << "[ERROR] Failed to open video writer." << std::endl;
-                exit(1);
-            }
-        }
-
-        auto s = std::chrono::high_resolution_clock::now();
-
-        // Create SegmentationArgs objects with proper lifetime management
-        std::vector<std::unique_ptr<SegmentationArgs>> segmentation_args_list;
-        segmentation_args_list.reserve(ASYNC_BUFFER_SIZE);
-        std::vector<cv::Mat> images(ASYNC_BUFFER_SIZE);
-        for (auto& image : images) {
-            image = cv::Mat(SHOW_WINDOW_SIZE_H, SHOW_WINDOW_SIZE_W, CV_8UC3);
-        }
-        int index = 0;
-        int submitted_frames = 0;
-        do {
-            index = (index + 1) % ASYNC_BUFFER_SIZE;
-            cv::Mat frame;
-
-            auto t_read_start = std::chrono::high_resolution_clock::now();
-            video >> frame;
-            auto t_read_end = std::chrono::high_resolution_clock::now();
-
-            if (frame.empty()) {
-                break;
-            }
-            submitted_frames++;
-
-            {
-                std::unique_lock<std::mutex> metrics_lock(profiling_metrics.metrics_mutex);
-                profiling_metrics.sum_read +=
-                    std::chrono::duration<double, std::milli>(t_read_end - t_read_start).count();
-            }
-
-            // Start preprocess timing
-            auto t0 = std::chrono::high_resolution_clock::now();
-
-            cv::resize(frame, images[index], cv::Size(SHOW_WINDOW_SIZE_W, SHOW_WINDOW_SIZE_H),
-                       cv::INTER_LINEAR);
-            cv::Mat preprocessed_image =
-                cv::Mat(post_processor.get_input_height(), post_processor.get_input_width(),
-                        CV_8UC3, input_buffers[index].data());
-            make_letterbox_image(images[index], preprocessed_image, cv::COLOR_BGR2RGB, pad_xy);
-
-            // Calculate preprocess time and start async inference
-            auto t1 = std::chrono::high_resolution_clock::now();
-            double preprocess_time = std::chrono::duration<double, std::milli>(t1 - t0).count();
-
-            auto req_id =
-                ie.RunAsync(preprocessed_image.data, nullptr, output_buffers[index].data());
-            auto t2 = std::chrono::high_resolution_clock::now();
-
-            // Update inflight tracking
-            {
-                std::unique_lock<std::mutex> metrics_lock(profiling_metrics.metrics_mutex);
-
-                if (profiling_metrics.first_inference) {
-                    profiling_metrics.infer_first_ts = t1;
-                    profiling_metrics.inflight_last_ts = t2;
-                    profiling_metrics.first_inference = false;
-                } else {
-                    auto dt = std::chrono::duration<double>(t2 - profiling_metrics.inflight_last_ts)
-                                  .count();
-                    profiling_metrics.inflight_time_sum += profiling_metrics.inflight_current * dt;
-                    profiling_metrics.inflight_last_ts = t2;
-                }
-
-                profiling_metrics.inflight_current++;
-                if (profiling_metrics.inflight_current > profiling_metrics.inflight_max) {
-                    profiling_metrics.inflight_max = profiling_metrics.inflight_current;
-                }
-            }
-
-            // Create SegmentationArgs with proper lifetime
-            auto args = std::unique_ptr<SegmentationArgs>(new SegmentationArgs());
-            args->ie = &ie;
-            args->dlpp = &post_processor;
-            args->current_frame = &images[index];
-            args->segmentation_result = nullptr;
-            args->request_id = req_id;
-            args->processed_count = &processCount;
-            args->is_no_show = fps_only;
-            args->is_video_save = saveVideo;
-            args->t_preprocess = preprocess_time;
-            args->t_run_async_start = t1;
-            args->metrics = &profiling_metrics;
-
-            wait_queue.push(args.get());
-            segmentation_args_list.push_back(std::move(args));
-            if (appQuit.load() == -1) {
-                appQuit.store(0);
-            }
-            if (appQuit.load() == 1) break;
-        } while (true);
-
-        loopCount = submitted_frames;
-        // Wait for all processing to complete
-        while (processCount < loopCount && appQuit.load() == 0) {
-            std::this_thread::sleep_for(std::chrono::microseconds(10));
-        }
-        appQuit.store(1);
-        post_process_thread.join();
-        display_thread.join();
-
-        auto e = std::chrono::high_resolution_clock::now();
-        double total_time =
-            std::chrono::duration_cast<std::chrono::milliseconds>(e - s).count() / 1000.0;
-
-        print_performance_summary(profiling_metrics, processCount, total_time, !fps_only);
+    // Video Save Setup
+    if (saveVideo) {
+        double fps = video.get(cv::CAP_PROP_FPS);
+        writer.open("result.mp4", cv::VideoWriter::fourcc('M', 'J', 'P', 'G'), fps > 0 ? fps : 30.0,
+                    cv::Size(SHOW_WINDOW_SIZE_W, SHOW_WINDOW_SIZE_H));
     }
 
-    std::cout << "\nExample completed successfully!" << std::endl;
+    std::vector<cv::Mat> images(ASYNC_BUFFER_SIZE,
+                                cv::Mat(SHOW_WINDOW_SIZE_H, SHOW_WINDOW_SIZE_W, CV_8UC3));
+    int index = 0, submitted_frames = 0;
+    auto s_time = std::chrono::high_resolution_clock::now();
+
+    if (is_image) {
+        cv::Mat img = cv::imread(imgFile);
+        for (int i = 0; i < loopTest; ++i) {
+            auto t0 = std::chrono::high_resolution_clock::now();
+            cv::resize(img, images[index], cv::Size(SHOW_WINDOW_SIZE_W, SHOW_WINDOW_SIZE_H));
+            cv::Mat pre(input_height, input_width, CV_8UC3, input_buffers[index].data());
+            make_letterbox_image(images[index], pre, cv::COLOR_BGR2RGB, pad_xy);
+            auto t1 = std::chrono::high_resolution_clock::now();
+            auto req_id = ie.RunAsync(pre.data, nullptr, output_buffers[index].data());
+
+            auto args = std::make_shared<DetectionArgs>();
+            args->ie = &ie;
+            args->dlpp = &post_processor;
+            args->current_frame = images[index].clone();
+            args->request_id = req_id;
+            args->processed_count = &processCount;
+            args->metrics = &profiling_metrics;
+            args->t_preprocess = std::chrono::duration<double, std::milli>(t1 - t0).count();
+            args->t_run_async_start = t1;
+            args->is_no_show = fps_only;
+            args->pad_xy = pad_xy;
+
+            try {
+                wait_queue.push(args);
+            } catch (const std::exception& e) {
+                std::cerr << "[DXAPP] [ER] Failed to enqueue detection task (request_id="
+                          << args->request_id
+                          << "): queue push timed out. Consider reducing inflight or increasing "
+                             "MAX_QUEUE_SIZE. Details: "
+                          << e.what() << std::endl;
+            }
+
+            submitted_frames++;
+            if (appQuit.load() == -1) appQuit.store(0);
+            index = (index + 1) % ASYNC_BUFFER_SIZE;
+        }
+    } else {
+        while (true) {
+            cv::Mat frame;
+            auto tr0 = std::chrono::high_resolution_clock::now();
+            video >> frame;
+            if (frame.empty()) break;
+            auto tr1 = std::chrono::high_resolution_clock::now();
+            {
+                std::lock_guard<std::mutex> lk(profiling_metrics.metrics_mutex);
+                profiling_metrics.sum_read +=
+                    std::chrono::duration<double, std::milli>(tr1 - tr0).count();
+            }
+
+            auto t0 = std::chrono::high_resolution_clock::now();
+            cv::resize(frame, images[index], cv::Size(SHOW_WINDOW_SIZE_W, SHOW_WINDOW_SIZE_H));
+            cv::Mat pre(input_height, input_width, CV_8UC3, input_buffers[index].data());
+            make_letterbox_image(images[index], pre, cv::COLOR_BGR2RGB, pad_xy);
+            auto t1 = std::chrono::high_resolution_clock::now();
+            auto req_id = ie.RunAsync(pre.data, nullptr, output_buffers[index].data());
+            auto t2 = std::chrono::high_resolution_clock::now();
+
+            auto args = std::make_shared<DetectionArgs>();
+            args->ie = &ie;
+            args->dlpp = &post_processor;
+            args->current_frame = images[index].clone();
+            args->request_id = req_id;
+            args->processed_count = &processCount;
+            args->metrics = &profiling_metrics;
+            args->t_preprocess = std::chrono::duration<double, std::milli>(t1 - t0).count();
+            args->t_run_async_start = t1;
+            args->is_no_show = fps_only;
+            args->is_video_save = saveVideo;
+            args->pad_xy = pad_xy;
+
+            {
+                std::lock_guard<std::mutex> lk(profiling_metrics.metrics_mutex);
+                if (profiling_metrics.first_inference) {
+                    profiling_metrics.infer_first_ts = t1;
+                    profiling_metrics.inflight_last_ts = t2;
+                    profiling_metrics.first_inference = false;
+                }
+                profiling_metrics.inflight_current++;
+                if (profiling_metrics.inflight_current > profiling_metrics.inflight_max)
+                    profiling_metrics.inflight_max = profiling_metrics.inflight_current;
+            }
+
+            wait_queue.push(args);
+            submitted_frames++;
+            if (appQuit.load() == -1) appQuit.store(0);
+            index = (index + 1) % ASYNC_BUFFER_SIZE;
+            if (appQuit.load() == 1) break;
+        }
+    }
+
+    while (processCount < submitted_frames && appQuit.load() <= 0)
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    appQuit.store(1);
+    if (post_thread.joinable()) post_thread.join();
+    if (disp_thread.joinable()) disp_thread.join();
+
+    auto e_time = std::chrono::high_resolution_clock::now();
+    double total_time = std::chrono::duration<double>(e_time - s_time).count();
+    print_performance_summary(profiling_metrics, processCount, total_time, !fps_only);
+
     DXRT_TRY_CATCH_END
     return 0;
 }

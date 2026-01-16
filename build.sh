@@ -26,6 +26,8 @@ help() {
     echo -e "  ${COLOR_GREEN}--verbose${COLOR_RESET}    Show detailed build commands during the process."
     echo -e "  ${COLOR_GREEN}--type <TYPE>${COLOR_RESET}  Specify the CMake build type. Valid options: [Release, Debug, RelWithDebInfo]."
     echo -e "  ${COLOR_GREEN}--arch <ARCH>${COLOR_RESET}  Specify the target CPU architecture. Valid options: [x86_64, aarch64]."
+    echo -e "  ${COLOR_GREEN}--target <NAME>${COLOR_RESET} Build only the specified target (e.g., yolov5_sync, efficientnet_async)."
+    echo -e "                            Use '--target list' to show all available targets."
     echo -e "  ${COLOR_GREEN}--make_so${COLOR_RESET}    Build postprocess shared library for dynamic linking (default: disabled)."
     echo -e "  ${COLOR_GREEN}--coverage${COLOR_RESET}   Enable code coverage reporting (adds --coverage flags)."
     echo -e ""
@@ -37,6 +39,8 @@ help() {
     echo -e "${COLOR_BOLD}Examples:${COLOR_RESET}"
     echo -e "  ${COLOR_YELLOW}$0 --type Release --arch x86_64${COLOR_RESET}"
     echo -e "  ${COLOR_YELLOW}$0 --clean --verbose${COLOR_RESET}"
+    echo -e "  ${COLOR_YELLOW}$0 --target yolov5_sync --type debug${COLOR_RESET}  # Build only yolov5_sync"
+    echo -e "  ${COLOR_YELLOW}$0 --target list${COLOR_RESET}                      # List available targets"
     echo -e ""
     echo -e "  ${COLOR_YELLOW}$0 --python_exec /usr/local/bin/python3.8${COLOR_RESET}"
     echo -e "  ${COLOR_YELLOW}$0 --venv_path ./venv-dxnn${COLOR_RESET}"
@@ -74,6 +78,7 @@ build_gtest=false
 build_with_codec=false
 build_with_sharedlib=false
 enable_coverage=false
+build_target=""
 
 # global variaibles
 python_exec=""
@@ -110,6 +115,10 @@ while (( $# )); do
             shift;;
         --coverage)
             enable_coverage=true;
+            shift;;
+        --target)
+            shift
+            build_target=$1
             shift;;
         --v3codec)
             build_with_codec=true;
@@ -222,13 +231,43 @@ cmake .. ${cmd[@]} || {
 }
 echo -e "${TAG_INFO} Using $BUILD_JOBS parallel jobs (half of $NUM_CORES available cores)"
 
-if [ $(uname -m) != "$target_arch" ]; then
+# Handle --target list option
+if [ "$build_target" == "list" ]; then
+    echo -e "${COLOR_CYAN}${COLOR_BOLD}Available build targets:${COLOR_RESET}"
+    ninja -t targets | grep -E "^[a-z].*: phony$" | grep -vE "(edit_cache|rebuild_cache|list_install_components|install)" | sed 's/: phony$//' | sort | column
+    popd >/dev/null 2>&1
+    exit 0
+fi
+
+# Build specific target or all
+if [ -n "$build_target" ]; then
+    echo -e "${TAG_INFO} Building specific target: ${COLOR_GREEN}${build_target}${COLOR_RESET}"
+    cmake --build . --target ${build_target} --parallel $BUILD_JOBS || { echo -e "${TAG_ERROR} CMake build failed for target '${build_target}'. Please check the output above."; exit 1; }
+    
+    # Copy the built binary to bin directory if it exists
+    if [ $(uname -m) == "$target_arch" ]; then
+        if [ -f "src/cpp_example/*/${build_target}" ] || find . -name "${build_target}" -type f -executable 2>/dev/null | head -1 | grep -q .; then
+            mkdir -p ../bin
+            find . -name "${build_target}" -type f -executable 2>/dev/null | head -1 | xargs -I {} cp {} ../bin/ 2>/dev/null || true
+            echo -e "${TAG_INFO} Binary copied to bin/${build_target}"
+        fi
+    fi
+    popd >/dev/null 2>&1
+elif [ $(uname -m) != "$target_arch" ]; then
     cmake --build . --target install --parallel $BUILD_JOBS || { echo -e "${TAG_ERROR} CMake build failed. Please check the output above."; exit 1; } && popd >/dev/null 2>&1
 else
     cmake --build . --target install --parallel $BUILD_JOBS || { echo -e "${TAG_ERROR} CMake build failed. Please check the output above."; exit 1; } && popd >/dev/null 2>&1 && cp -r $build_dir/release/* ./
     if [ $? -ne 1 ]; then
         echo Build Completed and executable copied to $(pwd)
     fi
+fi
+
+# Skip dx_postprocess installation for single target builds
+if [ -n "$build_target" ]; then
+    echo -e "${TAG_INFO} Single target build completed: ${COLOR_GREEN}${build_target}${COLOR_RESET}"
+    echo ""
+    popd >/dev/null 2>&1 2>/dev/null || true
+    exit 0
 fi
 
 if [ -e $build_dir/release/bin ]; then

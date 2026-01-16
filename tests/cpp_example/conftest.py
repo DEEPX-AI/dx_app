@@ -45,6 +45,12 @@ def pytest_addoption(parser):
         default=False,
         help="Generate code coverage report after tests"
     )
+    parser.addoption(
+        "--loop",
+        action="store",
+        default="50",
+        help="Number of inference iterations to run in E2E image tests (default: 50)"
+    )
 
 
 @pytest.fixture
@@ -64,6 +70,15 @@ def available_executables():
         pytest.skip(f"No executables found in: {BIN_DIR}")
     
     return sorted(executables)
+
+
+@pytest.fixture(scope="session")
+def loop_count(request) -> int:
+    """Loop count for E2E image tests (overridable via --loop)."""
+    try:
+        return int(request.config.getoption("--loop"))
+    except (TypeError, ValueError):
+        return 50
 
 
 def pytest_sessionfinish(session, exitstatus):

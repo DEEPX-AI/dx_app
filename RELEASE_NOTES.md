@@ -56,12 +56,7 @@
   - Provides Python binding for C++ post-processing functions
   - Automatically installs to current Python execution environment
 
-#### 3.2 Multi-channel Processing Support
-- C++ **YOLOv5s multi-channel processing**: Multi-channel support using frame provider
-- Added multi-input source examples
-- Enhanced multi-model image inference using preprocessing threads
-
-#### 3.3 Test Infrastructure Construction
+#### 3.2 Test Infrastructure Construction
 - **Pytest-based integrated test system**:
   - Automated testing for all Python examples
   - Achieved code coverage of 93.65% or higher
@@ -70,12 +65,13 @@
 - Added `.coveragerc` file for code coverage configuration
 - Support for display mode and E2E mode testing
 
-#### 3.4 New Examples and Features
+#### 3.3 New Examples and Features
 - **Classification Models**:
   - EfficientNet example integration
   - ImageNet classification examples (synchronous/asynchronous)
   
 - **Object Detection Models**:
+  - YOLO26 (Support new Ultralytics model, which is optimized for edge deployment)
   - YOLOv5, YOLOv7, YOLOv8, YOLOv9, YOLOv10(python only), YOLOv11(python only), YOLOv12(python only)
   - YOLOX
   - SCRFD (face detection)
