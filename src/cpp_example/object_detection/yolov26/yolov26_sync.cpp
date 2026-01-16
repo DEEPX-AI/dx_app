@@ -8,10 +8,10 @@
 #include <opencv2/opencv.hpp>
 #include <vector>  // STL vector container
 
-#include "yolov8_ppu_postprocess.h"
+#include "yolov26_postprocess.h"
 
 /**
- * @brief Synchronous post-processing example for YOLOv8n object detection
+ * @brief Synchronous post-processing example for YOLOv26 object detection
 model.
  *
  * - Supports image, video, and camera input sources.
@@ -82,7 +82,7 @@ void make_letterbox_image(const cv::Mat& image, cv::Mat& preprocessed_image, con
  * @param pad_xy [x, y] vector for padding size
  * @param letterbox_scale Scale factor used for letterbox
  */
-void scale_coordinates(YOLOv8_PPUResult& detection, const std::vector<int>& pad_xy,
+void scale_coordinates(YOLOv26Result& detection, const std::vector<int>& pad_xy,
                        const float letterbox_scale) {
     detection.box[0] = (detection.box[0] - static_cast<float>(pad_xy[0])) / letterbox_scale;
     detection.box[1] = (detection.box[1] - static_cast<float>(pad_xy[1])) / letterbox_scale;
@@ -99,7 +99,7 @@ void scale_coordinates(YOLOv8_PPUResult& detection, const std::vector<int>& pad_
  * @param letterbox_scale Scale factor used for letterbox
  * @return Visualized image (Mat)
  */
-cv::Mat draw_detections(const cv::Mat& frame, std::vector<YOLOv8_PPUResult>& detections,
+cv::Mat draw_detections(const cv::Mat& frame, std::vector<YOLOv26Result>& detections,
                         const std::vector<int>& pad_xy, const float letterbox_scale) {
     cv::Mat result = frame.clone();
 
@@ -142,23 +142,89 @@ cv::Mat draw_detections(const cv::Mat& frame, std::vector<YOLOv8_PPUResult>& det
     return result;
 }
 
+
+// Profiling metrics structure for Sync
+struct ProfilingMetrics {
+    double sum_read = 0.0;
+    double sum_preprocess = 0.0;
+    double sum_inference = 0.0;
+    double sum_postprocess = 0.0;
+    double sum_render = 0.0;
+};
+
+void print_performance_summary(const ProfilingMetrics& metrics, int total_frames,
+                               double total_time_sec, bool display_on) {
+    if (total_frames == 0) return;
+
+    double avg_read = metrics.sum_read / total_frames;
+    double avg_pre = metrics.sum_preprocess / total_frames;
+    double avg_inf = metrics.sum_inference / total_frames;
+    double avg_post = metrics.sum_postprocess / total_frames;
+
+    double read_fps = avg_read > 0 ? 1000.0 / avg_read : 0.0;
+    double pre_fps = avg_pre > 0 ? 1000.0 / avg_pre : 0.0;
+    double inf_fps = avg_inf > 0 ? 1000.0 / avg_inf : 0.0;
+    double post_fps = avg_post > 0 ? 1000.0 / avg_post : 0.0;
+
+    std::cout << "\n==================================================" << std::endl;
+    std::cout << "               PERFORMANCE SUMMARY                " << std::endl;
+    std::cout << "==================================================" << std::endl;
+    std::cout << " Pipeline Step   Avg Latency     Throughput     " << std::endl;
+    std::cout << "--------------------------------------------------" << std::endl;
+    std::cout << " " << std::left << std::setw(15) << "Read" << std::right << std::setw(8)
+              << std::fixed << std::setprecision(2) << avg_read << " ms     " << std::setw(6)
+              << std::setprecision(1) << read_fps << " FPS" << std::endl;
+    std::cout << " " << std::left << std::setw(15) << "Preprocess" << std::right << std::setw(8)
+              << std::fixed << std::setprecision(2) << avg_pre << " ms     " << std::setw(6)
+              << std::setprecision(1) << pre_fps << " FPS" << std::endl;
+    std::cout << " " << std::left << std::setw(15) << "Inference" << std::right << std::setw(8)
+              << std::fixed << std::setprecision(2) << avg_inf << " ms     " << std::setw(6)
+              << std::setprecision(1) << inf_fps << " FPS" << std::endl;
+    std::cout << " " << std::left << std::setw(15) << "Postprocess" << std::right << std::setw(8)
+              << std::fixed << std::setprecision(2) << avg_post << " ms     " << std::setw(6)
+              << std::setprecision(1) << post_fps << " FPS" << std::endl;
+
+    if (display_on) {
+        double avg_render = metrics.sum_render / total_frames;
+        double render_fps = avg_render > 0 ? 1000.0 / avg_render : 0.0;
+        std::cout << " " << std::left << std::setw(15) << "Display" << std::right << std::setw(8)
+                  << std::fixed << std::setprecision(2) << avg_render << " ms     " << std::setw(6)
+                  << std::setprecision(1) << render_fps << " FPS" << std::endl;
+    }
+    std::cout << "--------------------------------------------------" << std::endl;
+
+    double overall_fps = (total_time_sec > 0) ? total_frames / total_time_sec : 0.0;
+
+    std::cout << " " << std::left << std::setw(19) << "Total Frames"
+              << " :    " << total_frames << std::endl;
+    std::cout << " " << std::left << std::setw(19) << "Total Time"
+              << " :    " << std::fixed << std::setprecision(1) << total_time_sec << " s"
+              << std::endl;
+    std::cout << " " << std::left << std::setw(19) << "Overall FPS"
+              << " :   " << std::fixed << std::setprecision(1) << overall_fps << " FPS"
+              << std::endl;
+    std::cout << "==================================================" << std::endl;
+}
+
 int main(int argc, char* argv[]) {
     DXRT_TRY_CATCH_BEGIN
 
-    std::string modelPath = "", imgFile = "", videoFile = "";
-    bool cameraMode = false, fps_only = false, saveVideo = false;
+    std::string modelPath = "", imgFile = "", videoFile = "", rtspUrl = "";
+    int cameraIndex = -1;
+    bool fps_only = false, saveVideo = false;
     int loopTest = 1, processCount = 0;
 
-    std::string app_name = "YOLOv8n Post-Processing Sync Example";
+    std::string app_name = "YOLOv26 Post-Processing Sync Example";
     cxxopts::Options options(app_name, app_name + " application usage ");
     options.add_options()("m, model_path", "object detection model file (.dxnn, required)",
                           cxxopts::value<std::string>(modelPath))(
-        "i, image_path", "input image file path(jpg, png, jpeg ..., required)",
+        "i, image_path", "input image file path(jpg, png, jpeg ...)",
         cxxopts::value<std::string>(imgFile))("v, video_path",
-                                              "input video file path(mp4, mov, avi ..., required)",
+                                              "input video file path(mp4, mov, avi ...)",
                                               cxxopts::value<std::string>(videoFile))(
-        "c, camera_mode", "enable camera mode",
-        cxxopts::value<bool>(cameraMode)->default_value("false"))(
+        "c, camera_index", "camera device index (e.g., 0)",
+        cxxopts::value<int>(cameraIndex))("r, rtsp_url", "RTSP stream URL",
+                                          cxxopts::value<std::string>(rtspUrl))(
         "s, save_video", "save processed video",
         cxxopts::value<bool>(saveVideo)->default_value("false"))(
         "l, loop", "Number of inference iterations to run",
@@ -177,14 +243,21 @@ int main(int argc, char* argv[]) {
         std::cerr << "Use -h or --help for usage information." << std::endl;
         exit(1);
     }
-    if (!cameraMode && imgFile.empty() && videoFile.empty()) {
-        std::cerr << "[ERROR] Image path or video path is required. Use -i or "
-                     "--image_path option or -v or --video_path option."
+
+    int sourceCount = 0;
+    if (!imgFile.empty()) sourceCount++;
+    if (!videoFile.empty()) sourceCount++;
+    if (cameraIndex >= 0) sourceCount++;
+    if (!rtspUrl.empty()) sourceCount++;
+
+    if (sourceCount != 1) {
+        std::cerr << "[ERROR] Please specify exactly one input source: image (-i), video (-v), "
+                     "camera (-c), or RTSP (-r)."
                   << std::endl;
         std::cerr << "Use -h or --help for usage information." << std::endl;
         exit(1);
     }
-    // std::cout << "=== YOLOV8n Post-Processing Sync Example ===" <<
+    // std::cout << "=== YOLOv26 Post-Processing Sync Example ===" <<
     // std::endl;
     dxrt::InferenceOption io;
     dxrt::InferenceEngine ie(modelPath, io);
@@ -199,7 +272,15 @@ int main(int argc, char* argv[]) {
     auto input_shape = ie.GetInputs().front().shape();
     int input_height = static_cast<int>(input_shape[1]);
     int input_width = static_cast<int>(input_shape[2]);
-    auto post_processor = YOLOv8_PPUPostProcess(input_width, input_height, 0.3f, 0.45f);
+    auto post_processor =
+        YOLOv26PostProcess(input_width, input_height, 0.3f, 0.45f, ie.IsOrtConfigured());
+
+    std::cout << "[INFO] Model loaded: " << modelPath << std::endl;
+    std::cout << "[INFO] Model input size (WxH): " << input_width << "x" << input_height
+              << std::endl;
+    std::cout << std::endl;
+
+    ProfilingMetrics profiling_metrics;
 
     if (!imgFile.empty()) {
         cv::Mat image = cv::imread(imgFile, cv::IMREAD_COLOR);
@@ -207,6 +288,12 @@ int main(int argc, char* argv[]) {
             std::cerr << "[ERROR] Image file is not valid." << std::endl;
             exit(1);
         }
+
+        std::cout << "[INFO] Image file: " << imgFile << std::endl;
+        std::cout << "[INFO] Input source resolution (WxH): " << image.cols << "x" << image.rows
+                  << std::endl;
+        std::cout << std::endl;
+        std::cout << "[INFO] Starting inference..." << std::endl;
 
         std::vector<int> pad_xy{0, 0};
         float scale_factor = 1.f;
@@ -221,69 +308,94 @@ int main(int argc, char* argv[]) {
 
         auto s = std::chrono::high_resolution_clock::now();
         do {
+            auto t0 = std::chrono::high_resolution_clock::now();
             cv::Mat preprocessed_image(post_processor.get_input_height(),
                                        post_processor.get_input_width(), CV_8UC3);
             make_letterbox_image(image, preprocessed_image, cv::COLOR_BGR2RGB, pad_xy);
+            auto t1 = std::chrono::high_resolution_clock::now();
+
             auto outputs = ie.Run(preprocessed_image.data);
+            auto t2 = std::chrono::high_resolution_clock::now();
+
             if (!outputs.empty()) {
                 // aligned tensor processing is now handled inside postprocess
-                std::vector<YOLOv8_PPUResult> detections;
-                try {
-                    detections = post_processor.postprocess(outputs);
-                } catch (const std::exception& e) {
-                    std::cerr << "[DXAPP] [ER] Exception during postprocessing: \n"
-                              << e.what() << std::endl;
-                    break;
-                }
+                auto detections = post_processor.postprocess(outputs);
+                auto t3 = std::chrono::high_resolution_clock::now();
+
                 auto result_image = draw_detections(image, detections, pad_xy, scale_factor);
+                auto t4 = std::chrono::high_resolution_clock::now();
+
                 if (loopTest == 1 && saveVideo) {
                     cv::imwrite("result.jpg", result_image);
                 }
-                if(!fps_only) cv::imshow("result", result_image);
+                if(!fps_only){
+                    cv::imshow("result", result_image); 
+                    std::ignore = cv::waitKey(1);
+                } 
+
+                profiling_metrics.sum_preprocess +=
+                    std::chrono::duration<double, std::milli>(t1 - t0).count();
+                profiling_metrics.sum_inference +=
+                    std::chrono::duration<double, std::milli>(t2 - t1).count();
+                profiling_metrics.sum_postprocess +=
+                    std::chrono::duration<double, std::milli>(t3 - t2).count();
+                profiling_metrics.sum_render +=
+                    std::chrono::duration<double, std::milli>(t4 - t3).count();
             }
             processCount++;
         } while (--loopTest);
         auto e = std::chrono::high_resolution_clock::now();
-        if (processCount == 0) {
-            std::cerr << "[DXAPP] [ER] No frames were processed. Please verify the input image and "
-                         "model, and ensure preprocessing/postprocessing succeeded."
-                      << std::endl;
-            std::cerr << "[DXAPP] [ER] Exiting." << std::endl;
-            return -1;
+        double total_time =
+            std::chrono::duration_cast<std::chrono::milliseconds>(e - s).count() / 1000.0;
+
+        print_performance_summary(profiling_metrics, processCount, total_time, !fps_only);
+    } else {
+        cv::VideoCapture video;
+        std::string source_info;
+        bool is_file = !videoFile.empty();
+
+        if (cameraIndex >= 0) {
+            video.open(cameraIndex);
+            source_info = "Camera index: " + std::to_string(cameraIndex);
+        } else if (!rtspUrl.empty()) {
+            video.open(rtspUrl);
+            source_info = "RTSP URL: " + rtspUrl;
+        } else {
+            video.open(videoFile);
+            source_info = "Video file: " + videoFile;
+            std::cout << "loopTest is set to 1 when a video file is provided." << std::endl;
+            loopTest = 1;
         }
-        std::cout << "[DXAPP] [INFO] total time : "
-                  << std::chrono::duration_cast<std::chrono::microseconds>(e - s).count() << " us"
-                  << std::endl;
-        std::cout << "[DXAPP] [INFO] per frame time : "
-                  << std::chrono::duration_cast<std::chrono::microseconds>(e - s).count() /
-                         processCount
-                  << " us" << std::endl;
-        std::cout << "[DXAPP] [INFO] fps : "
-                  << processCount /
-                         (std::chrono::duration_cast<std::chrono::milliseconds>(e - s).count() /
-                          1000.0)
-                  << std::endl;
-    } else if (!videoFile.empty()) {
-        std::cout << "loopTest is set to 1 when a video file is provided." << std::endl;
-        loopTest = 1;
-        cv::VideoCapture video(videoFile);
+
         cv::VideoWriter writer;
         if (!video.isOpened()) {
-            std::cerr << "[ERROR] Video file is not valid." << std::endl;
+            std::cerr << "[ERROR] Failed to open input source." << std::endl;
             exit(1);
         }
 
         int frame_width = static_cast<int>(video.get(cv::CAP_PROP_FRAME_WIDTH));
         int frame_height = static_cast<int>(video.get(cv::CAP_PROP_FRAME_HEIGHT));
+        double fps = video.get(cv::CAP_PROP_FPS);
+        int total_frames = static_cast<int>(video.get(cv::CAP_PROP_FRAME_COUNT));
+
+        std::cout << "[INFO] " << source_info << std::endl;
+        std::cout << "[INFO] Input source resolution (WxH): " << frame_width << "x" << frame_height
+                  << std::endl;
+        std::cout << "[INFO] Input source FPS: " << std::fixed << std::setprecision(2) << fps
+                  << std::endl;
+        if (is_file) {
+            std::cout << "[INFO] Total frames: " << total_frames << std::endl;
+        }
+        std::cout << std::endl;
+        std::cout << "[INFO] Starting inference..." << std::endl;
 
         if (fps_only) {
             std::cout << "Processing video stream... Only FPS will be displayed." << std::endl;
         }
         if (saveVideo) {
             writer = cv::VideoWriter("result.mp4", cv::VideoWriter::fourcc('M', 'J', 'P', 'G'),
-                                     video.get(cv::CAP_PROP_FPS),
-                                     cv::Size(video.get(cv::CAP_PROP_FRAME_WIDTH),
-                                              video.get(cv::CAP_PROP_FRAME_HEIGHT)));
+                                     fps > 0 ? fps : 30.0,
+                                     cv::Size(frame_width, frame_height));
             if (!writer.isOpened()) {
                 std::cerr << "[ERROR] Failed to open video writer." << std::endl;
                 exit(1);
@@ -305,58 +417,64 @@ int main(int argc, char* argv[]) {
         auto s = std::chrono::high_resolution_clock::now();
         do {
             cv::Mat image;
+            auto t_read_start = std::chrono::high_resolution_clock::now();
             video >> image;
+            auto t_read_end = std::chrono::high_resolution_clock::now();
+
             if (image.empty()) {
                 break;
             }
+
+            auto t0 = std::chrono::high_resolution_clock::now();
             cv::Mat preprocessed_image(post_processor.get_input_height(),
                                        post_processor.get_input_width(), CV_8UC3);
             make_letterbox_image(image, preprocessed_image, cv::COLOR_BGR2RGB, pad_xy);
+            auto t1 = std::chrono::high_resolution_clock::now();
+
             auto outputs = ie.Run(preprocessed_image.data);
+            auto t2 = std::chrono::high_resolution_clock::now();
+
             if (!outputs.empty()) {
                 // aligned tensor processing is now handled inside postprocess
-                std::vector<YOLOv8_PPUResult> detections;
-                try {
-                    detections = post_processor.postprocess(outputs);
-                } catch (const std::exception& e) {
-                    std::cerr << "[DXAPP] [ER] Exception during postprocessing: \n"
-                              << e.what() << std::endl;
-                    break;
-                }
+                auto detections = post_processor.postprocess(outputs);
+                auto t3 = std::chrono::high_resolution_clock::now();
+
                 auto result_image = draw_detections(image, detections, pad_xy, scale_factor);
-                processCount++;
+
                 if (saveVideo) {
                     writer << result_image;
                 }
-                if (fps_only) {
-                    continue;
+
+                int key = -1;
+                if (!fps_only) {
+                    cv::imshow("result", result_image);
+                    key = cv::waitKey(1);
                 }
-                cv::imshow("result", result_image);
-                if (cv::waitKey(1) == 'q') {
+                auto t4 = std::chrono::high_resolution_clock::now();
+
+                processCount++;
+
+                profiling_metrics.sum_read +=
+                    std::chrono::duration<double, std::milli>(t_read_end - t_read_start).count();
+                profiling_metrics.sum_preprocess +=
+                    std::chrono::duration<double, std::milli>(t1 - t0).count();
+                profiling_metrics.sum_inference +=
+                    std::chrono::duration<double, std::milli>(t2 - t1).count();
+                profiling_metrics.sum_postprocess +=
+                    std::chrono::duration<double, std::milli>(t3 - t2).count();
+                profiling_metrics.sum_render +=
+                    std::chrono::duration<double, std::milli>(t4 - t3).count();
+
+                if (key == 'q') {
                     break;
                 }
             }
         } while (true);
         auto e = std::chrono::high_resolution_clock::now();
-        if (processCount == 0) {
-            std::cerr << "[DXAPP] [ER] No frames were processed. Please verify the input image and "
-                         "model, and ensure preprocessing/postprocessing succeeded."
-                      << std::endl;
-            std::cerr << "[DXAPP] [ER] Exiting." << std::endl;
-            return -1;
-        }
-        std::cout << "[DXAPP] [INFO] total time : "
-                  << std::chrono::duration_cast<std::chrono::microseconds>(e - s).count() << " us"
-                  << std::endl;
-        std::cout << "[DXAPP] [INFO] per frame time : "
-                  << std::chrono::duration_cast<std::chrono::microseconds>(e - s).count() /
-                         processCount
-                  << " us" << std::endl;
-        std::cout << "[DXAPP] [INFO] fps : "
-                  << processCount /
-                         (std::chrono::duration_cast<std::chrono::milliseconds>(e - s).count() /
-                          1000.0)
-                  << std::endl;
+        double total_time =
+            std::chrono::duration_cast<std::chrono::milliseconds>(e - s).count() / 1000.0;
+
+        print_performance_summary(profiling_metrics, processCount, total_time, !fps_only);
     }
 
     std::cout << "\nExample completed successfully!" << std::endl;

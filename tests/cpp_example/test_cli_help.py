@@ -61,10 +61,6 @@ def test_help_option(executable, bin_dir):
     if not executable_path.exists():
         pytest.skip(f"Executable not found: {executable_path}")
     
-    # Skip demo_multi_channel as it has different argument handling
-    if Path(executable).stem == "demo_multi_channel":
-        pytest.skip("demo_multi_channel has different argument handling")
-    
     # Setup environment with library path
     env = build_environment()
     

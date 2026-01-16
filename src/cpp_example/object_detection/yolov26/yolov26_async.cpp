@@ -14,10 +14,10 @@
 #include <thread>
 #include <vector>
 
-#include "yolox_postprocess.h"
+#include "yolov26_postprocess.h"
 
 /**
- * @brief Asynchronous post-processing example for YOLOX object detection
+ * @brief Asynchronous post-processing example for YOLOv26 object detection
 model.
  *
  * - Supports image, video, and camera input sources.
@@ -59,10 +59,10 @@ struct ProfilingMetrics {
 };
 
 struct DisplayArgs {
-    std::shared_ptr<std::vector<YOLOXResult>> detections;
+    std::shared_ptr<std::vector<YOLOv26Result>> detections;
     std::shared_ptr<cv::Mat> original_frame;
 
-    YOLOXPostProcess *ypp = nullptr;
+    YOLOv26PostProcess *ypp = nullptr;
     int *processed_count = nullptr;
     bool is_no_show = false;
     bool is_video_save = false;
@@ -77,7 +77,7 @@ struct DisplayArgs {
 struct DetectionArgs {
     cv::Mat current_frame;
     dxrt::InferenceEngine *ie = nullptr;
-    YOLOXPostProcess *ypp = nullptr;
+    YOLOv26PostProcess *ypp = nullptr;
     ProfilingMetrics *metrics = nullptr;
     int *processed_count = nullptr;
     int request_id = 0;
@@ -186,7 +186,7 @@ void make_letterbox_image(const cv::Mat& image, cv::Mat& preprocessed_image, con
  * @param pad_xy [x, y] vector for padding size
  * @param letterbox_scale Scale factor used for letterbox
  */
-void scale_coordinates(YOLOXResult& detection, const std::vector<int>& pad_xy,
+void scale_coordinates(YOLOv26Result& detection, const std::vector<int>& pad_xy,
                        const float letterbox_scale) {
     detection.box[0] = (detection.box[0] - static_cast<float>(pad_xy[0])) / letterbox_scale;
     detection.box[1] = (detection.box[1] - static_cast<float>(pad_xy[1])) / letterbox_scale;
@@ -203,7 +203,7 @@ void scale_coordinates(YOLOXResult& detection, const std::vector<int>& pad_xy,
  * @param letterbox_scale Scale factor used for letterbox
  * @return Visualized image (Mat)
  */
-cv::Mat draw_detections(const cv::Mat& frame, std::vector<YOLOXResult>& detections,
+cv::Mat draw_detections(const cv::Mat& frame, std::vector<YOLOv26Result>& detections,
                         const std::vector<int>& pad_xy, const float letterbox_scale) {
     cv::Mat result = frame.clone();
 
@@ -267,7 +267,7 @@ void post_process_thread_func(SafeQueue<std::shared_ptr<DetectionArgs>> *wait_qu
 
         // Try postprocess timing
         // aligned tensor processing is now handled inside postprocess
-        std::vector<YOLOXResult> detections_vec;
+        std::vector<YOLOv26Result> detections_vec;
         try {
             detections_vec = args->ypp->postprocess(outputs);
         } catch (const std::exception& e) {
@@ -287,7 +287,7 @@ void post_process_thread_func(SafeQueue<std::shared_ptr<DetectionArgs>> *wait_qu
         }
 
         auto d_args = std::make_shared<DisplayArgs>();
-        d_args->detections = std::make_shared<std::vector<YOLOXResult>>(detections_vec);
+        d_args->detections = std::make_shared<std::vector<YOLOv26Result>>(detections_vec);
         if (!args->current_frame.empty()) {
             d_args->original_frame = std::make_shared<cv::Mat>(args->current_frame.clone());
         }
@@ -424,7 +424,7 @@ int main(int argc, char* argv[]) {
     bool fps_only = false, saveVideo = false;
     int loopTest = 1, processCount = 0;
 
-    std::string app_name = "YOLOX Post-Processing Async Example";
+    std::string app_name = "YOLOv26 Post-Processing Async Example";
     cxxopts::Options options(app_name, app_name + " application usage ");
     options.add_options()("m, model_path", "object detection model file (.dxnn, required)",
                           cxxopts::value<std::string>(modelPath))(
@@ -484,7 +484,7 @@ int main(int argc, char* argv[]) {
     int input_height = static_cast<int>(input_shape[1]);
     int input_width = static_cast<int>(input_shape[2]);
     auto post_processor =
-        YOLOXPostProcess(input_width, input_height, 0.25f, 0.3f, 0.45f, ie.IsOrtConfigured());
+        YOLOv26PostProcess(input_width, input_height, 0.3f, 0.45f, ie.IsOrtConfigured());
 
     // Print model input size
     std::cout << "[INFO] Model input size (WxH): " << input_width << "x" << input_height

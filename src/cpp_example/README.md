@@ -11,8 +11,7 @@
 6. [Building and Running the Examples](#6-building-and-running-the-examples)
    - 6.1. [Build](#61-build)
    - 6.2. [Run: Object Detection (YOLOv9)](#62-run-object-detection-yolov9)
-7. [Input Source Processing Examples](#7-input-source-processing-examples)
-8. [Performance Measurement and Tuning](#8-performance-measurement-and-tuning)
+7. [Performance Measurement and Tuning](#7-performance-measurement-and-tuning)
 
 ---
 
@@ -242,53 +241,7 @@ After each run:
 
 ---
 
-## 7. Input Source Processing Examples
-
-The folder [src/cpp_example/input_source_process_example](src/cpp_example/input_source_process_example) contains focused samples that show how to ingest frames from different input sources and feed them to DXRT.
-
-- **Layout**
-  - camera/: GStreamer (`camera_gstreamer`), OpenCV (`camera_opencv`), low-level V4L2 mmap (`camera_v4l2`) capture
-  - rtsp/: GStreamer (`rtsp_gstreamer`), OpenCV (`rtsp_opencv`) RTSP reception
-  - video/: GStreamer (`video_gstreamer`), OpenCV (`video_opencv`) file decode
-  - image/: OpenCV single-image repeated inference (`image_opencv`)
-  - Root CMakeLists.txt includes all sub-samples for a one-shot build; binaries install to `{dx_app_path}/bin`.
-
-- **Build**
-  ```bash
-  cd src/cpp_example/input_source_process_example
-  mkdir -p build && cd build
-  cmake ..
-  make -j
-  ```
-
-- **Common run options**
-  - `-m, --model_path` is required for all binaries (points to a `.dxnn`).
-  - Input size comes from `--input_width/--input_height` or model metadata and is used to resize before inference.
-  - Typical flow: submit with `RunAsync()`, gather with `Wait()` from a queue.
-
-- **Per-source behavior (high level)**
-  - Camera
-    - `camera_gstreamer`: `v4l2src → videoconvert → appsink`, BGR frames copied into `cv::Mat`, logs detected sensor resolution.
-    - `camera_opencv`: `cv::VideoCapture` (V4L2 backend), BGR → RGB, writes directly into preallocated input tensor buffers.
-    - `camera_v4l2`: mmap V4L2 MJPEG/YUYV, decode/convert to BGR, resize, and queue (minimal low-level example).
-  - RTSP
-    - `rtsp_gstreamer`: dynamic pad link `rtspsrc → avdec_h264 → videoconvert → appsink`, copies RGB frames, resizes, submits.
-    - `rtsp_opencv`: RTSP via `cv::VideoCapture`, small buffer/FPS tuning, resize and enqueue.
-  - Video file
-    - `video_gstreamer`: `filesrc → decodebin → videoconvert → videoscale → appsink`, listens for EOS, keyboard thread for quit.
-    - `video_opencv`: iterates with `cv::VideoCapture`, progress every 100 frames, resizes, pushes async inference.
-  - Image
-    - `image_opencv`: reads one image, resizes and queues it for a configurable loop count to demo async submit/wait.
-
-- **Run examples (after build, from project root)**
-  - GStreamer camera: `./bin/camera_gstreamer -m assets/models/YOLOV5S_6.dxnn -d /dev/video0`
-  - OpenCV RTSP: `./bin/rtsp_opencv -m assets/models/YOLOV5S_6.dxnn -r rtsp://user:pass@host/stream1`
-  - GStreamer video: `./bin/video_gstreamer -m assets/models/YOLOV5S_4.dxnn -v assets/videos/dogs.mp4`
-  - Static image: `./bin/image_opencv -m assets/models/YOLOV5S_4.dxnn -i sample/img/1.jpg`
-
----
-
-## 8. Performance Measurement and Tuning
+## 7. Performance Measurement and Tuning
 
 - **Using the profiling output**
   - Each example includes timers and a summary function that report average latency per stage.
