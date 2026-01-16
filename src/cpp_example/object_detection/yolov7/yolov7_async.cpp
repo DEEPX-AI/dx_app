@@ -247,6 +247,44 @@ struct DisplayArgs {
     }
 };
 
+// Thread-safe display queue for main thread rendering
+class DisplayFrameQueue {
+   private:
+    std::queue<cv::Mat> queue_;
+    std::mutex mutex_;
+    std::condition_variable condition_;
+    size_t max_size_;
+
+   public:
+    DisplayFrameQueue(size_t max_size = MAX_QUEUE_SIZE) : max_size_(max_size) {}
+
+    void push(const cv::Mat& frame) {
+        std::unique_lock<std::mutex> lock(mutex_);
+        // Drop oldest frame if queue is full (non-blocking for producer)
+        if (queue_.size() >= max_size_) {
+            queue_.pop();
+        }
+        queue_.push(frame.clone());
+        condition_.notify_one();
+    }
+
+    bool tryPop(cv::Mat& frame, int timeout_ms = 10) {
+        std::unique_lock<std::mutex> lock(mutex_);
+        if (condition_.wait_for(lock, std::chrono::milliseconds(timeout_ms),
+                                [this] { return !queue_.empty(); })) {
+            frame = queue_.front();
+            queue_.pop();
+            return true;
+        }
+        return false;
+    }
+
+    bool empty() const {
+        std::lock_guard<std::mutex> lock(const_cast<std::mutex&>(mutex_));
+        return queue_.empty();
+    }
+};
+
 // Thread-safe queue wrapper
 class SafeQueue {
    private:
@@ -355,7 +393,8 @@ void post_process_thread_func(SafeQueue* wait_queue, std::queue<DisplayArgs*>* d
 }
 
 void display_thread_func(std::queue<DisplayArgs*>* display_queue, std::atomic<int>* appQuit,
-                         cv::VideoWriter* writer, std::vector<int>* pad_xy, float* scale_factor) {
+                         cv::VideoWriter* writer, std::vector<int>* pad_xy, float* scale_factor,
+                         DisplayFrameQueue* render_queue) {
     while (appQuit->load() == -1) {
         std::this_thread::sleep_for(std::chrono::microseconds(10));
     }
@@ -387,12 +426,9 @@ void display_thread_func(std::queue<DisplayArgs*>* display_queue, std::atomic<in
                     if (args->is_video_save) {
                         *writer << processed_frame;
                     }
-                    if (!args->is_no_show) {
-                        cv::imshow("result", processed_frame);
-                        if (cv::waitKey(1) == 'q') {
-                            args->is_no_show = true;
-                            appQuit->store(1);
-                        }
+                    // Push frame to render queue for main thread to display
+                    if (!args->is_no_show && render_queue != nullptr) {
+                        render_queue->push(processed_frame);
                     }
                 }
 
@@ -572,6 +608,7 @@ int main(int argc, char* argv[]) {
     SafeQueue wait_queue;
     std::queue<DisplayArgs*> display_queue;
     ProfilingMetrics profiling_metrics;
+    DisplayFrameQueue render_queue;  // Queue for main thread rendering
 
     std::thread post_process_thread(post_process_thread_func, &wait_queue, &display_queue,
                                     &appQuit);
@@ -579,7 +616,20 @@ int main(int argc, char* argv[]) {
     std::vector<int> pad_xy{0, 0};
     float scale_factor = 1.f;
     std::thread display_thread(display_thread_func, &display_queue, &appQuit, &writer, &pad_xy,
-                               &scale_factor);
+                               &scale_factor, &render_queue);
+
+    // Main thread GUI rendering function - must be called from main thread
+    auto processGUIEvents = [&]() -> bool {
+        cv::Mat frame;
+        if (render_queue.tryPop(frame, 1)) {
+            cv::imshow("result", frame);
+        }
+        int key = cv::waitKey(1);
+        if (key == 'q' || key == 27) {  // 'q' or ESC
+            return false;  // Signal to quit
+        }
+        return true;  // Continue
+    };
 
 
     if (!imgFile.empty()) {
@@ -672,16 +722,38 @@ int main(int argc, char* argv[]) {
             if (appQuit.load() == -1) {
                 appQuit.store(0);
             }
+            
+            // Process GUI events during frame submission (main thread)
+            if (!fps_only) {
+                if (!processGUIEvents()) {
+                    appQuit.store(1);
+                    break;
+                }
+            }
+            
             if (appQuit.load() == 1) break;
         } while (--loopTest);
 
-        // Wait for all processing to complete
+        // Main thread processes GUI events while waiting for completion
         while (processCount < loopCount && appQuit.load() == 0) {
-            std::this_thread::sleep_for(std::chrono::microseconds(10));
+            if (!fps_only) {
+                if (!processGUIEvents()) {
+                    appQuit.store(1);
+                    break;
+                }
+            } else {
+                std::this_thread::sleep_for(std::chrono::microseconds(100));
+            }
         }
+
         appQuit.store(1);
         post_process_thread.join();
         display_thread.join();
+        
+        // Cleanup GUI resources from main thread
+        if (!fps_only) {
+            cv::destroyAllWindows();
+        }
 
         auto e = std::chrono::high_resolution_clock::now();
         double total_time =
@@ -840,18 +912,40 @@ int main(int argc, char* argv[]) {
             if (appQuit.load() == -1) {
                 appQuit.store(0);
             }
+            
+            // Process GUI events during frame submission (main thread)
+            if (!fps_only) {
+                if (!processGUIEvents()) {
+                    appQuit.store(1);
+                    break;
+                }
+            }
+            
             if (appQuit.load() == 1) break;
         } while (true);
 
         loopCount = submitted_frames;
 
-        // Wait for all processing to complete
+        // Main thread processes GUI events while waiting for completion
         while (processCount < loopCount && appQuit.load() == 0) {
-            std::this_thread::sleep_for(std::chrono::microseconds(10));
+            if (!fps_only) {
+                if (!processGUIEvents()) {
+                    appQuit.store(1);
+                    break;
+                }
+            } else {
+                std::this_thread::sleep_for(std::chrono::microseconds(100));
+            }
         }
+
         appQuit.store(1);
         post_process_thread.join();
         display_thread.join();
+        
+        // Cleanup GUI resources from main thread
+        if (!fps_only) {
+            cv::destroyAllWindows();
+        }
 
         auto e = std::chrono::high_resolution_clock::now();
         double total_time =

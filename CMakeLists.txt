@@ -116,7 +116,7 @@ else()
     add_compile_options(-W -Wall -Wextra -pthread -O3 -fstrict-volatile-bitfields -fPIC)
 endif()
 
-if(ENABLE_DEBUG_INFO)
+if(ENABLE_DEBUG_INFO OR CMAKE_BUILD_TYPE STREQUAL "Debug" OR CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
     message(STATUS "Debug info enabled")
     if (NOT MSVC) 
         add_compile_options(-g -rdynamic)
