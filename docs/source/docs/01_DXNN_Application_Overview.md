@@ -23,10 +23,8 @@ This chapter provides an overview of the DEEPX SDK architecture and explains eac
 
 You can quickly evaluate inference capabilities without modifying the source code and easily adapt the templates for custom applications. These templates significantly reduce the overhead of environment configuration and manual implementation.
 
-!!! note "NOTE" 
-
+!!! note "NOTE"  
     Application performance may vary depending on host system specifications. Each demo includes pre-processing, post-processing, and graphics processing operations.
-
 
 ### Example Catalog
 
@@ -34,8 +32,9 @@ You can quickly evaluate inference capabilities without modifying the source cod
 
 **Classification (EfficientNetB0)**  
 
-- Input: image (e.g., `224x224`) / Output: Top-1 class
-- Example run
+- Input: image (e.g., `224x224`)  
+- Output: Top-1 class  
+- Example run  
 ```bash
 ./bin/efficientnet_async -m ./assets/models/EfficientNetB0_4.dxnn -i ./sample/ILSVRC2012/0.jpeg -l 1
 ./bin/efficientnet_sync  -m ./assets/models/EfficientNetB0_4.dxnn -i ./sample/ILSVRC2012/0.jpeg -l 1
@@ -43,8 +42,9 @@ You can quickly evaluate inference capabilities without modifying the source cod
 
 **Object Detection (YOLOv8N)**  
 
-- Input: image/video/camera/RTSP / Output: boxes rendered and logged
-- Example run
+- Input: image/video/camera/RTSP  
+- Output: boxes rendered and logged  
+- Example run  
 ```bash
 ./bin/yolov8_async -m ./assets/models/YoloV8N.dxnn -i ./sample/img/1.jpg --no-display -l 1
 ./bin/yolov8_sync  -m ./assets/models/YoloV8N.dxnn -i ./sample/img/1.jpg --no-display -l 1 -s
@@ -52,8 +52,9 @@ You can quickly evaluate inference capabilities without modifying the source cod
 
 **Face Detection (SCRFD)**  
 
-- Input: image / Output: face boxes, landmarks, log
-- Example run
+- Input: image  
+- Output: face boxes, landmarks, log  
+- Example run  
 ```bash
 ./bin/scrfd_async -m ./assets/models/SCRFD500M_1.dxnn -i ./sample/img/face_sample.jpg --no-display -l 1
 ./bin/scrfd_sync  -m ./assets/models/SCRFD500M_1.dxnn -i ./sample/img/face_sample.jpg --no-display -l 1 -s
@@ -61,8 +62,9 @@ You can quickly evaluate inference capabilities without modifying the source cod
 
 **Pose Estimation (YOLOv5 Pose)**  
 
-- Input: image/video/camera / Output: person boxes + keypoints
-- Example run
+- Input: image/video/camera  
+- Output: person boxes + keypoints  
+- Example run  
 ```bash
 ./bin/yolov5pose_async -m ./assets/models/YOLOV5Pose640_1.dxnn -i ./sample/img/1.jpg --no-display -l 1
 ./bin/yolov5pose_sync  -m ./assets/models/YOLOV5Pose640_1.dxnn -i ./sample/img/1.jpg --no-display -l 1 -s
@@ -70,8 +72,9 @@ You can quickly evaluate inference capabilities without modifying the source cod
 
 **Segmentation (DeepLabV3+)**  
 
-- Input: image/video/camera / Output: boxes + masks rendered, results saved
-- Example run
+- Input: image/video/camera  
+- Output: boxes + masks rendered, results saved  
+- Example run  
 ```bash
 ./bin/deeplabv3_async -m ./assets/models/DeepLabV3PlusMobileNetV2_2.dxnn -i ./sample/img/8.jpg --no-display -l 1
 ./bin/deeplabv3_sync  -m ./assets/models/DeepLabV3PlusMobileNetV2_2.dxnn -i ./sample/img/8.jpg --no-display -l 1 -s
@@ -79,8 +82,9 @@ You can quickly evaluate inference capabilities without modifying the source cod
 
 **Composite (Object Detection x Semantic Segmentation)**  
 
-- Input: image/video/camera / Output: detection boxes plus segmentation masks rendered together
-- Example run
+- Input: image/video/camera  
+- Output: detection boxes plus segmentation masks rendered together  
+- Example run  
 ```bash
 ./bin/yolov7_x_deeplabv3_async -m ./assets/models/YoloV7.dxnn,./assets/models/DeepLabV3PlusMobileNetV2_2.dxnn -i ./sample/img/1.jpg --no-display -l 1
 ./bin/yolov7_x_deeplabv3_sync  -m ./assets/models/YoloV7.dxnn,./assets/models/DeepLabV3PlusMobileNetV2_2.dxnn -i ./sample/img/1.jpg --no-display -l 1 -s
