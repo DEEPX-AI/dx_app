@@ -224,7 +224,7 @@ dxrt-cli -s
 ```
 
 !!! warning "Caution: Prerequisite Check"  
-    If the command above fails, you **must** manually install the NPU Drivers and DX-RT as described in [**Section. DX-APP C++ Examples - Prerequisites**](./src/c++_example/README.md).  
+    If the command above fails, you **must** manually install the NPU Drivers and DX-RT as described in [**Section. DX-APP C++ Examples - Prerequisites**](./src/cpp_example/README.md).  
 
 
 Once hardware is verified, install the necessary toolchain and system libraries.  
@@ -288,6 +288,6 @@ python src/python_example/object_detection/yolov9/yolov9_async_cpp_postprocess.p
 
 **Output and Analysis**  
 
-Following execution, a window will render results (`boxes/masks`), and the console will output a **Performance Summary** (`Latency/FPS`) as described in [**Section. DX-APP C++ Examples**](./src/c++_example/README.md).  
+Following execution, a window will render results (`boxes/masks`), and the console will output a **Performance Summary** (`Latency/FPS`) as described in [**Section. DX-APP C++ Examples**](./src/cpp_example/README.md).  
 
 ---
