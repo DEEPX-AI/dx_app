@@ -1,330 +1,293 @@
-## DX-APP: DEEPX NPU Application Templates
+# DX-APP Overview
 
-**DX-APP** is a collection of ready‑to‑run application templates for **DEEPX NPUs**, covering both **C++** and **Python**.  
-It helps you quickly experience NPU performance and serves as a practical starting point for building your own AI applications.
+**DX-APP** is a production-ready suite of application templates designed to accelerate the development of AI services on **DEEPX NPUs**. It bridges the gap between raw model deployment and high-performance application engineering.  
 
-Key goals:
+**Key Features & Objectives**  
 
-- **Fast first run**: Minimal setup to run classification, object detection, and segmentation demos on DEEPX devices.
-- **Reusable templates**: Clean, per‑task examples that you can copy and adapt for your own use cases.
-- **Shared core logic**: Model‑specific **C++ post‑processing** is shared between C++ and Python (via `dx_postprocess`).
+- **Rapid Deployment:** Ready-to-run demos for Classification (`EfficientNet`), Detection (`YOLO series, SCRFD`), and Segmentation (`DeepLabv3, YOLOv8seg`).  
+-	**Dual-Language Flexibility:** High-performance **C++** for production and **Python** for rapid prototyping, sharing a **unified C++ post-processing engine**.  
+- **Hardware Acceleration:** Native support for **PPU-enabled models** and **Async templates** that overlap pipeline stages to maximize FPS.  
+- **Modular Design:** Clean, task-oriented templates that serve as reusable blueprints for custom commercial applications.  
 
-For detailed step‑by‑step guides (installation, templates, demos), see the documents under `docs/`:
+**Reference Documentation**  
 
-- Overview: [01_DXNN_Application_Overview.md](./docs/source/docs/01_DXNN_Application_Overview.md)
-- Installation & Build: [02_DX-APP_Installation_and_Build.md](./docs/source/docs/02_DX-APP_Installation_and_Build.md)
+For deeper technical specifications, refer to the `docs/` directory  
 
----
-
-## 1. Features at a Glance
-
-DX-APP provides:
-
-- **End‑to‑end demo applications**
-  - Image classification (EfficientNet)
-  - Object detection (YOLOv5/7/8/8‑OBB/9, YOLOX, YOLOv5Face, SCRFD, YOLOv5Pose)
-  - Semantic / instance segmentation (DeepLabv3, YOLOv8seg)
-  - PPU‑enabled variants for selected models
-
-- **Both C++ and Python pipelines**
-  - C++ examples: high‑performance, production‑oriented reference.
-  - Python examples: faster iteration and easier experimentation.
-
-- **Shared C++ post‑processing**
-  - Model‑specific decoding (boxes, scores, keypoints, masks) implemented once in C++.
-  - Reused by C++ examples and exposed to Python via the `dx_postprocess` binding.
-  - Enables apples‑to‑apples comparison between **pure Python** and **C++ post‑processing**.
-
-- **Scalable pipeline designs**
-  - Sync and async variants that show how to maximize NPU utilization and end‑to‑end FPS on DEEPX hardware.
+- **Application Overview:** [01_DXNN_Application_Overview.md](./docs/source/docs/01_DXNN_Application_Overview.md)  
+- **Installation & Build Guide:** [02_DX-APP_Installation_and_Build.md](./docs/source/docs/02_DX-APP_Installation_and_Build.md)  
 
 ---
 
-## 2. Prerequisites
+# Architectural Overview
 
-Before building or running DX-APP, prepare the following environment.
+DX-APP is engineered to maximize NPU throughput while minimizing CPU-side bottlenecks.  
 
-### 2.1. DX-RT (DEEPX Runtime) and Drivers
+## Unified Post-Processing Engine
 
-To run `.dxnn` models on the NPU, you must install both the **DX-RT runtime** and the **NPU drivers**.
+To ensure consistency and speed, all model-specific decoding (NMS, box scaling, mask generation) is implemented in optimized C++ libraries.  
 
-- **DX-RT (runtime and tools)**  
-  <https://github.com/DEEPX-AI/dx_rt>
+- **Cross-Language Parity:** These modules are exposed to Python via `pybind11` (`dx_postprocess`), ensuring Python developers achieve C++-level performance.  
+- **Logic Standardization:** Identical decoding logic across both environments guarantees consistent inference results.  
 
-- **DEEPX NPU Linux Driver**  
-  <https://github.com/DEEPX-AI/dx_rt_npu_linux_driver>
+## Execution Paradigms: Sync vs. Async
 
-Follow the installation guides in those repositories for your target platform.  
-After installation, you can verify that DX-RT and the drivers are correctly installed with:
+Templates are provided in two variants to help developers optimize for their specific use cases  
 
-```shell
-dxrt-cli -s
-```
+- **Synchronous (Sync):** Sequential execution (**Pre → Inference → Post**). Best for single-image analysis and simplified debugging.  
+- **Asynchronous (Async):** A multi-threaded design using `RunAsync()` to overlap stages. While the NPU processes Frame **N**, the CPU prepares Frame **N+1** and post-processes Frame **N-1**. This is critical for maximizing **FPS** on real-time video or RTSP streams.  
 
-### 2.2. Toolchain and Libraries
+## Performance Profiling & Bottleneck Analysis
 
-- **Build tools**
-  - CMake ≥ 3.14
-  - C++14‑compatible compiler (GCC, Clang, …)
-  - Make or Ninja
+Every application template in DX-APP—regardless of the language (C++/Python) or execution paradigm (Sync/Async)—is equipped with a built-in performance profiler. Upon completion, the console outputs a **Performance Summary** that serves as a critical tool for application tuning.  
 
-- **OpenCV**
-  - OpenCV ≥ 4.2.0 (4.5.5 recommended).
+**Key Metrics Collected**  
 
-- **Python (for Python examples and bindings)**
-  - Python 3.8 or higher
-  - `pip` for installing required packages
+- **Stage Latency:** Precise timing for each stage of the pipeline  
+      : **Pre-processing:** Image decoding, resizing, and normalization  
+      : **NPU Inference:** Pure execution time on the DEEPX NPU via DX-RT  
+      : **Post-processing:** Result decoding (NMS, box scaling, etc.)  
+      : **Display/I/O:** Time taken to render or save the output  
+- **End-to-End Throughput (FPS):** The overall frames per second achieved by the entire system.  
 
-You can install these dependencies with:
+**Strategic Objectives**  
 
-```shell
-./install.sh --all
-```
-
+- **Bottleneck Identification:** Instantly determine if the system is limited by CPU-side tasks (Pre/Post-processing) or NPU throughput. For instance, if post-processing latency is high in a Python script, you can strategically switch to the **C++ Binding** (`dx_postprocess`) variant.  
+- **Architectural Benchmarking:** Quantitatively validate how much performance is gained by moving from a **Synchronous** to an **Asynchronous** design.  
+- **Resource Optimization:** Help developers balance NPU utilization and CPU overhead to find the "sweet spot" for their specific hardware and commercial use case.  
+ 
 ---
 
-## 3. Repository Layout
+# Repository Layout & Installation 
 
-At a high level:
+This section guides you through the environment setup and the initial build process required to run DX-APP.  
 
+## Repository Layout
+
+The project is structured to separate core logic from language-specific implementations.  
 ```text
 dx_app/
 ├── src/
-│   ├── cpp_example/          # C++ end‑to‑end examples (sync/async, by task/model)
-│   ├── python_example/       # Python end‑to‑end examples
-│   ├── postprocess/          # C++ post‑processing libraries (shared C++/Python)
+│   ├── cpp_example/          # C++ end to end examples (sync/async, by task/model)
+│   ├── python_example/       # Python end to end examples
+│   ├── postprocess/          # C++ post processing libraries (shared C++/Python)
 │   └── bindings/
 │       └── python/
-│           └── dx_postprocess/  # pybind11 bindings for C++ post‑processing
+│           └── dx_postprocess/  # pybind11 bindings for C++ post processing
 ├── assets/                   # Downloaded models/videos (via setup.sh)
 ├── scripts/                  # Helper scripts to run demos
-├── build.sh                  # Top‑level build script
+├── build.sh                  # Top level build script
 ├── install.sh                # Dependency and OpenCV installer
 └── docs/                     # Detailed documentation
 ```
 
-The next sections briefly describe each major component.
+## Prerequisites
+
+Before building the templates, ensure your system meets the following hardware and software requirements.  
+
+**A. DEEPX Runtime (DX-RT) and NPU Drivers**  
+
+To utilize NPU acceleration, you **must** install the kernel-mode drivers and the user-space runtime library  
+
+- **DEEPX NPU Linux Driver:** Required for low-level NPU communication. [Github Repository](https://github.com/DEEPX-AI/dx_rt_npu_linux_driver>)  
+- **DX-RT (Runtime & Tools):** The core library for model inference and hardware management. [Github Repository](https://github.com/DEEPX-AI/dx_rt)  
+
+**B. Development Toolchain and Libraries**  
+
+The following tools are required to compile the C++ templates and the Python dx_postprocess bindings.  
+
+**B-a.** Build System  
+
+- **CMake:** Version 3.14 or higher.  
+- **Compiler:** C++14-compatible (GCC 7.5+, Clang, etc.).  
+- **Build Utility:** make or ninja.  
+
+**B-b.** Core Libraries  
+
+-	**OpenCV:** Version 4.2.0 or higher (**4.5.5 recommended**). This is used for image I/O and pre/post-processing visualization.  
+-	**Python Environment:** Python 3.8 or higher and pip are required for Python-based examples and pybind11 integration.  
+
+## Development Workflow Overview
+
+The process from environment setup to running your first AI application is divided into three main phases. For detailed commands and execution steps, please refer to the [**Section. Quick Start Guide**](#quick-start-guide).  
+
+- **Hardware & Driver Verification:** Ensure the NPU is recognized by the system using the `dxrt-cli` tool.  
+- **Asset & Dependency Preparation:** Install required libraries (OpenCV, Build tools) via `./install.sh` and download optimized `.dxnn` models using `./setup.sh`.  
+- **Build & Execution:** Compile the source code using `./build.sh` and run the generated binaries or Python scripts located in the `bin/` or `src/python_example/` directories.  
 
 ---
 
-## 4. C++ Examples ([`src/cpp_example/`](/src/cpp_example/))
+# C++ Application Templates (src/cpp_example/)
 
-C++ examples demonstrate how to build **DEEPX NPU–based applications in C++**.  
-Each example is a **self‑contained, per‑model pipeline**:
+These templates provide high-performance, production-ready references for building applications using the DX-RT C++ API.  
 
-- **Pipeline structure**
-  - Input → Pre‑process → Inference (DX-RT) → Post‑process (C++ class) → Display/Save
-  - Post‑processing is **not** inlined; it calls shared classes from [`src/postprocess/`](/src/postprocess/).
+**Pipeline Architecture**  
 
-- **Organization**
-  - Task / use‑case oriented layout:
+Each template follows a self-contained pipeline designed for modularity  
 
-    ```text
-    src/cpp_example/
-    ├── classification/                             # Image classification (EfficientNet)
-    ├── object_detection/                           # Single‑stream object detection (YOLO, SCRFD, ...)
-    ├── semantic_segmentation/                      # Semantic segmentation (DeepLabv3)
-    ├── instance_segmentation/                      # Instance segmentation (YOLOv8seg)
-    ├── ppu/                                        # PPU‑enabled variants
-    ├── input_source_process_example/               # Camera / image / video / RTSP input patterns
-    ├── multi_channel_process_example/              # Multi‑channel object detection pipelines
-    └── object_detection_x_semantic_segmentation/   # Combined detection + segmentation pipelines
-    ```
+- **Step 1. Input:** Image, Video, Camera, or RTSP stream.  
+- **Step 2. Pre-process:** Resizing and normalization.  
+- **Step 3. Inference:** Execution on the NPU via **DX-RT**.  
+- **Step 4. Post-process:** Call to shared C++ classes in `src/postprocess/` (e.g., NMS, box scaling).  
+- **Step 5. Output:** Result rendering (Display) or storage (Save).  
 
-- **Variants**
-  - **Sync vs. Async**
-    - `*_sync.cpp`: single-threaded, step-by-step pipeline (input → inference → post-processing → display).
-    - `*_async.cpp`: uses multiple threads and `RunAsync()` to overlap pre/post-processing with inference and keep the NPU busy, especially for streams (video/RTSP/camera).
-  - **Post-processing**
-    - All variants call shared C++ post-processing classes from [`src/postprocess/`](/src/postprocess/), rather than inlining decoding logic in each example.
+**Design Variants**  
 
-- **What you learn**
-  - How to wire real `.dxnn` models into a C++ pipeline.
-  - How sync vs. async designs affect NPU utilization and end‑to‑end FPS.
-  - How to plug in shared C++ post‑processing classes.
-  - How to interpret the printed **performance summary** to see:
-    - which stage (pre‑processing, inference, post‑processing, display) is the bottleneck, and
-    - how design choices (sync vs. async, number of threads) change latency and overall FPS.
+To help developers optimize for specific hardware targets, templates are provided in two execution patterns  
 
-For details, see [`src/cpp_example/README.md`](/src/cpp_example/README.md).
+- **Synchronous (`*_sync.cpp`): * Logic:** A single-threaded, sequential loop (**Input → Inference → Output**).  
+      : **Use Case:** Best for single-image processing and simplified debugging.  
+
+- **Asynchronous (`*_async.cpp`): * Logic:** Uses multi-threading and the `RunAsync()` API to overlap stages. While the NPU performs inference on Frame **N**, the CPU simultaneously handles pre-processing for Frame **N+1** and post-processing for Frame **N-1**.  
+      : **Use Case:** Essential for maximizing **FPS** on live video streams and ensuring high NPU utilization.  
 
 ---
 
-## 5. Post-processing Libraries ([`src/postprocess/`](/src/postprocess/))
+# Post-processing Libraries (src/postprocess/)
 
-This directory hosts the **C++ post‑processing libraries** used by both C++ and Python examples.
+These libraries transform raw NPU output tensors into structured, actionable data. By centralizing this logic in C++, DX-APP ensures high-performance execution and consistency across all application variants.  
 
-- **Per‑model modules**
-  - Each subfolder (e.g. `yolov5/`, `yolov7/`, `deeplabv3/`) provides:
-    - `*_postprocess.h`: a C++ post‑processing class (e.g. `YOLOv5PostProcess`) and result structs (e.g. `YOLOv5Result`).
-    - `*_postprocess.cpp`: implementation of decoding, NMS, etc.
-    - `CMakeLists.txt`: builds a reusable shared library.
+**Module Structure**  
 
-- **Responsibilities**
-  - Take DX-RT inference outputs (tensors) and convert them into **human‑readable results**:
-    - bounding boxes, scores, class IDs
-    - keypoints/skeletons
-    - segmentation masks
-  - Apply post‑processing such as NMS and filtering.
+The library is organized into model-specific subdirectories (e.g., `yolov5/, yolov8/, deeplabv3/`), each containing  
 
-- **Shared between languages**
-  - C++ examples `#include` these headers directly.
-  - Python examples access the same logic via [`dx_postprocess`](/src/bindings/python/dx_postprocess/).
+- `*_postprocess.h`: Defines the post-processing class (e.g., `YOLOv5PostProcess`) and standard result structures (e.g., `YOLOv5Result`).  
+-	`*_postprocess.cpp`: Contains the optimized implementation for decoding, coordinate scaling, and filtering.  
+-	`CMakeLists.txt`: Facilitates the compilation of these modules into reusable shared libraries.  
 
-For a deeper description, see [`src/postprocess/README.md`](/src/postprocess/README.md).
+**Functional Responsibilities**  
 
----
+The libraries handle the heavy computational load required after the inference stage  
 
-## 6. Python Bindings: `dx_postprocess` ([`src/bindings/python/dx_postprocess/`](/src/bindings/python/dx_postprocess/))
+-	**Tensor Decoding:** Converting raw NPU buffer outputs into human-readable results such as bounding boxes, confidence scores, and class IDs.  
+-	**Advanced Geometry:** Extracting keypoints for pose estimation or skeletons.  
+-	**Mask Generation:** Processing multi-dimensional tensors into segmentation masks.  
+-	**Filtering & Optimization:** Applying algorithms like **Non-Maximum Suppression (NMS)** and threshold-based filtering to remove redundant detections.  
 
-`dx_postprocess` exposes the C++ post‑processing modules to Python via **pybind11**.
+**Cross-Language Integration**  
 
-- **What it provides**
-  - Python classes mirroring the C++ post‑processors, e.g.:
+A major architectural advantage of DX-APP is the portability of these libraries  
 
-    ```python
-    from dx_postprocess import YOLOv9PostProcess
-    ```
-
-  - High‑performance, C++‑implemented post‑processing callable from Python.
-
-- **Why it matters**
-  - Lets you:
-    - accelerate Python pipelines by offloading heavy post‑processing to C++, and
-    - compare **pure Python vs. C++ post‑processing** on identical decoding logic.
-
-- **Installation**
-  - As part of the full build:
-
-    ```shell
-    ./build.sh
-    ```
-
-  - Or standalone:
-
-    ```shell
-    cd src/bindings/python/dx_postprocess
-    pip install .
-    ```
-
-See [`src/bindings/python/dx_postprocess/README.md`](/src/bindings/python/dx_postprocess/README.md) for details and usage examples.
+- **For C++ Developers:** Modules are integrated directly by including the relevant headers in the application source.  
+- **For Python Developers:** The same C++ logic is accessed via the `dx_postprocess` pybind11 module, eliminating the performance overhead typically associated with Python-based decoding.  
 
 ---
 
-## 7. Python Examples ([`src/python_example/`](/src/python_example/))
+# Python Integration (Bindings & Examples)
 
-Python examples provide **easy‑to‑read, end‑to‑end scripts** built on top of **DX-RT’s Python bindings (`dx_engine`)**.
+DX-APP provides a unified environment that combines the rapid development of Python with the high performance of native C++.  
 
-- **Structure**
+## High-Performance C++ Bindings (`dx_postprocess`)
 
-  ```text
-  src/python_example/
-  ├── classification/
-  ├── instance_segmentation/
-  ├── object_detection/
-  ├── ppu/
-  ├── semantic_segmentation/
-  └── utils/
-  ```
+To eliminate post-inference bottlenecks, DX-APP provides optimized C++ logic exposed via `pybind11`.  
 
-  - Per‑model folders (e.g. `yolov5/`, `yolov9/`) contain multiple variants:
-    - `*_sync.py` / `*_async.py`
-    - `*_sync_cpp_postprocess.py` / `*_async_cpp_postprocess.py`
+- **Key Capabilities:** Handles CPU-intensive tasks such as NMS (Non-Maximum Suppression), tensor decoding, and mask generation at native speeds.  
+- **Unified Logic:** Shares the exact same decoding logic as the C++ examples, ensuring consistent inference results across all platforms.  
+- **Installation:** -Automatically compiled during `./build.sh`.  
+    - **Manual install:** `cd src/bindings/python/dx_postprocess && pip install`.  
 
-- **Variants**
-  - **Sync vs. Async**
-    - `run()` vs. `run_async()` in `dx_engine.InferenceEngine`.
-    - `*_sync.py`: single-threaded, step-by-step pipeline (input → inference → post-processing).
-    - `*_async.py`: uses additional threads and `run_async()` to overlap pre/post-processing with inference and keep the NPU busy, especially for streams (video/RTSP/camera).
-  - **Python vs. C++ post‑processing**
-    - Default scripts implement post‑processing in Python.
-    - `'_cpp_postprocess'` scripts use the `dx_postprocess` binding to call C++ so that Python pipelines can reuse the same C++ decoding logic as the C++ examples.
+For detailed usage examples and API references, please refer to the documentation in 
+[**Section. DX-APP Python Post-processing**](./src/bindings/python/dx_postprocess/README.md)
 
-- **Performance focus**
-  - All examples print a **performance summary** (latency per stage, overall FPS).
-  - This lets you:
-    - identify which stage is the bottleneck (pre‑processing, inference, post‑processing, display), and
-    - compare how different pipeline designs — **sync vs. async** and **Python vs. C++ post‑processing** — change latency and overall FPS for the same model and input.
+## Application Examples (`src/python_example/`)
 
-See [`src/python_example/README.md`](/src/python_example/README.md) for a complete guide.
+These templates utilize `dx_engine` (for inference) and `dx_postprocess` (for acceleration). Users can choose from four variants depending on their performance requirements.  
+
+**Task-Based Structure**  
+
+Templates are categorized by task. Within each model folder (e.g., yolov9/), you will find the following scripts  
+
+- **Classification:** `EfficientNet`  
+- **Object Detection:** `YOLOv5/7/8/9, SCRFD`, etc.  
+- **Segmentation:** `DeepLabv3, YOLOv8seg`  
+
+Functional Variants  
+
+| **Variant** | **Post-processing** | **Threading Model** | **Recommendation** | 
+|----|----|----|----|
+| `*_sync.py` | Pure Python | Synchronous | Learning & Logic Debugging | 
+| `*_async.py` | Pure Python | Asynchronous | Basic performance optimization | 
+| `*_sync_cpp_postprocess.py` | C++ Binding | Synchronous | Accelerating heavy CPU tasks | 
+| `*_async_cpp_postprocess.py` | C++ Binding | Asynchronous | Maximum FPS (Recommended) | 
 
 ---
+<a name="quick-start-guide"></a>
+# Quick Start Guide
 
-## 8. Quick Start
+Follow these steps to transition from a fresh installation to your first successful inference on DEEPX NPU.  
 
-### 8.1. Install dependencies
+**Step 1. Environment Setup & Verification**  
 
-From the project root:
+First, verify that the NPU driver and DX-RT are correctly installed. This is a mandatory prerequisite.  
+```bash
+# Verify hardware connection and driver status
+dxrt-cli -s
+```
 
-```shell
+!!! warning "Caution: Prerequisite Check"  
+    If the command above fails, you **must** manually install the NPU Drivers and DX-RT as described in [**Section. DX-APP C++ Examples - Prerequisites**](./src/c++_example/README.md).  
+
+
+Once hardware is verified, install the necessary toolchain and system libraries.  
+```bash
+# Install Build tools, CMake, and OpenCV
 ./install.sh --all
 ```
 
-Ensure DX-RT (drivers + libraries) is already installed as described in section 2.
+**Step 2. Asset Acquisition**  
 
-### 8.2. Download sample models and videos
-
-```shell
+Download the pre-compiled NPU models and sample media files required for the demos.  
+```bash
+# Fetch models and videos
 ./setup.sh
-# Downloads models to assets/models and videos to assets/videos
 ```
 
-### 8.3. Build DX-APP
+- **Models:** Saved to `assets/models/`  
+- **Media:** Saved to `assets/videos/` or `assets/images/`  
 
-```shell
+**Step 3. Compilation**  
+
+Build the C++ binaries and the Python dx_postprocess bindings simultaneously.  
+```bash
+# Standard build
 ./build.sh
 
-# For a clean build:
-# ./build.sh --clean
+# For a clean rebuild, use: ./build.sh --clean
 ```
 
-On success, C++ example binaries and required libraries are placed under `bin/` and the appropriate build directories. Python binding `dx_postprocess` is also built.
+- **Output:** Binaries are located in `bin/`, and shared libraries are in their respective build folders.  
 
-### 8.4. Run example applications
+**Step 4. Execution Examples (YOLOv9)**  
 
-#### 8.4.1 Quick demo launchers
+Test the NPU performance using the YOLOv9 object detection template.  
 
-From the project root, you can quickly try multiple demos via helper scripts:
-
-```shell
-# C++ demo launcher
-./run_demo.sh
-
-# Python demo launcher
-./run_demo_python.sh
-```
-
-Just run the script and either:
-- type a menu number, or
-- wait for the timeout to use the default option (`0`: YOLOv7).
-
-#### 8.4.2 C++ (YOLOv9 object detection)
-
-```shell
-# Image inference (sync)
+C++ Implementation (High Performance)  
+```bash
+# Static Image Inference (Synchronous)
 ./bin/yolov9_sync \
-  -m assets/models/YOLOV9S.dxnn \
-  -i sample/img/1.jpg
+-m assets/models/YOLOV9S.dxnn \
+-i sample/img/1.jpg
 
-# Video inference (async)
+# Video Stream Inference (Asynchronous)
 ./bin/yolov9_async \
-  -m assets/models/YOLOV9S.dxnn \
-  -v assets/videos/dance-group.mov
+-m assets/models/YOLOV9S.dxnn \
+-v assets/videos/dance-group.mov
 ```
 
-#### 8.4.3 Python (YOLOv9 object detection)
+Python Implementation (Rapid Prototyping)  
+```bash
+# Python Baseline (Synchronous)
+python src/python_example/object_detection/yolov9/yolov9_sync.py \
+   --model assets/models/YOLOV9S.dxnn \
+   --image sample/img/1.jpg
 
-```shell
-# Python sync example
-python3 src/python_example/object_detection/yolov9/yolov9_sync.py \
+# Python Optimized (Asynchronous + C++ Post-processing)
+python src/python_example/object_detection/yolov9/yolov9_async_cpp_postprocess.py \
   --model assets/models/YOLOV9S.dxnn \
-  --image sample/img/1.jpg
-
-# Python async + C++ post-processing
-python3 src/python_example/object_detection/yolov9/yolov9_async_cpp_postprocess.py \
-  --model assets/models/YOLOV9S.dxnn \
-  --video assets/videos/dance-group.mov
+    --video assets/videos/dance-group.mov 
 ```
 
-After each run you’ll see a performance summary in the console, and (unless disabled) a window showing the processed results.
+**Output and Analysis**  
 
+Following execution, a window will render results (`boxes/masks`), and the console will output a **Performance Summary** (`Latency/FPS`) as described in [**Section. DX-APP C++ Examples**](./src/c++_example/README.md).  
+
+---
