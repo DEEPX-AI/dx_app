@@ -88,7 +88,7 @@ Before building the templates, ensure your system meets the following hardware a
 
 To utilize NPU acceleration, you **must** install the kernel-mode drivers and the user-space runtime library  
 
-- **DEEPX NPU Linux Driver:** Required for low-level NPU communication. [Github Repository](https://github.com/DEEPX-AI/dx_rt_npu_linux_driver>)  
+- **DEEPX NPU Linux Driver:** Required for low-level NPU communication. [Github Repository](https://github.com/DEEPX-AI/dx_rt_npu_linux_driver)  
 - **DX-RT (Runtime & Tools):** The core library for model inference and hardware management. [Github Repository](https://github.com/DEEPX-AI/dx_rt)  
 
 **B. Development Toolchain and Libraries**  
