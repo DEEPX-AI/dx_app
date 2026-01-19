@@ -378,6 +378,6 @@ By reviewing the generated .csv files, you can identify
 - **Environment Baselining:** Establish a performance baseline for your current computing environment to track how future software or model updates affect speed.  
 - **Optimization Strategy:** Use the data to decide whether to prioritize CPU optimization (C++) or pipeline management (Async) for your production application.  
 
-For a deeper dive into the testing architecture, refer to the `tests/python_example/README.md`.  
+For a deeper dive into the testing architecture, refer to the [tests/python_example/README.md](/tests/python_example/README.md).   
 
 ---
