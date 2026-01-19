@@ -101,7 +101,7 @@ python src/python_example/object_detection/yolov9/yolov9_async_cpp_postprocess.p
 - **Implementation:** C++ post-processing classes wrapped with pybind11 for seamless Python integration.  
 - **Build System:** Utilizes CMake with scikit-build-core for robust, cross-platform extension building.  
 - **Source Code:**  
-     : **Python Bindings:** 'src/bindings/python/dx_postprocess/postprocess_pybinding.cpp'  
-     : **C++ Implementations:** 'src/postprocess/'  
+     : **Python Bindings:** `src/bindings/python/dx_postprocess/postprocess_pybinding.cpp`  
+     : **C++ Implementations:** `src/postprocess/`  
 
 ---
