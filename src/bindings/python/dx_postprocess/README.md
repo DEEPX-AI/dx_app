@@ -1,86 +1,80 @@
-# dx_postprocess
+## dx_postprocess Overview & Performance Benefits  
 
-High-performance post-processing library for AI models with C++ implementation and Python bindings.
+The `dx_postprocess` module provides high-performance Python bindings for the **DEEPX C++ post-processing library**. By utilizing `pybind11`, it allows Python applications to execute hardware-optimized decoding logic with near-native C++ performance.  
 
-## Overview
+Integrating C++ post-processing into your Python pipeline offers two primary advantages  
 
-`dx_postprocess` provides Python bindings to [C++-implemented post-processing classes](../../../postprocess/) for various AI models. It accelerates post-processing operations themselves, and depending on the computing environment and pipeline bottleneck, may also improve overall throughput.
+- **Stage Acceleration:** The post-processing operation itself (e.g., NMS, coordinate scaling) is significantly faster than native Python implementations.  
+- **Pipeline-Wide Improvement:** End-to-end FPS gains occur in specific scenarios.  
+    - **Primary Bottleneck:** When the post-processing stage is the slowest part of the pipeline.  
+    - **CPU Contention:** In CPU-constrained environments (e.g., embedded boards), reduced CPU usage in the post-processing stage helps other stages (Read, Preprocess) and NPU utilization function more efficiently.  
 
-### Supported Models
+!!! note "NOTE"  
+    While the C++ library is faster, overall pipeline improvement depends on the bottleneck location. If NPU inference or data reading is the limiting factor, end-to-end FPS gains may be minimal, though CPU power consumption will still decrease.  
 
-- **Object Detection**: YOLOv5, YOLOv7, YOLOv8, YOLOv9, YOLOX, YOLOv5Face, SCRFD, YOLOv5Pose
-- **Semantic Segmentation**: DeepLabv3
+For a detailed analysis, refer to the [Python Examples Guide](../../../python_example/README.md).  
 
-## Performance Benefits
+---
 
-C++ post-processing accelerates the post-processing stage itself, and may also improve overall throughput depending on your environment:
+## Supported Models & Tasks
 
-- **Post-processing acceleration**: Always faster than Python implementation for the post-processing operation
-- **Pipeline-wide improvement**: May boost end-to-end FPS in specific scenarios:
-  - When post-processing is the primary bottleneck
-  - In CPU-constrained environments where reduced CPU usage helps other pipeline stages (Read, Preprocess) and NPU utilization
+The library supports a wide range of architectures, ensuring consistent results between C++ and Python implementations.  
 
-**Note**: While C++ post-processing itself is faster, overall pipeline improvement depends on where the bottleneck occurs. If inference or other stages are the limiting factor, end-to-end FPS gain may be minimal.
+- **Object Detection:** YOLOv5 through YOLOv12, YOLOX, SCRFD (Face), and YOLOv5Face.  
+- **Pose Estimation:** YOLOv5Pose (Skeletal keypoints).  
+- **Semantic Segmentation:** DeepLabv3.  
 
-For detailed analysis, see the [Python Examples Guide](../../../python_example/README.md).
+---
 
-## Installation
+### Installation
 
-### Prerequisites
+**Prerequisites:** Before building, ensure the following are installed on your system  
 
-You need to have these installed on your system before building:
+- **Python:** 3.8 or higher  
+- **Compiler:** GCC 4.8+ or Clang 3.3+  
+- **Build Tool:** CMake 3.16 or higher  
 
-- **Python 3.8 or higher**
-- **C++ compiler** (gcc 4.8+ or clang 3.3+)
-- **CMake 3.16 or higher**
+During the installation, `pybind11` is automatically cloned from GitHub to `extern/pybind11` if it is not already present.  
 
+**Installation Methods:** The module is automatically built during the full SDK setup, but it can also be updated independently.  
 
-During the installation process, `pybind11` is automatically cloned from GitHub to `extern/pybind11` if not present.
+| **Method** | **Command** | **Recommended For** | 
+|----|----|----|
+| **Full Build** | `./build.sh` | Initial environment setup and full SDK deployment | 
+| **Standalone** | `./src/bindings/python/dx_postprocess/install.sh` | Focused updates to the post-processing logic | 
 
-### Installation Methods
+**Standalone Installation Options:** When using `install.sh`, the following flags are available  
 
-**Method 1: Install with full dx_app build**
+- `--python_exec PATH`: Specify the Python executable (default: `python3`)  
+- `--type TYPE`: Build type—`Release`, `Debug`, or `RelWithDebInfo` (default: `Release`)  
+-	`--help`: Show the help message  
+
+**Verification:** To ensure the module is correctly linked to your Python environment, run:
 ```bash
-# From dx_app/ directory
-./build.sh
+python3 -c "import dx_postprocess; print('dx_postprocess successfully installed!')"  
 ```
 
-**Method 2: Standalone installation**
+---
+
+## Usage Guide & Running Examples
+
+The `dx_postprocess` classes expect a list of NumPy arrays directly from the `InferenceEngine`.  
+
+Basic Implementation Example  
 ```bash
-# From dx_app/ directory
-./src/bindings/python/dx_postprocess/install.sh
-```
+from dx_postprocess import YOLOv9PostProcess 
+import numpy as np 
 
-Available options for [`install.sh`](../../../bindings/python/dx_postprocess/install.sh):
-- `--python_exec PATH`: Specify Python executable (default: `python3`)
-- `--type TYPE`: Build type - `Release`, `Debug`, or `RelWithDebInfo` (default: `Release`)
-- `--help`: Show help message
+# Initialize the optimized C++ post-processor 
+postprocessor = YOLOv9PostProcess( 
+input_w=640, 
+input_h=640, 
+score_threshold=0.25, 
+nms_threshold=0.45, 
+is_ort_configured=True 
+) 
 
-### Verification
-
-```bash
-# Verify installation
-python3 -c "import dx_postprocess; print('Successfully installed!')"
-```
-
-## Usage
-
-### Basic Example
-
-```python
-from dx_postprocess import YOLOv9PostProcess
-import numpy as np
-
-# Create post-processor
-postprocessor = YOLOv9PostProcess(
-    input_w=640,
-    input_h=640,
-    score_threshold=0.25,
-    nms_threshold=0.45,
-    is_ort_configured=True
-)
-
-# Post-process inference output
+Post-process inference output
 # ie_output is a list of numpy arrays from InferenceEngine
 detections = postprocessor.postprocess(ie_output)
 
@@ -88,11 +82,9 @@ detections = postprocessor.postprocess(ie_output)
 # Each row: [x1, y1, x2, y2, confidence, class_id]
 ```
 
-## Running Examples
-
-Python examples in [`src/python_example/`](../../../python_example/) use this library in their `'_cpp_postprocess.py'` variants:
-
+Running Examples  
 ```bash
+Python examples in src/python_example/ utilize this library in their '_cpp_postprocess.py' variants.
 # From dx_app/ directory
 
 # Sync (Image Inference)
@@ -102,10 +94,14 @@ python src/python_example/object_detection/yolov9/yolov9_sync_cpp_postprocess.py
 python src/python_example/object_detection/yolov9/yolov9_async_cpp_postprocess.py --model assets/models/YOLOV9S.dxnn --video assets/videos/dance-group.mov
 ```
 
-## Technical Details
+---
 
-- **Implementation**: C++ post-processing classes wrapped with `pybind11`
-- **Build system**: CMake with scikit-build-core
-- **Source code**: 
-  - Python bindings: [`src/bindings/python/dx_postprocess/postprocess_pybinding.cpp`](postprocess_pybinding.cpp)
-  - C++ implementations: [`src/postprocess/`](../../../postprocess/)
+## Technical Details 
+
+- **Implementation:** C++ post-processing classes wrapped with pybind11 for seamless Python integration.  
+- **Build System:** Utilizes CMake with scikit-build-core for robust, cross-platform extension building.  
+- **Source Code:**  
+     : **Python Bindings:** `src/bindings/python/dx_postprocess/postprocess_pybinding.cpp`  
+     : **C++ Implementations:** `src/postprocess/`  
+
+---

@@ -33,16 +33,16 @@ site_url: 'https://developer.deepx.ai/'
 nav:
   - DXNN Application Overview: docs/01_DXNN_Application_Overview.md
   - DX-APP Installation and Build: docs/02_DX-APP_Installation_and_Build.md
-  - CPP Examples: 
-    - Guides: docs/03_DX-APP_CPP_Example_Usage_Guide.md
-    - Tests: docs/04_DX-APP_CPP_Example_Test.md
-  - Python Examples:
-    - Guides: docs/04_DX-APP_Python_Example_Usage_Guide.md
-    - Tests: docs/05_DX-APP_Python_Example_Test.md
-  - Post-processing:
-    - C++: docs/06_DX-APP_CPP_PostProcess_Overview.md
-    - Python Binding: docs/07_DX-APP_Pybind_PostProcess_Overview.md
-  - Project README: docs/08_DX-APP_Project_Overview.md
+  - DX-APP C++ Example: 
+    - Guide: docs/03_DX-APP_CPP_Example_Usage_Guide.md
+    - Test: docs/04_DX-APP_CPP_Example_Test.md
+  - DX-APP Python Example:
+    - Guide: docs/05_DX-APP_Python_Example_Usage_Guide.md
+    - Test: docs/06_DX-APP_Python_Example_Test.md
+  - DX-APP Post-processing:
+    - C++: docs/07_DX-APP_CPP_PostProcess_Overview.md
+    - Python Binding: docs/08_DX-APP_Pybind_PostProcess_Overview.md
+  - DX-APP Project README: docs/09_DX-APP_Project_Overview.md
   - Change Log: docs/Appendix_Change_Log.md
 
 plugins:
@@ -54,7 +54,7 @@ plugins:
       #
       #cover: false
       cover_title: DXNN Application (DX-APP) User Manual
-      cover_subtitle: v3.0.0 (Nov 2026)
+      cover_subtitle: v3.0.0 (Jan 2026)
       cover_logo: img/deepx.png
       custom_template_path: docs/stylesheets
       output_path: ../DEEPX_DX-APP_UM_v3.0.0.pdf
