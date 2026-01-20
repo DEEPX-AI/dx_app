@@ -1,50 +1,56 @@
-# C++ Example Test 
+## Overview
 
-This directory contains CLI tests for executables in the `bin/` directory.
+The project provides a comprehensive Python-based test suite located in `tests/cpp_example/`. These tests ensure that C++ binaries are functional, handle arguments correctly, and meet performance benchmarks on the DEEPX NPU.  
 
-## Test Structure
+---
 
-- `test_cli_help.py`: Tests for `--help` option of all executables
-- `test_cli_basic.py`: Basic CLI argument tests
-- `test_e2e.py`: End-to-end integration tests (image/video inference)
+## Test Categories
 
-## Running Tests
+The suite is categorized into two main tiers based on execution speed and depth.  
+
+**CLI Tests (Fast)**  
+
+- **Files**: `test_cli_help.py, test_cli_basic.py`  
+- **Scope**: Validates `--help` options, invalid argument handling, and no-argument behaviors for all 48 executables.  
+
+**E2E(End-to-End) Tests (Slow)**  
+
+- **File**: `test_e2e.py`  
+- **Scope**: Performs real inference on images and videos using `.dxnn` models to verify the full pipeline and NPU utilization.  
+     : Coverage: Only tests 36 executables that support the `--no-display` option.  
+     : Assets: Uses real models from `assets/models/` and test data from `sample/img/` and `assets/videos/`.  
+     : Parameters: Default loop count of 50 iterations.  
+     : Timeouts: 100 seconds for image inference, 10 minutes for video inference.  
+
+---
+
+## Prerequisites
+
+Before running tests, ensure the environment is prepared.  
+
+**For CLI Tests**  
+
+- Executables must be built in the `bin/` directory.  
+- Run `./build.sh` from the project root if executables are missing.  
+
+**For E2E Tests (Additional)**  
+
+- **Models**: Run `./setup_sample_models.sh` to populate `assets/models/`.  
+- **Test Data**: Ensure images exist in `sample/img/` and videos in `assets/videos/` (Run `./setup_sample_videos.sh`).  
+- **Libraries**: Shared libraries must be present in the `lib/` directory.  
+
+---
+
+## Running Tests 
+
+### Execution Methods (Standard)  
+
+**Method A. Unified Test Runner (Recommended)**  
+
+The `run_tc.sh` script provides a high-level interface for running standardized test suites directly from the project root.  
 
 ```bash
-# Install requirements
-pip install -r requirements.txt
-
-# Run all tests (excluding slow E2E tests)
-pytest -m "not e2e"
-
-# Run only CLI tests (fast)
-pytest test_cli_help.py test_cli_basic.py
-
-# Run only E2E tests (slow, requires models and test data)
-pytest test_e2e.py -v
-
-# Run E2E for specific executable
-pytest test_e2e.py -k yolov8_async
-
-# Run only async executables E2E tests
-pytest test_e2e.py -m async_exec -v
-
-# Run only sync executables E2E tests
-pytest test_e2e.py -m sync_exec -v
-
-# Run all tests including E2E
-pytest -v
-
-# Run with verbose output
-pytest -v -s
-```
-
-## Using run_tc.sh (Recommended)
-
-The project provides a unified test runner script at the project root:
-
-```bash
-cd ../../  # Go to project root
+cd ../../  # Go to project root (dx_app/)
 
 # Run only C++ tests
 ./run_tc.sh --cpp
@@ -68,11 +74,33 @@ cd ../../  # Go to project root
 ./run_tc.sh --help
 ```
 
-**Tip:** Use `--e2e-quick` for faster validation during development (2-3 minutes vs 8-10 minutes).
+!!! note "TIP"  
+    Use `--e2e-quick` during development. It takes ~2–3 minutes, compared to 8–10 minutes for a full test.  
 
-## Filtering Tests by Model
+**Method B. Manual Execution via Pytest**  
 
-You can use pytest's `-k` option to run tests for specific models:
+For granular control, run `pytest` directly from `tests/cpp_example/`.  
+
+Basic Usage  
+
+```bash
+# Install requirements
+pip install -r requirements.txt
+
+# Run all tests (excluding slow E2E tests)
+pytest -m "not e2e"
+
+# Run only CLI tests (fast)
+pytest test_cli_help.py test_cli_basic.py
+
+# Run only E2E tests (slow, requires models and test data)
+pytest test_e2e.py -v
+
+# Run all tests including E2E with verbose output
+pytest -v -s
+```
+
+Advanced Filtering  
 
 ```bash
 cd tests/cpp_example
@@ -99,30 +127,37 @@ pytest test_e2e.py::test_image_inference_e2e[scrfd_async]
 
 # Multiple specific tests
 pytest test_e2e.py::test_video_inference_e2e[yolov7_async] \
-       test_e2e.py::test_video_inference_e2e[yolov8_async]
+            test_e2e.py::test_video_inference_e2e[yolov8_async]
 ```
 
-## Performance Report
+### Performance Reporting
 
-After running E2E tests, a performance report is automatically generated:
-- Console output: Formatted table with FPS metrics
-- CSV file: `performance_report_YYYYMMDD_HHMMSS.csv` in `tests/cpp_example/`
+After running E2E tests, a performance report is automatically generated to provide deep insights into the inference pipeline efficiency.  
 
-The report includes:
-- E2E FPS (overall throughput)
-- Read FPS (frame reading speed)
-- Preprocess FPS (preprocessing speed)
-- Inference FPS (model inference speed)
-- Postprocess FPS (postprocessing speed)
-- Bottleneck detection (marked with asterisk *)
+- **Console Output**: A formatted table with real-time FPS metrics.  
+- **CSV File**: A detailed log saved as `performance_report_YYYYMMDD_HHMMSS.csv` in `tests/cpp_example/`.  
 
-## Code Coverage
+The report includes  
 
-### Prerequisites
+- **E2E FPS:** Overall pipeline throughput.  
+- **Read FPS:** Speed of frame ingestion.  
+- **Preprocess FPS:** Speed of image transformation (resizing, normalization).  
+- **Inference FPS:** Pure NPU model execution speed.  
+- **Postprocess FPS:** Speed of result parsing (NMS, coordinate scaling).  
+- **Bottleneck Detection:** The slowest stage in the pipeline is automatically marked with an **asterisk (*)** for quick optimization targeting.  
 
-To generate code coverage reports, you need:
-1. Build executables with coverage instrumentation
-2. Install coverage tools (gcovr recommended, lcov as fallback)
+---
+
+## Code Coverage Analysis
+
+Code coverage measures how much of the source code is exercised during testing. This is essential for ensuring the robustness of the NPU inference pipeline.  
+
+### Prerequisites  
+
+To generate code coverage reports, you need to build the project with instrumentation and install the following tools  
+
+- **Step 1.** Build executables with coverage instrumentation.  
+- **Step 2.** Install coverage tools (`gcovr` is recommended; `lcov` is supported as a fallback).  
 
 ```bash
 # Install gcovr (recommended - supports XML, HTML, JSON)
@@ -135,19 +170,22 @@ sudo apt-get install lcov -y
 cd ../../  # Go to project root
 ./build.sh --clean --coverage --type relwithdebinfo
 
-# Verify coverage build
-ls build_x86_64/src/examples/*.gcno  # Should see .gcno files
+# Verify coverage build (check for .gcno files)
+ls build_x86_64/src/examples/*.gcno
 ```
 
-**Build Type Recommendations:**
-- `relwithdebinfo`: Best balance (1.5-2x slower, optimized with debug info)
-- `debug`: Most detailed coverage (3-5x slower)
+**Build Type Recommendations**  
+
+- `relwithdebinfo`: Recommended for development (1.5–2x slower, optimized with debug info)  
+- `debug`: Most detailed coverage (3–5x slower)  
 
 ### Running Tests with Coverage
 
-```bash
-cd tests/cpp_example
+Trigger coverage analysis using the following commands  
 
+**Manual Execution** (from `tests/cpp_example/`)  
+
+```bash
 # Quick E2E with coverage (image tests only, 2-3 minutes)
 pytest -m e2e -k "test_image_inference_e2e" --coverage -v
 
@@ -158,7 +196,8 @@ pytest -m e2e --coverage -v
 pytest -m e2e -k "yolov7" --coverage -v
 ```
 
-**Or use the unified test runner from project root:**
+**Unified Test Runner** (from project root)
+
 ```bash
 # Quick E2E with coverage (recommended for development)
 ./run_tc.sh --cpp --e2e-quick --coverage
@@ -169,70 +208,43 @@ pytest -m e2e -k "yolov7" --coverage -v
 
 ### Coverage Report Output
 
-After running tests with `--coverage`, you'll get:
-- **Console summary**: Line and branch coverage percentages
-- **XML report**: `tests/cpp_example/coverage/coverage_YYYYMMDD_HHMMSS.xml` (Cobertura format)
-- **HTML report**: `tests/cpp_example/coverage/html/index.html`
-- **JSON report**: `tests/cpp_example/coverage/coverage_YYYYMMDD_HHMMSS.json`
+After running tests with `--coverage`, several reports are generated in `tests/cpp_example/coverage/`  
 
-Open the HTML report in a browser:
+- **Console summary:** Line and branch coverage percentages.  
+- **HTML report:** Located at `html/index.html`. Shows line-by-line visualization with uncovered code in **red**.  
+- **XML (Cobertura) & JSON:** Timestamped for CI/CD integration.  
+
+**View the HTML Report**  
+
 ```bash
+# Open in your browser
 firefox tests/cpp_example/coverage/html/index.html
 # or
 xdg-open tests/cpp_example/coverage/html/index.html
 ```
 
-The reports show:
-- Overall coverage statistics
-- File-by-file coverage breakdown
-- Line-by-line coverage visualization
-- Uncovered code highlighted in red
-- Branch coverage analysis
+**Report Features**  
 
-**XML files are timestamped** for tracking coverage over time and CI/CD integration.
+- Overall and file-by-file coverage statistics.  
+- Line-by-line visualization with **uncovered code highlighted in red**.  
+- Branch coverage analysis.  
 
-**Coverage Filtering:**
-- Includes: `src/` directory source files
-- Excludes: `/usr/*`, `third_party/*`, `extern/*`, `tests/*`
+**Coverage Filtering Rules**  
 
-**Performance Impact:**
-- Debug + coverage: 3-5x slower than normal build
-- RelWithDebInfo + coverage: 1.5-2x slower (recommended for development)
+- **Included:** All source files within the `src/` directory.  
+- **Excluded:** System headers (`/usr/*\, third_party/*, extern/*`), and the `tests/` directory itself.  
 
+---
 
+## Test Coverage Summary
 
-## Test Categories
+| **Category** | **Count** | **Status** | 
+|----|----|----|
+| **Total Executables** | 48 | - | 
+| **CLI Tests** | 48 | All binaries validated (191 tests) | 
+| **E2E Tests** | 34 | Executables with `--no-display` support (68 tests + 1 prerequisite) | 
+| **Image Inference** | 34 | Validated via E2E image tests | 
+| **Video Inference** | 34 | Validated via E2E video tests | 
+| **Exclusions** | 14| GUI-only or multi-model variants (e.g.,`yolov7+deeplabv3`) | 
 
-### CLI Tests (Fast)
-- `test_cli_help.py`: --help option validation for all 48 executables
-- `test_cli_basic.py`: Invalid arguments and no-arguments handling
-
-### E2E Tests (Slow)
-- `test_e2e.py`: Real inference on images and videos
-  - Only tests executables with `--no-display` option (36 executables)
-  - Uses real models from `assets/models/`
-  - Uses test data from `sample/img/` and `assets/videos/`
-  - Default loop count: 50 iterations
-  - Image inference timeout: 100 seconds
-  - Video inference timeout: 10 minutes
-
-## Prerequisites
-
-### For CLI Tests
-- Executables must be built in `bin/` directory
-- Run `./build.sh` from project root if executables are missing
-
-### For E2E Tests (Additional)
-- Model files in `assets/models/` (run `./setup_sample_models.sh`)
-- Test images in `sample/img/`
-- Test videos in `assets/videos/` (run `./setup_sample_videos.sh`)
-- Shared libraries in `lib/` directory
-
-## Test Coverage
-
-- **Total executables**: 48
-- **CLI tests**: All 48 executables (191 tests)
-- **E2E tests**: 34 executables with --no-display option (68 tests + 1 prerequisite)
-  - Image inference: 34 tests
-  - Video inference: 34 tests
-  - Excluded: yolov7_x_deeplabv3_* (requires two models)
+---

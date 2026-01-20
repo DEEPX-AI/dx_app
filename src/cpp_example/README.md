@@ -1,72 +1,65 @@
-# C++ Examples Guide
+## Introduction
 
-## Table of Contents
+C++ examples are the starting point for building **DEEPX NPU–based AI applications in C++**. Each example is **self-contained end-to-end pipeline** that demonstrate how to transform raw input into real-time inference results.  
 
-1. [Introduction](#1-introduction)
-2. [Prerequisites](#2-prerequisites)
-3. [Example Structure](#3-example-structure)
-4. [Understanding Example Variants](#4-understanding-example-variants)
-   - 4.1. [Pipeline and NPU Processing: Sync vs. Async](#41-pipeline-and-npu-processing-sync-vs-async)
-5. [Execution Modes and Options](#5-execution-modes-and-options)
-6. [Building and Running the Examples](#6-building-and-running-the-examples)
-   - 6.1. [Build](#61-build)
-   - 6.2. [Run: Object Detection (YOLOv9)](#62-run-object-detection-yolov9)
-7. [Performance Measurement and Tuning](#7-performance-measurement-and-tuning)
+The examples are designed with the following technical goals.  
 
----
+- **Modular Pipeline Design:** Each example follows a standardized flow: **Input → Pre-process → Inference → Post-process → Visualization**. By isolating the post-processing into **a Shared C++ Library** (`src/postprocess/`), we ensure that the core logic is reusable and consistent across both C++ and Python environments.  
 
-## 1. Introduction
+- **Performance Optimization Patterns:** The guide introduces two distinct execution variants—**Synchronous (Sync)** and **Asynchronous (Async)**. These allow you to compare sequential processing against multi-threaded scheduling, helping you understand how to maximize NPU utilization and minimize latency.  
 
-C++ examples are the starting point for building **DEEPX NPU–based AI applications in C++**. Each example is a **self-contained end-to-end pipeline** using a real model and is designed with the following goals:
+- **Flexible Ingestion Backends:** Beyond basic inference, the examples showcase advanced input handling using **GStreamer, OpenCV,** and **V4L2**. This provides a practical foundation for integrating various sources like high-resolution cameras, RTSP network streams, and local video files.  
 
-- **Per‑model, single‑file pipeline**
-  - Each C++ example focuses on a single model and covers the full flow: Input → Pre-process → Inference → (post-process call) → Display/Save.
-  - The example code is intentionally minimal and focused on one task, so it is easy to read, modify, and reuse.
+- **Profiling-Driven Development:** Every example includes built-in telemetry. By analyzing the **Performance Summary**, you can identify pipeline bottlenecks and fine-tune your application for production-level throughput (**FPS**).  
 
-- **Shared C++ post-processing library**
-  - The **post-processing algorithms themselves are not implemented inside the example files**.
-  - They live under `src/postprocess/` as reusable C++ classes (e.g., `YOLOv5PostProcess`, `YOLOv9PostProcess`).
-  - C++ examples simply include and call these classes, and the **same C++ post-processors are exposed to Python via pybind11**, so C++ and Python examples share identical post-processing logic.
-
-- **Learning optimization patterns**
-  - For the same model, you get multiple variants such as **sync / async** pipelines.
-  - All variants share the same post-processing classes, but differ in pipeline structure, threading, and asynchronous scheduling.
-  - By building and running these variants and comparing their performance logs, you can intuitively understand the impact of different designs.
-
-- **Practical application templates**
-  - You can copy an example file and adapt it by changing the input source, pre-processing, post-processing parameters, and visualization/saving logic.
-  - Because the core model and post-processing are already wired, it is straightforward to evolve the example into your own application.
+- **Extensible Templates:** These examples are not just demos but **practical application templates**. You can easily adapt them by swapping the model (`.dxnn`), modifying pre/post-processing parameters, or integrating custom input/output logic to meet your specific project requirements.  
 
 ---
 
-## 2. Prerequisites
+## Prerequisites
 
-Before building and running the C++ examples, make sure the following environment is prepared:
+Before building and running the C++ examples, make sure the following environment is prepared.
 
-- **DX-RT (DEEPX Runtime)**
-  - Required runtime to execute `.dxnn` models on the NPU.
-  - The `dxrt` libraries must be installed and discoverable via `LD_LIBRARY_PATH`.
+- **DEEPX Runtime(DX-RT)**  
+     : Purpose: Required runtime to execute `.dxnn` models on the NPU.  
+     : Setup: The `dxrt` libraries **must** be installedand their path added to the environment `export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/path/to/dxrt/lib`.  
 
-- **Build tools**
-  - CMake 3.16 or later
-  - A C++14-compatible compiler (GCC, Clang, ...)
-  - Make or Ninja
+- **Build Tools**  
+     : CMake: Version 3.16 or later  
+     : Compiler: C++14-compatible compiler (GCC, Clang)  
+     : Build Tool: `Make` or `Ninj`  
 
-- **Required libraries**
-  - OpenCV (for image/video I/O and visualization)
+- **Dependencies**  
+     : OpenCV: Required for image/video I/O and visualization  
+      **NOTE.** Ensure the development headers are installed (e.g., `libopencv-dev` on Ubuntu).  
 
-- **Models and sample input data**
-  - Run `dx_app/setup.sh` once from the project root to download sample models and videos into `assets/models` and `assets/videos`.
+- **Assets (Models and Data)**  
+    To download the required sample models and test videos, run the setup script from the project root.  
+    
+```bash
+./setup.sh
+```
 
-  ```bash
-  ./setup.sh
-  ```
+The assets will be available in the following directories  
+
+- `assets/models/`: Contains pre-compiled `.dxnn` files.  
+- `assets/videos/`: Contains sample video files for testing.  
 
 ---
 
-## 3. Example Structure
+## Example Structure
 
-C++ examples are organized in a **Task → Model → Variant** hierarchy.
+The C++ examples are organized in a **Task → Model → Variant** hierarchy.  
+
+**Hierarchy Overview**  
+
+- **Task (Top Level)**: Examples are grouped by functional categories  
+     : e.g: `classification`, `object_detection`, `semantic_segmentation`, `instance_segmentation`, `ppu`, etc.  
+- **Model (Second Level)**: Each task contains sub-folders for specific model architecture  
+     : e.g., `object_detection/yolov5/`, `object_detection/yolov7/`, `classification/efficientnet/`.  
+- **Variants(File Level)**: Individual C++ source files within the model folder represent different execution pipelines  
+     : `*_sync.cpp`: **Synchronous** implementation (simpler logic, sequential processing)  
+     : `*_async.cpp`: **Asynchronous** implementation (optimized for throughput using multi-threading)  
 
 ```text
 src/cpp_example/
@@ -97,105 +90,57 @@ src/cpp_example/
     └── image/, video/, camera/, rtsp/ ...
 ```
 
-- **Task directories** 
-  - Grouped by task type such as `classification`, `object_detection`, `semantic_segmentation`, `instance_segmentation`, `ppu`, etc.
-- **Model directories**
-  - Under each task you will find sub-folders per model (e.g., `yolov5`, `yolov7`, `efficientnet`).
-- **Variants**
-  - Within a model folder there are one or more C++ example files such as `*_sync.cpp` and `*_async.cpp`, which differ in pipeline design (synchronous vs. asynchronous).
+---
+
+## Understanding Example Variants : Sync vs. Async
+
+For each model, DEEPX provides two primary pipeline styles. Choosing the right implementation depends on your development stage and throughput goals.  
+
+**`sync` Examples (`*_sync.cpp`)**  
+
+The synchronous variant follows a linear, sequential execution model.  
+
+- **Flow**: **Read → Pre-process → Inference → Post-process → Display/Save**  
+- **Mechanism**: Uses **a single thread**. The CPU waits for the NPU to complete each `InferenceEngine.Run()` call before proceeding.  
+- **Best Use Cases**  
+     : Initial prototyping and debugging  
+     : Learning the basic end-to-end API flow  
+     : Processing single images where throughput is not a priority  
+
+**`async` Examples (`*_async.cpp`)**  
+
+The asynchronous variant optimizes performance by decoupling stages into parallel tasks.  
+
+- **Flow**: Each stage (Read, Pre-process, Inference, etc.) runs in its own thread, connected by a SafeQueue  
+- **Mechanism**: Uses `InferenceEngine.RunAsync()` to submit multiple in-flight requests. While the NPU processes Frame N, the CPU handles pre/post-processing for other frames.  
+- **Key Features**: Includes an `ASYNC_BUFFER_SIZE` to manage the pipeline depth and maximize NPU utilization.  
+- **Best Use Cases**  
+     : Production-level continuous streams (RTSP, Cameras)  
+     : High-performance benchmarking (provides detailed latency/FPS metrics)  
 
 ---
 
-## 4. Understanding Example Variants
+## Building and Running Examples
 
-For each model, examples are provided for different **pipeline styles**, primarily synchronous vs. asynchronous.
+This section describes how to compile the C++ source code and execute the examples using various input modes and command-line options.  
 
-### 4.1. Pipeline and NPU Processing: Sync vs. Async
+### Build Process
 
-#### `sync` examples (`*_sync.cpp`)
+You can compile all C++ examples simultaneously from the project root using the provided build script. This script automates the CMake configuration and compilation.  
 
-- **Pipeline structure**
-  - Read → Pre-process → Inference → Post-process → Display/Save runs **sequentially in a single thread**.
-- **NPU execution**
-  - Uses `InferenceEngine.Run()` to process **one request at a time**.
-- **When to use**
-  - Best for understanding the basic end-to-end flow and for debugging.
-  - Works well for single-image runs and simple video/stream processing where maximum throughput is not critical.
-
-#### `async` examples (`*_async.cpp`)
-
-- **Pipeline structure**
-  - Read / Pre-process / Inference / Post-process / Display are **split across multiple threads and internal queues**.
-  - For example, the YOLOv5 async sample uses a `SafeQueue`, separate post-processing and display threads, and an `ASYNC_BUFFER_SIZE` to keep the NPU busy.
-- **NPU execution**
-  - Uses `InferenceEngine.RunAsync()` to submit **multiple in-flight requests** to the NPU.
-  - This helps maximize utilization on multi-core NPUs.
-- **When to use**
-  - Recommended for continuous streams (video files, cameras, RTSP) where high end-to-end FPS is desired.
-  - The examples print detailed metrics such as average latency per stage, **inference throughput (FPS\*)**, `Infer Completed`, and `Infer Inflight Avg/Max` to help analyze NPU utilization.
-
----
-
-## 5. Execution Modes and Options
-
-Each C++ example binary supports **multiple input modes** (image / video / camera / RTSP) controlled by command-line options. Unlike the Python examples, there are no separate functions per mode; instead, you choose the mode via CLI flags.
-
-### 5.1. Common options
-
-- `-m, --model_path <path>`
-  - **Required.** Path to the `.dxnn` model file to use for inference.
-  - Example: `-m assets/models/YOLOV9S.dxnn`
-
-- `-l, --loop <N>`
-  - Number of inference iterations to run. Default is `1`.
-  - Useful for performance measurements (average latency, FPS) on the same input.
-
-- `--no-display`
-  - Do not show any result windows; only **FPS and performance logs** are printed.
-  - Recommended for headless/embedded environments when you only care about throughput.
-
-- `-s, --save_video`
-  - When using video/camera/RTSP input, save the processed output to a video file.
-
-- `-h, --help`
-  - Print usage and all supported options for the given example binary.
-
-> Note: The exact help text may vary slightly between binaries (e.g., `yolov5_sync`, `yolov9_async`), but the core options are consistent.
-
-### 5.2. Input source options
-
-In a single execution, you must choose **exactly one** input source. If you pass more than one, the examples will print an error and exit (see `yolov5_sync.cpp`).
-
-- `-i, --image_path <path>`
-  - Use a single image file as input (jpg, png, jpeg, ...).
-  - The example reads the image once and runs the configured number of inference loops.
-
-- `-v, --video_path <path>`
-  - Use a video file (mp4, mov, avi, ...) as input.
-  - Frames are read in a loop and processed sequentially (sync) or via asynchronous queues (async).
-
-- `-c, --camera_index <index>`
-  - Use a local camera device as input. Example: `-c 0` for the default camera.
-  - Performs real-time inference on live camera frames.
-
-- `-r, --rtsp_url <url>`
-  - Use an RTSP stream URL as input.
-  - Intended for network cameras or streaming servers.
-
----
-
-## 6. Building and Running the Examples
-
-### 6.1. Build
-
-You can build all C++ examples from the project root using the provided script:
+**Step 1. Execute the Build Script**  
 
 ```bash
 # From the project root (dx_app/)
 ./build.sh
 ```
 
-After a successful build, the example binaries are created under `bin/`:
+**Step 2. Verify Output Binaries**  
+
+After a successful build, executable binaries are generated in the bin/ directory.  
+
+- Location: `{project_root}/bin/`  
+- Format: `[model_name]_[variant]` (e.g., `yolov5_sync, yolov9_async`)  
 
 ```text
 bin/
@@ -206,72 +151,214 @@ bin/
 └── ...
 ```
 
-> Note: The exact set of binaries may vary depending on the target platform and build options.
+!!! note "NOTE"  
+    The exact set of binaries may vary depending on the target platform and specific build options.  
 
-### 6.2. Run: Object Detection (YOLOv9)
+### Command-Line Options  
 
-The YOLOv9 examples illustrate how to run sync vs. async pipelines with different input sources.
+Each example binary supports multiple input modes. Unlike Python examples, a single binary handles all modes (Image, Video, Camera, RTSP) via CLI flags.  
+
+!!! warning "Important"  
+    You **must** specify exactly one input source per execution. Providing multiple sources will result in an error.  
+
+| **Category** | **Option** | **Description** | 
+|----|----|----|
+| **Required** | `-m, --model_path` | Path to the .dxnn model file. (e.g., `-m assets/models/yolov5.dxnn`) | 
+| **Input Source** | `-i, --image_path` | Path to a single image file (JPG, PNG, etc.) | 
+|                  | `-v, --video_path` | Path to a video file (MP4, MOV, AVI, etc.) | 
+|                  | `-c, --camera_index` | Local camera index (e.g., `0` for `/dev/video0`) | 
+|                  | `-r, --rtsp_url` | RTSP stream URL for network cameras | 
+| **Execution** | `-l, --loop`| Number of inference iterations. Default is `1` | 
+| **Output** | `--no-display` | Disable GUI windows. Recommended for headless/embedded systems | 
+|            | `-s, --save_video` | Save processed frames to a video file | 
+| **Help** | `-h, --help` | Print usage and all supported options for the specific binary | 
+
+
+### Usage Examples
+
+The following examples are common ways to execute the examples using different input sources and pipeline variants.  
+
+**Example 1: Single Image Inference (Sync)**  
+
+Processes a single image and displays the result.  
 
 ```bash
-# 1) Image inference (Sync)
 ./bin/yolov9_sync \
   -m assets/models/YOLOV9S.dxnn \
-  -i sample/img/1.jpg
+  -i assets/images/bus.jpg
+```
 
-# 2) Video inference (Sync)
+**Example 2: Video File Inference (Sync)**  
+
+Reads frames from a video file and processes them sequentially.  
+
+```bash
 ./bin/yolov9_sync \
   -m assets/models/YOLOV9S.dxnn \
   -v assets/videos/dance-group.mov
+```
 
-# 3) Camera stream inference (Async)
+**Example 3: Live Camera Stream (Async)**  
+
+Performs high-performance inference on a local camera feed (e.g., `/dev/video0`).  
+
+```bash
 ./bin/yolov9_async \
   -m assets/models/YOLOV9S.dxnn \
   -c 0
-
-# 4) RTSP stream inference (Async)
-./bin/yolov9_async \
-  -m assets/models/YOLOV9S.dxnn \
-  -r rtsp://path/to/rtsp
 ```
 
-After each run:
+**Example 4: RTSP Network Stream (Async)**  
 
-- The processed video is displayed in a window unless you pass `--no-display`.
-- A **Performance Summary** is printed to the console so you can directly compare sync vs. async behavior.
+Connects to a network camera or streaming server for real-time analysis.  
+
+```bash
+./bin/yolov9_async \
+  -m assets/models/YOLOV9S.dxnn \
+  -r rtsp://path/to/rtsp_stream
+```
+
+### Verification and Performance Summary
+
+After each run, you can verify the results as follows.  
+
+- **Visualization**: A window displays the processed video with detection boxes (unless `--no-display` is used).  
+- **Performance Summary**: The console prints metrics to help you compare Sync vs. Async behavior.  
+     : **Sync**: Total time and average latency per frame.  
+     : **Async**: Inference FPS and NPU In-flight Avg/Max utilization.  
 
 ---
 
-## 7. Performance Measurement and Tuning
+## Input Source Processing Examples
 
-- **Using the profiling output**
-  - Each example includes timers and a summary function that report average latency per stage.
-      ```
-      ==================================================
-                     PERFORMANCE SUMMARY                
-      ==================================================
-      Pipeline Step   Avg Latency     Throughput     
-      --------------------------------------------------
-      Read               1.44 ms      692.1 FPS
-      Preprocess         0.61 ms     1646.9 FPS
-      Inference         40.42 ms      164.1 FPS*
-      Postprocess        0.56 ms     1781.1 FPS
-      Display            7.10 ms      140.8 FPS
-      --------------------------------------------------
-      * Actual throughput via async inference
-      --------------------------------------------------
-      Infer Completed     :    478
-      Infer Inflight Avg  :    6.0
-      Infer Inflight Max  :      8
-      --------------------------------------------------
-      Total Frames        :    478
-      Total Time          :    3.5 s
-      Overall FPS         :   136.5 FPS
-      ==================================================
-      ```
-  - The async examples additionally make it easy to see which stage in the pipeline (Preprocess / Inference / Postprocess / Display) is the bottleneck.
+The folder `src/cpp_example/input_source_process_example` contains focused samples that show how to ingest frames from different input sources and feed them to **DX-RT (DEEPX Runtime)**.  
 
-- **Comparing sync vs. async**
-  - Run both `*_sync` and `*_async` variants on the same input source and compare `Overall FPS`.
-  - In most streaming scenarios, the async variant should achieve higher `Overall FPS` thanks to parallelism and better NPU utilization.
 
-Use this guide as a starting point to open each C++ example, understand the pipeline, and then customize input handling, pre-processing, post-processing, and output logic to match your application requirements.
+### Directory Layout
+
+Each directory contains standalone examples focusing on specific backends to handle different data streams.  
+
+- `camera/`: GStreamer (`camera_gstreamer`), OpenCV (`camera_opencv`), low-level V4L2 mmap (`camera_v4l2`) capture  
+- `rtsp/`: GStreamer (`rtsp_gstreamer`), OpenCV (`rtsp_opencv`) RTSP reception  
+- `video/`: GStreamer (`video_gstreamer`), OpenCV (`video_opencv`) file decode  
+- `image/`: OpenCV single-image repeated inference (`image_opencv`)  
+
+
+### Build Instructions  
+
+The project includes a root `CMakeLists.txt` for a single-pass build of all sub-samples.  
+
+```bash
+# Navigate to the example directory 
+cd src/cpp_example/input_source_process_example 
+mkdir -p build && cd build 
+
+# Configure and build 
+cmake .. 
+make -j 
+
+# Binaries are installed to: {project_root}/bin
+```
+
+### Backend Implementation Comparison
+
+The following table summarizes the technical approach of each provided sample.  
+
+| **Source** | **Backend** | **Implementation Highlights** | 
+|----|----|----|
+| **Camera** | **GStreamer** | Uses `v4l2src → videoconvert → appsink`. Efficient BGR frame copying | 
+|            | **OpenCV** | Uses `cv::VideoCapture`. Writes directly into preallocated input tensor buffers | 
+|            | **V4L2** | Minimalist low-level `mmap` capture (MJPEG/YUYV). Ideal for resource-constrained systems. | 
+| **RTSP** | **GStreamer** | Dynamic pad linking (`rtspsrc → avdec_h264`). High stability for network streams | 
+|          | **OpenCV** | Fast prototyping. Includes FPS tuning and buffer management | 
+| **Video** | **GStreamer** | `filesrc → decodebin`. Robust handling of EOS (End of Stream) and quit signals | 
+|           | **OpenCV** | Sequential iteration with progress logging every 100 frames. | 
+| **Image** | **OpenCV** | Repeatedly queues a single image to demonstrate `RunAsync() / Wait()` cycles | 
+
+### Execution Guide
+
+**Common Options**  
+
+All binaries share consistent CLI flags for ease of use.  
+
+- `-m, --model_path` (Required): Path to the `.dxnn` model file  
+- `Resizing`: Uses `--input_width / --input_height` or model metadata to perform hardware-accelerated resizing before inference  
+- Execution Flow: Most samples demonstrate the **Async** flow  
+     : Step 1. Submit frame via `RunAsync()`.  
+     : Step 2. Gather results using `Wait()` from a thread-safe queue.  
+
+
+**Usage Examples**  
+
+Run these commands from the project root after building.  
+
+GStreamer Camera Capture  
+```bash
+./bin/camera_gstreamer -m assets/models/yolov5s.dxnn -d /dev/video0
+```
+
+OpenCV RTSP Stream  
+```bash
+./bin/rtsp_opencv -m assets/models/yolov5s.dxnn -r rtsp://user:pass@host/stream1
+```
+
+GStreamer Video File Decode  
+```bash
+./bin/video_gstreamer -m assets/models/yolov5s.dxnn -v assets/videos/dogs.mp4
+```
+
+Static Image Loop (Benchmarking)  
+```bash
+/bin/image_opencv -m assets/models/yolov5s.dxnn -i assets/images/bus.jpg
+```
+
+---
+
+## Performance Measurement and Tuning
+
+Each example includes a **Performance Summary** printed upon exit. Use this telemetry to identify bottlenecks and optimize NPU utilization.  
+ 
+**Interpreting the Performance Summary**  
+
+The report breaks down performance by pipeline stage.  
+
+Sample Output  
+```text
+==================================================
+               PERFORMANCE SUMMARY                
+==================================================
+Pipeline Step   Avg Latency     Throughput     
+--------------------------------------------------
+Read               1.44 ms      692.1 FPS
+Preprocess         0.61 ms     1646.9 FPS
+Inference         40.42 ms      164.1 FPS*
+Postprocess        0.56 ms     1781.1 FPS
+Display            7.10 ms      140.8 FPS
+--------------------------------------------------
+* Actual throughput via async inference
+--------------------------------------------------
+Infer Completed     :    478
+Infer Inflight Avg  :    6.0
+Infer Inflight Max  :      8
+--------------------------------------------------
+Total Frames        :    478
+Total Time          :    3.5 s
+Overall FPS         :   136.5 FPS
+==================================================
+```
+
+**Bottleneck Analysis & Optimization**  
+
+- **Bottleneck Detection:** The async summary makes it easy to identify the pipeline bottleneck. The stage with the **highest latency** (and lowest throughput) is the primary factor limiting your **Overall FPS**. In the example above, the Inference stage (40.42 ms) is the main bottleneck.  
+- **Sync vs. Async Comparison:** Run both variants on the same input source to compare performance. In streaming scenarios, the **Async** variant typically achieves a higher **Overall FPS** by overlapping CPU tasks with NPU inference, leading to superior NPU utilization.  
+
+
+**Conclusion**  
+
+Use these examples as a starting point to  
+
+- Understand the pipeline by tracing the source code.  
+- Compare variants to evaluate NPU performance impact.  
+- Customize input handling and processing logic to match your specific application requirements.  
+
+---

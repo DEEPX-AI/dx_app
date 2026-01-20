@@ -1,20 +1,48 @@
-# Post-processing Libraries Overview
+## C++ Post-processing Overview & Core Objectives 
 
-This directory contains the **C++ post-processing libraries** used by both:
+This directory serves as the centralized repository for **optimized C++ post-processing modules**. These libraries provide the critical decoding logic required to transform raw NPU tensor outputs into actionable, human-readable data.  
 
-- C++ examples under [`src/cpp_example/`](../cpp_example/)
-- Python examples via the [`dx_postprocess`](../bindings/python/dx_postprocess/) pybind11 module
-
-Each post-processing module implements **model-specific decoding logic** (e.g., YOLO box/score decoding, NMS, keypoint extraction, segmentation mask decoding) in optimized C++ so that:
-
-- C++ examples can simply call a C++ class instead of re-implementing algorithms.
-- Python examples can reuse the **exact same** post-processing logic via the `dx_postprocess` module, making it easy to compare **pure Python post-processing vs. C++ post-processing**
+- **Performance Optimization:** Computational bottlenecks like Non-Maximum Suppression (NMS), segmentation mask resizing, and keypoint extraction are implemented in high-performance C++.  
+- **Logic Unification:** By sharing the exact same codebase between C++ examples and Python bindings (`dx_postprocess`), the SDK ensures identical inference results across all development environments.  
+-	**Modularity:** Each model family (YOLO, DeepLab, etc.) is isolated into its own module, allowing for targeted updates and lightweight linking.  
 
 ---
 
-## 1. Directory Structure
+## Functional Responsibilities
 
-Post-processing code is organized **by model** as follows:
+At a high level, these libraries manage the transition from **DX-RT Tensors** to **Structured Data**.  
+
+**Core Processing Steps**  
+
+- **Step 1.** Tensor Decoding: Converting raw logits and offsets into coordinates (bounding boxes), confidence scores, and class IDs.  
+- **Step 2.** Filtering & NMS: Applying Non-Maximum Suppression to remove redundant overlapping detections and filtering results based on user-defined confidence thresholds.  
+- **Step 3.** Specialized Extraction  
+     : **Pose:** Extracting **x, y** coordinates and visibility scores for keypoint skeletons.  
+     : **Segmentation:** Decoding segmentation logits into per-pixel masks or class color maps.  
+- **Step 4.**	Hardware Adaptation: Finalizing and scaling coordinates for models that use the **PPU** to handle the initial stages of post-processing.  
+
+**Implementation Examples**  
+
+The principles above are applied across various model families as follows  
+
+- `yolov5_postprocess`: Decodes YOLOv5 detection heads, runs NMS, and returns standard bounding boxes, scores, and class IDs.  
+- `yolov5pose_postprocess`: In addition to boxes and scores, it extracts per-person keypoints and their corresponding confidence levels for skeletal mapping.  
+- `deeplabv3_postprocess`: Converts segmentation logits into high-resolution per-pixel class labels or visual color maps.  
+- `*_ppu_postprocess`: Designed for models compiled with **PPU support**. These modules receive data that has already been partially processed by the NPU, adapting and finalizing the outputs for the host CPU.  
+
+---
+
+## Directory Structure
+
+The libraries are organized by model architecture. Modules appended with `_ppu` are specialized for models where partial post-processing is offloaded to the **DEEPX PPU (Post-Processing Unit)**.  
+
+**Module Components**  
+
+Each subdirectory follows a standardized pattern  
+
+- `*_postprocess.h`: Defines the class interface (e.g., `YOLOv5PostProcess`) and the result structures (e.g., `YOLOv5Result`).  
+- `*_postprocess.cpp`: Implementation of decoding algorithms and mathematical filters.  
+- `CMakeLists.txt`: Build configuration to compile the module into a standalone shared library.  
 
 ```text
 src/postprocess/
@@ -74,72 +102,42 @@ src/postprocess/
     └── yolox_postprocess.h
 ```
 
-Each subdirectory typically provides:
-
-- A **header** (`*_postprocess.h`) declaring:
-  - a C++ post-processing class (e.g. `YOLOv5PostProcess`), and
-  - the corresponding result data structures (e.g. `YOLOv5Result`) used to hold decoded outputs.
-- A **source file** (`*_postprocess.cpp`) implementing the algorithms.
-- A **CMakeLists.txt** to build that post-processing module into a shared library.
-
 ---
 
-## 2. What Each Library Does
+## Cross-Language Integration
 
-At a high level, each module takes **inference results** (DX-RT tensors) and converts them into **human‑readable results**.
+The SDK is designed so that C++ and Python developers utilize the same underlying engine, ensuring a seamless transition from prototyping to production.  
 
-Typical responsibilities include:
+**C++ Usage**  
 
-- Decoding model output tensors into:
-  - bounding boxes
-  - class scores
-  - keypoints / skeletons
-  - segmentation masks
-- Applying **NMS (Non‑Maximum Suppression)** or other filtering
-- Producing a convenient C++ data structure used by examples for:
-  - visualization (drawing boxes, keypoints, masks)
-
-Examples:
-
-- `yolov5_postprocess`  
-  Decodes YOLOv5 detection heads, runs NMS, returns bounding boxes + scores + class IDs.
-
-- `yolov5pose_postprocess`  
-  In addition to boxes/scores, extracts per‑person keypoints and their confidence.
-
-- `deeplabv3_postprocess`  
-  Converts segmentation logits into per‑pixel class labels or color maps.
-
-- `*_ppu_postprocess`  
-  Works with models compiled with **PPU** support, where some post‑processing runs on the NPU itself; these modules adapt and finalize the PPU outputs.
-
----
-
-## 3. Relationship with C++ and Python Examples
-
-These libraries are intended to be **shared between C++ and Python**:
-
-- C++ examples (e.g. [`src/cpp_example/object_detection/yolov5/yolov5_sync.cpp`](../cpp_example/object_detection/yolov5/yolov5_sync.cpp) do:
-  - Include the header: `#include "yolov5_postprocess.h"`
-  - Create an instance: `post_processor =
-        YOLOv5PostProcess(...);`
-  - Call a method like `postprocessor.postprocess(outputs);`
-
-- Python examples (e.g. [`src/python_example/object_detection/yolov5/yolov5_sync_cpp_postprocess.py`](../python_example/object_detection/yolov5/yolov5_sync_cpp_postprocess.py) use **pybind11** bindings that wrap the same C++ classes:
-  - `from dx_postprocess import YOLOv5PostProcess`
-  - Create and call the same logical post‑processor from Python.
-  - This guarantees **identical decoding results** between C++ and Python.
-
----
-
-## 4. Building the Post-processing Libraries
-
-When you build the main project (see `dx_app/README.md`):
-
+Include the header and instantiate the class directly within your inference loop.  
 ```bash
-# From project root
+#include "yolov5_postprocess.h" 
+
+auto post_processor = YOLOv5PostProcess(conf_threshold, nms_threshold); 
+auto final_results = post_processor.postprocess(npu_output_tensors);
+```
+
+**Python Usage**  
+
+Import the `pybind11` wrapper via the `dx_postprocess` module to access the same C++ performance.  
+```bash
+from dx_postprocess import YOLOv5PostProcess 
+
+post_processor = YOLOv5PostProcess(conf_threshold, nms_threshold) 
+final_results = post_processor.postprocess(npu_output_tensors)
+```
+
+---
+
+## Build Configuration
+
+Post-processing libraries are compiled automatically during the main SDK build process.  
+```bash
+# Execute from the dx_app/ root directory 
 ./build.sh
 ```
 
-the postprocess modules are built automatically, and the resulting shared libraries + headers are placed in locations used by the examples and bindings.
+The resulting shared libraries and headers are staged in the global `build/` directory, where they are picked up by the examples and the Python library installer.  
 
+---
