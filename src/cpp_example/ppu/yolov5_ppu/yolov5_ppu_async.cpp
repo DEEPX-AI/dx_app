@@ -31,7 +31,7 @@ count, FPS measurement, and result saving.
 optimization.
  */
 
-#define ASYNC_BUFFER_SIZE 20
+#define ASYNC_BUFFER_SIZE 40
 #define MAX_QUEUE_SIZE 100
 
 #define SHOW_WINDOW_SIZE_W 960
@@ -102,12 +102,9 @@ class SafeQueue {
    public:
     SafeQueue(size_t max_size = MAX_QUEUE_SIZE) : max_size_(max_size) {}
 
-    void push(T item, int timeout_ms = 1000) {
+    void push(T item) {
         std::unique_lock<std::mutex> lock(mutex_);
-        if (!condition_.wait_for(lock, std::chrono::milliseconds(timeout_ms),
-                                 [this] { return queue_.size() < max_size_; })) {
-            throw std::runtime_error("Queue push timeout");
-        }
+        condition_.wait(lock, [this] { return queue_.size() < max_size_; });
         queue_.push(std::move(item));
         condition_.notify_one();
     }
@@ -283,6 +280,12 @@ void post_process_thread_func(SafeQueue<std::shared_ptr<DetectionArgs>> *wait_qu
             std::lock_guard<std::mutex> lock(args->metrics->metrics_mutex);
             args->metrics->infer_last_ts = t1;
             args->metrics->infer_completed++;
+            // Accumulate inflight time before decrementing
+            auto now = std::chrono::high_resolution_clock::now();
+            args->metrics->inflight_time_sum +=
+                args->metrics->inflight_current *
+                std::chrono::duration<double>(now - args->metrics->inflight_last_ts).count();
+            args->metrics->inflight_last_ts = now;
             args->metrics->inflight_current--;
         }
 
@@ -492,8 +495,6 @@ int main(int argc, char* argv[]) {
 
     std::vector<std::vector<uint8_t>> input_buffers(ASYNC_BUFFER_SIZE,
                                                     std::vector<uint8_t>(ie.GetInputSize()));
-    std::vector<std::vector<uint8_t>> output_buffers(ASYNC_BUFFER_SIZE,
-                                                     std::vector<uint8_t>(ie.GetOutputSize()));
 
     SafeQueue<std::shared_ptr<DetectionArgs>> wait_queue;
     SafeQueue<std::shared_ptr<DisplayArgs>> display_queue;
@@ -542,12 +543,22 @@ int main(int argc, char* argv[]) {
     if (is_image) {
         cv::Mat img = cv::imread(imgFile);
         for (int i = 0; i < loopTest; ++i) {
+            // Backpressure: wait if too many requests are in flight
+            while (appQuit.load() <= 0) {
+                {
+                    std::lock_guard<std::mutex> lk(profiling_metrics.metrics_mutex);
+                    if (profiling_metrics.inflight_current < ASYNC_BUFFER_SIZE - 1) break;
+                }
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            }
+            if (appQuit.load() > 0) break;
+
             auto t0 = std::chrono::high_resolution_clock::now();
             cv::resize(img, images[index], cv::Size(SHOW_WINDOW_SIZE_W, SHOW_WINDOW_SIZE_H));
             cv::Mat pre(input_height, input_width, CV_8UC3, input_buffers[index].data());
             make_letterbox_image(images[index], pre, cv::COLOR_BGR2RGB, pad_xy);
             auto t1 = std::chrono::high_resolution_clock::now();
-            auto req_id = ie.RunAsync(pre.data, nullptr, output_buffers[index].data());
+            auto req_id = ie.RunAsync(pre.data, nullptr, nullptr);
 
             auto args = std::make_shared<DetectionArgs>();
             args->ie = &ie;
@@ -560,16 +571,26 @@ int main(int argc, char* argv[]) {
             args->t_run_async_start = t1;
             args->is_no_show = fps_only;
 
-            try {
-                wait_queue.push(args);
-            } catch (const std::exception& e) {
-                std::cerr << "[DXAPP] [ER] Failed to enqueue detection task (request_id="
-                          << args->request_id
-                          << "): queue push timed out. Consider reducing inflight or increasing "
-                             "MAX_QUEUE_SIZE. Details: "
-                          << e.what() << std::endl;
-            	}
+            {
+                std::lock_guard<std::mutex> lk(profiling_metrics.metrics_mutex);
+                if (profiling_metrics.first_inference) {
+                    profiling_metrics.infer_first_ts = t1;
+                    profiling_metrics.inflight_last_ts = t1;
+                    profiling_metrics.first_inference = false;
+                } else {
+                    // Accumulate inflight time before incrementing
+                    auto now = std::chrono::high_resolution_clock::now();
+                    profiling_metrics.inflight_time_sum +=
+                        profiling_metrics.inflight_current *
+                        std::chrono::duration<double>(now - profiling_metrics.inflight_last_ts).count();
+                    profiling_metrics.inflight_last_ts = now;
+                }
+                profiling_metrics.inflight_current++;
+                if (profiling_metrics.inflight_current > profiling_metrics.inflight_max)
+                    profiling_metrics.inflight_max = profiling_metrics.inflight_current;
+            }
 
+            wait_queue.push(args);
             submitted_frames++;
             if (appQuit.load() == -1) appQuit.store(0);
             index = (index + 1) % ASYNC_BUFFER_SIZE;
@@ -587,13 +608,22 @@ int main(int argc, char* argv[]) {
                     std::chrono::duration<double, std::milli>(tr1 - tr0).count();
             }
 
+            // Backpressure: wait if too many requests are in flight
+            while (appQuit.load() <= 0) {
+                {
+                    std::lock_guard<std::mutex> lk(profiling_metrics.metrics_mutex);
+                    if (profiling_metrics.inflight_current < ASYNC_BUFFER_SIZE - 1) break;
+                }
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            }
+            if (appQuit.load() > 0) break;
+
             auto t0 = std::chrono::high_resolution_clock::now();
             cv::resize(frame, images[index], cv::Size(SHOW_WINDOW_SIZE_W, SHOW_WINDOW_SIZE_H));
             cv::Mat pre(input_height, input_width, CV_8UC3, input_buffers[index].data());
             make_letterbox_image(images[index], pre, cv::COLOR_BGR2RGB, pad_xy);
             auto t1 = std::chrono::high_resolution_clock::now();
-            auto req_id = ie.RunAsync(pre.data, nullptr, output_buffers[index].data());
-            auto t2 = std::chrono::high_resolution_clock::now();
+            auto req_id = ie.RunAsync(pre.data, nullptr, nullptr);
 
             auto args = std::make_shared<DetectionArgs>();
             args->ie = &ie;
@@ -611,8 +641,15 @@ int main(int argc, char* argv[]) {
                 std::lock_guard<std::mutex> lk(profiling_metrics.metrics_mutex);
                 if (profiling_metrics.first_inference) {
                     profiling_metrics.infer_first_ts = t1;
-                    profiling_metrics.inflight_last_ts = t2;
+                    profiling_metrics.inflight_last_ts = t1;
                     profiling_metrics.first_inference = false;
+                } else {
+                    // Accumulate inflight time before incrementing
+                    auto now = std::chrono::high_resolution_clock::now();
+                    profiling_metrics.inflight_time_sum +=
+                        profiling_metrics.inflight_current *
+                        std::chrono::duration<double>(now - profiling_metrics.inflight_last_ts).count();
+                    profiling_metrics.inflight_last_ts = now;
                 }
                 profiling_metrics.inflight_current++;
                 if (profiling_metrics.inflight_current > profiling_metrics.inflight_max)

@@ -421,6 +421,12 @@ void post_process_thread_func(SafeQueue<std::shared_ptr<DetectionArgs>> *wait_qu
             std::lock_guard<std::mutex> lock(args->metrics->metrics_mutex);
             args->metrics->infer_last_ts = std::max(t_yolo_end, t_deeplab_end);
             args->metrics->infer_completed++;
+            // Accumulate inflight time before decrementing
+            auto now = std::chrono::high_resolution_clock::now();
+            args->metrics->inflight_time_sum +=
+                args->metrics->inflight_current *
+                std::chrono::duration<double>(now - args->metrics->inflight_last_ts).count();
+            args->metrics->inflight_last_ts = now;
             args->metrics->inflight_current--;
         }
 
@@ -694,12 +700,8 @@ int main(int argc, char* argv[]) {
     // Prepare async buffers for both models
     std::vector<std::vector<uint8_t>> yolo_input_buffers(ASYNC_BUFFER_SIZE,
                                                          std::vector<uint8_t>(yolo_ie.GetInputSize()));
-    std::vector<std::vector<uint8_t>> yolo_output_buffers(ASYNC_BUFFER_SIZE,
-                                                          std::vector<uint8_t>(yolo_ie.GetOutputSize()));
     std::vector<std::vector<uint8_t>> deeplab_input_buffers(ASYNC_BUFFER_SIZE,
                                                             std::vector<uint8_t>(deeplab_ie.GetInputSize()));
-    std::vector<std::vector<uint8_t>> deeplab_output_buffers(ASYNC_BUFFER_SIZE,
-                                                             std::vector<uint8_t>(deeplab_ie.GetOutputSize()));
 
     SafeQueue<std::shared_ptr<DetectionArgs>> wait_queue;
     SafeQueue<std::shared_ptr<DisplayArgs>> display_queue;
@@ -749,6 +751,16 @@ int main(int argc, char* argv[]) {
     if (is_image) {
         cv::Mat img = cv::imread(imgFile);
         for (int i = 0; i < loopTest; ++i) {
+            // Backpressure: wait if too many requests are in flight
+            while (appQuit.load() <= 0) {
+                {
+                    std::lock_guard<std::mutex> lk(profiling_metrics.metrics_mutex);
+                    if (profiling_metrics.inflight_current < ASYNC_BUFFER_SIZE - 1) break;
+                }
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            }
+            if (appQuit.load() > 0) break;
+
             auto t0 = std::chrono::high_resolution_clock::now();
             cv::resize(img, images[index], cv::Size(SHOW_WINDOW_SIZE_W, SHOW_WINDOW_SIZE_H));
 
@@ -769,10 +781,8 @@ int main(int argc, char* argv[]) {
             double deeplab_preprocess_time =
                 std::chrono::duration<double, std::milli>(t1_deeplab - t1_yolo).count();
 
-            auto yolo_req_id = yolo_ie.RunAsync(yolo_pre.data, nullptr,
-                                                yolo_output_buffers[index].data());
-            auto deeplab_req_id = deeplab_ie.RunAsync(deeplab_pre.data, nullptr,
-                                                      deeplab_output_buffers[index].data());
+            auto yolo_req_id = yolo_ie.RunAsync(yolo_pre.data, nullptr, nullptr);
+            auto deeplab_req_id = deeplab_ie.RunAsync(deeplab_pre.data, nullptr, nullptr);
 
             auto args = std::make_shared<DetectionArgs>();
             args->yolo_ie = &yolo_ie;
@@ -789,6 +799,25 @@ int main(int argc, char* argv[]) {
             args->t_yolo_async_start = t1_yolo;
             args->t_deeplab_async_start = t1_deeplab;
             args->is_no_show = fps_only;
+
+            {
+                std::lock_guard<std::mutex> lk(profiling_metrics.metrics_mutex);
+                if (profiling_metrics.first_inference) {
+                    profiling_metrics.infer_first_ts = t1_yolo;
+                    profiling_metrics.inflight_last_ts = t1_yolo;
+                    profiling_metrics.first_inference = false;
+                } else {
+                    // Accumulate inflight time before incrementing
+                    auto now = std::chrono::high_resolution_clock::now();
+                    profiling_metrics.inflight_time_sum +=
+                        profiling_metrics.inflight_current *
+                        std::chrono::duration<double>(now - profiling_metrics.inflight_last_ts).count();
+                    profiling_metrics.inflight_last_ts = now;
+                }
+                profiling_metrics.inflight_current++;
+                if (profiling_metrics.inflight_current > profiling_metrics.inflight_max)
+                    profiling_metrics.inflight_max = profiling_metrics.inflight_current;
+            }
 
             while (!wait_queue.try_push(args)) {
                 if (appQuit.load() == 1) break;
@@ -812,6 +841,16 @@ int main(int argc, char* argv[]) {
                     std::chrono::duration<double, std::milli>(tr1 - tr0).count();
             }
 
+            // Backpressure: wait if too many requests are in flight
+            while (appQuit.load() <= 0) {
+                {
+                    std::lock_guard<std::mutex> lk(profiling_metrics.metrics_mutex);
+                    if (profiling_metrics.inflight_current < ASYNC_BUFFER_SIZE - 1) break;
+                }
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            }
+            if (appQuit.load() > 0) break;
+
             auto t0 = std::chrono::high_resolution_clock::now();
             cv::resize(frame, images[index], cv::Size(SHOW_WINDOW_SIZE_W, SHOW_WINDOW_SIZE_H));
 
@@ -832,11 +871,8 @@ int main(int argc, char* argv[]) {
             double deeplab_preprocess_time =
                 std::chrono::duration<double, std::milli>(t1_deeplab - t1_yolo).count();
 
-            auto yolo_req_id = yolo_ie.RunAsync(yolo_pre.data, nullptr,
-                                                yolo_output_buffers[index].data());
-            auto deeplab_req_id = deeplab_ie.RunAsync(deeplab_pre.data, nullptr,
-                                                      deeplab_output_buffers[index].data());
-            auto t2 = std::chrono::high_resolution_clock::now();
+            auto yolo_req_id = yolo_ie.RunAsync(yolo_pre.data, nullptr, nullptr);
+            auto deeplab_req_id = deeplab_ie.RunAsync(deeplab_pre.data, nullptr, nullptr);
 
             auto args = std::make_shared<DetectionArgs>();
             args->yolo_ie = &yolo_ie;
@@ -859,8 +895,15 @@ int main(int argc, char* argv[]) {
                 std::lock_guard<std::mutex> lk(profiling_metrics.metrics_mutex);
                 if (profiling_metrics.first_inference) {
                     profiling_metrics.infer_first_ts = t1_yolo;
-                    profiling_metrics.inflight_last_ts = t2;
+                    profiling_metrics.inflight_last_ts = t1_yolo;
                     profiling_metrics.first_inference = false;
+                } else {
+                    // Accumulate inflight time before incrementing
+                    auto now = std::chrono::high_resolution_clock::now();
+                    profiling_metrics.inflight_time_sum +=
+                        profiling_metrics.inflight_current *
+                        std::chrono::duration<double>(now - profiling_metrics.inflight_last_ts).count();
+                    profiling_metrics.inflight_last_ts = now;
                 }
                 profiling_metrics.inflight_current++;
                 if (profiling_metrics.inflight_current > profiling_metrics.inflight_max)
