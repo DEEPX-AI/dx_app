@@ -421,6 +421,12 @@ void post_process_thread_func(SafeQueue<std::shared_ptr<DetectionArgs>> *wait_qu
             std::lock_guard<std::mutex> lock(args->metrics->metrics_mutex);
             args->metrics->infer_last_ts = std::max(t_yolo_end, t_deeplab_end);
             args->metrics->infer_completed++;
+            // Accumulate inflight time before decrementing
+            auto now = std::chrono::high_resolution_clock::now();
+            args->metrics->inflight_time_sum +=
+                args->metrics->inflight_current *
+                std::chrono::duration<double>(now - args->metrics->inflight_last_ts).count();
+            args->metrics->inflight_last_ts = now;
             args->metrics->inflight_current--;
         }
 
@@ -804,7 +810,15 @@ int main(int argc, char* argv[]) {
                 std::lock_guard<std::mutex> lk(profiling_metrics.metrics_mutex);
                 if (profiling_metrics.first_inference) {
                     profiling_metrics.infer_first_ts = t1_yolo;
+                    profiling_metrics.inflight_last_ts = t1_yolo;
                     profiling_metrics.first_inference = false;
+                } else {
+                    // Accumulate inflight time before incrementing
+                    auto now = std::chrono::high_resolution_clock::now();
+                    profiling_metrics.inflight_time_sum +=
+                        profiling_metrics.inflight_current *
+                        std::chrono::duration<double>(now - profiling_metrics.inflight_last_ts).count();
+                    profiling_metrics.inflight_last_ts = now;
                 }
                 profiling_metrics.inflight_current++;
                 if (profiling_metrics.inflight_current > profiling_metrics.inflight_max)
@@ -890,8 +904,15 @@ int main(int argc, char* argv[]) {
                 std::lock_guard<std::mutex> lk(profiling_metrics.metrics_mutex);
                 if (profiling_metrics.first_inference) {
                     profiling_metrics.infer_first_ts = t1_yolo;
-                    profiling_metrics.inflight_last_ts = t2;
+                    profiling_metrics.inflight_last_ts = t1_yolo;
                     profiling_metrics.first_inference = false;
+                } else {
+                    // Accumulate inflight time before incrementing
+                    auto now = std::chrono::high_resolution_clock::now();
+                    profiling_metrics.inflight_time_sum +=
+                        profiling_metrics.inflight_current *
+                        std::chrono::duration<double>(now - profiling_metrics.inflight_last_ts).count();
+                    profiling_metrics.inflight_last_ts = now;
                 }
                 profiling_metrics.inflight_current++;
                 if (profiling_metrics.inflight_current > profiling_metrics.inflight_max)
