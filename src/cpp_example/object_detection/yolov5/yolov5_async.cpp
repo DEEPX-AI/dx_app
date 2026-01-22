@@ -557,16 +557,7 @@ int main(int argc, char* argv[]) {
             args->t_run_async_start = t1;
             args->is_no_show = fps_only;
 
-            try {
-                wait_queue.push(args);
-            } catch (const std::exception& e) {
-                std::cerr << "[DXAPP] [ER] Failed to enqueue detection task (request_id="
-                          << args->request_id
-                          << "): queue push timed out. Consider reducing inflight or increasing "
-                             "MAX_QUEUE_SIZE. Details: "
-                          << e.what() << std::endl;
-            	}
-
+            wait_queue.push(args);
             submitted_frames++;
             if (appQuit.load() == -1) appQuit.store(0);
             index = (index + 1) % ASYNC_BUFFER_SIZE;
