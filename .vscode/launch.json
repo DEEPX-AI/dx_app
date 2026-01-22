@@ -4,200 +4,834 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
-        // Video Demo Configurations
+        // CPP Example Configurations
         {
             "type": "cppdbg",
             "request": "launch",
-            "name": "YOLO YoloV8N",
-            "program": "${workspaceFolder}/bin/yolo",
-            "args": ["-m", "assets/models/YoloV8N.dxnn", "-p", "5", "-v", "assets/videos/boat.mp4", "--target_fps", "30", "-l"],
+            "name": "Debug: YOLOv5 Sync",
+            "program": "${workspaceFolder}/bin/yolov5_sync",
+            "args": ["-m", "assets/models/YOLOV5S_3.dxnn", "-i", "sample/img/1.jpg"],
             "cwd": "${workspaceFolder}",
-            "stopAtEntry": true,
-            "preLaunchTask": "build"
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: yolov5_sync"
         },
         {
             "type": "cppdbg",
             "request": "launch",
-            "name": "YOLO YOLOV9S",
-            "program": "${workspaceFolder}/bin/yolo",
-            "args": ["-m", "assets/models/YOLOV9S.dxnn", "-p", "10", "-v", "assets/videos/carrierbag.mp4", "--target_fps", "30", "-l"],
+            "name": "Debug: YOLOv5 Async",
+            "program": "${workspaceFolder}/bin/yolov5_async",
+            "args": ["-m", "assets/models/YOLOV5S_3.dxnn", "-i", "sample/img/1.jpg"],
             "cwd": "${workspaceFolder}",
-            "stopAtEntry": true,
-            "preLaunchTask": "build"
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: yolov5_async"
         },
         {
             "type": "cppdbg",
             "request": "launch",
-            "name": "YOLO Face Detection",
-            "program": "${workspaceFolder}/bin/yolo",
-            "args": ["-m", "assets/models/YOLOV5S_Face-1.dxnn", "-p", "7", "-v", "assets/videos/dance-group.mov", "--target_fps", "30", "-l"],
+            "name": "Debug: EfficientNet Sync",
+            "program": "${workspaceFolder}/bin/efficientnet_sync",
+            "args": ["-m", "assets/models/EfficientNetB0_4.dxnn", "-i", "sample/img/1.jpg"],
             "cwd": "${workspaceFolder}",
-            "stopAtEntry": true,
-            "preLaunchTask": "build"
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: efficientnet_sync"
         },
         {
             "type": "cppdbg",
             "request": "launch",
-            "name": "Pose Estimation",
-            "program": "${workspaceFolder}/bin/pose",
-            "args": ["-m", "assets/models/YOLOV5Pose640_1.dxnn", "-v", "assets/videos/dance-solo.mov", "--target_fps", "30", "-l"],
+            "name": "Debug: YOLOv8 Sync",
+            "program": "${workspaceFolder}/bin/yolov8_sync",
+            "args": ["-m", "assets/models/YoloV8N.dxnn", "-i", "sample/img/1.jpg"],
             "cwd": "${workspaceFolder}",
-            "stopAtEntry": true,
-            "preLaunchTask": "build"
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: yolov8_sync"
         },
         {
             "type": "cppdbg",
             "request": "launch",
-            "name": "Segmentation",
-            "program": "${workspaceFolder}/bin/segmentation",
-            "args": ["-m", "assets/models/DeepLabV3PlusMobileNetV2_2.dxnn", "-v", "assets/videos/blackbox-city-road.mp4", "--target_fps", "30", "-l"],
+            "name": "Debug: Current Binary",
+            "program": "${workspaceFolder}/bin/${fileBasenameNoExtension}",
+            "args": ["-m", "assets/models/YOLOV5S_3.dxnn", "-i", "sample/img/1.jpg"],
             "cwd": "${workspaceFolder}",
-            "stopAtEntry": true,
-            "preLaunchTask": "build"
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build-target"
+        },
+        // Object Detection Examples
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Demo: YOLOv5 Sync",
+            "program": "${workspaceFolder}/bin/yolov5_sync",
+            "args": ["-m", "assets/models/YOLOV5S_3.dxnn", "-i", "sample/img/1.jpg"],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: yolov5_sync"
         },
         {
             "type": "cppdbg",
             "request": "launch",
-            "name": "YOLO Multi Demo",
-            "program": "${workspaceFolder}/bin/yolo_multi",
-            "args": ["-c", "example/yolo_multi/yolo_multi_demo.json"],
+            "name": "Demo: YOLOv5 Async",
+            "program": "${workspaceFolder}/bin/yolov5_async",
+            "args": ["-m", "assets/models/YOLOV5S_3.dxnn", "-i", "sample/img/1.jpg"],
             "cwd": "${workspaceFolder}",
-            "stopAtEntry": true,
-            "preLaunchTask": "build"
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: yolov5_async"
         },
         {
             "type": "cppdbg",
             "request": "launch",
-            "name": "Object Detection + Segmentation",
-            "program": "${workspaceFolder}/bin/od_segmentation",
-            "args": ["-m0", "assets/models/YOLOV5S_6.dxnn", "-p0", "2", "-m1", "assets/models/DeepLabV3PlusMobileNetV2_2.dxnn", "-v", "assets/videos/blackbox-city-road2.mov", "-l"],
+            "name": "Demo: YOLOv7 Sync",
+            "program": "${workspaceFolder}/bin/yolov7_sync",
+            "args": ["-m", "assets/models/YoloV7.dxnn", "-i", "sample/img/1.jpg"],
             "cwd": "${workspaceFolder}",
-            "stopAtEntry": true,
-            "preLaunchTask": "build"
-        },
-        // Image Demo Configurations
-        {
-            "type": "cppdbg",
-            "request": "launch",
-            "name": "Classification - EfficientNetB0",
-            "program": "${workspaceFolder}/bin/classification",
-            "args": ["-m", "assets/models/EfficientNetB0_4.dxnn", "-i", "sample/ILSVRC2012/1.jpeg"],
-            "cwd": "${workspaceFolder}",
-            "stopAtEntry": true,
-            "preLaunchTask": "build"
-        },
-        {
-            "type": "cppdbg",
-            "request": "launch",
-            "name": "Classification Async - EfficientNetB0",
-            "program": "${workspaceFolder}/bin/classification_async",
-            "args": ["-m", "assets/models/EfficientNetB0_4.dxnn", "-i", "sample/ILSVRC2012/1.jpeg"],
-            "cwd": "${workspaceFolder}",
-            "stopAtEntry": true,
-            "preLaunchTask": "build"
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: yolov7_sync"
         },
         {
             "type": "cppdbg",
             "request": "launch",
-            "name": "ImageNet Classification",
-            "program": "${workspaceFolder}/bin/imagenet_classification",
-            "args": ["-m", "assets/models/EfficientNetB0_4.dxnn", "-i", "example/imagenet_classification/imagenet_val_map.txt", "-p", "sample/ILSVRC2012/"],
+            "name": "Demo: YOLOv8 Sync",
+            "program": "${workspaceFolder}/bin/yolov8_sync",
+            "args": ["-m", "assets/models/YoloV8N.dxnn", "-i", "sample/img/1.jpg"],
             "cwd": "${workspaceFolder}",
-            "stopAtEntry": true,
-            "preLaunchTask": "build"
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: yolov8_sync"
         },
         {
             "type": "cppdbg",
             "request": "launch",
-            "name": "Object Detection + Segmentation",
-            "program": "${workspaceFolder}/bin/od_segmentation",
-            "args": ["-m0", "assets/models/YOLOV5S_3.dxnn", "-p0", "1", "-m1", "assets/models/DeepLabV3PlusMobileNetV2_2.dxnn", "-i", "sample/8.jpg"],
+            "name": "Demo: YOLOv9 Sync",
+            "program": "${workspaceFolder}/bin/yolov9_sync",
+            "args": ["-m", "assets/models/YOLOV9S.dxnn", "-i", "sample/img/1.jpg"],
             "cwd": "${workspaceFolder}",
-            "stopAtEntry": true,
-            "preLaunchTask": "build"
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: yolov9_sync"
         },
         {
             "type": "cppdbg",
             "request": "launch",
-            "name": "Pose Estimation",
-            "program": "${workspaceFolder}/bin/pose",
-            "args": ["-m", "assets/models/YOLOV5Pose640_1.dxnn", "-i", "sample/7.jpg", "-p", "0"],
+            "name": "Demo: YOLOv10 Sync",
+            "program": "${workspaceFolder}/bin/yolov10_sync",
+            "args": ["-m", "assets/models/YOLOV10N-1.dxnn", "-i", "sample/img/1.jpg"],
             "cwd": "${workspaceFolder}",
-            "stopAtEntry": true,
-            "preLaunchTask": "build"
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: yolov10_sync"
         },
         {
             "type": "cppdbg",
             "request": "launch",
-            "name": "Run Classifier Example",
-            "program": "${workspaceFolder}/bin/run_classifier",
-            "args": ["-c", "example/run_classifier/imagenet_example.json"],
+            "name": "Demo: YOLOv11 Sync",
+            "program": "${workspaceFolder}/bin/yolov11_sync",
+            "args": ["-m", "assets/models/YOLOV11N.dxnn", "-i", "sample/img/1.jpg"],
             "cwd": "${workspaceFolder}",
-            "stopAtEntry": true,
-            "preLaunchTask": "build"
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: yolov11_sync"
         },
         {
             "type": "cppdbg",
             "request": "launch",
-            "name": "Run Detector Example",
-            "program": "${workspaceFolder}/bin/run_detector",
-            "args": ["-c", "example/run_detector/yolov5s3_example.json"],
+            "name": "Demo: YOLOv12 Sync",
+            "program": "${workspaceFolder}/bin/yolov12_sync",
+            "args": ["-m", "assets/models/YOLOV12N-1.dxnn", "-i", "sample/img/1.jpg"],
             "cwd": "${workspaceFolder}",
-            "stopAtEntry": true,
-            "preLaunchTask": "build"
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: yolov12_sync"
         },
         {
             "type": "cppdbg",
             "request": "launch",
-            "name": "Segmentation",
-            "program": "${workspaceFolder}/bin/segmentation",
-            "args": ["-m", "assets/models/DeepLabV3PlusMobileNetV2_2.dxnn", "-i", "sample/8.jpg"],
+            "name": "Demo: YOLOX Sync",
+            "program": "${workspaceFolder}/bin/yolox_sync",
+            "args": ["-m", "assets/models/YOLOX-S_1.dxnn", "-i", "sample/img/1.jpg"],
             "cwd": "${workspaceFolder}",
-            "stopAtEntry": true,
-            "preLaunchTask": "build"
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: yolox_sync"
         },
         {
             "type": "cppdbg",
             "request": "launch",
-            "name": "YOLO",
-            "program": "${workspaceFolder}/bin/yolo",
-            "args": ["-m", "assets/models/YOLOV5S_3.dxnn", "-i", "sample/1.jpg", "-p", "1"],
+            "name": "Demo: SCRFD Sync",
+            "program": "${workspaceFolder}/bin/scrfd_sync",
+            "args": ["-m", "assets/models/SCRFD500M_1.dxnn", "-i", "sample/img/face_sample.jpg"],
             "cwd": "${workspaceFolder}",
-            "stopAtEntry": true,
-            "preLaunchTask": "build"
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: scrfd_sync"
         },
         {
             "type": "cppdbg",
             "request": "launch",
-            "name": "YOLO Multi Example",
-            "program": "${workspaceFolder}/bin/yolo_multi",
-            "args": ["-c", "./example/yolo_multi/yolo_multi_demo.json"],
+            "name": "Demo: YOLOv5 Face Sync",
+            "program": "${workspaceFolder}/bin/yolov5face_sync",
+            "args": ["-m", "assets/models/YOLOV5S_Face-1.dxnn", "-i", "sample/img/face_sample.jpg"],
             "cwd": "${workspaceFolder}",
-            "stopAtEntry": true,
-            "preLaunchTask": "build"
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: yolov5face_sync"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Demo: YOLOv5 Pose Sync",
+            "program": "${workspaceFolder}/bin/yolov5pose_sync",
+            "args": ["-m", "assets/models/YOLOV5Pose640_1.dxnn", "-i", "sample/img/7.jpg"],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: yolov5pose_sync"
+        },
+        // Classification Examples
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Demo: EfficientNet Sync",
+            "program": "${workspaceFolder}/bin/efficientnet_sync",
+            "args": ["-m", "assets/models/EfficientNetB0_4.dxnn", "-i", "sample/img/1.jpg"],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: efficientnet_sync"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Demo: EfficientNet Async",
+            "program": "${workspaceFolder}/bin/efficientnet_async",
+            "args": ["-m", "assets/models/EfficientNetB0_4.dxnn", "-i", "sample/img/1.jpg"],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: efficientnet_async"
+        },
+        // Segmentation Examples
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Demo: DeepLabV3 Sync",
+            "program": "${workspaceFolder}/bin/deeplabv3_sync",
+            "args": ["-m", "assets/models/DeepLabV3PlusMobileNetV2_2.dxnn", "-i", "sample/img/8.jpg"],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: deeplabv3_sync"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Demo: YOLOv8 Segmentation Sync",
+            "program": "${workspaceFolder}/bin/yolov8seg_sync",
+            "args": ["-m", "assets/models/YOLOV8N_SEG-1.dxnn", "-i", "sample/img/1.jpg"],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: yolov8seg_sync"
+        },
+        // Combined Model Examples
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Demo: YOLOv7 x DeepLabV3 Sync",
+            "program": "${workspaceFolder}/bin/yolov7_x_deeplabv3_sync",
+            "args": ["-y", "assets/models/YoloV7.dxnn", "-d", "assets/models/DeepLabV3PlusMobileNetV2_2.dxnn", "-i", "sample/img/8.jpg"],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: yolov7_x_deeplabv3_sync"
+        },
+        // Multi-Channel Example
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Demo: Multi-Channel",
+            "program": "${workspaceFolder}/bin/demo_multi_channel",
+            "args": ["assets/models/YOLOV5S_3.dxnn", "sample/img/1.jpg", "sample/img/2.jpg", "sample/img/3.jpg"],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: demo_multi_channel"
+        },
+        // Input Source Processing Examples
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Demo: Camera OpenCV",
+            "program": "${workspaceFolder}/bin/camera_opencv",
+            "args": ["-c", "0"],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: camera_opencv"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Demo: Video OpenCV",
+            "program": "${workspaceFolder}/bin/video_opencv",
+            "args": ["-v", "assets/videos/boat.mp4"],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: video_opencv"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Demo: Image OpenCV",
+            "program": "${workspaceFolder}/bin/image_opencv",
+            "args": ["-i", "sample/img/1.jpg"],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: image_opencv"
+        },
+        // PPU Examples
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Demo: YOLOv5 PPU Sync",
+            "program": "${workspaceFolder}/bin/yolov5_ppu_sync",
+            "args": ["-m", "assets/models/YOLOV5S_PPU.dxnn", "-i", "sample/img/1.jpg"],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: yolov5_ppu_sync"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Demo: YOLOv7 PPU Sync",
+            "program": "${workspaceFolder}/bin/yolov7_ppu_sync",
+            "args": ["-m", "assets/models/YoloV7_PPU.dxnn", "-i", "sample/img/1.jpg"],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: yolov7_ppu_sync"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Demo: SCRFD PPU Sync",
+            "program": "${workspaceFolder}/bin/scrfd_ppu_sync",
+            "args": ["-m", "assets/models/SCRFD500M_PPU.dxnn", "-i", "sample/img/face_sample.jpg"],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: scrfd_ppu_sync"
+        },
+        // Video Demo Configurations (from run_demo.sh)
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Video Demo: YOLOv7 Async",
+            "program": "${workspaceFolder}/bin/yolov7_async",
+            "args": ["-m", "assets/models/YoloV7.dxnn", "-v", "assets/videos/snowboard.mp4"],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: yolov7_async"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Video Demo: YOLOv7 PPU Async",
+            "program": "${workspaceFolder}/bin/yolov7_ppu_async",
+            "args": ["-m", "assets/models/YoloV7_PPU.dxnn", "-v", "assets/videos/snowboard.mp4"],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: yolov7_ppu_async"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Video Demo: YOLOv8 Async",
+            "program": "${workspaceFolder}/bin/yolov8_async",
+            "args": ["-m", "assets/models/YoloV8N.dxnn", "-v", "assets/videos/boat.mp4"],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: yolov8_async"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Video Demo: YOLOv9 Async",
+            "program": "${workspaceFolder}/bin/yolov9_async",
+            "args": ["-m", "assets/models/YOLOV9S.dxnn", "-v", "assets/videos/carrierbag.mp4"],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: yolov9_async"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Video Demo: YOLOv5 PPU Async",
+            "program": "${workspaceFolder}/bin/yolov5_ppu_async",
+            "args": ["-m", "assets/models/YOLOV5S_PPU.dxnn", "-v", "assets/videos/boat.mp4"],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: yolov5_ppu_async"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Video Demo: YOLOv5 Face Async",
+            "program": "${workspaceFolder}/bin/yolov5face_async",
+            "args": ["-m", "assets/models/YOLOV5S_Face-1.dxnn", "-v", "assets/videos/dance-group.mov"],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: yolov5face_async"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Video Demo: SCRFD PPU Async",
+            "program": "${workspaceFolder}/bin/scrfd_ppu_async",
+            "args": ["-m", "assets/models/SCRFD500M_PPU.dxnn", "-v", "assets/videos/dance-group.mov"],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: scrfd_ppu_async"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Video Demo: YOLOv5 Pose Async",
+            "program": "${workspaceFolder}/bin/yolov5pose_async",
+            "args": ["-m", "assets/models/YOLOV5Pose640_1.dxnn", "-v", "assets/videos/dance-solo.mov"],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: yolov5pose_async"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Video Demo: YOLOv5 Pose PPU Async",
+            "program": "${workspaceFolder}/bin/yolov5pose_ppu_async",
+            "args": ["-m", "assets/models/YOLOV5Pose_PPU.dxnn", "-v", "assets/videos/dance-solo.mov"],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: yolov5pose_ppu_async"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Video Demo: DeepLabV3 Async",
+            "program": "${workspaceFolder}/bin/deeplabv3_async",
+            "args": ["-m", "assets/models/DeepLabV3PlusMobileNetV2_2.dxnn", "-v", "assets/videos/blackbox-city-road.mp4"],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: deeplabv3_async"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Video Demo: Multi-Channel (YOLOv5)",
+            "program": "${workspaceFolder}/bin/demo_multi_channel",
+            "args": ["assets/models/YOLOV5S_3.dxnn", "assets/videos/snowboard.mp4", "assets/videos/blackbox-city-road.mp4", "assets/videos/boat.mp4", "assets/videos/carrierbag.mp4"],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: demo_multi_channel"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Video Demo: YOLOv7 x DeepLabV3 Async",
+            "program": "${workspaceFolder}/bin/yolov7_x_deeplabv3_async",
+            "args": ["-y", "assets/models/YoloV7.dxnn", "-d", "assets/models/DeepLabV3PlusMobileNetV2_2.dxnn", "-v", "assets/videos/blackbox-city-road2.mov"],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: yolov7_x_deeplabv3_async"
         }
     ]
 }
-
-/*
-# demo commands, used in run_demo.sh
-bin/yolo -m assets/models/YoloV8N.dxnn -p 5 -v assets/videos/boat.mp4 --target_fps 30 -l
-bin/yolo -m assets/models/YOLOV9S.dxnn -p 10 -v assets/videos/carrierbag.mp4 --target_fps 30 -l
-bin/yolo -m assets/models/YOLOV5S_Face-1.dxnn -p 7 -v assets/videos/dance-group.mov --target_fps 30 -l
-bin/pose -m assets/models/YOLOV5Pose640_1.dxnn -v assets/videos/dance-solo.mov --target_fps 30 -l
-bin/segmentation -m assets/models/DeepLabV3PlusMobileNetV2_2.dxnn -v assets/videos/blackbox-city-road.mp4 --target_fps 30 -l
-bin/yolo_multi -c example/yolo_multi/yolo_multi_demo.json
-bin/od_segmentation -m0 assets/models/YOLOV5S_6.dxnn -p0 2 -m1 assets/models/DeepLabV3PlusMobileNetV2_2.dxnn -v assets/videos/blackbox-city-road2.mov -l
-
-# demo commands used in ./bin/*
-bin/classification -m assets/models/EfficientNetB0_4.dxnn -i sample/ILSVRC2012/1.jpeg
-bin/classification_async -m assets/models/EfficientNetB0_4.dxnn -i sample/ILSVRC2012/1.jpeg
-bin/imagenet_classification -m assets/models/EfficientNetB0_4.dxnn -i example/imagenet_classification/imagenet_val_map.txt -p sample/ILSVRC2012/
-bin/od_segmentation -m0 assets/models/YOLOV5S_3.dxnn -p0 1 -m1 assets/models/DeepLabV3PlusMobileNetV2_2.dxnn -i sample/8.jpg
-bin/pose -m assets/models/YOLOV5Pose640_1.dxnn -i sample/7.jpg -p 0
-bin/run_classifier -c example/run_classifier/imagenet_example.json
-bin/run_detector -c example/run_detector/yolov5s3_example.json
-bin/segmentation -m assets/models/DeepLabV3PlusMobileNetV2_2.dxnn -i sample/8.jpg
-bin/yolo -m assets/models/YOLOV5S_3.dxnn -i sample/1.jpg -p 1
-bin/yolo_multi -c ./example/yolo_multi/yolo_multi_demo.json
-*/
