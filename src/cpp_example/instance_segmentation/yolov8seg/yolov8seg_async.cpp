@@ -659,6 +659,16 @@ int main(int argc, char* argv[]) {
     if (is_image) {
         cv::Mat img = cv::imread(imgFile);
         for (int i = 0; i < loopTest; ++i) {
+            // Backpressure: wait if too many requests are in flight
+            while (appQuit.load() <= 0) {
+                {
+                    std::lock_guard<std::mutex> lk(profiling_metrics.metrics_mutex);
+                    if (profiling_metrics.inflight_current < ASYNC_BUFFER_SIZE - 1) break;
+                }
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            }
+            if (appQuit.load() > 0) break;
+
             std::vector<int> pad_xy{0, 0};
             std::vector<float> ratio{1.0f, 1.0f};
 
@@ -682,6 +692,17 @@ int main(int argc, char* argv[]) {
             args->pad_xy = pad_xy;
             args->ratio = ratio;
 
+            {
+                std::lock_guard<std::mutex> lk(profiling_metrics.metrics_mutex);
+                if (profiling_metrics.first_inference) {
+                    profiling_metrics.infer_first_ts = t1;
+                    profiling_metrics.first_inference = false;
+                }
+                profiling_metrics.inflight_current++;
+                if (profiling_metrics.inflight_current > profiling_metrics.inflight_max)
+                    profiling_metrics.inflight_max = profiling_metrics.inflight_current;
+            }
+
             wait_queue.push(args);
             submitted_frames++;
             if (appQuit.load() == -1) appQuit.store(0);
@@ -699,6 +720,16 @@ int main(int argc, char* argv[]) {
                 profiling_metrics.sum_read +=
                     std::chrono::duration<double, std::milli>(tr1 - tr0).count();
             }
+
+            // Backpressure: wait if too many requests are in flight
+            while (appQuit.load() <= 0) {
+                {
+                    std::lock_guard<std::mutex> lk(profiling_metrics.metrics_mutex);
+                    if (profiling_metrics.inflight_current < ASYNC_BUFFER_SIZE - 1) break;
+                }
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            }
+            if (appQuit.load() > 0) break;
 
             std::vector<int> pad_xy{0, 0};
             std::vector<float> ratio{1.0f, 1.0f};

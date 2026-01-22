@@ -539,6 +539,16 @@ int main(int argc, char* argv[]) {
     if (is_image) {
         cv::Mat img = cv::imread(imgFile);
         for (int i = 0; i < loopTest; ++i) {
+            // Backpressure: wait if too many requests are in flight
+            while (appQuit.load() <= 0) {
+                {
+                    std::lock_guard<std::mutex> lk(profiling_metrics.metrics_mutex);
+                    if (profiling_metrics.inflight_current < ASYNC_BUFFER_SIZE - 1) break;
+                }
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            }
+            if (appQuit.load() > 0) break;
+
             auto t0 = std::chrono::high_resolution_clock::now();
             cv::resize(img, images[index], cv::Size(SHOW_WINDOW_SIZE_W, SHOW_WINDOW_SIZE_H));
             cv::Mat pre(input_height, input_width, CV_8UC3, input_buffers[index].data());
@@ -557,6 +567,17 @@ int main(int argc, char* argv[]) {
             args->t_run_async_start = t1;
             args->is_no_show = fps_only;
 
+            {
+                std::lock_guard<std::mutex> lk(profiling_metrics.metrics_mutex);
+                if (profiling_metrics.first_inference) {
+                    profiling_metrics.infer_first_ts = t1;
+                    profiling_metrics.first_inference = false;
+                }
+                profiling_metrics.inflight_current++;
+                if (profiling_metrics.inflight_current > profiling_metrics.inflight_max)
+                    profiling_metrics.inflight_max = profiling_metrics.inflight_current;
+            }
+
             wait_queue.push(args);
             submitted_frames++;
             if (appQuit.load() == -1) appQuit.store(0);
@@ -574,6 +595,16 @@ int main(int argc, char* argv[]) {
                 profiling_metrics.sum_read +=
                     std::chrono::duration<double, std::milli>(tr1 - tr0).count();
             }
+
+            // Backpressure: wait if too many requests are in flight
+            while (appQuit.load() <= 0) {
+                {
+                    std::lock_guard<std::mutex> lk(profiling_metrics.metrics_mutex);
+                    if (profiling_metrics.inflight_current < ASYNC_BUFFER_SIZE - 1) break;
+                }
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            }
+            if (appQuit.load() > 0) break;
 
             auto t0 = std::chrono::high_resolution_clock::now();
             cv::resize(frame, images[index], cv::Size(SHOW_WINDOW_SIZE_W, SHOW_WINDOW_SIZE_H));
