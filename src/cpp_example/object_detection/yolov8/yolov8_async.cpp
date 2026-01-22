@@ -33,9 +33,8 @@ optimization.
 
 #define ASYNC_BUFFER_SIZE 40
 #define MAX_QUEUE_SIZE 100
-
-#define SHOW_WINDOW_SIZE_W 960
-#define SHOW_WINDOW_SIZE_H 640
+#define PREPROCESS_THREAD_COUNT 1
+#define POST_PROCESS_THREAD_COUNT 1
 
 // Profiling metrics structure
 struct ProfilingMetrics {
@@ -70,6 +69,8 @@ struct DisplayArgs {
     double t_inference = 0.0;
     double t_postprocess = 0.0;
     ProfilingMetrics *metrics = nullptr;
+    std::vector<int> pad_xy;
+    float scale_factor = 1.0f;
 
     DisplayArgs() = default;
 };
@@ -85,8 +86,38 @@ struct DetectionArgs {
     bool is_video_save = false;
     double t_preprocess = 0.0;
     std::chrono::high_resolution_clock::time_point t_run_async_start;
+    std::vector<int> pad_xy;
+    float scale_factor = 1.0f;
 
     DetectionArgs() = default;
+};
+
+// Arguments passed from wait_thread to postprocess_thread
+struct WaitArgs {
+    cv::Mat current_frame;
+    dxrt::TensorPtrs outputs;  // std::vector<std::shared_ptr<dxrt::Tensor>>
+    YOLOv8PostProcess *ypp = nullptr;
+    ProfilingMetrics *metrics = nullptr;
+    int *processed_count = nullptr;
+    bool is_no_show = false;
+    bool is_video_save = false;
+    double t_preprocess = 0.0;
+    double t_inference = 0.0;
+    std::vector<int> pad_xy;
+    float scale_factor = 1.0f;
+
+    WaitArgs() = default;
+};
+
+// Arguments passed from read (main) to preprocess_thread
+struct PreprocessArgs {
+    cv::Mat frame;
+    int buffer_index = 0;
+    double t_read = 0.0;
+    bool is_no_show = false;
+    bool is_video_save = false;
+
+    PreprocessArgs() = default;
 };
 
 // --- 2. SafeQueue implementation ---
@@ -102,12 +133,9 @@ class SafeQueue {
    public:
     SafeQueue(size_t max_size = MAX_QUEUE_SIZE) : max_size_(max_size) {}
 
-    void push(T item, int timeout_ms = 1000) {
+    void push(T item) {
         std::unique_lock<std::mutex> lock(mutex_);
-        if (!condition_.wait_for(lock, std::chrono::milliseconds(timeout_ms),
-                                 [this] { return queue_.size() < max_size_; })) {
-            throw std::runtime_error("Queue push timeout");
-        }
+        condition_.wait(lock, [this] { return queue_.size() < max_size_; });
         queue_.push(std::move(item));
         condition_.notify_one();
     }
@@ -248,28 +276,148 @@ cv::Mat draw_detections(const cv::Mat& frame, std::vector<YOLOv8Result>& detecti
 
 // --- 4. Thread function define ---
 
-void post_process_thread_func(SafeQueue<std::shared_ptr<DetectionArgs>> *wait_queue,
-                              SafeQueue<std::shared_ptr<DisplayArgs>> *display_queue,
-                              std::atomic<int> *appQuit) {
+// Preprocess thread: handles preprocessing and RunAsync
+void preprocess_thread_func(SafeQueue<std::shared_ptr<PreprocessArgs>> *input_queue,
+                            SafeQueue<std::shared_ptr<DetectionArgs>> *inference_queue,
+                            std::atomic<int> *appQuit,
+                            dxrt::InferenceEngine *ie,
+                            YOLOv8PostProcess *ypp,
+                            ProfilingMetrics *metrics,
+                            int *processed_count,
+                            std::vector<std::vector<uint8_t>> *input_buffers,
+                            int input_width, int input_height) {
     while (appQuit->load() == -1) std::this_thread::sleep_for(std::chrono::microseconds(10));
 
     while (appQuit->load() == 0) {
-        if (wait_queue->empty()) {
+        if (input_queue->empty()) {
             std::this_thread::sleep_for(std::chrono::microseconds(10));
             continue;
         }
-        auto args = wait_queue->pop();
+        auto pre_args = input_queue->pop();
+        int idx = pre_args->buffer_index;
+
+        // Calculate letterbox padding and scale factor based on original frame size
+        int img_width = pre_args->frame.cols;
+        int img_height = pre_args->frame.rows;
+        float scale_factor = std::min(static_cast<float>(input_width) / static_cast<float>(img_width),
+                                      static_cast<float>(input_height) / static_cast<float>(img_height));
+        int letterbox_pad_x = static_cast<int>(
+            std::max(0.f, (static_cast<float>(input_width) - img_width * scale_factor) / 2.f));
+        int letterbox_pad_y = static_cast<int>(
+            std::max(0.f, (static_cast<float>(input_height) - img_height * scale_factor) / 2.f));
+        std::vector<int> pad_xy{letterbox_pad_x, letterbox_pad_y};
+
+        auto t0 = std::chrono::high_resolution_clock::now();
+        cv::Mat pre(input_height, input_width, CV_8UC3, (*input_buffers)[idx].data());
+        make_letterbox_image(pre_args->frame, pre, cv::COLOR_BGR2RGB, pad_xy);
+        auto t1 = std::chrono::high_resolution_clock::now();
+        double preprocess_time = std::chrono::duration<double, std::milli>(t1 - t0).count();
+
+        auto req_id = ie->RunAsync(pre.data, nullptr, nullptr);
+        auto t2 = std::chrono::high_resolution_clock::now();
+
+        auto args = std::make_shared<DetectionArgs>();
+        args->ie = ie;
+        args->ypp = ypp;
+        args->current_frame = pre_args->frame.clone();  // Keep original frame
+        args->request_id = req_id;
+        args->processed_count = processed_count;
+        args->metrics = metrics;
+        args->t_preprocess = preprocess_time;
+        args->t_run_async_start = t1;
+        args->is_no_show = pre_args->is_no_show;
+        args->is_video_save = pre_args->is_video_save;
+        args->pad_xy = pad_xy;
+        args->scale_factor = scale_factor;
+
+        {
+            std::lock_guard<std::mutex> lk(metrics->metrics_mutex);
+            metrics->sum_read += pre_args->t_read;
+            if (metrics->first_inference) {
+                metrics->infer_first_ts = t1;
+                metrics->inflight_last_ts = t2;
+                metrics->first_inference = false;
+            } else {
+                auto now = std::chrono::high_resolution_clock::now();
+                metrics->inflight_time_sum +=
+                    metrics->inflight_current *
+                    std::chrono::duration<double>(now - metrics->inflight_last_ts).count();
+                metrics->inflight_last_ts = now;
+            }
+            metrics->inflight_current++;
+            if (metrics->inflight_current > metrics->inflight_max)
+                metrics->inflight_max = metrics->inflight_current;
+        }
+
+        inference_queue->push(args);
+    }
+}
+
+// Wait thread: only waits for inference completion (separates Wait from Postprocess)
+void wait_thread_func(SafeQueue<std::shared_ptr<DetectionArgs>> *inference_queue,
+                      SafeQueue<std::shared_ptr<WaitArgs>> *postprocess_queue,
+                      std::atomic<int> *appQuit) {
+    while (appQuit->load() == -1) std::this_thread::sleep_for(std::chrono::microseconds(10));
+
+    while (appQuit->load() == 0) {
+        if (inference_queue->empty()) {
+            std::this_thread::sleep_for(std::chrono::microseconds(10));
+            continue;
+        }
+        auto args = inference_queue->pop();
 
         auto outputs = args->ie->Wait(args->request_id);
         auto t1 = std::chrono::high_resolution_clock::now();
         double inference_time =
             std::chrono::duration<double, std::milli>(t1 - args->t_run_async_start).count();
 
-        // Try postprocess timing
-        // aligned tensor processing is now handled inside postprocess
+        if (args->metrics) {
+            std::lock_guard<std::mutex> lock(args->metrics->metrics_mutex);
+            args->metrics->infer_last_ts = t1;
+            args->metrics->infer_completed++;
+            // Accumulate inflight time before decrementing
+            auto now = std::chrono::high_resolution_clock::now();
+            args->metrics->inflight_time_sum +=
+                args->metrics->inflight_current *
+                std::chrono::duration<double>(now - args->metrics->inflight_last_ts).count();
+            args->metrics->inflight_last_ts = now;
+            args->metrics->inflight_current--;
+        }
+
+        auto w_args = std::make_shared<WaitArgs>();
+        w_args->outputs = std::move(outputs);
+        w_args->current_frame = std::move(args->current_frame);
+        w_args->ypp = args->ypp;
+        w_args->metrics = args->metrics;
+        w_args->processed_count = args->processed_count;
+        w_args->is_no_show = args->is_no_show;
+        w_args->is_video_save = args->is_video_save;
+        w_args->t_preprocess = args->t_preprocess;
+        w_args->t_inference = inference_time;
+        w_args->pad_xy = args->pad_xy;
+        w_args->scale_factor = args->scale_factor;
+
+        postprocess_queue->push(w_args);
+    }
+}
+
+// Postprocess thread: only runs postprocessing (can have multiple instances)
+void postprocess_thread_func(SafeQueue<std::shared_ptr<WaitArgs>> *postprocess_queue,
+                             SafeQueue<std::shared_ptr<DisplayArgs>> *display_queue,
+                             std::atomic<int> *appQuit) {
+    while (appQuit->load() == -1) std::this_thread::sleep_for(std::chrono::microseconds(10));
+
+    while (appQuit->load() == 0) {
+        if (postprocess_queue->empty()) {
+            std::this_thread::sleep_for(std::chrono::microseconds(10));
+            continue;
+        }
+        auto args = postprocess_queue->pop();
+
+        auto t1 = std::chrono::high_resolution_clock::now();
         std::vector<YOLOv8Result> detections_vec;
         try {
-            detections_vec = args->ypp->postprocess(outputs);
+            detections_vec = args->ypp->postprocess(args->outputs);
         } catch (const std::exception& e) {
             std::cerr << "[DXAPP] [ER] Exception during postprocessing: \n"
                         << e.what() << std::endl;
@@ -278,13 +426,6 @@ void post_process_thread_func(SafeQueue<std::shared_ptr<DetectionArgs>> *wait_qu
         }
         auto t2 = std::chrono::high_resolution_clock::now();
         double postprocess_time = std::chrono::duration<double, std::milli>(t2 - t1).count();
-
-        if (args->metrics) {
-            std::lock_guard<std::mutex> lock(args->metrics->metrics_mutex);
-            args->metrics->infer_last_ts = t1;
-            args->metrics->infer_completed++;
-            args->metrics->inflight_current--;
-        }
 
         auto d_args = std::make_shared<DisplayArgs>();
         d_args->detections = std::make_shared<std::vector<YOLOv8Result>>(detections_vec);
@@ -296,17 +437,18 @@ void post_process_thread_func(SafeQueue<std::shared_ptr<DetectionArgs>> *wait_qu
         d_args->is_no_show = args->is_no_show;
         d_args->is_video_save = args->is_video_save;
         d_args->t_preprocess = args->t_preprocess;
-        d_args->t_inference = inference_time;
+        d_args->t_inference = args->t_inference;
         d_args->t_postprocess = postprocess_time;
         d_args->metrics = args->metrics;
+        d_args->pad_xy = args->pad_xy;
+        d_args->scale_factor = args->scale_factor;
 
         display_queue->push(d_args);
     }
 }
 
 void display_thread_func(SafeQueue<std::shared_ptr<DisplayArgs>> *display_queue,
-                         std::atomic<int> *appQuit, cv::VideoWriter *writer,
-                         std::vector<int> *pad_xy, float *scale_factor) {
+                         std::atomic<int> *appQuit, cv::VideoWriter *writer) {
     while (appQuit->load() == -1) std::this_thread::sleep_for(std::chrono::microseconds(10));
 
     while (appQuit->load() == 0 || !display_queue->empty()) {
@@ -320,7 +462,7 @@ void display_thread_func(SafeQueue<std::shared_ptr<DisplayArgs>> *display_queue,
 
         auto render_start = std::chrono::high_resolution_clock::now();
         auto processed_frame =
-            draw_detections(*args->original_frame, *args->detections, *pad_xy, *scale_factor);
+            draw_detections(*args->original_frame, *args->detections, args->pad_xy, args->scale_factor);
 
         if (!processed_frame.empty()) {
             if (args->is_video_save) *writer << processed_frame;
@@ -492,28 +634,29 @@ int main(int argc, char* argv[]) {
 
     std::vector<std::vector<uint8_t>> input_buffers(ASYNC_BUFFER_SIZE,
                                                     std::vector<uint8_t>(ie.GetInputSize()));
-    std::vector<std::vector<uint8_t>> output_buffers(ASYNC_BUFFER_SIZE,
-                                                     std::vector<uint8_t>(ie.GetOutputSize()));
 
-    SafeQueue<std::shared_ptr<DetectionArgs>> wait_queue;
+    // 4-stage pipeline queues: read -> preprocess -> wait -> postprocess -> display
+    SafeQueue<std::shared_ptr<PreprocessArgs>> input_queue;
+    SafeQueue<std::shared_ptr<DetectionArgs>> inference_queue;
+    SafeQueue<std::shared_ptr<WaitArgs>> postprocess_queue;
     SafeQueue<std::shared_ptr<DisplayArgs>> display_queue;
     ProfilingMetrics profiling_metrics;
 
     cv::VideoWriter writer;
 
-    // Calculate letterbox padding and scale factor
-    float scale_factor =
-        std::min(static_cast<float>(input_width) / static_cast<float>(SHOW_WINDOW_SIZE_W),
-                 static_cast<float>(input_height) / static_cast<float>(SHOW_WINDOW_SIZE_H));
-    int letterbox_pad_x = static_cast<int>(
-        std::max(0.f, (static_cast<float>(input_width) - SHOW_WINDOW_SIZE_W * scale_factor) / 2.f));
-    int letterbox_pad_y = static_cast<int>(
-        std::max(0.f, (static_cast<float>(input_height) - SHOW_WINDOW_SIZE_H * scale_factor) / 2.f));
-    std::vector<int> pad_xy{letterbox_pad_x, letterbox_pad_y};
-
-    std::thread post_thread(post_process_thread_func, &wait_queue, &display_queue, &appQuit);
-    std::thread disp_thread(display_thread_func, &display_queue, &appQuit, &writer, &pad_xy,
-                            &scale_factor);
+    // Create pipeline threads: multiple preprocess threads for parallelization
+    std::vector<std::thread> preprocess_threads;
+    for (int i = 0; i < PREPROCESS_THREAD_COUNT; ++i) {
+        preprocess_threads.emplace_back(preprocess_thread_func, &input_queue, &inference_queue, &appQuit,
+                                        &ie, &post_processor, &profiling_metrics, &processCount,
+                                        &input_buffers, input_width, input_height);
+    }
+    std::thread wait_thread(wait_thread_func, &inference_queue, &postprocess_queue, &appQuit);
+    std::vector<std::thread> postprocess_threads;
+    for (int i = 0; i < POST_PROCESS_THREAD_COUNT; ++i) {
+        postprocess_threads.emplace_back(postprocess_thread_func, &postprocess_queue, &display_queue, &appQuit);
+    }
+    std::thread disp_thread(display_thread_func, &display_queue, &appQuit, &writer);
 
     cv::VideoCapture video;
     bool is_image = !imgFile.empty();
@@ -527,99 +670,70 @@ int main(int argc, char* argv[]) {
 
     if (!is_image && !video.isOpened()) return -1;
 
-    // Video Save Setup
+    // Video Save Setup - use original video size
     if (saveVideo) {
         double fps = video.get(cv::CAP_PROP_FPS);
+        int video_width = static_cast<int>(video.get(cv::CAP_PROP_FRAME_WIDTH));
+        int video_height = static_cast<int>(video.get(cv::CAP_PROP_FRAME_HEIGHT));
         writer.open("result.mp4", cv::VideoWriter::fourcc('M', 'J', 'P', 'G'), fps > 0 ? fps : 30.0,
-                    cv::Size(SHOW_WINDOW_SIZE_W, SHOW_WINDOW_SIZE_H));
+                    cv::Size(video_width, video_height));
     }
 
-    std::vector<cv::Mat> images(ASYNC_BUFFER_SIZE,
-                                cv::Mat(SHOW_WINDOW_SIZE_H, SHOW_WINDOW_SIZE_W, CV_8UC3));
     int index = 0, submitted_frames = 0;
     auto s_time = std::chrono::high_resolution_clock::now();
 
     if (is_image) {
         cv::Mat img = cv::imread(imgFile);
         for (int i = 0; i < loopTest; ++i) {
-            auto t0 = std::chrono::high_resolution_clock::now();
-            cv::resize(img, images[index], cv::Size(SHOW_WINDOW_SIZE_W, SHOW_WINDOW_SIZE_H));
-            cv::Mat pre(input_height, input_width, CV_8UC3, input_buffers[index].data());
-            make_letterbox_image(images[index], pre, cv::COLOR_BGR2RGB, pad_xy);
-            auto t1 = std::chrono::high_resolution_clock::now();
-            auto req_id = ie.RunAsync(pre.data, nullptr, output_buffers[index].data());
+            // Backpressure: wait if too many requests are in flight
+            while (appQuit.load() <= 0) {
+                {
+                    std::lock_guard<std::mutex> lk(profiling_metrics.metrics_mutex);
+                    if (profiling_metrics.inflight_current < ASYNC_BUFFER_SIZE - 1) break;
+                }
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            }
+            if (appQuit.load() > 0) break;
 
-            auto args = std::make_shared<DetectionArgs>();
-            args->ie = &ie;
-            args->ypp = &post_processor;
-            args->current_frame = images[index].clone();
-            args->request_id = req_id;
-            args->processed_count = &processCount;
-            args->metrics = &profiling_metrics;
-            args->t_preprocess = std::chrono::duration<double, std::milli>(t1 - t0).count();
-            args->t_run_async_start = t1;
-            args->is_no_show = fps_only;
+            auto pre_args = std::make_shared<PreprocessArgs>();
+            pre_args->frame = img.clone();
+            pre_args->buffer_index = index;
+            pre_args->t_read = 0.0;  // Image read time is negligible for repeated loop
+            pre_args->is_no_show = fps_only;
+            pre_args->is_video_save = false;
 
-            try {
-                wait_queue.push(args);
-            } catch (const std::exception& e) {
-                std::cerr << "[DXAPP] [ER] Failed to enqueue detection task (request_id="
-                          << args->request_id
-                          << "): queue push timed out. Consider reducing inflight or increasing "
-                             "MAX_QUEUE_SIZE. Details: "
-                          << e.what() << std::endl;
-            	}
-
+            input_queue.push(pre_args);
             submitted_frames++;
             if (appQuit.load() == -1) appQuit.store(0);
             index = (index + 1) % ASYNC_BUFFER_SIZE;
         }
     } else {
         while (true) {
+            // Backpressure: wait if too many requests are in flight
+            while (appQuit.load() <= 0) {
+                {
+                    std::lock_guard<std::mutex> lk(profiling_metrics.metrics_mutex);
+                    if (profiling_metrics.inflight_current < ASYNC_BUFFER_SIZE - 1) break;
+                }
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            }
+            if (appQuit.load() > 0) break;
+
             cv::Mat frame;
             auto tr0 = std::chrono::high_resolution_clock::now();
             video >> frame;
             if (frame.empty()) break;
             auto tr1 = std::chrono::high_resolution_clock::now();
-            {
-                std::lock_guard<std::mutex> lk(profiling_metrics.metrics_mutex);
-                profiling_metrics.sum_read +=
-                    std::chrono::duration<double, std::milli>(tr1 - tr0).count();
-            }
+            double read_time = std::chrono::duration<double, std::milli>(tr1 - tr0).count();
 
-            auto t0 = std::chrono::high_resolution_clock::now();
-            cv::resize(frame, images[index], cv::Size(SHOW_WINDOW_SIZE_W, SHOW_WINDOW_SIZE_H));
-            cv::Mat pre(input_height, input_width, CV_8UC3, input_buffers[index].data());
-            make_letterbox_image(images[index], pre, cv::COLOR_BGR2RGB, pad_xy);
-            auto t1 = std::chrono::high_resolution_clock::now();
-            auto req_id = ie.RunAsync(pre.data, nullptr, output_buffers[index].data());
-            auto t2 = std::chrono::high_resolution_clock::now();
+            auto pre_args = std::make_shared<PreprocessArgs>();
+            pre_args->frame = std::move(frame);
+            pre_args->buffer_index = index;
+            pre_args->t_read = read_time;
+            pre_args->is_no_show = fps_only;
+            pre_args->is_video_save = saveVideo;
 
-            auto args = std::make_shared<DetectionArgs>();
-            args->ie = &ie;
-            args->ypp = &post_processor;
-            args->current_frame = images[index].clone();
-            args->request_id = req_id;
-            args->processed_count = &processCount;
-            args->metrics = &profiling_metrics;
-            args->t_preprocess = std::chrono::duration<double, std::milli>(t1 - t0).count();
-            args->t_run_async_start = t1;
-            args->is_no_show = fps_only;
-            args->is_video_save = saveVideo;
-
-            {
-                std::lock_guard<std::mutex> lk(profiling_metrics.metrics_mutex);
-                if (profiling_metrics.first_inference) {
-                    profiling_metrics.infer_first_ts = t1;
-                    profiling_metrics.inflight_last_ts = t2;
-                    profiling_metrics.first_inference = false;
-                }
-                profiling_metrics.inflight_current++;
-                if (profiling_metrics.inflight_current > profiling_metrics.inflight_max)
-                    profiling_metrics.inflight_max = profiling_metrics.inflight_current;
-            }
-
-            wait_queue.push(args);
+            input_queue.push(pre_args);
             submitted_frames++;
             if (appQuit.load() == -1) appQuit.store(0);
             index = (index + 1) % ASYNC_BUFFER_SIZE;
@@ -630,7 +744,13 @@ int main(int argc, char* argv[]) {
     while (processCount < submitted_frames && appQuit.load() <= 0)
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
     appQuit.store(1);
-    if (post_thread.joinable()) post_thread.join();
+    for (auto& t : preprocess_threads) {
+        if (t.joinable()) t.join();
+    }
+    if (wait_thread.joinable()) wait_thread.join();
+    for (auto& t : postprocess_threads) {
+        if (t.joinable()) t.join();
+    }
     if (disp_thread.joinable()) disp_thread.join();
 
     auto e_time = std::chrono::high_resolution_clock::now();
