@@ -126,12 +126,9 @@ class SafeQueue {
    public:
     SafeQueue(size_t max_size = MAX_QUEUE_SIZE) : max_size_(max_size) {}
 
-    void push(T item, int timeout_ms = 1000) {
+    void push(T item) {
         std::unique_lock<std::mutex> lock(mutex_);
-        if (!condition_.wait_for(lock, std::chrono::milliseconds(timeout_ms),
-                                 [this] { return queue_.size() < max_size_; })) {
-            throw std::runtime_error("Queue push timeout");
-        }
+        condition_.wait(lock, [this] { return queue_.size() < max_size_; });
         queue_.push(std::move(item));
         condition_.notify_one();
     }
@@ -595,16 +592,7 @@ int main(int argc, char* argv[]) {
             args->t_run_async_start = t1;
             args->is_no_show = fps_only;
 
-            try {
-                wait_queue.push(args);
-            } catch (const std::exception& e) {
-                std::cerr << "[DXAPP] [ER] Failed to enqueue detection task (request_id="
-                          << args->request_id
-                          << "): queue push timed out. Consider reducing inflight or increasing "
-                             "MAX_QUEUE_SIZE. Details: "
-                          << e.what() << std::endl;
-            	}
-
+            wait_queue.push(args);
             submitted_frames++;
             if (appQuit.load() == -1) appQuit.store(0);
             index = (index + 1) % ASYNC_BUFFER_SIZE;
