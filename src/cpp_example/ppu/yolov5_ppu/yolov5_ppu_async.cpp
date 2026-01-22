@@ -31,7 +31,7 @@ count, FPS measurement, and result saving.
 optimization.
  */
 
-#define ASYNC_BUFFER_SIZE 20
+#define ASYNC_BUFFER_SIZE 40
 #define MAX_QUEUE_SIZE 100
 
 #define SHOW_WINDOW_SIZE_W 960
@@ -495,8 +495,6 @@ int main(int argc, char* argv[]) {
 
     std::vector<std::vector<uint8_t>> input_buffers(ASYNC_BUFFER_SIZE,
                                                     std::vector<uint8_t>(ie.GetInputSize()));
-    std::vector<std::vector<uint8_t>> output_buffers(ASYNC_BUFFER_SIZE,
-                                                     std::vector<uint8_t>(ie.GetOutputSize()));
 
     SafeQueue<std::shared_ptr<DetectionArgs>> wait_queue;
     SafeQueue<std::shared_ptr<DisplayArgs>> display_queue;
@@ -560,7 +558,7 @@ int main(int argc, char* argv[]) {
             cv::Mat pre(input_height, input_width, CV_8UC3, input_buffers[index].data());
             make_letterbox_image(images[index], pre, cv::COLOR_BGR2RGB, pad_xy);
             auto t1 = std::chrono::high_resolution_clock::now();
-            auto req_id = ie.RunAsync(pre.data, nullptr, output_buffers[index].data());
+            auto req_id = ie.RunAsync(pre.data, nullptr, nullptr);
 
             auto args = std::make_shared<DetectionArgs>();
             args->ie = &ie;
@@ -625,7 +623,7 @@ int main(int argc, char* argv[]) {
             cv::Mat pre(input_height, input_width, CV_8UC3, input_buffers[index].data());
             make_letterbox_image(images[index], pre, cv::COLOR_BGR2RGB, pad_xy);
             auto t1 = std::chrono::high_resolution_clock::now();
-            auto req_id = ie.RunAsync(pre.data, nullptr, output_buffers[index].data());
+            auto req_id = ie.RunAsync(pre.data, nullptr, nullptr);
             auto t2 = std::chrono::high_resolution_clock::now();
 
             auto args = std::make_shared<DetectionArgs>();

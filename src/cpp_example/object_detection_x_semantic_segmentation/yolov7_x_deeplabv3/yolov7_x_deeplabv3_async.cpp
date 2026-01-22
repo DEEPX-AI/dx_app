@@ -700,12 +700,8 @@ int main(int argc, char* argv[]) {
     // Prepare async buffers for both models
     std::vector<std::vector<uint8_t>> yolo_input_buffers(ASYNC_BUFFER_SIZE,
                                                          std::vector<uint8_t>(yolo_ie.GetInputSize()));
-    std::vector<std::vector<uint8_t>> yolo_output_buffers(ASYNC_BUFFER_SIZE,
-                                                          std::vector<uint8_t>(yolo_ie.GetOutputSize()));
     std::vector<std::vector<uint8_t>> deeplab_input_buffers(ASYNC_BUFFER_SIZE,
                                                             std::vector<uint8_t>(deeplab_ie.GetInputSize()));
-    std::vector<std::vector<uint8_t>> deeplab_output_buffers(ASYNC_BUFFER_SIZE,
-                                                             std::vector<uint8_t>(deeplab_ie.GetOutputSize()));
 
     SafeQueue<std::shared_ptr<DetectionArgs>> wait_queue;
     SafeQueue<std::shared_ptr<DisplayArgs>> display_queue;
@@ -785,10 +781,8 @@ int main(int argc, char* argv[]) {
             double deeplab_preprocess_time =
                 std::chrono::duration<double, std::milli>(t1_deeplab - t1_yolo).count();
 
-            auto yolo_req_id = yolo_ie.RunAsync(yolo_pre.data, nullptr,
-                                                yolo_output_buffers[index].data());
-            auto deeplab_req_id = deeplab_ie.RunAsync(deeplab_pre.data, nullptr,
-                                                      deeplab_output_buffers[index].data());
+            auto yolo_req_id = yolo_ie.RunAsync(yolo_pre.data, nullptr, nullptr);
+            auto deeplab_req_id = deeplab_ie.RunAsync(deeplab_pre.data, nullptr, nullptr);
 
             auto args = std::make_shared<DetectionArgs>();
             args->yolo_ie = &yolo_ie;
@@ -877,10 +871,8 @@ int main(int argc, char* argv[]) {
             double deeplab_preprocess_time =
                 std::chrono::duration<double, std::milli>(t1_deeplab - t1_yolo).count();
 
-            auto yolo_req_id = yolo_ie.RunAsync(yolo_pre.data, nullptr,
-                                                yolo_output_buffers[index].data());
-            auto deeplab_req_id = deeplab_ie.RunAsync(deeplab_pre.data, nullptr,
-                                                      deeplab_output_buffers[index].data());
+            auto yolo_req_id = yolo_ie.RunAsync(yolo_pre.data, nullptr, nullptr);
+            auto deeplab_req_id = deeplab_ie.RunAsync(deeplab_pre.data, nullptr, nullptr);
             auto t2 = std::chrono::high_resolution_clock::now();
 
             auto args = std::make_shared<DetectionArgs>();
