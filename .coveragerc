@@ -1,0 +1,76 @@
+[run]
+# Source directory to measure coverage for
+source = src/python_example
+
+# Enable branch coverage (track if/else branches)
+branch = True
+
+# File patterns to omit from coverage measurement
+omit =
+    # Utility files (excluded from per-task tests)
+    */labels.py
+    # Test files
+    */tests/*
+    */test_*.py
+    # Python cache
+    */__pycache__/*
+    */.*
+    # Virtual environments
+    */venv/*
+    */env/*
+    */site-packages/*
+    # Build artifacts
+    */build/*
+    */dist/*
+
+[report]
+# Code lines to exclude from coverage report (regex patterns)
+exclude_lines =
+    # Standard pragma (explicitly excluded code)
+    pragma: no cover
+    
+    # Common Python patterns
+    def __repr__
+    def __str__
+    raise AssertionError
+    raise NotImplementedError
+    @abstractmethod
+    
+    # Import/type-check errors
+    except ImportError:
+    except ModuleNotFoundError:
+    if TYPE_CHECKING:
+    
+    # Pass / ellipsis lines
+    ^\s*pass\s*$
+    ^\s*\.\.\.\s*$
+
+# Output precision (decimal places)
+precision = 2
+
+# Show missing line numbers
+show_missing = True
+
+# Include files with 100% coverage in the summary
+skip_covered = False
+
+# Skip empty files in the report
+skip_empty = True
+
+# Sort by coverage (lowest coverage first)
+sort = Cover
+
+[html]
+# Output directory for HTML report
+directory = htmlcov
+
+# HTML report title
+title = Python Example Test Coverage Report
+
+[xml]
+# XML report output (for CI/CD)
+output = coverage.xml
+
+[json]
+# JSON report output (for analysis tools)
+output = coverage.json

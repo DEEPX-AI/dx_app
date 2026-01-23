@@ -56,6 +56,498 @@
         "panel": "shared"
       },
       "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "build-target",
+      "type": "shell",
+      "dependsOn": "check-and-setup-venv",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && echo \"Building target: ${input:buildTarget}\" && ./build.sh --type debug --target ${input:buildTarget}"
+        ]
+      },
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared"
+      },
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "build: yolov5_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov5_sync"]
+      },
+      "group": "build",
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "build: yolov5_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov5_async"]
+      },
+      "group": "build",
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "build: yolov7_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov7_sync"]
+      },
+      "group": "build",
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "build: yolov7_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov7_async"]
+      },
+      "group": "build",
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "build: yolov8_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov8_sync"]
+      },
+      "group": "build",
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "build: yolov8_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov8_async"]
+      },
+      "group": "build",
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "build: efficientnet_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target efficientnet_sync"]
+      },
+      "group": "build",
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "build: efficientnet_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target efficientnet_async"]
+      },
+      "group": "build",
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "build: deeplabv3_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target deeplabv3_sync"]
+      },
+      "group": "build",
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "build: deeplabv3_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target deeplabv3_async"]
+      },
+      "group": "build",
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "build: scrfd_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target scrfd_sync"]
+      },
+      "group": "build",
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "build: scrfd_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target scrfd_async"]
+      },
+      "group": "build",
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "build: yolov5face_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov5face_sync"]
+      },
+      "group": "build",
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "build: yolov5face_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov5face_async"]
+      },
+      "group": "build",
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "build: yolov5pose_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov5pose_sync"]
+      },
+      "group": "build",
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "build: yolov5pose_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov5pose_async"]
+      },
+      "group": "build",
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "build: yolov9_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov9_sync"]
+      },
+      "group": "build",
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "build: yolov9_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov9_async"]
+      },
+      "group": "build",
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "build: yolov10_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov10_sync"]
+      },
+      "group": "build",
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "build: yolov10_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov10_async"]
+      },
+      "group": "build",
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "build: yolov11_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov11_sync"]
+      },
+      "group": "build",
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "build: yolov11_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov11_async"]
+      },
+      "group": "build",
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "build: yolov12_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov12_sync"]
+      },
+      "group": "build",
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "build: yolov12_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov12_async"]
+      },
+      "group": "build",
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "build: yolox_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolox_sync"]
+      },
+      "group": "build",
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "build: yolox_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolox_async"]
+      },
+      "group": "build",
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "build: yolov5_ppu_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov5_ppu_sync"]
+      },
+      "group": "build",
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "build: yolov5_ppu_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov5_ppu_async"]
+      },
+      "group": "build",
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "build: yolov7_ppu_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov7_ppu_sync"]
+      },
+      "group": "build",
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "build: yolov7_ppu_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov7_ppu_async"]
+      },
+      "group": "build",
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "build: scrfd_ppu_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target scrfd_ppu_sync"]
+      },
+      "group": "build",
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "build: scrfd_ppu_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target scrfd_ppu_async"]
+      },
+      "group": "build",
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "build: yolov5pose_ppu_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov5pose_ppu_sync"]
+      },
+      "group": "build",
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "build: yolov5pose_ppu_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov5pose_ppu_async"]
+      },
+      "group": "build",
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "build: yolov8seg_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov8seg_sync"]
+      },
+      "group": "build",
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "build: yolov8seg_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov8seg_async"]
+      },
+      "group": "build",
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "build: yolov7_x_deeplabv3_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov7_x_deeplabv3_sync"]
+      },
+      "group": "build",
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "build: yolov7_x_deeplabv3_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov7_x_deeplabv3_async"]
+      },
+      "group": "build",
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "build: demo_multi_channel",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target demo_multi_channel"]
+      },
+      "group": "build",
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "build: camera_opencv",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target camera_opencv"]
+      },
+      "group": "build",
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "build: video_opencv",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target video_opencv"]
+      },
+      "group": "build",
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "build: image_opencv",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target image_opencv"]
+      },
+      "group": "build",
+      "problemMatcher": ["$gcc"]
+    }
+  ],
+  "inputs": [
+    {
+      "id": "buildTarget",
+      "type": "pickString",
+      "description": "Select build target",
+      "options": [
+        "yolov5_sync",
+        "yolov5_async",
+        "yolov7_sync",
+        "yolov7_async",
+        "yolov8_sync",
+        "yolov8_async",
+        "yolov9_sync",
+        "yolov9_async",
+        "yolov10_sync",
+        "yolov10_async",
+        "yolov11_sync",
+        "yolov11_async",
+        "yolov12_sync",
+        "yolov12_async",
+        "yolox_sync",
+        "yolox_async",
+        "efficientnet_sync",
+        "efficientnet_async",
+        "deeplabv3_sync",
+        "deeplabv3_async",
+        "scrfd_sync",
+        "scrfd_async",
+        "yolov5face_sync",
+        "yolov5face_async",
+        "yolov5pose_sync",
+        "yolov5pose_async",
+        "yolov8seg_sync",
+        "yolov8seg_async",
+        "yolov5_ppu_sync",
+        "yolov5_ppu_async",
+        "yolov7_ppu_sync",
+        "yolov7_ppu_async",
+        "scrfd_ppu_sync",
+        "scrfd_ppu_async",
+        "yolov5pose_ppu_sync",
+        "yolov5pose_ppu_async",
+        "yolov7_x_deeplabv3_sync",
+        "yolov7_x_deeplabv3_async",
+        "demo_multi_channel",
+        "camera_opencv",
+        "video_opencv",
+        "image_opencv"
+      ],
+      "default": "yolov5_sync"
     }
   ]
 }

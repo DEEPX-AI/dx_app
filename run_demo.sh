@@ -34,6 +34,14 @@ fi
 
 WRC=$DX_APP_PATH
 
+# Check and set LD_LIBRARY_PATH
+if [[ ":$LD_LIBRARY_PATH:" != *":$WRC/lib:"* ]]; then
+    print_colored "Adding $WRC/lib to LD_LIBRARY_PATH" "INFO"
+    export LD_LIBRARY_PATH="$WRC/lib:$LD_LIBRARY_PATH"
+else
+    print_colored "LD_LIBRARY_PATH already contains $WRC/lib" "INFO"
+fi
+
 echo "0: Object Detection (YOLOv7)"
 echo "1: Object Detection with PPU (YOLOv7-640)"
 echo "2: Object Detection (YOLOv8N)"
@@ -44,9 +52,8 @@ echo "6: Face Detection With PPU (SCRFD500M-640)"
 echo "7: Pose Estimation"
 echo "8: Pose Estimation With PPU (YOLOv5Pose-640)"
 echo "9: Semantic Segmentation"
-echo "10: Multi-Channel Object Detection (YOLOv5)"
-echo "11: Multi-Channel Object Detection With PPU (YOLOv5-512)"
-echo "12: Multi-Model Object Detection (YOLOv5) & Segmentation"
+echo "10: Multi-Model Object Detection (YOLOv7) & Segmentation"
+echo "11: Object Detection (YOLOv26S)"
 
 # Advanced version with user input handling
 prompt="which AI demo do you want to run? (default:0): "
@@ -75,19 +82,18 @@ if [ -z "$select" ]; then
 fi
 
 case $select in
-    0)$WRC/bin/yolo -m assets/models/YoloV7.dxnn -p 4 -v assets/videos/snowboard.mp4 -l --target_fps 30;;
-    1)$WRC/bin/yolo -m assets/models/YoloV7_PPU.dxnn -p 4 -v assets/videos/snowboard.mp4 -l --target_fps 30;;
-    2)$WRC/bin/yolo -m assets/models/YoloV8N.dxnn -p 5 -v assets/videos/boat.mp4 -l --target_fps 30;;
-    3)$WRC/bin/yolo -m assets/models/YOLOV9S.dxnn -p 10 -v assets/videos/carrierbag.mp4 -l --target_fps 30;;
-    4)$WRC/bin/yolo -m assets/models/YOLOV5S_PPU.dxnn -p 11 -v assets/videos/boat.mp4 -l --target_fps 30;;
-    5)$WRC/bin/yolo -m assets/models/YOLOV5S_Face-1.dxnn -p 7 -v assets/videos/dance-group.mov -l --target_fps 30;;
-    6)$WRC/bin/yolo -m assets/models/SCRFD500M_PPU.dxnn -p 12 -v assets/videos/dance-group.mov -l --target_fps 30;;
-    7)$WRC/bin/pose -m assets/models/YOLOV5Pose640_1.dxnn -v assets/videos/dance-solo.mov -l --target_fps 30;;
-    8)$WRC/bin/pose -m assets/models/YOLOV5Pose_PPU.dxnn -p 1 -v assets/videos/dance-solo.mov -l --target_fps 30;;
-    9)$WRC/bin/segmentation -m assets/models/DeepLabV3PlusMobileNetV2_2.dxnn -v assets/videos/blackbox-city-road.mp4 -l --target_fps 30;;
-    10)$WRC/bin/yolo_multi -c example/yolo_multi/yolo_multi_demo.json;;
-    11)$WRC/bin/yolo_multi -c example/yolo_multi/ppu_yolo_multi_demo.json;;
-    12)$WRC/bin/od_segmentation -m0 assets/models/YOLOV5S_6.dxnn -p0 2 -m1 assets/models/DeepLabV3PlusMobileNetV2_2.dxnn -v assets/videos/blackbox-city-road2.mov -l;;
+    0)$WRC/bin/yolov7_async -m assets/models/YoloV7.dxnn -v assets/videos/snowboard.mp4;;
+    1)$WRC/bin/yolov7_ppu_async -m assets/models/YoloV7_PPU.dxnn -v assets/videos/snowboard.mp4;;
+    2)$WRC/bin/yolov8_async -m assets/models/YoloV8N.dxnn -v assets/videos/boat.mp4;;
+    3)$WRC/bin/yolov9_async -m assets/models/YOLOV9S.dxnn -v assets/videos/carrierbag.mp4;;
+    4)$WRC/bin/yolov5_ppu_async -m assets/models/YOLOV5S_PPU.dxnn -v assets/videos/boat.mp4;;
+    5)$WRC/bin/yolov5face_async -m assets/models/YOLOV5S_Face-1.dxnn -v assets/videos/dance-group.mov;;
+    6)$WRC/bin/scrfd_ppu_async -m assets/models/SCRFD500M_PPU.dxnn -v assets/videos/dance-group.mov;;
+    7)$WRC/bin/yolov5pose_async -m assets/models/YOLOV5Pose640_1.dxnn -v assets/videos/dance-solo.mov;;
+    8)$WRC/bin/yolov5pose_ppu_async -m assets/models/YOLOV5Pose_PPU.dxnn -v assets/videos/dance-solo.mov;;
+    9)$WRC/bin/deeplabv3_async -m assets/models/DeepLabV3PlusMobileNetV2_2.dxnn -v assets/videos/blackbox-city-road.mp4;;
+    10)$WRC/bin/yolov7_x_deeplabv3_async -y assets/models/YoloV7.dxnn -d assets/models/DeepLabV3PlusMobileNetV2_2.dxnn -v assets/videos/blackbox-city-road2.mov;;
+    11)$WRC/bin/yolov26_async -m assets/models/yolo26s-1.dxnn -v assets/videos/snowboard.mp4;;
 esac
 
 popd

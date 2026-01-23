@@ -1,23 +1,33 @@
 cmake_minimum_required(VERSION 3.14)
+get_filename_component(PROJECT_ROOT ${CMAKE_SOURCE_DIR} ABSOLUTE)
+project(dxapp DESCRIPTION "DEEPX Application Templates")
 
 if(MSVC)
     if(NOT DEFINED DXRT_DIR OR NOT EXISTS ${DXRT_DIR})
         message(FATAL_ERROR "The variable DXRT_DIR is not set. The build cannot proceed.")
     endif()
+    if(NOT DEFINED DXRT_INSTALLED_DIR)
+    set(DXRT_INSTALLED_DIR "${DXRT_DIR}")
+    message(STATUS "DXRT_INSTALLED_DIR is set to ${DXRT_INSTALLED_DIR}")
+    endif()
     string(REPLACE "\\" "/" DXRT_DIR ${DXRT_DIR})
     message(STATUS "The variable DXRT_DIR is set: ${DXRT_DIR}")
-    set(DXRT_INSTALLED_DIR ${DXRT_DIR})
     if(NOT DEFINED OpenCV_DIR OR NOT EXISTS ${OpenCV_DIR})
         message(OpenCV_DIR "The variable OpenCV_DIR is not set. The build cannot proceed.")
     endif()
     string(REPLACE "\\" "/" OpenCV_DIR ${OpenCV_DIR})
     message(STATUS "The variable OpenCV_DIR is set: ${OpenCV_DIR}")
+    set(DXAPP_WITH_SHAREDLIB FALSE)
 endif()
 
-project(dxapp DESCRIPTION "DEEPX Application Templates")
+add_compile_definitions(PROJECT_ROOT_DIR="${PROJECT_ROOT}")
 
-get_filename_component(PROJECT_ROOT_DIR ${CMAKE_SOURCE_DIR} ABSOLUTE)
-add_compile_definitions(PROJECT_ROOT_DIR="${PROJECT_ROOT_DIR}")
+# Provide portable thread target; on MSVC supply a stub for existing pthread links
+find_package(Threads REQUIRED)
+if(MSVC AND NOT TARGET pthread)
+    add_library(pthread INTERFACE)
+    target_link_libraries(pthread INTERFACE Threads::Threads)
+endif()
 
 if (MSVC)
     if (DEFINED ENV{WindowsSdkDir})
@@ -43,9 +53,37 @@ endif()
 
 set(CMAKE_CXX_STANDARD 14)
 if(MSVC)
-    set(CMAKE_CXX_STANDARD 17)
- endif()
+set(CMAKE_CXX_STANDARD 17)
+endif()
 set(CMAKE_CXX_STANDARD_REQUIRED "ON")
+
+# Code coverage option
+option(ENABLE_COVERAGE "Enable code coverage reporting" OFF)
+
+if(ENABLE_COVERAGE AND NOT MSVC)
+    message(STATUS "Code coverage enabled")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --coverage -fprofile-arcs -ftest-coverage")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} --coverage -fprofile-arcs -ftest-coverage")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} --coverage")
+    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} --coverage")
+elseif(ENABLE_COVERAGE AND MSVC)
+    message(WARNING "Code coverage is not supported on MSVC builds")
+endif()
+
+# Determine if filesystem library linking is needed
+set(STD_FS_NO_LIB_NEEDED FALSE)
+if(CMAKE_CXX_STANDARD GREATER 17 OR CMAKE_CXX_STANDARD EQUAL 17)
+    if(MSVC)
+        # MSVC with C++17 has filesystem in standard library
+        set(STD_FS_NO_LIB_NEEDED TRUE)
+    elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL "9.0")
+        # GCC 9.0+ with C++17 has filesystem in standard library
+        set(STD_FS_NO_LIB_NEEDED TRUE)
+    elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL "9.0")
+        # Clang 9.0+ with C++17 has filesystem in standard library
+        set(STD_FS_NO_LIB_NEEDED TRUE)
+    endif()
+endif()
 
 if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
     set(CMAKE_INSTALL_PREFIX "${CMAKE_BINARY_DIR}/release" CACHE PATH "Default install path" FORCE)
@@ -58,16 +96,6 @@ if(NOT "${CMAKE_HOST_SYSTEM_PROCESSOR}" STREQUAL "${CMAKE_SYSTEM_PROCESSOR}")
 else()
     set(CROSS_COMPILE FALSE)
 endif()
-
-set(STD_FS_NO_LIB_NEEDED FALSE)
-if(CMAKE_CXX_STANDARD GREATER 17 OR CMAKE_CXX_STANDARD EQUAL 17)
-    set(STD_FS_NO_LIB_NEEDED TRUE)
-elseif(MSVC)
-    set(STD_FS_NO_LIB_NEEDED TRUE)
-endif()
-
-include(dxapp.cfg)
-include(dxapp.function)
 
 if(CROSS_COMPILE)
     set(CMAKE_SKIP_RPATH TRUE)
@@ -82,12 +110,13 @@ if(MSVC)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -MP /wd4127")
     add_compile_options(-D_AMD64_ -D_WIN64 -DWIN64)
     add_compile_options(-D_CRT_SECURE_NO_WARNINGS)
+    add_compile_options(/utf-8)  # Avoid CP949 mis-decoding of UTF-8 sources
     add_definitions(-DNOMINMAX)
 else()
-    add_compile_options(-W -Wall -pthread -fstrict-volatile-bitfields -fPIC)
+    add_compile_options(-W -Wall -Wextra -pthread -O3 -fstrict-volatile-bitfields -fPIC)
 endif()
 
-if(ENABLE_DEBUG_INFO)
+if(ENABLE_DEBUG_INFO OR CMAKE_BUILD_TYPE STREQUAL "Debug" OR CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
     message(STATUS "Debug info enabled")
     if (NOT MSVC) 
         add_compile_options(-g -rdynamic)
@@ -107,22 +136,12 @@ if(MSVC)
     string(REPLACE "\n" ";" PYTHON_PATH_LIST "${PYTHON_PATHS}")
     list(GET PYTHON_PATH_LIST 0 Python_EXECUTABLE)
     message(STATUS "Selected Python Executable : ${Python_EXECUTABLE}")
-else()
-    execute_process(
-        COMMAND which python
-        OUTPUT_VARIABLE Python_EXECUTABLE 
-        OUTPUT_STRIP_TRAILING_WHITESPACE
-    )
 endif()
 
-add_subdirectory(templates/classification)
-add_subdirectory(templates/object_detection)
-
-add_subdirectory(demos/object_detection)
-add_subdirectory(demos/classification)
-add_subdirectory(demos/pose_estimation)
-add_subdirectory(demos/object_det_and_seg)
-add_subdirectory(demos/segmentation)
+if(DXAPP_WITH_SHAREDLIB)
+add_subdirectory(src/postprocess)
+endif()
+add_subdirectory(src/cpp_example)
 
 if(EXISTS "${CMAKE_SOURCE_DIR}/test" AND USE_DXAPP_TEST)
     add_subdirectory(test)
@@ -143,4 +162,3 @@ message(STATUS "CMAKE_CURRENT_SOURCE_DIR: ${CMAKE_CURRENT_SOURCE_DIR}")
 message(STATUS "CMAKE_CURRENT_LIST_DIR: ${CMAKE_CURRENT_LIST_DIR}")
 message(STATUS "CMAKE_CURRENT_BINARY_DIR: ${CMAKE_CURRENT_BINARY_DIR}")
 message(STATUS "DXRT_INSTALLED_DIR: ${DXRT_INSTALLED_DIR}")
-
