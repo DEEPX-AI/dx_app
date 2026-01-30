@@ -48,16 +48,16 @@ nav:
 plugins:
   - search
   - include-markdown
-  - with-pdf:
+  - to-pdf:
       author: DEEPX.ai
       copyright: ⓒ Copyright 2026 DEEPX All Rights Reserved.
       #
       #cover: false
       cover_title: DXNN Application (DX-APP) User Manual
-      cover_subtitle: v3.0.0 (Jan 2026)
+      cover_subtitle: 2026/01/23 (v3.0.0)
       cover_logo: img/deepx.png
       custom_template_path: docs/stylesheets
-      output_path: ../DEEPX_DX-APP_UM_v3.0.0.pdf
+      output_path: ../DEEPX_DX-APP_UM_v3.0.0_JAN_2026.pdf
 extra:
   homepage: https://developer.deepx.ai
   generator: false

@@ -10,7 +10,8 @@ pip install mkdocs
 pip install mkdocs-material
 pip install mkdocs-video
 pip install pymdown-extensions
-pip install mkdocs-with-pdf 
+pip install mkdocs-to-pdf
+pip install mkdocs-include-markdown-plugin
 ```
 * https://github.com/orzih/mkdocs-with-pdf 
 
