@@ -284,6 +284,52 @@ YOLOV26_CONFIG = ModelConfig(
     postprocess_result_shape=(1, 6),
 )
 
+YOLOV26CLS_CONFIG = ModelConfig(
+    name="yolov26cls",
+    task=TaskType.CLASSIFICATION,
+    base_path="classification/yolov26cls",
+    class_name="YOLOv26Cls",
+    model_filename="yolo26s-cls.dxnn",
+    ort_on_output_shapes=[(1, 1000)]
+)
+
+YOLOV26POSE_CONFIG = ModelConfig(
+    name="yolov26pose",
+    task=TaskType.OBJECT_DETECTION,
+    base_path="object_detection/yolov26pose",
+    class_name="YOLOv26Pose",
+    model_filename="yolo26s-pose.dxnn",
+    ort_on_output_shapes=[(1, 300, 57)],
+    has_keypoints=True,
+    num_keypoints=17,
+    keypoint_dim=3,
+    detection_output_size=57,
+    postprocess_result_shape=(1, 57)
+)
+
+YOLOV26SEG_CONFIG = ModelConfig(
+    name="yolov26seg",
+    task=TaskType.INSTANCE_SEGMENTATION,
+    base_path="instance_segmentation/yolov26seg",
+    class_name="YOLOv26Seg",
+    model_filename="yolo26s-seg.dxnn",
+    ort_on_output_shapes=[(1, 300, 38),
+                          (1, 32, 160, 160)],
+    postprocess_result_shape=[(1, 6),
+                              (1, 640, 640)]
+)
+
+YOLOV26OBB_CONFIG = ModelConfig(
+    name="yolov26obb",
+    task=TaskType.OBJECT_DETECTION,
+    base_path="object_detection/yolov26obb",
+    class_name="YOLOv26Obb",
+    model_filename="yolo26s-obb.dxnn",
+    detection_output_size = 7,
+    ort_on_output_shapes=[(1, 300, 7)],
+    postprocess_result_shape=(1, 7),
+)
+
 DEEPLABV3_CONFIG = ModelConfig(
     name="deeplabv3",
     task=TaskType.SEMANTIC_SEGMENTATION,

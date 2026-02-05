@@ -1088,9 +1088,29 @@ IMAGENET_1000: List[str] = [
     "toilet paper",
 ]
 
+# DOTAv1 15-class label set
+DOTAv1: List[str] = [
+    "plane",
+    "ship",
+    "storage-tank",
+    "baseball-diamond",
+    "tennis-court",
+    "basketball-court",
+    "ground-track-field",
+    "harbor",
+    "bridge",
+    "large-vehicle",
+    "small-vehicle",
+    "helicopter",
+    "roundabout",
+    "soccer-ball-field",
+    "swimming-pool"
+]
+
 _DATASET_LABELS: Dict[str, List[str]] = {
     "coco80": COCO_80,
     "imagenet1000": IMAGENET_1000,
+    "dotav1": DOTAv1,
 }
 
 

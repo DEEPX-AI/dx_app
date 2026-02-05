@@ -66,6 +66,10 @@ YOLOv7PPUPostProcess::YOLOv7PPUPostProcess() {
 std::vector<YOLOv7PPUResult> YOLOv7PPUPostProcess::postprocess(const dxrt::TensorPtrs& outputs) {
     std::vector<YOLOv7PPUResult> detections;
 
+    if (outputs.empty()) {
+        throw std::runtime_error("[DXAPP] [ER] YOLOv7 PPU PostProcess - outputs is empty");
+    }
+
     if (outputs.front()->type() != dxrt::DataType::BBOX) {
         int i = 0;
         std::ostringstream msg;
@@ -100,6 +104,9 @@ std::vector<YOLOv7PPUResult> YOLOv7PPUPostProcess::decoding_ppu_outputs(
     std::vector<YOLOv7PPUResult> detections;
     // YOLOv7 PPU
     // "name":"BBOX", "shape":[1, num_emelements]
+    if (outputs.empty() || outputs[0]->shape().size() < 2) {
+        throw std::runtime_error("[DXAPP] [ER] YOLOv7 PPU decoding - Invalid output shape");
+    }
     auto num_elements = outputs[0]->shape()[1];
     auto* raw_data = static_cast<dxrt::DeviceBoundingBox_t*>(outputs[0]->data());
     for (int i = 0; i < num_elements; i++) {

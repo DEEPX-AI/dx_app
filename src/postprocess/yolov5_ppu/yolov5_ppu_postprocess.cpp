@@ -1,7 +1,5 @@
 #include "yolov5_ppu_postprocess.h"
 
-#include <dxrt/datatype.h>
-
 #include <cmath>
 #include <cstdlib>
 #include <iterator>
@@ -27,6 +25,7 @@ float YOLOv5PPUResult::iou(const YOLOv5PPUResult& other) const {
 
     return intersection_area / union_area;
 }
+
 bool YOLOv5PPUResult::is_invalid(int image_width, int image_height) const {
     return box[0] < 0 || box[1] < 0 || box[2] > image_width || box[3] > image_height;
 }
@@ -67,6 +66,10 @@ YOLOv5PPUPostProcess::YOLOv5PPUPostProcess() {
 std::vector<YOLOv5PPUResult> YOLOv5PPUPostProcess::postprocess(const dxrt::TensorPtrs& outputs) {
     std::vector<YOLOv5PPUResult> detections;
 
+    if (outputs.empty()) {
+        throw std::runtime_error("[DXAPP] [ER] YOLOv7 PPU PostProcess - outputs is empty");
+    }
+
     if (outputs.front()->type() != dxrt::DataType::BBOX) {
         int i = 0;
         std::ostringstream msg;
@@ -101,6 +104,9 @@ std::vector<YOLOv5PPUResult> YOLOv5PPUPostProcess::decoding_ppu_outputs(
     std::vector<YOLOv5PPUResult> detections;
     // YOLOv5 PPU
     // "name":"BBOX", "shape":[1, num_emelements]
+    if (outputs.empty() || outputs[0]->shape().size() < 2) {
+        throw std::runtime_error("[DXAPP] [ER] YOLOv7 PPU decoding - Invalid output shape");
+    }
     auto num_elements = outputs[0]->shape()[1];
     auto* raw_data = static_cast<dxrt::DeviceBoundingBox_t*>(outputs[0]->data());
     for (int i = 0; i < num_elements; i++) {

@@ -158,7 +158,10 @@ class BaseTestFramework:
                     detection_data.extend([150, 150, 0.9])
             detections = np.array([detection_data], dtype=np.float32)
         else:
-            detections = np.array([[100, 100, 200, 200, 0.9, 0]], dtype=np.float32)
+            if output_size == 6:
+                detections = np.array([[100, 100, 200, 200, 0.9, 0]], dtype=np.float32)
+            elif output_size == 7:
+                detections = np.array([[100, 100, 200, 200, 0.9, 0, 45.0]], dtype=np.float32)
 
         args = [detections]
         if self.config.task == TaskType.INSTANCE_SEGMENTATION:

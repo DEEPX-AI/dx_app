@@ -142,5 +142,7 @@ std::vector<std::string> split(const std::string &str, char delimiter);
 // Class name utilities for object detection models
 std::string get_coco_class_name(const int class_id);
 
+std::string get_dota_class_name(const int class_id);
+
 }  // namespace common
 }  // namespace dxapp

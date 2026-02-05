@@ -69,6 +69,16 @@ MODEL_MAPPING = {
     "yolox_sync": "YOLOX-S_1.dxnn",
     "yolov26_async": "yolo26s-1.dxnn",
     "yolov26_sync": "yolo26s-1.dxnn",
+    "yolov26pose_async": "yolo26s-pose.dxnn",
+    "yolov26pose_sync": "yolo26s-pose.dxnn",
+    "yolov26seg_async": "yolo26s-seg.dxnn",
+    "yolov26seg_sync": "yolo26s-seg.dxnn",
+    "yolov26obb_async": "yolo26s-obb.dxnn",
+    "yolov26obb_sync": "yolo26s-obb.dxnn",
+    "yolov26cls_async": "yolo26s-cls.dxnn",
+    "yolov26cls_sync": "yolo26s-cls.dxnn",
+    "efficientnet_async": "EfficientNetB0_8.dxnn",
+    "efficientnet_sync": "EfficientNetB0_8.dxnn"
 }
 
 # Executables that support --no-display option
@@ -111,7 +121,17 @@ EXECUTABLES_WITH_NO_DISPLAY = [
     "yolox_async",
     "yolox_sync",
     "yolov26_async",
-    "yolov26_sync"
+    "yolov26_sync",
+    "yolov26pose_async",
+    "yolov26pose_sync",
+    "yolov26seg_async",
+    "yolov26seg_sync",
+    "yolov26obb_async",
+    "yolov26obb_sync",
+    "yolov26cls_async",
+    "yolov26cls_sync",
+    "efficientnet_async",
+    "efficientnet_sync"
 ]
 
 
@@ -261,6 +281,16 @@ def get_model_group(executable: str) -> str:
         return 'yolox'
     elif 'yolov26' in executable:
         return 'yolov26'
+    elif 'yolov26pose' in executable:
+        return 'yolov26pose'
+    elif 'yolov26seg' in executable:
+        return 'yolov26seg'
+    elif 'yolov26obb' in executable:
+        return 'yolov26obb'
+    elif 'yolov26cls' in executable:
+        return 'yolov26cls'
+    elif 'efficientnet' in executable:
+        return 'efficientnet'
     
     return 'unknown'
 
@@ -294,6 +324,13 @@ def test_image_inference_e2e(executable, bin_dir, loop_count):
             "-d", str(model_path[1]),
             "-i", str(TEST_IMAGE),
             "--no-display",
+            "-l", str(loop_count)
+        ]
+    elif "efficientnet" in str(executable_path) or "yolov26cls" in str(executable_path):
+        cmd = [
+            str(executable_path),
+            "-m", str(model_path),
+            "-i", str(TEST_IMAGE),
             "-l", str(loop_count)
         ]
     else:
@@ -371,6 +408,8 @@ def test_video_inference_e2e(executable, bin_dir):
             "-v", str(TEST_VIDEO),
             "--no-display"
         ]
+    elif "efficientnet" in str(executable_path) or "yolov26cls" in str(executable_path):
+        pytest.skip(f"Classification examples do not support video inference: {executable}")
     else:
         # Build command: executable -m model -v video --no-display
         cmd = [
