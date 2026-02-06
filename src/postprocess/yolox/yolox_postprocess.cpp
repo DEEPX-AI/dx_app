@@ -25,6 +25,7 @@ float YOLOXResult::iou(const YOLOXResult& other) const {
 
     return intersection_area / union_area;
 }
+
 bool YOLOXResult::is_invalid(int image_width, int image_height) const {
     return box[0] < 0 || box[1] < 0 || box[2] > image_width || box[3] > image_height;
 }
@@ -141,8 +142,9 @@ std::vector<YOLOXResult> YOLOXPostProcess::decoding_cpu_outputs(
     for (size_t output_idx = 0; output_idx < outputs.size(); ++output_idx) {
         const float* output = static_cast<const float*>(outputs[output_idx]->data());
         auto num_dets = outputs[output_idx]->shape()[1];
+        auto attribute_size = outputs[output_idx]->shape()[2];
         for (int i = 0; i < num_dets; ++i) {
-            const float* det = output + i * 85;
+            const float* det = output + i * attribute_size;
             auto objectness_score = det[4];
             if (objectness_score < object_threshold_) {
                 continue;

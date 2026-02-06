@@ -7,3 +7,4 @@ if(NOT CMAKE_CXX_STANDARD)
 endif()
 
 add_subdirectory(efficientnet)
+add_subdirectory(yolov26cls)

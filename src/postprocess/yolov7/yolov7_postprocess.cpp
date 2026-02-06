@@ -203,8 +203,9 @@ std::vector<YOLOv7Result> YOLOv7PostProcess::decoding_cpu_outputs(
     for (size_t output_idx = 0; output_idx < outputs.size(); ++output_idx) {
         const float* output = static_cast<const float*>(outputs[output_idx]->data());
         auto num_dets = outputs[output_idx]->shape()[1];
+        auto attribute_size = outputs[output_idx]->shape()[2];
         for (int i = 0; i < num_dets; ++i) {
-            const float* det = output + i * 85;
+            const float* det = output + i * attribute_size;
             auto objectness_score = det[4];
             if (objectness_score < object_threshold_) {
                 continue;

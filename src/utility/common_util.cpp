@@ -338,5 +338,25 @@ std::string get_coco_class_name(const int class_id) {
     return class_names.at(class_id);
 }
 
+std::string get_dota_class_name(const int class_id) {
+    static const std::vector<std::string> class_names = {
+        "plane",
+        "ship",
+        "storage-tank",
+        "baseball-diamond",
+        "tennis-court",
+        "basketball-court",
+        "ground-track-field",
+        "harbor",
+        "bridge",
+        "large-vehicle",
+        "small-vehicle",
+        "helicopter",
+        "roundabout",
+        "soccer-ball-field",
+        "swimming-pool"};
+    return class_names.at(class_id);
+}
+
 }  // namespace common
 }  // namespace dxapp

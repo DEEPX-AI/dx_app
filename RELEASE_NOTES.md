@@ -1,4 +1,14 @@
 # RELEASE_NOTES
+## v3.0.1 / 2026-02-05
+
+### 1. Changed
+
+### 2. Fixed
+- Hardcoded attribute size in YOLO post-processing to dynamically adjust based on model output shape
+
+### 3. Added
+- Add yolov26 cls, yolo26 pose, yolo26 seg, yolo26 obb examples
+
 ## DX-APP v3.0.0 / 2026-01-02
 
 ### 1. Changed

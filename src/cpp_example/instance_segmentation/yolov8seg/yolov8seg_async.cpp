@@ -6,6 +6,7 @@
 #include <condition_variable>
 #include <cxxopts.hpp>
 #include <exception>
+#include <experimental/filesystem>
 #include <iomanip>
 #include <iostream>
 #include <memory>
@@ -29,11 +30,15 @@
  * optimization.
  */
 
-#define ASYNC_BUFFER_SIZE 40
-#define MAX_QUEUE_SIZE 100
+namespace fs = std::experimental::filesystem;
 
-#define SHOW_WINDOW_SIZE_W 960
-#define SHOW_WINDOW_SIZE_H 640
+constexpr size_t ASYNC_BUFFER_SIZE = 40;
+constexpr size_t MAX_QUEUE_SIZE = 100;
+
+constexpr size_t SHOW_WINDOW_SIZE_W = 960;
+constexpr size_t SHOW_WINDOW_SIZE_H = 640;
+
+// --- Structures ---
 
 // Profiling metrics structure
 struct ProfilingMetrics {
@@ -56,8 +61,20 @@ struct ProfilingMetrics {
     std::mutex metrics_mutex;
 };
 
+// Command line arguments structure
+struct CommandLineArgs {
+    std::string modelPath;
+    std::string imageFilePath;
+    std::string videoFile;
+    std::string rtspUrl;
+    int cameraIndex = -1;
+    bool no_display = false;
+    bool saveVideo = false;
+    int loopTest = -1;
+};
+
 // Pre-computed color table for class visualization (optimized for performance)
-static const std::vector<cv::Scalar> CLASS_COLORS = {
+static const std::vector<cv::Scalar> COCO_CLASS_COLORS = {
     cv::Scalar(255, 0, 0),      // Red
     cv::Scalar(0, 255, 0),      // Green
     cv::Scalar(0, 0, 255),      // Blue
@@ -81,8 +98,8 @@ static const std::vector<cv::Scalar> CLASS_COLORS = {
 };
 
 // Generate color for each class ID using pre-computed table
-inline cv::Scalar get_instance_color(int class_id) {
-    return CLASS_COLORS[class_id % CLASS_COLORS.size()];
+inline cv::Scalar get_cityscapes_class_color(int class_id) {
+    return COCO_CLASS_COLORS[class_id % COCO_CLASS_COLORS.size()];
 }
 
 struct DisplayArgs {
@@ -93,6 +110,7 @@ struct DisplayArgs {
     int *processed_count = nullptr;
     bool is_no_show = false;
     bool is_video_save = false;
+    double t_read = 0.0;
     double t_preprocess = 0.0;
     double t_inference = 0.0;
     double t_postprocess = 0.0;
@@ -112,6 +130,7 @@ struct DetectionArgs {
     int request_id = 0;
     bool is_no_show = false;
     bool is_video_save = false;
+    double t_read = 0.0;
     double t_preprocess = 0.0;
     std::chrono::high_resolution_clock::time_point t_run_async_start;
     std::vector<int> pad_xy{0, 0};
@@ -120,7 +139,7 @@ struct DetectionArgs {
     DetectionArgs() = default;
 };
 
-// --- 2. SafeQueue implementation ---
+// --- SafeQueue implementation ---
 
 template <typename T>
 class SafeQueue {
@@ -131,7 +150,7 @@ class SafeQueue {
     size_t max_size_;
 
    public:
-    SafeQueue(size_t max_size = MAX_QUEUE_SIZE) : max_size_(max_size) {}
+    explicit SafeQueue(size_t max_size = MAX_QUEUE_SIZE) : max_size_(max_size) {}
 
     void push(T item) {
         std::unique_lock<std::mutex> lock(mutex_);
@@ -149,17 +168,151 @@ class SafeQueue {
         return item;
     }
 
+    // Try to pop with timeout, returns true if successful
+    bool try_pop(T& item, std::chrono::milliseconds timeout) {
+        std::unique_lock<std::mutex> lock(mutex_);
+        if (!condition_.wait_for(lock, timeout, [this] { return !queue_.empty(); })) {
+            return false;
+        }
+        item = std::move(queue_.front());
+        queue_.pop();
+        condition_.notify_one();
+        return true;
+    }
+
     bool empty() {
         std::lock_guard<std::mutex> lock(mutex_);
         return queue_.empty();
     }
 };
 
-// --- 3. Helper function define ---
+// --- Helper functions for postprocessing ---
+
+bool handle_postprocess_exception(const std::exception& e, const std::string& context) {
+    std::cerr << "[DXAPP] [ER] " << context << " error during postprocessing: \n"
+              << e.what() << std::endl;
+    return false;
+}
+
+bool process_postprocess(YOLOv8SegPostProcess& post_processor, const std::vector<std::shared_ptr<dxrt::Tensor>>& outputs, std::vector<YOLOv8SegResult>& detections_vec) {
+    try {
+        detections_vec = post_processor.postprocess(outputs);
+        return true;
+    } catch (const std::invalid_argument& e) {
+        return handle_postprocess_exception(e, "Invalid argument");
+    } catch (const std::out_of_range& e) {
+        return handle_postprocess_exception(e, "Out of range");
+    } catch (const std::length_error& e) {
+        return handle_postprocess_exception(e, "Length");
+    } catch (const std::domain_error& e) {
+        return handle_postprocess_exception(e, "Domain");
+    } catch (const std::range_error& e) {
+        return handle_postprocess_exception(e, "Range");
+    } catch (const std::overflow_error& e) {
+        return handle_postprocess_exception(e, "Overflow");
+    } catch (const std::underflow_error& e) {
+        return handle_postprocess_exception(e, "Underflow");
+    }
+}
+
+void update_inflight_metrics(ProfilingMetrics* metrics, const std::chrono::high_resolution_clock::time_point& t1) {
+    std::lock_guard<std::mutex> lock(metrics->metrics_mutex);
+    metrics->infer_last_ts = t1;
+    metrics->infer_completed++;
+    // Accumulate inflight time before decrementing
+    auto now = std::chrono::high_resolution_clock::now();
+    metrics->inflight_time_sum +=
+        metrics->inflight_current *
+        std::chrono::duration<double>(now - metrics->inflight_last_ts).count();
+    metrics->inflight_last_ts = now;
+    metrics->inflight_current--;
+}
+
+// --- Other helper functions ---
+
+/**
+ * @brief Check if file extension indicates an image file.
+ */
+bool is_image_file(const std::string& extension) {
+    return extension == ".jpg" || extension == ".jpeg" || 
+           extension == ".png" || extension == ".bmp";
+}
+
+/**
+ * @brief Load image files from a directory.
+ */
+std::vector<std::string> load_image_files_from_directory(const std::string& dirPath) {
+    std::vector<std::string> imageFiles;
+    
+    for (const auto& entry : fs::directory_iterator(dirPath)) {
+        if (!fs::is_regular_file(entry.path())) {
+            continue;
+        }
+        std::string ext = entry.path().extension().string();
+        std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+        if (is_image_file(ext)) {
+            imageFiles.push_back(entry.path().string());
+        }
+    }
+    std::sort(imageFiles.begin(), imageFiles.end());
+    return imageFiles;
+}
+
+/**
+ * @brief Process image path (file or directory) and return list of image files.
+ */
+std::pair<std::vector<std::string>, int> process_image_path(
+    const std::string& imageFilePath, int loopTest) {
+    std::vector<std::string> imageFiles;
+    
+    if (fs::is_directory(imageFilePath)) {
+        imageFiles = load_image_files_from_directory(imageFilePath);
+        if (imageFiles.empty()) {
+            std::cerr << "[ERROR] No image files found in directory: " << imageFilePath << std::endl;
+            exit(1);
+        }
+        if (loopTest == -1) {
+            loopTest = static_cast<int>(imageFiles.size());
+        }
+    } else if (fs::is_regular_file(imageFilePath)) {
+        imageFiles.push_back(imageFilePath);
+        if (loopTest == -1) {
+            loopTest = 1;
+        }
+    } else {
+        std::cerr << "[ERROR] Invalid image path: " << imageFilePath << std::endl;
+        exit(1);
+    }
+    
+    return {imageFiles, loopTest};
+}
+
+// --- Callback helper functions ---
+
+// Helper function to update profiling metrics inflight stats
+void update_profiling_inflight(ProfilingMetrics& metrics, 
+                               const std::chrono::high_resolution_clock::time_point& t1) {
+    std::lock_guard<std::mutex> lk(metrics.metrics_mutex);
+    if (metrics.first_inference) {
+        metrics.infer_first_ts = t1;
+        metrics.inflight_last_ts = t1;
+        metrics.first_inference = false;
+    }
+    auto now = std::chrono::high_resolution_clock::now();
+    metrics.inflight_time_sum +=
+        metrics.inflight_current *
+        std::chrono::duration<double>(now - metrics.inflight_last_ts).count();
+    metrics.inflight_last_ts = now;
+
+    metrics.inflight_current++;
+    if (metrics.inflight_current > metrics.inflight_max)
+        metrics.inflight_max = metrics.inflight_current;
+}
+
 
 /**
  * @brief Resize the input image to the specified size and apply letterbox
- * padding for preprocessing YOLOv8 segmentation.
+ * padding for preprocessing.
  * @param image Original input image
  * @param preprocessed_image Mat object to store the preprocessed result
  * @param pad_xy [x, y] vector for padding size
@@ -171,16 +324,16 @@ void make_letterbox_image(const cv::Mat& image, cv::Mat& preprocessed_image,
     int input_height = preprocessed_image.rows;
 
     // Calculate scale ratio
-    float scale_x = static_cast<float>(input_width) / image.cols;
-    float scale_y = static_cast<float>(input_height) / image.rows;
+    float scale_x = static_cast<float>(input_width) / static_cast<float>(image.cols);
+    float scale_y = static_cast<float>(input_height) / static_cast<float>(image.rows);
     float scale = std::min(scale_x, scale_y);
 
     ratio[0] = scale;
     ratio[1] = scale;
 
     // Calculate new dimensions after scaling
-    int new_width = static_cast<int>(image.cols * scale);
-    int new_height = static_cast<int>(image.rows * scale);
+    auto new_width = static_cast<int>(static_cast<float>(image.cols) * scale);
+    auto new_height = static_cast<int>(static_cast<float>(image.rows) * scale);
 
     // Calculate padding
     pad_xy[0] = (input_width - new_width) / 2;
@@ -214,10 +367,10 @@ void make_letterbox_image(const cv::Mat& image, cv::Mat& preprocessed_image,
 void transform_box_to_original(std::vector<float>& box, const std::vector<int>& pad_xy,
                                const std::vector<float>& ratio, int orig_width, int orig_height) {
     // Remove padding and scale back to original coordinates
-    box[0] = (box[0] - pad_xy[0]) / ratio[0];  // x1
-    box[1] = (box[1] - pad_xy[1]) / ratio[1];  // y1
-    box[2] = (box[2] - pad_xy[0]) / ratio[0];  // x2
-    box[3] = (box[3] - pad_xy[1]) / ratio[1];  // y2
+    box[0] = (box[0] - static_cast<float>(pad_xy[0])) / ratio[0];  // x1
+    box[1] = (box[1] - static_cast<float>(pad_xy[1])) / ratio[1];  // y1
+    box[2] = (box[2] - static_cast<float>(pad_xy[0])) / ratio[0];  // x2
+    box[3] = (box[3] - static_cast<float>(pad_xy[1])) / ratio[1];  // y2
 
     // Clamp to image boundaries
     box[0] = std::max(0.0f, std::min(static_cast<float>(orig_width), box[0]));
@@ -240,13 +393,14 @@ void transform_box_to_original(std::vector<float>& box, const std::vector<int>& 
 cv::Mat transform_mask_to_original(const std::vector<float>& mask, int mask_width, int mask_height,
                                    const std::vector<int>& pad_xy, const std::vector<float>& ratio,
                                    int orig_width, int orig_height) {
-    // Create mask Mat directly from data pointer for efficiency
-    cv::Mat mask_mat(mask_height, mask_width, CV_32F, const_cast<float*>(mask.data()));
+    // Create mask Mat by copying data to avoid const_cast undefined behavior
+    cv::Mat mask_mat(mask_height, mask_width, CV_32F);
+    std::copy(mask.begin(), mask.end(), mask_mat.ptr<float>());
 
     // Calculate the actual content size after removing padding
-    const float scale_factor = ratio[0];
-    const int content_width = static_cast<int>(orig_width * scale_factor);
-    const int content_height = static_cast<int>(orig_height * scale_factor);
+    const auto scale_factor = ratio[0];
+    const auto content_width = static_cast<int>(static_cast<float>(orig_width) * scale_factor);
+    const auto content_height = static_cast<int>(static_cast<float>(orig_height) * scale_factor);
 
     // Remove padding - crop to the actual content area
     cv::Mat unpadded_mask;
@@ -279,6 +433,88 @@ cv::Mat transform_mask_to_original(const std::vector<float>& mask, int mask_widt
 }
 
 /**
+ * @brief Apply mask blending to a single row of pixels.
+ */
+inline void apply_mask_row_blending(cv::Vec3b* result_row, const float* mask_row, int cols,
+                                   float inv_alpha, float color_b, float color_g, float color_r, float alpha) {
+    int x = 0;
+    // Process 4 pixels at once for better cache usage
+    for (; x < cols - 3; x += 4) {
+        std::array<bool, 4> needs_blend = {mask_row[x] > 0.5f, mask_row[x + 1] > 0.5f,
+                                           mask_row[x + 2] > 0.5f, mask_row[x + 3] > 0.5f};
+
+        for (int j = 0; j < 4; ++j) {
+            if (needs_blend[j]) {
+                cv::Vec3b& pixel = result_row[x + j];
+                pixel[0] = static_cast<uchar>(static_cast<float>(pixel[0]) * inv_alpha + color_b * alpha);
+                pixel[1] = static_cast<uchar>(static_cast<float>(pixel[1]) * inv_alpha + color_g * alpha);
+                pixel[2] = static_cast<uchar>(static_cast<float>(pixel[2]) * inv_alpha + color_r * alpha);
+            }
+        }
+    }
+
+    // Handle remaining pixels
+    for (; x < cols; ++x) {
+        if (mask_row[x] > 0.5f) {
+            cv::Vec3b& pixel = result_row[x];
+            pixel[0] = static_cast<uchar>(static_cast<float>(pixel[0]) * inv_alpha + color_b * alpha);
+            pixel[1] = static_cast<uchar>(static_cast<float>(pixel[1]) * inv_alpha + color_g * alpha);
+            pixel[2] = static_cast<uchar>(static_cast<float>(pixel[2]) * inv_alpha + color_r * alpha);
+        }
+    }
+}
+
+/**
+ * @brief Draw segmentation mask on the result image.
+ */
+void draw_segmentation_mask(cv::Mat& result, const YOLOv8SegResult& detection,
+                            const std::vector<int>& pad_xy, const std::vector<float>& ratio,
+                            const cv::Scalar& color, float alpha) {
+    cv::Mat mask = transform_mask_to_original(detection.mask, detection.mask_width,
+                                              detection.mask_height, pad_xy, ratio,
+                                              result.cols, result.rows);
+
+    const float inv_alpha = 1.0f - alpha;
+    const auto color_b = static_cast<float>(color[0]);
+    const auto color_g = static_cast<float>(color[1]);
+    const auto color_r = static_cast<float>(color[2]);
+
+    for (int y = 0; y < mask.rows; ++y) {
+        const float* mask_row = mask.ptr<float>(y);
+        cv::Vec3b* result_row = result.ptr<cv::Vec3b>(y);
+        apply_mask_row_blending(result_row, mask_row, mask.cols, inv_alpha, color_b, color_g, color_r, alpha);
+    }
+}
+
+/**
+ * @brief Draw a single detection bounding box with label on the image.
+ * @param result Image to draw on (modified in place)
+ * @param box Box coordinates [x1, y1, x2, y2]
+ * @param detection Detection result containing class info
+ * @param color Color for the bounding box
+ */
+void draw_detection_box(cv::Mat& result, const std::vector<float>& box,
+                        const YOLOv8SegResult& detection, const cv::Scalar& color) {
+    cv::Point pt1(static_cast<int>(box[0]), static_cast<int>(box[1]));
+    cv::Point pt2(static_cast<int>(box[2]), static_cast<int>(box[3]));
+    cv::rectangle(result, pt1, pt2, color, 2);
+
+    std::string label = detection.class_name + ": " +
+                        std::to_string(static_cast<int>(detection.confidence * 100)) + "%";
+    int baseline;
+    cv::Size label_size = cv::getTextSize(label, cv::FONT_HERSHEY_SIMPLEX, 0.5, 2, &baseline);
+
+    cv::Point label_pt(pt1.x, pt1.y - 10 > 10 ? pt1.y - 10 : pt1.y + label_size.height + 10);
+
+    cv::rectangle(result, cv::Point(label_pt.x, label_pt.y - label_size.height - 5),
+                  cv::Point(label_pt.x + label_size.width, label_pt.y + baseline), color,
+                  cv::FILLED);
+
+    cv::putText(result, label, label_pt, cv::FONT_HERSHEY_SIMPLEX, 0.5,
+                cv::Scalar(255, 255, 255), 2);
+}
+
+/**
  * @brief Visualize YOLOv8 segmentation results by drawing bounding boxes and masks.
  * @param frame Original image
  * @param results YOLOv8 segmentation results
@@ -293,87 +529,25 @@ cv::Mat draw_yolov8_segmentation(const cv::Mat& frame, std::vector<YOLOv8SegResu
     cv::Mat result = frame.clone();
 
     for (size_t i = 0; i < results.size(); ++i) {
-        auto& detection = results[i];
+        const auto& detection = results[i];
 
         // Transform bounding box to original coordinates
         std::vector<float> box = detection.box;
         transform_box_to_original(box, pad_xy, ratio, frame.cols, frame.rows);
 
         // Draw bounding box
-        cv::Scalar color = get_instance_color(i);
-        cv::Point pt1(static_cast<int>(box[0]), static_cast<int>(box[1]));
-        cv::Point pt2(static_cast<int>(box[2]), static_cast<int>(box[3]));
-        cv::rectangle(result, pt1, pt2, color, 2);
+        cv::Scalar color = get_cityscapes_class_color(static_cast<int>(i));
+        draw_detection_box(result, box, detection, color);
 
-        // Draw segmentation mask if available - ultra-optimized version
         if (!detection.mask.empty() && detection.mask_width > 0 && detection.mask_height > 0) {
-            cv::Mat mask = transform_mask_to_original(detection.mask, detection.mask_width,
-                                                      detection.mask_height, pad_xy, ratio,
-                                                      frame.cols, frame.rows);
-
-            // Pre-calculate blending constants
-            const float inv_alpha = 1.0f - alpha;
-            const int color_b = static_cast<int>(color[0]);
-            const int color_g = static_cast<int>(color[1]);
-            const int color_r = static_cast<int>(color[2]);
-
-            // Vectorized mask application with row-wise processing
-            for (int y = 0; y < mask.rows; ++y) {
-                const float* mask_row = mask.ptr<float>(y);
-                cv::Vec3b* result_row = result.ptr<cv::Vec3b>(y);
-
-                // Process 4 pixels at once for better cache usage
-                int x = 0;
-                for (; x < mask.cols - 3; x += 4) {
-                    // Check if any of the 4 pixels need processing
-                    bool needs_blend[4] = {mask_row[x] > 0.5f, mask_row[x + 1] > 0.5f,
-                                           mask_row[x + 2] > 0.5f, mask_row[x + 3] > 0.5f};
-
-                    // Vectorized blending for valid pixels
-                    for (int j = 0; j < 4; ++j) {
-                        if (needs_blend[j]) {
-                            cv::Vec3b& pixel = result_row[x + j];
-                            pixel[0] = static_cast<uchar>(pixel[0] * inv_alpha + color_b * alpha);
-                            pixel[1] = static_cast<uchar>(pixel[1] * inv_alpha + color_g * alpha);
-                            pixel[2] = static_cast<uchar>(pixel[2] * inv_alpha + color_r * alpha);
-                        }
-                    }
-                }
-
-                // Handle remaining pixels
-                for (; x < mask.cols; ++x) {
-                    if (mask_row[x] > 0.5f) {
-                        cv::Vec3b& pixel = result_row[x];
-                        pixel[0] = static_cast<uchar>(pixel[0] * inv_alpha + color_b * alpha);
-                        pixel[1] = static_cast<uchar>(pixel[1] * inv_alpha + color_g * alpha);
-                        pixel[2] = static_cast<uchar>(pixel[2] * inv_alpha + color_r * alpha);
-                    }
-                }
-            }
+            draw_segmentation_mask(result, detection, pad_xy, ratio, color, alpha);
         }
-
-        // Draw class label and confidence
-        std::string label = detection.class_name + ": " +
-                            std::to_string(static_cast<int>(detection.confidence * 100)) + "%";
-        int baseline;
-        cv::Size label_size = cv::getTextSize(label, cv::FONT_HERSHEY_SIMPLEX, 0.5, 2, &baseline);
-
-        cv::Point label_pt(pt1.x, pt1.y - 10 > 10 ? pt1.y - 10 : pt1.y + label_size.height + 10);
-
-        // Draw label background
-        cv::rectangle(result, cv::Point(label_pt.x, label_pt.y - label_size.height - 5),
-                      cv::Point(label_pt.x + label_size.width, label_pt.y + baseline), color,
-                      cv::FILLED);
-
-        // Draw label text
-        cv::putText(result, label, label_pt, cv::FONT_HERSHEY_SIMPLEX, 0.5,
-                    cv::Scalar(255, 255, 255), 2);
     }
 
     return result;
 }
 
-// --- 4. Thread function define ---
+// --- Thread function definitions ---
 
 void post_process_thread_func(SafeQueue<std::shared_ptr<DetectionArgs>> *wait_queue,
                               SafeQueue<std::shared_ptr<DisplayArgs>> *display_queue,
@@ -381,25 +555,19 @@ void post_process_thread_func(SafeQueue<std::shared_ptr<DetectionArgs>> *wait_qu
     while (appQuit->load() == -1) std::this_thread::sleep_for(std::chrono::microseconds(10));
 
     while (appQuit->load() == 0) {
-        if (wait_queue->empty()) {
-            std::this_thread::sleep_for(std::chrono::microseconds(10));
+        std::shared_ptr<DetectionArgs> args;
+        if (!wait_queue->try_pop(args, std::chrono::milliseconds(10))) {
             continue;
         }
-        auto args = wait_queue->pop();
 
         auto outputs = args->ie->Wait(args->request_id);
         auto t1 = std::chrono::high_resolution_clock::now();
         double inference_time =
             std::chrono::duration<double, std::milli>(t1 - args->t_run_async_start).count();
 
-        // Try postprocess timing
-        // aligned tensor processing is now handled inside postprocess
+        // Process postprocessing with error handling
         std::vector<YOLOv8SegResult> detections_vec;
-        try {
-            detections_vec = args->ypp->postprocess(outputs);
-        } catch (const std::exception& e) {
-            std::cerr << "[DXAPP] [ER] Exception during postprocessing: \n"
-                        << e.what() << std::endl;
+        if (!process_postprocess(*args->ypp, outputs, detections_vec)) {
             appQuit->store(1);
             continue;
         }
@@ -407,16 +575,7 @@ void post_process_thread_func(SafeQueue<std::shared_ptr<DetectionArgs>> *wait_qu
         double postprocess_time = std::chrono::duration<double, std::milli>(t2 - t1).count();
 
         if (args->metrics) {
-            std::lock_guard<std::mutex> lock(args->metrics->metrics_mutex);
-            args->metrics->infer_last_ts = t1;
-            args->metrics->infer_completed++;
-            // Accumulate inflight time before decrementing
-            auto now = std::chrono::high_resolution_clock::now();
-            args->metrics->inflight_time_sum +=
-                args->metrics->inflight_current *
-                std::chrono::duration<double>(now - args->metrics->inflight_last_ts).count();
-            args->metrics->inflight_last_ts = now;
-            args->metrics->inflight_current--;
+            update_inflight_metrics(args->metrics, t1);
         }
 
         auto d_args = std::make_shared<DisplayArgs>();
@@ -428,6 +587,7 @@ void post_process_thread_func(SafeQueue<std::shared_ptr<DetectionArgs>> *wait_qu
         d_args->processed_count = args->processed_count;
         d_args->is_no_show = args->is_no_show;
         d_args->is_video_save = args->is_video_save;
+        d_args->t_read = args->t_read;
         d_args->t_preprocess = args->t_preprocess;
         d_args->t_inference = inference_time;
         d_args->t_postprocess = postprocess_time;
@@ -439,17 +599,34 @@ void post_process_thread_func(SafeQueue<std::shared_ptr<DetectionArgs>> *wait_qu
     }
 }
 
+void handle_display_frame(const cv::Mat& processed_frame, bool is_video_save, bool is_no_show,
+                         cv::VideoWriter* writer, std::atomic<int>* appQuit) {
+    if (is_video_save) *writer << processed_frame;
+    if (!is_no_show) {
+        cv::imshow("result", processed_frame);
+        if (cv::waitKey(1) == 'q') appQuit->store(1);
+    }
+}
+
+void update_metrics(ProfilingMetrics* metrics, double t_read, double t_preprocess,
+                   double t_inference, double t_postprocess, double render_time) {
+    std::lock_guard<std::mutex> lock(metrics->metrics_mutex);
+    metrics->sum_read += t_read;
+    metrics->sum_preprocess += t_preprocess;
+    metrics->sum_inference += t_inference;
+    metrics->sum_postprocess += t_postprocess;
+    metrics->sum_render += render_time;
+}
+
 void display_thread_func(SafeQueue<std::shared_ptr<DisplayArgs>> *display_queue,
                          std::atomic<int> *appQuit, cv::VideoWriter *writer) {
     while (appQuit->load() == -1) std::this_thread::sleep_for(std::chrono::microseconds(10));
 
     while (appQuit->load() == 0 || !display_queue->empty()) {
-        if (display_queue->empty()) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        std::shared_ptr<DisplayArgs> args;
+        if (!display_queue->try_pop(args, std::chrono::milliseconds(10))) {
             continue;
         }
-
-        auto args = display_queue->pop();
         if (!args || !args->original_frame) continue;
 
         auto render_start = std::chrono::high_resolution_clock::now();
@@ -457,11 +634,7 @@ void display_thread_func(SafeQueue<std::shared_ptr<DisplayArgs>> *display_queue,
             draw_yolov8_segmentation(*args->original_frame, *args->detections, args->pad_xy, args->ratio);
 
         if (!processed_frame.empty()) {
-            if (args->is_video_save) *writer << processed_frame;
-            if (!args->is_no_show) {
-                cv::imshow("result", processed_frame);
-                if (cv::waitKey(1) == 'q') appQuit->store(1);
-            }
+            handle_display_frame(processed_frame, args->is_video_save, args->is_no_show, writer, appQuit);
         }
 
         if (args->processed_count) (*args->processed_count)++;
@@ -471,16 +644,15 @@ void display_thread_func(SafeQueue<std::shared_ptr<DisplayArgs>> *display_queue,
             std::chrono::duration<double, std::milli>(render_end - render_start).count();
 
         if (args->metrics) {
-            std::lock_guard<std::mutex> lock(args->metrics->metrics_mutex);
-            args->metrics->sum_preprocess += args->t_preprocess;
-            args->metrics->sum_inference += args->t_inference;
-            args->metrics->sum_postprocess += args->t_postprocess;
-            args->metrics->sum_render += render_time;
+            update_metrics(args->metrics, args->t_read, args->t_preprocess,
+                         args->t_inference, args->t_postprocess, render_time);
         }
     }
 }
 
-void print_performance_summary(const ProfilingMetrics &metrics, int total_frames,
+// --- Performance summary ---
+
+void print_performance_summary(const ProfilingMetrics& metrics, int total_frames,
                                double total_time_sec, bool display_on) {
     if (metrics.infer_completed == 0) return;
 
@@ -537,92 +709,244 @@ void print_performance_summary(const ProfilingMetrics &metrics, int total_frames
               << " :      " << metrics.inflight_max << std::endl;
     std::cout << "--------------------------------------------------" << std::endl;
 
-    double overall_fps = (total_time_sec > 0) ? total_frames / total_time_sec : 0.0;
-
     std::cout << " " << std::left << std::setw(19) << "Total Frames"
               << " :    " << total_frames << std::endl;
     std::cout << " " << std::left << std::setw(19) << "Total Time"
               << " :    " << std::fixed << std::setprecision(1) << total_time_sec << " s"
               << std::endl;
+
+    double overall_fps = (total_time_sec > 0) ? total_frames / total_time_sec : 0.0;
     std::cout << " " << std::left << std::setw(19) << "Overall FPS"
               << " :   " << std::fixed << std::setprecision(1) << overall_fps << " FPS"
               << std::endl;
     std::cout << "==================================================" << std::endl;
 }
 
-int main(int argc, char* argv[]) {
-    DXRT_TRY_CATCH_BEGIN
-    std::atomic<int> appQuit(-1);
-    std::string modelPath = "", imgFile = "", videoFile = "", rtspUrl = "";
-    int cameraIndex = -1;
-    bool fps_only = false, saveVideo = false;
-    int loopTest = 1, processCount = 0;
+// --- Command line parsing and validation ---
 
+// Parse and validate command line arguments
+CommandLineArgs parse_command_line(int argc, char* argv[]) {
+    CommandLineArgs args;
     std::string app_name = "YOLOv8-Seg Post-Processing Async Example";
     cxxopts::Options options(app_name, app_name + " application usage ");
     options.add_options()("m, model_path", "instance segmentation model file (.dxnn, required)",
-                          cxxopts::value<std::string>(modelPath))(
-        "i, image_path", "input image file path(jpg, png, jpeg ...)",
-        cxxopts::value<std::string>(imgFile))("v, video_path",
+                          cxxopts::value<std::string>(args.modelPath))(
+        "i, image_path", "input image file path or directory containing images (supports jpg, png, jpeg, bmp)",
+        cxxopts::value<std::string>(args.imageFilePath))("v, video_path",
                                               "input video file path(mp4, mov, avi ...)",
-                                              cxxopts::value<std::string>(videoFile))(
+                                              cxxopts::value<std::string>(args.videoFile))(
         "c, camera_index", "camera device index (e.g., 0)",
-        cxxopts::value<int>(cameraIndex))("r, rtsp_url", "RTSP stream URL",
-                                          cxxopts::value<std::string>(rtspUrl))(
+        cxxopts::value<int>(args.cameraIndex))("r, rtsp_url", "RTSP stream URL",
+                                          cxxopts::value<std::string>(args.rtspUrl))(
         "s, save_video", "save processed video",
-        cxxopts::value<bool>(saveVideo)->default_value("false"))(
+        cxxopts::value<bool>(args.saveVideo)->default_value("false"))(
         "l, loop", "Number of inference iterations to run",
-        cxxopts::value<int>(loopTest)->default_value("1"))(
+        cxxopts::value<int>(args.loopTest)->default_value("-1"))(
         "no-display", "will not visualize, only show fps",
-        cxxopts::value<bool>(fps_only)->default_value("false"))("h, help", "print usage");
+        cxxopts::value<bool>(args.no_display)->default_value("false"))("h, help", "print usage");
 
     auto cmd = options.parse(argc, argv);
     if (cmd.count("help")) {
         std::cout << options.help() << std::endl;
         exit(0);
     }
-    // Validate required arguments
-    if (modelPath.empty()) {
-        std::cerr << "[ERROR] Model path is required. Use -m or "
-                     "--model_path option."
-                  << std::endl;
+    return args;
+}
+
+// Validate command line arguments
+void validate_arguments(const CommandLineArgs& args) {
+    if (args.modelPath.empty()) {
+        std::cerr << "[ERROR] Model path is required. Use -m or --model_path option." << std::endl;
         std::cerr << "Use -h or --help for usage information." << std::endl;
         exit(1);
     }
 
     int sourceCount = 0;
-    if (!imgFile.empty()) sourceCount++;
-    if (!videoFile.empty()) sourceCount++;
-    if (cameraIndex >= 0) sourceCount++;
-    if (!rtspUrl.empty()) sourceCount++;
+    if (!args.imageFilePath.empty()) sourceCount++;
+    if (!args.videoFile.empty()) sourceCount++;
+    if (args.cameraIndex >= 0) sourceCount++;
+    if (!args.rtspUrl.empty()) sourceCount++;
 
     if (sourceCount != 1) {
         std::cerr << "[ERROR] Please specify exactly one input source: image (-i), video (-v), "
-                     "camera (-c), or RTSP (-r)."
-                  << std::endl;
+                     "camera (-c), or RTSP (-r)." << std::endl;
         std::cerr << "Use -h or --help for usage information." << std::endl;
         exit(1);
     }
+}
+
+// Open video capture based on input source
+bool open_video_capture(cv::VideoCapture& video, const CommandLineArgs& args) {
+    if (args.cameraIndex >= 0) {
+        video.open(args.cameraIndex);
+    } else if (!args.rtspUrl.empty()) {
+        video.open(args.rtspUrl);
+    } else {
+        video.open(args.videoFile);
+    }
+    return video.isOpened();
+}
+
+// --- Frame processing functions ---
+
+// Helper function to submit a frame for async inference
+void submit_frame_for_inference(
+    const cv::Mat& frame, int& index, int& submitted_frames,
+    std::vector<cv::Mat>& images, std::vector<std::vector<uint8_t>>& input_buffers,
+    int input_height, int input_width,
+    dxrt::InferenceEngine& ie, YOLOv8SegPostProcess& post_processor,
+    SafeQueue<std::shared_ptr<DetectionArgs>>& wait_queue,
+    ProfilingMetrics& profiling_metrics, int& processCount,
+    std::atomic<int>& appQuit, bool no_display, bool saveVideo,
+    double t_read) {
+    
+    std::vector<int> pad_xy{0, 0};
+    std::vector<float> ratio{1.0f, 1.0f};
+
+    auto t0 = std::chrono::high_resolution_clock::now();
+    cv::resize(frame, images[index], cv::Size(SHOW_WINDOW_SIZE_W, SHOW_WINDOW_SIZE_H));
+    cv::Mat pre(input_height, input_width, CV_8UC3, input_buffers[index].data());
+    make_letterbox_image(images[index], pre, pad_xy, ratio);
+    auto t1 = std::chrono::high_resolution_clock::now();
+    auto req_id = ie.RunAsync(pre.data, nullptr, nullptr);
+
+    auto args = std::make_shared<DetectionArgs>();
+    args->ie = &ie;
+    args->ypp = &post_processor;
+    args->current_frame = images[index].clone();
+    args->request_id = req_id;
+    args->processed_count = &processCount;
+    args->metrics = &profiling_metrics;
+    args->t_read = t_read;
+    args->t_preprocess = std::chrono::duration<double, std::milli>(t1 - t0).count();
+    args->t_run_async_start = t1;
+    args->is_no_show = no_display;
+    args->is_video_save = saveVideo;
+    args->pad_xy = pad_xy;
+    args->ratio = ratio;
+
+    wait_queue.push(args);
+
+    update_profiling_inflight(profiling_metrics, t1);
+
+    submitted_frames++;
+    if (appQuit.load() == -1) appQuit.store(0);
+    index = (index + 1) % ASYNC_BUFFER_SIZE;
+}
+
+// Process image frames loop
+void process_image_frames(
+    const std::vector<std::string>& imageFiles, const std::string& imageFilePath,
+    int loopTest, std::vector<cv::Mat>& images, std::vector<std::vector<uint8_t>>& input_buffers,
+    int input_height, int input_width, dxrt::InferenceEngine& ie,
+    YOLOv8SegPostProcess& post_processor, SafeQueue<std::shared_ptr<DetectionArgs>>& wait_queue,
+    ProfilingMetrics& profiling_metrics, int& processCount, int& index, int& submitted_frames,
+    std::atomic<int>& appQuit, bool no_display) {
+    
+    for (int i = 0; i < loopTest; ++i) {
+        if (appQuit.load() > 0) break;
+        std::string currentImagePath = imageFiles.empty() ? imageFilePath : imageFiles[i % imageFiles.size()];
+        
+        auto tr0 = std::chrono::high_resolution_clock::now();
+        cv::Mat img = cv::imread(currentImagePath);
+        auto tr1 = std::chrono::high_resolution_clock::now();
+        double t_read = std::chrono::duration<double, std::milli>(tr1 - tr0).count();
+
+        if (img.empty()) {
+            std::cerr << "[ERROR] Failed to read image: " << currentImagePath << std::endl;
+            continue;
+        }
+
+        submit_frame_for_inference(img, index, submitted_frames, images, input_buffers,
+                                   input_height, input_width, ie, post_processor,
+                                   wait_queue, profiling_metrics, processCount,
+                                   appQuit, no_display, false, t_read);
+    }
+}
+
+// Process video frames loop
+void process_video_frames(
+    cv::VideoCapture& video, std::vector<cv::Mat>& images,
+    std::vector<std::vector<uint8_t>>& input_buffers, int input_height, int input_width,
+    dxrt::InferenceEngine& ie, YOLOv8SegPostProcess& post_processor,
+    SafeQueue<std::shared_ptr<DetectionArgs>>& wait_queue, ProfilingMetrics& profiling_metrics,
+    int& processCount, int& index, int& submitted_frames, std::atomic<int>& appQuit,
+    bool no_display, bool saveVideo) {
+    
+    bool should_continue = true;
+    while (should_continue) {
+        cv::Mat frame;
+        auto tr0 = std::chrono::high_resolution_clock::now();
+        video >> frame;
+        auto tr1 = std::chrono::high_resolution_clock::now();
+        double t_read = std::chrono::duration<double, std::milli>(tr1 - tr0).count();
+        
+        if (frame.empty() || appQuit.load() > 0) {
+            should_continue = false;
+            continue;
+        }
+
+        submit_frame_for_inference(frame, index, submitted_frames, images, input_buffers,
+                                   input_height, input_width, ie, post_processor,
+                                   wait_queue, profiling_metrics, processCount, 
+                                   appQuit, no_display, saveVideo, t_read);
+        
+        if (appQuit.load() == 1) {
+            should_continue = false;
+        }
+    }
+}
+
+// Wait for processing to complete and cleanup threads
+void cleanup_threads(const int& processCount, int submitted_frames, std::atomic<int>& appQuit,
+                     std::thread& post_thread, std::thread& disp_thread) {
+    while (processCount < submitted_frames && appQuit.load() <= 0) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+    appQuit.store(1);
+    if (post_thread.joinable()) post_thread.join();
+    if (disp_thread.joinable()) disp_thread.join();
+}
+
+// --- Main function ---
+
+int main(int argc, char* argv[]) {
+    DXRT_TRY_CATCH_BEGIN
+    std::atomic<int> appQuit(-1);
+    int processCount = 0;
+
+    CommandLineArgs args = parse_command_line(argc, argv);
+    validate_arguments(args);
+
+    // Handle image file or directory
+    std::vector<std::string> imageFiles;
+    bool is_image = !args.imageFilePath.empty();
+    int loopTest = args.loopTest;
+    if (is_image) {
+        auto result = process_image_path(args.imageFilePath, loopTest);
+        imageFiles = result.first;
+        loopTest = result.second;
+    } else if (loopTest == -1) {
+        loopTest = 1;
+    }
 
     dxrt::InferenceOption io;
-    dxrt::InferenceEngine ie(modelPath, io);
+    dxrt::InferenceEngine ie(args.modelPath, io);
     if (!dxapp::common::minversionforRTandCompiler(&ie)) {
         std::cerr << "[DXAPP] [ER] The version of the compiled model is not "
-                     "compatible with the "
-                     "version of the runtime. Please compile the model again."
+                     "compatible with the version of the runtime. Please compile the model again."
                   << std::endl;
         return -1;
     }
 
     auto input_shape = ie.GetInputs().front().shape();
-    int input_height = static_cast<int>(input_shape[1]);
-    int input_width = static_cast<int>(input_shape[2]);
-    auto post_processor =
-        YOLOv8SegPostProcess(input_width, input_height, 0.3f, 0.45f, ie.IsOrtConfigured());
+    auto input_height = static_cast<int>(input_shape[1]);
+    auto input_width = static_cast<int>(input_shape[2]);
+    auto post_processor = YOLOv8SegPostProcess(input_width, input_height, 0.3f, 0.45f, ie.IsOrtConfigured());
 
-    // Print model input size
-    std::cout << "[INFO] Model input size (WxH): " << input_width << "x" << input_height
-              << std::endl;
+    std::cout << "[INFO] Model loaded: " << args.modelPath << std::endl;
+    std::cout << "[INFO] Model input size (WxH): " << input_width << "x" << input_height << std::endl;
+    std::cout << std::endl;
 
     std::vector<std::vector<uint8_t>> input_buffers(ASYNC_BUFFER_SIZE,
                                                     std::vector<uint8_t>(ie.GetInputSize()));
@@ -631,178 +955,83 @@ int main(int argc, char* argv[]) {
     SafeQueue<std::shared_ptr<DisplayArgs>> display_queue;
     ProfilingMetrics profiling_metrics;
 
+    cv::VideoCapture video;
+    if (!is_image && !open_video_capture(video, args)) {
+        std::cerr << "[ERROR] Failed to open input source." << std::endl;
+        return -1;
+    }
+
     cv::VideoWriter writer;
+
+    // Update info and setup for video if needed
+    if (!is_image) {
+        auto frame_width = static_cast<int>(video.get(cv::CAP_PROP_FRAME_WIDTH));
+        auto frame_height = static_cast<int>(video.get(cv::CAP_PROP_FRAME_HEIGHT));
+        double fps = video.get(cv::CAP_PROP_FPS);
+        auto total_frames = static_cast<int>(video.get(cv::CAP_PROP_FRAME_COUNT));
+
+        std::string source_info;
+        if (args.cameraIndex >= 0) {
+            source_info = "Camera index: " + std::to_string(args.cameraIndex);
+        } else if (!args.rtspUrl.empty()) {
+            source_info = "RTSP URL: " + args.rtspUrl;
+        } else {
+            source_info = "Video file: " + args.videoFile;
+            std::cout << "loopTest is set to 1 when a video file is provided." << std::endl;
+            loopTest = 1;
+        }
+
+        std::cout << "[INFO] " << source_info << std::endl;
+        std::cout << "[INFO] Input source resolution (WxH): " << frame_width << "x" << frame_height
+                  << std::endl;
+        std::cout << "[INFO] Input source FPS: " << std::fixed << std::setprecision(2) << fps
+                  << std::endl;
+        if (!args.videoFile.empty()) {
+            std::cout << "[INFO] Total frames: " << total_frames << std::endl;
+        }
+        std::cout << std::endl;
+
+        // Video Save Setup
+        if (args.saveVideo) {
+            writer.open("result.mp4", cv::VideoWriter::fourcc('M', 'J', 'P', 'G'), fps > 0 ? fps : 30.0,
+                        cv::Size(SHOW_WINDOW_SIZE_W, SHOW_WINDOW_SIZE_H));
+            if (!writer.isOpened()) {
+                std::cerr << "[ERROR] Failed to open video writer." << std::endl;
+                exit(1);
+            }
+        }
+    }
+
+    std::cout << "[INFO] Starting inference..." << std::endl;
+    if (args.no_display) {
+        std::cout << "Processing... Only FPS will be displayed." << std::endl;
+    }
 
     std::thread post_thread(post_process_thread_func, &wait_queue, &display_queue, &appQuit);
     std::thread disp_thread(display_thread_func, &display_queue, &appQuit, &writer);
 
-    cv::VideoCapture video;
-    bool is_image = !imgFile.empty();
-    if (is_image) { /* Image logic below */
-    } else if (cameraIndex >= 0)
-        video.open(cameraIndex);
-    else if (!rtspUrl.empty())
-        video.open(rtspUrl);
-    else
-        video.open(videoFile);
-
-    if (!is_image && !video.isOpened()) return -1;
-
-    // Video Save Setup
-    if (saveVideo) {
-        double fps = video.get(cv::CAP_PROP_FPS);
-        writer.open("result.mp4", cv::VideoWriter::fourcc('M', 'J', 'P', 'G'), fps > 0 ? fps : 30.0,
-                    cv::Size(SHOW_WINDOW_SIZE_W, SHOW_WINDOW_SIZE_H));
-    }
-
-    std::vector<cv::Mat> images(ASYNC_BUFFER_SIZE,
-                                cv::Mat(SHOW_WINDOW_SIZE_H, SHOW_WINDOW_SIZE_W, CV_8UC3));
-    int index = 0, submitted_frames = 0;
+    std::vector<cv::Mat> images(ASYNC_BUFFER_SIZE, cv::Mat(SHOW_WINDOW_SIZE_H, SHOW_WINDOW_SIZE_W, CV_8UC3));
+    int index = 0;
+    int submitted_frames = 0;
     auto s_time = std::chrono::high_resolution_clock::now();
 
     if (is_image) {
-        cv::Mat img = cv::imread(imgFile);
-        for (int i = 0; i < loopTest; ++i) {
-            // Backpressure: wait if too many requests are in flight
-            while (appQuit.load() <= 0) {
-                {
-                    std::lock_guard<std::mutex> lk(profiling_metrics.metrics_mutex);
-                    if (profiling_metrics.inflight_current < ASYNC_BUFFER_SIZE - 1) break;
-                }
-                std::this_thread::sleep_for(std::chrono::milliseconds(1));
-            }
-            if (appQuit.load() > 0) break;
-
-            std::vector<int> pad_xy{0, 0};
-            std::vector<float> ratio{1.0f, 1.0f};
-
-            auto t0 = std::chrono::high_resolution_clock::now();
-            cv::resize(img, images[index], cv::Size(SHOW_WINDOW_SIZE_W, SHOW_WINDOW_SIZE_H));
-            cv::Mat pre(input_height, input_width, CV_8UC3, input_buffers[index].data());
-            make_letterbox_image(images[index], pre, pad_xy, ratio);
-            auto t1 = std::chrono::high_resolution_clock::now();
-            auto req_id = ie.RunAsync(pre.data, nullptr, nullptr);
-
-            auto args = std::make_shared<DetectionArgs>();
-            args->ie = &ie;
-            args->ypp = &post_processor;
-            args->current_frame = images[index].clone();
-            args->request_id = req_id;
-            args->processed_count = &processCount;
-            args->metrics = &profiling_metrics;
-            args->t_preprocess = std::chrono::duration<double, std::milli>(t1 - t0).count();
-            args->t_run_async_start = t1;
-            args->is_no_show = fps_only;
-            args->pad_xy = pad_xy;
-            args->ratio = ratio;
-
-            {
-                std::lock_guard<std::mutex> lk(profiling_metrics.metrics_mutex);
-                if (profiling_metrics.first_inference) {
-                    profiling_metrics.infer_first_ts = t1;
-                    profiling_metrics.inflight_last_ts = t1;
-                    profiling_metrics.first_inference = false;
-                } else {
-                    // Accumulate inflight time before incrementing
-                    auto now = std::chrono::high_resolution_clock::now();
-                    profiling_metrics.inflight_time_sum +=
-                        profiling_metrics.inflight_current *
-                        std::chrono::duration<double>(now - profiling_metrics.inflight_last_ts).count();
-                    profiling_metrics.inflight_last_ts = now;
-                }
-                profiling_metrics.inflight_current++;
-                if (profiling_metrics.inflight_current > profiling_metrics.inflight_max)
-                    profiling_metrics.inflight_max = profiling_metrics.inflight_current;
-            }
-
-            wait_queue.push(args);
-            submitted_frames++;
-            if (appQuit.load() == -1) appQuit.store(0);
-            index = (index + 1) % ASYNC_BUFFER_SIZE;
-        }
+        process_image_frames(imageFiles, args.imageFilePath, loopTest, images, input_buffers,
+                             input_height, input_width, ie, post_processor, wait_queue,
+                             profiling_metrics, processCount, index, submitted_frames,
+                             appQuit, args.no_display);
     } else {
-        while (true) {
-            cv::Mat frame;
-            auto tr0 = std::chrono::high_resolution_clock::now();
-            video >> frame;
-            if (frame.empty()) break;
-            auto tr1 = std::chrono::high_resolution_clock::now();
-            {
-                std::lock_guard<std::mutex> lk(profiling_metrics.metrics_mutex);
-                profiling_metrics.sum_read +=
-                    std::chrono::duration<double, std::milli>(tr1 - tr0).count();
-            }
-
-            // Backpressure: wait if too many requests are in flight
-            while (appQuit.load() <= 0) {
-                {
-                    std::lock_guard<std::mutex> lk(profiling_metrics.metrics_mutex);
-                    if (profiling_metrics.inflight_current < ASYNC_BUFFER_SIZE - 1) break;
-                }
-                std::this_thread::sleep_for(std::chrono::milliseconds(1));
-            }
-            if (appQuit.load() > 0) break;
-
-            std::vector<int> pad_xy{0, 0};
-            std::vector<float> ratio{1.0f, 1.0f};
-
-            auto t0 = std::chrono::high_resolution_clock::now();
-            cv::resize(frame, images[index], cv::Size(SHOW_WINDOW_SIZE_W, SHOW_WINDOW_SIZE_H));
-            cv::Mat pre(input_height, input_width, CV_8UC3, input_buffers[index].data());
-            make_letterbox_image(images[index], pre, pad_xy, ratio);
-            auto t1 = std::chrono::high_resolution_clock::now();
-            auto req_id = ie.RunAsync(pre.data, nullptr, nullptr);
-
-            auto args = std::make_shared<DetectionArgs>();
-            args->ie = &ie;
-            args->ypp = &post_processor;
-            args->current_frame = images[index].clone();
-            args->request_id = req_id;
-            args->processed_count = &processCount;
-            args->metrics = &profiling_metrics;
-            args->t_preprocess = std::chrono::duration<double, std::milli>(t1 - t0).count();
-            args->t_run_async_start = t1;
-            args->is_no_show = fps_only;
-            args->is_video_save = saveVideo;
-            args->pad_xy = pad_xy;
-            args->ratio = ratio;
-
-            {
-                std::lock_guard<std::mutex> lk(profiling_metrics.metrics_mutex);
-                if (profiling_metrics.first_inference) {
-                    profiling_metrics.infer_first_ts = t1;
-                    profiling_metrics.inflight_last_ts = t1;
-                    profiling_metrics.first_inference = false;
-                } else {
-                    // Accumulate inflight time before incrementing
-                    auto now = std::chrono::high_resolution_clock::now();
-                    profiling_metrics.inflight_time_sum +=
-                        profiling_metrics.inflight_current *
-                        std::chrono::duration<double>(now - profiling_metrics.inflight_last_ts).count();
-                    profiling_metrics.inflight_last_ts = now;
-                }
-                profiling_metrics.inflight_current++;
-                if (profiling_metrics.inflight_current > profiling_metrics.inflight_max)
-                    profiling_metrics.inflight_max = profiling_metrics.inflight_current;
-            }
-
-            wait_queue.push(args);
-            submitted_frames++;
-            if (appQuit.load() == -1) appQuit.store(0);
-            index = (index + 1) % ASYNC_BUFFER_SIZE;
-            if (appQuit.load() == 1) break;
-        }
+        process_video_frames(video, images, input_buffers, input_height, input_width,
+                             ie, post_processor, wait_queue, profiling_metrics,
+                             processCount, index, submitted_frames, appQuit,
+                             args.no_display, args.saveVideo);
     }
 
-    while (processCount < submitted_frames && appQuit.load() <= 0)
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
-    appQuit.store(1);
-    if (post_thread.joinable()) post_thread.join();
-    if (disp_thread.joinable()) disp_thread.join();
+    cleanup_threads(processCount, submitted_frames, appQuit, post_thread, disp_thread);
 
     auto e_time = std::chrono::high_resolution_clock::now();
     double total_time = std::chrono::duration<double>(e_time - s_time).count();
-    print_performance_summary(profiling_metrics, processCount, total_time, !fps_only);
+    print_performance_summary(profiling_metrics, processCount, total_time, !args.no_display);
 
     DXRT_TRY_CATCH_END
     return 0;

@@ -53,6 +53,9 @@ echo "7: Pose Estimation"
 echo "8: Pose Estimation With PPU (YOLOv5Pose-640)"
 echo "9: Semantic Segmentation"
 echo "10: Object Detection (YOLOv26S)"
+echo "11: Pose Estimation (YOLOv26S-Pose)"
+echo "12: Instance Segmentation (YOLOv26S-Seg)"
+echo "13: Object Detection - Oriented Bounding Box (YOLOv26S-OBB)"
 
 # Advanced version with user input handling
 prompt="which AI demo do you want to run? (default:0): "
@@ -92,6 +95,9 @@ case $select in
     8)python3 "$WRC/src/python_example/ppu/yolov5pose_ppu/yolov5pose_ppu_async.py" --model assets/models/YOLOV5Pose_PPU.dxnn --video assets/videos/dance-solo.mov;;
     9)python3 "$WRC/src/python_example/semantic_segmentation/deeplabv3/deeplabv3_async.py" --model assets/models/DeepLabV3PlusMobileNetV2_2.dxnn --video assets/videos/blackbox-city-road.mp4;;
     10)python3 "$WRC/src/python_example/object_detection/yolov26/yolov26_async.py" --model assets/models/yolo26s-1.dxnn --video assets/videos/snowboard.mp4;;
+    11)python3 "$WRC/src/python_example/object_detection/yolov26pose/yolov26pose_async.py" --model assets/models/yolo26s-pose.dxnn --video assets/videos/dance-group.mov;;
+    12)python3 "$WRC/src/python_example/instance_segmentation/yolov26seg/yolov26seg_async.py" --model assets/models/yolo26s-seg.dxnn --video assets/videos/dogs.mp4;;
+    13)python3 "$WRC/src/python_example/object_detection/yolov26obb/yolov26obb_sync.py" --model assets/models/yolo26s-obb.dxnn --image sample/dota8_test/P0284.png;;
 esac
 
 popd

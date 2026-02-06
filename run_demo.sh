@@ -54,6 +54,9 @@ echo "8: Pose Estimation With PPU (YOLOv5Pose-640)"
 echo "9: Semantic Segmentation"
 echo "10: Multi-Model Object Detection (YOLOv7) & Segmentation"
 echo "11: Object Detection (YOLOv26S)"
+echo "12: Pose Estimation (YOLOv26S-Pose)"
+echo "13: Instance Segmentation (YOLOv26S-Seg)"
+echo "14: Object Detection - Oriented Bounding Box (YOLOv26S-OBB)"
 
 # Advanced version with user input handling
 prompt="which AI demo do you want to run? (default:0): "
@@ -94,6 +97,9 @@ case $select in
     9)$WRC/bin/deeplabv3_async -m assets/models/DeepLabV3PlusMobileNetV2_2.dxnn -v assets/videos/blackbox-city-road.mp4;;
     10)$WRC/bin/yolov7_x_deeplabv3_async -y assets/models/YoloV7.dxnn -d assets/models/DeepLabV3PlusMobileNetV2_2.dxnn -v assets/videos/blackbox-city-road2.mov;;
     11)$WRC/bin/yolov26_async -m assets/models/yolo26s-1.dxnn -v assets/videos/snowboard.mp4;;
+    12)$WRC/bin/yolov26pose_async -m assets/models/yolo26s-pose.dxnn -v assets/videos/dance-group.mov;;
+    13)$WRC/bin/yolov26seg_async -m assets/models/yolo26s-seg.dxnn -v assets/videos/dogs.mp4;;
+    14)$WRC/bin/yolov26obb_async -m assets/models/yolo26s-obb.dxnn -i sample/dota8_test/P0284.png -l 100;;
 esac
 
 popd

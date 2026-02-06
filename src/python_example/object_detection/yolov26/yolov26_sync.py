@@ -51,7 +51,6 @@ class YOLOv26:
         print(f"[INFO] Model input size (WxH): {self.input_width}x{self.input_height}")
 
         self.score_threshold = 0.3
-        self.nms_threshold = 0.45
         self.classes = get_labels("coco80")
 
         self.color_palette = np.random.uniform(0, 255, size=(len(self.classes), 3))
