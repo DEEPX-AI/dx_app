@@ -43,8 +43,8 @@ SCRFDPPUPostProcess::SCRFDPPUPostProcess(const int input_w, const int input_h,
 SCRFDPPUPostProcess::SCRFDPPUPostProcess() {
     input_width_ = 640;
     input_height_ = 640;
-    score_threshold_ = 0.6;
-    nms_threshold_ = 0.45;
+    score_threshold_ = 0.6f;
+    nms_threshold_ = 0.45f;
 
     // Initialize model-specific parameters for SCRFD
     ppu_output_names_ = {"FACE"};

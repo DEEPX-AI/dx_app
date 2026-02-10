@@ -6,7 +6,6 @@
 #include <condition_variable>
 #include <cxxopts.hpp>
 #include <exception>
-#include <experimental/filesystem>
 #include <iomanip>
 #include <iostream>
 #include <memory>
@@ -32,7 +31,6 @@
  * optimization.
  */
 
-namespace fs = std::experimental::filesystem;
 
 constexpr size_t ASYNC_BUFFER_SIZE = 40;
 constexpr size_t MAX_QUEUE_SIZE = 100;

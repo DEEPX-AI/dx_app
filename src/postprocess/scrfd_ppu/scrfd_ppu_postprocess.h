@@ -17,7 +17,7 @@ struct SCRFDPPUResult {
     std::vector<float> landmarks{};  // Facial landmarks (5 points * 2 coordinates)
 
     // Default constructor with explicit initialization
-    SCRFDPPUResult() {}
+    SCRFDPPUResult() = default;
 
     // Parameterized constructor with move semantics for better performance
     SCRFDPPUResult(std::vector<float> box_val, const float conf, std::vector<float> land_marks)
@@ -28,31 +28,13 @@ struct SCRFDPPUResult {
                     const std::vector<float>& land_marks);
 
     // Destructor
-    ~SCRFDPPUResult() {}
+    ~SCRFDPPUResult() = default;
 
     // Copy and move constructors/operators
-    SCRFDPPUResult(const SCRFDPPUResult& other)
-        : box(other.box), confidence(other.confidence), landmarks(other.landmarks) {}
-    SCRFDPPUResult& operator=(const SCRFDPPUResult& other) {
-        if (this != &other) {
-            box = other.box;
-            confidence = other.confidence;
-            landmarks = other.landmarks;
-        }
-        return *this;
-    }
-    SCRFDPPUResult(SCRFDPPUResult&& other)
-        : box(std::move(other.box)),
-          confidence(other.confidence),
-          landmarks(std::move(other.landmarks)) {}
-    SCRFDPPUResult& operator=(SCRFDPPUResult&& other) {
-        if (this != &other) {
-            box = std::move(other.box);
-            confidence = other.confidence;
-            landmarks = std::move(other.landmarks);
-        }
-        return *this;
-    }
+    SCRFDPPUResult(const SCRFDPPUResult& other) = default;
+    SCRFDPPUResult& operator=(const SCRFDPPUResult& other) = default;
+    SCRFDPPUResult(SCRFDPPUResult&& other) noexcept = default;
+    SCRFDPPUResult& operator=(SCRFDPPUResult&& other) noexcept = default;
 
     // Calculate area for NMS - const correctness
     float area() const { return (box[2] - box[0]) * (box[3] - box[1]); }
@@ -116,7 +98,7 @@ class SCRFDPPUPostProcess {
     /**
      * @brief Destructor
      */
-    ~SCRFDPPUPostProcess() {}
+    virtual ~SCRFDPPUPostProcess() = default;
 
     /**
      * @brief Process SCRFD model outputs

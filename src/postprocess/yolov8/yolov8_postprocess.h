@@ -18,7 +18,7 @@ struct YOLOv8Result {
     std::string class_name{};  // Object class name
 
     // Default constructor with explicit initialization
-    YOLOv8Result() {}
+    YOLOv8Result() = default;
 
     // Parameterized constructor with move semantics for better performance
     YOLOv8Result(std::vector<float> box_val, const float conf, const int cls_id,
@@ -30,37 +30,13 @@ struct YOLOv8Result {
                  const std::string& cls_name);
 
     // Destructor
-    ~YOLOv8Result() {}
+    ~YOLOv8Result() = default;
 
     // Copy and move constructors/operators
-    YOLOv8Result(const YOLOv8Result& other)
-        : box(other.box),
-          confidence(other.confidence),
-          class_id(other.class_id),
-          class_name(other.class_name) {}
-    YOLOv8Result& operator=(const YOLOv8Result& other) {
-        if (this != &other) {
-            box = other.box;
-            confidence = other.confidence;
-            class_id = other.class_id;
-            class_name = other.class_name;
-        }
-        return *this;
-    }
-    YOLOv8Result(YOLOv8Result&& other)
-        : box(std::move(other.box)),
-          confidence(other.confidence),
-          class_id(other.class_id),
-          class_name(std::move(other.class_name)) {}
-    YOLOv8Result& operator=(YOLOv8Result&& other) {
-        if (this != &other) {
-            box = std::move(other.box);
-            confidence = other.confidence;
-            class_id = other.class_id;
-            class_name = std::move(other.class_name);
-        }
-        return *this;
-    }
+    YOLOv8Result(const YOLOv8Result& other) = default;
+    YOLOv8Result& operator=(const YOLOv8Result& other) = default;
+    YOLOv8Result(YOLOv8Result&& other) noexcept = default;
+    YOLOv8Result& operator=(YOLOv8Result&& other) noexcept = default;
 
     // Calculate area for NMS - const correctness
     float area() const { return (box[2] - box[0]) * (box[3] - box[1]); }
@@ -124,7 +100,7 @@ class YOLOv8PostProcess {
     /**
      * @brief Destructor
      */
-    ~YOLOv8PostProcess() {}
+    virtual ~YOLOv8PostProcess() = default;
 
     /**
      * @brief Process YOLOv8n model outputs

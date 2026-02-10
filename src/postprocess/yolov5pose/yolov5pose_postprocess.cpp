@@ -58,9 +58,9 @@ YOLOv5PosePostProcess::YOLOv5PosePostProcess(const int input_w, const int input_
 YOLOv5PosePostProcess::YOLOv5PosePostProcess() {
     input_width_ = 640;
     input_height_ = 640;
-    object_threshold_ = 0.5;
-    score_threshold_ = 0.5;
-    nms_threshold_ = 0.45;
+    object_threshold_ = 0.5f;
+    score_threshold_ = 0.5f;
+    nms_threshold_ = 0.45f;
     is_ort_configured_ = false;
 
     // Initialize model-specific parameters for YOLOv5Pose

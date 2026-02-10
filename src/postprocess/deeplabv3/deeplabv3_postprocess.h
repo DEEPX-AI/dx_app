@@ -24,58 +24,22 @@ struct DeepLabv3Result {
     // Statistics
     int num_classes{0};  // Number of classes in the segmentation
 
-    // Default constructor
-    DeepLabv3Result() {}
+    // Default constructor - using compiler-generated default
+    DeepLabv3Result() = default;
 
     // Parameterized constructor
     DeepLabv3Result(const std::vector<int>& seg_mask, int w, int h) : width(w), height(h) {
         segmentation_mask.assign(seg_mask.begin(), seg_mask.end());
     }
 
-    // Destructor
-    ~DeepLabv3Result() {}
+    // Destructor - using compiler-generated default
+    ~DeepLabv3Result() = default;
 
-    // Copy constructor and assignment operator
-    DeepLabv3Result(const DeepLabv3Result& other)
-        : segmentation_mask(other.segmentation_mask),
-          class_ids(other.class_ids),
-          class_names(other.class_names),
-          width(other.width),
-          height(other.height),
-          num_classes(other.num_classes) {}
-
-    DeepLabv3Result& operator=(const DeepLabv3Result& other) {
-        if (this != &other) {
-            segmentation_mask = other.segmentation_mask;
-            class_ids = other.class_ids;
-            class_names = other.class_names;
-            width = other.width;
-            height = other.height;
-            num_classes = other.num_classes;
-        }
-        return *this;
-    }
-
-    // Move constructor and assignment operator
-    DeepLabv3Result(DeepLabv3Result&& other) noexcept
-        : segmentation_mask(std::move(other.segmentation_mask)),
-          class_ids(std::move(other.class_ids)),
-          class_names(std::move(other.class_names)),
-          width(other.width),
-          height(other.height),
-          num_classes(other.num_classes) {}
-
-    DeepLabv3Result& operator=(DeepLabv3Result&& other) noexcept {
-        if (this != &other) {
-            segmentation_mask = std::move(other.segmentation_mask);
-            class_ids = std::move(other.class_ids);
-            class_names = std::move(other.class_names);
-            width = other.width;
-            height = other.height;
-            num_classes = other.num_classes;
-        }
-        return *this;
-    }
+    // Copy and move constructors/operators - using compiler-generated defaults (Rule of Zero)
+    DeepLabv3Result(const DeepLabv3Result& other) = default;
+    DeepLabv3Result& operator=(const DeepLabv3Result& other) = default;
+    DeepLabv3Result(DeepLabv3Result&& other) noexcept = default;
+    DeepLabv3Result& operator=(DeepLabv3Result&& other) noexcept = default;
 
     // Utility methods
     std::vector<std::vector<std::pair<int, int>>> get_class_pixels(int class_id) const;
@@ -120,7 +84,7 @@ class DeepLabv3PostProcess {
     /**
      * @brief Destructor
      */
-    ~DeepLabv3PostProcess() {}
+    virtual ~DeepLabv3PostProcess() = default;
 
     /**
      * @brief Process DeepLabv3 model outputs

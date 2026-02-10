@@ -48,7 +48,7 @@ YOLOv26ObbPostProcess::YOLOv26ObbPostProcess(const int input_w, const int input_
 YOLOv26ObbPostProcess::YOLOv26ObbPostProcess() {
     input_width_ = 640;
     input_height_ = 640;
-    score_threshold_ = 0.45;
+    score_threshold_ = 0.45f;
     is_ort_configured_ = false;
 
     // Initialize model-specific parameters for YOLOv26Obb

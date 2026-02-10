@@ -51,7 +51,7 @@ YOLOv26PosePostProcess::YOLOv26PosePostProcess(const int input_w, const int inpu
 YOLOv26PosePostProcess::YOLOv26PosePostProcess() {
     input_width_ = 640;
     input_height_ = 640;
-    score_threshold_ = 0.5;
+    score_threshold_ = 0.5f;
     is_ort_configured_ = false;
 
     // Initialize model-specific parameters for YOLOv26Pose
