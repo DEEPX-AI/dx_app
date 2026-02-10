@@ -18,7 +18,7 @@ struct YOLOv26PoseResult {
         landmarks{};  // Pose landmarks (17 points * 3 coordinates)
 
     // Default constructor with explicit initialization
-    YOLOv26PoseResult() {}
+    YOLOv26PoseResult() = default;
 
     // Parameterized constructor with move semantics for better performance
     YOLOv26PoseResult(std::vector<float> box_val, const float conf,
@@ -32,33 +32,13 @@ struct YOLOv26PoseResult {
                      const std::vector<float>& land_marks);
 
     // Destructor
-    ~YOLOv26PoseResult() {}
+    ~YOLOv26PoseResult() = default;
 
     // Copy and move constructors/operators
-    YOLOv26PoseResult(const YOLOv26PoseResult& other)
-        : box(other.box),
-          confidence(other.confidence),
-          landmarks(other.landmarks) {}
-    YOLOv26PoseResult& operator=(const YOLOv26PoseResult& other) {
-        if (this != &other) {
-            box = other.box;
-            confidence = other.confidence;
-            landmarks = other.landmarks;
-        }
-        return *this;
-    }
-    YOLOv26PoseResult(YOLOv26PoseResult&& other)
-        : box(std::move(other.box)),
-          confidence(other.confidence),
-          landmarks(std::move(other.landmarks)) {}
-    YOLOv26PoseResult& operator=(YOLOv26PoseResult&& other) {
-        if (this != &other) {
-            box = std::move(other.box);
-            confidence = other.confidence;
-            landmarks = std::move(other.landmarks);
-        }
-        return *this;
-    }
+    YOLOv26PoseResult(const YOLOv26PoseResult& other) = default;
+    YOLOv26PoseResult& operator=(const YOLOv26PoseResult& other) = default;
+    YOLOv26PoseResult(YOLOv26PoseResult&& other) noexcept = default;
+    YOLOv26PoseResult& operator=(YOLOv26PoseResult&& other) noexcept = default;
 
     // Calculate area for NMS - const correctness
     float area() const { return (box[2] - box[0]) * (box[3] - box[1]); }
@@ -117,7 +97,7 @@ class YOLOv26PosePostProcess {
     /**
      * @brief Destructor
      */
-    ~YOLOv26PosePostProcess() {}
+    virtual ~YOLOv26PosePostProcess() = default;
 
     /**
      * @brief Process YOLOV26Pose model outputs (NMS-free)

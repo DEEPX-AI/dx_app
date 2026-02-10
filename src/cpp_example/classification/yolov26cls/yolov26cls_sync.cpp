@@ -4,14 +4,12 @@
 #include <chrono>
 #include <common_util.hpp>
 #include <cxxopts.hpp>
-#include <experimental/filesystem>
 #include <iomanip>
 #include <iostream>
 #include <opencv2/opencv.hpp>
 #include <string>
 #include <vector>
 
-namespace fs = std::experimental::filesystem;
 
 
 // --- Structures ---

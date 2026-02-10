@@ -5,7 +5,6 @@
 #include <chrono>
 #include <common_util.hpp>
 #include <cxxopts.hpp>
-#include <experimental/filesystem>
 #include <iomanip>
 #include <iostream>
 #include <mutex>
@@ -15,7 +14,6 @@
 #include <thread>
 #include <vector>
 
-namespace fs = std::experimental::filesystem;
 
 
 // --- Constants ---

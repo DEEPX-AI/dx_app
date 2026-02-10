@@ -16,8 +16,8 @@ struct SCRFDResult {
     float confidence{0.0f};          // Detection confidence score
     std::vector<float> landmarks{};  // Facial landmarks (5 points * 2 coordinates)
 
-    // Default constructor with explicit initialization
-    SCRFDResult() {}
+    // Default constructor - using compiler-generated default
+    SCRFDResult() = default;
 
     // Parameterized constructor with move semantics for better performance
     SCRFDResult(std::vector<float> box_val, const float conf, std::vector<float> land_marks)
@@ -27,32 +27,14 @@ struct SCRFDResult {
     SCRFDResult(const std::vector<float>& box_val, const float conf,
                 const std::vector<float>& land_marks);
 
-    // Destructor
-    ~SCRFDResult() {}
+    // Destructor - using compiler-generated default
+    ~SCRFDResult() = default;
 
-    // Copy and move constructors/operators
-    SCRFDResult(const SCRFDResult& other)
-        : box(other.box), confidence(other.confidence), landmarks(other.landmarks) {}
-    SCRFDResult& operator=(const SCRFDResult& other) {
-        if (this != &other) {
-            box = other.box;
-            confidence = other.confidence;
-            landmarks = other.landmarks;
-        }
-        return *this;
-    }
-    SCRFDResult(SCRFDResult&& other)
-        : box(std::move(other.box)),
-          confidence(other.confidence),
-          landmarks(std::move(other.landmarks)) {}
-    SCRFDResult& operator=(SCRFDResult&& other) {
-        if (this != &other) {
-            box = std::move(other.box);
-            confidence = other.confidence;
-            landmarks = std::move(other.landmarks);
-        }
-        return *this;
-    }
+    // Copy and move constructors/operators - using compiler-generated defaults (Rule of Zero)
+    SCRFDResult(const SCRFDResult& other) = default;
+    SCRFDResult& operator=(const SCRFDResult& other) = default;
+    SCRFDResult(SCRFDResult&& other) noexcept = default;
+    SCRFDResult& operator=(SCRFDResult&& other) noexcept = default;
 
     // Calculate area for NMS - const correctness
     float area() const { return (box[2] - box[0]) * (box[3] - box[1]); }
@@ -119,9 +101,9 @@ class SCRFDPostProcess {
     SCRFDPostProcess();
 
     /**
-     * @brief Destructor
+     * @brief Destructor - virtual to support inheritance
      */
-    ~SCRFDPostProcess() {}
+    virtual ~SCRFDPostProcess() = default;
 
     /**
      * @brief Process SCRFD model outputs

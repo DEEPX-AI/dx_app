@@ -51,8 +51,8 @@ YOLOv11PostProcess::YOLOv11PostProcess(const int input_w, const int input_h,
 YOLOv11PostProcess::YOLOv11PostProcess() {
     input_width_ = 640;
     input_height_ = 640;
-    score_threshold_ = 0.45;
-    nms_threshold_ = 0.4;
+    score_threshold_ = 0.45f;
+    nms_threshold_ = 0.4f;
     is_ort_configured_ = false;
 
     // Initialize model-specific parameters for YOLOv11

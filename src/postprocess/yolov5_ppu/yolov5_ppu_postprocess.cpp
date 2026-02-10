@@ -51,9 +51,9 @@ YOLOv5PPUPostProcess::YOLOv5PPUPostProcess(const int input_w, const int input_h,
 YOLOv5PPUPostProcess::YOLOv5PPUPostProcess() {
     input_width_ = 640;
     input_height_ = 640;
-    object_threshold_ = 0.25;
-    score_threshold_ = 0.3;
-    nms_threshold_ = 0.45;
+    object_threshold_ = 0.25f;
+    score_threshold_ = 0.3f;
+    nms_threshold_ = 0.45f;
 
     // Initialize model-specific parameters for YOLOv5s
     ppu_output_names_ = {"BBOX"};

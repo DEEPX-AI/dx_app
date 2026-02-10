@@ -6,7 +6,6 @@
 #include <condition_variable>
 #include <cxxopts.hpp>
 #include <exception>
-#include <experimental/filesystem>
 #include <iomanip>
 #include <iostream>
 #include <memory>
@@ -30,7 +29,6 @@
  * count, FPS measurement, and result saving.
  */
 
-namespace fs = std::experimental::filesystem;
 
 constexpr size_t ASYNC_BUFFER_SIZE = 40;
 constexpr size_t MAX_QUEUE_SIZE = 100;
@@ -576,6 +574,7 @@ cv::Mat create_segmentation_mask(const DeepLabv3Result& segmentation) {
  */
 cv::Mat draw_segmentation(const cv::Mat& frame, const DeepLabv3Result& segmentation,
                          const std::vector<int>& pad_xy, const float seg_alpha = 0.4f) {
+    std::ignore = pad_xy;
     static std::vector<int> pad_xy_static{0, 0};
     cv::Mat result = frame.clone();
 

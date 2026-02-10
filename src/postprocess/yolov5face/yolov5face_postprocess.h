@@ -18,7 +18,7 @@ struct YOLOv5FaceResult {
         landmarks{};  // Facial landmarks (5 points * 2 coordinates)
 
     // Default constructor with explicit initialization
-    YOLOv5FaceResult() {}
+    YOLOv5FaceResult() = default;
 
     // Parameterized constructor with move semantics for better performance
     YOLOv5FaceResult(std::vector<float> box_val, const float conf, std::vector<float> land_marks)
@@ -29,31 +29,13 @@ struct YOLOv5FaceResult {
                      const std::vector<float>& land_marks);
 
     // Destructor
-    ~YOLOv5FaceResult() {}
+    ~YOLOv5FaceResult() = default;
 
     // Copy and move constructors/operators
-    YOLOv5FaceResult(const YOLOv5FaceResult& other)
-        : box(other.box), confidence(other.confidence), landmarks(other.landmarks) {}
-    YOLOv5FaceResult& operator=(const YOLOv5FaceResult& other) {
-        if (this != &other) {
-            box = other.box;
-            confidence = other.confidence;
-            landmarks = other.landmarks;
-        }
-        return *this;
-    }
-    YOLOv5FaceResult(YOLOv5FaceResult&& other)
-        : box(std::move(other.box)),
-          confidence(other.confidence),
-          landmarks(std::move(other.landmarks)) {}
-    YOLOv5FaceResult& operator=(YOLOv5FaceResult&& other) {
-        if (this != &other) {
-            box = std::move(other.box);
-            confidence = other.confidence;
-            landmarks = std::move(other.landmarks);
-        }
-        return *this;
-    }
+    YOLOv5FaceResult(const YOLOv5FaceResult& other) = default;
+    YOLOv5FaceResult& operator=(const YOLOv5FaceResult& other) = default;
+    YOLOv5FaceResult(YOLOv5FaceResult&& other) noexcept = default;
+    YOLOv5FaceResult& operator=(YOLOv5FaceResult&& other) noexcept = default;
 
     // Calculate area for NMS - const correctness
     float area() const { return (box[2] - box[0]) * (box[3] - box[1]); }
@@ -124,7 +106,7 @@ class YOLOv5FacePostProcess {
     /**
      * @brief Destructor
      */
-    ~YOLOv5FacePostProcess() {}
+    virtual ~YOLOv5FacePostProcess() = default;
 
     /**
      * @brief Process YOLOV5Face model outputs

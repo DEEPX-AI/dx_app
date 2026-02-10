@@ -18,7 +18,7 @@ struct YOLOv7PPUResult {
     std::string class_name{};  // Object class name
 
     // Default constructor with explicit initialization
-    YOLOv7PPUResult() {}
+    YOLOv7PPUResult() = default;
 
     // Parameterized constructor with move semantics for better performance
     YOLOv7PPUResult(std::vector<float> box_val, const float conf, const int cls_id,
@@ -30,37 +30,13 @@ struct YOLOv7PPUResult {
                      const std::string& cls_name);
 
     // Destructor
-    ~YOLOv7PPUResult() {}
+    ~YOLOv7PPUResult() = default;
 
     // Copy and move constructors/operators
-    YOLOv7PPUResult(const YOLOv7PPUResult& other)
-        : box(other.box),
-          confidence(other.confidence),
-          class_id(other.class_id),
-          class_name(other.class_name) {}
-    YOLOv7PPUResult& operator=(const YOLOv7PPUResult& other) {
-        if (this != &other) {
-            box = other.box;
-            confidence = other.confidence;
-            class_id = other.class_id;
-            class_name = other.class_name;
-        }
-        return *this;
-    }
-    YOLOv7PPUResult(YOLOv7PPUResult&& other)
-        : box(std::move(other.box)),
-          confidence(other.confidence),
-          class_id(other.class_id),
-          class_name(std::move(other.class_name)) {}
-    YOLOv7PPUResult& operator=(YOLOv7PPUResult&& other) {
-        if (this != &other) {
-            box = std::move(other.box);
-            confidence = other.confidence;
-            class_id = other.class_id;
-            class_name = std::move(other.class_name);
-        }
-        return *this;
-    }
+    YOLOv7PPUResult(const YOLOv7PPUResult& other) = default;
+    YOLOv7PPUResult& operator=(const YOLOv7PPUResult& other) = default;
+    YOLOv7PPUResult(YOLOv7PPUResult&& other) noexcept = default;
+    YOLOv7PPUResult& operator=(YOLOv7PPUResult&& other) noexcept = default;
 
     // Calculate area for NMS - const correctness
     float area() const { return (box[2] - box[0]) * (box[3] - box[1]); }
@@ -121,7 +97,7 @@ class YOLOv7PPUPostProcess {
     /**
      * @brief Destructor
      */
-    ~YOLOv7PPUPostProcess() {}
+    virtual ~YOLOv7PPUPostProcess() = default;
 
     /**
      * @brief Process YOLOv7 model outputs

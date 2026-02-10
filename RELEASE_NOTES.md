@@ -1,4 +1,13 @@
 # RELEASE_NOTES
+## v3.0.2 / 2026-02-10
+
+### 1. Changed
+
+### 2. Fixed
+- Remove experimental filesystem includes and update float literals in example cpp files for build error on windows
+
+### 3. Added
+
 ## v3.0.1 / 2026-02-05
 
 ### 1. Changed

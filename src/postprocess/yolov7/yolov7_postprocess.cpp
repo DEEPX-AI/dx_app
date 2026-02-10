@@ -53,9 +53,9 @@ YOLOv7PostProcess::YOLOv7PostProcess(const int input_w, const int input_h,
 YOLOv7PostProcess::YOLOv7PostProcess() {
     input_width_ = 640;
     input_height_ = 640;
-    object_threshold_ = 0.3;
-    score_threshold_ = 0.4;
-    nms_threshold_ = 0.5;
+    object_threshold_ = 0.3f;
+    score_threshold_ = 0.4f;
+    nms_threshold_ = 0.5f;
     is_ort_configured_ = false;
 
     // Initialize model-specific parameters for YOLOv7

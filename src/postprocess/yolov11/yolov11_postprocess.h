@@ -18,7 +18,7 @@ struct YOLOv11Result {
     std::string class_name{};  // Object class name
 
     // Default constructor with explicit initialization
-    YOLOv11Result() {}
+    YOLOv11Result() = default;
 
     // Parameterized constructor with move semantics for better performance
     YOLOv11Result(std::vector<float> box_val, const float conf, const int cls_id,
@@ -30,37 +30,13 @@ struct YOLOv11Result {
                  const std::string& cls_name);
 
     // Destructor
-    ~YOLOv11Result() {}
+    ~YOLOv11Result() = default;
 
     // Copy and move constructors/operators
-    YOLOv11Result(const YOLOv11Result& other)
-        : box(other.box),
-          confidence(other.confidence),
-          class_id(other.class_id),
-          class_name(other.class_name) {}
-    YOLOv11Result& operator=(const YOLOv11Result& other) {
-        if (this != &other) {
-            box = other.box;
-            confidence = other.confidence;
-            class_id = other.class_id;
-            class_name = other.class_name;
-        }
-        return *this;
-    }
-    YOLOv11Result(YOLOv11Result&& other)
-        : box(std::move(other.box)),
-          confidence(other.confidence),
-          class_id(other.class_id),
-          class_name(std::move(other.class_name)) {}
-    YOLOv11Result& operator=(YOLOv11Result&& other) {
-        if (this != &other) {
-            box = std::move(other.box);
-            confidence = other.confidence;
-            class_id = other.class_id;
-            class_name = std::move(other.class_name);
-        }
-        return *this;
-    }
+    YOLOv11Result(const YOLOv11Result& other) = default;
+    YOLOv11Result& operator=(const YOLOv11Result& other) = default;
+    YOLOv11Result(YOLOv11Result&& other) noexcept = default;
+    YOLOv11Result& operator=(YOLOv11Result&& other) noexcept = default;
 
     // Calculate area for NMS - const correctness
     float area() const { return (box[2] - box[0]) * (box[3] - box[1]); }
@@ -124,7 +100,7 @@ class YOLOv11PostProcess {
     /**
      * @brief Destructor
      */
-    ~YOLOv11PostProcess() {}
+    virtual ~YOLOv11PostProcess() = default;
 
     /**
      * @brief Process YOLOv11 model outputs

@@ -51,8 +51,8 @@ YOLOv5PosePPUPostProcess::YOLOv5PosePPUPostProcess(const int input_w, const int 
 YOLOv5PosePPUPostProcess::YOLOv5PosePPUPostProcess() {
     input_width_ = 640;
     input_height_ = 640;
-    score_threshold_ = 0.5;
-    nms_threshold_ = 0.45;
+    score_threshold_ = 0.5f;
+    nms_threshold_ = 0.45f;
 
     // Initialize model-specific parameters for YOLOv5Pose
     ppu_output_names_ = {"POSE"};
