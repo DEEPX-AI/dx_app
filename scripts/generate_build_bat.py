@@ -43,13 +43,14 @@ def render_value(raw: str, project_var: str, cfg_name: str, normalize_path: bool
         idx = start + len(env_key) + 2
     if normalize_path:
         # Normalize to forward slashes to avoid CMake escape issues.
-        value = value.replace("/", "/")
+        # Replace backslashes with forward slashes
+        value = value.replace("\\", "/")
     return value
 
 
 def to_cmake_path(val: str) -> str:
     """Convert Windows path to CMake-friendly form (forward slashes)."""
-    return val.replace("/", "/")
+    return val.replace("\\", "/")
 
 
 def is_multi_config(generator: str) -> bool:
@@ -89,7 +90,7 @@ def build_configure_lines(cfg: Dict, project_var: str) -> List[str]:
     lines.append("set \"PROJECT_DIR=%PROJECT_DIR:~0,-1%\"")
     lines.append(f"set \"BUILD_DIR={build_root}\"")
     lines.append(f"set \"INSTALL_DIR={install_root}\"")
-    lines.append("set \"PROJECT_DIR_FWD=%PROJECT_DIR:\=/%\"")
+    lines.append("set \"PROJECT_DIR_FWD=%PROJECT_DIR:\\=/%\"")
     lines.append(f"set \"GENERATOR={generator}\"")
     lines.append(f"set \"GENERATOR_ARGS={generator_args}\"")
 
