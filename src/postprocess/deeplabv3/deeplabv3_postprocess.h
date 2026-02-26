@@ -67,6 +67,8 @@ class DeepLabv3PostProcess {
     DeepLabv3Result decode_segmentation_output(const dxrt::TensorPtrs& outputs) const;
     std::vector<int> apply_argmax(const float* softmax_output, int height, int width,
                                   int num_classes) const;
+    int find_best_class_for_pixel(const float* npu_outputs, int pixel_idx, int height, int width,
+                                   int num_classes) const;
 
    public:
     /**

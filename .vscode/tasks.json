@@ -318,6 +318,106 @@
       "problemMatcher": ["$gcc"]
     },
     {
+      "label": "build: yolov26_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov26_sync"]
+      },
+      "group": "build",
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "build: yolov26_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov26_async"]
+      },
+      "group": "build",
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "build: yolov26pose_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov26pose_sync"]
+      },
+      "group": "build",
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "build: yolov26pose_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov26pose_async"]
+      },
+      "group": "build",
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "build: yolov26seg_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov26seg_sync"]
+      },
+      "group": "build",
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "build: yolov26seg_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov26seg_async"]
+      },
+      "group": "build",
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "build: yolov26obb_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov26obb_sync"]
+      },
+      "group": "build",
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "build: yolov26obb_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov26obb_async"]
+      },
+      "group": "build",
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "build: yolov26cls_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov26cls_sync"]
+      },
+      "group": "build",
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "build: yolov26cls_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov26cls_async"]
+      },
+      "group": "build",
+      "problemMatcher": ["$gcc"]
+    },
+    {
       "label": "build: yolox_sync",
       "type": "shell",
       "linux": {
@@ -518,6 +618,16 @@
         "yolov11_async",
         "yolov12_sync",
         "yolov12_async",
+        "yolov26_sync",
+        "yolov26_async",
+        "yolov26pose_sync",
+        "yolov26pose_async",
+        "yolov26seg_sync",
+        "yolov26seg_async",
+        "yolov26obb_sync",
+        "yolov26obb_async",
+        "yolov26cls_sync",
+        "yolov26cls_async",
         "yolox_sync",
         "yolox_async",
         "efficientnet_sync",
