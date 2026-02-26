@@ -202,15 +202,37 @@ def generate_gcovr_reports(build_dir, coverage_dir, timestamp):
         for pattern in exclude_patterns:
             exclude_args.extend(["--exclude", pattern])
         
-        # Generate XML report (Cobertura format for CI/CD)
+        # Check gcovr version to determine if it supports --gcov-ignore-parse-errors
+        ignore_parse_errors_arg = []
+        try:
+            result = subprocess.run(["gcovr", "--version"], capture_output=True, text=True)
+            # gcovr 5.0+ supports --gcov-ignore-parse-errors
+            version_line = result.stdout.split('\n')[0]
+            if 'gcovr' in version_line:
+                # Try to extract version number
+                import re
+                match = re.search(r'(\d+)\.(\d+)', version_line)
+                if match:
+                    major, minor = int(match.group(1)), int(match.group(2))
+                    if major >= 5:
+                        ignore_parse_errors_arg = ["--gcov-ignore-parse-errors=suspicious_hits.warn_once_per_file"]
+        except Exception:
+            pass  # If version check fails, proceed without the option
+        
+        # Create HTML output directory
+        html_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Generate reports (separate commands for compatibility)
         print("\nGenerating coverage reports...")
+        
+        # Generate XML report
         cmd = [
             "gcovr",
             "--root", str(PROJECT_ROOT),
             str(build_dir),
             "--xml", str(xml_file),
             "--xml-pretty",
-        ] + exclude_args
+        ] + ignore_parse_errors_arg + exclude_args
         
         result = subprocess.run(cmd, capture_output=True, text=True)
         if result.returncode != 0:
@@ -225,11 +247,11 @@ def generate_gcovr_reports(build_dir, coverage_dir, timestamp):
             str(build_dir),
             "--html-details", str(html_dir / "index.html"),
             "--html-title", "dx_app C++ Code Coverage",
-        ] + exclude_args
+        ] + ignore_parse_errors_arg + exclude_args
         
         result = subprocess.run(cmd, capture_output=True, text=True)
         if result.returncode != 0:
-            print(f"ERROR: Failed to generate HTML report:")
+            print(f"WARNING: Failed to generate HTML report:")
             print(result.stderr)
         
         # Generate JSON report
@@ -239,23 +261,22 @@ def generate_gcovr_reports(build_dir, coverage_dir, timestamp):
             str(build_dir),
             "--json", str(json_file),
             "--json-pretty",
-        ] + exclude_args
+        ] + ignore_parse_errors_arg + exclude_args
         
         result = subprocess.run(cmd, capture_output=True, text=True)
         if result.returncode != 0:
             print(f"WARNING: Failed to generate JSON report:")
             print(result.stderr)
         
-        # Print summary (only summary, no file details)
-        print("")
-        cmd = [
+        # Print summary separately
+        print("\nCoverage Summary:")
+        cmd_summary = [
             "gcovr",
             "--root", str(PROJECT_ROOT),
             str(build_dir),
-            "--print-summary",
-        ] + exclude_args
+        ] + ignore_parse_errors_arg + exclude_args
         
-        result = subprocess.run(cmd, capture_output=True, text=True)
+        result = subprocess.run(cmd_summary, capture_output=True, text=True)
         if result.stdout:
             print(result.stdout.rstrip())
         

@@ -2178,7 +2178,7 @@
             "program": "${workspaceFolder}/bin/yolov26_sync",
             "args": [
                 "-m",
-                "assets/models/YOLOV26S.dxnn",
+                "assets/models/yolo26s-1.dxnn",
                 "-i",
                 "sample/img/1.jpg",
                 "-l",
@@ -2205,7 +2205,7 @@
             "program": "${workspaceFolder}/bin/yolov26_sync",
             "args": [
                 "-m",
-                "assets/models/YOLOV26S.dxnn",
+                "assets/models/yolo26s-1.dxnn",
                 "-i",
                 "sample/img",
                 "-l",
@@ -2232,7 +2232,7 @@
             "program": "${workspaceFolder}/bin/yolov26_sync",
             "args": [
                 "-m",
-                "assets/models/YOLOV26S.dxnn",
+                "assets/models/yolo26s-1.dxnn",
                 "-v",
                 "assets/videos/boat.mp4"
             ],
@@ -2257,7 +2257,7 @@
             "program": "${workspaceFolder}/bin/yolov26_sync",
             "args": [
                 "-m",
-                "assets/models/YOLOV26S.dxnn",
+                "assets/models/yolo26s-1.dxnn",
                 "-v",
                 "assets/videos/boat.mp4",
                 "-s"
@@ -2283,7 +2283,7 @@
             "program": "${workspaceFolder}/bin/yolov26_sync",
             "args": [
                 "-m",
-                "assets/models/YOLOV26S.dxnn",
+                "assets/models/yolo26s-1.dxnn",
                 "-r",
                 "rtsp://192.168.30.100:8554/stream6"
             ],
@@ -2308,7 +2308,7 @@
             "program": "${workspaceFolder}/bin/yolov26_sync",
             "args": [
                 "-m",
-                "assets/models/YOLOV26S.dxnn",
+                "assets/models/yolo26s-1.dxnn",
                 "-c",
                 "0"
             ],
@@ -2333,7 +2333,7 @@
             "program": "${workspaceFolder}/bin/yolov26_async",
             "args": [
                 "-m",
-                "assets/models/YOLOV26S.dxnn",
+                "assets/models/yolo26s-1.dxnn",
                 "-i",
                 "sample/img/1.jpg",
                 "-l",
@@ -2360,7 +2360,7 @@
             "program": "${workspaceFolder}/bin/yolov26_async",
             "args": [
                 "-m",
-                "assets/models/YOLOV26S.dxnn",
+                "assets/models/yolo26s-1.dxnn",
                 "-i",
                 "sample/img",
                 "-l",
@@ -2387,7 +2387,7 @@
             "program": "${workspaceFolder}/bin/yolov26_async",
             "args": [
                 "-m",
-                "assets/models/YOLOV26S.dxnn",
+                "assets/models/yolo26s-1.dxnn",
                 "-v",
                 "assets/videos/boat.mp4"
             ],
@@ -2412,7 +2412,7 @@
             "program": "${workspaceFolder}/bin/yolov26_async",
             "args": [
                 "-m",
-                "assets/models/YOLOV26S.dxnn",
+                "assets/models/yolo26s-1.dxnn",
                 "-v",
                 "assets/videos/boat.mp4",
                 "-s"
@@ -2438,7 +2438,7 @@
             "program": "${workspaceFolder}/bin/yolov26_async",
             "args": [
                 "-m",
-                "assets/models/YOLOV26S.dxnn",
+                "assets/models/yolo26s-1.dxnn",
                 "-r",
                 "rtsp://192.168.30.100:8554/stream6"
             ],
@@ -2463,7 +2463,7 @@
             "program": "${workspaceFolder}/bin/yolov26_async",
             "args": [
                 "-m",
-                "assets/models/YOLOV26S.dxnn",
+                "assets/models/yolo26s-1.dxnn",
                 "-c",
                 "0"
             ],
@@ -2480,6 +2480,1246 @@
                 }
             ],
             "preLaunchTask": "build: yolov26_async"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Demo: YOLOv26 Pose Sync (Image)",
+            "program": "${workspaceFolder}/bin/yolov26pose_sync",
+            "args": [
+                "-m",
+                "assets/models/yolo26s-pose.dxnn",
+                "-i",
+                "sample/img/7.jpg",
+                "-l",
+                "30"
+            ],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: yolov26pose_sync"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Demo: YOLOv26 Pose Sync (Image Dir)",
+            "program": "${workspaceFolder}/bin/yolov26pose_sync",
+            "args": [
+                "-m",
+                "assets/models/yolo26s-pose.dxnn",
+                "-i",
+                "sample/img",
+                "-l",
+                "30"
+            ],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: yolov26pose_sync"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Demo: YOLOv26 Pose Sync (Video)",
+            "program": "${workspaceFolder}/bin/yolov26pose_sync",
+            "args": [
+                "-m",
+                "assets/models/yolo26s-pose.dxnn",
+                "-v",
+                "assets/videos/dance-solo.mov"
+            ],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: yolov26pose_sync"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Demo: YOLOv26 Pose Sync (Video + Save)",
+            "program": "${workspaceFolder}/bin/yolov26pose_sync",
+            "args": [
+                "-m",
+                "assets/models/yolo26s-pose.dxnn",
+                "-v",
+                "assets/videos/dance-solo.mov",
+                "-s"
+            ],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: yolov26pose_sync"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Demo: YOLOv26 Pose Sync (RTSP)",
+            "program": "${workspaceFolder}/bin/yolov26pose_sync",
+            "args": [
+                "-m",
+                "assets/models/yolo26s-pose.dxnn",
+                "-r",
+                "rtsp://192.168.30.100:8554/stream9"
+            ],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: yolov26pose_sync"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Demo: YOLOv26 Pose Sync (Camera)",
+            "program": "${workspaceFolder}/bin/yolov26pose_sync",
+            "args": [
+                "-m",
+                "assets/models/yolo26s-pose.dxnn",
+                "-c",
+                "0"
+            ],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: yolov26pose_sync"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Demo: YOLOv26 Pose Async (Image)",
+            "program": "${workspaceFolder}/bin/yolov26pose_async",
+            "args": [
+                "-m",
+                "assets/models/yolo26s-pose.dxnn",
+                "-i",
+                "sample/img/7.jpg",
+                "-l",
+                "30"
+            ],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: yolov26pose_async"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Demo: YOLOv26 Pose Async (Image Dir)",
+            "program": "${workspaceFolder}/bin/yolov26pose_async",
+            "args": [
+                "-m",
+                "assets/models/yolo26s-pose.dxnn",
+                "-i",
+                "sample/img",
+                "-l",
+                "30"
+            ],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: yolov26pose_async"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Demo: YOLOv26 Pose Async (Video)",
+            "program": "${workspaceFolder}/bin/yolov26pose_async",
+            "args": [
+                "-m",
+                "assets/models/yolo26s-pose.dxnn",
+                "-v",
+                "assets/videos/dance-solo.mov"
+            ],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: yolov26pose_async"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Demo: YOLOv26 Pose Async (Video + Save)",
+            "program": "${workspaceFolder}/bin/yolov26pose_async",
+            "args": [
+                "-m",
+                "assets/models/yolo26s-pose.dxnn",
+                "-v",
+                "assets/videos/dance-solo.mov",
+                "-s"
+            ],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: yolov26pose_async"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Demo: YOLOv26 Pose Async (RTSP)",
+            "program": "${workspaceFolder}/bin/yolov26pose_async",
+            "args": [
+                "-m",
+                "assets/models/yolo26s-pose.dxnn",
+                "-r",
+                "rtsp://192.168.30.100:8554/stream9"
+            ],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: yolov26pose_async"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Demo: YOLOv26 Pose Async (Camera)",
+            "program": "${workspaceFolder}/bin/yolov26pose_async",
+            "args": [
+                "-m",
+                "assets/models/yolo26s-pose.dxnn",
+                "-c",
+                "0"
+            ],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: yolov26pose_async"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Demo: YOLOv26 Segmentation Sync (Image)",
+            "program": "${workspaceFolder}/bin/yolov26seg_sync",
+            "args": [
+                "-m",
+                "assets/models/yolo26s-seg.dxnn",
+                "-i",
+                "sample/img/1.jpg",
+                "-l",
+                "30"
+            ],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: yolov26seg_sync"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Demo: YOLOv26 Segmentation Sync (Image Dir)",
+            "program": "${workspaceFolder}/bin/yolov26seg_sync",
+            "args": [
+                "-m",
+                "assets/models/yolo26s-seg.dxnn",
+                "-i",
+                "sample/img",
+                "-l",
+                "30"
+            ],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: yolov26seg_sync"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Demo: YOLOv26 Segmentation Sync (Video)",
+            "program": "${workspaceFolder}/bin/yolov26seg_sync",
+            "args": [
+                "-m",
+                "assets/models/yolo26s-seg.dxnn",
+                "-v",
+                "assets/videos/boat.mp4"
+            ],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: yolov26seg_sync"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Demo: YOLOv26 Segmentation Sync (Video + Save)",
+            "program": "${workspaceFolder}/bin/yolov26seg_sync",
+            "args": [
+                "-m",
+                "assets/models/yolo26s-seg.dxnn",
+                "-v",
+                "assets/videos/boat.mp4",
+                "-s"
+            ],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: yolov26seg_sync"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Demo: YOLOv26 Segmentation Sync (RTSP)",
+            "program": "${workspaceFolder}/bin/yolov26seg_sync",
+            "args": [
+                "-m",
+                "assets/models/yolo26s-seg.dxnn",
+                "-r",
+                "rtsp://192.168.30.100:8554/stream6"
+            ],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: yolov26seg_sync"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Demo: YOLOv26 Segmentation Sync (Camera)",
+            "program": "${workspaceFolder}/bin/yolov26seg_sync",
+            "args": [
+                "-m",
+                "assets/models/yolo26s-seg.dxnn",
+                "-c",
+                "0"
+            ],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: yolov26seg_sync"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Demo: YOLOv26 Segmentation Async (Image)",
+            "program": "${workspaceFolder}/bin/yolov26seg_async",
+            "args": [
+                "-m",
+                "assets/models/yolo26s-seg.dxnn",
+                "-i",
+                "sample/img/1.jpg",
+                "-l",
+                "30"
+            ],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: yolov26seg_async"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Demo: YOLOv26 Segmentation Async (Image Dir)",
+            "program": "${workspaceFolder}/bin/yolov26seg_async",
+            "args": [
+                "-m",
+                "assets/models/yolo26s-seg.dxnn",
+                "-i",
+                "sample/img",
+                "-l",
+                "30"
+            ],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: yolov26seg_async"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Demo: YOLOv26 Segmentation Async (Video)",
+            "program": "${workspaceFolder}/bin/yolov26seg_async",
+            "args": [
+                "-m",
+                "assets/models/yolo26s-seg.dxnn",
+                "-v",
+                "assets/videos/boat.mp4"
+            ],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: yolov26seg_async"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Demo: YOLOv26 Segmentation Async (Video + Save)",
+            "program": "${workspaceFolder}/bin/yolov26seg_async",
+            "args": [
+                "-m",
+                "assets/models/yolo26s-seg.dxnn",
+                "-v",
+                "assets/videos/boat.mp4",
+                "-s"
+            ],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: yolov26seg_async"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Demo: YOLOv26 Segmentation Async (RTSP)",
+            "program": "${workspaceFolder}/bin/yolov26seg_async",
+            "args": [
+                "-m",
+                "assets/models/yolo26s-seg.dxnn",
+                "-r",
+                "rtsp://192.168.30.100:8554/stream6"
+            ],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: yolov26seg_async"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Demo: YOLOv26 Segmentation Async (Camera)",
+            "program": "${workspaceFolder}/bin/yolov26seg_async",
+            "args": [
+                "-m",
+                "assets/models/yolo26s-seg.dxnn",
+                "-c",
+                "0"
+            ],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: yolov26seg_async"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Demo: YOLOv26 OBB Sync (Image)",
+            "program": "${workspaceFolder}/bin/yolov26obb_sync",
+            "args": [
+                "-m",
+                "assets/models/yolo26s-obb.dxnn",
+                "-i",
+                "sample/dota8_test/P0284.png",
+                "-l",
+                "30"
+            ],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: yolov26obb_sync"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Demo: YOLOv26 OBB Sync (Image Dir)",
+            "program": "${workspaceFolder}/bin/yolov26obb_sync",
+            "args": [
+                "-m",
+                "assets/models/yolo26s-obb.dxnn",
+                "-i",
+                "sample/img",
+                "-l",
+                "30"
+            ],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: yolov26obb_sync"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Demo: YOLOv26 OBB Sync (Video)",
+            "program": "${workspaceFolder}/bin/yolov26obb_sync",
+            "args": [
+                "-m",
+                "assets/models/yolo26s-obb.dxnn",
+                "-v",
+                "assets/videos/boat.mp4"
+            ],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: yolov26obb_sync"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Demo: YOLOv26 OBB Sync (Video + Save)",
+            "program": "${workspaceFolder}/bin/yolov26obb_sync",
+            "args": [
+                "-m",
+                "assets/models/yolo26s-obb.dxnn",
+                "-v",
+                "assets/videos/boat.mp4",
+                "-s"
+            ],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: yolov26obb_sync"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Demo: YOLOv26 OBB Sync (RTSP)",
+            "program": "${workspaceFolder}/bin/yolov26obb_sync",
+            "args": [
+                "-m",
+                "assets/models/yolo26s-obb.dxnn",
+                "-r",
+                "rtsp://192.168.30.100:8554/stream6"
+            ],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: yolov26obb_sync"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Demo: YOLOv26 OBB Sync (Camera)",
+            "program": "${workspaceFolder}/bin/yolov26obb_sync",
+            "args": [
+                "-m",
+                "assets/models/yolo26s-obb.dxnn",
+                "-c",
+                "0"
+            ],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: yolov26obb_sync"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Demo: YOLOv26 OBB Async (Image)",
+            "program": "${workspaceFolder}/bin/yolov26obb_async",
+            "args": [
+                "-m",
+                "assets/models/yolo26s-obb.dxnn",
+                "-i",
+                "sample/dota8_test/P0284.png",
+                "-l",
+                "30"
+            ],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: yolov26obb_async"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Demo: YOLOv26 OBB Async (Image Dir)",
+            "program": "${workspaceFolder}/bin/yolov26obb_async",
+            "args": [
+                "-m",
+                "assets/models/yolo26s-obb.dxnn",
+                "-i",
+                "sample/img",
+                "-l",
+                "30"
+            ],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: yolov26obb_async"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Demo: YOLOv26 OBB Async (Video)",
+            "program": "${workspaceFolder}/bin/yolov26obb_async",
+            "args": [
+                "-m",
+                "assets/models/yolo26s-obb.dxnn",
+                "-v",
+                "assets/videos/boat.mp4"
+            ],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: yolov26obb_async"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Demo: YOLOv26 OBB Async (Video + Save)",
+            "program": "${workspaceFolder}/bin/yolov26obb_async",
+            "args": [
+                "-m",
+                "assets/models/yolo26s-obb.dxnn",
+                "-v",
+                "assets/videos/boat.mp4",
+                "-s"
+            ],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: yolov26obb_async"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Demo: YOLOv26 OBB Async (RTSP)",
+            "program": "${workspaceFolder}/bin/yolov26obb_async",
+            "args": [
+                "-m",
+                "assets/models/yolo26s-obb.dxnn",
+                "-r",
+                "rtsp://192.168.30.100:8554/stream6"
+            ],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: yolov26obb_async"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Demo: YOLOv26 OBB Async (Camera)",
+            "program": "${workspaceFolder}/bin/yolov26obb_async",
+            "args": [
+                "-m",
+                "assets/models/yolo26s-obb.dxnn",
+                "-c",
+                "0"
+            ],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: yolov26obb_async"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Demo: YOLOv26 Classification Sync (Image)",
+            "program": "${workspaceFolder}/bin/yolov26cls_sync",
+            "args": [
+                "-m",
+                "assets/models/yolo26s-cls.dxnn",
+                "-i",
+                "sample/img/1.jpg",
+                "-l",
+                "30"
+            ],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: yolov26cls_sync"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Demo: YOLOv26 Classification Sync (Image Dir)",
+            "program": "${workspaceFolder}/bin/yolov26cls_sync",
+            "args": [
+                "-m",
+                "assets/models/yolo26s-cls.dxnn",
+                "-i",
+                "sample/img",
+                "-l",
+                "30"
+            ],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: yolov26cls_sync"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Demo: YOLOv26 Classification Sync (Video)",
+            "program": "${workspaceFolder}/bin/yolov26cls_sync",
+            "args": [
+                "-m",
+                "assets/models/yolo26s-cls.dxnn",
+                "-v",
+                "assets/videos/boat.mp4"
+            ],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: yolov26cls_sync"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Demo: YOLOv26 Classification Sync (Video + Save)",
+            "program": "${workspaceFolder}/bin/yolov26cls_sync",
+            "args": [
+                "-m",
+                "assets/models/yolo26s-cls.dxnn",
+                "-v",
+                "assets/videos/boat.mp4",
+                "-s"
+            ],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: yolov26cls_sync"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Demo: YOLOv26 Classification Sync (RTSP)",
+            "program": "${workspaceFolder}/bin/yolov26cls_sync",
+            "args": [
+                "-m",
+                "assets/models/yolo26s-cls.dxnn",
+                "-r",
+                "rtsp://192.168.30.100:8554/stream6"
+            ],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: yolov26cls_sync"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Demo: YOLOv26 Classification Sync (Camera)",
+            "program": "${workspaceFolder}/bin/yolov26cls_sync",
+            "args": [
+                "-m",
+                "assets/models/yolo26s-cls.dxnn",
+                "-c",
+                "0"
+            ],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: yolov26cls_sync"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Demo: YOLOv26 Classification Async (Image)",
+            "program": "${workspaceFolder}/bin/yolov26cls_async",
+            "args": [
+                "-m",
+                "assets/models/yolo26s-cls.dxnn",
+                "-i",
+                "sample/img/1.jpg",
+                "-l",
+                "30"
+            ],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: yolov26cls_async"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Demo: YOLOv26 Classification Async (Image Dir)",
+            "program": "${workspaceFolder}/bin/yolov26cls_async",
+            "args": [
+                "-m",
+                "assets/models/yolo26s-cls.dxnn",
+                "-i",
+                "sample/img",
+                "-l",
+                "30"
+            ],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: yolov26cls_async"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Demo: YOLOv26 Classification Async (Video)",
+            "program": "${workspaceFolder}/bin/yolov26cls_async",
+            "args": [
+                "-m",
+                "assets/models/yolo26s-cls.dxnn",
+                "-v",
+                "assets/videos/boat.mp4"
+            ],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: yolov26cls_async"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Demo: YOLOv26 Classification Async (Video + Save)",
+            "program": "${workspaceFolder}/bin/yolov26cls_async",
+            "args": [
+                "-m",
+                "assets/models/yolo26s-cls.dxnn",
+                "-v",
+                "assets/videos/boat.mp4",
+                "-s"
+            ],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: yolov26cls_async"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Demo: YOLOv26 Classification Async (RTSP)",
+            "program": "${workspaceFolder}/bin/yolov26cls_async",
+            "args": [
+                "-m",
+                "assets/models/yolo26s-cls.dxnn",
+                "-r",
+                "rtsp://192.168.30.100:8554/stream6"
+            ],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: yolov26cls_async"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Demo: YOLOv26 Classification Async (Camera)",
+            "program": "${workspaceFolder}/bin/yolov26cls_async",
+            "args": [
+                "-m",
+                "assets/models/yolo26s-cls.dxnn",
+                "-c",
+                "0"
+            ],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build: yolov26cls_async"
         },
         {
             "type": "cppdbg",
@@ -2905,7 +4145,7 @@
                 "-m",
                 "assets/models/YOLOV5Pose640_1.dxnn",
                 "-r",
-                "rtsp://192.168.30.100:8554/stream6"
+                "rtsp://192.168.30.100:8554/stream9"
             ],
             "cwd": "${workspaceFolder}",
             "stopAtEntry": false,
@@ -3060,7 +4300,7 @@
                 "-m",
                 "assets/models/YOLOV5Pose640_1.dxnn",
                 "-r",
-                "rtsp://192.168.30.100:8554/stream6"
+                "rtsp://192.168.30.100:8554/stream9"
             ],
             "cwd": "${workspaceFolder}",
             "stopAtEntry": false,
@@ -5075,7 +6315,7 @@
                 "-m",
                 "assets/models/YOLOV5Pose_PPU.dxnn",
                 "-r",
-                "rtsp://192.168.30.100:8554/stream6"
+                "rtsp://192.168.30.100:8554/stream9"
             ],
             "cwd": "${workspaceFolder}",
             "stopAtEntry": false,
@@ -5230,7 +6470,7 @@
                 "-m",
                 "assets/models/YOLOV5Pose_PPU.dxnn",
                 "-r",
-                "rtsp://192.168.30.100:8554/stream6"
+                "rtsp://192.168.30.100:8554/stream9"
             ],
             "cwd": "${workspaceFolder}",
             "stopAtEntry": false,

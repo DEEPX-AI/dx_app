@@ -1,3 +1,24 @@
+## v3.0.2 / 2026-02-10
+
+### 1. Changed
+- Copy of dxrt and vkpkg DLLs into the dx-app/bin directory when building with MSVC.
+
+### 2. Fixed
+- Remove experimental filesystem includes and update float literals in example cpp files for build error on windows
+
+### 3. Added
+- Added vcpkg installation script for windows build. 
+
+## v3.0.1 / 2026-02-05
+
+### 1. Changed
+
+### 2. Fixed
+- Hardcoded attribute size in YOLO post-processing to dynamically adjust based on model output shape
+
+### 3. Added
+- Add yolov26 cls, yolo26 pose, yolo26 seg, yolo26 obb examples
+
 ## DX-APP v3.0.0 / 2026-01-16
 
 ### Changed

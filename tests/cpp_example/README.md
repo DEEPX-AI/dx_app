@@ -39,6 +39,7 @@ Before running tests, ensure the environment is prepared.
 - **Test Data**: Ensure images exist in `sample/img/` and videos in `assets/videos/` (Run `./setup_sample_videos.sh`).  
 - **Libraries**: Shared libraries must be present in the `lib/` directory.  
 
+
 ---
 
 ## Running Tests 
@@ -166,9 +167,12 @@ sudo apt-get install gcovr -y
 # OR install lcov (HTML only)
 sudo apt-get install lcov -y
 
-# Build with coverage flags (relwithdebinfo recommended)
+# [Recommended] Build with debug mode for the most reliable coverage results
 cd ../../  # Go to project root
-./build.sh --clean --coverage --type relwithdebinfo
+./build.sh --clean --coverage --type debug
+
+# [Alternative] Build with relwithdebinfo for faster builds (less accurate coverage)
+./build.sh --clean --coverage --type relwithdebinfo 
 
 # Verify coverage build (check for .gcno files)
 ls build_x86_64/src/examples/*.gcno
@@ -177,7 +181,16 @@ ls build_x86_64/src/examples/*.gcno
 **Build Type Recommendations**  
 
 - `relwithdebinfo`: Recommended for development (1.5–2x slower, optimized with debug info)  
-- `debug`: Most detailed coverage (3–5x slower)  
+- `debug`: Most detailed coverage (3–5x slower, no optimization, full symbol info)  
+
+```bash
+# [Recommended] Build with debug mode for most reliable coverage
+cd ../../  # Go to project root
+./build.sh --clean --coverage --type debug
+
+# [Alternative] Build with relwithdebinfo for faster turnaround
+./build.sh --clean --coverage --type relwithdebinfo
+```
 
 ### Running Tests with Coverage
 
@@ -199,6 +212,9 @@ pytest -m e2e -k "yolov7" --coverage -v
 **Unified Test Runner** (from project root)
 
 ```bash
+# [Recommended] Build with debug mode, then run quick E2E coverage
+./build.sh --clean --coverage --type debug && ./run_tc.sh --cpp --e2e-quick --coverage
+
 # Quick E2E with coverage (recommended for development)
 ./run_tc.sh --cpp --e2e-quick --coverage
 
@@ -236,15 +252,16 @@ xdg-open tests/cpp_example/coverage/html/index.html
 
 ---
 
-## Test Coverage Summary
+## Test Coverage Summary 
 
-| **Category** | **Count** | **Status** | 
+> **Example output** — `./run_tc.sh --cpp --coverage` — **290 collected, 286 passed, 4 skipped** (exit 0)
+
+| **Category** | **Count** | **Status** |
 |----|----|----|
-| **Total Executables** | 48 | - | 
-| **CLI Tests** | 48 | All binaries validated (191 tests) | 
-| **E2E Tests** | 34 | Executables with `--no-display` support (68 tests + 1 prerequisite) | 
-| **Image Inference** | 34 | Validated via E2E image tests | 
-| **Video Inference** | 34 | Validated via E2E video tests | 
-| **Exclusions** | 14| GUI-only or multi-model variants (e.g.,`yolov7+deeplabv3`) | 
+| **Total Executables** | 48 | - |
+| **CLI Tests** | 48 | All binaries validated (193 tests) |
+| **E2E Image Tests** | 48 | All executables validated via image inference |
+| **E2E Video Tests** | 44 | 4 classification models skipped (no video support) |
+| **Line Coverage** | 77% | 17,632 / 22,683 lines (build: `--coverage --type debug` recommended) |
 
 ---

@@ -2,10 +2,11 @@
 ## v3.0.2 / 2026-02-10
 
 ### 1. Changed
-- Copy of dxrt and ckpkg DLLs into the dx-app/bin directory when building with MSVC.
+- Copy of dxrt and vkpkg DLLs into the dx-app/bin directory when building with MSVC.
 
 ### 2. Fixed
 - Remove experimental filesystem includes and update float literals in example cpp files for build error on windows
+- Refactor apply_argmax to reduce nesting and fix gcovr warnings
 
 ### 3. Added
 - Added vcpkg installation script for windows build. 

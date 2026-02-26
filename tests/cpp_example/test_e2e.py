@@ -220,12 +220,20 @@ def parse_detailed_fps(output: str) -> dict:
         'preprocess': r'Preprocess\s+[\d.]+\s+ms\s+([\d.]+)\s+FPS',
         'inference': r'Inference\s+[\d.]+\s+ms\s+([\d.]+)\s+FPS',
         'postprocess': r'Postprocess\s+[\d.]+\s+ms\s+([\d.]+)\s+FPS',
+        'total_frames': r"Total Frames\s*:\s*(\d+)",
+        'total_time': r"Total Time\s*:\s*([\d.]+)\s*s",
+        'infer_inflight_avg': r"Infer Inflight Avg\s*:\s*([\d.]+)",
+        'infer_inflight_max': r"Infer Inflight Max\s*:\s*(\d+)",
     }
     
     for key, pattern in patterns.items():
         match = re.search(pattern, output, re.IGNORECASE)
         if match:
-            fps_data[key] = float(match.group(1))
+            value = match.group(1)
+            if key in ["total_frames", "infer_inflight_max"]:
+                fps_data[key] = int(value)
+            else:
+                fps_data[key] = float(value)
     
     # Overall FPS (E2E)
     overall_patterns = [
@@ -455,12 +463,16 @@ def test_video_inference_e2e(executable, bin_dir):
             
             # Create metrics object
             metrics = PerformanceMetrics(
-                executable=executable,
+                variant=executable,
                 e2e_fps=detailed_fps.get('e2e', fps),
                 read_fps=detailed_fps.get('read'),
                 preprocess_fps=detailed_fps.get('preprocess'),
                 inference_fps=detailed_fps.get('inference'),
                 postprocess_fps=detailed_fps.get('postprocess'),
+                total_frames=detailed_fps.get('total_frames'),
+                total_time=detailed_fps.get('total_time'),
+                infer_inflight_avg=detailed_fps.get('infer_inflight_avg'),
+                infer_inflight_max=detailed_fps.get('infer_inflight_max')
             )
             
             collector.add_metrics(model_group, executable, metrics)
@@ -471,7 +483,7 @@ def test_video_inference_e2e(executable, bin_dir):
                     model_group,
                     str(model_path if isinstance(model_path, Path) else model_path[0]),
                     str(TEST_VIDEO),
-                    478  # Known frame count for dance-group.mov
+                    detailed_fps.get('total_frames'),
                 )
         
     except subprocess.TimeoutExpired:
