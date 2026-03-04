@@ -57,9 +57,9 @@ YOLOXPostProcess::YOLOXPostProcess(const int input_w, const int input_h, const f
 YOLOXPostProcess::YOLOXPostProcess() {
     input_width_ = 512;
     input_height_ = 512;
-    object_threshold_ = 0.25;
-    score_threshold_ = 0.3;
-    nms_threshold_ = 0.45;
+    object_threshold_ = 0.25f;
+    score_threshold_ = 0.3f;
+    nms_threshold_ = 0.45f;
     is_ort_configured_ = false;
 
     // Initialize model-specific parameters for YOLOXs

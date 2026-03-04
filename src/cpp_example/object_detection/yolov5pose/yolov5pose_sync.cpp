@@ -4,7 +4,6 @@
 #include <common_util.hpp>
 #include <cxxopts.hpp>
 #include <exception>
-#include <experimental/filesystem>
 #include <iomanip>
 #include <iostream>
 #include <memory>
@@ -27,7 +26,6 @@
  * optimization.
  */
 
-namespace fs = std::experimental::filesystem;
 
 constexpr size_t SHOW_WINDOW_SIZE_W = 960;
 constexpr size_t SHOW_WINDOW_SIZE_H = 640;

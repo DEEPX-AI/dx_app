@@ -18,7 +18,7 @@ struct YOLOv26ObbResult {
     std::string class_name{};  // Object class name
 
     // Default constructor with explicit initialization
-    YOLOv26ObbResult() {}
+    YOLOv26ObbResult() = default;
 
     // Parameterized constructor with move semantics for better performance
     YOLOv26ObbResult(std::vector<float> box_val, const float conf, const int cls_id,
@@ -30,37 +30,13 @@ struct YOLOv26ObbResult {
                  const std::string& cls_name);
 
     // Destructor
-    ~YOLOv26ObbResult() {}
+    ~YOLOv26ObbResult() = default;
 
     // Copy and move constructors/operators
-    YOLOv26ObbResult(const YOLOv26ObbResult& other)
-        : box(other.box),
-          confidence(other.confidence),
-          class_id(other.class_id),
-          class_name(other.class_name) {}
-    YOLOv26ObbResult& operator=(const YOLOv26ObbResult& other) {
-        if (this != &other) {
-            box = other.box;
-            confidence = other.confidence;
-            class_id = other.class_id;
-            class_name = other.class_name;
-        }
-        return *this;
-    }
-    YOLOv26ObbResult(YOLOv26ObbResult&& other)
-        : box(std::move(other.box)),
-          confidence(other.confidence),
-          class_id(other.class_id),
-          class_name(std::move(other.class_name)) {}
-    YOLOv26ObbResult& operator=(YOLOv26ObbResult&& other) {
-        if (this != &other) {
-            box = std::move(other.box);
-            confidence = other.confidence;
-            class_id = other.class_id;
-            class_name = std::move(other.class_name);
-        }
-        return *this;
-    }
+    YOLOv26ObbResult(const YOLOv26ObbResult& other) = default;
+    YOLOv26ObbResult& operator=(const YOLOv26ObbResult& other) = default;
+    YOLOv26ObbResult(YOLOv26ObbResult&& other) noexcept = default;
+    YOLOv26ObbResult& operator=(YOLOv26ObbResult&& other) noexcept = default;
 
     // Calculate area for NMS - const correctness
     float area() const { return (box[2] - box[0]) * (box[3] - box[1]); }
@@ -114,7 +90,7 @@ class YOLOv26ObbPostProcess {
     /**
      * @brief Destructor
      */
-    ~YOLOv26ObbPostProcess() {}
+    virtual ~YOLOv26ObbPostProcess() = default;
 
     /**
      * @brief Process YOLOv26Obb model outputs

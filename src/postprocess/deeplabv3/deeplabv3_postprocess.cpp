@@ -123,6 +123,24 @@ DeepLabv3Result DeepLabv3PostProcess::decode_segmentation_output(
     return result;
 }
 
+// Helper function to find the best class for a single pixel
+int DeepLabv3PostProcess::find_best_class_for_pixel(const float* npu_outputs, int pixel_idx,
+                                                     int height, int width,
+                                                     int num_classes) const {
+    int best_class = -1;
+    float best_prob = -1.0f;
+
+    for (int c = 0; c < num_classes; ++c) {
+        int prob_idx = c * height * width + pixel_idx;
+        if (npu_outputs[prob_idx] > best_prob) {
+            best_prob = npu_outputs[prob_idx];
+            best_class = c;
+        }
+    }
+
+    return best_class;
+}
+
 // Apply argmax to get class predictions
 std::vector<int> DeepLabv3PostProcess::apply_argmax(const float* npu_outputs, int height, int width,
                                                     int num_classes) const {
@@ -131,19 +149,8 @@ std::vector<int> DeepLabv3PostProcess::apply_argmax(const float* npu_outputs, in
     for (int h = 0; h < height; ++h) {
         for (int w = 0; w < width; ++w) {
             int pixel_idx = h * width + w;
-
-            int best_class = -1;
-            float best_prob = -1.0f;
-
-            for (int c = 0; c < num_classes; ++c) {
-                int prob_idx = c * height * width + pixel_idx;
-                if (npu_outputs[prob_idx] > best_prob) {
-                    best_prob = npu_outputs[prob_idx];
-                    best_class = c;
-                }
-            }
-            // Only assign non-background class if confidence is above threshold
-            class_predictions[pixel_idx] = best_class;
+            class_predictions[pixel_idx] =
+                find_best_class_for_pixel(npu_outputs, pixel_idx, height, width, num_classes);
         }
     }
 

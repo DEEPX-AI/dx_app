@@ -101,8 +101,6 @@ def mock_inference_engine(request):
         yield None
         return
 
-    mock_inference_engine
-
     if "dx_engine" not in sys.modules:
         sys.modules["dx_engine"] = Mock()
 

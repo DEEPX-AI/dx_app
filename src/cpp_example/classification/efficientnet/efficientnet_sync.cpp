@@ -4,14 +4,12 @@
 #include <chrono>
 #include <common_util.hpp>
 #include <cxxopts.hpp>
-#include <experimental/filesystem>
 #include <iomanip>
 #include <iostream>
 #include <opencv2/opencv.hpp>
 #include <string>
 #include <vector>
 
-namespace fs = std::experimental::filesystem;
 
 
 // --- Structures ---
@@ -276,10 +274,6 @@ int main(int argc, char* argv[]) {
     CommandLineArgs args = parse_command_line(argc, argv);
     validate_arguments(args);
 
-    LOG_VALUE(args.modelPath)
-    LOG_VALUE(args.imageFilePath)
-    LOG_VALUE(args.loopTest)
-
     // Initialize inference engine
     dxrt::InferenceOption io;
     io.useORT = false;
@@ -290,6 +284,16 @@ int main(int argc, char* argv[]) {
                   << std::endl;
         return -1;
     }
+
+    auto input_shape = ie.GetInputs().front().shape();
+    auto input_height = static_cast<int>(input_shape[1]);
+    auto input_width = static_cast<int>(input_shape[2]);
+    
+    std::cout << "[INFO] Model loaded: " << args.modelPath << std::endl;
+    std::cout << "[INFO] Model input size (WxH): " << input_width << "x" << input_height << std::endl;
+    std::cout << "[INFO] Image path: " << args.imageFilePath << std::endl;
+
+    std::cout << std::endl;
 
     // Handle image file or directory
     auto result = process_image_path(args.imageFilePath, args.loopTest);

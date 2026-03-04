@@ -24,7 +24,7 @@ struct YOLOv8SegResult {
     int mask_width{0};                   // Width of the segmentation mask
 
     // Default constructor with explicit initialization
-    YOLOv8SegResult() {}
+    YOLOv8SegResult() = default;
 
     // Parameterized constructor with move semantics for better performance
     YOLOv8SegResult(std::vector<float> box_val, const float conf, const int cls_id,
@@ -36,53 +36,13 @@ struct YOLOv8SegResult {
                      const std::string& cls_name);
 
     // Destructor
-    ~YOLOv8SegResult() {}
+    ~YOLOv8SegResult() = default;
 
     // Copy and move constructors/operators
-    YOLOv8SegResult(const YOLOv8SegResult& other)
-        : box(other.box),
-          confidence(other.confidence),
-          class_id(other.class_id),
-          class_name(other.class_name),
-          seg_mask_coef(other.seg_mask_coef),
-          mask(other.mask),
-          mask_height(other.mask_height),
-          mask_width(other.mask_width) {}
-    YOLOv8SegResult& operator=(const YOLOv8SegResult& other) {
-        if (this != &other) {
-            box = other.box;
-            confidence = other.confidence;
-            class_id = other.class_id;
-            class_name = other.class_name;
-            seg_mask_coef = other.seg_mask_coef;
-            mask = other.mask;
-            mask_height = other.mask_height;
-            mask_width = other.mask_width;
-        }
-        return *this;
-    }
-    YOLOv8SegResult(YOLOv8SegResult&& other)
-        : box(std::move(other.box)),
-          confidence(other.confidence),
-          class_id(other.class_id),
-          class_name(std::move(other.class_name)),
-          seg_mask_coef(std::move(other.seg_mask_coef)),
-          mask(std::move(other.mask)),
-          mask_height(other.mask_height),
-          mask_width(other.mask_width) {}
-    YOLOv8SegResult& operator=(YOLOv8SegResult&& other) {
-        if (this != &other) {
-            box = std::move(other.box);
-            confidence = other.confidence;
-            class_id = other.class_id;
-            class_name = std::move(other.class_name);
-            seg_mask_coef = std::move(other.seg_mask_coef);
-            mask = std::move(other.mask);
-            mask_height = other.mask_height;
-            mask_width = other.mask_width;
-        }
-        return *this;
-    }
+    YOLOv8SegResult(const YOLOv8SegResult& other) = default;
+    YOLOv8SegResult& operator=(const YOLOv8SegResult& other) = default;
+    YOLOv8SegResult(YOLOv8SegResult&& other) noexcept = default;
+    YOLOv8SegResult& operator=(YOLOv8SegResult&& other) noexcept = default;
 
     // Calculate area for NMS - const correctness
     float area() const { return (box[2] - box[0]) * (box[3] - box[1]); }
@@ -159,7 +119,7 @@ class YOLOv8SegPostProcess {
     /**
      * @brief Destructor
      */
-    ~YOLOv8SegPostProcess() {}
+    virtual ~YOLOv8SegPostProcess() = default;
 
     /**
      * @brief Process YOLOv8n model outputs

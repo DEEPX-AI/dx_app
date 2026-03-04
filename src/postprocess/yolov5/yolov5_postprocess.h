@@ -17,8 +17,8 @@ struct YOLOv5Result {
     int class_id{0};           // Object class ID (0-79 for COCO classes)
     std::string class_name{};  // Object class name
 
-    // Default constructor with explicit initialization
-    YOLOv5Result() {}
+    // Default constructor - using compiler-generated default
+    YOLOv5Result() = default;
 
     // Parameterized constructor with move semantics for better performance
     YOLOv5Result(std::vector<float> box_val, const float conf, const int cls_id,
@@ -29,38 +29,14 @@ struct YOLOv5Result {
     YOLOv5Result(const std::vector<float>& box_val, const float conf, const int cls_id,
                  const std::string& cls_name);
 
-    // Destructor
-    ~YOLOv5Result() {}
+    // Destructor - using compiler-generated default
+    ~YOLOv5Result() = default;
 
-    // Copy and move constructors/operators
-    YOLOv5Result(const YOLOv5Result& other)
-        : box(other.box),
-          confidence(other.confidence),
-          class_id(other.class_id),
-          class_name(other.class_name) {}
-    YOLOv5Result& operator=(const YOLOv5Result& other) {
-        if (this != &other) {
-            box = other.box;
-            confidence = other.confidence;
-            class_id = other.class_id;
-            class_name = other.class_name;
-        }
-        return *this;
-    }
-    YOLOv5Result(YOLOv5Result&& other)
-        : box(std::move(other.box)),
-          confidence(other.confidence),
-          class_id(other.class_id),
-          class_name(std::move(other.class_name)) {}
-    YOLOv5Result& operator=(YOLOv5Result&& other) {
-        if (this != &other) {
-            box = std::move(other.box);
-            confidence = other.confidence;
-            class_id = other.class_id;
-            class_name = std::move(other.class_name);
-        }
-        return *this;
-    }
+    // Copy and move constructors/operators - using compiler-generated defaults (Rule of Zero)
+    YOLOv5Result(const YOLOv5Result& other) = default;
+    YOLOv5Result& operator=(const YOLOv5Result& other) = default;
+    YOLOv5Result(YOLOv5Result&& other) noexcept = default;
+    YOLOv5Result& operator=(YOLOv5Result&& other) noexcept = default;
 
     // Calculate area for NMS - const correctness
     float area() const { return (box[2] - box[0]) * (box[3] - box[1]); }
@@ -127,7 +103,7 @@ class YOLOv5PostProcess {
     /**
      * @brief Destructor
      */
-    ~YOLOv5PostProcess() {}
+    virtual ~YOLOv5PostProcess() = default;
 
     /**
      * @brief Process YOLOv5s model outputs

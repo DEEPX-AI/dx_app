@@ -17,7 +17,7 @@ struct YOLOv5PosePPUResult {
     std::vector<float> landmarks{};  // Pose landmarks (17 points * 3 coordinates)
 
     // Default constructor with explicit initialization
-    YOLOv5PosePPUResult() {}
+    YOLOv5PosePPUResult() = default;
 
     // Parameterized constructor with move semantics for better performance
     YOLOv5PosePPUResult(std::vector<float> box_val, const float conf,
@@ -29,31 +29,13 @@ struct YOLOv5PosePPUResult {
                          const std::vector<float>& land_marks);
 
     // Destructor
-    ~YOLOv5PosePPUResult() {}
+    ~YOLOv5PosePPUResult() = default;
 
     // Copy and move constructors/operators
-    YOLOv5PosePPUResult(const YOLOv5PosePPUResult& other)
-        : box(other.box), confidence(other.confidence), landmarks(other.landmarks) {}
-    YOLOv5PosePPUResult& operator=(const YOLOv5PosePPUResult& other) {
-        if (this != &other) {
-            box = other.box;
-            confidence = other.confidence;
-            landmarks = other.landmarks;
-        }
-        return *this;
-    }
-    YOLOv5PosePPUResult(YOLOv5PosePPUResult&& other)
-        : box(std::move(other.box)),
-          confidence(other.confidence),
-          landmarks(std::move(other.landmarks)) {}
-    YOLOv5PosePPUResult& operator=(YOLOv5PosePPUResult&& other) {
-        if (this != &other) {
-            box = std::move(other.box);
-            confidence = other.confidence;
-            landmarks = std::move(other.landmarks);
-        }
-        return *this;
-    }
+    YOLOv5PosePPUResult(const YOLOv5PosePPUResult& other) = default;
+    YOLOv5PosePPUResult& operator=(const YOLOv5PosePPUResult& other) = default;
+    YOLOv5PosePPUResult(YOLOv5PosePPUResult&& other) noexcept = default;
+    YOLOv5PosePPUResult& operator=(YOLOv5PosePPUResult&& other) noexcept = default;
 
     // Calculate area for NMS - const correctness
     float area() const { return (box[2] - box[0]) * (box[3] - box[1]); }
@@ -117,7 +99,7 @@ class YOLOv5PosePPUPostProcess {
     /**
      * @brief Destructor
      */
-    ~YOLOv5PosePPUPostProcess() {}
+    virtual ~YOLOv5PosePPUPostProcess() = default;
 
     /**
      * @brief Process YOLOV5Pose model outputs

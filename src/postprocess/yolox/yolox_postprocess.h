@@ -18,7 +18,7 @@ struct YOLOXResult {
     std::string class_name{};  // Object class name
 
     // Default constructor with explicit initialization
-    YOLOXResult() {}
+    YOLOXResult() = default;
 
     // Parameterized constructor with move semantics for better performance
     YOLOXResult(std::vector<float> box_val, const float conf, const int cls_id,
@@ -30,37 +30,13 @@ struct YOLOXResult {
                 const std::string& cls_name);
 
     // Destructor
-    ~YOLOXResult() {}
+    ~YOLOXResult() = default;
 
     // Copy and move constructors/operators
-    YOLOXResult(const YOLOXResult& other)
-        : box(other.box),
-          confidence(other.confidence),
-          class_id(other.class_id),
-          class_name(other.class_name) {}
-    YOLOXResult& operator=(const YOLOXResult& other) {
-        if (this != &other) {
-            box = other.box;
-            confidence = other.confidence;
-            class_id = other.class_id;
-            class_name = other.class_name;
-        }
-        return *this;
-    }
-    YOLOXResult(YOLOXResult&& other)
-        : box(std::move(other.box)),
-          confidence(other.confidence),
-          class_id(other.class_id),
-          class_name(std::move(other.class_name)) {}
-    YOLOXResult& operator=(YOLOXResult&& other) {
-        if (this != &other) {
-            box = std::move(other.box);
-            confidence = other.confidence;
-            class_id = other.class_id;
-            class_name = std::move(other.class_name);
-        }
-        return *this;
-    }
+    YOLOXResult(const YOLOXResult& other) = default;
+    YOLOXResult& operator=(const YOLOXResult& other) = default;
+    YOLOXResult(YOLOXResult&& other) noexcept = default;
+    YOLOXResult& operator=(YOLOXResult&& other) noexcept = default;
 
     // Calculate area for NMS - const correctness
     float area() const { return (box[2] - box[0]) * (box[3] - box[1]); }
@@ -125,7 +101,7 @@ class YOLOXPostProcess {
     /**
      * @brief Destructor
      */
-    ~YOLOXPostProcess() {}
+    virtual ~YOLOXPostProcess() = default;
 
     /**
      * @brief Process YOLOXs model outputs

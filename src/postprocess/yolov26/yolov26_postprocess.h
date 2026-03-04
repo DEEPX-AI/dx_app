@@ -18,7 +18,7 @@ struct YOLOv26Result {
     std::string class_name{};  // Object class name
 
     // Default constructor with explicit initialization
-    YOLOv26Result() {}
+    YOLOv26Result() = default;
 
     // Parameterized constructor with move semantics for better performance
     YOLOv26Result(std::vector<float> box_val, const float conf, const int cls_id,
@@ -30,37 +30,13 @@ struct YOLOv26Result {
                  const std::string& cls_name);
 
     // Destructor
-    ~YOLOv26Result() {}
+    ~YOLOv26Result() = default;
 
     // Copy and move constructors/operators
-    YOLOv26Result(const YOLOv26Result& other)
-        : box(other.box),
-          confidence(other.confidence),
-          class_id(other.class_id),
-          class_name(other.class_name) {}
-    YOLOv26Result& operator=(const YOLOv26Result& other) {
-        if (this != &other) {
-            box = other.box;
-            confidence = other.confidence;
-            class_id = other.class_id;
-            class_name = other.class_name;
-        }
-        return *this;
-    }
-    YOLOv26Result(YOLOv26Result&& other)
-        : box(std::move(other.box)),
-          confidence(other.confidence),
-          class_id(other.class_id),
-          class_name(std::move(other.class_name)) {}
-    YOLOv26Result& operator=(YOLOv26Result&& other) {
-        if (this != &other) {
-            box = std::move(other.box);
-            confidence = other.confidence;
-            class_id = other.class_id;
-            class_name = std::move(other.class_name);
-        }
-        return *this;
-    }
+    YOLOv26Result(const YOLOv26Result& other) = default;
+    YOLOv26Result& operator=(const YOLOv26Result& other) = default;
+    YOLOv26Result(YOLOv26Result&& other) noexcept = default;
+    YOLOv26Result& operator=(YOLOv26Result&& other) noexcept = default;
 
     // Calculate area for NMS - const correctness
     float area() const { return (box[2] - box[0]) * (box[3] - box[1]); }
@@ -114,7 +90,7 @@ class YOLOv26PostProcess {
     /**
      * @brief Destructor
      */
-    ~YOLOv26PostProcess() {}
+    virtual ~YOLOv26PostProcess() = default;
 
     /**
      * @brief Process YOLOv26 model outputs
