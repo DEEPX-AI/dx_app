@@ -109,7 +109,31 @@ To download required models and sample videos, run the following command.
 ./setup.sh
 ```
 
-Assets are downloaded and placed in the `assets/` directory. The available assets include models for Classification, Object Detection, and Segmentation.  
+Assets are downloaded and placed in the `assets/` directory.
+
+- **Models:** stored under `assets/models/`
+- **Videos:** stored under `assets/videos/`
+
+**`setup.sh` Options**
+
+| Option | Description |
+|--------|-------------|
+| `--all` | Download all models non-interactively |
+| `--dry-run` | List models that would be downloaded without downloading |
+| `--list` | List available models without downloading |
+| `--workers=<N>` | Parallel download threads (default: 4) |
+| `--category=<name>` | Download models of a specific category only |
+| `--models <m1> [m2...]` | Download specific models by name |
+| `--no-json` | Skip JSON metadata file downloads |
+| `--manifest=<path>` | Use an alternate manifest JSON file (e.g., for air-gapped environments) |
+| `--force` | Force overwrite if files already exist |
+
+In internal-network environments, the setup flow can use the internal ModelZoo source automatically when the intranet mode is enabled by the surrounding environment.
+
+For most users, running only `./setup.sh` is sufficient. Contributor-facing setup details are documented separately in the developer guides.
+
+!!! note "Internal-Network Setup"
+    In internal environments, DX-APP can use the internal ModelZoo source to prepare model assets without requiring manual model-by-model input during the standard setup flow.
 
 **Post-Processing Unit (PPU) Acceleration Integration**  
 
@@ -360,12 +384,12 @@ You can run the examples using the same command line instructions as in Linux, b
 
 classification example  
 ```shell
-./bin/efficientnet_async.exe -m ./assets/models/EfficientNetB0_4.dxnn -i ./sample/ILSVRC2012/0.jpeg 
+./bin/efficientnet_lite0_async.exe -m ./assets/models/EfficientNet_Lite0.dxnn -i ./sample/ILSVRC2012/0.jpeg 
 ```
 
 object detection example  
 ```shell
-./bin/yolov8_sync.exe  -m ./assets/models/YoloV8N.dxnn -i ./sample/img/1.jpg -l 10
+./bin/yolov8n_sync.exe  -m ./assets/models/YoloV8N.dxnn -i ./sample/img/sample_kitchen.jpg -l 10
 ```
 
 ---

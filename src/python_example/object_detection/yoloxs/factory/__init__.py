@@ -1,0 +1,1 @@
+from .yoloxs_factory import YoloxFactory

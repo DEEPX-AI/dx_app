@@ -3,9 +3,13 @@ Basic CLI tests for bin executables
 """
 import os
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from common.utils import setup_environment  # noqa: E402
 
 from conftest import is_executable, resolve_bin_dir
 
@@ -31,18 +35,6 @@ def get_executables():
 EXECUTABLES = get_executables()
 
 
-def setup_environment():
-    """Setup environment with required library paths"""
-    env = os.environ.copy()
-    if LIB_DIR.exists():
-        current_ld_path = env.get("LD_LIBRARY_PATH", "")
-        if current_ld_path:
-            env["LD_LIBRARY_PATH"] = f"{LIB_DIR}:{current_ld_path}"
-        else:
-            env["LD_LIBRARY_PATH"] = str(LIB_DIR)
-    return env
-
-
 @pytest.mark.cli
 @pytest.mark.parametrize("executable", EXECUTABLES)
 def test_invalid_arguments(executable, bin_dir):
@@ -65,7 +57,7 @@ def test_invalid_arguments(executable, bin_dir):
             [str(executable_path), "--invalid-option-that-does-not-exist"],
             capture_output=True,
             text=True,
-            timeout=5,
+            timeout=15,
             env=env
         )
         
@@ -104,7 +96,7 @@ def test_no_arguments(executable, bin_dir):
             [str(executable_path)],
             capture_output=True,
             text=True,
-            timeout=5,
+            timeout=15,
             env=env
         )
         

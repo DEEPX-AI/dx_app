@@ -335,27 +335,21 @@ std::string get_coco_class_name(const int class_id) {
         "refrigerator",  "book",         "clock",
         "vase",          "scissors",     "teddy bear",
         "hair drier",    "toothbrush"};
-    return class_names.at(class_id);
+    if (class_id < 0 || class_id >= static_cast<int>(class_names.size()))
+        return "class_" + std::to_string(class_id);
+    return class_names[class_id];
 }
 
-std::string get_dota_class_name(const int class_id) {
+std::string get_voc_class_name(const int class_id) {
     static const std::vector<std::string> class_names = {
-        "plane",
-        "ship",
-        "storage-tank",
-        "baseball-diamond",
-        "tennis-court",
-        "basketball-court",
-        "ground-track-field",
-        "harbor",
-        "bridge",
-        "large-vehicle",
-        "small-vehicle",
-        "helicopter",
-        "roundabout",
-        "soccer-ball-field",
-        "swimming-pool"};
-    return class_names.at(class_id);
+        "aeroplane",   "bicycle",     "bird",        "boat",
+        "bottle",      "bus",         "car",         "cat",
+        "chair",       "cow",         "diningtable", "dog",
+        "horse",       "motorbike",   "person",      "pottedplant",
+        "sheep",       "sofa",        "train",       "tvmonitor"};
+    if (class_id < 0 || class_id >= static_cast<int>(class_names.size()))
+        return "class_" + std::to_string(class_id);
+    return class_names[class_id];
 }
 
 }  // namespace common

@@ -1,0 +1,29 @@
+"""
+Yolov5seg Factory - DX-APP v3.0.0 Abstract Factory Pattern
+"""
+
+from common.base import IInstanceSegFactory
+from common.processors import LetterboxPreprocessor, YOLOv5InstanceSegPostprocessor
+from common.visualizers import InstanceSegVisualizer
+
+
+class Yolov5s_segFactory(IInstanceSegFactory):
+    """Factory for creating YOLOv5s-SEG components."""
+    
+    def __init__(self, config: dict = None):
+        self.config = config or {}
+    
+    def create_preprocessor(self, input_width: int, input_height: int):
+        return LetterboxPreprocessor(input_width, input_height)
+    
+    def create_postprocessor(self, input_width: int, input_height: int):
+        return YOLOv5InstanceSegPostprocessor(input_width, input_height, self.config)
+    
+    def create_visualizer(self):
+        return InstanceSegVisualizer()
+    
+    def get_model_name(self) -> str:
+        return "yolov5s_seg"
+    
+    def get_task_type(self) -> str:
+        return "instance_segmentation"

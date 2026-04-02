@@ -26,8 +26,10 @@ PYTHON_CLI_RESULT=0
 PYTHON_INTEGRATION_RESULT=0
 PYTHON_E2E_RESULT=0
 PYTHON_COVERAGE_RESULT=0
+PYTHON_VIS_RESULT=0
 CPP_CLI_RESULT=0
 CPP_E2E_RESULT=0
+CPP_VIS_RESULT=0
 
 print_header() {
     echo -e "\n${BLUE}========================================${NC}"
@@ -68,7 +70,16 @@ run_python_tests() {
     RUN_INTEGRATION=true
     RUN_E2E=true
     RUN_COVERAGE=true
-    
+    RUN_VIS=false
+
+    if [ "$VIS_ONLY" = true ]; then
+        RUN_CLI=false
+        RUN_INTEGRATION=false
+        RUN_E2E=false
+        RUN_COVERAGE=false
+        RUN_VIS=true
+    fi
+
     # Test selection rules (allow combining CLI + E2E when both flags are set)
     if [ "$CLI_ONLY" = true ] && [ "$E2E_ONLY" = false ] && [ "$E2E_QUICK" = false ]; then
         RUN_INTEGRATION=false
@@ -146,6 +157,20 @@ run_python_tests() {
             print_error "Python coverage tests failed"
         fi
     fi
+
+    # 5. Visualization Tests
+    if [ "$RUN_VIS" = true ]; then
+        print_info "Running Python Visualization tests..."
+        PYTEST_VIS_CMD=(pytest -m visualization --tb=short -v)
+
+        if "${PYTEST_VIS_CMD[@]}"; then
+            PYTHON_VIS_RESULT=0
+            print_success "Python Visualization tests passed"
+        else
+            PYTHON_VIS_RESULT=$?
+            print_error "Python Visualization tests failed"
+        fi
+    fi
     
     cd "${SCRIPT_DIR}"
 }
@@ -165,9 +190,14 @@ run_cpp_tests() {
     # Determine which tests to run
     RUN_CLI=true
     RUN_E2E=true
+    RUN_VIS=false
     
     # Handle test selection flags
-    if [ "$CLI_ONLY" = true ] && [ "$E2E_ONLY" = false ] && [ "$E2E_QUICK" = false ]; then
+    if [ "$VIS_ONLY" = true ]; then
+        RUN_CLI=false
+        RUN_E2E=false
+        RUN_VIS=true
+    elif [ "$CLI_ONLY" = true ] && [ "$E2E_ONLY" = false ] && [ "$E2E_QUICK" = false ]; then
         # Only CLI flag specified
         RUN_E2E=false
     elif [ "$E2E_ONLY" = true ] || [ "$E2E_QUICK" = true ]; then
@@ -282,6 +312,20 @@ run_cpp_tests() {
         fi
     fi
     
+    # 3. Visualization Tests
+    if [ "$RUN_VIS" = true ]; then
+        print_info "Running C++ Visualization tests..."
+        PYTEST_VIS_CMD=(pytest -m visualization --tb=short -v)
+
+        if "${PYTEST_VIS_CMD[@]}"; then
+            CPP_VIS_RESULT=0
+            print_success "C++ Visualization tests passed"
+        else
+            CPP_VIS_RESULT=$?
+            print_error "C++ Visualization tests failed"
+        fi
+    fi
+    
     cd "${SCRIPT_DIR}"
 }
 
@@ -321,7 +365,16 @@ print_summary() {
             print_error "  Coverage Tests: FAILED (exit code: $PYTHON_COVERAGE_RESULT)"
             TOTAL_FAILURES=$((TOTAL_FAILURES + PYTHON_COVERAGE_RESULT))
         fi
-        
+
+        if [ "$RUN_VIS" = true ]; then
+            if [ $PYTHON_VIS_RESULT -eq 0 ]; then
+                print_success "  Visualization Tests: PASSED"
+            else
+                print_error "  Visualization Tests: FAILED (exit code: $PYTHON_VIS_RESULT)"
+                TOTAL_FAILURES=$((TOTAL_FAILURES + PYTHON_VIS_RESULT))
+            fi
+        fi
+
         echo ""
     fi
     
@@ -340,6 +393,13 @@ print_summary() {
         else
             print_error "  E2E Tests: FAILED (exit code: $CPP_E2E_RESULT)"
             TOTAL_FAILURES=$((TOTAL_FAILURES + CPP_E2E_RESULT))
+        fi
+        
+        if [ $CPP_VIS_RESULT -eq 0 ]; then
+            print_success "  Visualization Tests: PASSED"
+        else
+            print_error "  Visualization Tests: FAILED (exit code: $CPP_VIS_RESULT)"
+            TOTAL_FAILURES=$((TOTAL_FAILURES + CPP_VIS_RESULT))
         fi
         
         echo ""
@@ -364,6 +424,7 @@ CLI_ONLY=false
 E2E_ONLY=false
 E2E_QUICK=false
 LOOP_COUNT=""
+VIS_ONLY=false
 
 usage() {
     echo "Usage: $0 [OPTIONS]"
@@ -374,6 +435,7 @@ usage() {
     echo "  --cli             Run only CLI tests (can combine with --python or --cpp)"
     echo "  --e2e             Run only E2E tests (can combine with --python or --cpp)"
     echo "  --e2e-quick       Run only E2E image tests (faster, skips video tests)"
+    echo "  --vis             Run only visualization tests (build+run+image check, Python + C++)"
     echo "  --skip-coverage   Skip coverage tests for Python"
     echo "  --coverage        Generate C++ code coverage report (requires --cpp or full run)"
     echo "  --loop <N>        Override loop count for C++ E2E image tests (default: 50)"
@@ -387,6 +449,9 @@ usage() {
     echo "  $0 --cpp --cli           # Run only C++ CLI tests"
     echo "  $0 --cpp --e2e           # Run only C++ E2E tests"
     echo "  $0 --cpp --e2e-quick     # Run only C++ E2E image tests (fast)"
+    echo "  $0 --cpp --vis           # Run C++ visualization tests (image output check)"
+    echo "  $0 --python --vis        # Run Python visualization tests (image output check)"
+    echo "  $0 --vis                 # Run both Python + C++ visualization tests"
     echo "  $0 --cpp --e2e --coverage # Run C++ E2E tests with coverage"
     echo "  $0 --python --e2e        # Run only Python E2E tests"
     echo "  $0 --skip-coverage       # Run all tests but skip Python coverage"
@@ -425,6 +490,10 @@ while [[ $# -gt 0 ]]; do
         --e2e-quick)
             E2E_ONLY=true
             E2E_QUICK=true
+            shift
+            ;;
+        --vis|--visualization)
+            VIS_ONLY=true
             shift
             ;;
         --quick)

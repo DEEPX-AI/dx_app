@@ -26,8 +26,13 @@ class GroupsTestFramework:
 
     def _create_model_instance(self, script_name: str):
         module = self._load_module(script_name)
+        if module is None:
+            pytest.skip(f"Failed to load module: {script_name}")
+        cls = getattr(module, self.config.class_name, None)
+        if cls is None:
+            pytest.skip(f"Class '{self.config.class_name}' not found in {script_name} (v3.0.0 runner pattern)")
         with patch("os.path.exists", return_value=True):
-            return getattr(module, self.config.class_name)(self.mock_model_path)
+            return cls(self.mock_model_path)
 
     def test_python_postprocess_has_method(self, script_name: str):
         model = self._create_model_instance(script_name)

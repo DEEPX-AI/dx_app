@@ -31,12 +31,11 @@ struct YOLOXResult {
 
     // Destructor
     ~YOLOXResult() = default;
+    YOLOXResult(const YOLOXResult&) = default;
+    YOLOXResult& operator=(const YOLOXResult&) = default;
+    YOLOXResult(YOLOXResult&&) noexcept = default;
+    YOLOXResult& operator=(YOLOXResult&&) noexcept = default;
 
-    // Copy and move constructors/operators
-    YOLOXResult(const YOLOXResult& other) = default;
-    YOLOXResult& operator=(const YOLOXResult& other) = default;
-    YOLOXResult(YOLOXResult&& other) noexcept = default;
-    YOLOXResult& operator=(YOLOXResult&& other) noexcept = default;
 
     // Calculate area for NMS - const correctness
     float area() const { return (box[2] - box[0]) * (box[3] - box[1]); }
@@ -101,7 +100,7 @@ class YOLOXPostProcess {
     /**
      * @brief Destructor
      */
-    virtual ~YOLOXPostProcess() = default;
+    ~YOLOXPostProcess() = default;
 
     /**
      * @brief Process YOLOXs model outputs

@@ -30,12 +30,11 @@ struct YOLOv5PosePPUResult {
 
     // Destructor
     ~YOLOv5PosePPUResult() = default;
+    YOLOv5PosePPUResult(const YOLOv5PosePPUResult&) = default;
+    YOLOv5PosePPUResult& operator=(const YOLOv5PosePPUResult&) = default;
+    YOLOv5PosePPUResult(YOLOv5PosePPUResult&&) noexcept = default;
+    YOLOv5PosePPUResult& operator=(YOLOv5PosePPUResult&&) noexcept = default;
 
-    // Copy and move constructors/operators
-    YOLOv5PosePPUResult(const YOLOv5PosePPUResult& other) = default;
-    YOLOv5PosePPUResult& operator=(const YOLOv5PosePPUResult& other) = default;
-    YOLOv5PosePPUResult(YOLOv5PosePPUResult&& other) noexcept = default;
-    YOLOv5PosePPUResult& operator=(YOLOv5PosePPUResult&& other) noexcept = default;
 
     // Calculate area for NMS - const correctness
     float area() const { return (box[2] - box[0]) * (box[3] - box[1]); }
@@ -99,7 +98,7 @@ class YOLOv5PosePPUPostProcess {
     /**
      * @brief Destructor
      */
-    virtual ~YOLOv5PosePPUPostProcess() = default;
+    ~YOLOv5PosePPUPostProcess() = default;
 
     /**
      * @brief Process YOLOV5Pose model outputs

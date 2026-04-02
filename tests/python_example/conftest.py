@@ -8,6 +8,8 @@ import cv2
 import numpy as np
 import pytest
 
+_rng = np.random.default_rng(42)
+
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 PYTHON_EXAMPLE_PATH = PROJECT_ROOT / "src" / "python_example"
 sys.path.insert(0, str(PYTHON_EXAMPLE_PATH))
@@ -15,6 +17,23 @@ sys.path.insert(0, str(PYTHON_EXAMPLE_PATH))
 
 def load_module_from_file(file_path: str, module_name: str):
     try:
+        script_dir = str(Path(file_path).parent)
+
+        # Remove stale 'factory' module so each script loads its own factory.
+        # Without this, the first loaded script's factory pollutes sys.modules
+        # and subsequent scripts that do 'from factory import XxxFactory' resolve
+        # to the wrong cached factory package.
+        stale_keys = [k for k in sys.modules.keys()
+                      if k == 'factory' or k.startswith('factory.')]
+        for key in stale_keys:
+            sys.modules.pop(key, None)
+
+        # Make the script's own directory the first entry in sys.path so that
+        # 'from factory import ...' resolves to the locally-adjacent factory/ dir.
+        if script_dir in sys.path:
+            sys.path.remove(script_dir)
+        sys.path.insert(0, script_dir)
+
         spec = importlib.util.spec_from_file_location(module_name, file_path)
         if spec is None or spec.loader is None:
             return None
@@ -46,9 +65,9 @@ def get_mock_outputs(config, script_name: str):
         )
 
     if is_ppu:
-        return [np.random.rand(*shape).astype(np.uint8) for shape in shapes]
+        return [_rng.integers(0, 256, shape, dtype=np.uint8) for shape in shapes]
     else:
-        return [np.random.rand(*shape).astype(np.float32) for shape in shapes]
+        return [_rng.random(shape).astype(np.float32) for shape in shapes]
 
 
 def pytest_configure(config):
@@ -135,7 +154,7 @@ def mock_cv2_display(request):
 @pytest.fixture
 def mock_video_capture():
 
-    mock_image = np.random.randint(0, 255, (480, 640, 3), dtype=np.uint8)
+    mock_image = _rng.integers(0, 255, (480, 640, 3), dtype=np.uint8)
 
     mock_cap_instance = Mock()
     mock_cap_instance.isOpened.return_value = True

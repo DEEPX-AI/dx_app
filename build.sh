@@ -119,7 +119,14 @@ while (( $# )); do
         --target)
             shift
             build_target=$1
-            shift;;
+            if [ -z "$build_target" ]; then
+                echo "Error: No target specified. Use --target <target_name>."
+                exit 1
+            fi
+            local_build_dir="build_${target_arch}"
+            echo "Building target: $build_target (in ${local_build_dir})"
+            cmake --build "${local_build_dir}" --target "$build_target" -- -j${BUILD_JOBS}
+            exit 0;;
         --v3codec)
             build_with_codec=true;
             shift;;

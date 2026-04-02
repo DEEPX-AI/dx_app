@@ -47,10 +47,12 @@ namespace fs = std::experimental::filesystem;
 #define RESET "\033[0m"
 
 // Platform-specific setup file paths
+#ifndef SETUP_FILE_PATH
 #if _WIN32
 #define SETUP_FILE_PATH "setup.bat"
 #else
 #define SETUP_FILE_PATH "setup.sh --force"
+#endif
 #endif
 
 // Exception handling macros
@@ -141,8 +143,7 @@ std::vector<std::string> split(const std::string &str, char delimiter);
 
 // Class name utilities for object detection models
 std::string get_coco_class_name(const int class_id);
-
-std::string get_dota_class_name(const int class_id);
+std::string get_voc_class_name(const int class_id);
 
 }  // namespace common
 }  // namespace dxapp

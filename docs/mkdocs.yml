@@ -43,6 +43,9 @@ nav:
     - C++: docs/07_DX-APP_CPP_PostProcess_Overview.md
     - Python Binding: docs/08_DX-APP_Pybind_PostProcess_Overview.md
   - DX-APP Project README: docs/09_DX-APP_Project_Overview.md
+  - DX-APP Developer Guide:
+    - DX Tool: docs/10_DX-APP_DX-Tool_Guide.md
+    - Example Source Structure: docs/11_DX-APP_Example_Source_Structure.md
   - Change Log: docs/Appendix_Change_Log.md
 
 plugins:
@@ -54,10 +57,10 @@ plugins:
       #
       #cover: false
       cover_title: DXNN Application (DX-APP) User Manual
-      cover_subtitle: 2026/02/10 (v3.0.2)
+      cover_subtitle: 2026/03/31 (v3.1.0)
       cover_logo: img/deepx.png
       custom_template_path: docs/stylesheets
-      output_path: ../DEEPX_DX-APP_UM_v3.0.2_FEB_2026.pdf
+      output_path: ../DEEPX_DX-APP_UM_v3.1.0_MAR_2026.pdf
 extra:
   homepage: https://developer.deepx.ai
   generator: false
@@ -92,6 +95,5 @@ markdown_extensions:
   - md_in_html
 extra_javascript:
   - javascripts/mathjax.js
-  - https://polyfill.io/v3/polyfill.min.js?features=es6
   - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
 copyright: ⓒ Copyright 2026 <a href="http://deepx.ai">DEEPX</a>. All Rights Reserved.

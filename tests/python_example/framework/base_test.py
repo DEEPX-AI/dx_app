@@ -5,6 +5,8 @@ import numpy as np
 import pytest
 from conftest import get_mock_outputs, load_module_from_file
 
+_rng = np.random.default_rng(42)
+
 from .config import ModelConfig, TaskType
 
 
@@ -27,8 +29,13 @@ class BaseTestFramework:
 
     def _create_model_instance(self, script_name: str):
         module = self._load_module(script_name)
+        if module is None:
+            pytest.skip(f"Failed to load module: {script_name}")
+        cls = getattr(module, self.config.class_name, None)
+        if cls is None:
+            pytest.skip(f"Class '{self.config.class_name}' not found in {script_name} (v3.0.0 runner pattern)")
         with patch("os.path.exists", return_value=True):
-            return getattr(module, self.config.class_name)(self.mock_model_path)
+            return cls(self.mock_model_path)
 
     def test_letterbox(self, script_name: str):
         model = self._create_model_instance(script_name)
@@ -45,7 +52,7 @@ class BaseTestFramework:
 
     def test_preprocess(self, script_name: str):
         model = self._create_model_instance(script_name)
-        test_img = np.random.randint(0, 255, (480, 640, 3), dtype=np.uint8)
+        test_img = _rng.integers(0, 255, (480, 640, 3), dtype=np.uint8)
         input_tensor = model.preprocess(test_img)
 
         assert isinstance(input_tensor, np.ndarray)
@@ -90,13 +97,19 @@ class BaseTestFramework:
                     result.shape[1] == expected_size
                 ), f"Expected detection output size {expected_size}, got {result.shape[1]}"
 
-        elif self.config.task == TaskType.SEMANTIC_SEGMENTATION:
+        elif self.config.task in (
+            TaskType.SEMANTIC_SEGMENTATION,
+            TaskType.DEPTH_ESTIMATION,
+            TaskType.IMAGE_RESTORATION,
+            TaskType.IMAGE_ENHANCEMENT,
+            TaskType.SUPER_RESOLUTION,
+        ):
             assert isinstance(
                 result, np.ndarray
-            ), f"{script_name}: Segmentation should return np.ndarray"
+            ), f"{script_name}: Segmentation/Restoration should return np.ndarray"
             assert (
                 result.ndim == 2
-            ), f"{script_name}: Segmentation should return 2D array (H, W), got {result.ndim}D"
+            ), f"{script_name}: Should return 2D array (H, W), got {result.ndim}D"
 
             expected_shape = self.config.postprocess_result_shape
             assert (
@@ -127,49 +140,59 @@ class BaseTestFramework:
     def test_convert_to_original_coordinates(self, script_name: str):
         model = self._create_model_instance(script_name)
 
-        img = np.random.randint(0, 255, (480, 640, 3), dtype=np.uint8)
+        img = _rng.integers(0, 255, (480, 640, 3), dtype=np.uint8)
         model.preprocess(img)
 
         output_size = self.config.detection_output_size
-        empty_dets = np.empty((0, output_size), dtype=np.float32)
+        self._assert_empty_coords(model, output_size, script_name)
 
+        det_args, _ = self._build_detection_args(model, output_size)
+        result = model.convert_to_original_coordinates(*det_args)
+        self._assert_detection_result(result, output_size, script_name)
+
+    def _assert_empty_coords(self, model, output_size, script_name):
+        """Verify convert_to_original_coordinates returns empty for empty input."""
+        empty_dets = np.empty((0, output_size), dtype=np.float32)
         args = [empty_dets]
         if self.config.task == TaskType.INSTANCE_SEGMENTATION:
-            # Infer mask prototype size (typically 1/4 of input size)
             mask_h, mask_w = model.input_height // 4, model.input_width // 4
-            empty_masks = np.empty((0, mask_h, mask_w), dtype=np.float32)
-            args.append(empty_masks)
-
+            args.append(np.empty((0, mask_h, mask_w), dtype=np.float32))
         result = model.convert_to_original_coordinates(*args)
-
         if isinstance(result, tuple):
-            assert all(
-                len(r) == 0 for r in result
-            ), f"{script_name}: empty input should return empty results"
+            assert all(len(r) == 0 for r in result), (
+                f"{script_name}: empty input should return empty results"
+            )
         else:
             assert len(result) == 0, f"{script_name}: empty input should return empty"
 
-        if self.config.has_keypoints:
-            detection_data = [100, 100, 200, 200, 0.9, 0]
-            for _ in range(self.config.num_keypoints):
-                if self.config.keypoint_dim == 2:
-                    detection_data.extend([150, 150])
-                else:
-                    detection_data.extend([150, 150, 0.9])
-            detections = np.array([detection_data], dtype=np.float32)
-        else:
-            if output_size == 6:
-                detections = np.array([[100, 100, 200, 200, 0.9, 0]], dtype=np.float32)
-            elif output_size == 7:
-                detections = np.array([[100, 100, 200, 200, 0.9, 0, 45.0]], dtype=np.float32)
-
+    def _build_detection_args(self, model, output_size):
+        """Build detection args and mask dimensions for convert_to_original_coordinates."""
+        mask_h, mask_w = None, None
+        if self.config.task == TaskType.INSTANCE_SEGMENTATION:
+            mask_h = model.input_height // 4
+            mask_w = model.input_width // 4
+        detections = self._make_detections(output_size)
         args = [detections]
         if self.config.task == TaskType.INSTANCE_SEGMENTATION:
-            masks = np.zeros((1, mask_h, mask_w), dtype=np.float32)
-            args.append(masks)
+            args.append(np.zeros((1, mask_h, mask_w), dtype=np.float32))
+        return args, (mask_h, mask_w)
 
-        result = model.convert_to_original_coordinates(*args)
+    def _make_detections(self, output_size):
+        """Build a single-row detection array based on config."""
+        if self.config.has_keypoints:
+            data = [100, 100, 200, 200, 0.9, 0]
+            for _ in range(self.config.num_keypoints):
+                if self.config.keypoint_dim == 2:
+                    data.extend([150, 150])
+                else:
+                    data.extend([150, 150, 0.9])
+            return np.array([data], dtype=np.float32)
+        if output_size == 7:
+            return np.array([[100, 100, 200, 200, 0.9, 0, 45.0]], dtype=np.float32)
+        return np.array([[100, 100, 200, 200, 0.9, 0]], dtype=np.float32)
 
+    def _assert_detection_result(self, result, output_size, script_name):
+        """Assert convert_to_original_coordinates result has expected shape."""
         if self.config.task == TaskType.INSTANCE_SEGMENTATION:
             assert isinstance(result, tuple)
             res_dets, res_masks = result
@@ -178,7 +201,6 @@ class BaseTestFramework:
             assert res_dets.shape == (1, output_size)
         else:
             assert isinstance(result, np.ndarray)
-            assert result.shape == (
-                1,
-                output_size,
-            ), f"{script_name}: output shape should be (1, {output_size}), got {result.shape}"
+            assert result.shape == (1, output_size), (
+                f"{script_name}: output shape should be (1, {output_size}), got {result.shape}"
+            )

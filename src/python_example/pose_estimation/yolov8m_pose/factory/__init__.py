@@ -1,0 +1,1 @@
+from .yolov8m_pose_factory import Yolov8m_poseFactory
