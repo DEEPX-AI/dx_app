@@ -1,0 +1,40 @@
+---
+description: DEEPX dx_app standalone inference application framework
+alwaysApply: true
+---
+
+# dx_app — Cursor Rules
+
+## Overview
+dx_app provides 133 models across 15 AI tasks with Python (4 variants) and C++ examples.
+
+## Context Routing
+| Task | Read |
+|---|---|
+| Python app | `.deepx/skills/dx-build-python-app.md` |
+| C++ app | `.deepx/skills/dx-build-cpp-app.md` |
+| Async/performance | `.deepx/skills/dx-build-async-app.md` |
+| Model management | `.deepx/skills/dx-model-management.md` |
+| Validation | `.deepx/skills/dx-validate.md` |
+| Always | `.deepx/memory/common_pitfalls.md` |
+
+## Critical Conventions
+1. IFactory pattern — 5 methods mandatory
+2. `parse_common_args()` — no custom argparse
+3. No hardcoded .dxnn paths — CLI args or registry
+4. 4-variant naming convention
+5. `logging.getLogger(__name__)` — no `print()`
+6. C++14 only, RAII with std::unique_ptr
+7. `dxrt-cli -s` before NPU operations
+
+## Interactive Workflow (MUST FOLLOW)
+- Ask 2-3 questions before building
+- Present plan, get approval
+- Validate after generation
+- Output to `dx-agentic-dev/<session_id>/` by default
+
+## Hardware
+| Architecture | Value |
+|---|---|
+| DX-M1 | `dx_m1` |
+| DX-M1A | `dx_m1a` |

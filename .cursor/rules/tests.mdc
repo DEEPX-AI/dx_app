@@ -1,0 +1,10 @@
+---
+description: Rules for dx_app test files
+globs: ["tests/**"]
+---
+
+# Test Rules
+
+- pytest markers: `@pytest.mark.npu_required`, `@pytest.mark.slow`, `@pytest.mark.smoke`
+- No-NPU tests: `pytest tests/ -m "not npu_required"`
+- Read `.deepx/skills/dx-validate.md` for validation patterns

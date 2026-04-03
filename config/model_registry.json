@@ -1942,5 +1942,39 @@
     "add_model_task": "instance_segmentation",
     "postprocessor": "yolov8seg",
     "supported": true
+  },
+  {
+    "model_name": "yolo26n-pose",
+    "dxnn_file": "yolo26n-pose.dxnn",
+    "original_name": "yolo26n-pose",
+    "csv_task": "POSE",
+    "add_model_task": "pose_estimation",
+    "postprocessor": "yolov8pose",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "obj_threshold": 0.25,
+      "score_threshold": 0.25,
+      "nms_threshold": 0.45
+    },
+    "source": "stream_model_list",
+    "supported": true
+  },
+  {
+    "model_name": "yolo26n-seg",
+    "dxnn_file": "yolo26n-seg.dxnn",
+    "original_name": "yolo26n-seg",
+    "csv_task": "SEG",
+    "add_model_task": "instance_segmentation",
+    "postprocessor": "yolov8seg",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "obj_threshold": 0.25,
+      "score_threshold": 0.25,
+      "nms_threshold": 0.45
+    },
+    "source": "stream_model_list",
+    "supported": true
   }
 ]
