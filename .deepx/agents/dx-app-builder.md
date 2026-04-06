@@ -91,6 +91,51 @@ Optional decisions (can use defaults):
 - Custom thresholds (score_threshold, nms_threshold)
 - Whether to include C++ postprocess variant
 
+### MANDATORY: PPU Model Auto-Detection
+
+**Auto-detect** whether the compiled .dxnn model is a PPU model by checking:
+1. Model file name contains `_ppu` suffix
+2. `config/model_registry.json` entry has `csv_task: "PPU"` or `add_model_task: "ppu"`
+3. User explicitly mentions "PPU" or the dx-compiler session indicates PPU was enabled
+4. Model was compiled with PPU config in config.json
+
+If PPU is detected, inform the user:
+```
+Detected: PPU model ({model_name})
+
+PPU models have post-processing (NMS, score filtering) built into the
+compiled .dxnn binary. This means:
+  - No separate NMS/decode postprocessor needed
+  - Output is ready-to-use detections [x1,y1,x2,y2,conf,cls]
+  - Use PPU-specific factory and postprocessor
+
+The example will be placed in: src/python_example/ppu/{model_name}/
+```
+
+**MUST set task type to `ppu`** and route accordingly.
+
+### MANDATORY: Existing Example Search
+
+**Before generating any code**, search whether an example already exists for this model:
+1. Check `src/python_example/<task>/<model_name>/` directory
+2. Check `src/python_example/ppu/<model_name>/` if PPU model
+3. Check `src/cpp_example/<task>/<model_name>/` for C++ examples
+
+**If an existing example is found, MUST ask the user**:
+```
+Found existing example for {model_name}:
+  {path_to_existing_example}/
+
+Options:
+  (a) Explain the existing example only — no new code generated
+  (b) Create a new example based on the existing one — extract and customize
+
+Which option do you prefer?
+```
+
+**MUST wait for user response** before proceeding. Never silently overwrite or
+skip existing examples.
+
 ## Step 3: Present Plan
 
 Before routing, present a concise plan to the user:

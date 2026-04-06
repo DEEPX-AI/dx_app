@@ -30,6 +30,29 @@ OPTIONS: object_detection | classification | pose_estimation | instance_segmenta
 <!-- INTERACTION: What is the primary input source for testing?
 OPTIONS: Image file | Video file | USB camera | RTSP stream -->
 
+#### PPU Model Handling (MANDATORY)
+
+If the model is a PPU model (detected by dx-app-builder or user input):
+
+1. **Task type MUST be `ppu`** — examples go under `src/python_example/ppu/<model>/`
+2. **Factory uses PPU-specific interfaces**:
+   - No NMS postprocessor needed — output is already decoded detections
+   - Use `PPUPostprocessor` or simplified direct-output handler
+   - Visualizer is the same as `DetectionVisualizer`
+3. **Reference existing PPU examples**: Check `src/python_example/ppu/yolov5s_ppu/` and
+   `src/python_example/ppu/yolov7_ppu/` for the established pattern
+4. **config.json for PPU** does not need `nms_threshold` — PPU handles this internally
+
+#### Existing Example Handling (MANDATORY)
+
+If dx-app-builder determined an existing example exists and the user chose option (b)
+"Create new example based on existing":
+
+1. Read the existing factory, sync, and async files
+2. Use them as templates — preserve the structure but adapt for the new model
+3. Update model name, factory class name, and any model-specific parameters
+4. Place the new example in the correct directory under `src/python_example/`
+
 ### Phase 2: Load Context
 
 1. Read `config/model_registry.json` to verify the model exists and get metadata.

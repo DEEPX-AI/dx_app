@@ -40,6 +40,9 @@ pytest tests/ -m npu_required       # Run NPU integration tests
 8. **No relative imports**: Always use absolute imports from the package root
 9. **No hardcoded model paths**: All model paths from CLI args or model_registry.json
 10. **4 variants**: Python apps have sync, async, sync_cpp_postprocess, async_cpp_postprocess
+11. **PPU model auto-detection**: Auto-detect PPU models by checking model name `_ppu` suffix, `model_registry.json` `csv_task: "PPU"`, or compiler session context. PPU models go under `src/python_example/ppu/` with simplified postprocessing.
+12. **Existing example search**: Before generating code, search `src/python_example/<task>/<model>/` for existing examples. If found, ask user: (a) explain-only, or (b) create new based on existing. Never silently skip or overwrite.
+13. **PPU example generation is MANDATORY**: If the compiled .dxnn model is PPU, the agent MUST generate a working example — never skip example generation for PPU models.
 
 ## Context Routing Table
 
