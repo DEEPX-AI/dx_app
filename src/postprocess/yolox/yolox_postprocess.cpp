@@ -25,7 +25,6 @@ float YOLOXResult::iou(const YOLOXResult& other) const {
 
     return intersection_area / union_area;
 }
-
 bool YOLOXResult::is_invalid(int image_width, int image_height) const {
     return box[0] < 0 || box[1] < 0 || box[2] > image_width || box[3] > image_height;
 }
@@ -45,12 +44,6 @@ YOLOXPostProcess::YOLOXPostProcess(const int input_w, const int input_h, const f
     cpu_output_names_ = {"output"};
     npu_output_names_ = {};
     anchors_by_strides_ = {{8, {}}, {16, {}}, {32, {}}};
-
-    if (!is_ort_configured_) {
-        throw std::invalid_argument(
-            "ORT-OFF output postprocessing is not supported for YOLOX\n"
-            "please dxrt build with USE_ORT=ON");
-    }
 }
 
 // Default constructor
@@ -137,12 +130,58 @@ std::vector<YOLOXResult> YOLOXPostProcess::decoding_cpu_outputs(
     std::vector<YOLOXResult> detections;
 
     // YOLOXs typically has 1 output tensor
-    // output tensor contains: [batch, number of detections, 85]
-    // Where 85 = [x, y, w, h, obj_conf, class_conf_0, ..., class_conf_79]
+    // output tensor contains: [batch, number of detections, attribute_size]
+    // Where attribute_size = [x, y, w, h, obj_conf, cls_conf_0, ..., cls_conf_(num_classes-1)]
+    //
+    // The x/y/w/h may be:
+    //   (a) Raw grid-relative values (need stride decode), or
+    //   (b) Already decoded pixel coordinates.
+    // Detect which by checking the value range of the first dimension.
     for (size_t output_idx = 0; output_idx < outputs.size(); ++output_idx) {
         const float* output = static_cast<const float*>(outputs[output_idx]->data());
         auto num_dets = outputs[output_idx]->shape()[1];
-        auto attribute_size = outputs[output_idx]->shape()[2];
+        const int attribute_size = static_cast<int>(outputs[output_idx]->shape()[2]);
+
+        // --- Auto-detect whether grid decode is needed ---
+        // Sample up to 200 x-values; if max(|x|) < 20 they are grid-relative.
+        bool needs_grid_decode = false;
+        {
+            float max_abs_x = 0.0f;
+            int sample_count = std::min(static_cast<int>(num_dets), 200);
+            int step = std::max(1, static_cast<int>(num_dets) / sample_count);
+            for (int i = 0; i < num_dets && sample_count > 0; i += step, --sample_count) {
+                float ax = std::abs(output[i * attribute_size]);
+                if (ax > max_abs_x) max_abs_x = ax;
+            }
+            needs_grid_decode = (max_abs_x < 20.0f);
+        }
+
+        // --- Build grid if needed ---
+        // YOLOX uses strides [8, 16, 32]. Feature map sizes: input_dim / stride.
+        struct GridEntry { float gx; float gy; float stride; };
+        std::vector<GridEntry> grid;
+        if (needs_grid_decode) {
+            const int strides[] = {8, 16, 32};
+            int total = 0;
+            for (int s : strides) {
+                int gh = input_height_ / s;
+                int gw = input_width_ / s;
+                total += gh * gw;
+            }
+            grid.reserve(total);
+            for (int s : strides) {
+                int gh = input_height_ / s;
+                int gw = input_width_ / s;
+                for (int y = 0; y < gh; ++y) {
+                    for (int x = 0; x < gw; ++x) {
+                        grid.push_back({static_cast<float>(x),
+                                        static_cast<float>(y),
+                                        static_cast<float>(s)});
+                    }
+                }
+            }
+        }
+
         for (int i = 0; i < num_dets; ++i) {
             const float* det = output + i * attribute_size;
             auto objectness_score = det[4];
@@ -163,18 +202,30 @@ std::vector<YOLOXResult> YOLOXPostProcess::decoding_cpu_outputs(
                 continue;
             }
 
-            auto conf = max_cls_conf;
+            float cx, cy, bw, bh;
+            if (needs_grid_decode && i < static_cast<int>(grid.size())) {
+                float s = grid[i].stride;
+                cx = (det[0] + grid[i].gx) * s;
+                cy = (det[1] + grid[i].gy) * s;
+                bw = std::exp(det[2]) * s;
+                bh = std::exp(det[3]) * s;
+            } else {
+                cx = det[0];
+                cy = det[1];
+                bw = det[2];
+                bh = det[3];
+            }
 
             YOLOXResult result;
-            result.confidence = conf;
+            result.confidence = max_cls_conf;
             result.class_id = max_cls;
             result.class_name = dxapp::common::get_coco_class_name(max_cls);
 
             // Convert center coordinates to corner coordinates
-            result.box.emplace_back(det[0] - det[2] / 2.0f);  // x1
-            result.box.emplace_back(det[1] - det[3] / 2.0f);  // y1
-            result.box.emplace_back(det[0] + det[2] / 2.0f);  // x2
-            result.box.emplace_back(det[1] + det[3] / 2.0f);  // y2
+            result.box.emplace_back(cx - bw / 2.0f);  // x1
+            result.box.emplace_back(cy - bh / 2.0f);  // y1
+            result.box.emplace_back(cx + bw / 2.0f);  // x2
+            result.box.emplace_back(cy + bh / 2.0f);  // y2
 
             detections.push_back(result);
         }

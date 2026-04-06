@@ -30,12 +30,11 @@ struct YOLOv5FaceResult {
 
     // Destructor
     ~YOLOv5FaceResult() = default;
+    YOLOv5FaceResult(const YOLOv5FaceResult&) = default;
+    YOLOv5FaceResult& operator=(const YOLOv5FaceResult&) = default;
+    YOLOv5FaceResult(YOLOv5FaceResult&&) noexcept = default;
+    YOLOv5FaceResult& operator=(YOLOv5FaceResult&&) noexcept = default;
 
-    // Copy and move constructors/operators
-    YOLOv5FaceResult(const YOLOv5FaceResult& other) = default;
-    YOLOv5FaceResult& operator=(const YOLOv5FaceResult& other) = default;
-    YOLOv5FaceResult(YOLOv5FaceResult&& other) noexcept = default;
-    YOLOv5FaceResult& operator=(YOLOv5FaceResult&& other) noexcept = default;
 
     // Calculate area for NMS - const correctness
     float area() const { return (box[2] - box[0]) * (box[3] - box[1]); }
@@ -106,7 +105,7 @@ class YOLOv5FacePostProcess {
     /**
      * @brief Destructor
      */
-    virtual ~YOLOv5FacePostProcess() = default;
+    ~YOLOv5FacePostProcess() = default;
 
     /**
      * @brief Process YOLOV5Face model outputs

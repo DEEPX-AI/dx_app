@@ -6,6 +6,14 @@
 #include <iostream>
 #include <iterator>
 #include <sstream>
+#include <stdexcept>
+
+namespace {
+/** Dedicated exception for postprocessing configuration errors. */
+class PostprocessConfigError : public std::runtime_error {
+    using std::runtime_error::runtime_error;
+};
+}  // namespace
 
 // SCRFDPPUResult methods implementation
 float SCRFDPPUResult::iou(const SCRFDPPUResult& other) const {
@@ -71,7 +79,7 @@ std::vector<SCRFDPPUResult> SCRFDPPUPostProcess::postprocess(const dxrt::TensorP
         msg << ", Expected (1, x ,x, x), Type = dxrt::DataType::FACE.\n"
             << "Please re-compile the model with the correct output configuration.\n";
 
-        throw std::runtime_error(msg.str());  // 안전한 종료: 상위로 에러 전달
+        throw PostprocessConfigError(msg.str());  // Safe termination: propagate error to caller
     }
 
     detections = decoding_ppu_outputs(outputs);

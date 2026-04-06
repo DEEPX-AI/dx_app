@@ -6,6 +6,14 @@
 #include <cstdlib>
 #include <iterator>
 #include <sstream>
+#include <stdexcept>
+
+namespace {
+/** Dedicated exception for postprocessing configuration errors. */
+class PostprocessConfigError : public std::runtime_error {
+    using std::runtime_error::runtime_error;
+};
+}  // namespace
 
 // YOLOv5PosePPUResult methods implementation
 float YOLOv5PosePPUResult::iou(const YOLOv5PosePPUResult& other) const {
@@ -84,7 +92,7 @@ std::vector<YOLOv5PosePPUResult> YOLOv5PosePPUPostProcess::postprocess(
         msg << ", Expected (1, x ,x, x), Type = dxrt::DataType::POSE.\n"
             << "Please re-compile the model with the correct output configuration.\n";
 
-        throw std::runtime_error(msg.str());  // 안전한 종료: 상위로 에러 전달
+        throw PostprocessConfigError(msg.str());  // Safe termination: propagate error to caller
     }
 
     detections = decoding_ppu_outputs(outputs);

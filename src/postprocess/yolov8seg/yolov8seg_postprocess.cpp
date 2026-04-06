@@ -10,8 +10,16 @@
 #include <iterator>
 #include <map>
 #include <sstream>
+#include <stdexcept>
 
 #include "common_util.hpp"
+
+namespace {
+/** Dedicated exception for postprocessing configuration errors. */
+class PostprocessConfigError : public std::runtime_error {
+    using std::runtime_error::runtime_error;
+};
+}  // namespace
 
 bool YOLOv8SegResult::is_invalid(int image_width, int image_height) const {
     return box[0] < 0 || box[1] < 0 || box[2] > image_width || box[3] > image_height;
@@ -84,7 +92,7 @@ std::vector<YOLOv8SegResult> YOLOv8SegPostProcess::postprocess(const dxrt::Tenso
         msg << ", Expected (1, 116, 8400) and (1, 32, 160, 160).\n"
             << "Please re-compile the model with the correct output configuration.\n";
 
-        throw std::runtime_error(msg.str());  // 안전한 종료: 상위로 에러 전달
+        throw PostprocessConfigError(msg.str());  // Safe termination: propagate error to caller
     }
 
     std::vector<YOLOv8SegResult> detections;

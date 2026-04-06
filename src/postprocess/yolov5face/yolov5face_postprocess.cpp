@@ -182,37 +182,59 @@ std::vector<YOLOv5FaceResult> YOLOv5FacePostProcess::decoding_cpu_outputs(
     const dxrt::TensorPtrs& outputs) const {
     std::vector<YOLOv5FaceResult> detections;
 
-    // YOLOFaceV5 typically has 1 output tensor
-    // output tensor contains: [batch, number of detections, 16]
-    // Where 16 = [x, y, w, h, obj_conf, num_landmarks*2, cls_conf]
+    // Supports two ORT output layouts:
+    //   YOLOv5Face: [batch, N, 16]  cols: cx,cy,w,h, obj, kp1x,kp1y,...,kp5x,kp5y, cls
+    //   YOLOv7Face: [batch, N, 21]  cols: cx,cy,w,h, obj, (kp_conf,kp_x,kp_y)*5, cls_logit
+    // num_cols is read from shape()[2] so the stride is always correct.
 
     for (size_t output_idx = 0; output_idx < outputs.size(); ++output_idx) {
+        const auto& shape = outputs[output_idx]->shape();
+        if (shape.size() < 3) continue;
         const float* output = static_cast<const float*>(outputs[output_idx]->data());
-        auto num_dets = outputs[output_idx]->shape()[1];
-        auto attribute_size = outputs[output_idx]->shape()[2];
+        auto num_dets = shape[1];
+        const int num_cols = static_cast<int>(shape[2]);
+        // YOLOv7Face uses 21-column layout; YOLOv5Face uses 16-column layout.
+        const bool is_v7 = (num_cols >= 21);
+
+        // Clamp num_landmarks_ to prevent OOB reads if shape mismatches config.
+        // v7 max safe: (7 + (n-1)*3) < num_cols  =>  n < (num_cols - 4) / 3
+        // v5 max safe: (6 + (n-1)*2) < num_cols  =>  n < (num_cols - 4) / 2
+        const int max_landmarks = is_v7
+            ? std::max(0, (num_cols - 4) / 3)
+            : std::max(0, (num_cols - 4) / 2);
+        const int safe_landmarks = std::min(static_cast<int>(num_landmarks_), max_landmarks);
+
         for (int i = 0; i < num_dets; ++i) {
-            const float* det = output + i * attribute_size;
+            const float* det = output + i * num_cols;
             auto objectness_score = det[4];
             if (objectness_score < object_threshold_) {
                 continue;
             }
-            auto cls_conf = det[15];
+            // YOLOv7Face col-20 is a raw logit; YOLOv5Face col-15 is already a probability.
+            const float cls_conf = is_v7 ? sigmoid(det[20]) : det[15];
             auto conf = objectness_score * cls_conf;
             if (conf < score_threshold_) {
                 continue;
             }
             YOLOv5FaceResult result;
-            std::vector<float> box_temp{0.f, 0.f, 0.f, 0.f};
             result.confidence = conf;
             result.box.emplace_back(det[0] - det[2] / 2.0f);
             result.box.emplace_back(det[1] - det[3] / 2.0f);
             result.box.emplace_back(det[0] + det[2] / 2.0f);
             result.box.emplace_back(det[1] + det[3] / 2.0f);
 
-            for (int kpt = 0; kpt < num_landmarks_; ++kpt) {
-                int kpt_idx = kpt * 2 + 5;
-                result.landmarks.emplace_back(det[kpt_idx + 0]);
-                result.landmarks.emplace_back(det[kpt_idx + 1]);
+            if (is_v7) {
+                // YOLOv7Face: (kp_conf, kp_x, kp_y) triplets starting at col 5
+                for (int kpt = 0; kpt < safe_landmarks; ++kpt) {
+                    result.landmarks.emplace_back(det[6 + kpt * 3]);  // kp_x
+                    result.landmarks.emplace_back(det[7 + kpt * 3]);  // kp_y
+                }
+            } else {
+                // YOLOv5Face: (kp_x, kp_y) pairs starting at col 5
+                for (int kpt = 0; kpt < safe_landmarks; ++kpt) {
+                    result.landmarks.emplace_back(det[5 + kpt * 2]);  // kp_x
+                    result.landmarks.emplace_back(det[6 + kpt * 2]);  // kp_y
+                }
             }
             detections.push_back(result);
         }

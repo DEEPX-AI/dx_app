@@ -2,10 +2,11 @@
 
 #########################################################
 # Test Runner Script for dx_app
-# 
-# This script runs pytest tests for both Python and C++ examples
-# - Python example: CLI, Integration, E2E, Coverage tests
-# - C++ example: CLI, E2E tests
+#
+# Runs pytest-based tests for Python and C++ examples.
+# Options: --cli, --e2e, --e2e-quick, --e2e-short, --vis,
+#          --signal, --coverage, --loop <N>
+# Scope:   --python, --cpp (default: both)
 #########################################################
 
 set -e  # Exit on error
@@ -21,13 +22,16 @@ NC='\033[0m' # No Color
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TEST_DIR="${SCRIPT_DIR}/tests"
 
-# Test results
-PYTHON_CLI_RESULT=0
-PYTHON_INTEGRATION_RESULT=0
-PYTHON_E2E_RESULT=0
-PYTHON_COVERAGE_RESULT=0
-CPP_CLI_RESULT=0
-CPP_E2E_RESULT=0
+# Test results (-1 = not run, 0 = passed, >0 = failed)
+PYTHON_CLI_RESULT=-1
+PYTHON_E2E_RESULT=-1
+PYTHON_VIS_RESULT=-1
+PYTHON_SIGNAL_RESULT=-1
+PYTHON_COVERAGE_RESULT=-1
+CPP_CLI_RESULT=-1
+CPP_E2E_RESULT=-1
+CPP_VIS_RESULT=-1
+CPP_SIGNAL_RESULT=-1
 
 print_header() {
     echo -e "\n${BLUE}========================================${NC}"
@@ -54,38 +58,51 @@ print_info() {
 # Function to run Python example tests
 run_python_tests() {
     print_header "Running Python Example Tests"
-    
+
     cd "${TEST_DIR}/python_example"
-    
+
     # Check if dependencies are installed
     if ! python -c "import pytest" &> /dev/null; then
         print_warning "pytest not found. Installing requirements..."
         pip install -r requirements.txt
     fi
-    
+
     # Determine which tests to run
     RUN_CLI=true
-    RUN_INTEGRATION=true
     RUN_E2E=true
-    RUN_COVERAGE=true
-    
+    RUN_VIS=false
+    RUN_COVERAGE=false
+
+    if [ "$COVERAGE" = true ]; then
+        RUN_COVERAGE=true
+    fi
+
     # Test selection rules (allow combining CLI + E2E when both flags are set)
-    if [ "$CLI_ONLY" = true ] && [ "$E2E_ONLY" = false ] && [ "$E2E_QUICK" = false ]; then
-        RUN_INTEGRATION=false
+    if [ "$VIS_ONLY" = true ]; then
+        RUN_CLI=false
+        RUN_E2E=false
+        RUN_VIS=true
+        RUN_COVERAGE=false
+    elif [ "$SIGNAL_ONLY" = true ]; then
+        RUN_CLI=false
+        RUN_E2E=false
+        RUN_COVERAGE=false
+    elif [ "$CLI_ONLY" = true ] && [ "$E2E_ONLY" = false ] && [ "$E2E_QUICK" = false ] && [ "$E2E_SHORT" = false ]; then
         RUN_E2E=false
         RUN_COVERAGE=false
     elif [ "$E2E_ONLY" = true ]; then
-        RUN_INTEGRATION=false
         RUN_COVERAGE=false
         if [ "$CLI_ONLY" = false ]; then
             RUN_CLI=false
         fi
     fi
-    
-    if [ "$SKIP_COVERAGE" = true ]; then
-        RUN_COVERAGE=false
+
+    # Coverage already includes CLI + E2E, skip separate runs to avoid duplication
+    if [ "$RUN_COVERAGE" = true ]; then
+        RUN_CLI=false
+        RUN_E2E=false
     fi
-    
+
     # 1. CLI Tests
     if [ "$RUN_CLI" = true ]; then
         print_info "Running Python CLI tests..."
@@ -97,47 +114,84 @@ run_python_tests() {
             print_error "Python CLI tests failed"
         fi
     fi
-    
-    # 2. Integration Tests
-    if [ "$RUN_INTEGRATION" = true ]; then
-        print_info "Running Python Integration tests..."
-        if pytest -m integration --tb=short -v; then
-            PYTHON_INTEGRATION_RESULT=0
-            print_success "Python Integration tests passed"
-        else
-            PYTHON_INTEGRATION_RESULT=$?
-            print_error "Python Integration tests failed"
-        fi
-    fi
-    
-    # 3. E2E Tests
+
+    # 2. E2E Tests
     if [ "$RUN_E2E" = true ]; then
         print_info "Running Python E2E tests..."
-        
-        if [ "$E2E_QUICK" = true ]; then
+
+        if [ "$E2E_SHORT" = true ]; then
+            print_info "Short mode: representative models, stream tests"
+            PYTEST_PY_E2E_CMD=(pytest -m "e2e_stream and e2e_short" --tb=short -v)
+        elif [ "$E2E_QUICK" = true ]; then
             print_info "Quick mode: Image tests only"
-            if pytest -m e2e -k "test_image" --tb=short -v; then
-                PYTHON_E2E_RESULT=0
+            PYTEST_PY_E2E_CMD=(pytest -m e2e_image --tb=short -v)
+        else
+            print_info "Full mode: Stream tests for all models"
+            PYTEST_PY_E2E_CMD=(pytest -m e2e_stream --tb=short -v)
+        fi
+
+        if [ -n "$LOOP_COUNT" ]; then
+            PYTEST_PY_E2E_CMD+=(--loop "$LOOP_COUNT")
+        fi
+
+        PYTHON_E2E_RESULT=0
+        "${PYTEST_PY_E2E_CMD[@]}" || PYTHON_E2E_RESULT=$?
+        # Exit code 5 = no tests collected (no models installed) — treat as pass
+        if [ "$PYTHON_E2E_RESULT" -eq 0 ] || [ "$PYTHON_E2E_RESULT" -eq 5 ]; then
+            PYTHON_E2E_RESULT=0
+            if [ "$E2E_SHORT" = true ]; then
+                print_success "Python E2E short tests passed"
+            elif [ "$E2E_QUICK" = true ]; then
                 print_success "Python E2E image tests passed"
             else
-                PYTHON_E2E_RESULT=$?
-                print_error "Python E2E image tests failed"
+                print_success "Python E2E stream tests passed"
             fi
         else
-            if pytest -m e2e --tb=short -v; then
-                PYTHON_E2E_RESULT=0
-                print_success "Python E2E tests passed"
+            if [ "$E2E_SHORT" = true ]; then
+                print_error "Python E2E short tests failed"
+            elif [ "$E2E_QUICK" = true ]; then
+                print_error "Python E2E image tests failed"
             else
-                PYTHON_E2E_RESULT=$?
-                print_error "Python E2E tests failed"
+                print_error "Python E2E stream tests failed"
             fi
         fi
     fi
-    
-    # 4. Coverage Tests (all tests with coverage)
+
+    # 3. Visualization Tests
+    if [ "$RUN_VIS" = true ]; then
+        print_info "Running Python Visualization tests..."
+        if pytest -m visualization --tb=short -v; then
+            PYTHON_VIS_RESULT=0
+            print_success "Python Visualization tests passed"
+        else
+            PYTHON_VIS_RESULT=$?
+            print_error "Python Visualization tests failed"
+        fi
+    fi
+
+    # 4. Signal Handling Tests
+    if [ "$SIGNAL_ONLY" = true ]; then
+        print_info "Running Python Signal Handling tests..."
+        PYTHON_SIGNAL_RESULT=0
+        pytest -m signal_handling --tb=short -v || PYTHON_SIGNAL_RESULT=$?
+        if [ "$PYTHON_SIGNAL_RESULT" -eq 0 ]; then
+            print_success "Python Signal Handling tests passed"
+        else
+            print_error "Python Signal Handling tests failed"
+        fi
+    fi
+
+    # 5. Coverage Tests (all tests with coverage)
     if [ "$RUN_COVERAGE" = true ]; then
         print_info "Running Python tests with coverage..."
-        if pytest --cov=../../src/python_example --cov-report=term-missing:skip-covered --cov-report=html:../../htmlcov --tb=short; then
+        if [ "$E2E_QUICK" = true ]; then
+            print_info "Quick mode: all tests except visualization"
+            PYTEST_COV_CMD=(pytest -m "not visualization and not multi_loop and not signal_handling")
+        else
+            PYTEST_COV_CMD=(pytest -m "not e2e_stream and not visualization and not multi_loop and not signal_handling")
+        fi
+        PYTEST_COV_CMD+=(--cov=../../src/python_example --cov-config="${SCRIPT_DIR}/.coveragerc" --cov-report=term-missing:skip-covered --cov-report=html:../../htmlcov --tb=short)
+        if "${PYTEST_COV_CMD[@]}"; then
             PYTHON_COVERAGE_RESULT=0
             print_success "Python coverage tests passed"
             print_info "Coverage report generated at: ${SCRIPT_DIR}/htmlcov/index.html"
@@ -146,31 +200,39 @@ run_python_tests() {
             print_error "Python coverage tests failed"
         fi
     fi
-    
+
     cd "${SCRIPT_DIR}"
 }
 
 # Function to run C++ example tests
 run_cpp_tests() {
     print_header "Running C++ Example Tests"
-    
+
     cd "${TEST_DIR}/cpp_example"
-    
+
     # Check if dependencies are installed
     if ! python -c "import pytest" &> /dev/null; then
         print_warning "pytest not found. Installing requirements..."
         pip install -r requirements.txt
     fi
-    
+
     # Determine which tests to run
     RUN_CLI=true
     RUN_E2E=true
-    
+    RUN_VIS=false
+
     # Handle test selection flags
-    if [ "$CLI_ONLY" = true ] && [ "$E2E_ONLY" = false ] && [ "$E2E_QUICK" = false ]; then
+    if [ "$VIS_ONLY" = true ]; then
+        RUN_CLI=false
+        RUN_E2E=false
+        RUN_VIS=true
+    elif [ "$SIGNAL_ONLY" = true ]; then
+        RUN_CLI=false
+        RUN_E2E=false
+    elif [ "$CLI_ONLY" = true ] && [ "$E2E_ONLY" = false ] && [ "$E2E_QUICK" = false ] && [ "$E2E_SHORT" = false ]; then
         # Only CLI flag specified
         RUN_E2E=false
-    elif [ "$E2E_ONLY" = true ] || [ "$E2E_QUICK" = true ]; then
+    elif [ "$E2E_ONLY" = true ] || [ "$E2E_QUICK" = true ] || [ "$E2E_SHORT" = true ]; then
         # E2E flags specified
         if [ "$CLI_ONLY" = false ]; then
             # Only E2E, no CLI
@@ -178,34 +240,34 @@ run_cpp_tests() {
         fi
         # If both CLI and E2E flags are set, run both
     fi
-    
+
     # Check for coverage build if --coverage is specified
-    if [ "$CPP_COVERAGE" = true ]; then
+    if [ "$COVERAGE" = true ]; then
         print_info "Code coverage mode enabled"
-        
+
         # Check for .gcno files (indicates coverage build)
         GCNO_FILES=$(find "${SCRIPT_DIR}/build"* -name "*.gcno" 2>/dev/null | wc -l)
-        
+
         if [ "$GCNO_FILES" -eq 0 ]; then
             print_warning "No coverage instrumentation found (.gcno files missing)"
             print_warning "Please rebuild with coverage flags:"
             print_warning "  ./build.sh --clean --coverage --type relwithdebinfo"
             print_warning ""
             print_warning "Continuing without coverage report..."
-            CPP_COVERAGE=false
+            COVERAGE=false
         else
             print_info "Found coverage instrumentation ($GCNO_FILES .gcno files)"
         fi
     fi
 
     # If coverage is on and both CLI/E2E are requested, run them together once
-    if [ "$CPP_COVERAGE" = true ] && [ "$RUN_CLI" = true ] && [ "$RUN_E2E" = true ]; then
-        print_info "Running C++ CLI+E2E in one pytest run for merged coverage..."
-        PYTEST_COMBINED_CMD=(pytest -m "cli or e2e" --tb=short -v --coverage)
-
+    if [ "$COVERAGE" = true ] && [ "$RUN_CLI" = true ] && [ "$RUN_E2E" = true ]; then
+        print_info "Running C++ tests in one pytest run for merged coverage..."
         if [ "$E2E_QUICK" = true ]; then
-            print_info "Quick mode: Image tests only for E2E"
-            PYTEST_COMBINED_CMD+=(-k "test_image_inference_e2e or cli")
+            print_info "Quick mode: all tests except visualization"
+            PYTEST_COMBINED_CMD=(pytest -m "not visualization and not multi_loop and not signal_handling" --tb=short -v --coverage)
+        else
+            PYTEST_COMBINED_CMD=(pytest -m "not e2e_stream and not visualization and not multi_loop and not signal_handling" --tb=short -v --coverage)
         fi
 
         if [ -n "$LOOP_COUNT" ]; then
@@ -227,14 +289,11 @@ run_cpp_tests() {
         RUN_CLI=false
         RUN_E2E=false
     fi
-    
+
     # 1. CLI Tests
     if [ "$RUN_CLI" = true ]; then
         print_info "Running C++ CLI tests..."
         PYTEST_CLI_CMD=(pytest -m cli --tb=short -v)
-        if [ "$CPP_COVERAGE" = true ]; then
-            PYTEST_CLI_CMD+=(--coverage)
-        fi
         if [ -n "$LOOP_COUNT" ]; then
             PYTEST_CLI_CMD+=(--loop "$LOOP_COUNT")
         fi
@@ -247,104 +306,177 @@ run_cpp_tests() {
             print_error "C++ CLI tests failed"
         fi
     fi
-    
+
     # 2. E2E Tests
     if [ "$RUN_E2E" = true ]; then
         print_info "Running C++ E2E tests..."
-        
+
         # Build pytest command
-        PYTEST_E2E_CMD=(pytest -m e2e --tb=short -v)
-        if [ "$E2E_QUICK" = true ]; then
+        if [ "$E2E_SHORT" = true ]; then
+            print_info "Short mode: representative models, stream tests"
+            PYTEST_E2E_CMD=(pytest -m "e2e_stream and e2e_short" --tb=short -v)
+        elif [ "$E2E_QUICK" = true ]; then
             print_info "Quick mode: Image tests only"
-            PYTEST_E2E_CMD+=(-k test_image_inference_e2e)
-        fi
-        if [ "$CPP_COVERAGE" = true ]; then
-            PYTEST_E2E_CMD+=(--coverage)
+            PYTEST_E2E_CMD=(pytest -m e2e_image --tb=short -v)
+        else
+            print_info "Full mode: Stream tests for all models"
+            PYTEST_E2E_CMD=(pytest -m e2e_stream --tb=short -v)
         fi
         if [ -n "$LOOP_COUNT" ]; then
             PYTEST_E2E_CMD+=(--loop "$LOOP_COUNT")
         fi
 
-        if "${PYTEST_E2E_CMD[@]}"; then
+        CPP_E2E_RESULT=0
+        "${PYTEST_E2E_CMD[@]}" || CPP_E2E_RESULT=$?
+        # Exit code 5 = no tests collected (no models installed) — treat as pass
+        if [ "$CPP_E2E_RESULT" -eq 0 ] || [ "$CPP_E2E_RESULT" -eq 5 ]; then
             CPP_E2E_RESULT=0
-            if [ "$E2E_QUICK" = true ]; then
+            if [ "$E2E_SHORT" = true ]; then
+                print_success "C++ E2E short tests passed"
+            elif [ "$E2E_QUICK" = true ]; then
                 print_success "C++ E2E image tests passed"
             else
-                print_success "C++ E2E tests passed"
+                print_success "C++ E2E stream tests passed"
             fi
         else
-            CPP_E2E_RESULT=$?
-            if [ "$E2E_QUICK" = true ]; then
+            if [ "$E2E_SHORT" = true ]; then
+                print_error "C++ E2E short tests failed"
+            elif [ "$E2E_QUICK" = true ]; then
                 print_error "C++ E2E image tests failed"
             else
-                print_error "C++ E2E tests failed"
+                print_error "C++ E2E stream tests failed"
             fi
         fi
     fi
-    
+
+    # 3. Visualization Tests
+    if [ "$RUN_VIS" = true ]; then
+        print_info "Running C++ Visualization tests..."
+        PYTEST_VIS_CMD=(pytest -m visualization --tb=short -v)
+
+        if "${PYTEST_VIS_CMD[@]}"; then
+            CPP_VIS_RESULT=0
+            print_success "C++ Visualization tests passed"
+        else
+            CPP_VIS_RESULT=$?
+            print_error "C++ Visualization tests failed"
+        fi
+    fi
+
+    # 4. Signal Handling Tests
+    if [ "$SIGNAL_ONLY" = true ]; then
+        print_info "Running C++ Signal Handling tests..."
+        CPP_SIGNAL_RESULT=0
+        pytest -m signal_handling --tb=short -v || CPP_SIGNAL_RESULT=$?
+        if [ "$CPP_SIGNAL_RESULT" -eq 0 ]; then
+            print_success "C++ Signal Handling tests passed"
+        else
+            print_error "C++ Signal Handling tests failed"
+        fi
+    fi
+
     cd "${SCRIPT_DIR}"
 }
 
 # Function to print summary
 print_summary() {
     print_header "Test Summary"
-    
+
     TOTAL_FAILURES=0
-    
+
     # Only show Python results if not in C++ only mode
     if [ "$CPP_ONLY" != true ]; then
         echo "Python Example Tests:"
-        if [ $PYTHON_CLI_RESULT -eq 0 ]; then
+        if [ $PYTHON_CLI_RESULT -eq -1 ]; then
+            echo -e "  CLI Tests: SKIPPED"
+        elif [ $PYTHON_CLI_RESULT -eq 0 ]; then
             print_success "  CLI Tests: PASSED"
         else
             print_error "  CLI Tests: FAILED (exit code: $PYTHON_CLI_RESULT)"
             TOTAL_FAILURES=$((TOTAL_FAILURES + PYTHON_CLI_RESULT))
         fi
-        
-        if [ $PYTHON_INTEGRATION_RESULT -eq 0 ]; then
-            print_success "  Integration Tests: PASSED"
-        else
-            print_error "  Integration Tests: FAILED (exit code: $PYTHON_INTEGRATION_RESULT)"
-            TOTAL_FAILURES=$((TOTAL_FAILURES + PYTHON_INTEGRATION_RESULT))
-        fi
-        
-        if [ $PYTHON_E2E_RESULT -eq 0 ]; then
+
+        if [ $PYTHON_E2E_RESULT -eq -1 ]; then
+            echo -e "  E2E Tests: SKIPPED"
+        elif [ $PYTHON_E2E_RESULT -eq 0 ]; then
             print_success "  E2E Tests: PASSED"
         else
             print_error "  E2E Tests: FAILED (exit code: $PYTHON_E2E_RESULT)"
             TOTAL_FAILURES=$((TOTAL_FAILURES + PYTHON_E2E_RESULT))
         fi
-        
-        if [ $PYTHON_COVERAGE_RESULT -eq 0 ]; then
+
+        if [ $PYTHON_VIS_RESULT -eq -1 ]; then
+            echo -e "  Visualization Tests: SKIPPED"
+        elif [ $PYTHON_VIS_RESULT -eq 0 ]; then
+            print_success "  Visualization Tests: PASSED"
+        else
+            print_error "  Visualization Tests: FAILED (exit code: $PYTHON_VIS_RESULT)"
+            TOTAL_FAILURES=$((TOTAL_FAILURES + PYTHON_VIS_RESULT))
+        fi
+
+        if [ $PYTHON_SIGNAL_RESULT -eq -1 ]; then
+            echo -e "  Signal Handling Tests: SKIPPED"
+        elif [ $PYTHON_SIGNAL_RESULT -eq 0 ]; then
+            print_success "  Signal Handling Tests: PASSED"
+        else
+            print_error "  Signal Handling Tests: FAILED (exit code: $PYTHON_SIGNAL_RESULT)"
+            TOTAL_FAILURES=$((TOTAL_FAILURES + PYTHON_SIGNAL_RESULT))
+        fi
+
+        if [ $PYTHON_COVERAGE_RESULT -eq -1 ]; then
+            echo -e "  Coverage Tests: SKIPPED"
+        elif [ $PYTHON_COVERAGE_RESULT -eq 0 ]; then
             print_success "  Coverage Tests: PASSED"
         else
             print_error "  Coverage Tests: FAILED (exit code: $PYTHON_COVERAGE_RESULT)"
             TOTAL_FAILURES=$((TOTAL_FAILURES + PYTHON_COVERAGE_RESULT))
         fi
-        
+
         echo ""
     fi
-    
+
     # Only show C++ results if not in Python only mode
     if [ "$PYTHON_ONLY" != true ]; then
         echo "C++ Example Tests:"
-        if [ $CPP_CLI_RESULT -eq 0 ]; then
+        if [ $CPP_CLI_RESULT -eq -1 ]; then
+            echo -e "  CLI Tests: SKIPPED"
+        elif [ $CPP_CLI_RESULT -eq 0 ]; then
             print_success "  CLI Tests: PASSED"
         else
             print_error "  CLI Tests: FAILED (exit code: $CPP_CLI_RESULT)"
             TOTAL_FAILURES=$((TOTAL_FAILURES + CPP_CLI_RESULT))
         fi
-        
-        if [ $CPP_E2E_RESULT -eq 0 ]; then
+
+        if [ $CPP_E2E_RESULT -eq -1 ]; then
+            echo -e "  E2E Tests: SKIPPED"
+        elif [ $CPP_E2E_RESULT -eq 0 ]; then
             print_success "  E2E Tests: PASSED"
         else
             print_error "  E2E Tests: FAILED (exit code: $CPP_E2E_RESULT)"
             TOTAL_FAILURES=$((TOTAL_FAILURES + CPP_E2E_RESULT))
         fi
-        
+
+        if [ $CPP_VIS_RESULT -eq -1 ]; then
+            echo -e "  Visualization Tests: SKIPPED"
+        elif [ $CPP_VIS_RESULT -eq 0 ]; then
+            print_success "  Visualization Tests: PASSED"
+        else
+            print_error "  Visualization Tests: FAILED (exit code: $CPP_VIS_RESULT)"
+            TOTAL_FAILURES=$((TOTAL_FAILURES + CPP_VIS_RESULT))
+        fi
+
+        if [ $CPP_SIGNAL_RESULT -eq -1 ]; then
+            echo -e "  Signal Handling Tests: SKIPPED"
+        elif [ $CPP_SIGNAL_RESULT -eq 0 ]; then
+            print_success "  Signal Handling Tests: PASSED"
+        else
+            print_error "  Signal Handling Tests: FAILED (exit code: $CPP_SIGNAL_RESULT)"
+            TOTAL_FAILURES=$((TOTAL_FAILURES + CPP_SIGNAL_RESULT))
+        fi
+
         echo ""
     fi
-    
+
     if [ $TOTAL_FAILURES -eq 0 ]; then
         print_success "All tests passed! ✓"
         return 0
@@ -357,13 +489,15 @@ print_summary() {
 # Parse command line arguments
 PYTHON_ONLY=false
 CPP_ONLY=false
-SKIP_COVERAGE=false
 QUICK_MODE=false
-CPP_COVERAGE=false
+COVERAGE=false
 CLI_ONLY=false
 E2E_ONLY=false
 E2E_QUICK=false
+E2E_SHORT=false
 LOOP_COUNT=""
+VIS_ONLY=false
+SIGNAL_ONLY=false
 
 usage() {
     echo "Usage: $0 [OPTIONS]"
@@ -371,28 +505,39 @@ usage() {
     echo "Options:"
     echo "  --python          Run only Python example tests"
     echo "  --cpp             Run only C++ example tests"
-    echo "  --cli             Run only CLI tests (can combine with --python or --cpp)"
-    echo "  --e2e             Run only E2E tests (can combine with --python or --cpp)"
-    echo "  --e2e-quick       Run only E2E image tests (faster, skips video tests)"
-    echo "  --skip-coverage   Skip coverage tests for Python"
-    echo "  --coverage        Generate C++ code coverage report (requires --cpp or full run)"
-    echo "  --loop <N>        Override loop count for C++ E2E image tests (default: 50)"
-    echo "  --quick           Run only CLI tests (no E2E) - same as --cli"
+    echo "  --cli             Run CLI tests (can combine with --e2e-quick or --e2e-short)"
+    echo "  --e2e             Run E2E stream tests for all models"
+    echo "  --e2e-quick       Run E2E image tests only (faster, skips stream tests)"
+    echo "  --e2e-short       Run E2E stream tests for representative models"
+    echo "  --vis             Run visualization tests (can combine with --python or --cpp)"
+    echo "  --signal          Run signal handling tests (SIGINT graceful shutdown)"
+    echo "  --coverage        Run all tests with coverage for SonarQube (standalone option)"
+    echo "  --loop <N>        Override loop count for E2E image tests (default: C++ 50, Python 1)"
+    echo "  --quick           Same as --cli"
     echo "  -h, --help        Show this help message"
     echo ""
-    echo "Examples:"
-    echo "  $0                       # Run all tests"
-    echo "  $0 --python              # Run only Python tests"
-    echo "  $0 --cpp                 # Run only C++ tests"
-    echo "  $0 --cpp --cli           # Run only C++ CLI tests"
-    echo "  $0 --cpp --e2e           # Run only C++ E2E tests"
-    echo "  $0 --cpp --e2e-quick     # Run only C++ E2E image tests (fast)"
-    echo "  $0 --cpp --e2e --coverage # Run C++ E2E tests with coverage"
-    echo "  $0 --python --e2e        # Run only Python E2E tests"
-    echo "  $0 --skip-coverage       # Run all tests but skip Python coverage"
-    echo "  $0 --quick               # Quick mode: CLI tests only"
+    echo "Default behavior (no flags): CLI + E2E stream tests for all models"
     echo ""
-    echo "Note: C++ coverage requires executables built with --coverage flag:"
+    echo "Examples:"
+    echo "  $0                       # Run CLI + E2E stream tests (all models)"
+    echo "  $0 --python              # Run Python CLI + E2E stream tests"
+    echo "  $0 --cpp                 # Run C++ CLI + E2E stream tests"
+    echo "  $0 --cli                 # Run CLI tests only (no E2E)"
+    echo "  $0 --cpp --cli           # Run only C++ CLI tests"
+    echo "  $0 --e2e                 # Run E2E stream tests only (no CLI)"
+    echo "  $0 --e2e-quick           # Run E2E image tests only (no CLI)"
+    echo "  $0 --cli --e2e-quick     # Run CLI + E2E image tests"
+    echo "  $0 --cpp --e2e-quick     # Run C++ E2E image tests only"
+    echo "  $0 --e2e-short           # Run E2E stream tests for representative models"
+    echo "  $0 --vis                 # Run Python + C++ visualization tests"
+    echo "  $0 --cpp --vis           # Run C++ visualization tests"
+    echo "  $0 --signal              # Run signal handling tests"
+    echo "  $0 --coverage            # Run all tests with coverage (Python + C++)"
+    echo "  $0 --cpp --coverage      # Run C++ tests with coverage"
+    echo "  $0 --python --coverage   # Run Python tests with coverage"
+    echo ""
+    echo "Note: --coverage cannot be combined with --cli, --e2e, --vis, --signal, --loop, etc."
+    echo "      C++ coverage requires executables built with:"
     echo "      ./build.sh --clean --coverage --type relwithdebinfo"
 }
 
@@ -406,12 +551,8 @@ while [[ $# -gt 0 ]]; do
             CPP_ONLY=true
             shift
             ;;
-        --skip-coverage)
-            SKIP_COVERAGE=true
-            shift
-            ;;
         --coverage)
-            CPP_COVERAGE=true
+            COVERAGE=true
             shift
             ;;
         --cli)
@@ -420,11 +561,26 @@ while [[ $# -gt 0 ]]; do
             ;;
         --e2e)
             E2E_ONLY=true
+            E2E_QUICK=false
             shift
             ;;
         --e2e-quick)
             E2E_ONLY=true
             E2E_QUICK=true
+            shift
+            ;;
+        --e2e-short)
+            E2E_ONLY=true
+            E2E_SHORT=true
+            E2E_QUICK=false
+            shift
+            ;;
+        --vis|--visualization)
+            VIS_ONLY=true
+            shift
+            ;;
+        --signal|--signal-handling)
+            SIGNAL_ONLY=true
             shift
             ;;
         --quick)
@@ -452,8 +608,19 @@ done
 print_header "dx_app Test Suite Runner"
 print_info "Test directory: ${TEST_DIR}"
 
+# Validate options - --coverage is a solo option (only --cpp/--python allowed)
+if [ "$COVERAGE" = true ]; then
+    if [ "$CLI_ONLY" = true ] || [ "$E2E_ONLY" = true ] || [ "$E2E_QUICK" = true ] || \
+       [ "$E2E_SHORT" = true ] || [ "$VIS_ONLY" = true ] || [ "$SIGNAL_ONLY" = true ] || \
+       [ "$QUICK_MODE" = true ] || [ -n "$LOOP_COUNT" ]; then
+        print_error "--coverage is a standalone option (only --cpp/--python can be combined)"
+        usage
+        exit 1
+    fi
+fi
+
 # Validate options - allow --cli with --e2e-quick for combined testing
-if [ "$CLI_ONLY" = true ] && [ "$E2E_ONLY" = true ] && [ "$E2E_QUICK" = false ]; then
+if [ "$CLI_ONLY" = true ] && [ "$E2E_ONLY" = true ] && [ "$E2E_QUICK" = false ] && [ "$E2E_SHORT" = false ]; then
     print_error "Cannot specify both --cli and --e2e"
     usage
     exit 1

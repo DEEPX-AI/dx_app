@@ -108,7 +108,7 @@ function install_dep() {
             fi
             cd $DX_SRC_DIR/util
             if ! test -e $DX_SRC_DIR/util/cmake-$cmake_version_required.0; then
-                echo " Install CMake v$$cmake_version_required.0 "
+                echo " Install CMake v$cmake_version_required.0 "
                 wget https://cmake.org/files/v$cmake_version_required/cmake-$cmake_version_required.0.tar.gz --no-check-certificate    
                 tar xvf cmake-$cmake_version_required.0.tar.gz
             else
@@ -238,7 +238,7 @@ function install_opencv() {
             cmake \
             $toolchain_define \
             $define_list \
-            -D BUILD_LIST="imgcodecs,imgproc,core,highgui,videoio" \
+            -D BUILD_LIST="imgcodecs,imgproc,core,highgui,videoio,dnn" \
 	        -D OPENCV_EXTRA_MODULES_PATH=../../opencv_contrib-$suggestion_version/modules \
             -D CMAKE_BUILD_TYPE=RELEASE \
             -D WITH_TBB=ON -D WITH_PYTHON=ON -D WITH_QT=OFF -D WITH_GTK=ON \

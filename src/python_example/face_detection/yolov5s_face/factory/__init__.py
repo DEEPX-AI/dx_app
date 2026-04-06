@@ -1,0 +1,1 @@
+from .yolov5s_face_factory import Yolov5faceFactory

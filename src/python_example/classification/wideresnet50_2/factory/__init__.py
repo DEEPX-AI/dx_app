@@ -1,0 +1,1 @@
+from .wideresnet50_2_factory import Wideresnet50_2Factory
