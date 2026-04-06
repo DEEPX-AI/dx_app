@@ -46,6 +46,7 @@ nav:
   - DX-APP Developer Guide:
     - DX Tool: docs/10_DX-APP_DX-Tool_Guide.md
     - Example Source Structure: docs/11_DX-APP_Example_Source_Structure.md
+    - Agentic Development: docs/12_DX-APP_Agentic_Development.md
   - Change Log: docs/Appendix_Change_Log.md
 
 plugins:
