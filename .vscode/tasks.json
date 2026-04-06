@@ -478,6 +478,166 @@
       "problemMatcher": ["$gcc"]
     },
     {
+      "label": "build: yolov8n_ppu_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov8n_ppu_sync"]
+      },
+      "group": "build",
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "build: yolov8n_ppu_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov8n_ppu_async"]
+      },
+      "group": "build",
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "build: yolov8s_ppu_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov8s_ppu_sync"]
+      },
+      "group": "build",
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "build: yolov8s_ppu_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov8s_ppu_async"]
+      },
+      "group": "build",
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "build: yolov9t_ppu_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov9t_ppu_sync"]
+      },
+      "group": "build",
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "build: yolov9t_ppu_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov9t_ppu_async"]
+      },
+      "group": "build",
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "build: yolov10n_ppu_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov10n_ppu_sync"]
+      },
+      "group": "build",
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "build: yolov10n_ppu_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov10n_ppu_async"]
+      },
+      "group": "build",
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "build: yolov11n_ppu_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov11n_ppu_sync"]
+      },
+      "group": "build",
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "build: yolov11n_ppu_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov11n_ppu_async"]
+      },
+      "group": "build",
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "build: yolov12n_ppu_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov12n_ppu_sync"]
+      },
+      "group": "build",
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "build: yolov12n_ppu_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov12n_ppu_async"]
+      },
+      "group": "build",
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "build: yolov7x_ppu_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov7x_ppu_sync"]
+      },
+      "group": "build",
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "build: yolov7x_ppu_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov7x_ppu_async"]
+      },
+      "group": "build",
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "build: scrfd500m_ppu_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target scrfd500m_ppu_sync"]
+      },
+      "group": "build",
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "build: scrfd500m_ppu_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target scrfd500m_ppu_async"]
+      },
+      "group": "build",
+      "problemMatcher": ["$gcc"]
+    },
+    {
       "label": "build: scrfd_ppu_sync",
       "type": "shell",
       "linux": {
@@ -553,6 +713,66 @@
       "linux": {
         "command": "bash",
         "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov7_x_deeplabv3_async"]
+      },
+      "group": "build",
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "build: deepmar_resnet50_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target deepmar_resnet50_sync"]
+      },
+      "group": "build",
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "build: deepmar_resnet50_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target deepmar_resnet50_async"]
+      },
+      "group": "build",
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "build: casvit_t_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target casvit_t_sync"]
+      },
+      "group": "build",
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "build: casvit_t_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target casvit_t_async"]
+      },
+      "group": "build",
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "build: scdepthv3_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target scdepthv3_sync"]
+      },
+      "group": "build",
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "build: scdepthv3_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target scdepthv3_async"]
       },
       "group": "build",
       "problemMatcher": ["$gcc"]
@@ -646,12 +866,34 @@
         "yolov5_ppu_async",
         "yolov7_ppu_sync",
         "yolov7_ppu_async",
+        "yolov8n_ppu_sync",
+        "yolov8n_ppu_async",
+        "yolov8s_ppu_sync",
+        "yolov8s_ppu_async",
+        "yolov9t_ppu_sync",
+        "yolov9t_ppu_async",
+        "yolov10n_ppu_sync",
+        "yolov10n_ppu_async",
+        "yolov11n_ppu_sync",
+        "yolov11n_ppu_async",
+        "yolov12n_ppu_sync",
+        "yolov12n_ppu_async",
+        "yolov7x_ppu_sync",
+        "yolov7x_ppu_async",
+        "scrfd500m_ppu_sync",
+        "scrfd500m_ppu_async",
         "scrfd_ppu_sync",
         "scrfd_ppu_async",
         "yolov5pose_ppu_sync",
         "yolov5pose_ppu_async",
         "yolov7_x_deeplabv3_sync",
         "yolov7_x_deeplabv3_async",
+        "deepmar_resnet50_sync",
+        "deepmar_resnet50_async",
+        "casvit_t_sync",
+        "casvit_t_async",
+        "scdepthv3_sync",
+        "scdepthv3_async",
         "demo_multi_channel",
         "camera_opencv",
         "video_opencv",

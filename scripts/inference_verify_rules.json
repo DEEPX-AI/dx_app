@@ -1,0 +1,34 @@
+{
+  "_comment": "Expected minimum results for known test images per task category",
+  "sample/img/sample_kitchen.jpg": {
+    "object_detection": {"min_detections": 1},
+    "instance_segmentation": {"min_detections": 1}
+  },
+  "sample/img/sample_face.jpg": {
+    "face_detection": {"min_detections": 1}
+  },
+  "sample/img/sample_people.jpg": {
+    "pose_estimation": {"min_detections": 1},
+    "hand_landmark": {"min_detections": 0}
+  },
+  "sample/img/sample_dog.jpg": {
+    "classification": {"min_detections": 0}
+  },
+  "sample/img/sample_parking.jpg": {
+    "semantic_segmentation": {"min_classes": 2}
+  },
+  "sample/img/sample_horse.jpg": {
+    "depth_estimation": {}
+  },
+  "sample/img/sample_dark_room.jpg": {
+    "image_denoising": {},
+    "super_resolution": {},
+    "image_enhancement": {}
+  },
+  "sample/img/sample_street.jpg": {
+    "ppu": {"min_detections": 1}
+  },
+  "sample/dota8_test/P0284.png": {
+    "obb_detection": {"min_detections": 0}
+  }
+}

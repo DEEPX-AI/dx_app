@@ -119,6 +119,10 @@ while (( $# )); do
         --target)
             shift
             build_target=$1
+            if [ -z "$build_target" ]; then
+                echo "Error: No target specified. Use --target <target_name>."
+                exit 1
+            fi
             shift;;
         --v3codec)
             build_with_codec=true;
@@ -246,7 +250,7 @@ if [ -n "$build_target" ]; then
     
     # Copy the built binary to bin directory if it exists
     if [ $(uname -m) == "$target_arch" ]; then
-        if [ -f "src/cpp_example/*/${build_target}" ] || find . -name "${build_target}" -type f -executable 2>/dev/null | head -1 | grep -q .; then
+        if find . -name "${build_target}" -type f -executable 2>/dev/null | head -1 | grep -q .; then
             mkdir -p ../bin
             find . -name "${build_target}" -type f -executable 2>/dev/null | head -1 | xargs -I {} cp {} ../bin/ 2>/dev/null || true
             echo -e "${TAG_INFO} Binary copied to bin/${build_target}"

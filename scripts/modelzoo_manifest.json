@@ -1,0 +1,1682 @@
+[
+  {
+    "name": "3ddfa_v2_mobilnet0.5_120x120",
+    "category": "Face 3D",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/3ddfa_v2_mobilnet0.5_120x120.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "3ddfa_v2_mobilnetv1_120x120",
+    "category": "Face 3D",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/3ddfa_v2_mobilnetv1_120x120.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "AlexNet",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/AlexNet.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "arcface_iresnet100_ms1m",
+    "category": "Face Recognition",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/arcface_iresnet100_ms1m.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "arcface_iresnet50_ms1m",
+    "category": "Face Recognition",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/arcface_iresnet50_ms1m.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "arcface_mobilefacenet",
+    "category": "Face Recognition",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/arcface_mobilefacenet.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "arcface_r50",
+    "category": "Face Recognition",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/arcface_r50.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "BiSeNetV1",
+    "category": "Semantic Segmentation",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/BiSeNetV1.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "BiSeNetV2",
+    "category": "Semantic Segmentation",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/BiSeNetV2.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "casvit_m",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/casvit_m.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "casvit_s",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/casvit_s.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "casvit_t",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/casvit_t.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "casvit_xs",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/casvit_xs.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "centerpose_regnetx_1.6gf_fpn",
+    "category": "Pose Estimation",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/centerpose_regnetx_1.6gf_fpn.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "centerpose_regnetx_800mf",
+    "category": "Pose Estimation",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/centerpose_regnetx_800mf.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "centerpose_repvgg_a0",
+    "category": "Pose Estimation",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/centerpose_repvgg_a0.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "DamoYoloL",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/DamoYoloL.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "DamoYoloM",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/DamoYoloM.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "DamoYoloS",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/DamoYoloS.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "DamoYoloT",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/DamoYoloT.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "DamoYolo_tinynasL20_T",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/DamoYolo_tinynasL20_T.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "DamoYolo_tinynasL25_S",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/DamoYolo_tinynasL25_S.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "DamoYolo_tinynasL35_M",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/DamoYolo_tinynasL35_M.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "DeepLabV3MobileNetV2",
+    "category": "Semantic Segmentation",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/DeepLabV3MobileNetV2.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "DeepLabV3PlusMobilenet",
+    "category": "Semantic Segmentation",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/DeepLabV3PlusMobilenet.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "DeepLabV3PlusMobileNetV2",
+    "category": "Semantic Segmentation",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/DeepLabV3PlusMobileNetV2.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "deepmar_resnet18_person_attr_resnet_v1_18",
+    "category": "Attribute Recognition",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/deepmar_resnet18_person_attr_resnet_v1_18.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "deepmar_resnet50",
+    "category": "Attribute Recognition",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/deepmar_resnet50.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "DeiTBase384_hug",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/DeiTBase384_hug.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "DenseNet121",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/DenseNet121.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "DenseNet161",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/DenseNet161.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "DenseNet169",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/DenseNet169.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "DenseNet201",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/DenseNet201.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "DnCNN3",
+    "category": "Image De-noising",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/DnCNN3.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "DnCNN_15",
+    "category": "Image De-noising",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/DnCNN_15.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "DnCNN_25",
+    "category": "Image De-noising",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/DnCNN_25.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "DnCNN_50",
+    "category": "Image De-noising",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/DnCNN_50.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "DnCNN_Color_Blind",
+    "category": "Image De-noising",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/DnCNN_Color_Blind.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "DnCNN_Gray_Blind",
+    "category": "Image De-noising",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/DnCNN_Gray_Blind.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "EfficientDetD1",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/EfficientDetD1.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "EfficientDetD2",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/EfficientDetD2.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "EfficientDetD4",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/EfficientDetD4.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "efficientformer_l3",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/efficientformer_l3.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "efficientformer_l7",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/efficientformer_l7.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "efficientformerv2_l",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/efficientformerv2_l.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "EfficientNet_Lite0",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/EfficientNet_Lite0.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "EfficientNet_Lite1",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/EfficientNet_Lite1.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "EfficientNet_Lite2",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/EfficientNet_Lite2.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "EfficientNet_Lite3",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/EfficientNet_Lite3.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "EfficientNet_Lite4",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/EfficientNet_Lite4.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "EfficientNetB2",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/EfficientNetB2.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "EfficientNetB3",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/EfficientNetB3.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "EfficientNetB4",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/EfficientNetB4.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "EfficientNetB5",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/EfficientNetB5.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "EfficientNetB6",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/EfficientNetB6.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "EfficientNetV2L",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/EfficientNetV2L.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "EfficientNetV2S",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/EfficientNetV2S.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "ESPCN_X3",
+    "category": "Super Resolution",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/ESPCN_X3.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "ESPCN_X4",
+    "category": "Super Resolution",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/ESPCN_X4.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "face_attr_resnet_v1_18",
+    "category": "Attribute Recognition",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/face_attr_resnet_v1_18.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "FastDepth_1",
+    "category": "Depth Estimation",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/FastDepth_1.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "FastSAM-s",
+    "category": "Instance Segmentation",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/FastSAM-s.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "HandLandmarkLite_1",
+    "category": "Hand Landmark",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/HandLandmarkLite_1.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "HarDNet39DS",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/HarDNet39DS.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "HarDNet68",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/HarDNet68.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "InceptionV1",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/InceptionV1.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "LeViT128_hug",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/LeViT128_hug.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "LeViT192_hug",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/LeViT192_hug.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "LeViT256_hug",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/LeViT256_hug.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "LeViT384_hug",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/LeViT384_hug.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "MNASNet0_5",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/MNASNet0_5.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "MNASNet0_75",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/MNASNet0_75.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "MNASNet1_0",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/MNASNet1_0.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "MNASNet1_3",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/MNASNet1_3.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "MobileNetV1",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/MobileNetV1.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "MobileNetV2",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/MobileNetV2.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "MobileNetV3Large",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/MobileNetV3Large.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "NanoDet_RepVGG",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/NanoDet_RepVGG.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "NanoDet_RepVGGA1",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/NanoDet_RepVGGA1.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "NanoDet_RepVGGA12",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/NanoDet_RepVGGA12.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "NanoDetPlusM",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/NanoDetPlusM.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "NanoDetPlusM_15",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/NanoDetPlusM_15.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "OSNet0_25",
+    "category": "ReID",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/OSNet0_25.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "OSNet0_5",
+    "category": "ReID",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/OSNet0_5.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "RegNetX16GF",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/RegNetX16GF.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "RegNetX1_6GF",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/RegNetX1_6GF.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "RegNetX1_6GF_Hailo",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/RegNetX1_6GF_Hailo.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "RegNetX32GF",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/RegNetX32GF.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "RegNetX3_2GF",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/RegNetX3_2GF.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "RegNetX400MF",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/RegNetX400MF.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "RegNetX800MF",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/RegNetX800MF.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "RegNetX8GF",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/RegNetX8GF.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "RegNetY16GF",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/RegNetY16GF.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "RegNetY1_6GF",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/RegNetY1_6GF.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "RegNetY200MF",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/RegNetY200MF.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "RegNetY32GF",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/RegNetY32GF.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "RegNetY3_2GF",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/RegNetY3_2GF.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "RegNetY400MF",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/RegNetY400MF.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "RegNetY800MF",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/RegNetY800MF.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "RegNetY8GF",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/RegNetY8GF.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "ResNet101",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/ResNet101.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "ResNet152",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/ResNet152.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "ResNet18",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/ResNet18.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "ResNet18-H",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/ResNet18-H.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "ResNet34",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/ResNet34.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "ResNet50",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/ResNet50.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "ResNeXt101_64x4d",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/ResNeXt101_64x4d.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "ResNeXt26_32x4d",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/ResNeXt26_32x4d.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "ResNeXt50_32x4d",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/ResNeXt50_32x4d.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "ResNeXt50_32x4d_Hailo",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/ResNeXt50_32x4d_Hailo.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "retinaface_mobilenet0.25_640",
+    "category": "Face Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/retinaface_mobilenet0.25_640.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "scdepthv3",
+    "category": "Depth Estimation",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/scdepthv3.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "SCRFD10G",
+    "category": "Face Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/SCRFD10G.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "SCRFD2_5G",
+    "category": "Face Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/SCRFD2_5G.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "SCRFD500M",
+    "category": "Face Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/SCRFD500M.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "SCRFD500M_PPU",
+    "category": "Face Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/SCRFD500M_PPU.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "segformer_b0_512x1024",
+    "category": "Semantic Segmentation",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/segformer_b0_512x1024.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "segformer_b0_512x1024_hailo",
+    "category": "Semantic Segmentation",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/segformer_b0_512x1024_hailo.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "ShuffleNetV1X1_0",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/ShuffleNetV1X1_0.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "ShuffleNetV2X0_5",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/ShuffleNetV2X0_5.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "ShuffleNetV2X1_0",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/ShuffleNetV2X1_0.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "ShuffleNetV2X1_5",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/ShuffleNetV2X1_5.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "ShuffleNetV2X2_0",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/ShuffleNetV2X2_0.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "SqueezeNet1_0",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/SqueezeNet1_0.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "SqueezeNet1_1",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/SqueezeNet1_1.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "SqueezeNet1_1_H",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/SqueezeNet1_1_H.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "SSDMV1",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/SSDMV1.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "SSDMV2Lite",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/SSDMV2Lite.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "SSDVGG16",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/SSDVGG16.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "ulfgfd-RFB-320",
+    "category": "Face Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/ulfgfd-RFB-320.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "ulfgfd-RFB-320_without_postprocessing",
+    "category": "Face Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/ulfgfd-RFB-320_without_postprocessing.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "ulfgfd-RFB-640",
+    "category": "Face Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/ulfgfd-RFB-640.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "ulfgfd-slim-320",
+    "category": "Face Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/ulfgfd-slim-320.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "ulfgfd-slim-320_without_postprocessing",
+    "category": "Face Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/ulfgfd-slim-320_without_postprocessing.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "unet_mobilenet_v2",
+    "category": "Semantic Segmentation",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/unet_mobilenet_v2.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "VGG11",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/VGG11.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "VGG11BN",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/VGG11BN.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "VGG13",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/VGG13.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "VGG13BN",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/VGG13BN.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "VGG16",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/VGG16.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "VGG16BN",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/VGG16BN.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "VGG19",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/VGG19.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "VGG19BN",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/VGG19BN.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "ViTB32",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/ViTB32.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "ViTL32",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/ViTL32.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "WideResNet101_2",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/WideResNet101_2.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "WideResNet50_2",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/WideResNet50_2.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "yolact_regnetx_1.6gf",
+    "category": "Instance Segmentation",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/yolact_regnetx_1.6gf.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "yolact_regnetx_800mf",
+    "category": "Instance Segmentation",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/yolact_regnetx_800mf.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "yolo26l",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/yolo26l.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "yolo26l-cls",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/yolo26l-cls.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "yolo26l-obb",
+    "category": "OBB Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/yolo26l-obb.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "yolo26l-pose",
+    "category": "Pose Estimation",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/yolo26l-pose.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "yolo26l-seg",
+    "category": "Instance Segmentation",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/yolo26l-seg.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "yolo26m",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/yolo26m.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "yolo26m-cls",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/yolo26m-cls.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "yolo26m-obb",
+    "category": "OBB Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/yolo26m-obb.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "yolo26m-pose",
+    "category": "Pose Estimation",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/yolo26m-pose.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "yolo26m-seg",
+    "category": "Instance Segmentation",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/yolo26m-seg.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "yolo26n",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/yolo26n.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "yolo26n-cls",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/yolo26n-cls.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "yolo26n-obb",
+    "category": "OBB Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/yolo26n-obb.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "yolo26n-pose",
+    "category": "Pose Estimation",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/yolo26n-pose.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "yolo26n-seg",
+    "category": "Instance Segmentation",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/yolo26n-seg.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "yolo26s",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/yolo26s.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "yolo26s-cls",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/yolo26s-cls.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "yolo26s-obb",
+    "category": "OBB Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/yolo26s-obb.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "yolo26s-pose",
+    "category": "Pose Estimation",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/yolo26s-pose.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "yolo26s-seg",
+    "category": "Instance Segmentation",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/yolo26s-seg.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "yolo26x",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/yolo26x.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "yolo26x-cls",
+    "category": "Image Classification",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/yolo26x-cls.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "yolo26x-obb",
+    "category": "OBB Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/yolo26x-obb.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "yolo26x-pose",
+    "category": "Pose Estimation",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/yolo26x-pose.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "yolo26x-seg",
+    "category": "Instance Segmentation",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/yolo26x-seg.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YOLOV10B",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YOLOV10B.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YOLOV10L",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YOLOV10L.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YOLOV10M",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YOLOV10M.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YOLOV10N",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YOLOV10N.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YOLOV10N_PPU",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YOLOV10N_PPU.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YOLOV10S",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YOLOV10S.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YOLOV10X",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YOLOV10X.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YOLOV11L",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YOLOV11L.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YOLOV11M",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YOLOV11M.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YOLOV11N",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YOLOV11N.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YOLOV11N_PPU",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YOLOV11N_PPU.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YOLOV11S",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YOLOV11S.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YOLOV11X",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YOLOV11X.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YOLOV12N_PPU",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YOLOV12N_PPU.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YoloV3",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YoloV3.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YOLOV3_2",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YOLOV3_2.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YOLOV3_2_PPU",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YOLOV3_2_PPU.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YOLOV3_3_PPU",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YOLOV3_3_PPU.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "yolov3_gluon_416",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/yolov3_gluon_416.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "yolov3_gluon_608",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/yolov3_gluon_608.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YOLOV3Tiny_1",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YOLOV3Tiny_1.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YOLOV3Tiny_1_PPU",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YOLOV3Tiny_1_PPU.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YOLOV4_2_PPU",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YOLOV4_2_PPU.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "yolov4_leaky_512_512",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/yolov4_leaky_512_512.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YOLOV4Tiny_1",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YOLOV4Tiny_1.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YoloV5L",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YoloV5L.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YoloV5L6",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YoloV5L6.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YoloV5L_Hailo",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YoloV5L_Hailo.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "yolov5l_seg",
+    "category": "Instance Segmentation",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/yolov5l_seg.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YoloV5M",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YoloV5M.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YoloV5M6",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YoloV5M6.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YoloV5M6_61_Hailo",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YoloV5M6_61_Hailo.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YoloV5M_6.1",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YoloV5M_6.1.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YOLOv5m_Face",
+    "category": "Face Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YOLOv5m_Face.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YoloV5M_Hailo",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YoloV5M_Hailo.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "yolov5m_seg",
+    "category": "Instance Segmentation",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/yolov5m_seg.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "yolov5m_wo_spp_640",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/yolov5m_wo_spp_640.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YoloV5N",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YoloV5N.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YoloV5N6",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YoloV5N6.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YoloV5N6_61_Hailo",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YoloV5N6_61_Hailo.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "yolov5n_seg",
+    "category": "Instance Segmentation",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/yolov5n_seg.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YoloV5S",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YoloV5S.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YoloV5S6",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YoloV5S6.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YoloV5S6_61_Hailo",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YoloV5S6_61_Hailo.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YOLOV5S_4",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YOLOV5S_4.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "yolov5s_bbox_decoding_only_640",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/yolov5s_bbox_decoding_only_640.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "yolov5s_c3tr_640",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/yolov5s_c3tr_640.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YOLOv5s_Face",
+    "category": "Face Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YOLOv5s_Face.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YoloV5S_Hailo",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YoloV5S_Hailo.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YoloV5S_PPU",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YoloV5S_PPU.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "yolov5s_seg",
+    "category": "Instance Segmentation",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/yolov5s_seg.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "yolov5s_wo_spp_640",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/yolov5s_wo_spp_640.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YoloV5X",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YoloV5X.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YoloV5X6",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YoloV5X6.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "yolov5xs_wo_spp_512",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/yolov5xs_wo_spp_512.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YOLOV5Pose_PPU",
+    "category": "Pose Estimation",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YOLOV5Pose_PPU.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YoloV6L",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YoloV6L.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YoloV6M",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YoloV6M.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YoloV6N",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YoloV6N.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YoloV6N_0.1.0",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YoloV6N_0.1.0.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YoloV6n_0.2.1",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YoloV6n_0.2.1.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "yolov6n_0.2.1_nms_core",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/yolov6n_0.2.1_nms_core.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YoloV7",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YoloV7.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "yolov7-wo_decoding",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/yolov7-wo_decoding.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YOLOv7_Face",
+    "category": "Face Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YOLOv7_Face.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YoloV7_PPU",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YoloV7_PPU.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "yolov7_w6-wo_decoding",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/yolov7_w6-wo_decoding.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YOLOv7_W6_Face",
+    "category": "Face Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YOLOv7_W6_Face.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YOLOv7_W6_TTA_Face",
+    "category": "Face Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YOLOv7_W6_TTA_Face.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YoloV7D6",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YoloV7D6.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YoloV7E6",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YoloV7E6.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YoloV7E6E",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YoloV7E6E.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YOLOv7s_Face",
+    "category": "Face Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YOLOv7s_Face.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YoloV7Tiny",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YoloV7Tiny.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YoloV7W6",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YoloV7W6.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YOLOv7x",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YOLOv7x.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YOLOv7x_PPU",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YOLOv7x_PPU.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YoloV8L",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YoloV8L.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YoloV8M",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YoloV8M.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "yolov8m_pose",
+    "category": "Pose Estimation",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/yolov8m_pose.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "yolov8m_seg",
+    "category": "Instance Segmentation",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/yolov8m_seg.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YoloV8N",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YoloV8N.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YoloV8N_PPU",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YoloV8N_PPU.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "yolov8n_seg",
+    "category": "Instance Segmentation",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/yolov8n_seg.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YoloV8S",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YoloV8S.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "yolov8s_bbox_decoding_only_640",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/yolov8s_bbox_decoding_only_640.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "yolov8s_pose",
+    "category": "Pose Estimation",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/yolov8s_pose.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YoloV8S_PPU",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YoloV8S_PPU.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "yolov8s_seg",
+    "category": "Instance Segmentation",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/yolov8s_seg.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YoloV8X",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YoloV8X.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YoloV9_GELAN_C",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YoloV9_GELAN_C.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YoloV9C",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YoloV9C.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YoloV9M",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YoloV9M.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YoloV9S",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YoloV9S.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YoloV9T",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YoloV9T.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YoloV9T_PPU",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YoloV9T_PPU.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YOLOX-S_2_PPU",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YOLOX-S_2_PPU.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YoloX_L_Leaky",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YoloX_L_Leaky.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YoloX_S_Leaky",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YoloX_S_Leaky.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YoloX_S_Wide_Leaky",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YoloX_S_Wide_Leaky.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YoloXL",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YoloXL.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YoloXM",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YoloXM.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YoloXS",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YoloXS.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YoloXTiny",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YoloXTiny.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "YoloXX",
+    "category": "Object Detection",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YoloXX.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "zero_dce",
+    "category": "Image Enhancement",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/zero_dce.dxnn",
+    "json_url": null
+  }
+]

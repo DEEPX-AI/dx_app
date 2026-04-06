@@ -1,90 +1,118 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# Thin wrapper: delegate all work to scripts/download_models.py
 SCRIPT_DIR=$(realpath "$(dirname "$0")")
+source ${SCRIPT_DIR}/scripts/color_env.sh || true
+source ${SCRIPT_DIR}/scripts/common_util.sh || true
 
-# color env settings
-source ${SCRIPT_DIR}/scripts/color_env.sh
-source ${SCRIPT_DIR}/scripts/common_util.sh
+DOWNLOADER="${SCRIPT_DIR}/scripts/download_models.py"
 
-BASE_URL="https://sdk.deepx.ai/"
-
-# default value
-SOURCE_PATH="res/models/models-2_2_1.tar.gz"
-OUTPUT_DIR="$SCRIPT_DIR/assets/models"
-SYMLINK_TARGET_PATH=""
-SYMLINK_ARGS=""
-FORCE_ARGS=""
-
-# Function to display help message
-show_help() {
-  
-  echo "Usage: $(basename "$0") [OPTIONS]"
-  echo "Options:"
-  echo "  [--force]                  Force overwrite if the file already exists"
-  echo "  [--help]                   Show this help message"
-
-  if [ "$1" == "error" ]; then
-    echo "Error: Invalid or missing arguments."
+if [ ! -f "$DOWNLOADER" ]; then
+    echo "[ERR ] ModelZoo downloader not found: $DOWNLOADER" >&2
     exit 1
-  fi
-  exit 0
-}
+fi
 
-main() {
-    SCRIPT_DIR=$(realpath "$(dirname "$0")")
-    GET_RES_CMD="$SCRIPT_DIR/scripts/get_resource.sh --src_path=$SOURCE_PATH --output=$OUTPUT_DIR $SYMLINK_ARGS $FORCE_ARGS --extract"
-    echo "Get Resources from remote server ..."
-    echo "$GET_RES_CMD"
+# Defaults
+DEFAULT_OUTPUT="${SCRIPT_DIR}/assets/models"
+OUTPUT=""
+SYMLINK_TARGET=""
+ARGS=()
 
-    $GET_RES_CMD || {
-        local error_msg="Get resource failed!"
-        local hint_msg="If the issue persists, please try again with sudo and the --force option, like this: 'sudo ./setup_sample_models.sh --force'."
-        local origin_cmd="" # no need to run origin command
-        local suggested_action_cmd="sudo $GET_RES_CMD --force"
-
-        # handle_cmd_failure function arguments
-        #   - local error_message=$1
-        #   - local hint_message=$2
-        #   - local origin_cmd=$3
-        #   - local suggested_action_cmd=$4
-        handle_cmd_failure "$error_msg" "$hint_msg" "$origin_cmd" "$suggested_action_cmd"
-    }
-}
-
-# parse args
-for i in "$@"; do
+# Parse args
+while [ $# -gt 0 ]; do
     case "$1" in
-        --src_path=*)
-            SOURCE_PATH="${1#*=}"
+        -h|-help)
+            ARGS+=("-h")
+            shift
+            ;;
+        --manifest=*)
+            ARGS+=("$1")
+            shift
+            ;;
+        --manifest)
+            ARGS+=("$1" "$2")
+            shift 2
             ;;
         --output=*)
-            OUTPUT_DIR="${1#*=}"
-
-            # Symbolic link cannot be created when output_dir is the current directory.
-            OUTPUT_REAL_DIR=$(readlink -f "$OUTPUT_DIR")
-            CURRENT_REAL_DIR=$(readlink -f "./")
-            if [ "$OUTPUT_REAL_DIR" == "$CURRENT_REAL_DIR" ]; then
-                echo "'--output' is the same as the current directory. Please specify a different directory."
-                exit 1
-            fi
+            OUTPUT="${1#*=}"
+            ARGS+=("$1")
+            shift
+            ;;
+        --output)
+            OUTPUT="$2"
+            ARGS+=("$1" "$2")
+            shift 2
             ;;
         --symlink_target_path=*)
-            SYMLINK_TARGET_PATH="${1#*=}"
-            SYMLINK_ARGS="--symlink_target_path=$SYMLINK_TARGET_PATH"
+            SYMLINK_TARGET="${1#*=}"
+            shift
             ;;
-        --force)
-            FORCE_ARGS="--force"
-            ;;
-        --help)
-            show_help
+        --symlink_target_path)
+            SYMLINK_TARGET="$2"
+            shift 2
             ;;
         *)
-            echo "Unknown option: $1"
-            show_help "error"
+            ARGS+=("$1")
+            shift
             ;;
     esac
-    shift
 done
 
-main
+# Ensure OUTPUT has a value
+if [ -z "$OUTPUT" ]; then
+    OUTPUT="$DEFAULT_OUTPUT"
+fi
+
+# Ensure ARGS uses the desired output directory (always download into `OUTPUT`)
+CLEAN_ARGS=()
+skip_next=0
+for a in "${ARGS[@]}"; do
+    if [ "$skip_next" -eq 1 ]; then
+        skip_next=0
+        continue
+    fi
+    case "$a" in
+        --output)
+            skip_next=1
+            ;;
+        --output=*)
+            ;;
+        *)
+            CLEAN_ARGS+=("$a")
+            ;;
+    esac
+done
+if [ -n "$SYMLINK_TARGET" ]; then
+    DOWNLOAD_TO="$SYMLINK_TARGET"
+else
+    DOWNLOAD_TO="$OUTPUT"
+fi
+ARGS=("${CLEAN_ARGS[@]}" "--output" "$DOWNLOAD_TO")
+
+# Ensure required Python dependency is available
+python3 -c "import requests" 2>/dev/null || python3 -m pip install --quiet requests
+
+# Run downloader
+python3 "$DOWNLOADER" "${ARGS[@]}"
+rc=$?
+
+if [ $rc -ne 0 ]; then
+    exit $rc
+fi
+
+# Post-processing: if symlink target was provided, ensure assets output is a symlink
+# Skip if --dry-run or --list was passed (no actual download occurred)
+_is_dry=0
+for _a in "${ARGS[@]}"; do
+    [[ "$_a" == "--dry-run" || "$_a" == "--list" ]] && _is_dry=1 && break
+done
+
+if [ -n "$SYMLINK_TARGET" ] && [ "$_is_dry" -eq 0 ]; then
+    if [ -L "$OUTPUT" ] || [ -d "$OUTPUT" ]; then
+        rm -rf "$OUTPUT"
+    fi
+    mkdir -p "$(dirname "$OUTPUT")" || true
+    ln -s "$(readlink -f "$SYMLINK_TARGET")" "$OUTPUT"
+    echo "[INFO] Created symbolic link: $OUTPUT -> $(readlink -f "$SYMLINK_TARGET")"
+fi
 
 exit 0

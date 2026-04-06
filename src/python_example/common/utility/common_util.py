@@ -1,0 +1,458 @@
+"""
+Common utility functions for neural network operations.
+"""
+
+from typing import List, Tuple
+import numpy as np
+import cv2
+
+
+def sigmoid(x: np.ndarray) -> np.ndarray:
+    """
+    Compute sigmoid activation.
+    
+    Args:
+        x: Input array
+        
+    Returns:
+        Sigmoid-activated array
+    """
+    return 1.0 / (1.0 + np.exp(-np.clip(x, -500, 500)))
+
+
+def softmax(x: np.ndarray, axis: int = -1) -> np.ndarray:
+    """
+    Compute softmax activation.
+    
+    Args:
+        x: Input array
+        axis: Axis to apply softmax over
+        
+    Returns:
+        Softmax-activated array
+    """
+    exp_x = np.exp(x - np.max(x, axis=axis, keepdims=True))
+    return exp_x / np.sum(exp_x, axis=axis, keepdims=True)
+
+
+def argmax(x: np.ndarray, axis: int = -1) -> np.ndarray:
+    """
+    Get argmax indices.
+    
+    Args:
+        x: Input array
+        axis: Axis to find argmax over
+        
+    Returns:
+        Array of indices
+    """
+    return np.argmax(x, axis=axis)
+
+
+def iou(box1: np.ndarray, box2: np.ndarray) -> float:
+    """
+    Calculate Intersection over Union for two boxes.
+    
+    Args:
+        box1: First box [x1, y1, x2, y2]
+        box2: Second box [x1, y1, x2, y2]
+        
+    Returns:
+        IoU value
+    """
+    x_left = max(box1[0], box2[0])
+    y_top = max(box1[1], box2[1])
+    x_right = min(box1[2], box2[2])
+    y_bottom = min(box1[3], box2[3])
+    
+    if x_right < x_left or y_bottom < y_top:
+        return 0.0
+    
+    intersection = (x_right - x_left) * (y_bottom - y_top)
+    area1 = (box1[2] - box1[0]) * (box1[3] - box1[1])
+    area2 = (box2[2] - box2[0]) * (box2[3] - box2[1])
+    union = area1 + area2 - intersection
+    
+    return intersection / union if union > 0 else 0.0
+
+
+def nms(boxes: np.ndarray, scores: np.ndarray, 
+        iou_threshold: float = 0.45) -> List[int]:
+    """
+    Apply Non-Maximum Suppression.
+    
+    Args:
+        boxes: Array of boxes [N, 4] in [x1, y1, x2, y2] format
+        scores: Array of confidence scores [N]
+        iou_threshold: IoU threshold for suppression
+        
+    Returns:
+        List of indices to keep
+    """
+    if len(boxes) == 0:
+        return []
+    
+    # Sort by score
+    indices = np.argsort(scores)[::-1]
+    keep = []
+    
+    while len(indices) > 0:
+        current = indices[0]
+        keep.append(int(current))
+        
+        if len(indices) == 1:
+            break
+        
+        # Calculate IoU with remaining boxes
+        remaining = indices[1:]
+        ious = np.array([iou(boxes[current], boxes[i]) for i in remaining])
+        
+        # Keep boxes with IoU below threshold
+        indices = remaining[ious < iou_threshold]
+    
+    return keep
+
+
+def nms_by_class(boxes: np.ndarray, scores: np.ndarray, 
+                 class_ids: np.ndarray, iou_threshold: float = 0.45) -> List[int]:
+    """
+    Apply NMS per class.
+    
+    Args:
+        boxes: Array of boxes [N, 4]
+        scores: Array of confidence scores [N]
+        class_ids: Array of class IDs [N]
+        iou_threshold: IoU threshold for suppression
+        
+    Returns:
+        List of indices to keep
+    """
+    if len(boxes) == 0:
+        return []
+    
+    keep = []
+    unique_classes = np.unique(class_ids)
+    
+    for cls in unique_classes:
+        mask = class_ids == cls
+        cls_indices = np.where(mask)[0]
+        cls_keep = nms(boxes[mask], scores[mask], iou_threshold)
+        keep.extend([cls_indices[i] for i in cls_keep])
+    
+    return sorted(keep)
+
+
+def xywh_to_xyxy(boxes: np.ndarray) -> np.ndarray:
+    """
+    Convert boxes from [x_center, y_center, width, height] to [x1, y1, x2, y2].
+    
+    Args:
+        boxes: Array of boxes [N, 4] in xywh format
+        
+    Returns:
+        Array of boxes [N, 4] in xyxy format
+    """
+    result = np.zeros_like(boxes)
+    result[:, 0] = boxes[:, 0] - boxes[:, 2] / 2  # x1
+    result[:, 1] = boxes[:, 1] - boxes[:, 3] / 2  # y1
+    result[:, 2] = boxes[:, 0] + boxes[:, 2] / 2  # x2
+    result[:, 3] = boxes[:, 1] + boxes[:, 3] / 2  # y2
+    return result
+
+
+def xyxy_to_xywh(boxes: np.ndarray) -> np.ndarray:
+    """
+    Convert boxes from [x1, y1, x2, y2] to [x_center, y_center, width, height].
+    
+    Args:
+        boxes: Array of boxes [N, 4] in xyxy format
+        
+    Returns:
+        Array of boxes [N, 4] in xywh format
+    """
+    result = np.zeros_like(boxes)
+    result[:, 0] = (boxes[:, 0] + boxes[:, 2]) / 2  # x_center
+    result[:, 1] = (boxes[:, 1] + boxes[:, 3]) / 2  # y_center
+    result[:, 2] = boxes[:, 2] - boxes[:, 0]  # width
+    result[:, 3] = boxes[:, 3] - boxes[:, 1]  # height
+    return result
+
+
+def clip_boxes(boxes: np.ndarray, width: int, height: int) -> np.ndarray:
+    """
+    Clip boxes to image boundaries.
+    
+    Args:
+        boxes: Array of boxes [N, 4] in xyxy format
+        width: Image width
+        height: Image height
+        
+    Returns:
+        Clipped boxes
+    """
+    result = boxes.copy()
+    result[:, 0] = np.clip(result[:, 0], 0, width)
+    result[:, 1] = np.clip(result[:, 1], 0, height)
+    result[:, 2] = np.clip(result[:, 2], 0, width)
+    result[:, 3] = np.clip(result[:, 3], 0, height)
+    return result
+
+
+def convert_cpp_detections(detections: np.ndarray) -> List:
+    """
+    Convert C++ postprocessor output (numpy array) to DetectionResult objects.
+    
+    C++ postprocessors return numpy arrays of shape [N, 6] where each row is:
+    [x1, y1, x2, y2, confidence, class_id]
+    
+    Args:
+        detections: numpy array of shape [N, 6] from C++ postprocessor
+        
+    Returns:
+        List of DetectionResult-compatible objects
+    """
+    from ..base import DetectionResult
+    
+    results = []
+    if detections is None or len(detections) == 0:
+        return results
+    
+    for det in detections:
+        result = DetectionResult(
+            box=[float(det[0]), float(det[1]), float(det[2]), float(det[3])],
+            confidence=float(det[4]),
+            class_id=int(det[5])
+        )
+        results.append(result)
+    
+    return results
+
+
+def convert_cpp_face_detections(detections: np.ndarray) -> List:
+    """
+    Convert C++ face postprocessor output (numpy array) to FaceResult with keypoints.
+    
+    Args:
+        detections: numpy array [N, 6+keypoints] from C++ postprocessor
+                   [x1, y1, x2, y2, confidence, class_id, kp1_x, kp1_y, ...]
+    
+    Returns:
+        List of FaceResult objects with Keypoint objects
+    """
+    from ..processors.face_postprocessor import FaceResult
+    from ..base import Keypoint
+    
+    results = []
+    if detections is None or len(detections) == 0:
+        return results
+    
+    NUM_FACE_KEYPOINTS = 5  # SCRFD / YOLOv5Face: 5 landmarks
+    for det in detections:
+        # Parse keypoints as Keypoint objects (x, y pairs)
+        kp_data = det[6:].flatten() if hasattr(det[6:], 'flatten') else list(det[6:])
+        # Limit to expected number of keypoints to ignore trailing garbage data
+        max_values = NUM_FACE_KEYPOINTS * 2
+        kp_data = kp_data[:max_values]
+        keypoints = []
+        for i in range(0, len(kp_data) - 1, 2):
+            keypoints.append(Keypoint(
+                x=float(kp_data[i]),
+                y=float(kp_data[i + 1]),
+                confidence=1.0
+            ))
+        
+        result = FaceResult(
+            box=[float(det[0]), float(det[1]), float(det[2]), float(det[3])],
+            confidence=float(det[4]),
+            class_id=int(det[5]),
+            keypoints=keypoints
+        )
+        results.append(result)
+    
+    return results
+
+
+def convert_cpp_pose_detections(detections: np.ndarray) -> List:
+    """
+    Convert C++ pose postprocessor output (numpy array) to PoseResult objects.
+    
+    Args:
+        detections: numpy array [N, 6+keypoints] from C++ postprocessor
+                   [x1, y1, x2, y2, confidence, class_id, kp1_x, kp1_y, kp1_conf, ...]
+    
+    Returns:
+        List of PoseResult-compatible objects with keypoints
+    """
+    from ..base import PoseResult, Keypoint
+    
+    results = []
+    if detections is None or len(detections) == 0:
+        return results
+    
+    for det in detections:
+        keypoint_data = det[6:] if len(det) > 6 else []
+        keypoints = []
+        
+        # Parse keypoints (x, y, conf) triplets
+        for i in range(0, len(keypoint_data) - 2, 3):
+            kp = Keypoint(
+                x=float(keypoint_data[i]),
+                y=float(keypoint_data[i + 1]),
+                confidence=float(keypoint_data[i + 2])
+            )
+            keypoints.append(kp)
+        
+        result = PoseResult(
+            box=[float(det[0]), float(det[1]), float(det[2]), float(det[3])],
+            confidence=float(det[4]),
+            class_id=int(det[5]),
+            keypoints=keypoints
+        )
+        results.append(result)
+    
+    return results
+
+
+def convert_cpp_classification(predictions: np.ndarray) -> List:
+    """
+    Convert C++ classification postprocessor output to ClassificationResult objects.
+
+    Args:
+        predictions: numpy array [K, 2] where each row is [class_id, confidence]
+
+    Returns:
+        List of ClassificationResult
+    """
+    from ..base import ClassificationResult
+
+    results = []
+    if predictions is None or len(predictions) == 0:
+        return results
+
+    for pred in predictions:
+        results.append(ClassificationResult(
+            class_id=int(pred[0]),
+            confidence=float(pred[1]),
+            class_name=""
+        ))
+
+    return results
+
+
+def convert_cpp_obb_detections(detections: np.ndarray) -> List:
+    """
+    Convert C++ OBB postprocessor output to OBBResult objects.
+
+    Args:
+        detections: numpy array [N, 7] where each row is
+                   [cx, cy, w, h, confidence, class_id, angle]
+
+    Returns:
+        List of OBBResult
+    """
+    from ..base import OBBResult
+
+    results = []
+    if detections is None or len(detections) == 0:
+        return results
+
+    for det in detections:
+        results.append(OBBResult(
+            cx=float(det[0]),
+            cy=float(det[1]),
+            width=float(det[2]),
+            height=float(det[3]),
+            confidence=float(det[4]),
+            class_id=int(det[5]),
+            angle=float(det[6]),
+            class_name=""
+        ))
+
+    return results
+
+
+def convert_cpp_embedding(embedding: np.ndarray) -> List:
+    """
+    Convert C++ embedding postprocessor output to EmbeddingResult.
+
+    Args:
+        embedding: numpy array [D] - L2-normalized embedding vector
+
+    Returns:
+        List containing a single EmbeddingResult
+    """
+    from ..base import EmbeddingResult
+
+    if embedding is None or len(embedding) == 0:
+        return []
+
+    return [EmbeddingResult(embedding=embedding)]
+
+
+def convert_cpp_zero_dce(image: np.ndarray, ctx=None) -> list:
+    """
+    Convert C++ Zero-DCE postprocessor output to EnhancedImageResult list.
+
+    Args:
+        image: numpy array - raw curve params [24, H, W] or enhanced image
+               [C, H, W] float32 / [H, W, C] uint8.
+        ctx: Optional PreprocessContext with normalized_input for LE curve application.
+
+    Returns:
+        List containing a single EnhancedImageResult
+    """
+    from ..base import EnhancedImageResult
+
+    if image is None:
+        return []
+
+    img = np.asarray(image)
+
+    if img.ndim == 3 and img.shape[0] not in (1, 3):
+        return _apply_le_curves_from_params(img, ctx)
+
+    if img.ndim == 3 and img.shape[0] in (1, 3) and img.dtype in (np.float32, np.float64):
+        if img.shape[0] == 3:
+            img = np.transpose(img, (1, 2, 0))  # CHW → HWC
+        else:
+            img = img.squeeze(0)  # 1HW → HW
+        img = np.clip(img, 0.0, 1.0)
+        if img.ndim == 3 and img.shape[2] == 3:
+            img = img[:, :, ::-1]  # RGB → BGR
+        img = (img * 255.0).astype(np.uint8)
+
+    return [EnhancedImageResult(output_image=img)]
+
+
+def _apply_le_curves_from_params(params: np.ndarray, ctx) -> list:
+    """Apply iterative LE curves from raw curve parameters [24, H, W]."""
+    from ..base import EnhancedImageResult
+
+    h, w = params.shape[1], params.shape[2]
+    n_iters = params.shape[0] // 3
+
+    if ctx is not None and hasattr(ctx, 'normalized_input') and ctx.normalized_input is not None:
+        enhanced = ctx.normalized_input.copy().astype(np.float32)
+        if enhanced.ndim == 3 and enhanced.shape[0] != 3 and enhanced.shape[2] == 3:
+            enhanced = np.transpose(enhanced, (2, 0, 1))
+        if enhanced.shape[1] != h or enhanced.shape[2] != w:
+            resized = np.zeros((3, h, w), dtype=np.float32)
+            for c in range(3):
+                resized[c] = cv2.resize(enhanced[c], (w, h), interpolation=cv2.INTER_LINEAR)
+            enhanced = resized
+    else:
+        enhanced = np.full((3, h, w), 0.5, dtype=np.float32)
+
+    for i in range(n_iters):
+        alpha = params[i * 3:(i + 1) * 3]
+        enhanced = enhanced + alpha * enhanced * (1.0 - enhanced)
+    enhanced = np.clip(enhanced, 0.0, 1.0)
+
+    img_out = np.transpose(enhanced, (1, 2, 0))[:, :, ::-1]  # CHW RGB → HWC BGR
+
+    if ctx is not None and hasattr(ctx, 'original_width') and ctx.original_width > 0 and ctx.original_height > 0:
+        if img_out.shape[1] != ctx.original_width or img_out.shape[0] != ctx.original_height:
+            img_out = cv2.resize(img_out, (ctx.original_width, ctx.original_height),
+                                 interpolation=cv2.INTER_LINEAR)
+
+    return [EnhancedImageResult(output_image=(img_out * 255.0).astype(np.uint8))]

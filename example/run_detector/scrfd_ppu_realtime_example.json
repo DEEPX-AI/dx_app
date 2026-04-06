@@ -37,26 +37,26 @@
         "format":"RGB",
         "sources":[
             {
-                "type":"video", 
+                "type":"video",
                 "path":"assets/videos/dance-group.mov"
             },
             {
-                "type":"video", 
-                "path":"assets/videos/dance-group2.mov"
+                "type":"video",
+                "path":"assets/videos/dance-group.mov"
             },
             {
-                "type":"video", 
+                "type":"video",
                 "path":"assets/videos/dance-solo.mov"
             },
             {
-                "type":"image", 
-                "path":"sample/face_sample.jpg"
+                "type":"image",
+                "path":"sample/img/sample_face.jpg"
             }
         ]
     },
     "output":{
         "description":"output type is used for post processing, that yolo, ssd, etc...",
-        "classes":[ 
+        "classes":[
             "face"
         ],
         "type":"scrfd"
@@ -65,7 +65,7 @@
         "description":"result of post-processing after inference, you can use \"save\" or \"realtime\" or \"none\"",
         "type":"realtime",
         "resolution": [
-            960, 
+            960,
             540
         ]
     }

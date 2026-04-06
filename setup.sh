@@ -14,6 +14,23 @@ DOCKER_VOLUME_PATH=${DOCKER_VOLUME_PATH}
 FORCE_ARGS=""
 FORCE_REMOVE_MODELS=0
 FORCE_REMOVE_VIDEOS=0
+MANIFEST_OVERRIDE=""
+DOWNLOAD_ALL_ARGS=""
+DRY_RUN_ARG=""
+LIST_ARG=""
+WORKERS_ARG=""
+NO_JSON_ARG=""
+CATEGORY_ARG=""
+MODELS_ARG=""
+
+# If the user only asked for downloader help, forward to the inner setup_sample_models helper
+if [ "$#" -eq 1 ]; then
+    case "$1" in
+        -h|-help)
+            exec "${SCRIPT_DIR}/setup_sample_models.sh" -h
+            ;;
+    esac
+fi
 
 pushd $SCRIPT_DIR
 
@@ -22,6 +39,14 @@ show_help() {
     print_colored "Usage: $(basename "$0") [OPTIONS]" "YELLOW"
     print_colored "Options:" "GREEN"
     print_colored "  --docker_volume_path=<path>    Set Docker volume path (required in container mode)" "GREEN"
+    print_colored "  [--manifest=<path>]            Use an alternate manifest JSON file for model downloads" "GREEN"
+    print_colored "  [--all]                        Download all models non-interactively" "GREEN"
+    print_colored "  [--dry-run]                    List models that would be downloaded without downloading" "GREEN"
+    print_colored "  [--list]                       List available models without downloading" "GREEN"
+    print_colored "  [--workers=<N>]                Parallel download threads (default: 4)" "GREEN"
+    print_colored "  [--no-json]                    Skip JSON file downloads" "GREEN"
+    print_colored "  [--category=<name>]            Download models of a specific category only" "GREEN"
+    print_colored "  [--models=<m1> [m2...]]        Download specific models by name" "GREEN"
     print_colored "  [--force]                      Force overwrite if the file already exists" "GREEN"
     print_colored "  [--force-remove-models]        Force remove models if they exist" "GREEN"
     print_colored "  [--force-remove-videos]        Force remove videos if they exist" "GREEN"
@@ -42,11 +67,78 @@ show_help() {
 }
 
 # Parse arguments
-for i in "$@"; do
+while [ $# -gt 0 ]; do
     case $1 in
         --docker_volume_path=*)
-            DOCKER_VOLUME_PATH="${i#*=}"
+            DOCKER_VOLUME_PATH="${1#*=}"
             shift
+            ;;
+        --docker_volume_path)
+            DOCKER_VOLUME_PATH="$2"
+            shift 2
+            ;;
+        --source=*)
+            DOWNLOAD_SOURCE="${1#*=}"
+            if [[ "$DOWNLOAD_SOURCE" != "public" && "$DOWNLOAD_SOURCE" != "internal" ]]; then
+                show_help "error" "Invalid --source value '$DOWNLOAD_SOURCE'. Use 'public' or 'internal'."
+            fi
+            shift
+            ;;
+        --source)
+            DOWNLOAD_SOURCE="$2"
+            if [[ "$DOWNLOAD_SOURCE" != "public" && "$DOWNLOAD_SOURCE" != "internal" ]]; then
+                show_help "error" "Invalid --source value '$DOWNLOAD_SOURCE'. Use 'public' or 'internal'."
+            fi
+            shift 2
+            ;;
+        --all)
+            DOWNLOAD_ALL_ARGS="--all"
+            shift
+            ;;
+        --dry-run)
+            DRY_RUN_ARG="--dry-run"
+            shift
+            ;;
+        --list)
+            LIST_ARG="--list"
+            shift
+            ;;
+        --workers=*)
+            WORKERS_ARG="--workers=${1#*=}"
+            shift
+            ;;
+        --workers)
+            WORKERS_ARG="--workers=$2"
+            shift 2
+            ;;
+        --no-json)
+            NO_JSON_ARG="--no-json"
+            shift
+            ;;
+        --category=*)
+            CATEGORY_ARG="--category=${1#*=}"
+            shift
+            ;;
+        --category)
+            CATEGORY_ARG="--category=$2"
+            shift 2
+            ;;
+        --models)
+            shift
+            MODELS_ARGS=()
+            while [ $# -gt 0 ] && [[ "$1" != --* ]]; do
+                MODELS_ARGS+=("$1")
+                shift
+            done
+            MODELS_ARG="--models ${MODELS_ARGS[*]}"
+            ;;
+        --manifest=*)
+            MANIFEST_OVERRIDE="${1#*=}"
+            shift
+            ;;
+        --manifest)
+            MANIFEST_OVERRIDE="$2"
+            shift 2
             ;;
         --force)
             FORCE_ARGS="--force"
@@ -62,9 +154,9 @@ for i in "$@"; do
             ;;
         --verbose)
             ENABLE_DEBUG_LOGS=1
-            shift # Consume argument
+            shift
             ;;
-        --help)
+        --help|-h|-help)
             show_help
             ;;
         *)
@@ -103,14 +195,41 @@ setup_assets() {
         SETUP_VIDEO_ARGS="--output=${VIDEO_PATH} --symlink_target_path=${DX_AS_PATH}/workspace/res/videos"
     fi
 
+    if [ -n "$MANIFEST_OVERRIDE" ]; then
+        SETUP_MODEL_ARGS="$SETUP_MODEL_ARGS --manifest=${MANIFEST_OVERRIDE}"
+    fi
+    if [ -n "$DOWNLOAD_ALL_ARGS" ]; then
+        SETUP_MODEL_ARGS="$SETUP_MODEL_ARGS $DOWNLOAD_ALL_ARGS"
+    fi
+    if [ -n "$DRY_RUN_ARG" ]; then
+        SETUP_MODEL_ARGS="$SETUP_MODEL_ARGS $DRY_RUN_ARG"
+    fi
+    if [ -n "$LIST_ARG" ]; then
+        SETUP_MODEL_ARGS="$SETUP_MODEL_ARGS $LIST_ARG"
+    fi
+    if [ -n "$WORKERS_ARG" ]; then
+        SETUP_MODEL_ARGS="$SETUP_MODEL_ARGS $WORKERS_ARG"
+    fi
+    if [ -n "$NO_JSON_ARG" ]; then
+        SETUP_MODEL_ARGS="$SETUP_MODEL_ARGS $NO_JSON_ARG"
+    fi
+    if [ -n "$CATEGORY_ARG" ]; then
+        SETUP_MODEL_ARGS="$SETUP_MODEL_ARGS $CATEGORY_ARG"
+    fi
+    if [ -n "$MODELS_ARG" ]; then
+        SETUP_MODEL_ARGS="$SETUP_MODEL_ARGS $MODELS_ARG"
+    fi
+
     print_colored " MODEL_PATH: ${MODEL_PATH}" "INFO"
     MODEL_REAL_PATH=$(readlink -f "$MODEL_PATH")
     # Check and set up models
-    if [ ! -d "$MODEL_REAL_PATH" ] || [ "$FORCE_ARGS" != "" ]; then
+    # Interactive mode always runs (user selects models; downloader skips already-existing files)
+    # Non-interactive (--all) mode skips if directory already exists unless forced
+    if [ ! -d "$MODEL_REAL_PATH" ] || [ "$FORCE_ARGS" != "" ] || [ $FORCE_REMOVE_MODELS -eq 1 ] || [ -z "$DOWNLOAD_ALL_ARGS" ]; then
         if [ $FORCE_REMOVE_MODELS -eq 1 ]; then
             FORCE_ARGS="--force"
         fi
-        print_colored " models directory not found. Running setup models script... ($MODEL_REAL_PATH)" "INFO"
+        print_colored " Running setup models script... ($MODEL_REAL_PATH)" "INFO"
         ./setup_sample_models.sh $SETUP_MODEL_ARGS $FORCE_ARGS || { print_colored "Setup models script failed." "ERROR"; rm -rf $MODEL_PATH; exit 1; }
     else
         print_colored " models directory found. ($MODEL_REAL_PATH)" "INFO"

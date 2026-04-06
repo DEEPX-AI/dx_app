@@ -10,7 +10,7 @@
                 "-m",
                 "assets/models/YOLOV5S_3.dxnn",
                 "-i",
-                "sample/img/1.jpg",
+                "sample/img/sample_kitchen.jpg",
                 "-l",
                 "30"
             ],
@@ -165,7 +165,7 @@
                 "-m",
                 "assets/models/YOLOV5S_3.dxnn",
                 "-i",
-                "sample/img/1.jpg",
+                "sample/img/sample_kitchen.jpg",
                 "-l",
                 "30"
             ],
@@ -320,7 +320,7 @@
                 "-m",
                 "assets/models/YoloV7.dxnn",
                 "-i",
-                "sample/img/1.jpg",
+                "sample/img/sample_kitchen.jpg",
                 "-l",
                 "30"
             ],
@@ -475,7 +475,7 @@
                 "-m",
                 "assets/models/YoloV7.dxnn",
                 "-i",
-                "sample/img/1.jpg",
+                "sample/img/sample_kitchen.jpg",
                 "-l",
                 "30"
             ],
@@ -630,7 +630,7 @@
                 "-m",
                 "assets/models/YoloV8N.dxnn",
                 "-i",
-                "sample/img/1.jpg",
+                "sample/img/sample_kitchen.jpg",
                 "-l",
                 "30"
             ],
@@ -785,7 +785,7 @@
                 "-m",
                 "assets/models/YoloV8N.dxnn",
                 "-i",
-                "sample/img/1.jpg",
+                "sample/img/sample_kitchen.jpg",
                 "-l",
                 "30"
             ],
@@ -940,7 +940,7 @@
                 "-m",
                 "assets/models/YOLOV9S.dxnn",
                 "-i",
-                "sample/img/1.jpg",
+                "sample/img/sample_kitchen.jpg",
                 "-l",
                 "30"
             ],
@@ -1095,7 +1095,7 @@
                 "-m",
                 "assets/models/YOLOV9S.dxnn",
                 "-i",
-                "sample/img/1.jpg",
+                "sample/img/sample_kitchen.jpg",
                 "-l",
                 "30"
             ],
@@ -1250,7 +1250,7 @@
                 "-m",
                 "assets/models/YOLOV10N-1.dxnn",
                 "-i",
-                "sample/img/1.jpg",
+                "sample/img/sample_kitchen.jpg",
                 "-l",
                 "30"
             ],
@@ -1405,7 +1405,7 @@
                 "-m",
                 "assets/models/YOLOV10N-1.dxnn",
                 "-i",
-                "sample/img/1.jpg",
+                "sample/img/sample_kitchen.jpg",
                 "-l",
                 "30"
             ],
@@ -1560,7 +1560,7 @@
                 "-m",
                 "assets/models/YOLOV11N.dxnn",
                 "-i",
-                "sample/img/1.jpg",
+                "sample/img/sample_kitchen.jpg",
                 "-l",
                 "30"
             ],
@@ -1715,7 +1715,7 @@
                 "-m",
                 "assets/models/YOLOV11N.dxnn",
                 "-i",
-                "sample/img/1.jpg",
+                "sample/img/sample_kitchen.jpg",
                 "-l",
                 "30"
             ],
@@ -1870,7 +1870,7 @@
                 "-m",
                 "assets/models/YOLOV12N-1.dxnn",
                 "-i",
-                "sample/img/1.jpg",
+                "sample/img/sample_kitchen.jpg",
                 "-l",
                 "30"
             ],
@@ -2025,7 +2025,7 @@
                 "-m",
                 "assets/models/YOLOV12N-1.dxnn",
                 "-i",
-                "sample/img/1.jpg",
+                "sample/img/sample_kitchen.jpg",
                 "-l",
                 "30"
             ],
@@ -2180,7 +2180,7 @@
                 "-m",
                 "assets/models/yolo26s-1.dxnn",
                 "-i",
-                "sample/img/1.jpg",
+                "sample/img/sample_kitchen.jpg",
                 "-l",
                 "30"
             ],
@@ -2335,7 +2335,7 @@
                 "-m",
                 "assets/models/yolo26s-1.dxnn",
                 "-i",
-                "sample/img/1.jpg",
+                "sample/img/sample_kitchen.jpg",
                 "-l",
                 "30"
             ],
@@ -2490,7 +2490,7 @@
                 "-m",
                 "assets/models/yolo26s-pose.dxnn",
                 "-i",
-                "sample/img/7.jpg",
+                "sample/img/sample_people.jpg",
                 "-l",
                 "30"
             ],
@@ -2645,7 +2645,7 @@
                 "-m",
                 "assets/models/yolo26s-pose.dxnn",
                 "-i",
-                "sample/img/7.jpg",
+                "sample/img/sample_people.jpg",
                 "-l",
                 "30"
             ],
@@ -2800,7 +2800,7 @@
                 "-m",
                 "assets/models/yolo26s-seg.dxnn",
                 "-i",
-                "sample/img/1.jpg",
+                "sample/img/sample_kitchen.jpg",
                 "-l",
                 "30"
             ],
@@ -2955,7 +2955,7 @@
                 "-m",
                 "assets/models/yolo26s-seg.dxnn",
                 "-i",
-                "sample/img/1.jpg",
+                "sample/img/sample_kitchen.jpg",
                 "-l",
                 "30"
             ],
@@ -3420,7 +3420,7 @@
                 "-m",
                 "assets/models/yolo26s-cls.dxnn",
                 "-i",
-                "sample/img/1.jpg",
+                "sample/img/sample_kitchen.jpg",
                 "-l",
                 "30"
             ],
@@ -3575,7 +3575,7 @@
                 "-m",
                 "assets/models/yolo26s-cls.dxnn",
                 "-i",
-                "sample/img/1.jpg",
+                "sample/img/sample_kitchen.jpg",
                 "-l",
                 "30"
             ],
@@ -3730,7 +3730,7 @@
                 "-m",
                 "assets/models/YOLOX-S_1.dxnn",
                 "-i",
-                "sample/img/1.jpg",
+                "sample/img/sample_kitchen.jpg",
                 "-l",
                 "30"
             ],
@@ -3885,7 +3885,7 @@
                 "-m",
                 "assets/models/YOLOX-S_1.dxnn",
                 "-i",
-                "sample/img/1.jpg",
+                "sample/img/sample_kitchen.jpg",
                 "-l",
                 "30"
             ],
@@ -4040,7 +4040,7 @@
                 "-m",
                 "assets/models/YOLOV5Pose640_1.dxnn",
                 "-i",
-                "sample/img/7.jpg",
+                "sample/img/sample_people.jpg",
                 "-l",
                 "30"
             ],
@@ -4195,7 +4195,7 @@
                 "-m",
                 "assets/models/YOLOV5Pose640_1.dxnn",
                 "-i",
-                "sample/img/7.jpg",
+                "sample/img/sample_people.jpg",
                 "-l",
                 "30"
             ],
@@ -4350,7 +4350,7 @@
                 "-m",
                 "assets/models/YOLOV8N_SEG-1.dxnn",
                 "-i",
-                "sample/img/1.jpg",
+                "sample/img/sample_kitchen.jpg",
                 "-l",
                 "30"
             ],
@@ -4505,7 +4505,7 @@
                 "-m",
                 "assets/models/YOLOV8N_SEG-1.dxnn",
                 "-i",
-                "sample/img/1.jpg",
+                "sample/img/sample_kitchen.jpg",
                 "-l",
                 "30"
             ],
@@ -4660,7 +4660,7 @@
                 "-m",
                 "assets/models/EfficientNetB0_4.dxnn",
                 "-i",
-                "sample/img/1.jpg",
+                "sample/img/sample_kitchen.jpg",
                 "-l",
                 "30"
             ],
@@ -4815,7 +4815,7 @@
                 "-m",
                 "assets/models/EfficientNetB0_4.dxnn",
                 "-i",
-                "sample/img/1.jpg",
+                "sample/img/sample_kitchen.jpg",
                 "-l",
                 "30"
             ],
@@ -4970,7 +4970,7 @@
                 "-m",
                 "assets/models/DeepLabV3PlusMobileNetV2_2.dxnn",
                 "-i",
-                "sample/img/8.jpg",
+                "sample/img/sample_parking.jpg",
                 "-l",
                 "30"
             ],
@@ -5125,7 +5125,7 @@
                 "-m",
                 "assets/models/DeepLabV3PlusMobileNetV2_2.dxnn",
                 "-i",
-                "sample/img/8.jpg",
+                "sample/img/sample_parking.jpg",
                 "-l",
                 "30"
             ],
@@ -5280,7 +5280,7 @@
                 "-m",
                 "assets/models/SCRFD500M_PPU.dxnn",
                 "-i",
-                "sample/img/face_sample.jpg",
+                "sample/img/sample_face.jpg",
                 "-l",
                 "30"
             ],
@@ -5435,7 +5435,7 @@
                 "-m",
                 "assets/models/SCRFD500M_PPU.dxnn",
                 "-i",
-                "sample/img/face_sample.jpg",
+                "sample/img/sample_face.jpg",
                 "-l",
                 "30"
             ],
@@ -5590,7 +5590,7 @@
                 "-m",
                 "assets/models/YOLOV5S_PPU.dxnn",
                 "-i",
-                "sample/img/1.jpg",
+                "sample/img/sample_kitchen.jpg",
                 "-l",
                 "30"
             ],
@@ -5745,7 +5745,7 @@
                 "-m",
                 "assets/models/YOLOV5S_PPU.dxnn",
                 "-i",
-                "sample/img/1.jpg",
+                "sample/img/sample_kitchen.jpg",
                 "-l",
                 "30"
             ],
@@ -5900,7 +5900,7 @@
                 "-m",
                 "assets/models/YoloV7_PPU.dxnn",
                 "-i",
-                "sample/img/1.jpg",
+                "sample/img/sample_kitchen.jpg",
                 "-l",
                 "30"
             ],
@@ -6055,7 +6055,7 @@
                 "-m",
                 "assets/models/YoloV7_PPU.dxnn",
                 "-i",
-                "sample/img/1.jpg",
+                "sample/img/sample_kitchen.jpg",
                 "-l",
                 "30"
             ],
@@ -6210,7 +6210,7 @@
                 "-m",
                 "assets/models/YOLOV5Pose_PPU.dxnn",
                 "-i",
-                "sample/img/7.jpg",
+                "sample/img/sample_people.jpg",
                 "-l",
                 "30"
             ],
@@ -6365,7 +6365,7 @@
                 "-m",
                 "assets/models/YOLOV5Pose_PPU.dxnn",
                 "-i",
-                "sample/img/7.jpg",
+                "sample/img/sample_people.jpg",
                 "-l",
                 "30"
             ],
@@ -6522,7 +6522,7 @@
                 "-d",
                 "assets/models/DeepLabV3PlusMobileNetV2_2.dxnn",
                 "-i",
-                "sample/img/8.jpg",
+                "sample/img/sample_parking.jpg",
                 "-l",
                 "30"
             ],
@@ -6689,7 +6689,7 @@
                 "-d",
                 "assets/models/DeepLabV3PlusMobileNetV2_2.dxnn",
                 "-i",
-                "sample/img/8.jpg",
+                "sample/img/sample_parking.jpg",
                 "-l",
                 "30"
             ],

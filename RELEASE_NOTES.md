@@ -1,4 +1,25 @@
 # RELEASE_NOTES
+## v3.1.0 / 2026-04-06
+
+### 1. Changed
+- Unified 5-layer architecture and design patterns across Python and C++ implementations
+    - **App** Entry point -> `yolov5s_sync.cpp` : `yolov5s_sync.py`
+    - **Runner** Pipeline orchestration (Sync/Async) -> `sync_detection_runner.hpp` : `sync_runner.py`
+    - **Factory** Per-model component assembly -> `yolov5s_factory.hpp` : `yolov5s_factory.py`
+    - **Component** Preprocessor / Postprocessor / Visualizer -> `processors/*.hpp` : `processors/*.py`
+    - **Interface** Abstract contracts -> `i_factory.hpp`, `i_processor.hpp` : `i_factory.py`, `i_processor.py`
+- Consolidated cross-language(Python : c++) common modules and 1:1 mapping structure
+- Modernized `run_demo.sh` with a 3-stage interactive menu supporting variable AI tasks
+
+### 2. Fixed
+
+### 3. Added
+- Supported new Depth Estimation task featuring FastDepth for monocular depth estimation
+- Supported new Image Restoration task featuring DnCNN, Zero-DCE, and ESPCN models
+- Migrated Full DX-Model Zoo encompassing 137 models across 12 tasks for both Python and C++
+- Added yolov8, v9, v10, v11, v12 PPU models and C++/Python examples
+- Implemented https://sdk.deepx.ai manifest-based DX-ModelZoo auto-download system (`scripts/download_models.py`)
+
 ## v3.0.2 / 2026-02-10
 
 ### 1. Changed

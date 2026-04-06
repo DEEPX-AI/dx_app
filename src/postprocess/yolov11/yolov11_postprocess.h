@@ -31,12 +31,11 @@ struct YOLOv11Result {
 
     // Destructor
     ~YOLOv11Result() = default;
+    YOLOv11Result(const YOLOv11Result&) = default;
+    YOLOv11Result& operator=(const YOLOv11Result&) = default;
+    YOLOv11Result(YOLOv11Result&&) noexcept = default;
+    YOLOv11Result& operator=(YOLOv11Result&&) noexcept = default;
 
-    // Copy and move constructors/operators
-    YOLOv11Result(const YOLOv11Result& other) = default;
-    YOLOv11Result& operator=(const YOLOv11Result& other) = default;
-    YOLOv11Result(YOLOv11Result&& other) noexcept = default;
-    YOLOv11Result& operator=(YOLOv11Result&& other) noexcept = default;
 
     // Calculate area for NMS - const correctness
     float area() const { return (box[2] - box[0]) * (box[3] - box[1]); }
@@ -100,7 +99,7 @@ class YOLOv11PostProcess {
     /**
      * @brief Destructor
      */
-    virtual ~YOLOv11PostProcess() = default;
+    ~YOLOv11PostProcess() = default;
 
     /**
      * @brief Process YOLOv11 model outputs

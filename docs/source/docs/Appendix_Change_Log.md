@@ -1,3 +1,87 @@
+## v3.0.4 / 2026-03-27
+
+### 1. Changed
+
+#### Test Infrastructure Restructuring
+- **`tests/common/`**: extracted shared test constants (`constants.py`) and utilities (`utils.py`) from individual test files into a reusable module
+- **Unified Visualization Tests**: consolidated per-task visualization test scripts into `tests/cpp_example/test_visualization.py` and `tests/python_example/test_visualization.py` — auto-discover all sync/async executables and scripts
+- **Feature Test Suite**: added dedicated test modules for `--save` / `--save-dir` (`test_save_mode.py`), `--dump-tensors` (`test_dump_tensors.py`), `DXAPP_VERIFY` (`test_verify.py`), `--loop` (`test_multi_loop.py`), `SIGINT`/`SIGTERM` (`test_signal_handling.py`)
+- Deleted 4 redundant root-level test scripts (`run_e2e_test.sh`, `run_visualization_test.sh`, `run_inference_test.sh`, `run_unit_test.sh`) — all functionality covered by `run_tc.sh`
+
+#### Documentation Comprehensive Update
+- **README.md**: added CLI Reference (full argument tables for C++/Python), Advanced Features section (signal handling, run directory, `DXAPP_VERIFY`, tensor dump, model config, version compatibility, headless mode), environment variables table, updated module counts and test tree
+- **C++ Usage Guide** (`03`): added CLI Arguments table (12 flags), Advanced Features section, updated utility count (6→8)
+- **Python Usage Guide** (`05`): added CLI Arguments table (13 flags), Advanced Features section, updated module counts (processors 34→35 description, visualizers 9→10 description)
+- **Example Source Structure** (`11`): updated C++ utility count (6→8), Python utility count (6→7), added complete test infrastructure section with 9 test categories, `tests/common/` documentation
+- **C++ Test README**: added visualization tests, feature tests (5 types), test infrastructure section, updated coverage summary
+- **Python Test README**: expanded to all 14 task directories, added `test_visualization.py`, `tests/common/` reference
+
+### 2. Added
+- `tests/common/constants.py` — shared test constants (paths, timeouts, patterns)
+- `tests/common/utils.py` — shared test utilities (discovery, execution, validation)
+- `tests/cpp_example/test_visualization.py` — unified C++ visualization result tests
+- `tests/cpp_example/test_save_mode.py` — `--save` / `--save-dir` flag tests
+- `tests/cpp_example/test_dump_tensors.py` — `--dump-tensors` output tests
+- `tests/cpp_example/test_verify.py` — `DXAPP_VERIFY` environment variable tests
+- `tests/cpp_example/test_multi_loop.py` — `--loop` repeated execution tests
+- `tests/cpp_example/test_signal_handling.py` — SIGINT/SIGTERM graceful shutdown tests
+- `tests/python_example/test_visualization.py` — unified Python visualization result tests
+
+### 3. Removed
+- `run_e2e_test.sh` — replaced by `run_tc.sh --cpp --e2e`
+- `run_visualization_test.sh` — replaced by `run_tc.sh --cpp --viz`
+- `run_inference_test.sh` — replaced by `run_tc.sh --python`
+- `run_unit_test.sh` — replaced by `run_tc.sh --unit`
+
+---
+
+## v3.0.3 / 2026-03-13
+
+### 1. Changed
+- Expanded model support across multiple AI task categories
+
+### 2. Fixed
+
+#### Post-Processing Bug Fixes (16 models)
+- **Segmentation** (bisenetv1, bisenetv2, deeplabv3plusmobilenet): Fixed pre-argmaxed NPU output (uint16 `[1,H,W]`) being misinterpreted as logits — added heuristic detection for integer dtype / shape[0]==1
+- **NanoDet** (nanodet_repvgg, nanodet_repvgga1): Fixed degenerate bounding boxes (y2==y1) caused by clipping to image boundary — added zero-area box filter
+- **FastDepth** (fastdepth_1): Fixed `DepthResult` not handled by verify_serialize.py — added DepthResult serialization handler
+- **YOLOv5Pose PPU** (yolov5pose_ppu): Fixed raw logit keypoint confidence (negative values) — applied sigmoid activation
+- **YOLOX** (yoloxs, yoloxtiny, yolox_l_leaky, yolox_s_leaky, yolox_s_wide_leaky): Fixed zero bounding boxes from raw logit coordinates — implemented standalone `YOLOXPostprocessor` with grid decode (`cx=(cx_raw+grid_x)*stride`)
+- **YOLOv7 Face** (yolov7_face, yolov7s_face, yolov7_w6_face, yolov7_w6_tta_face): Fixed confidence > 1.0 from misread column layout — added auto-dispatch by output column count (16-col vs 21-col) with sigmoid on raw class logit
+
+### 3. Added
+
+#### Shared Runtime Layer (`common/`)
+- **C++ (`src/cpp_example/common/`)**: Base interfaces (`IFactory`, `IProcessor`, `IVisualizer`, `IInputSource`), 44 processors, 24 task-specific sync/async runner pairs, 12 visualizers, input source abstraction, config loader, utility
+- **Python (`src/python_example/common/`)**: Base interfaces (`IFactory`, `IProcessor`, `IVisualizer`, `IInputSource`), 35 processors, generic `SyncRunner`/`AsyncRunner`, 10 visualizers, input source abstraction, `ModelConfig` loader, utility
+- Both languages share the same 7-module architecture (`base/`, `config/`, `processors/`, `runner/`, `inputs/`, `visualizers/`, `utility/`) and factory-based delegation pattern
+
+#### Model Registry System
+- **`config/model_registry.json`**: centralized registry of 137 models with per-model metadata (task, postprocessor, input dimensions, thresholds)
+- **`scripts/add_model.sh`**: registry-driven auto-generation of factory files, config.json, and entry-point scripts (4 variants per model)
+
+#### Numerical Verification Framework
+- **`scripts/verify_inference_output.py`**: 14 task-specific validators for bounding boxes, confidence ranges, class IDs, keypoints, segmentation masks, depth maps, embeddings
+- **`scripts/inference_verify_rules.json`**: configurable thresholds per task type
+- **`common/runner/verify_serialize.py`**: result-to-JSON serialization for automated comparison
+- **`scripts/validate_models.sh --numerical`**: full-pipeline NPU verification for all supported models
+
+#### New Model Families
+- DAMOYOLO (5 variants), NanoDet (2), CenterNet, SSD MobileNet V1/V2, YOLOv3, YOLOv6
+- FastDepth, MiDaS (depth estimation)
+- CLIP, ArcFace (embedding)
+- DnCNN, Zero-DCE (image denoising/enhancement)
+- ESPCN (super resolution)
+- Hand Landmark (2 variants)
+- BiSeNet V1/V2, SegFormer (semantic segmentation)
+- YOLOv7Face (4 variants), RetinaFace (face detection)
+- YOLOv26 OBB, Seg, Pose, Cls variants
+
+#### CI/CD Integration
+- **`python-test.yml`**: automated unit/CLI/integration tests on PR (Python, no NPU required)
+- **`npu-model-verify.yml`**: NPU numerical verification pipeline (self-hosted runner with NPU hardware)
+
 ## v3.0.2 / 2026-02-10
 
 ### 1. Changed
@@ -5,6 +89,7 @@
 
 ### 2. Fixed
 - Remove experimental filesystem includes and update float literals in example cpp files for build error on windows
+- Refactor apply_argmax to reduce nesting and fix gcovr warnings
 
 ### 3. Added
 - Added vcpkg installation script for windows build. 
@@ -19,7 +104,7 @@
 ### 3. Added
 - Add yolov26 cls, yolo26 pose, yolo26 seg, yolo26 obb examples
 
-## DX-APP v3.0.0 / 2026-01-16
+## DX-APP v3.0.0 / 2026-01-02
 
 ### Changed
 
@@ -172,7 +257,7 @@ v3.0.0 is a major update that includes **Breaking Changes** compared to v2.x.
 - Add VSCode configuration files for usability
 - Fixed errors that occurred when using VAAPI with camera input
 - Enhanced yolo application to display final FPS even when forcefully terminated during camera input usage
-- Enhance user input handling for run_demo selection with a countdown timer (20s)
+- Enhance user input handling for run_demo selection with re-prompt loops (invalid input re-asks instead of timing out)
 
 ### Added
 - Windows Environment Support

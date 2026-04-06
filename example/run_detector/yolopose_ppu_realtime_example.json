@@ -19,59 +19,59 @@
             ],
             "layer":[
                 {
-                    "name":"ppu_0", 
+                    "name":"ppu_0",
                     "stride": 8,
                     "anchor_width": [
-                        19, 
-                        44, 
-                        38 
+                        19,
+                        44,
+                        38
                     ],
                     "anchor_height": [
-                        27, 
-                        40, 
-                        94 
+                        27,
+                        40,
+                        94
                     ]
                 },
                 {
-                    "name":"ppu_1", 
+                    "name":"ppu_1",
                     "stride": 16,
                     "anchor_width": [
-                        96, 
-                        86, 
-                        180 
+                        96,
+                        86,
+                        180
                     ],
                     "anchor_height": [
-                        68, 
-                        152, 
-                        137 
+                        68,
+                        152,
+                        137
                     ]
                 },
                 {
-                    "name":"ppu_2", 
+                    "name":"ppu_2",
                     "stride": 32,
                     "anchor_width": [
-                        140, 
-                        303, 
-                        238 
+                        140,
+                        303,
+                        238
                     ],
                     "anchor_height": [
-                        301, 
-                        264, 
-                        542 
+                        301,
+                        264,
+                        542
                     ]
                 },
                 {
-                    "name":"ppu_3", 
+                    "name":"ppu_3",
                     "stride": 64,
                     "anchor_width": [
-                        436, 
-                        739, 
-                        925 
-                    ], 
+                        436,
+                        739,
+                        925
+                    ],
                     "anchor_height": [
-                        615, 
-                        380, 
-                        792 
+                        615,
+                        380,
+                        792
                     ]
                 }
             ]
@@ -81,26 +81,26 @@
         "format":"RGB",
         "sources":[
             {
-                "type":"video", 
+                "type":"video",
                 "path":"assets/videos/dance-group.mov"
             },
             {
-                "type":"video", 
-                "path":"assets/videos/dance-group2.mov"
+                "type":"video",
+                "path":"assets/videos/dance-group.mov"
             },
             {
-                "type":"video", 
+                "type":"video",
                 "path":"assets/videos/dance-solo.mov"
             },
             {
-                "type":"image", 
+                "type":"image",
                 "path":"sample/face_sample.jpg"
             }
         ]
     },
     "output":{
         "description":"output type is used for post processing, that yolo, ssd, etc...",
-        "classes":[ 
+        "classes":[
             "person"
         ],
         "type":"yolo"
@@ -109,7 +109,7 @@
         "description":"result of post-processing after inference, you can use \"save\" or \"realtime\" or \"none\"",
         "type":"realtime",
         "resolution": [
-            960, 
+            960,
             540
         ]
     }

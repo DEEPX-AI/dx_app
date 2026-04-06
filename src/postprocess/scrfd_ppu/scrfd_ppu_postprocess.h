@@ -29,12 +29,11 @@ struct SCRFDPPUResult {
 
     // Destructor
     ~SCRFDPPUResult() = default;
+    SCRFDPPUResult(const SCRFDPPUResult&) = default;
+    SCRFDPPUResult& operator=(const SCRFDPPUResult&) = default;
+    SCRFDPPUResult(SCRFDPPUResult&&) noexcept = default;
+    SCRFDPPUResult& operator=(SCRFDPPUResult&&) noexcept = default;
 
-    // Copy and move constructors/operators
-    SCRFDPPUResult(const SCRFDPPUResult& other) = default;
-    SCRFDPPUResult& operator=(const SCRFDPPUResult& other) = default;
-    SCRFDPPUResult(SCRFDPPUResult&& other) noexcept = default;
-    SCRFDPPUResult& operator=(SCRFDPPUResult&& other) noexcept = default;
 
     // Calculate area for NMS - const correctness
     float area() const { return (box[2] - box[0]) * (box[3] - box[1]); }
@@ -98,7 +97,7 @@ class SCRFDPPUPostProcess {
     /**
      * @brief Destructor
      */
-    virtual ~SCRFDPPUPostProcess() = default;
+    ~SCRFDPPUPostProcess() = default;
 
     /**
      * @brief Process SCRFD model outputs

@@ -13,6 +13,7 @@ from performance_collector import get_collector
 
 # Add project root to path
 PROJECT_ROOT = Path(__file__).parent.parent.parent
+SCRIPTS_DIR = PROJECT_ROOT / "scripts"
 sys.path.insert(0, str(PROJECT_ROOT))
 
 
@@ -57,6 +58,19 @@ def pytest_addoption(parser):
 def bin_dir():
     """Fixture providing path to bin directory"""
     return BIN_DIR
+
+
+@pytest.fixture(autouse=True)
+def wait_for_temperature(request):
+    """Wait for device temperature to drop below threshold before each e2e test."""
+    if request.node.get_closest_marker("e2e"):
+        check_temp_script = SCRIPTS_DIR / "check_temperature.sh"
+        if check_temp_script.exists():
+            print("\nWaiting for temperature to cool down...")
+            subprocess.run(
+                ["bash", str(check_temp_script), "--wait_target_temp=70"],
+                check=False
+            )
 
 
 @pytest.fixture(scope="session")

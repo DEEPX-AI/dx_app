@@ -17,7 +17,7 @@ struct YOLOv5Result {
     int class_id{0};           // Object class ID (0-79 for COCO classes)
     std::string class_name{};  // Object class name
 
-    // Default constructor - using compiler-generated default
+    // Default constructor with explicit initialization
     YOLOv5Result() = default;
 
     // Parameterized constructor with move semantics for better performance
@@ -29,14 +29,13 @@ struct YOLOv5Result {
     YOLOv5Result(const std::vector<float>& box_val, const float conf, const int cls_id,
                  const std::string& cls_name);
 
-    // Destructor - using compiler-generated default
+    // Destructor
     ~YOLOv5Result() = default;
+    YOLOv5Result(const YOLOv5Result&) = default;
+    YOLOv5Result& operator=(const YOLOv5Result&) = default;
+    YOLOv5Result(YOLOv5Result&&) noexcept = default;
+    YOLOv5Result& operator=(YOLOv5Result&&) noexcept = default;
 
-    // Copy and move constructors/operators - using compiler-generated defaults (Rule of Zero)
-    YOLOv5Result(const YOLOv5Result& other) = default;
-    YOLOv5Result& operator=(const YOLOv5Result& other) = default;
-    YOLOv5Result(YOLOv5Result&& other) noexcept = default;
-    YOLOv5Result& operator=(YOLOv5Result&& other) noexcept = default;
 
     // Calculate area for NMS - const correctness
     float area() const { return (box[2] - box[0]) * (box[3] - box[1]); }
@@ -103,7 +102,7 @@ class YOLOv5PostProcess {
     /**
      * @brief Destructor
      */
-    virtual ~YOLOv5PostProcess() = default;
+    ~YOLOv5PostProcess() = default;
 
     /**
      * @brief Process YOLOv5s model outputs

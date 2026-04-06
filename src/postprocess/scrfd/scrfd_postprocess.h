@@ -16,7 +16,7 @@ struct SCRFDResult {
     float confidence{0.0f};          // Detection confidence score
     std::vector<float> landmarks{};  // Facial landmarks (5 points * 2 coordinates)
 
-    // Default constructor - using compiler-generated default
+    // Default constructor with explicit initialization
     SCRFDResult() = default;
 
     // Parameterized constructor with move semantics for better performance
@@ -27,14 +27,13 @@ struct SCRFDResult {
     SCRFDResult(const std::vector<float>& box_val, const float conf,
                 const std::vector<float>& land_marks);
 
-    // Destructor - using compiler-generated default
+    // Destructor
     ~SCRFDResult() = default;
+    SCRFDResult(const SCRFDResult&) = default;
+    SCRFDResult& operator=(const SCRFDResult&) = default;
+    SCRFDResult(SCRFDResult&&) noexcept = default;
+    SCRFDResult& operator=(SCRFDResult&&) noexcept = default;
 
-    // Copy and move constructors/operators - using compiler-generated defaults (Rule of Zero)
-    SCRFDResult(const SCRFDResult& other) = default;
-    SCRFDResult& operator=(const SCRFDResult& other) = default;
-    SCRFDResult(SCRFDResult&& other) noexcept = default;
-    SCRFDResult& operator=(SCRFDResult&& other) noexcept = default;
 
     // Calculate area for NMS - const correctness
     float area() const { return (box[2] - box[0]) * (box[3] - box[1]); }
@@ -101,9 +100,9 @@ class SCRFDPostProcess {
     SCRFDPostProcess();
 
     /**
-     * @brief Destructor - virtual to support inheritance
+     * @brief Destructor
      */
-    virtual ~SCRFDPostProcess() = default;
+    ~SCRFDPostProcess() = default;
 
     /**
      * @brief Process SCRFD model outputs

@@ -37,8 +37,6 @@ SCRFDPostProcess::SCRFDPostProcess(const int input_w, const int input_h,
     cpu_output_names_ = {"score_8", "score_16", "score_32", "bbox_8", "bbox_16",
                          "bbox_32", "kps_8",    "kps_16",   "kps_32"};
     npu_output_names_ = {};
-    // anchors_by_strides_ 변수 선언 및 초기화 (std::map<int,
-    // std::vector<std::pair<int, int>>>)
     anchors_by_strides_ = {{8, {}}, {16, {}}, {32, {}}};
     if (!is_ort_configured_) {
         throw std::invalid_argument(
@@ -59,8 +57,6 @@ SCRFDPostProcess::SCRFDPostProcess() {
     cpu_output_names_ = {"score_8", "score_16", "score_32", "bbox_8", "bbox_16",
                          "bbox_32", "kps_8",    "kps_16",   "kps_32"};
     npu_output_names_ = {};
-    // anchors_by_strides_ 변수 선언 및 초기화 (std::map<int,
-    // std::vector<std::pair<int, int>>>)
     anchors_by_strides_ = {{8, {}}, {16, {}}, {32, {}}};
 }
 
