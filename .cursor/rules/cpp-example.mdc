@@ -1,0 +1,14 @@
+---
+description: Rules for C++ inference examples in dx_app
+globs: ["src/cpp_example/**"]
+---
+
+**Response Language**: Match your response language to the user's prompt language — when asking questions or responding, use the same language the user is using.
+
+# C++ Example Rules
+
+- C++14 standard only — no C++17 features
+- RAII with std::unique_ptr — no raw new/delete
+- SIGINT handler for loop-based apps
+- CMakeLists.txt must link dx_engine
+- Read `.deepx/skills/dx-build-cpp-app.md` for full patterns
