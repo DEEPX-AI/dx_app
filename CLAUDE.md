@@ -27,6 +27,9 @@ pytest tests/ -m npu_required       # Run NPU integration tests
 | /dx-model-management | Download, register, and configure .dxnn models |
 | /dx-validate | Run validation checks at every phase gate |
 | /dx-validate-and-fix | Full feedback loop: validate, collect, approve, apply, verify |
+| /dx-brainstorm-and-plan | Process: collaborative design session before code generation |
+| /dx-tdd | Process: test-driven development — validate each file immediately after creation |
+| /dx-verify-completion | Process: verify before claiming completion — evidence before assertions |
 
 ## Interactive Workflow (MUST FOLLOW)
 
@@ -68,6 +71,9 @@ Only write to `src/` when explicitly requested by the user.
 | **Validation, testing** | `.deepx/skills/dx-validate.md`, `.deepx/instructions/testing-patterns.md` |
 | **Validation, feedback, fix** | `.deepx/skills/dx-validate.md`, parent `dx-runtime/.deepx/skills/dx-validate-and-fix.md` |
 | **ALWAYS read (every task)** | `.deepx/memory/common_pitfalls.md`, `.deepx/instructions/coding-standards.md` |
+| **Brainstorm, plan, design** | `.deepx/skills/dx-brainstorm-and-plan.md` |
+| **TDD, validation, incremental** | `.deepx/skills/dx-tdd.md` |
+| **Completion, verify, evidence** | `.deepx/skills/dx-verify-completion.md` |
 
 ## Python Imports
 

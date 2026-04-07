@@ -1,8 +1,3 @@
----
-name: dx-brainstorm-and-plan
-description: "Brainstorm and plan before any code generation. HARD-GATE: no code without approved plan."
----
-
 # Skill: Brainstorm and Plan for dx_app
 
 > **Type: RIGID — HARD-GATE.** No code generation without an approved plan.

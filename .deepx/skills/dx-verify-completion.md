@@ -1,8 +1,3 @@
----
-name: dx-verify-completion
-description: "Verify before claiming completion. Iron Law: no claims without fresh evidence."
----
-
 # Skill: Verify Before Completion for dx_app
 
 > **Type: RIGID — Iron Law.** No completion claims without fresh evidence.

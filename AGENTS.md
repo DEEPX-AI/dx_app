@@ -26,7 +26,9 @@ pytest tests/ -m npu_required       # Run NPU integration tests
 | /dx-build-async-app | Build async high-performance inference app |
 | /dx-model-management | Download, register, and configure .dxnn models |
 | /dx-validate | Run validation checks at every phase gate |
-| /dx-validate-and-fix | Full feedback loop: validate, collect, approve, apply, verify |
+| /dx-brainstorm-and-plan | Brainstorm and plan before any code generation |
+| /dx-tdd | Test-driven development — validate each file immediately after creation |
+| /dx-verify-completion | Verify before claiming completion — evidence before assertions |
 
 ## Critical Conventions
 
@@ -53,7 +55,7 @@ pytest tests/ -m npu_required       # Run NPU integration tests
 | **Async, performance, throughput** | `.deepx/skills/dx-build-async-app.md`, `.deepx/memory/performance_patterns.md` |
 | **Model, download, registry** | `.deepx/skills/dx-model-management.md`, `.deepx/toolsets/model-registry.md` |
 | **Validation, testing** | `.deepx/skills/dx-validate.md`, `.deepx/instructions/testing-patterns.md` |
-| **Validation, feedback, fix** | `.deepx/skills/dx-validate.md`, parent `dx-runtime/.deepx/skills/dx-validate-and-fix.md` |
+| **Validation, feedback, fix** | `.deepx/skills/dx-validate.md` (cross-project: `dx-runtime/.deepx/skills/dx-validate-and-fix.md`) |
 | **ALWAYS read (every task)** | `.deepx/memory/common_pitfalls.md`, `.deepx/instructions/coding-standards.md` |
 
 ## Python Imports

@@ -1,8 +1,3 @@
----
-name: dx-tdd
-description: "Test-driven development for DEEPX apps. Iron Law: no code without validation check first."
----
-
 # Skill: Test-Driven Development for dx_app
 
 > **Type: RIGID — Iron Law.** No file is written until its validation passes.

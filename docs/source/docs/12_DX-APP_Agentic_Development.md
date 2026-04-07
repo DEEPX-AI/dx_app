@@ -106,7 +106,7 @@ context-specific instructions:
 
 | Tool | How to Use |
 |---|---|
-| **Claude Code** | Type the prompt directly. `CLAUDE.md` routes to `dx-build-python-app` skill. Asks 2-3 questions (variant, task type, model), generates files in `src/python_example/object_detection/yolo26n/`, and validates. |
+| **Claude Code** | Type the prompt directly. `CLAUDE.md` routes to `dx-build-python-app` skill. Asks 2-3 questions (variant, task type, model), generates files in `dx-agentic-dev/<session_id>/` (or `src/...` if explicitly requested), and validates. |
 | **GitHub Copilot** | `@dx-app-builder` followed by the prompt. Routes to `dx-python-builder`, generates all 4 variants, runs `dx-validator`. |
 | **Cursor** | Type the prompt directly. `dx-app.mdc` (always loaded) provides context. `python-example.mdc` activates for `src/python_example/` files. |
 | **OpenCode** | `@dx-app-builder` followed by the prompt, or `/dx-build-python-app` skill directly. |

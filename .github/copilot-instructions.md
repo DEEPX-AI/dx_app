@@ -26,6 +26,9 @@ dx_app provides 133 compiled `.dxnn` models across 15 AI tasks with Python (4 va
 | dx-build-async-app | Build async high-performance inference app |
 | dx-model-management | Download, register, and configure .dxnn models |
 | dx-validate | Run validation checks at every phase gate |
+| dx-brainstorm-and-plan | Process: collaborative design session before code generation |
+| dx-tdd | Process: test-driven development — validate each file immediately after creation |
+| dx-verify-completion | Process: verify before claiming completion — evidence before assertions |
 
 ## Interactive Workflow (MUST FOLLOW)
 
