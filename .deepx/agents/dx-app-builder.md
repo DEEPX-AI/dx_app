@@ -18,6 +18,8 @@ routes-to:
     description: Download, register, or query .dxnn models from model_registry.json.
 ---
 
+**Response Language**: Match your response language to the user's prompt language — when asking questions or responding, use the same language the user is using.
+
 # DX App Builder — Master Router
 
 Build any DEEPX standalone inference application for the dx_app framework. This agent
@@ -56,6 +58,25 @@ Layer 1 — C++ Core
   dx_engine    InferenceEngine, InferenceOption (NPU runtime)
   dx_postprocess  37 pybind11 postprocess bindings
 ```
+
+## Step 0: Prerequisites Check
+
+Before classifying or routing, verify the development environment is ready:
+
+```bash
+# 1. dx-runtime sanity check
+bash ../../scripts/sanity_check.sh --dx_rt
+# Exit 0 → PASS, Exit 1 → FAIL: run install
+# If FAIL:
+bash ../../install.sh --target=dx_rt,dx_rt_npu_linux_driver,dx_fw --skip-uninstall --venv-reuse
+
+# 2. dx_app build check
+python -c "import dx_engine; print('dx_engine OK')" 2>/dev/null || {
+    echo "dx_engine not available. Run: cd dx_app && ./install.sh && ./build.sh"
+}
+```
+
+If prerequisites fail, inform the user with the exact install commands before proceeding.
 
 ## Step 1: Classify the Request
 

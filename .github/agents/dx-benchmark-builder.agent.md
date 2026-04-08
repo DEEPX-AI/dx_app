@@ -10,6 +10,8 @@ tools:
 - todo
 ---
 
+**Response Language**: Match your response language to the user's prompt language — when asking questions or responding, use the same language the user is using.
+
 # DX Benchmark Builder
 
 Profiles existing applications and provides optimization recommendations.

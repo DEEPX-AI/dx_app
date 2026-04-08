@@ -6,6 +6,8 @@ capabilities: [ask-user, edit, execute, read, search, todo]
 routes-to: []
 ---
 
+**Response Language**: Match your response language to the user's prompt language — when asking questions or responding, use the same language the user is using.
+
 # DX Model Manager
 
 Manage .dxnn models for dx_app: query the model registry, download models via

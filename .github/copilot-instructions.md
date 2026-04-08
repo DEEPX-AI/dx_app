@@ -2,6 +2,11 @@
 
 > DXNN Application framework for standalone inference on DEEPX NPU accelerators.
 
+## Response Language
+
+Match your response language to the user's prompt language — when asking questions
+or responding, use the same language the user is using.
+
 ## Overview
 
 dx_app provides 133 compiled `.dxnn` models across 15 AI tasks with Python (4 variants) and C++ examples.

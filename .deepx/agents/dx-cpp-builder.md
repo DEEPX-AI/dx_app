@@ -6,6 +6,8 @@ capabilities: [ask-user, edit, execute, read, search, todo]
 routes-to: []
 ---
 
+**Response Language**: Match your response language to the user's prompt language — when asking questions or responding, use the same language the user is using.
+
 # DX C++ Builder
 
 Build native C++ inference applications for dx_app v3.0.0. C++ apps use the
@@ -13,6 +15,16 @@ InferenceEngine API directly and link against dx_engine and dx_postprocess
 shared libraries.
 
 ## Workflow
+
+### Phase 0: Prerequisites Check
+
+Before building, verify the environment:
+
+1. **dx-runtime installed**: `bash ../../scripts/sanity_check.sh --dx_rt`
+   - If FAIL: `bash ../../install.sh --target=dx_rt,dx_rt_npu_linux_driver,dx_fw --skip-uninstall --venv-reuse`
+2. **dx_engine libraries available**: Verify `libdx_engine.so` exists
+3. **dx_postprocess libraries**: Verify `libdx_postprocess.so` exists
+4. **OpenCV installed**: `pkg-config --cflags opencv4`
 
 ### Phase 1: Understand
 
@@ -263,3 +275,27 @@ auto outputs = engine.run({input_tensor});
 int req_id = engine.run_async({input_tensor});
 auto outputs = engine.wait(req_id);
 ```
+
+## Task-Aware Sample Image Selection
+
+When building run commands, smoke tests, or README examples, select sample images
+that match the model's AI task. Do NOT use generic `test.jpg` or `input.jpg`.
+
+| Task | Sample Images | Path |
+|---|---|---|
+| object_detection | `sample_dog.jpg`, `sample_horse.jpg`, `sample_street.jpg` | `sample/img/` |
+| face_detection | `sample_face.jpg`, `sample_crowd.jpg` | `sample/img/` |
+| pose_estimation | `sample_people.jpg`, `sample_crowd.jpg` | `sample/img/` |
+| hand_landmark | `sample_hand.jpg` | `sample/img/` |
+| obb_detection | `P0177.png`, `P0284.png` | `sample/dota8_test/` |
+| instance_segmentation, semantic_segmentation | `sample_street.jpg`, `sample_parking.jpg` | `sample/img/` |
+| classification | `0.jpeg`, `1.jpeg` | `sample/ILSVRC2012/` |
+| super_resolution | `sample_superresolution.png` | `sample/img/` |
+| image_enhancement | `sample_lowlight.jpg`, `sample_dark_room.jpg` | `sample/img/` |
+| image_denoising | `sample_denoising.jpg` | `sample/img/` |
+| depth_estimation | `sample_street.jpg` | `sample/img/` |
+| embedding | `sample_face.jpg` | `sample/img/` |
+| Video (any task) | `dogs.mp4`, `blackbox-city-road.mp4`, `boat.mp4` | `assets/videos/` |
+
+**Rule**: Always use task-appropriate sample images in generated `run.sh` commands,
+README examples, and smoke tests. Never hardcode `test.jpg` or `input.jpg`.

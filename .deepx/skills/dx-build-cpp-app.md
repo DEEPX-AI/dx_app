@@ -52,6 +52,16 @@ Only create files in `src/cpp_example/<task>/<model>/` when the user EXPLICITLY 
 
 Default behavior: ALWAYS use `dx-agentic-dev/`.
 
+## Phase 0: Prerequisites Check
+
+Before starting the build workflow, verify:
+
+1. **dx-runtime**: `bash ../../scripts/sanity_check.sh --dx_rt`
+   - FAIL → `bash ../../install.sh --target=dx_rt,dx_rt_npu_linux_driver,dx_fw --skip-uninstall --venv-reuse`
+2. **dx_engine + dx_postprocess libraries**: `ldconfig -p | grep libdx_engine`
+3. **OpenCV**: `pkg-config --exists opencv4 && echo OK`
+4. **CMake >= 3.14**: `cmake --version`
+
 ## Prerequisites
 
 - dx_app repository cloned and built (`./build.sh`)
@@ -311,6 +321,20 @@ cd build && cmake .. && make <model>_sync -j$(nproc)
 # 3. Run (requires NPU + model)
 ./<model>_sync /path/to/<model>.dxnn input.jpg
 ```
+
+### Task-Aware Sample Image for Validation
+
+Select sample images based on the model's AI task:
+
+| Task | Sample Image |
+|---|---|
+| object_detection | `../../sample/img/sample_dog.jpg` |
+| face_detection | `../../sample/img/sample_face.jpg` |
+| pose_estimation | `../../sample/img/sample_people.jpg` |
+| classification | `../../sample/ILSVRC2012/0.jpeg` |
+| segmentation | `../../sample/img/sample_street.jpg` |
+
+**MUST** use task-matched images in validation commands.
 
 ## InferenceEngine API Reference
 

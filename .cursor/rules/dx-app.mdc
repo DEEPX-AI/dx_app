@@ -3,6 +3,8 @@ description: DEEPX dx_app standalone inference application framework
 alwaysApply: true
 ---
 
+**Response Language**: Match your response language to the user's prompt language — when asking questions or responding, use the same language the user is using.
+
 # dx_app — Cursor Rules
 
 ## Overview

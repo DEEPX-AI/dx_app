@@ -76,6 +76,15 @@ Only create files in `src/python_example/<task>/<model>/` when the user EXPLICIT
 
 Default behavior: ALWAYS use `dx-agentic-dev/`.
 
+## Phase 0: Prerequisites Check
+
+Before starting the build workflow, verify:
+
+1. **dx-runtime**: `bash ../../scripts/sanity_check.sh --dx_rt`
+   - FAIL → `bash ../../install.sh --target=dx_rt,dx_rt_npu_linux_driver,dx_fw --skip-uninstall --venv-reuse`
+2. **dx_engine**: `python -c "import dx_engine"` — FAIL → `./install.sh && ./build.sh`
+3. **dx_postprocess** (if cpp_postprocess variants): `python -c "import dx_postprocess"` — FAIL → `./build.sh`
+
 ## Prerequisites
 
 - dx_app repository cloned
@@ -468,6 +477,27 @@ PYTHONPATH=../../ python -c "from factory import <ModelClass>Factory; f = <Model
 # 4. Smoke test (requires NPU + model file)
 python <model>_sync.py --model /path/to/<model>.dxnn --image test.jpg --no-display
 ```
+
+### Task-Aware Sample Image for Smoke Test
+
+Select the sample image based on the model's AI task:
+
+| Task | Sample Image Path |
+|---|---|
+| object_detection | `../../sample/img/sample_dog.jpg` |
+| face_detection | `../../sample/img/sample_face.jpg` |
+| pose_estimation | `../../sample/img/sample_people.jpg` |
+| hand_landmark | `../../sample/img/sample_hand.jpg` |
+| obb_detection | `../../sample/dota8_test/P0177.png` |
+| instance_segmentation, semantic_segmentation | `../../sample/img/sample_street.jpg` |
+| classification | `../../sample/ILSVRC2012/0.jpeg` |
+| super_resolution | `../../sample/img/sample_superresolution.png` |
+| image_enhancement | `../../sample/img/sample_lowlight.jpg` |
+| image_denoising | `../../sample/img/sample_denoising.jpg` |
+| depth_estimation | `../../sample/img/sample_street.jpg` |
+| embedding | `../../sample/img/sample_face.jpg` |
+
+**MUST** use these task-matched images instead of generic `test.jpg` or `input.jpg`.
 
 ## File Creation Checklist
 

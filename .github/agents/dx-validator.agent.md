@@ -11,6 +11,8 @@ tools:
 - vscode/askQuestions
 ---
 
+**Response Language**: Match your response language to the user's prompt language — when asking questions or responding, use the same language the user is using.
+
 # DX App Validator
 
 Validates dx_app framework files and application code against documented patterns.

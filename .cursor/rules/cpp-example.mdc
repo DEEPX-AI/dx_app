@@ -3,6 +3,8 @@ description: Rules for C++ inference examples in dx_app
 globs: ["src/cpp_example/**"]
 ---
 
+**Response Language**: Match your response language to the user's prompt language — when asking questions or responding, use the same language the user is using.
+
 # C++ Example Rules
 
 - C++14 standard only — no C++17 features

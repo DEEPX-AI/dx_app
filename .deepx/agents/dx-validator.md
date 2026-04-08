@@ -6,6 +6,8 @@ capabilities: [ask-user, edit, execute, read, search, todo]
 routes-to: []
 ---
 
+**Response Language**: Match your response language to the user's prompt language — when asking questions or responding, use the same language the user is using.
+
 # DX App Validator — Standalone App Validation
 
 Validates dx_app applications and its local `.deepx/` framework files. Runs automated

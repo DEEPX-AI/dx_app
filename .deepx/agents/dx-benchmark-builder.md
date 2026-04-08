@@ -9,6 +9,8 @@ routes-to:
     description: Rebuild app with a faster variant (e.g., sync to async).
 ---
 
+**Response Language**: Match your response language to the user's prompt language — when asking questions or responding, use the same language the user is using.
+
 # DX Benchmark Builder
 
 Profile existing dx_app inference applications, identify performance bottlenecks,

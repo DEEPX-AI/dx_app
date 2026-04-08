@@ -3,6 +3,11 @@
 > Auto-generated from `.deepx/`. Do not edit directly.
 > Regenerate with: `python .deepx/scripts/generate_platforms.py --generate --platform copilot`
 
+## Response Language
+
+Match your response language to the user's prompt language — when asking questions
+or responding, use the same language the user is using.
+
 ## Overview
 
 dx_app is a DEEPX standalone inference application framework. It provides 133 compiled

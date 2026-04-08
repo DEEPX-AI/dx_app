@@ -2,6 +2,11 @@
 
 > Self-contained entry point for dx_app standalone inference development.
 
+## Response Language
+
+Match your response language to the user's prompt language — when asking questions
+or responding, use the same language the user is using.
+
 ## Shared Knowledge
 
 All skills, instructions, toolsets, and memory live in `.deepx/`.

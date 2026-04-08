@@ -222,3 +222,51 @@ imports fail.
            sys.path.insert(0, _path)
    ```
 4. The variant filename matches the expected pattern exactly.
+
+---
+
+## 11. [UNIVERSAL] dx-runtime Not Installed — Build or Import Fails
+
+**Symptom:** `ImportError: No module named 'dx_engine'` or
+`cmake: cannot find -ldx_engine` when building or running dx_app.
+
+**Cause:** dx-runtime (dx_rt) is not installed or is at an incompatible version.
+dx_app depends on dx_rt for both Python SDK (`dx_engine` module) and C++ build
+(`libdx_engine.so`).
+
+**Fix:**
+1. Run the sanity check: `bash ../../scripts/sanity_check.sh --dx_rt`
+2. If FAIL, install dx-runtime:
+   ```bash
+   bash ../../install.sh --target=dx_rt,dx_rt_npu_linux_driver,dx_fw --skip-uninstall --venv-reuse
+   ```
+3. Then rebuild dx_app: `./install.sh && ./build.sh`
+4. Verify: `python -c "import dx_engine; print('OK')"`
+
+---
+
+## 12. [UNIVERSAL] Wrong Sample Image for Task Type
+
+**Symptom:** Smoke test or validation runs but produces zero detections,
+garbled results, or meaningless output — even though the model is correct.
+
+**Cause:** Using a generic or mismatched sample image for the model's AI task.
+For example, running a face detection model on `sample_dog.jpg` (no faces),
+or running a super resolution model on a low-resolution JPEG (wrong format).
+
+**Fix:** Always select sample images that match the model's task type:
+
+| Task | Correct Sample Images |
+|---|---|
+| object_detection | `sample/img/sample_dog.jpg`, `sample/img/sample_horse.jpg` |
+| face_detection | `sample/img/sample_face.jpg`, `sample/img/sample_crowd.jpg` |
+| pose_estimation | `sample/img/sample_people.jpg`, `sample/img/sample_crowd.jpg` |
+| hand_landmark | `sample/img/sample_hand.jpg` |
+| obb_detection | `sample/dota8_test/P0177.png`, `sample/dota8_test/P0284.png` |
+| segmentation | `sample/img/sample_street.jpg`, `sample/img/sample_parking.jpg` |
+| classification | `sample/ILSVRC2012/0.jpeg`, `sample/ILSVRC2012/1.jpeg` |
+| super_resolution | `sample/img/sample_superresolution.png` |
+| image_enhancement | `sample/img/sample_lowlight.jpg`, `sample/img/sample_dark_room.jpg` |
+| image_denoising | `sample/img/sample_denoising.jpg` |
+
+See `config/README.md` for the authoritative task→image mapping.
