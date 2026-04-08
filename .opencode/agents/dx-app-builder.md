@@ -26,6 +26,10 @@ Master router for dx_app development tasks.
 - `.deepx/skills/dx-build-cpp-app.md` (C++)
 - `.deepx/memory/common_pitfalls.md` (always)
 
+## CRITICAL: Postprocessor Selection
+Registry key ≠ Python class name. Key trap: `yolov26` → `YOLOv8Postprocessor` (NOT Yolo26Postprocessor).
+Always search existing examples first. See `.deepx/skills/dx-build-python-app.md` Step 5 for full mapping.
+
 ## Pre-Flight Check (HARD-GATE)
 
 Before generating any code or creating any files, ALL of these checks must pass:

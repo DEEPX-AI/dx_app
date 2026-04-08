@@ -17,6 +17,17 @@ Builds Python inference apps following the IFactory + Runner pattern.
 - `.deepx/skills/dx-build-python-app.md` (primary reference)
 - `.deepx/memory/common_pitfalls.md`
 
+## CRITICAL: Postprocessor Selection
+Registry key in `model_registry.json` ≠ Python class name. Always use the mapping table
+in `.deepx/skills/dx-build-python-app.md` Step 5. Key trap: `yolov26` → `YOLOv8Postprocessor`.
+Always search existing examples first (`src/python_example/<task>/<model>/factory/`).
+
+## Post-Build Validation
+After generating code, verify:
+- Postprocessor cross-check against registry key mapping
+- Detection count > 0 on task-appropriate sample image (if NPU available)
+See `.deepx/skills/dx-validate.md` Level 5 for output accuracy checks.
+
 ## Deliverables
 - `factory/<model>_factory.py` — IFactory implementation (5 methods)
 - `<model>_sync.py` — SyncRunner variant

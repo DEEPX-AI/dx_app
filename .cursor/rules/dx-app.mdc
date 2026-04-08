@@ -28,6 +28,9 @@ dx_app provides 133 models across 15 AI tasks with Python (4 variants) and C++ e
 5. `logging.getLogger(__name__)` — no `print()`
 6. C++14 only, RAII with std::unique_ptr
 7. `dxrt-cli -s` before NPU operations
+8. **Registry key ≠ Python class** — `yolov26` → `YOLOv8Postprocessor` (NOT Yolo26Postprocessor). See `.deepx/skills/dx-build-python-app.md` Step 5
+9. **Search existing examples first** — before generating new code, check `src/python_example/<task>/<model>/`
+10. **Output accuracy validation** — after smoke test, verify detection count > 0. See `.deepx/skills/dx-validate.md` Level 5
 
 ## Interactive Workflow (MUST FOLLOW)
 - Ask 2-3 questions before building

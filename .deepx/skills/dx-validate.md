@@ -3,18 +3,19 @@
 > Validate dx_app applications at every phase gate: static analysis,
 > configuration checks, smoke tests, and full integration tests.
 
-## 5-Level Validation Pyramid
+## 6-Level Validation Pyramid
 
 ```
-Level 5: Integration  (NPU + model + full pipeline)
-Level 4: Smoke        (NPU + model + quick single-frame inference)
-Level 3: Component    (preprocessor/postprocessor/visualizer individually)
-Level 2: Config       (JSON validity, schema compliance)
-Level 1: Static       (syntax, imports, factory interface)
+Level 6: Integration       (NPU + model + full pipeline)
+Level 5: Output Accuracy   (NPU + verify detection output correctness)
+Level 4: Smoke             (NPU + model + quick single-frame inference)
+Level 3: Component         (preprocessor/postprocessor/visualizer individually)
+Level 2: Config            (JSON validity, schema compliance)
+Level 1: Static            (syntax, imports, factory interface)
 ```
 
 Levels 1-3 can run without NPU hardware.
-Levels 4-5 require NPU + model files.
+Levels 4-6 require NPU + model files.
 
 ## Level 1: Static Validation (11 Checks)
 
@@ -234,7 +235,231 @@ echo "Exit code: $?"
 
 Expected output contains `[INFO] Starting inference` and performance summary.
 
-## Level 5: Integration Test (Full Pipeline)
+## Level 5: Output Accuracy Validation (NPU Required)
+
+After smoke test passes (Level 4), verify the inference output is actually correct.
+This catches the critical gap where exit code is 0 but detections are wrong or empty.
+
+### Check 1: Detection Count > 0
+
+```python
+"""
+Run after smoke test. Verifies that the model actually detects something
+on a known-good sample image appropriate for the task.
+"""
+import subprocess, json, sys
+
+model_script = sys.argv[1]    # e.g., yolo26n_sync.py
+model_path = sys.argv[2]      # e.g., /path/to/yolo26n.dxnn
+sample_image = sys.argv[3]    # Task-appropriate image (see table below)
+
+result = subprocess.run(
+    ["python", model_script, "--model", model_path,
+     "--image", sample_image, "--no-display", "--save-json"],
+    capture_output=True, text=True, timeout=60
+)
+
+if result.returncode != 0:
+    print(f"FAIL: Script exited with code {result.returncode}")
+    print(result.stderr[-500:])
+    sys.exit(1)
+
+# Parse saved JSON output (artifacts/<task>/<model>/detections.json)
+try:
+    with open("detections.json") as f:
+        detections = json.load(f)
+    count = len(detections.get("detections", []))
+    if count == 0:
+        print("FAIL: Zero detections on known-good sample image")
+        print("  Possible causes:")
+        print("  - Wrong postprocessor for this model family")
+        print("  - score_threshold too high in config.json")
+        print("  - Postprocessor/model output format mismatch")
+        sys.exit(1)
+    print(f"PASS: {count} detection(s) found")
+except FileNotFoundError:
+    # Fallback: check stdout for detection count
+    if "detections: 0" in result.stdout.lower() or "no detections" in result.stdout.lower():
+        print("FAIL: Zero detections reported in stdout")
+        sys.exit(1)
+    print("WARN: Could not verify detection count (no JSON output)")
+```
+
+### Check 2: Bounding Box Coordinate Validity
+
+```python
+"""
+Verify that all bounding box coordinates are within the image dimensions.
+Catches postprocessor bugs where coordinates are not properly rescaled.
+"""
+import json, sys
+
+with open("detections.json") as f:
+    data = json.load(f)
+
+img_w = data.get("image_width", 640)
+img_h = data.get("image_height", 480)
+errors = []
+
+for i, det in enumerate(data.get("detections", [])):
+    x1, y1, x2, y2 = det["x1"], det["y1"], det["x2"], det["y2"]
+    # Allow small overflow (5%) for letterbox rounding
+    margin_w = img_w * 0.05
+    margin_h = img_h * 0.05
+
+    if x1 < -margin_w or y1 < -margin_h:
+        errors.append(f"Det {i}: negative coords ({x1:.1f}, {y1:.1f})")
+    if x2 > img_w + margin_w or y2 > img_h + margin_h:
+        errors.append(f"Det {i}: coords exceed image ({x2:.1f}, {y2:.1f}) > ({img_w}, {img_h})")
+    if x2 <= x1 or y2 <= y1:
+        errors.append(f"Det {i}: inverted bbox ({x1:.1f},{y1:.1f},{x2:.1f},{y2:.1f})")
+
+if errors:
+    print(f"FAIL: {len(errors)} bbox coordinate error(s)")
+    for e in errors[:5]:
+        print(f"  {e}")
+    sys.exit(1)
+print("PASS: All bbox coordinates within image bounds")
+```
+
+### Check 3: Confidence Score Validity
+
+```python
+"""
+Verify confidence scores are in the valid range [0.0, 1.0].
+"""
+import json, sys
+
+with open("detections.json") as f:
+    data = json.load(f)
+
+errors = []
+for i, det in enumerate(data.get("detections", [])):
+    score = det.get("score", det.get("confidence", -1))
+    if score < 0.0 or score > 1.0:
+        errors.append(f"Det {i}: invalid score {score}")
+
+if errors:
+    print(f"FAIL: {len(errors)} invalid confidence score(s)")
+    for e in errors[:5]:
+        print(f"  {e}")
+    sys.exit(1)
+print("PASS: All confidence scores in [0.0, 1.0]")
+```
+
+### Check 4: Class ID Validity
+
+```python
+"""
+Verify class IDs are non-negative integers within the expected range.
+COCO: 0-79, ImageNet: 0-999, Custom: check model metadata.
+"""
+import json, sys
+
+with open("detections.json") as f:
+    data = json.load(f)
+
+max_class_id = int(sys.argv[1]) if len(sys.argv) > 1 else 79  # Default: COCO 80 classes
+
+errors = []
+for i, det in enumerate(data.get("detections", [])):
+    cls = det.get("class_id", -1)
+    if not isinstance(cls, int) or cls < 0 or cls > max_class_id:
+        errors.append(f"Det {i}: invalid class_id {cls} (expected 0-{max_class_id})")
+
+if errors:
+    print(f"FAIL: {len(errors)} invalid class ID(s)")
+    for e in errors[:5]:
+        print(f"  {e}")
+    sys.exit(1)
+print(f"PASS: All class IDs in valid range [0, {max_class_id}]")
+```
+
+### Check 5: Postprocessor-Model Family Cross-Check
+
+```python
+"""
+Verify the factory's postprocessor matches the model family from model_registry.json.
+This catches the critical bug where an agent uses the wrong postprocessor class.
+"""
+import json, ast, sys
+
+model_name = sys.argv[1]
+factory_path = sys.argv[2]  # e.g., factory/yolo26n_factory.py
+
+# Registry key → expected Python postprocessor class
+REGISTRY_TO_POSTPROCESSOR = {
+    "yolov5": "YOLOv5Postprocessor",
+    "yolov8": "YOLOv8Postprocessor",
+    "yolov26": "YOLOv8Postprocessor",       # yolo26 reuses YOLOv8 (end-to-end)
+    "yolov10": "YOLOv10Postprocessor",
+    "yolov11": "YOLOv11Postprocessor",
+    "ssd": "SSDPostprocessor",
+    "nanodet": "NanoDetPostprocessor",
+    "damoyolo": "DamoYoloPostprocessor",
+    "classification": "ClassificationPostprocessor",
+    "pose": "PosePostprocessor",
+    "instance_seg": "InstanceSegPostprocessor",
+    "semantic_seg": "SemanticSegPostprocessor",
+    "face": "FacePostprocessor",
+    "depth": "DepthPostprocessor",
+    "restoration": "RestorationPostprocessor",
+    "sr": "SRPostprocessor",
+    "embedding": "EmbeddingPostprocessor",
+    "obb": "OBBPostprocessor",
+}
+
+# Load registry
+with open("config/model_registry.json") as f:
+    registry = json.load(f)
+match = [m for m in registry if m["model_name"] == model_name]
+if not match:
+    print(f"WARN: {model_name} not in registry — skipping cross-check")
+    sys.exit(0)
+
+registry_key = match[0].get("postprocessor", "")
+expected_class = REGISTRY_TO_POSTPROCESSOR.get(registry_key)
+if not expected_class:
+    print(f"WARN: Unknown registry postprocessor key '{registry_key}'")
+    sys.exit(0)
+
+# Parse factory to find actual postprocessor class
+tree = ast.parse(open(factory_path).read())
+imports = []
+for node in ast.walk(tree):
+    if isinstance(node, ast.ImportFrom):
+        for alias in node.names:
+            name = alias.asname or alias.name
+            if "postprocessor" in name.lower() or "Postprocessor" in name:
+                imports.append(name)
+
+if not imports:
+    print("FAIL: No postprocessor import found in factory")
+    sys.exit(1)
+
+actual_class = imports[0]
+if actual_class != expected_class:
+    print(f"FAIL: Postprocessor mismatch")
+    print(f"  Registry key: '{registry_key}' → expected: {expected_class}")
+    print(f"  Factory uses: {actual_class}")
+    sys.exit(1)
+
+print(f"PASS: Postprocessor matches — {registry_key} → {actual_class}")
+```
+
+### Task-Appropriate Sample Images for Output Validation
+
+| Task | Sample Image | Expected Minimum Detections |
+|---|---|---|
+| object_detection | `sample/img/sample_dog.jpg` | >= 1 (dog, bicycle, etc.) |
+| face_detection | `sample/img/sample_face.jpg` | >= 1 face |
+| pose_estimation | `sample/img/sample_people.jpg` | >= 1 person |
+| classification | `sample/ILSVRC2012/0.jpeg` | top_k >= 1 |
+| instance_segmentation | `sample/img/sample_street.jpg` | >= 1 instance |
+| semantic_segmentation | `sample/img/sample_street.jpg` | non-empty mask |
+| obb_detection | `sample/dota8_test/P0177.png` | >= 1 oriented bbox |
+
+## Level 6: Integration Test (Full Pipeline)
 
 ```bash
 # Video with save + loop
@@ -252,7 +477,7 @@ ls -la artifacts/python_example/*/output.*
 
 ## validate_app.py (Automated)
 
-Combined validation script that runs all Level 1-2 checks:
+Combined validation script that runs all Level 1-3 checks (no NPU required):
 
 ```bash
 # Run from model directory
@@ -342,3 +567,7 @@ else:
 | Hardcoded model path | Path embedded in source | Use `args.model` from CLI |
 | Relative imports | `from ..common import` | Use `from common.base import` |
 | Empty factory/__init__.py | Missing import line | Add `from .<model>_factory import` |
+| Zero detections on known-good image | Wrong postprocessor or threshold too high | Verify registry key → postprocessor mapping (see Level 5 Check 5) |
+| Bbox coordinates outside image | Postprocessor not rescaling letterbox | Verify letterbox inverse transform in postprocessor |
+| Garbled detections with PPU model | Using standard YOLO postprocessor on PPU output | Use `PPUPostProcess` for PPU models |
+| `yolov26` model, wrong postprocessor | Agent generates `Yolo26Postprocessor` (doesn't exist) | Use `YOLOv8Postprocessor` — yolo26 reuses YOLOv8 end-to-end format |

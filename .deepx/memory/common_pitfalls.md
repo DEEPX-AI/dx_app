@@ -270,3 +270,71 @@ or running a super resolution model on a low-resolution JPEG (wrong format).
 | image_denoising | `sample/img/sample_denoising.jpg` |
 
 See `config/README.md` for the authoritative task→image mapping.
+
+---
+
+## 13. [DX_APP] yolov26 Registry Key ≠ Python Postprocessor Class Name
+
+**Symptom:** Agent generates `Yolo26Postprocessor` or `YOLOv26Postprocessor` — class
+does not exist. Or generates a custom postprocessor that parses the wrong output format,
+resulting in zero detections or garbled bounding boxes.
+
+**Cause:** `model_registry.json` uses the registry key `"yolov26"` in the `postprocessor`
+field. Agents may naively convert this to a class name like `Yolo26Postprocessor`. However,
+YOLO26 models use the YOLOv8-compatible end-to-end output format `[1, 300, 6]` =
+`[x1, y1, x2, y2, score, class_id]`, so they share the `YOLOv8Postprocessor` class.
+
+**Fix:** Always use the **Registry Key → Python Class** mapping table:
+
+| Registry Key | Correct Python Class |
+|---|---|
+| `yolov26` | `YOLOv8Postprocessor` |
+| `yolov5` | `YOLOv5Postprocessor` |
+| `yolov8` | `YOLOv8Postprocessor` |
+| `yolov10` | `YOLOv10Postprocessor` |
+| `yolov11` | `YOLOv11Postprocessor` |
+
+For C++ bindings (`dx_postprocess`), yolo26 has its own `Yolo26PostProcess` class.
+Only the Python postprocessor is shared with YOLOv8.
+
+**Validation:** After generating a factory, cross-check the postprocessor import against
+this mapping. See `dx-validate.md` Level 5 Check 5 for the automated cross-check script.
+
+---
+
+## 14. [DX_APP] Existing Example Ignored → Wrong Postprocessor Selected
+
+**Symptom:** Agent generates new code for a model that already has a working example in
+`src/python_example/<task>/<model>/`, but uses a different (incorrect) postprocessor.
+
+**Cause:** Agent skipped the "Search Existing Examples" step and selected the postprocessor
+based on model name heuristics or registry key alone, without checking the established
+working pattern.
+
+**Fix:** **Always search for existing examples first** before generating new code:
+```bash
+ls src/python_example/<task>/<model>/factory/ 2>/dev/null
+grep "Postprocessor" src/python_example/<task>/<model>/factory/*_factory.py
+```
+If a working example exists, use the same postprocessor class. The existing example is
+the ground truth for correct component selection.
+
+---
+
+## 15. [DX_APP] Zero Detections Pass Validation — Missing Output Accuracy Check
+
+**Symptom:** Agent declares "all validation checks passed" but the generated app produces
+zero detections on a known-good sample image.
+
+**Cause:** The 5-Level Validation Pyramid only checked exit code and log messages at
+Level 4 (Smoke Test). It did not verify that the model actually produced meaningful
+output (detection count > 0, valid bbox coordinates, valid class IDs).
+
+**Fix:** Always run Level 5 (Output Accuracy) validation after Level 4:
+1. Detection count > 0 on task-appropriate sample image
+2. Bbox coordinates within image bounds
+3. Confidence scores in [0.0, 1.0]
+4. Class IDs in valid range
+5. Postprocessor-model family cross-check
+
+See `dx-validate.md` Level 5 for the complete validation scripts.

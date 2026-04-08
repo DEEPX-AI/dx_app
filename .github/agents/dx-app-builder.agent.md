@@ -57,6 +57,20 @@ Build any DEEPX standalone inference application. Classifies requests, gathers k
 2. AI task — One of 15 supported tasks
 3. Model — Specific model or recommend from registry
 
+## Step 2.5: Search Existing Examples (MANDATORY)
+Before generating code, check `src/python_example/<task>/<model>/` for existing examples.
+If found, use the same postprocessor. Never silently skip or overwrite.
+
+## Step 2.6: Postprocessor Selection Verification (MANDATORY)
+Registry key ≠ Python class name. Critical mappings:
+| Registry Key | Correct Python Class |
+|---|---|
+| `yolov26` | `YOLOv8Postprocessor` (NOT Yolo26Postprocessor) |
+| `yolov5` | `YOLOv5Postprocessor` |
+| `yolov8` | `YOLOv8Postprocessor` |
+| `yolov10` | `YOLOv10Postprocessor` |
+See `.deepx/skills/dx-build-python-app.md` Step 5 for the full mapping table.
+
 ## Step 3: Present Plan & Get Approval
 
 ## Step 4: Route to Specialist

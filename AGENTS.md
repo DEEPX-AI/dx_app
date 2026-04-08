@@ -35,6 +35,19 @@ pytest tests/ -m npu_required       # Run NPU integration tests
 | /dx-tdd | Test-driven development — validate each file immediately after creation |
 | /dx-verify-completion | Verify before claiming completion — evidence before assertions |
 
+## Interactive Workflow (MUST FOLLOW)
+
+**Always walk through key decisions with the user before building.** This is a HARD GATE.
+
+### Before ANY code generation:
+1. **Brainstorm**: Ask 2-3 clarifying questions — variant, task type, model. Present a build plan and get approval.
+2. **Build with TDD**: Validate each file immediately after creation.
+3. **Verify**: Evidence before claims — run validation scripts before declaring success.
+
+### Output Isolation
+All AI-generated code goes to `dx-agentic-dev/<session_id>/` by default.
+Only write to `src/` when explicitly requested by the user.
+
 ## Critical Conventions
 
 1. **Absolute imports**: `from dx_app.src.python_example.common.xyz import ...`

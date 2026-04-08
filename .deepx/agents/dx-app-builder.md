@@ -90,7 +90,11 @@ Determine which category the user's request falls into:
 | **Performance** | "slow", "optimize", "profile", "benchmark" | dx-benchmark-builder |
 | **Model Mgmt** | "download", "register", "which model", "model_registry" | dx-model-manager |
 
-## Step 2: Ask Key Decisions
+## Step 2: Ask Key Decisions (HARD GATE)
+
+**This is a HARD GATE** — do NOT proceed to Step 3 without gathering answers
+for at least Decision 1 (language/variant) and Decision 2 (AI task) from the user.
+"Just build it" means use defaults — it does NOT mean skip this step.
 
 <!-- INTERACTION: What type of application do you want to build?
 OPTIONS: Python Sync | Python Async | C++ | Not sure — help me choose -->
@@ -156,6 +160,22 @@ Which option do you prefer?
 
 **MUST wait for user response** before proceeding. Never silently overwrite or
 skip existing examples.
+
+### MANDATORY: Postprocessor Selection Verification
+
+After selecting the postprocessor (either from existing example or from registry), verify
+the mapping is correct using this critical subset:
+
+| Registry Key (`model_registry.json`) | Correct Python Class |
+|---|---|
+| `yolov26` | `YOLOv8Postprocessor` (NOT `Yolo26Postprocessor`) |
+| `yolov5` | `YOLOv5Postprocessor` |
+| `yolov8` | `YOLOv8Postprocessor` |
+| `yolov10` | `YOLOv10Postprocessor` |
+
+**Rule**: If an existing working example exists, ALWAYS use its postprocessor. If no
+example exists, use the Registry Key → Python Class mapping table in `dx-build-python-app.md`.
+Never guess a class name from the registry key string.
 
 ## Step 3: Present Plan
 

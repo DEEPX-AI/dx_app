@@ -326,6 +326,12 @@ Run validation checks:
 1. `python -c "import py_compile; py_compile.compile('<file>', doraise=True)"` for each .py
 2. Verify config.json is valid JSON
 3. Verify factory implements all 5 required IFactory methods
+4. **Postprocessor cross-check (CRITICAL)**: Verify the factory's postprocessor import
+   matches the expected class from the Registry Key → Python Class mapping table above.
+   If `model_registry.json` says `"postprocessor": "yolov26"`, the factory MUST use
+   `YOLOv8Postprocessor`, NOT `Yolo26Postprocessor`.
+5. **Output accuracy (if NPU available)**: After smoke test, verify detection count > 0
+   on a task-appropriate sample image. Zero detections = FAIL. See `dx-validate.md` Level 5.
 
 ### Phase 6: Report
 
@@ -391,6 +397,23 @@ src/python_example/<task>/<model>/
 ```
 
 ## Preprocessor / Postprocessor / Visualizer Lookup
+
+> **CRITICAL**: The `postprocessor` field in `model_registry.json` is a **registry key**,
+> NOT a Python class name. Always use this mapping table to find the correct Python class.
+
+| Registry Key | Python Postprocessor Class | C++ Binding | Task |
+|---|---|---|---|
+| `yolov5` | `YOLOv5Postprocessor` | `YOLOv5PostProcess` | object_detection |
+| `yolov8` | `YOLOv8Postprocessor` | `YOLOv8PostProcess` | object_detection |
+| `yolov26` | `YOLOv8Postprocessor` | `Yolo26PostProcess` | object_detection |
+| `yolov10` | `YOLOv10Postprocessor` | `YOLOv10PostProcess` | object_detection |
+| `yolov11` | `YOLOv11Postprocessor` | `YOLOv11PostProcess` | object_detection |
+| `classification` | `ClassificationPostprocessor` | — | classification |
+| `pose` | `PosePostprocessor` | `PosePostProcess` | pose_estimation |
+| `face` | `FacePostprocessor` | `FacePostProcess` | face_detection |
+
+> **WARNING — yolo26 trap**: Registry key `"yolov26"` maps to `YOLOv8Postprocessor`
+> (NOT `Yolo26Postprocessor` which does not exist). YOLO26 uses end-to-end `[1,300,6]` format.
 
 | Task | Preprocessor | Postprocessor | Visualizer |
 |---|---|---|---|

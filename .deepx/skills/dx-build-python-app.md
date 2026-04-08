@@ -111,7 +111,34 @@ else:
 "
 ```
 
-## Step 2: Create Directory Structure
+## Step 2: Search for Existing Examples (MANDATORY)
+
+**Before creating any new files**, check whether a working example already exists.
+Existing examples are the best reference for correct postprocessor selection.
+
+```bash
+# Check standard location
+ls src/python_example/<TASK>/<MODEL>/factory/ 2>/dev/null
+
+# Check PPU location
+ls src/python_example/ppu/<MODEL>/factory/ 2>/dev/null
+
+# If found, inspect the factory to see which postprocessor is used
+grep -n "Postprocessor\|PostProcess" src/python_example/<TASK>/<MODEL>/factory/*_factory.py
+```
+
+**If an existing example is found:**
+1. Read the existing factory file — it has the correct postprocessor for this model
+2. Use the same preprocessor/postprocessor/visualizer combination
+3. Ask the user: (a) explain existing only, or (b) create new based on existing
+4. **Never generate a factory with a different postprocessor than the existing working example**
+
+**If no existing example is found:**
+1. Use the Registry Key → Postprocessor mapping table (Step 4) to select the correct class
+2. Cross-reference with `model_registry.json` postprocessor field
+3. Proceed to Step 3
+
+## Step 3: Create Directory Structure
 
 ```bash
 mkdir -p src/python_example/<TASK>/<MODEL>/factory
@@ -119,7 +146,7 @@ touch src/python_example/<TASK>/<MODEL>/__init__.py
 touch src/python_example/<TASK>/<MODEL>/factory/__init__.py
 ```
 
-## Step 3: Select IFactory Interface
+## Step 4: Select IFactory Interface
 
 | Task | Interface | Import |
 |---|---|---|
@@ -137,7 +164,7 @@ touch src/python_example/<TASK>/<MODEL>/factory/__init__.py
 | obb_detection | `IOBBFactory` | `from common.base import IOBBFactory` |
 | hand_landmark | `IHandLandmarkFactory` | `from common.base import IHandLandmarkFactory` |
 
-## Step 4: Select Components
+## Step 5: Select Components
 
 ### Preprocessors (from `common.processors`)
 
@@ -152,25 +179,33 @@ touch src/python_example/<TASK>/<MODEL>/factory/__init__.py
 
 ### Postprocessors (from `common.processors`)
 
-| Family | Postprocessor Class | Models |
-|---|---|---|
-| YOLOv5 | `YOLOv5Postprocessor` | yolov5n/s/m/l, yolov3, yolox |
-| YOLOv8 | `YOLOv8Postprocessor` | yolov8n/s/m/l/x, yolo26n/s/m/l/x |
-| YOLOv10 | `YOLOv10Postprocessor` | yolov10n/s/m/b/l/x |
-| YOLOv11 | `YOLOv11Postprocessor` | yolov11n/s/m/l/x |
-| DamoYOLO | `DamoYoloPostprocessor` | damoyolo variants |
-| NanoDet | `NanoDetPostprocessor` | nanodet_repvgg |
-| SSD | `SSDPostprocessor` | ssdmv1, ssdmv2lite |
-| Classification | `ClassificationPostprocessor` | all classification |
-| Pose | `PosePostprocessor` | yolov5_pose, yolov8_pose |
-| SegInstance | `InstanceSegPostprocessor` | yolov5_seg, yolov8_seg, yolact |
-| SegSemantic | `SemanticSegPostprocessor` | bisenet, deeplabv3, segformer |
-| Face | `FacePostprocessor` | scrfd, retinaface, yolov5face |
-| Depth | `DepthPostprocessor` | fastdepth |
-| Restoration | `RestorationPostprocessor` | dncnn |
-| SR | `SRPostprocessor` | espcn |
-| Embedding | `EmbeddingPostprocessor` | arcface |
-| OBB | `OBBPostprocessor` | yolo26n_obb |
+> **CRITICAL**: The `postprocessor` field in `model_registry.json` is a **registry key**,
+> NOT a Python class name. Always use this mapping table to find the correct Python class.
+
+| Registry Key | Python Postprocessor Class | C++ Binding (`dx_postprocess`) | Models |
+|---|---|---|---|
+| `yolov5` | `YOLOv5Postprocessor` | `YOLOv5PostProcess` | yolov5n/s/m/l, yolov3, yolox |
+| `yolov8` | `YOLOv8Postprocessor` | `YOLOv8PostProcess` | yolov8n/s/m/l/x |
+| `yolov26` | `YOLOv8Postprocessor` | `Yolo26PostProcess` | yolo26n/s/m/l/x |
+| `yolov10` | `YOLOv10Postprocessor` | `YOLOv10PostProcess` | yolov10n/s/m/b/l/x |
+| `yolov11` | `YOLOv11Postprocessor` | `YOLOv11PostProcess` | yolov11n/s/m/l/x |
+| `damoyolo` | `DamoYoloPostprocessor` | `DamoYoloPostProcess` | damoyolo variants |
+| `nanodet` | `NanoDetPostprocessor` | `NanoDetPostProcess` | nanodet_repvgg |
+| `ssd` | `SSDPostprocessor` | `SSDPostProcess` | ssdmv1, ssdmv2lite |
+| `classification` | `ClassificationPostprocessor` | — | all classification |
+| `pose` | `PosePostprocessor` | `PosePostProcess` | yolov5_pose, yolov8_pose |
+| `instance_seg` | `InstanceSegPostprocessor` | — | yolov5_seg, yolov8_seg, yolact |
+| `semantic_seg` | `SemanticSegPostprocessor` | — | bisenet, deeplabv3, segformer |
+| `face` | `FacePostprocessor` | `FacePostProcess` | scrfd, retinaface, yolov5face |
+| `depth` | `DepthPostprocessor` | — | fastdepth |
+| `restoration` | `RestorationPostprocessor` | — | dncnn |
+| `sr` | `SRPostprocessor` | — | espcn |
+| `embedding` | `EmbeddingPostprocessor` | — | arcface |
+| `obb` | `OBBPostprocessor` | `Yolo26OBBPostProcess` | yolo26n_obb |
+
+> **WARNING — yolo26 trap**: `model_registry.json` uses registry key `"yolov26"`, but
+> the correct Python class is `YOLOv8Postprocessor` (NOT `Yolo26Postprocessor` which
+> does not exist). YOLO26 uses YOLOv8-compatible end-to-end output format `[1,300,6]`.
 
 ### Visualizers (from `common.visualizers`)
 
@@ -186,7 +221,7 @@ touch src/python_example/<TASK>/<MODEL>/factory/__init__.py
 | `RestorationVisualizer` | Denoising, enhancement |
 | `SRVisualizer` | Super resolution |
 
-## Step 5: Create Factory
+## Step 6: Create Factory
 
 ### Template: `factory/<model>_factory.py`
 
@@ -228,7 +263,7 @@ class <ModelClass>Factory(<IFactoryInterface>):
 from .<model>_factory import <ModelClass>Factory
 ```
 
-## Step 6: Create Sync Variant
+## Step 7: Create Sync Variant
 
 ### Template: `<model>_sync.py`
 
@@ -270,7 +305,7 @@ if __name__ == "__main__":
     main()
 ```
 
-## Step 7: Create Async Variant
+## Step 8: Create Async Variant
 
 ### Template: `<model>_async.py`
 
@@ -312,7 +347,7 @@ if __name__ == "__main__":
     main()
 ```
 
-## Step 8: Create Sync C++ Postprocess Variant
+## Step 9: Create Sync C++ Postprocess Variant
 
 ### Template: `<model>_sync_cpp_postprocess.py`
 
@@ -372,7 +407,7 @@ Common bindings include: `YOLOv5PostProcess`, `YOLOv8PostProcess`,
 `YOLOv10PostProcess`, `YOLOv11PostProcess`, `SSDPostProcess`, `NanoDetPostProcess`.
 Check `src/postprocess/` for the full list of 37 bindings.
 
-## Step 9: Create Async C++ Postprocess Variant
+## Step 10: Create Async C++ Postprocess Variant
 
 ### Template: `<model>_async_cpp_postprocess.py`
 
@@ -427,7 +462,7 @@ if __name__ == "__main__":
     main()
 ```
 
-## Step 10: Create config.json
+## Step 11: Create config.json
 
 ### Detection models
 ```json
@@ -457,7 +492,7 @@ if __name__ == "__main__":
 {}
 ```
 
-## Step 11: Validate
+## Step 12: Validate
 
 Run these checks in order:
 
@@ -474,8 +509,51 @@ python -c "import json; json.load(open('config.json')); print('OK: config.json')
 # 3. Factory import test (requires dx_engine environment)
 PYTHONPATH=../../ python -c "from factory import <ModelClass>Factory; f = <ModelClass>Factory(); print(f'OK: {f.get_model_name()} / {f.get_task_type()}')"
 
-# 4. Smoke test (requires NPU + model file)
-python <model>_sync.py --model /path/to/<model>.dxnn --image test.jpg --no-display
+# 4. Postprocessor cross-check (CRITICAL — catches wrong postprocessor)
+# Verify the factory uses the correct postprocessor for this model family.
+# See the Registry Key → Python Postprocessor Class table in Step 5.
+python -c "
+import ast, json
+# Read registry
+with open('config/model_registry.json') as f:
+    models = json.load(f)
+match = [m for m in models if m['model_name'] == '<MODEL_NAME>']
+if match:
+    reg_key = match[0].get('postprocessor', '')
+    print(f'Registry postprocessor key: {reg_key}')
+# Read factory
+tree = ast.parse(open('factory/<model>_factory.py').read())
+for node in ast.walk(tree):
+    if isinstance(node, ast.ImportFrom):
+        for alias in node.names:
+            if 'Postprocessor' in (alias.asname or alias.name):
+                print(f'Factory uses: {alias.asname or alias.name}')
+"
+
+# 5. Smoke test (requires NPU + model file)
+python <model>_sync.py --model /path/to/<model>.dxnn --image <TASK_SAMPLE_IMAGE> --no-display
+
+# 6. Output accuracy check (CRITICAL — catches zero-detection bugs)
+# After smoke test, verify detection count > 0 on known-good sample image.
+# If the app supports --save-json, check the JSON output:
+python -c "
+import subprocess, sys
+result = subprocess.run(
+    ['python', '<model>_sync.py', '--model', '/path/to/<model>.dxnn',
+     '--image', '<TASK_SAMPLE_IMAGE>', '--no-display', '--verbose'],
+    capture_output=True, text=True, timeout=60
+)
+if result.returncode != 0:
+    print(f'FAIL: exit code {result.returncode}')
+    sys.exit(1)
+# Check stdout for detection count
+output = result.stdout + result.stderr
+if 'detections: 0' in output.lower() or 'no objects detected' in output.lower():
+    print('FAIL: Zero detections on known-good sample image')
+    print('Check: postprocessor class, score_threshold, model output format')
+    sys.exit(1)
+print('PASS: Inference completed with detections')
+"
 ```
 
 ### Task-Aware Sample Image for Smoke Test

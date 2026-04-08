@@ -10,9 +10,12 @@ Read the full skill document at `.deepx/skills/dx-build-python-app.md` for compl
 ## Quick Reference
 
 1. Query `config/model_registry.json` for the model
-2. Create directory `src/python_example/<task>/<model>/`
-3. Implement IFactory in `factory/<model>_factory.py`
-4. Create `<model>_sync.py` with SyncRunner
-5. Create `<model>_async.py` with AsyncRunner
-6. Add `config.json` with thresholds
-7. Validate with `python .deepx/scripts/validate_app.py <dir>`
+2. **Search existing examples** in `src/python_example/<task>/<model>/` — if found, use same postprocessor
+3. Create directory `src/python_example/<task>/<model>/`
+4. Implement IFactory in `factory/<model>_factory.py`
+5. Create `<model>_sync.py` with SyncRunner
+6. Create `<model>_async.py` with AsyncRunner
+7. Add `config.json` with thresholds
+8. **Postprocessor cross-check** — verify registry key → Python class mapping (e.g., `yolov26` → `YOLOv8Postprocessor`)
+9. **Output accuracy** — detection count > 0 on task-appropriate sample image
+10. Validate with `python .deepx/scripts/validate_app.py <dir>`

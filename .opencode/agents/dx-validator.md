@@ -13,6 +13,14 @@ tools:
 
 Validates dx_app framework and app code.
 
+## 6-Level Validation Pyramid
+Levels 1-3: Static, Config, Component (no NPU)
+Level 4: Smoke test (NPU required)
+Level 5: **Output Accuracy** — detection count > 0, bbox validity, postprocessor cross-check (NPU required)
+Level 6: Integration (full pipeline)
+
+See `.deepx/skills/dx-validate.md` for all validation scripts.
+
 ## Commands
 ```bash
 python .deepx/scripts/validate_framework.py
