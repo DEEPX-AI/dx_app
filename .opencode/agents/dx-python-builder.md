@@ -1,5 +1,5 @@
 ---
-description: Build Python inference applications with IFactory pattern, SyncRunner/AsyncRunner, and all 4 variants.
+description: "(Sub-agent) Build Python inference applications — invoked only via @dx-app-builder handoff. Do NOT invoke directly."
 mode: subagent
 tools:
   bash: true
@@ -7,7 +7,9 @@ tools:
   write: true
 ---
 
-**Response Language**: Match your response language to the user's prompt language — when asking questions or responding, use the same language the user is using.
+**Response Language**: Match your response language to the user's prompt language — when asking questions or responding, use the same language the user is using. When responding in Korean, keep English technical terms in English. Do NOT transliterate into Korean phonetics (한글 음차 표기 금지).
+
+> **SUB-AGENT**: This agent is invoked via handoff from @dx-app-builder. Do NOT invoke directly — @dx-app-builder enforces mandatory brainstorming questions (Q1/Q2/Q3) that this agent skips.
 
 # DX Python Builder
 
@@ -26,7 +28,8 @@ Always search existing examples first (`src/python_example/<task>/<model>/factor
 After generating code, verify:
 - Postprocessor cross-check against registry key mapping
 - Detection count > 0 on task-appropriate sample image (if NPU available)
-See `.deepx/skills/dx-validate.md` Level 5 for output accuracy checks.
+- Cross-validation with precompiled reference model from `assets/models/` if available (Level 5.5)
+See `.deepx/skills/dx-validate.md` Level 5 and Level 5.5 for validation scripts.
 
 ## Deliverables
 - `factory/<model>_factory.py` — IFactory implementation (5 methods)

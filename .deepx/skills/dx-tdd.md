@@ -36,6 +36,9 @@ Each file must pass before creating the next.
 | 7 | `<model>_async_cpp_postprocess.py` | py_compile |
 | 8 | `session.json` | JSON parse |
 | 9 | `README.md` | file exists |
+| 10 | `setup.sh` | file exists + bash syntax check (`bash -n`) |
+| 11 | `run.sh` | file exists + bash syntax check (`bash -n`) |
+| 12 | `session.log` | file exists (generated at end of build) |
 
 ### Check 1: Factory — syntax + interface
 ```bash
@@ -75,6 +78,21 @@ done
 test -f README.md && echo "PASS" || echo "FAIL: README.md missing"
 ```
 
+### Checks 10-11: Deployment Scripts (setup.sh, run.sh)
+```bash
+# setup.sh — must exist and have valid bash syntax
+test -f setup.sh && bash -n setup.sh && echo "PASS: setup.sh" || echo "FAIL: setup.sh missing or invalid"
+
+# run.sh — must exist and have valid bash syntax
+test -f run.sh && bash -n run.sh && echo "PASS: run.sh" || echo "FAIL: run.sh missing or invalid"
+```
+
+### Check 12: session.log
+```bash
+# session.log — generated at end of build via tee
+test -f session.log && echo "PASS: session.log" || echo "FAIL: session.log missing"
+```
+
 ## Validation Order: C++ Apps
 
 | # | File | Check |
@@ -87,6 +105,21 @@ test -f README.md && echo "PASS" || echo "FAIL: README.md missing"
 ## Framework-Level Validation
 
 After all files pass: `python .deepx/scripts/validate_app.py`
+
+## Cross-Validation with Reference Model (Post-TDD)
+
+After TDD cycle completes all file-level validations, run the cross-validation
+from `dx-validate.md` Level 5.5 if a precompiled reference model or existing
+verified example is available. This catches runtime correctness issues that
+static validation cannot detect (e.g., wrong postprocessor behavior, config
+mismatch, output format differences).
+
+```bash
+# Quick check: is a precompiled reference available?
+MODEL_NAME="<model_name>"
+DX_APP_ROOT="$(cd ../.. && pwd)"
+[ -f "${DX_APP_ROOT}/assets/models/${MODEL_NAME}.dxnn" ] && echo "Run Level 5.5 cross-validation" || echo "SKIP: no reference"
+```
 
 ## Common Failures
 

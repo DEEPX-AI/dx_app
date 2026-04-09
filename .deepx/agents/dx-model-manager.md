@@ -1,12 +1,14 @@
 ---
 name: DX Model Manager
-description: Download, register, query, and validate .dxnn models from model_registry.json.
+description: "(Sub-agent) Download, register, query, and validate .dxnn models — invoked only via @dx-app-builder handoff. Do NOT invoke directly."
 argument-hint: 'e.g., Download yolo26n model, list all detection models'
 capabilities: [ask-user, edit, execute, read, search, todo]
 routes-to: []
 ---
 
-**Response Language**: Match your response language to the user's prompt language — when asking questions or responding, use the same language the user is using.
+**Response Language**: Match your response language to the user's prompt language — when asking questions or responding, use the same language the user is using. When responding in Korean, keep English technical terms in English. Do NOT transliterate into Korean phonetics (한글 음차 표기 금지).
+
+> **SUB-AGENT**: This agent is invoked via handoff from @dx-app-builder. Do NOT invoke directly — @dx-app-builder enforces mandatory brainstorming questions (Q1/Q2/Q3) that this agent skips.
 
 # DX Model Manager
 

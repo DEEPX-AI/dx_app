@@ -20,7 +20,13 @@ This directory works independently — no parent repository access required.
 │   ├── cpp-example.md                 # Rules for src/cpp_example/**
 │   ├── postprocess.md                 # Rules for src/postprocess/**
 │   └── tests.md                       # Rules for tests/**
-├── instructions/                      # Development instructions (extensible)
+├── instructions/                      # Development instructions (6 files)
+│   ├── agent-protocols.md             # Agent communication protocols
+│   ├── architecture.md                # System architecture overview
+│   ├── coding-standards.md            # Coding standards and conventions
+│   ├── factory-pattern.md             # IFactory pattern reference
+│   ├── orchestration.md               # Multi-agent orchestration rules
+│   └── testing-patterns.md            # Testing patterns and pytest conventions
 ├── knowledge/                         # Structured knowledge bases
 │   └── knowledge_base.yaml            # Bottleneck patterns, insights, recipes
 ├── memory/                            # Persistent learned knowledge
@@ -38,7 +44,15 @@ This directory works independently — no parent repository access required.
 │   ├── validate_app.py                # App directory validator (11 checks + 3 smoke)
 │   ├── validate_framework.py          # .deepx/ integrity checker (8 categories)
 │   └── generate_platforms.py          # Platform config generator
-├── skills/                            # Skill definitions (extensible)
+├── skills/                            # Skill definitions (8 files)
+│   ├── dx-build-python-app.md         # Build Python inference app
+│   ├── dx-build-cpp-app.md            # Build C++ inference app
+│   ├── dx-build-async-app.md          # Build async high-performance app
+│   ├── dx-model-management.md         # Model download and registry
+│   ├── dx-validate.md                 # 5-level validation pyramid
+│   ├── dx-brainstorm-and-plan.md      # Process skill — brainstorm before code
+│   ├── dx-tdd.md                      # Process skill — test-driven development
+│   └── dx-verify-completion.md        # Process skill — verify before claiming done
 ├── templates/                         # Output templates
 │   └── copilot-instructions.md        # GitHub Copilot instructions template
 └── toolsets/                          # API reference documentation

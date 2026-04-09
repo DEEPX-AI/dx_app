@@ -68,11 +68,12 @@ Present this plan template for user approval:
 **Output dir**: dx-agentic-dev/<YYYYMMDD-HHMMSS>_<model>_<task>/
 
 ### Files to Create
-1. factory/<model>_factory.py    6. <model>_sync_cpp_postprocess.py
-2. factory/__init__.py           7. <model>_async_cpp_postprocess.py
-3. config.json                   8. __init__.py
-4. <model>_sync.py               9. session.json
-5. <model>_async.py             10. README.md
+1. factory/<model>_factory.py    7. <model>_async_cpp_postprocess.py
+2. factory/__init__.py           8. __init__.py
+3. config.json                   9. session.json
+4. <model>_sync.py              10. README.md
+5. <model>_async.py             11. setup.sh
+6. <model>_sync_cpp_postprocess.py  12. run.sh
 
 ### Components
 - Preprocessor: <Preprocessor>  |  Postprocessor: <Postprocessor>

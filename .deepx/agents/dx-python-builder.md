@@ -1,12 +1,14 @@
 ---
 name: DX Python Builder
-description: Build a Python inference application using SyncRunner or AsyncRunner with the IFactory pattern.
+description: "(Sub-agent) Build a Python inference application — invoked only via @dx-app-builder handoff. Do NOT invoke directly."
 argument-hint: 'e.g., yolo26n object detection sync app'
 capabilities: [ask-user, edit, execute, read, search, todo]
 routes-to: []
 ---
 
-**Response Language**: Match your response language to the user's prompt language — when asking questions or responding, use the same language the user is using.
+**Response Language**: Match your response language to the user's prompt language — when asking questions or responding, use the same language the user is using. When responding in Korean, keep English technical terms in English. Do NOT transliterate into Korean phonetics (한글 음차 표기 금지).
+
+> **SUB-AGENT**: This agent is invoked via handoff from @dx-app-builder. Do NOT invoke directly — @dx-app-builder enforces mandatory brainstorming questions (Q1/Q2/Q3) that this agent skips.
 
 # DX Python Builder
 
@@ -332,6 +334,9 @@ Run validation checks:
    `YOLOv8Postprocessor`, NOT `Yolo26Postprocessor`.
 5. **Output accuracy (if NPU available)**: After smoke test, verify detection count > 0
    on a task-appropriate sample image. Zero detections = FAIL. See `dx-validate.md` Level 5.
+6. **Cross-validation (if NPU available)**: If a precompiled reference DXNN exists in
+   `assets/models/` or an existing verified example exists, run differential diagnosis.
+   See `dx-validate.md` Level 5.5.
 
 ### Phase 6: Report
 

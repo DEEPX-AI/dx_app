@@ -3,19 +3,21 @@
 > Validate dx_app applications at every phase gate: static analysis,
 > configuration checks, smoke tests, and full integration tests.
 
-## 6-Level Validation Pyramid
+## 7-Level Validation Pyramid
 
 ```
-Level 6: Integration       (NPU + model + full pipeline)
-Level 5: Output Accuracy   (NPU + verify detection output correctness)
-Level 4: Smoke             (NPU + model + quick single-frame inference)
-Level 3: Component         (preprocessor/postprocessor/visualizer individually)
-Level 2: Config            (JSON validity, schema compliance)
-Level 1: Static            (syntax, imports, factory interface)
+Level 6:   Integration       (NPU + model + full pipeline)
+Level 5.5: Cross-Validation  (NPU + differential diagnosis with precompiled reference model)
+Level 5:   Output Accuracy   (NPU + verify detection output correctness)
+Level 4:   Smoke             (NPU + model + quick single-frame inference)
+Level 3:   Component         (preprocessor/postprocessor/visualizer individually)
+Level 2:   Config            (JSON validity, schema compliance)
+Level 1:   Static            (syntax, imports, factory interface)
 ```
 
 Levels 1-3 can run without NPU hardware.
 Levels 4-6 require NPU + model files.
+Level 5.5 requires NPU + precompiled reference model in `assets/models/` (skip if unavailable).
 
 ## Level 1: Static Validation (11 Checks)
 
@@ -458,6 +460,126 @@ print(f"PASS: Postprocessor matches — {registry_key} → {actual_class}")
 | instance_segmentation | `sample/img/sample_street.jpg` | >= 1 instance |
 | semantic_segmentation | `sample/img/sample_street.jpg` | non-empty mask |
 | obb_detection | `sample/dota8_test/P0177.png` | >= 1 oriented bbox |
+
+## Level 5.5: Cross-Validation with Reference Model (NPU Required)
+
+When a precompiled reference DXNN exists in `assets/models/` for the same model,
+use it as a known-good baseline for **differential diagnosis** — isolating whether
+a failure is in the generated app code or in the compiled model.
+
+> **Skip condition**: If no precompiled DXNN for the same model exists in
+> `assets/models/` AND no existing verified example exists in `src/python_example/`,
+> skip this level entirely and proceed to Level 6.
+
+### Prerequisite: Check for Reference Assets
+
+```bash
+MODEL_NAME="<model_name>"
+DX_APP_ROOT="$(cd ../.. && pwd)"  # or appropriate path to dx_app root
+
+# Check 1: Precompiled model in assets/models/
+PRECOMPILED="${DX_APP_ROOT}/assets/models/${MODEL_NAME}.dxnn"
+if [ -f "$PRECOMPILED" ]; then
+    echo "REF MODEL FOUND: $PRECOMPILED"
+else
+    echo "SKIP: No precompiled reference model for ${MODEL_NAME}"
+fi
+
+# Check 2: Existing verified example in src/python_example/
+TASK_TYPE="<task_type>"  # e.g., object_detection
+EXISTING_APP="${DX_APP_ROOT}/src/python_example/${TASK_TYPE}/${MODEL_NAME}/${MODEL_NAME}_sync.py"
+if [ -f "$EXISTING_APP" ]; then
+    echo "REF APP FOUND: $EXISTING_APP"
+else
+    echo "SKIP: No existing verified example for ${MODEL_NAME}"
+fi
+```
+
+### Test A: Run Generated App with Precompiled Model
+
+If a precompiled DXNN exists for the same model family, run the generated app
+with the known-good precompiled model to isolate app code vs compilation issues:
+
+```bash
+# Run generated app with the precompiled (known-good) model
+python <generated_app>/<model>_sync.py \
+    --model assets/models/<model>.dxnn \
+    --image <TASK_SAMPLE_IMAGE> --no-display --verbose
+
+# Then run the same generated app with the newly compiled model
+python <generated_app>/<model>_sync.py \
+    --model <new_model_path>/<model>.dxnn \
+    --image <TASK_SAMPLE_IMAGE> --no-display --verbose
+```
+
+**Decision tree**:
+- **PASS with precompiled, FAIL with new model** → **Compilation problem** (app code is correct; the newly compiled .dxnn is faulty)
+- **FAIL with both** → **Generated app code problem** (or environment issue)
+- **PASS with both, same results** → Both model and app are correct
+
+### Test B: Compare Against Existing Verified Example
+
+If an existing verified example for the same model exists in
+`src/python_example/<task>/<model>/`, use it as a reference implementation:
+
+```bash
+# Step 1: Run existing verified example with --verbose (--show-log for C++)
+EXISTING_APP="src/python_example/<task>/<model>/<model>_sync.py"
+if [ -f "$EXISTING_APP" ]; then
+    echo "=== Reference App Output ==="
+    python "$EXISTING_APP" \
+        --model assets/models/<model>.dxnn \
+        --image <TASK_SAMPLE_IMAGE> --no-display --verbose 2>&1 | tee /tmp/ref_output.log
+
+    # Step 2: Run generated app with the SAME precompiled model
+    echo "=== Generated App Output ==="
+    python <generated_app>/<model>_sync.py \
+        --model assets/models/<model>.dxnn \
+        --image <TASK_SAMPLE_IMAGE> --no-display --verbose 2>&1 | tee /tmp/gen_output.log
+
+    # Step 3: Compare inference results
+    echo "=== Comparing Outputs ==="
+    diff <(grep -i "detect\|class\|score\|bbox\|confidence" /tmp/ref_output.log) \
+         <(grep -i "detect\|class\|score\|bbox\|confidence" /tmp/gen_output.log) || true
+fi
+```
+
+### Test C: Cross-Model Swap (Existing App + Generated Model)
+
+Run the existing verified app with the newly compiled model to isolate
+compilation-level problems from app-level problems:
+
+```bash
+# Existing verified app + generated (new) model
+python src/python_example/<task>/<model>/<model>_sync.py \
+    --model <new_model_path>/<model>.dxnn \
+    --image <TASK_SAMPLE_IMAGE> --no-display --verbose 2>&1 | tee /tmp/existing_with_new.log
+
+# Existing verified app + precompiled (reference) model
+python src/python_example/<task>/<model>/<model>_sync.py \
+    --model assets/models/<model>.dxnn \
+    --image <TASK_SAMPLE_IMAGE> --no-display --verbose 2>&1 | tee /tmp/existing_with_ref.log
+```
+
+### Differential Diagnosis Decision Matrix
+
+| Existing App + Precompiled | Existing App + New Model | Generated App + Precompiled | Generated App + New Model | Diagnosis |
+|---|---|---|---|---|
+| PASS | PASS | PASS | PASS | All correct |
+| PASS | PASS | PASS | FAIL | **Generated app + new model interaction bug** |
+| PASS | PASS | FAIL | FAIL | **Generated app code problem** |
+| PASS | FAIL | PASS | FAIL | **Compilation problem** — new .dxnn is faulty |
+| PASS | FAIL | FAIL | FAIL | **Generated app code problem + compilation problem** |
+| FAIL | FAIL | FAIL | FAIL | **Environment problem** — NPU, dx_engine, or deps |
+
+### Recovery Actions by Diagnosis
+
+| Diagnosis | Action |
+|---|---|
+| Generated app code problem | Fix factory postprocessor, config.json thresholds, or preprocessing |
+| Compilation problem | Re-check config.json, try different quantization, adjust PPU settings |
+| Environment problem | Verify NPU with `dxrt-cli -s`, reinstall dx_engine, check dependencies |
+| Interaction bug | Compare config.json between generated and existing app |
 
 ## Level 6: Integration Test (Full Pipeline)
 

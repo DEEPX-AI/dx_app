@@ -38,8 +38,34 @@ dx_app provides 133 models across 15 AI tasks with Python (4 variants) and C++ e
 - Validate after generation
 - Output to `dx-agentic-dev/<session_id>/` by default
 
+### Mandatory Questions for App Building (HARD-GATE)
+
+<HARD-GATE>
+Before ANY code generation, the agent MUST ask and receive explicit answers to ALL 3:
+1. **Language/variant**: Python (sync/async/cpp_postprocess/async_cpp_postprocess) or C++?
+2. **AI task**: detection, classification, segmentation, pose, face_detection, depth_estimation, etc.
+3. **Model**: Specific model name (e.g. 'yolo26n') or 'recommend' for auto-selection
+
+These questions MUST NOT be skipped even if the user's prompt seems to provide enough context.
+Even "build a yolo26n detection app" requires confirming: Python or C++? Which variant?
+</HARD-GATE>
+
+## Process Skills (available for all tasks)
+| Skill | When to use | Read |
+|---|---|---|
+| Brainstorm & Plan | Before any code generation | `.deepx/skills/dx-brainstorm-and-plan.md` |
+| TDD | Validate each file after creation | `.deepx/skills/dx-tdd.md` |
+| Verify Completion | Before claiming task is done | `.deepx/skills/dx-verify-completion.md` |
+
 ## Hardware
 | Architecture | Value |
 |---|---|
 | DX-M1 | `dx_m1` |
 | DX-M1A | `dx_m1a` |
+
+## Session Sentinels (MANDATORY for Automated Testing)
+
+When processing a user prompt, output these exact markers:
+- **First line of response**: `[DX-AGENTIC-DEV: START]`
+- **Last line after ALL work complete**: `[DX-AGENTIC-DEV: DONE]`
+- Sub-agents invoked via routing do NOT output sentinels

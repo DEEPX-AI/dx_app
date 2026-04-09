@@ -18,7 +18,10 @@ production `src/` directory. This prevents accidental modification of existing c
 
 ```
 dx-agentic-dev/<YYYYMMDD-HHMMSS>_<model>_<task>/
+├── setup.sh              # Environment setup (venv, pip dependencies)
+├── run.sh                # One-command inference launcher
 ├── session.json          # Build metadata
+├── session.log           # Actual command output (captured via tee)
 ├── README.md             # How to run this app
 ├── factory/
 │   ├── __init__.py
@@ -556,6 +559,55 @@ print('PASS: Inference completed with detections')
 "
 ```
 
+### 7. Cross-validation with reference model (if available)
+
+If a precompiled DXNN for the same model exists in `assets/models/` or an existing
+verified example exists in `src/python_example/<task>/<model>/`, run a differential
+diagnosis to isolate app code vs compilation issues. See `dx-validate.md` Level 5.5.
+
+```bash
+# Check if precompiled reference model exists
+MODEL_NAME="<MODEL_NAME>"
+DX_APP_ROOT="$(cd ../.. && pwd)"
+REF_MODEL="${DX_APP_ROOT}/assets/models/${MODEL_NAME}.dxnn"
+
+if [ -f "$REF_MODEL" ]; then
+    echo "=== Cross-validation: Generated app with precompiled model ==="
+    python <model>_sync.py --model "$REF_MODEL" \
+        --image <TASK_SAMPLE_IMAGE> --no-display --verbose
+    REF_RESULT=$?
+
+    echo "=== Cross-validation: Generated app with new model ==="
+    python <model>_sync.py --model /path/to/<model>.dxnn \
+        --image <TASK_SAMPLE_IMAGE> --no-display --verbose
+    NEW_RESULT=$?
+
+    if [ $REF_RESULT -eq 0 ] && [ $NEW_RESULT -ne 0 ]; then
+        echo "DIAGNOSIS: Compilation problem — precompiled model works, new model fails"
+    elif [ $REF_RESULT -ne 0 ] && [ $NEW_RESULT -ne 0 ]; then
+        echo "DIAGNOSIS: Generated app code problem — both models fail"
+    elif [ $REF_RESULT -eq 0 ] && [ $NEW_RESULT -eq 0 ]; then
+        echo "PASS: Both models work with generated app"
+    fi
+fi
+
+# Check if existing verified example exists
+TASK="<TASK>"
+EXISTING_APP="${DX_APP_ROOT}/src/python_example/${TASK}/${MODEL_NAME}/${MODEL_NAME}_sync.py"
+if [ -f "$EXISTING_APP" ] && [ -f "$REF_MODEL" ]; then
+    echo "=== Cross-validation: Existing app with new model ==="
+    python "$EXISTING_APP" --model /path/to/<model>.dxnn \
+        --image <TASK_SAMPLE_IMAGE> --no-display --verbose
+    EXISTING_RESULT=$?
+
+    if [ $EXISTING_RESULT -ne 0 ]; then
+        echo "DIAGNOSIS: Compilation-level problem — existing verified app also fails"
+    fi
+fi
+```
+
+**Decision tree**: See `dx-validate.md` Level 5.5 Differential Diagnosis Decision Matrix.
+
 ### Task-Aware Sample Image for Smoke Test
 
 Select the sample image based on the model's AI task:
@@ -589,6 +641,9 @@ Before declaring the app complete, verify all files exist:
 - [ ] `src/python_example/<task>/<model>/<model>_async.py`
 - [ ] `src/python_example/<task>/<model>/<model>_sync_cpp_postprocess.py` (if applicable)
 - [ ] `src/python_example/<task>/<model>/<model>_async_cpp_postprocess.py` (if applicable)
+- [ ] `setup.sh` — environment setup script (venv, pip dependencies)
+- [ ] `run.sh` — one-command inference launcher
+- [ ] `session.log` — actual command output (captured via tee)
 
 ## Substitution Reference
 

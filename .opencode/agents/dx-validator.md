@@ -7,16 +7,17 @@ tools:
   edit: false
 ---
 
-**Response Language**: Match your response language to the user's prompt language — when asking questions or responding, use the same language the user is using.
+**Response Language**: Match your response language to the user's prompt language — when asking questions or responding, use the same language the user is using. When responding in Korean, keep English technical terms in English. Do NOT transliterate into Korean phonetics (한글 음차 표기 금지).
 
 # DX App Validator
 
 Validates dx_app framework and app code.
 
-## 6-Level Validation Pyramid
+## 7-Level Validation Pyramid
 Levels 1-3: Static, Config, Component (no NPU)
 Level 4: Smoke test (NPU required)
 Level 5: **Output Accuracy** — detection count > 0, bbox validity, postprocessor cross-check (NPU required)
+Level 5.5: **Cross-Validation** — differential diagnosis with precompiled reference model from `assets/models/` and existing verified examples (NPU required)
 Level 6: Integration (full pipeline)
 
 See `.deepx/skills/dx-validate.md` for all validation scripts.

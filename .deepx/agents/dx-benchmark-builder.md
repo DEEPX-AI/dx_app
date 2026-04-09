@@ -1,6 +1,6 @@
 ---
 name: DX Benchmark Builder
-description: Profile and optimize an existing inference application. Identifies bottlenecks and recommends optimizations.
+description: "(Sub-agent) Profile and optimize an existing inference application — invoked only via @dx-app-builder handoff. Do NOT invoke directly."
 argument-hint: 'e.g., Profile yolo26n detection app performance'
 capabilities: [ask-user, edit, execute, read, search, todo]
 routes-to:
@@ -9,7 +9,9 @@ routes-to:
     description: Rebuild app with a faster variant (e.g., sync to async).
 ---
 
-**Response Language**: Match your response language to the user's prompt language — when asking questions or responding, use the same language the user is using.
+**Response Language**: Match your response language to the user's prompt language — when asking questions or responding, use the same language the user is using. When responding in Korean, keep English technical terms in English. Do NOT transliterate into Korean phonetics (한글 음차 표기 금지).
+
+> **SUB-AGENT**: This agent is invoked via handoff from @dx-app-builder. Do NOT invoke directly — @dx-app-builder enforces mandatory brainstorming questions (Q1/Q2/Q3) that this agent skips.
 
 # DX Benchmark Builder
 

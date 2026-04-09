@@ -58,6 +58,37 @@ python .deepx/scripts/validate_app.py
 ```
 Any FAIL at any step = stop and fix.
 
+### Step 5.5: Cross-Validation with Reference Model (if available)
+
+If a precompiled DXNN exists in `assets/models/` for the same model OR an existing
+verified example exists in `src/python_example/`, run the differential diagnosis.
+This step is SKIP if no reference assets exist.
+
+```bash
+MODEL_NAME="<model>"
+DX_APP_ROOT="$(cd ../.. && pwd)"
+
+# Test A: Run generated app with precompiled model
+REF_MODEL="${DX_APP_ROOT}/assets/models/${MODEL_NAME}.dxnn"
+if [ -f "$REF_MODEL" ]; then
+    python <app_dir>/<model>_sync.py --model "$REF_MODEL" \
+        --image <TASK_SAMPLE_IMAGE> --no-display --verbose
+    echo "Precompiled model exit code: $?"
+fi
+
+# Test B: Compare against existing verified example
+TASK="<task_type>"
+EXISTING="${DX_APP_ROOT}/src/python_example/${TASK}/${MODEL_NAME}/${MODEL_NAME}_sync.py"
+if [ -f "$EXISTING" ] && [ -f "$REF_MODEL" ]; then
+    python "$EXISTING" --model "$REF_MODEL" \
+        --image <TASK_SAMPLE_IMAGE> --no-display --verbose
+    echo "Existing app exit code: $?"
+fi
+```
+
+**Evidence**: Reference model test results, comparison results, diagnosis.
+See `dx-validate.md` Level 5.5 for the full Differential Diagnosis Decision Matrix.
+
 ## Checklist: Python Apps
 
 - [ ] `factory/<model>_factory.py` — syntax OK, 5 methods present
@@ -68,6 +99,9 @@ Any FAIL at any step = stop and fix.
 - [ ] `<model>_sync_cpp_postprocess.py` — syntax OK, imports `dx_postprocess`
 - [ ] `<model>_async_cpp_postprocess.py` — syntax OK, imports `dx_postprocess`
 - [ ] `__init__.py`, `session.json`, `README.md` — exist and valid
+- [ ] `setup.sh` — exists and valid bash (`bash -n setup.sh`)
+- [ ] `run.sh` — exists and valid bash (`bash -n run.sh`)
+- [ ] `session.log` — exists and non-empty
 - [ ] No hardcoded `.dxnn` paths, no relative imports, no bare `print()` in factory
 
 ## Checklist: C++ Apps
@@ -91,9 +125,10 @@ Present after all checks pass:
 | factory/<model>_factory.py | PASS (5/5) |  | <model>_async_cpp_postprocess.py | PASS |
 | factory/__init__.py | PASS |  | session.json | PASS |
 | config.json | PASS |  | README.md | PASS |
-| <model>_sync.py | PASS |  | Framework validator | PASS |
-| <model>_async.py | PASS |  | |
-| <model>_sync_cpp_postprocess.py | PASS |  | |
+| <model>_sync.py | PASS |  | setup.sh | PASS |
+| <model>_async.py | PASS |  | run.sh | PASS |
+| <model>_sync_cpp_postprocess.py | PASS |  | session.log | PASS |
+|  |  |  | Framework validator | PASS |
 
 ### Framework Validator
 <paste actual output from validate_app.py>

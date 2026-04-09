@@ -338,3 +338,42 @@ output (detection count > 0, valid bbox coordinates, valid class IDs).
 5. Postprocessor-model family cross-check
 
 See `dx-validate.md` Level 5 for the complete validation scripts.
+
+---
+
+## 16. [DX_APP] Skipping Cross-Validation with Precompiled Reference Model
+
+**Symptom:** Agent declares output correct but the generated app actually produces
+wrong results. The bug goes undetected because validation only checks plausibility
+(non-zero detections, valid ranges) without comparing against a known-good baseline.
+
+**Cause:** Level 5 validates that output "looks reasonable" but does NOT compare
+against reference output from a precompiled model or existing verified example.
+A model could pass all plausibility checks while producing completely different
+(but structurally valid) detections from the correct output.
+
+**Fix:** When a precompiled reference DXNN exists in `assets/models/` for the same
+model, or an existing verified example exists in `src/python_example/`, ALWAYS run
+the Level 5.5 cross-validation differential diagnosis:
+1. **Test A**: Run generated app with precompiled model — isolates app code vs model
+2. **Test B**: Compare against existing verified example with `--verbose`
+3. **Test C**: Cross-model swap — run existing app with new model
+
+See `dx-validate.md` Level 5.5 for the full Differential Diagnosis Decision Matrix.
+
+---
+
+## 17. [UNIVERSAL] Missing Deployment Artifacts — setup.sh, run.sh, session.log
+
+**Symptom**: Generated app only has Python source files but no deployment scripts.
+
+**Root cause**: Agent generates core app files but skips deployment artifacts.
+
+**Fix**: Every session directory MUST include these mandatory artifacts:
+1. `setup.sh` — Environment setup script (venv creation, pip installs)
+2. `run.sh` — One-command inference launcher (activates venv, runs app with sample args)
+3. `README.md` — Session summary with usage instructions
+4. `session.json` — Build metadata (model, task, variant, timestamp)
+5. `session.log` — Actual command execution output captured via `tee`
+
+**Prevention**: Check the deliverables list in dx-build-python-app.md before claiming completion.

@@ -6,7 +6,7 @@ capabilities: [ask-user, edit, execute, read, search, todo]
 routes-to: []
 ---
 
-**Response Language**: Match your response language to the user's prompt language — when asking questions or responding, use the same language the user is using.
+**Response Language**: Match your response language to the user's prompt language — when asking questions or responding, use the same language the user is using. When responding in Korean, keep English technical terms in English. Do NOT transliterate into Korean phonetics (한글 음차 표기 금지).
 
 # DX App Validator — Standalone App Validation
 
@@ -121,7 +121,9 @@ Reference the pyramid from `dx-validate.md`:
 | 2     | Config      | No           | JSON validity, schema compliance              |
 | 3     | Component   | No           | Preprocessor/postprocessor/visualizer individually |
 | 4     | Smoke       | Yes          | NPU + model, single-frame inference          |
-| 5     | Integration | Yes          | Full pipeline test, end-to-end               |
+| 5     | Output Accuracy | Yes      | Detection count > 0, bbox validity, postprocessor cross-check |
+| 5.5   | Cross-Validation | Yes     | Differential diagnosis with precompiled reference model from `assets/models/` and existing verified examples |
+| 6     | Integration | Yes          | Full pipeline test, end-to-end               |
 
 - **Levels 1–3**: Automated by `validate_app.py` — no hardware needed.
 - **Levels 4–5**: Require NPU hardware — run manually with `dxrt-cli -s` check first.

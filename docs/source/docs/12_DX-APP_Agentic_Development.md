@@ -19,10 +19,10 @@ Six agents collaborate to build, validate, and manage dx_app inference applicati
 | Agent | Description | Routes To |
 |---|---|---|
 | `dx-app-builder` | Master router — classifies the request type and dispatches to the appropriate specialist agent | `dx-python-builder`, `dx-cpp-builder`, `dx-benchmark-builder`, `dx-model-manager` |
-| `dx-python-builder` | Builds Python inference apps in 4 variants: `sync`, `async`, `sync_cpp_postprocess`, `async_cpp_postprocess` | — |
-| `dx-cpp-builder` | Builds C++ inference apps using the `InferenceEngine` API | — |
-| `dx-benchmark-builder` | Benchmarks and profiles inference performance on target hardware | — |
-| `dx-model-manager` | Downloads, registers, and manages `.dxnn` compiled models | — |
+| `dx-python-builder` | Builds Python inference apps in 4 variants: `sync`, `async`, `sync_cpp_postprocess`, `async_cpp_postprocess` (Sub-agent — invoked by dx-app-builder) | — |
+| `dx-cpp-builder` | Builds C++ inference apps using the `InferenceEngine` API (Sub-agent — invoked by dx-app-builder) | — |
+| `dx-benchmark-builder` | Benchmarks and profiles inference performance on target hardware (Sub-agent — invoked by dx-app-builder) | — |
+| `dx-model-manager` | Downloads, registers, and manages `.dxnn` compiled models (Sub-agent — invoked by dx-app-builder) | — |
 | `dx-validator` | Validates generated app code and `.deepx/` framework integrity | — |
 
 ### Routing Flow
@@ -55,6 +55,9 @@ Skills encapsulate reusable workflows that agents invoke during code generation.
 | `dx-build-async-app` | Build an async high-performance app with pipelined pre/infer/post stages |
 | `dx-model-management` | Download `.dxnn` models from the registry and configure model paths |
 | `dx-validate` | Run the 5-level validation pyramid against generated code |
+| `dx-brainstorm-and-plan` | Brainstorm and plan before any code generation (process skill) |
+| `dx-tdd` | Test-driven development — validate each file immediately after creation (process skill) |
+| `dx-verify-completion` | Verify before claiming completion — evidence before assertions (process skill) |
 
 ---
 
@@ -91,6 +94,9 @@ context-specific instructions:
 | `/dx-build-async-app` | Async high-performance app |
 | `/dx-model-management` | Model download and registry |
 | `/dx-validate` | Run the 5-level validation pyramid |
+| `/dx-brainstorm-and-plan` | Brainstorm and plan before code generation |
+| `/dx-tdd` | Test-driven development with incremental validation |
+| `/dx-verify-completion` | Verify completion with evidence before assertions |
 
 ---
 
@@ -234,6 +240,18 @@ The agent will:
 4. **Generate files** in `dx-agentic-dev/<session_id>/` (or `src/` if explicitly requested)
 5. **Validate and report** — `dx-validator` runs checks and prints a summary
 
+### Mandatory Questions (HARD-GATE)
+
+When using `@dx-app-builder`, the agent enforces 3 mandatory questions before
+generating any code:
+
+1. **Language/variant**: Python (sync / async / cpp_postprocess / async_cpp_postprocess) or C++?
+2. **AI task**: detection, classification, segmentation, pose, etc.
+3. **Model**: Specific model name (e.g., `yolo26n`) or auto-recommend
+
+These questions are **non-skippable** — even if your prompt provides enough context,
+the agent will confirm each decision explicitly before proceeding.
+
 ---
 
 ## What Gets Created
@@ -247,6 +265,9 @@ to prevent conflicts with existing source code.
 dx-agentic-dev/<session_id>/
 ├── README.md              # Session metadata and run instructions
 ├── session.json           # Machine-readable session config
+├── setup.sh               # Environment setup script (mandatory)
+├── run.sh                 # App launch script (mandatory)
+├── session.log            # Agent session log (mandatory)
 └── src/python_example/{task}/{model}/
     ├── __init__.py
     ├── config.json
@@ -274,6 +295,8 @@ When you explicitly request production placement, files are written directly to
 | `{model}_async.py` | Asynchronous pipelined inference entry point |
 | `{model}_sync_cpp_postprocess.py` | Sync inference with C++ post-processing via pybind |
 | `{model}_async_cpp_postprocess.py` | Async inference with C++ post-processing via pybind |
+
+> **Note:** `setup.sh`, `run.sh`, and `session.log` are mandatory artifacts in every session output directory.
 
 ---
 
@@ -335,6 +358,26 @@ Agent knowledge lives in the `.deepx/` directory at the dx_app project root.
 
 Agents read from these directories at task start. Memory files are updated when
 new patterns or fixes are discovered during development.
+
+---
+
+## Session Sentinels
+
+Agents output fixed markers at the start and end of each task for automated testing:
+
+| Marker | When |
+|---|---|
+| `[DX-AGENTIC-DEV: START]` | First line of the agent's response |
+| `[DX-AGENTIC-DEV: DONE (output-dir: <relative_path>)]` | Last line after all work is complete. `<relative_path>` is the session output directory relative to the project root. If no files were generated, omit the `(output-dir: ...)` part. |
+
+Sub-agents invoked via handoff do not output sentinels — only the top-level agent does.
+
+Rules:
+1. Output `[DX-AGENTIC-DEV: START]` before any other text in the first response.
+2. Output `[DX-AGENTIC-DEV: DONE (output-dir: <path>)]` as the very last line after all work, validation, and file generation is complete.
+3. If you are a sub-agent invoked via handoff/routing, do NOT output sentinels — only the top-level agent outputs them.
+4. If the user sends multiple prompts in a session, output START/DONE for each prompt.
+5. The `output-dir` in DONE must be the relative path from the project root to the session output directory.
 
 ---
 
