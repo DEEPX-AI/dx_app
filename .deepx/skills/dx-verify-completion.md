@@ -140,3 +140,18 @@ Present after all checks pass:
 - Do NOT claim "syntax correct" without py_compile output
 - Do NOT skip the framework validator
 - Do NOT reuse a previous session's output — run fresh
+
+## Session Log Rules
+
+Save **actual command execution output** to `${WORK_DIR}/session.log`.
+
+**What session.log MUST contain**:
+- Every shell command executed (prefixed with `$`)
+- The real stdout/stderr output of each command
+- Validation output (from py_compile, validate_app.py)
+- Any error messages and recovery steps
+
+**What session.log must NOT be**:
+- A hand-written summary of "Key Decisions" sections
+- A `cat << 'EOF'` block written at the end
+- A markdown report with curated snippets

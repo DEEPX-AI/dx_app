@@ -57,6 +57,15 @@ Even if the prompt says "build a yolo26n detection app", you MUST still confirm:
 Registry key ≠ Python class name. Key trap: `yolov26` → `YOLOv8Postprocessor` (NOT Yolo26Postprocessor).
 Always search existing examples first. See `.deepx/skills/dx-build-python-app.md` Step 5 for full mapping.
 
+## Mandatory Output Artifacts (MUST CHECK)
+
+Every session MUST produce ALL 13 files in `dx-agentic-dev/<session_id>/`:
+factory/*_factory.py, factory/__init__.py, config.json, *_sync.py, *_async.py,
+*_sync_cpp_postprocess.py, *_async_cpp_postprocess.py, __init__.py, session.json,
+README.md, setup.sh, run.sh, session.log.
+
+Run self-verification before presenting results. Missing artifacts = INCOMPLETE session.
+
 ## Pre-Flight Check (HARD-GATE)
 
 Before generating any code or creating any files, ALL of these checks must pass:
@@ -81,3 +90,5 @@ After ALL work is complete (including validation and file generation), output
 where `<relative_path>` is the session output directory (e.g., `dx-agentic-dev/20260409-143022_yolo26n_detection/`).
 If no files were generated, output `[DX-AGENTIC-DEV: DONE]` without the output-dir part.
 Skip this if you were invoked as a sub-agent via handoff from a higher-level agent.
+**CRITICAL**: Do NOT output DONE if you only produced planning artifacts (specs,
+plans, design documents) without implementing actual code. Planning is not completion.

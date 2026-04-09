@@ -88,6 +88,7 @@ Only write to `src/` when explicitly requested by the user.
 12. **Existing example search**: Before generating code, search `src/python_example/<task>/<model>/` for existing examples. If found, ask user: (a) explain existing only, or (b) create new example based on existing. Never silently skip or overwrite.
 13. **PPU example generation is MANDATORY**: If the compiled .dxnn model is PPU, the agent MUST generate a working example — never skip example generation for PPU models.
 14. **Cross-validation with reference model**: When a precompiled DXNN exists in `assets/models/` or an existing verified example exists in `src/python_example/`, run the Level 5.5 differential diagnosis to isolate app code vs compilation issues. See `dx-validate.md` Level 5.5.
+15. **Mandatory output artifacts**: Every session MUST produce ALL 13 artifacts (factory, config, 4 variants, __init__.py, session.json, README.md, setup.sh, run.sh, session.log). See agent's MANDATORY OUTPUT REQUIREMENTS section. Run self-verification check before claiming completion.
 
 ## Context Routing Table
 
@@ -140,7 +141,6 @@ src/cpp_example/{task}/{model}/
 | Architecture | Value |
 |---|---|
 | DX-M1 | `dx_m1` |
-| DX-M1A | `dx_m1a` |
 
 ## Memory
 
@@ -171,3 +171,16 @@ Rules:
 4. If the user sends multiple prompts in a session, output START/DONE for each prompt
 5. The `output-dir` in DONE must be the relative path from the project root to the
    session output directory. If no files were generated, omit the `(output-dir: ...)` part.
+6. **NEVER output DONE after only producing planning artifacts** (specs, plans, design
+   documents). DONE means all deliverables are produced — implementation code, scripts,
+   configs, and validation results. If you completed a brainstorming or planning phase
+   but have not yet implemented the actual code, do NOT output DONE. Instead, proceed
+   to implementation or ask the user how to proceed.
+7. **Pre-DONE mandatory deliverable check**: Before outputting DONE, verify that all
+   mandatory deliverables exist in the session directory. If any mandatory file is
+   missing, create it before outputting DONE. Each sub-project defines its own mandatory
+   file list in its skill document (e.g., `dx-build-pipeline-app.md` File Creation Checklist).
+8. **Session HTML export guidance**: Immediately before the DONE sentinel line, output:
+   `To save this session as HTML, type: /share html` — this tells the user they can
+   preserve the full conversation. The test harness (`test.sh`) will automatically
+   detect and copy the exported HTML file to the session output directory.

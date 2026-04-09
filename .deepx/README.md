@@ -52,7 +52,7 @@ This directory works independently — no parent repository access required.
 │   ├── dx-validate.md                 # 5-level validation pyramid
 │   ├── dx-brainstorm-and-plan.md      # Process skill — brainstorm before code
 │   ├── dx-tdd.md                      # Process skill — test-driven development
-│   └── dx-verify-completion.md        # Process skill — verify before claiming done
+│   └── dx-verify-completion.md        # Process skill — verify before claiming done; mandatory artifacts enforcement
 ├── templates/                         # Output templates
 │   └── copilot-instructions.md        # GitHub Copilot instructions template
 └── toolsets/                          # API reference documentation

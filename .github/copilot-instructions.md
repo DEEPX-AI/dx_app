@@ -141,3 +141,16 @@ Rules:
 4. If the user sends multiple prompts in a session, output START/DONE for each prompt
 5. The `output-dir` in DONE must be the relative path from the project root to the
    session output directory. If no files were generated, omit the `(output-dir: ...)` part.
+6. **NEVER output DONE after only producing planning artifacts** (specs, plans, design
+   documents). DONE means all deliverables are produced — implementation code, scripts,
+   configs, and validation results. If you completed a brainstorming or planning phase
+   but have not yet implemented the actual code, do NOT output DONE. Instead, proceed
+   to implementation or ask the user how to proceed.
+7. **Pre-DONE mandatory deliverable check**: Before outputting DONE, verify that all
+   mandatory deliverables exist in the session directory. If any mandatory file is
+   missing, create it before outputting DONE. Each sub-project defines its own mandatory
+   file list in its skill document (e.g., `dx-build-pipeline-app.md` File Creation Checklist).
+8. **Session HTML export guidance**: Immediately before the DONE sentinel line, output:
+   `To save this session as HTML, type: /share html` — this tells the user they can
+   preserve the full conversation. The test harness (`test.sh`) will automatically
+   detect and copy the exported HTML file to the session output directory.
