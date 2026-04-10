@@ -238,8 +238,12 @@ Created files:
 Build:
     cd build && cmake .. && make <model>_sync
 Run:
-    ./<model>_sync /path/to/<model>.dxnn input.jpg
+    ./<model>_sync ../../assets/models/<model>.dxnn ../../sample/img/<TASK_SAMPLE_IMAGE>
 ```
+
+> **RULE**: Never use `/path/to/<model>.dxnn` or `input.jpg` in the report.
+> Always use real relative paths — model from `assets/models/` or dx-compiler output,
+> sample image from the Task-Aware Sample Image table below.
 
 ## Critical C++ Conventions
 

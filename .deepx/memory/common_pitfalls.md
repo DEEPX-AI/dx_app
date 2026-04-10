@@ -366,14 +366,50 @@ See `dx-validate.md` Level 5.5 for the full Differential Diagnosis Decision Matr
 ## 17. [UNIVERSAL] Missing Deployment Artifacts — setup.sh, run.sh, session.log
 
 **Symptom**: Generated app only has Python source files but no deployment scripts.
+Running `./setup.sh` directly fails with NumPy/OpenCV version conflicts, or
+`./run.sh` shows only `--model is required` with no guidance on where models are.
 
-**Root cause**: Agent generates core app files but skips deployment artifacts.
+**Root cause**: Agent generates core app files but skips deployment artifacts,
+or generates them without venv detection logic and without real file paths.
 
 **Fix**: Every session directory MUST include these mandatory artifacts:
-1. `setup.sh` — Environment setup script (venv creation, pip installs)
-2. `run.sh` — One-command inference launcher (activates venv, runs app with sample args)
-3. `README.md` — Session summary with usage instructions
+1. `setup.sh` — Environment setup script with **mandatory venv detection** (see below)
+2. `run.sh` — One-command inference launcher with **real model + sample image paths**
+3. `README.md` — Session summary with **runnable example commands** (no `/path/to/` placeholders)
 4. `session.json` — Build metadata (model, task, variant, timestamp)
 5. `session.log` — Actual command execution output captured via `tee`
 
-**Prevention**: Check the deliverables list in dx-build-python-app.md before claiming completion.
+### setup.sh MUST include venv detection (CRITICAL)
+
+Without venv activation, `pip install` and `python` use the system Python, which often
+has incompatible NumPy versions (e.g., NumPy 2.x vs OpenCV compiled with NumPy 1.x).
+
+**Required logic** in setup.sh:
+```bash
+# Search upward for dx-runtime shared venv (preferred)
+RUNTIME_VENV=""
+_search="$SCRIPT_DIR"
+for _i in 1 2 3 4 5; do
+    _search="$(dirname "$_search")"
+    [ -d "$_search/venv-dx-runtime" ] && RUNTIME_VENV="$_search/venv-dx-runtime" && break
+done
+# Activate shared venv, or create local .venv/ as fallback
+if [ -n "$RUNTIME_VENV" ]; then
+    source "$RUNTIME_VENV/bin/activate"
+elif [ -d "$SCRIPT_DIR/.venv" ]; then
+    source "$SCRIPT_DIR/.venv/bin/activate"
+else
+    python3 -m venv "$SCRIPT_DIR/.venv"
+    source "$SCRIPT_DIR/.venv/bin/activate"
+fi
+```
+
+### run.sh and README MUST use real paths (CRITICAL)
+
+Never use `/path/to/<model>.dxnn` or `input.jpg` placeholders. Always use:
+- **Model**: `../../assets/models/<model>.dxnn` (precompiled) or relative dx-compiler path
+- **Image**: Task-appropriate sample from `../../sample/img/` (see Task-Aware Sample Image table)
+- **Video**: `../../assets/videos/dogs.mp4` or similar
+
+**Prevention**: Check the setup.sh/run.sh templates in `dx-build-python-app.md` and the
+deliverables list before claiming completion.

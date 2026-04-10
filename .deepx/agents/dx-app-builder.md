@@ -52,8 +52,8 @@ dx_app provides **standalone inference applications** only:
 | 8 | `__init__.py` | **YES** | Package init |
 | 9 | `session.json` | **YES** | Session metadata |
 | 10 | `README.md` | **YES** | Session summary, quick start |
-| 11 | `setup.sh` | **YES** | Environment setup (venv, dx_engine, pip deps) |
-| 12 | `run.sh` | **YES** | One-command inference launcher |
+| 11 | `setup.sh` | **YES** | Environment setup (venv detection/activation, pip deps) — see setup.sh requirements below |
+| 12 | `run.sh` | **YES** | One-command inference launcher (with real model/image paths) — see run.sh requirements below |
 | 13 | `session.log` | **YES** | Actual command output (NOT a summary) |
 
 > **Self-Verification**: Before presenting the final report, run this check:
@@ -67,6 +67,29 @@ dx_app provides **standalone inference applications** only:
 > ```
 > If ANY artifact shows `✗ MISSING`, go back and generate it. Do NOT present the
 > final report with missing artifacts.
+
+### setup.sh Requirements (MANDATORY)
+
+`setup.sh` MUST be runnable standalone — a user should be able to `cd` into the session
+directory and run `./setup.sh` without manually activating any venv first. The script MUST:
+
+1. **Detect the dx-runtime shared venv** by searching upward for `venv-dx-runtime/`
+   (typically at `../../../venv-dx-runtime/` from `dx-agentic-dev/<session>/`)
+2. **Activate the shared venv if found** — this is the preferred path
+3. **Fall back to creating a local `.venv/`** if the shared venv is not found
+4. **Install Python dependencies** (`opencv-python`, `numpy`, etc.)
+5. **Verify `dx_engine` is importable** — warn if not (user may need to rebuild)
+
+### run.sh Requirements (MANDATORY)
+
+`run.sh` MUST include **real, working example commands** with actual relative paths:
+
+1. **Model path**: Use relative path from session dir — e.g.,
+   `../../assets/models/<model>.dxnn` (precompiled) or a dx-compiler session path
+2. **Sample image**: Use the task-aware sample image — e.g.,
+   `../../sample/img/sample_dog.jpg` for object_detection (see Task-Aware Sample Image table)
+3. **Never use placeholders** like `/path/to/<model>.dxnn` or `input.jpg` — these are
+   not runnable and require users to guess the correct paths
 
 ### Session Log Saving
 

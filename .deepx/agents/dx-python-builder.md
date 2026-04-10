@@ -354,9 +354,15 @@ Created files:
     __init__.py
 
 Run with:
-    python <model>_sync.py --model /path/to/<model>.dxnn --image test.jpg
-    python <model>_async.py --model /path/to/<model>.dxnn --video test.mp4
+    python <model>_sync.py --model ../../assets/models/<model>.dxnn \
+        --image ../../sample/img/<TASK_SAMPLE_IMAGE>
+    python <model>_async.py --model ../../assets/models/<model>.dxnn \
+        --video ../../assets/videos/dogs.mp4
 ```
+
+> **RULE**: Never use `/path/to/<model>.dxnn` or `test.jpg` in the report.
+> Always use real relative paths — model from `assets/models/` or dx-compiler output,
+> sample image from the Task-Aware Sample Image table below.
 
 ## Critical Conventions
 
