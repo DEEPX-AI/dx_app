@@ -11,6 +11,67 @@ or responding, use the same language the user is using.
 their original English form. Do NOT transliterate English terms into Korean phonetics
 (한글 음차 표기 금지). Established Korean loanwords (모델, 서버, 파일, 데이터) are acceptable.
 
+## Recommended Model (Pre-Flight Check)
+
+DX Agentic Development requires strong instruction following and knowledge base
+utilization. Before starting any task, check if you are running as one of the
+recommended models:
+
+- **Claude Sonnet 4.6** or later
+- **Claude Opus 4.6** or later
+
+If you are NOT one of these models (e.g., GPT-4.1, GPT-4o, Gemini, etc.),
+output the following notice at the beginning of your first response:
+
+```
+══════════════════════════════════════════════════════════════
+⚠  DX-AGENTIC-DEV: MODEL NOTICE
+
+DX Agentic Development recommends Claude Sonnet 4.6+ or
+Opus 4.6+. Your current model may produce lower quality
+in instruction following, knowledge base utilization, and
+API accuracy. Please switch to a recommended model.
+══════════════════════════════════════════════════════════════
+```
+
+After the box notice, proceed with the task normally. This is an informational
+warning, not a blocking gate.
+
+### Model Notice Repeat (Non-Recommended Model Only)
+
+If you output the MODEL NOTICE box above (i.e., you are NOT a recommended model),
+you MUST also output this shortened reminder **immediately before the actual question
+line** that the user needs to answer — NOT at the beginning of the brainstorming flow.
+
+**Timing**: After all file reading, context analysis, and preamble text, right before
+the line that contains the `?` (the actual question), insert this reminder:
+
+```
+---
+⚠ **Non-recommended model** — output quality may be degraded. Recommended: Claude Sonnet 4.6+ / Opus 4.6+
+---
+```
+
+**Example — WRONG** (repeat scrolls past with the box):
+```
+[DX-AGENTIC-DEV: START]
+══ MODEL NOTICE ══
+---  ⚠ Non-recommended model ---     ← TOO EARLY, scrolls past
+... (reads files, analyzes context) ...
+First question: ...?
+```
+
+**Example — CORRECT** (repeat appears right before the question):
+```
+[DX-AGENTIC-DEV: START]
+══ MODEL NOTICE ══
+... (reads files, analyzes context) ...
+---  ⚠ Non-recommended model ---     ← RIGHT BEFORE the question
+First question: ...?
+```
+
+Only output this reminder ONCE (before the first question), not before every question.
+
 ## Shared Knowledge
 
 All skills, instructions, toolsets, and memory live in `.deepx/`.
@@ -136,6 +197,50 @@ src/cpp_example/{task}/{model}/
 └── src/
 ```
 
+## No Placeholder Code (MANDATORY)
+
+NEVER generate stub/placeholder code. This includes:
+- Commented-out imports: `# from dxnn_sdk import InferenceEngine`
+- Fake results: `result = np.zeros(...)`
+- TODO markers: `# TODO: implement actual inference`
+- "Similar to sync version" without actual async implementation
+
+All generated code MUST be functional, using real APIs from the knowledge base.
+If the required SDK/API is unknown, read the relevant skill document first.
+
+## Experimental Features — Prohibited
+
+Do NOT offer, suggest, or implement experimental or non-existent features. This includes:
+- "웹 기반 비주얼 컴패니언" (web-based visual companion)
+- Local URL-based diagram viewers or dashboards
+- Any feature requiring the user to open a local URL for visualization
+- Any capability that does not exist in the current toolset
+
+**Superpowers brainstorming skill override**: The superpowers `brainstorming` skill
+includes a "Visual Companion" step (step 2 in its checklist). This step MUST be
+SKIPPED in the DEEPX project. The visual companion does not exist in our environment.
+When the brainstorming checklist says "Offer visual companion", skip it and proceed
+directly to "Ask clarifying questions" (step 3).
+
+If a feature does not exist, do not pretend it does. Stick to proven, documented
+capabilities only.
+
+## Brainstorming — Spec Before Plan (HARD GATE)
+
+When using the superpowers `brainstorming` skill or `/dx-brainstorm-and-plan`:
+
+1. **Spec document is MANDATORY** — Before transitioning to `writing-plans`, a spec
+   document MUST be written to `docs/superpowers/specs/YYYY-MM-DD-<topic>-design.md`.
+   Skipping the spec and going directly to plan writing is a violation.
+2. **User approval gate is MANDATORY** — After writing the spec, the user MUST review
+   and approve it before proceeding to plan writing. Do NOT treat unrelated user
+   responses (e.g., answering a different question) as spec approval.
+3. **Plan document MUST reference the spec** — The plan header must include a link
+   to the approved spec document.
+4. **Prefer `/dx-brainstorm-and-plan`** — Use the project-level brainstorming skill
+   instead of the generic superpowers `brainstorming` skill. The project-level skill
+   has domain-specific questions and pre-flight checks.
+
 ## Hardware
 
 | Architecture | Value |
@@ -195,3 +300,10 @@ Rules:
    command is specific to GitHub Copilot CLI; it does not work in Claude Code,
    Copilot Chat (VS Code), or OpenCode. The test harness (`test.sh`) will automatically
    detect and copy the exported HTML file to the session output directory.
+
+## Plan Output (MANDATORY)
+
+When generating a plan document (e.g., via writing-plans or brainstorming skills),
+**always print the full plan content in the conversation output** immediately after
+saving the file. Do NOT only mention the file path — the user should be able to
+review the plan directly in the prompt without opening a separate file.

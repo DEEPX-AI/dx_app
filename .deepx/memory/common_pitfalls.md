@@ -413,3 +413,103 @@ Never use `/path/to/<model>.dxnn` or `input.jpg` placeholders. Always use:
 
 **Prevention**: Check the setup.sh/run.sh templates in `dx-build-python-app.md` and the
 deliverables list before claiming completion.
+
+---
+
+## 18. [UNIVERSAL] Syntax Check Passed But Runtime Fails
+
+**Symptom**: All generated `.py` files pass `py_compile` syntax check, but
+fail at runtime with `ImportError`, `AttributeError`, shape mismatch, or
+wrong API calls (e.g., `ie.run([tensor])` instead of `engine.infer(tensor)`).
+
+**Cause**: `py_compile` only verifies Python syntax (no SyntaxError), NOT
+runtime behavior. Common runtime errors that syntax checks miss:
+- Wrong dx_engine API (e.g., `ie.run()` vs `engine.infer()`)
+- Missing imports (works locally if cached, fails in clean env)
+- NHWC/NCHW tensor format mismatch
+- Wrong output indexing (e.g., `outputs[0][0][0]` vs `outputs[0].squeeze()`)
+
+**Fix**: After syntax check, perform execution verification:
+1. Run `dxrt-cli -s` to check NPU availability
+2. If NPU is present: run the sync variant on a sample image and verify
+   output file is generated
+3. If NPU is NOT present: document in session.log and note it was skipped
+4. Check dx_engine API usage against `.deepx/toolsets/dx-engine-api.md`
+
+**Prevention**: Always run generated scripts on at least one sample input
+when NPU hardware is available. Syntax check is a necessary but not
+sufficient verification step.
+
+---
+
+## 19. [UNIVERSAL] DXNN Input Format Differs from ONNX After Compilation — Must Auto-Detect
+
+**Symptom**: Demo script runs without errors, but inference results are
+completely wrong (garbled segmentation maps, random detections, zero accuracy).
+The ONNX version of the same model produces correct results.
+
+**Cause**: When dxcom compiles an ONNX model, it may bake preprocessing into
+the NPU graph. This changes the DXNN model's input format from the original
+ONNX model's format:
+
+| Property | ONNX (original) | DXNN (after compilation) |
+|----------|-----------------|--------------------------|
+| Shape    | `[1, 3, H, W]` NCHW | `[1, H, W, 3]` NHWC |
+| Dtype    | float32 | uint8 |
+| Range    | [0.0, 1.0] normalized | [0, 255] raw |
+
+The compiler log shows what was baked in:
+```
+Normalize(mean=0, std=1) → inserted into NPU graph (uint8→float32 conversion)
+resize, transpose, expandDim → skipped (not supported on NPU)
+```
+
+The demo script uses preprocessing designed for the ONNX model (NCHW float32),
+but the DXNN model now expects NHWC uint8. This causes:
+- `input_hw = input_shape[2:]` → on `[1,360,640,3]` this gives `[640, 3]` → resize to (3, 640)
+- `transpose(2, 0, 1)` → produces wrong tensor shape for NHWC model
+- `.astype(np.float32) / 255.0` → model expects uint8, gets float32
+
+**Fix**: ALWAYS use `get_input_tensors_info()` to query the actual DXNN input
+format and branch preprocessing accordingly:
+
+```python
+from dx_engine import InferenceEngine
+
+engine = InferenceEngine(dxnn_path)
+input_info = engine.get_input_tensors_info()
+input_shape = input_info[0]["shape"]   # e.g., [1, 360, 640, 3] or [1, 3, 360, 640]
+input_dtype = input_info[0]["dtype"]   # e.g., "uint8" or "float32"
+
+# Detect layout from shape
+is_nhwc = (len(input_shape) == 4 and input_shape[3] in [1, 3])
+is_nchw = (len(input_shape) == 4 and input_shape[1] in [1, 3])
+
+if is_nhwc:
+    # NHWC uint8 — compiler baked in preprocessing
+    h, w = input_shape[1], input_shape[2]
+    img = cv2.imread(image_path)
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    img = cv2.resize(img, (w, h))
+    # NO transpose, NO float conversion, NO normalization
+    tensor = np.expand_dims(img, axis=0).astype(np.uint8)
+elif is_nchw:
+    # NCHW float32 — standard preprocessing
+    h, w = input_shape[2], input_shape[3]
+    img = cv2.imread(image_path)
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    img = cv2.resize(img, (w, h))
+    img = img.astype(np.float32) / 255.0
+    img = np.transpose(img, (2, 0, 1))    # HWC → CHW
+    tensor = np.expand_dims(img, axis=0)
+```
+
+**Critical mistakes to avoid**:
+- `input_shape[2:]` for H,W extraction — WRONG for NHWC (gives `[W, C]`)
+- Hardcoding `transpose(2, 0, 1)` without checking layout — WRONG for NHWC
+- Hardcoding `.astype(np.float32)` without checking dtype — WRONG for uint8
+- Assuming DXNN input matches ONNX input — NEVER assume, ALWAYS query
+
+**Prevention**: Every demo script that loads a `.dxnn` model MUST call
+`get_input_tensors_info()` and use the auto-detect pattern above. This
+applies to all variants: sync, async, video, and verify.py.

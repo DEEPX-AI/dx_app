@@ -6,7 +6,7 @@
 
 `.dxnn` is the compiled binary model format used by DEEPX NPU devices. It contains
 optimized neural network weights, graph structure, and tensor specifications compiled
-for direct execution on the DX-M1/DX-M1A hardware.
+for direct execution on the DX-M1/DX-M1A (discontinued) hardware.
 
 ## File Description
 
@@ -108,7 +108,7 @@ TFLite (.tflite)     Memory planning
 |---|---|
 | `--input` | Source model path (ONNX, TFLite) |
 | `--output` | Output `.dxnn` path |
-| `--target` | NPU target (`dx_m1`, `dx_m1a`) |
+| `--target` | NPU target (`dx_m1`, `dx_m1a` (discontinued)) |
 | `--quantize` | Quantization mode (`int8`, `fp16`, `mixed`) |
 | `--calibration-data` | Directory of representative input images for PTQ |
 | `--input-shape` | Input tensor shape (NCHW format) |

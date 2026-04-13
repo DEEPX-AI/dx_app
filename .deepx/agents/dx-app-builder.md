@@ -118,7 +118,34 @@ Before presenting the final report to the user, the agent MUST:
 2. Run JSON validation on all `.json` files
 3. Verify factory has all 5 IFactory methods
 4. Run framework validator (`python .deepx/scripts/validate_app.py`)
-5. **Never present a final report with failing validation**
+5. **Demo execution verification** (if NPU is available):
+   - Run `dxrt-cli -s` to check NPU status
+   - If NPU is present: run the sync variant on one sample image and verify
+     it produces an output file (e.g., `*_pred.jpg`) without errors
+   - If NPU is NOT present: document `dxrt-cli -s` output in session.log and
+     note that execution verification was skipped due to missing NPU
+   - **Syntax check alone is NOT sufficient** — a file can pass `py_compile`
+     but fail at runtime due to wrong API calls, missing imports, or shape errors
+6. **Never present a final report with failing validation**
+
+### DXNN Input Format Auto-Detection (MANDATORY)
+
+When generating demo scripts for a compiled `.dxnn` model (especially in
+cross-project compile+demo tasks), NEVER assume the input format matches
+the original ONNX model. dxcom may bake preprocessing into the NPU graph,
+changing the input from NCHW float32 to NHWC uint8.
+
+**Every demo script MUST call `get_input_tensors_info()` and branch preprocessing:**
+- `[1, H, W, 3]` NHWC uint8 → resize only, NO transpose, NO float conversion
+- `[1, 3, H, W]` NCHW float32 → resize + transpose(2,0,1) + float32/255.0
+
+**Critical mistakes to avoid:**
+- `input_shape[2:]` for H,W extraction → WRONG for NHWC (gives `[W, C]`)
+- Hardcoding `transpose(2,0,1)` without checking the actual layout
+- Hardcoding `.astype(np.float32)` without checking the actual dtype
+- Assuming DXNN input matches ONNX input — NEVER assume, ALWAYS query
+
+See `memory/common_pitfalls.md` Pitfall #19 for the complete auto-detect code pattern.
 
 ### MANDATORY Final Report Template
 
@@ -168,24 +195,46 @@ Layer 1 — C++ Core
   dx_postprocess  37 pybind11 postprocess bindings
 ```
 
-## Step 0: Prerequisites Check
+## Step 0: Prerequisites Check (HARD GATE)
 
-Before classifying or routing, verify the development environment is ready:
+Before classifying or routing, verify the development environment is ready.
+**This is a HARD GATE — do NOT skip, defer, or bypass these checks under any
+circumstances.** Even if brainstorming produced a spec and plan, or a parent agent
+(dx-runtime-builder) already ran its own checks, these checks MUST still execute.
 
 ```bash
-# 1. dx-runtime sanity check
+# 1. dx-runtime sanity check (MANDATORY — NEVER skip)
 bash ../../scripts/sanity_check.sh --dx_rt
-# Exit 0 → PASS, Exit 1 → FAIL: run install
-# If FAIL:
+# IMPORTANT: Judge PASS/FAIL by the TEXT OUTPUT, not the exit code.
+# Agents often pipe through `| tail` or `| head`, which silently
+# replaces the real exit code with tail's exit code (always 0).
+# PASS = output contains "Sanity check PASSED!" and NO [ERROR] lines
+# FAIL = output contains "Sanity check FAILED!" or ANY [ERROR] lines
+# NEVER pipe through tail/head/grep — run the command directly.
+# If FAIL → run install, then RE-CHECK:
 bash ../../install.sh --target=dx_rt,dx_rt_npu_linux_driver,dx_fw --skip-uninstall --venv-reuse
+bash ../../scripts/sanity_check.sh --dx_rt  # Must PASS after install
 
-# 2. dx_app build check
+# 2. dx_app build check (MANDATORY — NEVER skip)
 python -c "import dx_engine; print('dx_engine OK')" 2>/dev/null || {
     echo "dx_engine not available. Run: cd dx_app && ./install.sh && ./build.sh"
 }
 ```
 
-If prerequisites fail, inform the user with the exact install commands before proceeding.
+**HARD GATE rules:**
+- If either check fails, inform the user with exact fix commands and STOP
+- Do NOT proceed to Step 1 (classification) until both checks pass
+- Do NOT route to any specialist (dx-python-builder, dx-cpp-builder) until checks pass
+- The parent agent's check does NOT exempt this agent from running its own checks
+- "Just build it" or "skip checks" from the user does NOT override this gate
+- **NEVER bypass** — do NOT reason "the failing component is not needed for this task"
+   or "I can use the compiler venv instead". Run install, re-check, and STOP if still failing.
+   The following are ALL considered bypass and are PROHIBITED:
+   - Setting PYTHONPATH or LD_LIBRARY_PATH manually to point at dx_engine artifacts
+   - Using a venv from another repository (e.g., compiler venv) for dx_engine imports
+   - Searching multiple venvs to find one where dx_engine happens to import
+   - Concluding "exit code was 0, so it passed" when output text shows FAILED or [ERROR]
+   - Piping sanity_check.sh through `| tail` / `| head` / `| grep` and using the pipe's exit code
 
 ## Step 1: Classify the Request
 

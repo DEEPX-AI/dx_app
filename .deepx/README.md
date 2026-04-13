@@ -218,5 +218,5 @@ python .deepx/scripts/generate_platforms.py --diff --platform copilot
 - **Framework**: SyncRunner (1104 lines), AsyncRunner, 11 IFactory interfaces
 - **Postprocess**: 37 pybind11 C++ bindings
 - **CLI**: parse_common_args() with 11 flags
-- **NPU**: DX-M1 / DX-M1A via DX-RT 3.0.x
+- **NPU**: DX-M1 / DX-M1A (discontinued) via DX-RT 3.0.x
 - **Model format**: .dxnn (v7+, INT8/UINT8/FP16)

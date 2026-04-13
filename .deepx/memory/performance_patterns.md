@@ -270,6 +270,6 @@ runner = AsyncRunner(factory, max_queue_depth=2)
 | C++ sync | 100-140 | Native overhead minimal |
 | C++ async | 130-180 | Best overall |
 
-**Note:** Actual FPS depends on NPU hardware (DX-M1 vs DX-M1A), host CPU, input
+**Note:** Actual FPS depends on NPU hardware (DX-M1 vs DX-M1A (discontinued)), host CPU, input
 source latency, and display overhead. Always benchmark with `--no-display` for
 accurate NPU-only measurements.

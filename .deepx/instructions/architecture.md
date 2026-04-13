@@ -45,7 +45,7 @@ preprocessors, postprocessors, and visualizers.
         | talks to
         v
 +===================================================================+
-|  DEEPX NPU Hardware (DX-M1 / DX-M1A)                              |
+|  DEEPX NPU Hardware (DX-M1 / DX-M1A (discontinued))               |
 +===================================================================+
 ```
 
