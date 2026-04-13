@@ -30,6 +30,7 @@ class HandLandmarkPostprocessor(IPostprocessor):
         self.input_width = input_width
         self.input_height = input_height
         self.config = config or {}
+        self.confidence_threshold = self.config.get('confidence_threshold', 0.5)
     
     def process(self, outputs: List[np.ndarray], ctx: PreprocessContext) -> List[HandLandmarkResult]:
         if not outputs or len(outputs) == 0:
@@ -71,7 +72,10 @@ class HandLandmarkPostprocessor(IPostprocessor):
             hand_score = outputs[2].flatten()[0]
             result.handedness = "Right" if hand_score > 0.5 else "Left"
         
-        return [result]
+        # Filter by confidence threshold
+        if result.confidence >= self.confidence_threshold:
+            return [result]
+        return []
     
     def get_model_name(self) -> str:
         return "HandLandmark"

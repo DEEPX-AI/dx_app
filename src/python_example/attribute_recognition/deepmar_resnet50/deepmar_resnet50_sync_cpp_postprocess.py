@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 # Copyright (C) 2018- DEEPX Ltd. All rights reserved.
 """
-EfficientNet Synchronous Inference Example
+DeepMAR-ResNet50 Synchronous Inference Example
+
+NOTE: No C++ AttributePostProcess binding available.
+      Uses Python attribute postprocessor from factory.
 
 Usage:
     python deepmar_resnet50_sync_cpp_postprocess.py --model model.dxnn --image input.jpg
@@ -16,22 +19,16 @@ for _path in [str(_v3_dir), str(_module_dir)]:
     if _path not in sys.path:
         sys.path.insert(0, _path)
 
-from dx_postprocess import ClassificationPostProcess
-from common.utility import convert_cpp_classification
 from factory import Deepmar_resnet50Factory
 from common.runner import SyncRunner, parse_common_args
 
 def parse_args():
-    return parse_common_args("EfficientNet-Lite0 Sync Inference")
+    return parse_common_args("DeepMAR-ResNet50 Sync Inference")
 def main():
     args = parse_args()
     factory = Deepmar_resnet50Factory()
 
-    def on_engine_init(runner):
-        runner._cpp_postprocessor = ClassificationPostProcess(5)
-        runner._cpp_convert_fn = convert_cpp_classification
-
-    runner = SyncRunner(factory, on_engine_init=on_engine_init)
+    runner = SyncRunner(factory)
     runner.run(args)
 
 if __name__ == "__main__":

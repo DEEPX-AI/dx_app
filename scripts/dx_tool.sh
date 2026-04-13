@@ -441,7 +441,7 @@ task_to_postprocessors() {
         super_resolution)        echo "espcn" ;;
         image_enhancement)       echo "zero_dce" ;;
         embedding)               echo "arcface embedding" ;;
-        ppu)                     echo "yolov5_ppu yolov7_ppu yolov8_ppu scrfd_ppu yolov5pose_ppu" ;;
+        ppu)                     echo "yolov5_ppu yolov7_ppu yolov8n_ppu yolov8s_ppu scrfd_ppu yolov5pose_ppu" ;;
         hand_landmark)           echo "hand_landmark" ;;
         attribute_recognition)   echo "classification" ;;
         reid)                    echo "embedding" ;;
@@ -1385,33 +1385,13 @@ do_run() {
     local extra_args=("${@}")
 
     if [[ ${#extra_args[@]} -eq 0 ]]; then
-        print_divider "Run Examples"
-
-        local lang_choice
-        lang_choice=$(prompt_select "Run target:" "C++" "Python" "Both")
-        case "$lang_choice" in
-            1) extra_args=("--lang" "cpp") ;;
-            2) extra_args=("--lang" "py") ;;
-            3) extra_args=("--lang" "both") ;;
-        esac
-
-        local opts_choice
-        opts_choice=$(prompt_select "Run type:" "All (image+video)" "Image only" "Video only")
-        case "$opts_choice" in
-            2) extra_args+=("--no-video") ;;
-            3) extra_args+=("--video-only") ;;
-        esac
-
-        if [[ "${extra_args[*]}" == *"--lang cpp"* || "${extra_args[*]}" == *"--lang both"* ]]; then
-            local sync_choice
-            sync_choice=$(prompt_select "Sync/Async:" "Both" "Sync only" "Async only")
-            case "$sync_choice" in
-                2) extra_args+=("--sync-only") ;;
-                3) extra_args+=("--async-only") ;;
-            esac
+        # No arguments: delegate to run_examples.sh interactive mode
+        if [[ -f "$SCRIPT_DIR/run_examples.sh" ]]; then
+            bash "$SCRIPT_DIR/run_examples.sh"
+        else
+            _warn "run_examples.sh not found"
         fi
-
-        _prompt_filter extra_args
+        return
     fi
 
     _info "Running: scripts/run_examples.sh ${extra_args[*]}"

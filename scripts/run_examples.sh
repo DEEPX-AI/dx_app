@@ -6,16 +6,16 @@
 # Reads model file paths and category info from config/test_models.conf.
 #
 # Usage:
-#   scripts/run_examples.sh                              # All (cpp+py)
-#   scripts/run_examples.sh --lang cpp                   # C++ only
-#   scripts/run_examples.sh --lang py                    # Python only
-#   scripts/run_examples.sh --lang both                  # Explicit all
-#   scripts/run_examples.sh --lang cpp --display         # GUI display mode
-#   scripts/run_examples.sh --lang cpp --no-video        # Image tests only
-#   scripts/run_examples.sh --lang py  --video-only      # Video tests only
-#   scripts/run_examples.sh --lang cpp --sync-only       # Sync tests only (C++)
-#   scripts/run_examples.sh --lang cpp --async-only      # Async tests only (C++)
-#   scripts/run_examples.sh --filter yolov5              # Name filter
+#   scripts/run_examples.sh                              # Interactive mode
+#   scripts/run_examples.sh --lang cpp                   # CLI: C++ only
+#   scripts/run_examples.sh --lang py                    # CLI: Python only
+#   scripts/run_examples.sh --lang both                  # CLI: Explicit all
+#   scripts/run_examples.sh --lang cpp --display         # CLI: GUI display mode
+#   scripts/run_examples.sh --lang cpp --no-video        # CLI: Image tests only
+#   scripts/run_examples.sh --lang py  --video-only      # CLI: Video tests only
+#   scripts/run_examples.sh --lang cpp --sync-only       # CLI: Sync tests only (C++)
+#   scripts/run_examples.sh --lang cpp --async-only      # CLI: Async tests only (C++)
+#   scripts/run_examples.sh --filter yolov5              # CLI: Name filter
 # =============================================================================
 
 set +e  # continue on error
@@ -46,10 +46,12 @@ fi
 # If not provided, try a list of common build output locations and pick the first existing one.
 if [ -z "${BUILD_DIR:-}" ]; then
     CANDIDATE_DIRS=(
-        "src/cpp_example/build"
         "bin"
         "build_x86_64/release/bin"
+        "build_aarch64/release/bin"
         "build_x86_64/bin"
+        "build_aarch64/bin"
+        "src/cpp_example/build"
         "build/release/bin"
         "build/bin"
     )
@@ -93,11 +95,12 @@ CATEGORY_IMAGE=(
     [image_denoising]="sample/img/sample_denoising.jpg"
     [super_resolution]="sample/img/sample_superresolution.png"
     [image_enhancement]="sample/img/sample_lowlight.jpg"
-    [embedding]="sample/img/sample_face.jpg"
+    [embedding]="sample/img/face_pair"
     [attribute_recognition]="sample/img/sample_person_a1.jpg"
-    [reid]="sample/img/sample_person_a1.jpg"
+    [reid]="sample/img/person_pair"
     [ppu]="sample/img/sample_street.jpg"
     [hand_landmark]="sample/img/sample_hand.jpg"
+    [face_alignment]="sample/img/sample_face_a1.jpg"
 )
 CATEGORY_VIDEO=(
     [object_detection]="assets/videos/blackbox-city-road.mp4"
@@ -111,11 +114,12 @@ CATEGORY_VIDEO=(
     [image_denoising]="assets/videos/blackbox-city-road.mp4"
     [super_resolution]="assets/videos/blackbox-city-road.mp4"
     [image_enhancement]="assets/videos/blackbox-city-road.mp4"
-    [embedding]="assets/videos/dance-solo.mov"
-    [attribute_recognition]="assets/videos/dance-group.mov"
-    [reid]="assets/videos/dance-group.mov"
+    [embedding]="assets/videos/face-pair-sofa.mp4"
+    [attribute_recognition]="assets/videos/person-pair-hallway.mp4"
+    [reid]="assets/videos/person-pair-hallway.mp4"
     [ppu]="assets/videos/blackbox-city-road.mp4"
-    [hand_landmark]="assets/videos/dance-solo.mov"
+    [hand_landmark]="assets/videos/hand.mp4"
+    [face_alignment]="assets/videos/face-alignment-closeup.mp4"
 )
 CATEGORY_DISPLAY=(
     [object_detection]="Object Detection"
@@ -134,6 +138,7 @@ CATEGORY_DISPLAY=(
     [reid]="Person Re-Identification"
     [ppu]="PPU (Post-Processing Unit)"
     [hand_landmark]="Hand Landmark"
+    [face_alignment]="Face Alignment"
 )
 
 CATEGORY_ORDER=(
@@ -141,7 +146,7 @@ CATEGORY_ORDER=(
     instance_segmentation semantic_segmentation depth_estimation
     image_denoising super_resolution image_enhancement
     embedding attribute_recognition reid ppu
-    hand_landmark
+    hand_landmark face_alignment
 )
 
 # Per-model input overrides (for PPU models whose actual task differs from category)
@@ -150,15 +155,241 @@ MODEL_IMAGE_OVERRIDE=(
     [scrfd500m_ppu]="sample/img/sample_face.jpg"
     [yolov5pose_ppu]="sample/img/sample_people.jpg"
     [handlandmarklite_1]="sample/img/sample_hand.jpg"
+    [unet_mobilenet_v2]="sample/img/sample_dog.jpg"
 )
 MODEL_VIDEO_OVERRIDE=(
     [scrfd500m_ppu]="assets/videos/dance-solo.mov"
     [yolov5pose_ppu]="assets/videos/dance-solo.mov"
-    [handlandmarklite_1]="assets/videos/dance-solo.mov"
+    [handlandmarklite_1]="assets/videos/hand.mp4"
 )
 
 # Categories that only support image tests (no video/async)
-IMAGE_ONLY_CATEGORIES="classification attribute_recognition reid"
+IMAGE_ONLY_CATEGORIES="embedding reid attribute_recognition"
+
+# ============================================================
+# Interactive Mode (when no arguments provided)
+# ============================================================
+interactive_menu() {
+    local CONFIG_FILE="${PROJECT_ROOT}/config/test_models.conf"
+
+    echo ""
+    printf "${CYAN}%s${NC}\n" "═══════════════════════════════════════════════════════════════"
+    printf "  ${CYAN}DX-APP Example Runner — Interactive Mode${NC}\n"
+    printf "  Select options step-by-step. Press Enter for defaults.\n"
+    printf "${CYAN}%s${NC}\n" "═══════════════════════════════════════════════════════════════"
+
+    # ── Stage 1/6: Language ──
+    echo ""
+    printf "${CYAN}%s${NC}\n" "───────────────────────────────────────────────────────────────"
+    printf "  ${CYAN}[ Stage 1 / 6 ]  Language Selection${NC}\n"
+    printf "${CYAN}%s${NC}\n" "───────────────────────────────────────────────────────────────"
+    echo ""
+    printf "   1: C++ only\n"
+    printf "   2: Python only\n"
+    printf "   3: Both (C++ + Python)\n"
+    echo ""
+    while true; do
+        printf "  Select [1-3, default: 3]: "
+        read -r _lang_sel
+        [[ -z "$_lang_sel" ]] && _lang_sel="3"
+        case "$_lang_sel" in
+            1) LANG_MODE="cpp"; break ;;
+            2) LANG_MODE="py"; break ;;
+            3) LANG_MODE="both"; break ;;
+            *) printf "${RED}  Invalid: '%s'. Enter 1, 2, or 3.${NC}\n" "$_lang_sel" ;;
+        esac
+    done
+
+    # ── Stage 2/6: Category ──
+    # Count models per category from config
+    declare -A _cat_count
+    if [[ -f "$CONFIG_FILE" ]]; then
+        while IFS=$'\t' read -r _name _cat _file; do
+            [[ -z "$_name" || "$_name" == \#* ]] && continue
+            _cat_count["$_cat"]=$(( ${_cat_count["$_cat"]:-0} + 1 ))
+        done < "$CONFIG_FILE"
+    fi
+
+    echo ""
+    printf "${CYAN}%s${NC}\n" "───────────────────────────────────────────────────────────────"
+    printf "  ${CYAN}[ Stage 2 / 6 ]  Category Selection${NC}\n"
+    printf "${CYAN}%s${NC}\n" "───────────────────────────────────────────────────────────────"
+    echo ""
+    printf "   ${YELLOW} 0: ALL (all categories)${NC}\n"
+    local _idx=1
+    local -a _cat_list=()
+    echo ""
+    for _cat in "${CATEGORY_ORDER[@]}"; do
+        _cat_list+=("$_cat")
+        local _cnt="${_cat_count[$_cat]:-0}"
+        printf "  %2d: %-30s (%d models)\n" "$_idx" "${CATEGORY_DISPLAY[$_cat]}" "$_cnt"
+        _idx=$((_idx + 1))
+    done
+    local _cat_max=$(( ${#_cat_list[@]} ))
+    echo ""
+    while true; do
+        printf "  Select [0-%d, default: 0]: " "$_cat_max"
+        read -r _cat_sel
+        [[ -z "$_cat_sel" ]] && _cat_sel="0"
+        if [[ "$_cat_sel" =~ ^[0-9]+$ ]] && [ "$_cat_sel" -ge 0 ] && [ "$_cat_sel" -le "$_cat_max" ]; then
+            break
+        fi
+        printf "${RED}  Invalid: '%s'. Enter a number between 0 and %d.${NC}\n" "$_cat_sel" "$_cat_max"
+    done
+    if [ "$_cat_sel" -eq 0 ]; then
+        CATEGORY_FILTER=""
+    else
+        CATEGORY_FILTER="${_cat_list[$((_cat_sel - 1))]}"
+        # Show models in selected category
+        echo ""
+        printf "  ${YELLOW}Models in ${CATEGORY_DISPLAY[$CATEGORY_FILTER]}:${NC}\n"
+        local _col=0
+        while IFS=$'\t' read -r _mn _mc _mf; do
+            [[ -z "$_mn" || "$_mn" == \#* ]] && continue
+            [[ "$_mc" != "$CATEGORY_FILTER" ]] && continue
+            printf "  %-28s" "$_mn"
+            _col=$((_col + 1))
+            (( _col % 3 == 0 )) && echo ""
+        done < "$CONFIG_FILE"
+        (( _col % 3 != 0 )) && echo ""
+    fi
+
+    # ── Stage 3/6: Model Filter ──
+    echo ""
+    printf "${CYAN}%s${NC}\n" "───────────────────────────────────────────────────────────────"
+    printf "  ${CYAN}[ Stage 3 / 6 ]  Model Filter${NC}\n"
+    printf "${CYAN}%s${NC}\n" "───────────────────────────────────────────────────────────────"
+    echo ""
+    printf "   1: ALL (run all matching models)\n"
+    printf "   2: Filter by keyword\n"
+    echo ""
+    while true; do
+        printf "  Select [1-2, default: 1]: "
+        read -r _filter_sel
+        [[ -z "$_filter_sel" ]] && _filter_sel="1"
+        case "$_filter_sel" in
+            1) FILTER=""; break ;;
+            2)
+                printf "  Enter filter keyword (e.g. yolov5, resnet, scrfd, efficientnet): "
+                read -r FILTER
+                # Lowercase for consistent matching (model names are lowercase)
+                FILTER="${FILTER,,}"
+                break ;;
+            *) printf "${RED}  Invalid: '%s'. Enter 1 or 2.${NC}\n" "$_filter_sel" ;;
+        esac
+    done
+
+    # ── Stage 4/6: Execution Mode ──
+    echo ""
+    printf "${CYAN}%s${NC}\n" "───────────────────────────────────────────────────────────────"
+    printf "  ${CYAN}[ Stage 4 / 6 ]  Execution Mode${NC}\n"
+    printf "${CYAN}%s${NC}\n" "───────────────────────────────────────────────────────────────"
+    echo ""
+    printf "   1: sync + async\n"
+    printf "   2: sync only\n"
+    printf "   3: async only\n"
+    echo ""
+    while true; do
+        printf "  Select [1-3, default: 1]: "
+        read -r _mode_sel
+        [[ -z "$_mode_sel" ]] && _mode_sel="1"
+        case "$_mode_sel" in
+            1) SKIP_SYNC=false; SKIP_ASYNC=false; break ;;
+            2) SKIP_SYNC=false; SKIP_ASYNC=true; break ;;
+            3) SKIP_SYNC=true; SKIP_ASYNC=false; break ;;
+            *) printf "${RED}  Invalid: '%s'. Enter 1, 2, or 3.${NC}\n" "$_mode_sel" ;;
+        esac
+    done
+
+    # ── Stage 5/6: Input Type ──
+    echo ""
+    printf "${CYAN}%s${NC}\n" "───────────────────────────────────────────────────────────────"
+    printf "  ${CYAN}[ Stage 5 / 6 ]  Input Type${NC}\n"
+    printf "${CYAN}%s${NC}\n" "───────────────────────────────────────────────────────────────"
+    echo ""
+    printf "   1: image + video\n"
+    printf "   2: image only\n"
+    printf "   3: video only\n"
+    echo ""
+    while true; do
+        printf "  Select [1-3, default: 1]: "
+        read -r _input_sel
+        [[ -z "$_input_sel" ]] && _input_sel="1"
+        case "$_input_sel" in
+            1) SKIP_VIDEO=false; SKIP_IMAGE=false; break ;;
+            2) SKIP_VIDEO=true; SKIP_IMAGE=false; break ;;
+            3) SKIP_VIDEO=false; SKIP_IMAGE=true; break ;;
+            *) printf "${RED}  Invalid: '%s'. Enter 1, 2, or 3.${NC}\n" "$_input_sel" ;;
+        esac
+    done
+
+    # ── Stage 6/6: Additional Options ──
+    echo ""
+    printf "${CYAN}%s${NC}\n" "───────────────────────────────────────────────────────────────"
+    printf "  ${CYAN}[ Stage 6 / 6 ]  Additional Options${NC}\n"
+    printf "${CYAN}%s${NC}\n" "───────────────────────────────────────────────────────────────"
+    echo ""
+    printf "  Enable GUI display? [y/N, default: N]: "
+    read -r _display_sel
+    if [[ "$_display_sel" == "y" || "$_display_sel" == "Y" ]]; then
+        DISPLAY_ARG=""
+        printf "  Display delay seconds [default: 1.0]: "
+        read -r _delay_sel
+        [[ -n "$_delay_sel" ]] && DISPLAY_DELAY="$_delay_sel"
+    fi
+
+    printf "  Save output images? [y/N, default: N]: "
+    read -r _save_sel
+    if [[ "$_save_sel" == "y" || "$_save_sel" == "Y" ]]; then
+        SAVE_IMAGES=true
+        SAVE_ARG="-s"
+        PY_SAVE_ARG="--save"
+        printf "  Save directory [default: logs/saved_images]: "
+        read -r _save_dir_sel
+        if [[ -n "$_save_dir_sel" ]]; then
+            SAVE_DIR="$_save_dir_sel"
+        else
+            SAVE_DIR="logs/saved_images"
+        fi
+        SAVE_DIR_ARG="--save-dir ${SAVE_DIR}"
+    fi
+
+    # ── Confirmation ──
+    local _lang_display="$LANG_MODE"
+    local _cat_display="${CATEGORY_FILTER:-ALL}"
+    local _filter_display="${FILTER:-ALL}"
+    local _mode_display="sync + async"
+    [[ "$SKIP_ASYNC" == true ]] && _mode_display="sync only"
+    [[ "$SKIP_SYNC" == true ]] && _mode_display="async only"
+    local _input_display="image + video"
+    [[ "$SKIP_VIDEO" == true ]] && _input_display="image only"
+    [[ "$SKIP_IMAGE" == true ]] && _input_display="video only"
+    local _display_display="off"
+    [[ -z "$DISPLAY_ARG" ]] && _display_display="on (delay: ${DISPLAY_DELAY}s)"
+    local _save_display="off"
+    [[ "$SAVE_IMAGES" == true ]] && _save_display="on (dir: ${SAVE_DIR})"
+
+    echo ""
+    printf "${CYAN}%s${NC}\n" "═══════════════════════════════════════════════════════════════"
+    printf "  ${CYAN}Configuration Summary${NC}\n"
+    printf "${CYAN}%s${NC}\n" "═══════════════════════════════════════════════════════════════"
+    printf "  ${GREEN}Language${NC}  : %s\n" "$_lang_display"
+    printf "  ${GREEN}Category${NC}  : %s\n" "$_cat_display"
+    printf "  ${GREEN}Filter${NC}    : %s\n" "$_filter_display"
+    printf "  ${GREEN}Mode${NC}      : %s\n" "$_mode_display"
+    printf "  ${GREEN}Input${NC}     : %s\n" "$_input_display"
+    printf "  ${GREEN}Display${NC}   : %s\n" "$_display_display"
+    printf "  ${GREEN}Save${NC}      : %s\n" "$_save_display"
+    printf "${CYAN}%s${NC}\n" "═══════════════════════════════════════════════════════════════"
+    echo ""
+    printf "  Proceed? [Y/n, default: Y]: "
+    read -r _confirm
+    if [[ "$_confirm" == "n" || "$_confirm" == "N" ]]; then
+        echo "Aborted."
+        exit 0
+    fi
+    echo ""
+}
 
 # ============================================================
 # Option Parsing
@@ -179,6 +410,11 @@ SAVE_ARG=""
 PY_SAVE_ARG=""
 SAVE_DIR=""
 SAVE_DIR_ARG=""
+
+# Enter interactive mode when no CLI arguments are provided
+if [[ $# -eq 0 ]]; then
+    interactive_menu
+fi
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -334,7 +570,7 @@ run_test() {
     echo -e "${BLUE}[RUNNING]${NC} ${test_name}" | tee -a "${SUMMARY_LOG}"
     echo "Command: ${cmd}" >> "${SUMMARY_LOG}"
 
-    if eval "${cmd}" > "${log_file}" 2> "${error_log}"; then
+    if eval "${cmd}" > >(tee "${log_file}") 2> "${error_log}"; then
         echo -e "${GREEN}[SUCCESS]${NC} ${test_name}" | tee -a "${SUMMARY_LOG}"
         SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
         [ ! -s "${error_log}" ] && rm -f "${error_log}"
@@ -408,32 +644,38 @@ run_async_test() {
     fi
 }
 
-# run_cpp_model <model_name> <model_file> <image> <video>
+# run_cpp_model <model_name> <model_file> <image> <video> <category>
 run_cpp_model() {
     local model_name="$1"
     local model_file="$2"
     local image="$3"
     local video="$4"
+    local category="$5"
     local sync_exe="${BUILD_DIR}/${model_name}_sync"
     local async_exe="${BUILD_DIR}/${model_name}_async"
+
+    local is_image_only=false
+    [[ -n "$category" && "$IMAGE_ONLY_CATEGORIES" == *"$category"* ]] && is_image_only=true
 
     echo "=== [C++] ${model_name} ===" | tee -a "${SUMMARY_LOG}"
 
     if check_executable "${sync_exe}" "cpp_${model_name}_sync_img"; then
         run_sync_test "cpp_${model_name}_sync_img" \
-            "DXAPP_SAVE_IMAGE=\"${SAVE_DIR}/${model_name}_sync/$(basename ${image%/})_output.jpg\" ${sync_exe} -m \"${model_file}\" -i ${image} ${DISPLAY_ARG} ${SAVE_ARG} ${SAVE_DIR_ARG} -l 1" "image"
+            "DXAPP_SAVE_IMAGE=\"${SAVE_DIR}/${model_name}_sync/$(basename ${image%/})_output.jpg\" ${sync_exe} -m \"${model_file}\" -i ${image} ${DISPLAY_ARG} ${SAVE_ARG} ${SAVE_DIR_ARG} -l -1" "image"
     fi
     if check_executable "${async_exe}" "cpp_${model_name}_async_img"; then
         run_async_test "cpp_${model_name}_async_img" \
-            "DXAPP_SAVE_IMAGE=\"${SAVE_DIR}/${model_name}_async/$(basename ${image%/})_output.jpg\" ${async_exe} -m \"${model_file}\" -i ${image} ${DISPLAY_ARG} ${SAVE_ARG} ${SAVE_DIR_ARG} -l 1" "image"
+            "DXAPP_SAVE_IMAGE=\"${SAVE_DIR}/${model_name}_async/$(basename ${image%/})_output.jpg\" ${async_exe} -m \"${model_file}\" -i ${image} ${DISPLAY_ARG} ${SAVE_ARG} ${SAVE_DIR_ARG} -l -1" "image"
     fi
-    if check_executable "${sync_exe}" "cpp_${model_name}_sync_video"; then
-        run_sync_test "cpp_${model_name}_sync_video" \
-            "${sync_exe} -m \"${model_file}\" -v ${video} ${DISPLAY_ARG} ${SAVE_ARG} ${SAVE_DIR_ARG} -l 1" "video"
-    fi
-    if check_executable "${async_exe}" "cpp_${model_name}_async_video"; then
-        run_async_test "cpp_${model_name}_async_video" \
-            "${async_exe} -m \"${model_file}\" -v ${video} ${DISPLAY_ARG} ${SAVE_ARG} ${SAVE_DIR_ARG} -l 1" "video"
+    if ! $is_image_only; then
+        if check_executable "${sync_exe}" "cpp_${model_name}_sync_video"; then
+            run_sync_test "cpp_${model_name}_sync_video" \
+                "${sync_exe} -m \"${model_file}\" -v ${video} ${DISPLAY_ARG} ${SAVE_ARG} ${SAVE_DIR_ARG} -l 1" "video"
+        fi
+        if check_executable "${async_exe}" "cpp_${model_name}_async_video"; then
+            run_async_test "cpp_${model_name}_async_video" \
+                "${async_exe} -m \"${model_file}\" -v ${video} ${DISPLAY_ARG} ${SAVE_ARG} ${SAVE_DIR_ARG} -l 1" "video"
+        fi
     fi
 }
 
@@ -497,6 +739,7 @@ run_py_model() {
             fi
         fi
     done
+
 }
 
 # ============================================================
@@ -515,7 +758,11 @@ if [[ "$LANG_MODE" == "cpp" || "$LANG_MODE" == "both" ]]; then
         for sync_exe in "${BUILD_DIR}"/*_sync; do
             [ -f "$sync_exe" ] || continue
             model_name=$(basename "$sync_exe" | sed 's/_sync$//')
-            [[ -n "$FILTER" && "$model_name" != *"$FILTER"* ]] && continue
+            if [[ -n "$FILTER" ]]; then
+                _mn_lower="${model_name,,}"
+                _fl_lower="${FILTER,,}"
+                [[ "$_mn_lower" != *"$_fl_lower"* ]] && continue
+            fi
             [[ -n "$CATEGORY_FILTER" && "${MODEL_CATEGORY[$model_name]}" != "$CATEGORY_FILTER" ]] && continue
             [[ "$model_name" == *"_x_"* ]] && continue
             CPP_MODELS+=("$model_name")
@@ -534,7 +781,11 @@ if [[ "$LANG_MODE" == "py" || "$LANG_MODE" == "both" ]]; then
             [ -d "$model_dir" ] || continue
             model_name=$(basename "$model_dir")
             [[ "$model_name" == "__pycache__" || "$model_name" == "factory" ]] && continue
-            [[ -n "$FILTER" && "$model_name" != *"$FILTER"* ]] && continue
+            if [[ -n "$FILTER" ]]; then
+                _mn_lower="${model_name,,}"
+                _fl_lower="${FILTER,,}"
+                [[ "$_mn_lower" != *"$_fl_lower"* ]] && continue
+            fi
 
             category="${MODEL_CATEGORY[$model_name]}"
             [ -z "$category" ] && category="$py_cat"
@@ -618,7 +869,7 @@ for category in "${CATEGORY_ORDER[@]}"; do
         fi
         m_image="${MODEL_IMAGE_OVERRIDE[$model_name]:-$image}"
         m_video="${MODEL_VIDEO_OVERRIDE[$model_name]:-$video}"
-        run_cpp_model "$model_name" "$model_file" "$m_image" "$m_video"
+        run_cpp_model "$model_name" "$model_file" "$m_image" "$m_video" "$category"
     done
 
     # Python tests

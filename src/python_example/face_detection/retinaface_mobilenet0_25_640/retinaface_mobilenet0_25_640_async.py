@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (C) 2018- DEEPX Ltd. All rights reserved.
 """
-SCRFD Asynchronous Inference Example
+Retinaface_mobilenet0_25_640 Asynchronous Inference Example
 
 Usage:
     python retinaface_mobilenet0_25_640_async.py --model model.dxnn --video input.mp4

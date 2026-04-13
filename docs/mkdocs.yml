@@ -1,7 +1,7 @@
 site_name: DXNN Application (DX-APP) User Manual
 use_directory_urls: false
-docs_dir: source # markdown 원문 폴더
-site_dir: docs # html로 변환된 폴더
+docs_dir: source # markdown source directory
+site_dir: docs # generated html output directory
 theme: 
   name : material
   language: en

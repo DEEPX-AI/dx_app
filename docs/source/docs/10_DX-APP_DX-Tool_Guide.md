@@ -64,6 +64,10 @@ This mode is useful when:
 - you do not remember the exact subcommand
 - you want menu-based task selection
 
+> **Note:** `dx_tool.sh run` with no arguments delegates to `scripts/run_examples.sh` interactive mode,
+> which provides a 6-stage guided menu (language, category, model filter, sync/async, input type, display/save options)
+> with a configuration summary before execution. Each test also displays its performance table.
+
 ### Command mode
 
 Run a subcommand directly when you already know the intended task.
@@ -142,7 +146,7 @@ This additionally verifies that inference outputs are numerically correct:
 2. **Serialization** — `common/runner/verify_serialize.py` converts results to JSON
 3. **Validation** — `scripts/verify_inference_output.py` checks results against `scripts/inference_verify_rules.json`
 
-Verification covers 16 task types: bounding boxes, confidence ranges, class IDs, keypoints, segmentation masks, depth maps, embeddings, attributes, re-identification, etc.
+Verification covers 17 task types: bounding boxes, confidence ranges, class IDs, keypoints, segmentation masks, depth maps, embeddings, attributes, re-identification, face alignment, etc.
 
 ### `validate_models.sh` options
 
@@ -180,6 +184,11 @@ The exact workflow depends on the contributor task, but the following command pa
 ### Run language-specific example subsets
 
 ```bash
+# Interactive — 6-stage guided menu
+./scripts/dx_tool.sh run
+scripts/run_examples.sh
+
+# Non-interactive — pass options directly
 ./scripts/dx_tool.sh run --lang cpp
 ./scripts/dx_tool.sh run --lang py
 ./scripts/dx_tool.sh run --lang both
@@ -267,12 +276,18 @@ Run validation after adding or restructuring examples. This helps catch mismatch
 ### 5. Run examples selectively
 
 ```bash
+# Interactive — guided category/model selection with performance output
+./scripts/dx_tool.sh run
+scripts/run_examples.sh
+
+# Non-interactive
 ./scripts/dx_tool.sh run --lang cpp
 ./scripts/dx_tool.sh run --lang py
 ./scripts/dx_tool.sh run --lang both
 ```
 
 Use `run` to execute filtered example sets without manually locating every command.
+In interactive mode, selecting a category shows all available models in that category.
 
 ### 6. Benchmark examples
 

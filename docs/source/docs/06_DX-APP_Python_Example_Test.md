@@ -74,7 +74,7 @@ pytest -m "(yolov7 or yolov8) and not e2e"
 
 The E2E suite functions as an **automated benchmarking tool** for hardware performance.  
 
-- **Requirements:** Requires installed `dx_engine, dx_postprocess`, and relevant model assets. In practice, prepare assets with `./setup.sh` or `./setup_sample_models.sh` before E2E execution.  
+- **Requirements:** Requires installed `dx_engine, dx_postprocess`, and relevant model assets. In practice, prepare assets with `./setup.sh` (or `./setup_sample_models.sh`) before E2E execution.
 - **Visual Output:** Use `E2E_DISPLAY=1 pytest -m e2e` to enable UI output (available for sync variants).  
 
 ```bash

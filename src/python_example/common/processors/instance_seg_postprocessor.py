@@ -56,11 +56,45 @@ class InstanceSegPostprocessor(IPostprocessor):
         self.nms_threshold = self.config.get('nms_threshold', 0.45)
         self.num_classes = self.config.get('num_classes', 80)
         self.num_masks = self.config.get('num_masks', 32)
+        self.max_detections = self.config.get('max_detections', 0)
+
+    # ---- output alignment ------------------------------------------------
+    def _align_outputs(self, outputs: List[np.ndarray]):
+        """Identify detection and proto tensors by shape (like C++ align_tensors).
+
+        Detection tensor: 3-D [1, C, N] or [1, N, C] where
+            C == 4 + num_classes + num_masks.
+        Proto tensor: 4-D [1, num_masks, H, W].
+
+        Returns (detection_raw, proto_raw) with batch dim intact.
+        """
+        expected_det_c = 4 + self.num_classes + self.num_masks
+        det_tensor = None
+        proto_tensor = None
+
+        for t in outputs:
+            s = t.shape
+            ndim = len(s)
+            if ndim == 4 and (s[1] == self.num_masks or s[-1] == self.num_masks):
+                proto_tensor = t
+            elif ndim == 3 and (s[1] == expected_det_c or s[2] == expected_det_c):
+                det_tensor = t
+
+        # Fallback: use original order if shape matching failed
+        if det_tensor is None:
+            det_tensor = outputs[0]
+        if proto_tensor is None and len(outputs) > 1:
+            proto_tensor = outputs[1]
+
+        return det_tensor, proto_tensor
 
     # ---- detection decode ------------------------------------------------
     def process(self, outputs: List[np.ndarray], ctx: PreprocessContext) -> List[InstanceSegResult]:
+        # 0) Robust output alignment (like C++ align_tensors)
+        det_raw, proto_raw = self._align_outputs(outputs)
+
         # 1) Auto-detect format and transpose if needed
-        squeezed = np.squeeze(outputs[0])
+        squeezed = np.squeeze(det_raw)
         if squeezed.ndim < 2:
             return []
 
@@ -75,14 +109,28 @@ class InstanceSegPostprocessor(IPostprocessor):
         if output is None:
             return []
 
-        # 2) Convert boxes cxcywh → x1y1x2y2
-        boxes_cxcywh = output[:, :4]
-        boxes_x1y1x2y2 = np.column_stack([
-            boxes_cxcywh[:, 0] - boxes_cxcywh[:, 2] * 0.5,
-            boxes_cxcywh[:, 1] - boxes_cxcywh[:, 3] * 0.5,
-            boxes_cxcywh[:, 0] + boxes_cxcywh[:, 2] * 0.5,
-            boxes_cxcywh[:, 1] + boxes_cxcywh[:, 3] * 0.5,
-        ])
+        if post_nms:
+            # YOLO26 post-NMS: cols 0-3 are [x1, y1, x2, y2] already
+            boxes_x1y1x2y2 = output[:, :4].copy()
+        else:
+            # Pre-NMS: cols 0-3 are [cx, cy, w, h] → convert to [x1, y1, x2, y2]
+            boxes_cxcywh = output[:, :4]
+            boxes_x1y1x2y2 = np.column_stack([
+                boxes_cxcywh[:, 0] - boxes_cxcywh[:, 2] * 0.5,
+                boxes_cxcywh[:, 1] - boxes_cxcywh[:, 3] * 0.5,
+                boxes_cxcywh[:, 0] + boxes_cxcywh[:, 2] * 0.5,
+                boxes_cxcywh[:, 1] + boxes_cxcywh[:, 3] * 0.5,
+            ])
+
+        # Defensive: some model variants output normalized coordinates (0..1)
+        # while others output pixel coordinates. If values look normalized
+        # (max <= 1.01) convert to input-pixel coordinates so downstream
+        # mask resizing / cropping works correctly.
+        if np.max(np.abs(boxes_x1y1x2y2)) <= 1.01 and self.input_width > 1 and self.input_height > 1:
+            boxes_x1y1x2y2[:, 0] = boxes_x1y1x2y2[:, 0] * self.input_width
+            boxes_x1y1x2y2[:, 2] = boxes_x1y1x2y2[:, 2] * self.input_width
+            boxes_x1y1x2y2[:, 1] = boxes_x1y1x2y2[:, 1] * self.input_height
+            boxes_x1y1x2y2[:, 3] = boxes_x1y1x2y2[:, 3] * self.input_height
 
         # Defensive: some model variants output normalized coordinates (0..1)
         # while others output pixel coordinates. If values look normalized
@@ -108,8 +156,13 @@ class InstanceSegPostprocessor(IPostprocessor):
             return []
         keep = np.array(indices).reshape(-1)
 
+        # 3-b) Limit to top-k detections by confidence
+        if self.max_detections > 0 and len(keep) > self.max_detections:
+            top_k = np.argsort(confidences[keep])[::-1][:self.max_detections]
+            keep = keep[top_k]
+
         # 4) Generate, scale, and crop prototype masks
-        scaled_masks = self._generate_scaled_masks(mask_coefs[keep], outputs[1], keep, boxes_x1y1x2y2)
+        scaled_masks = self._generate_scaled_masks(mask_coefs[keep], proto_raw, keep, boxes_x1y1x2y2)
 
         # 5) Convert to original coordinates
         gain = max(ctx.scale, 1e-6)
@@ -159,6 +212,9 @@ class InstanceSegPostprocessor(IPostprocessor):
     def _generate_scaled_masks(self, kept_mask_coefs, proto_raw, keep, boxes_x1y1x2y2):
         """Generate sigmoid masks, upsample to input size, and crop to bboxes."""
         proto = np.squeeze(proto_raw)
+        # Ensure NCHW layout: proto should be [C, H, W] where C == num_masks
+        if proto.ndim == 3 and proto.shape[-1] == self.num_masks and proto.shape[0] != self.num_masks:
+            proto = np.transpose(proto, (2, 0, 1))  # HWC → CHW
         c, mh, mw = proto.shape
         masks = 1.0 / (1.0 + np.exp(-(kept_mask_coefs @ proto.reshape(c, -1))))
         masks = masks.reshape(-1, mh, mw)

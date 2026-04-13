@@ -8,6 +8,21 @@ import cv2
 
 from ..base.i_processor import DetectionResult, SegmentationResult, PreprocessContext
 
+_COCO_LABELS = [
+    "person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck",
+    "boat", "traffic light", "fire hydrant", "stop sign", "parking meter", "bench",
+    "bird", "cat", "dog", "horse", "sheep", "cow", "elephant", "bear", "zebra",
+    "giraffe", "backpack", "umbrella", "handbag", "tie", "suitcase", "frisbee",
+    "skis", "snowboard", "sports ball", "kite", "baseball bat", "baseball glove",
+    "skateboard", "surfboard", "tennis racket", "bottle", "wine glass", "cup",
+    "fork", "knife", "spoon", "bowl", "banana", "apple", "sandwich", "orange",
+    "broccoli", "carrot", "hot dog", "pizza", "donut", "cake", "chair", "couch",
+    "potted plant", "bed", "dining table", "toilet", "tv", "laptop", "mouse",
+    "remote", "keyboard", "cell phone", "microwave", "oven", "toaster", "sink",
+    "refrigerator", "book", "clock", "vase", "scissors", "teddy bear", "hair drier",
+    "toothbrush",
+]
+
 
 def get_class_color(class_id: int) -> Tuple[int, int, int]:
     """
@@ -299,8 +314,9 @@ def yolov8seg_cpp_visualize(image: np.ndarray, results,
     for i, mask in enumerate(masks):
         if i >= len(detections):
             break
-        class_id = int(detections[i, 5])
-        color = visualizer.color_palette[class_id % len(visualizer.color_palette)]
+        # Use instance index for color so each segment gets a distinct color
+        # (important for class-agnostic models like FastSAM where all class_id=0)
+        color = visualizer.color_palette[i % len(visualizer.color_palette)]
 
         if has_padding:
             gain = max(ctx.scale, 1e-6)
@@ -314,19 +330,26 @@ def yolov8seg_cpp_visualize(image: np.ndarray, results,
         else:
             mask_resized = cv2.resize(mask, (w, h), interpolation=cv2.INTER_LINEAR)
 
-        m = mask_resized > 0.5
+        m = mask_resized > (127 if mask_resized.dtype == np.uint8 else 0.5)
         output[m] = (output[m] * 0.6 + np.array(color) * 0.4).astype(np.uint8)
 
-    for det in detections:
-        x1, y1, x2, y2, score, class_id = det[:6]
-        if ctx is not None:
-            x1, y1 = scale_to_original(float(x1), float(y1), ctx)
-            x2, y2 = scale_to_original(float(x2), float(y2), ctx)
-        color = visualizer.color_palette[int(class_id) % len(visualizer.color_palette)]
-        cv2.rectangle(output, (int(x1), int(y1)), (int(x2), int(y2)), color, 2)
-        label = f"{score:.2f}"
-        cv2.putText(output, label, (int(x1), int(y1) - 5),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1)
+    # Draw bounding boxes and labels (skip if visualizer has show_boxes=False)
+    show_boxes = getattr(visualizer, 'show_boxes', True)
+    if show_boxes:
+        for det in detections:
+            x1, y1, x2, y2, score, class_id = det[:6]
+            if ctx is not None:
+                x1, y1 = scale_to_original(float(x1), float(y1), ctx)
+                x2, y2 = scale_to_original(float(x2), float(y2), ctx)
+            color = visualizer.color_palette[int(class_id) % len(visualizer.color_palette)]
+            cv2.rectangle(output, (int(x1), int(y1)), (int(x2), int(y2)), color, 2)
+            cls_id = int(class_id)
+            # Use visualizer labels if available, fall back to COCO
+            labels = getattr(visualizer, 'labels', None) or _COCO_LABELS
+            cls_name = labels[cls_id] if cls_id < len(labels) else str(cls_id)
+            label = f"{cls_name} {score:.2f}"
+            cv2.putText(output, label, (int(x1), int(y1) - 5),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1)
 
     return output
 

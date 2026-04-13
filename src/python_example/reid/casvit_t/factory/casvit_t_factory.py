@@ -1,5 +1,5 @@
 """
-ArcFace Face Embedding Factory
+Person Re-ID Factory
 """
 
 from common.base import IEmbeddingFactory
@@ -8,7 +8,7 @@ from common.visualizers import EmbeddingVisualizer
 
 
 class Casvit_tFactory(IEmbeddingFactory):
-    """Factory for creating ArcFace-MobileFaceNet components."""
+    """Factory for creating CasViT Person Re-ID components."""
     
     def __init__(self, config: dict = None):
         self.config = config or {}
@@ -26,5 +26,5 @@ class Casvit_tFactory(IEmbeddingFactory):
         return "casvit_t"
     
     def get_task_type(self) -> str:
-        return "embedding"
+        return "reid"
 

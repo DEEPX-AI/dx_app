@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (C) 2018- DEEPX Ltd. All rights reserved.
 """
-Yolov5Face Synchronous Inference Example
+Yolov7_face Synchronous Inference Example
 
 Usage:
     python yolov7_face_sync.py --model model.dxnn --image input.jpg

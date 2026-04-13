@@ -1,0 +1,1 @@
+from .yolov5xs_wo_spp_512_factory import Yolov5xs_wo_spp_512Factory

@@ -15,8 +15,8 @@ from typing import List
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from common.constants import PROJECT_ROOT, TASK_IMAGE_MAP, MODEL_IMAGE_OVERRIDE  # noqa: E402
-from common.utils import discover_python_scripts, setup_environment, resolve_image_for_model  # noqa: E402
+from test_helpers.constants import PROJECT_ROOT, TASK_IMAGE_MAP, MODEL_IMAGE_OVERRIDE  # noqa: E402
+from test_helpers.utils import discover_python_scripts, setup_environment, resolve_image_for_model  # noqa: E402
 
 
 # ---------------------------------------------------------------------------

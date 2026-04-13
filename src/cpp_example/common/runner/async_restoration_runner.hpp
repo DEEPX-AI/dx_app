@@ -64,9 +64,19 @@ public:
 
         CommandLineArgs args = parseCommandLine(argc, argv);
         verbose_ = args.verbose;
+
+        if (verbose_) {
+            std::cout << "[INFO] --verbose: This task produces image-based output. "
+                         "Use --save or display mode to view results." << std::endl;
+        }
         bool save_output = args.saveMode;
         std::string save_dir = args.saveDir;
 
+        // Apply default sample image if no input specified
+        if (args.imageFilePath.empty() && args.videoFile.empty() && args.cameraIndex < 0 && args.rtspUrl.empty()) {
+            args.imageFilePath = dxapp::getDefaultSampleImage(factory_->getTaskType());
+            std::cout << "[INFO] No input specified. Using default sample: " << args.imageFilePath << std::endl;
+        }
         validateArguments(args);
 
         std::vector<std::string> imageFiles;
@@ -257,42 +267,21 @@ public:
                     std::lock_guard<std::mutex> lock(metrics_.metrics_mutex);
                     metrics_.sum_read += std::chrono::duration<double, std::milli>(t_read_end - t_read_start).count();
                 }
+                const std::string& cur_img_path = imageFiles[i % imageFiles.size()];
                 if (is_sr_) {
-                    // SR: tiled synchronous path (same as video), pushes prerendered_frame
-                    processFrameSR(img, frame_params.ie, frame_params.processCount);
+                    std::string sr_save_path;
+                    if (!run_dir.empty()) {
+                        sr_save_path = dxapp::buildPerImageSavePath(run_dir, factory_->getModelName() + "_async", cur_img_path, i);
+                    }
+                    processFrameSR(img, frame_params.ie, frame_params.processCount, sr_save_path);
                 } else {
-                    // Denoising: inline async submission so we can attach per-image save path
-                    auto t_pre_start = std::chrono::high_resolution_clock::now();
-                    cv::resize(img, display_image, cv::Size(SHOW_WINDOW_SIZE_W, SHOW_WINDOW_SIZE_H));
-                    PreprocessContext ctx;
-                    cv::Mat preprocessed;
-                    frame_params.preprocessor.process(display_image, preprocessed, ctx);
-                    auto t_pre_end = std::chrono::high_resolution_clock::now();
-                    {
-                        std::lock_guard<std::mutex> lock(metrics_.metrics_mutex);
-                        metrics_.sum_preprocess += std::chrono::duration<double, std::milli>(t_pre_end - t_pre_start).count();
-                    }
-                    auto& buf = frame_params.input_buffers[frame_params.buffer_index % ASYNC_BUFFER_SIZE];
-                    if (frame_params.is_float_input && !preprocessed.empty()) {
-                        auto float_data = convertToFloatBuffer(preprocessed, frame_params.is_nhwc);
-                        std::memcpy(buf.data(), float_data.data(), float_data.size() * sizeof(float));
-                    } else {
-                        std::memcpy(buf.data(), preprocessed.data, preprocessed.total() * preprocessed.elemSize());
-                    }
                     std::string save_path;
                     if (!run_dir.empty()) {
-                        save_path = dxapp::buildPerImageSavePath(run_dir, factory_->getModelName() + "_async", imageFiles[i % imageFiles.size()], i);
+                        save_path = dxapp::buildPerImageSavePath(run_dir, factory_->getModelName() + "_async", cur_img_path, i);
                     }
-                    auto ud = std::make_unique<AsyncUserData>(AsyncUserData{display_image.clone(), ctx, std::move(save_path), {}});
-                    void* user_data = ud.release();
-                    metrics_.waitForSlot();
-                    updateInflightMetrics();
-                    static_cast<AsyncUserData*>(user_data)->submit_ts = std::chrono::high_resolution_clock::now();
-                    frame_params.last_job_id = frame_params.ie.RunAsync(buf.data(), user_data);
-                    frame_params.buffer_index++;
-                    frame_params.processCount++;
+                    submitDenoisingFrame(img, display_image, frame_params, std::move(save_path));
                 }
-                if (!args.no_display) pollDisplay();
+                if (!args.no_display && !pollDisplay()) break;
             }
         } else {
             for (int loop_idx = 0; loop_idx < loopTest && running_ && !g_interrupted(); ++loop_idx) {
@@ -314,7 +303,7 @@ public:
                         metrics_.sum_read += std::chrono::duration<double, std::milli>(t_read_end - t_read_start).count();
                     }
                     processFrameAsync(frame, frame_params);
-                    if (!args.no_display) pollDisplay();
+                    if (!args.no_display && !pollDisplay()) break;
                 }
                 // Reopen video for next loop
                 if (loop_idx + 1 >= loopTest || args.videoFile.empty()) continue;
@@ -336,7 +325,7 @@ public:
                 inference_done.store(true, std::memory_order_release);
             });
             while (!inference_done.load(std::memory_order_acquire) && running_) {
-                if (!args.no_display) pollDisplay();
+                if (!args.no_display && !pollDisplay()) break;
                 else std::this_thread::sleep_for(std::chrono::milliseconds(10));
             }
             waitThread.join();
@@ -414,8 +403,40 @@ private:
         }
     }
 
+    /** Denoising: preprocess and submit a single frame to async inference. */
+    void submitDenoisingFrame(const cv::Mat& img, cv::Mat& display_image,
+                              AsyncFrameParams& p, std::string save_path) {
+        auto t_pre_start = std::chrono::high_resolution_clock::now();
+        dxapp::displayResize(img, display_image, SHOW_WINDOW_SIZE_W, SHOW_WINDOW_SIZE_H);
+        PreprocessContext ctx;
+        cv::Mat preprocessed;
+        p.preprocessor.process(display_image, preprocessed, ctx);
+        auto t_pre_end = std::chrono::high_resolution_clock::now();
+        {
+            std::lock_guard<std::mutex> lock(metrics_.metrics_mutex);
+            metrics_.sum_preprocess += std::chrono::duration<double, std::milli>(t_pre_end - t_pre_start).count();
+        }
+        auto& buf = p.input_buffers[p.buffer_index % ASYNC_BUFFER_SIZE];
+        if (p.is_float_input && !preprocessed.empty()) {
+            auto float_data = convertToFloatBuffer(preprocessed, p.is_nhwc);
+            std::memcpy(buf.data(), float_data.data(), float_data.size() * sizeof(float));
+        } else {
+            std::memcpy(buf.data(), preprocessed.data, preprocessed.total() * preprocessed.elemSize());
+        }
+        auto ud = std::make_unique<AsyncUserData>(AsyncUserData{display_image.clone(), ctx, std::move(save_path), {}});
+        void* user_data = ud.release();
+        metrics_.waitForSlot();
+        updateInflightMetrics();
+        static_cast<AsyncUserData*>(user_data)->submit_ts = std::chrono::high_resolution_clock::now();
+        p.last_job_id = p.ie.RunAsync(buf.data(), user_data);
+        p.buffer_index++;
+        p.processCount++;
+    }
+
     /** Super-Resolution: synchronous tiled inference path. */
-    void processFrameSR(const cv::Mat& frame, dxrt::InferenceEngine& ie, int& processCount) {
+    void processFrameSR(const cv::Mat& frame, dxrt::InferenceEngine& ie, int& processCount,
+                         const std::string& save_path = "") {
+        auto t_pre_start = std::chrono::high_resolution_clock::now();
         int lr_h = static_cast<int>(std::round(
             static_cast<double>(sr_lr_w_) * frame.rows / frame.cols));
         lr_h = ((lr_h + tile_h_ - 1) / tile_h_) * tile_h_;
@@ -425,6 +446,7 @@ private:
         cv::resize(frame, lr_bgr, cv::Size(sr_lr_w_, lr_h));
         cv::Mat lr_gray;
         cv::cvtColor(lr_bgr, lr_gray, cv::COLOR_BGR2GRAY);
+        auto t_pre_end = std::chrono::high_resolution_clock::now();
 
         int out_w = sr_lr_w_ * scale_x_;
         int out_h = lr_h * scale_y_;
@@ -447,10 +469,13 @@ private:
         }
         auto ti1 = std::chrono::high_resolution_clock::now();
 
+        auto t_post_start = std::chrono::high_resolution_clock::now();
         cv::Mat canvas = buildSRCanvas(lr_bgr, sr_y, out_w, out_h, lr_h, tiles_done);
+        auto t_post_end = std::chrono::high_resolution_clock::now();
 
         AsyncRestorationDisplayArgs dargs;
         dargs.prerendered_frame = canvas;
+        dargs.save_path = save_path;
         display_queue_.push(std::move(dargs));
         {
             std::lock_guard<std::mutex> lock(metrics_.metrics_mutex);
@@ -460,7 +485,9 @@ private:
             }
             metrics_.infer_last_ts = now;
             metrics_.infer_completed++;
+            metrics_.sum_preprocess += std::chrono::duration<double,std::milli>(t_pre_end-t_pre_start).count();
             metrics_.sum_inference += std::chrono::duration<double,std::milli>(ti1-ti0).count();
+            metrics_.sum_postprocess += std::chrono::duration<double,std::milli>(t_post_end-t_post_start).count();
         }
         processCount++;
     }
@@ -505,7 +532,7 @@ private:
     /** Denoising: submit frame for async inference. */
     void processFrameDenoiseAsync(const cv::Mat& frame, AsyncFrameParams& p) {
         auto t_pre_start = std::chrono::high_resolution_clock::now();
-        cv::resize(frame, p.display_image, cv::Size(SHOW_WINDOW_SIZE_W, SHOW_WINDOW_SIZE_H));
+        dxapp::displayResize(frame, p.display_image, SHOW_WINDOW_SIZE_W, SHOW_WINDOW_SIZE_H);
         PreprocessContext ctx;
         cv::Mat preprocessed;
         p.preprocessor.process(p.display_image, preprocessed, ctx);
@@ -621,13 +648,44 @@ private:
     }
 
     void validateArguments(const CommandLineArgs& args) {
-        if (args.modelPath.empty()) { dxapp::fatal_error("[ERROR] Model path is required."); }
+        if (args.modelPath.empty()) { dxapp::fatal_error("[ERROR] Model path is required. Use -m or --model_path option.\n"
+                "        -> Download:  ./setup.sh --models <model_name>\n"
+                "        -> Or use:    ./run_demo.sh  (auto-downloads demo models)"); }
+        // Auto-download model if not found
+        if (!dxapp::fileExists(args.modelPath)) {
+            if (!dxapp::autoDownloadModel(args.modelPath)) {
+                std::string stem = fs::path(args.modelPath).stem().string();
+                dxapp::fatal_error("[ERROR] Model file not found: " + args.modelPath + "\n"
+                    "        -> Download:  ./setup.sh --models " + stem + "\n"
+                    "        -> Or use:    ./run_demo.sh  (auto-downloads demo models)");
+            }
+            std::cout << "[INFO] Model downloaded successfully: " << args.modelPath << std::endl;
+        }
+
         int sourceCount = 0;
         if (!args.imageFilePath.empty()) sourceCount++;
         if (!args.videoFile.empty()) sourceCount++;
         if (args.cameraIndex >= 0) sourceCount++;
         if (!args.rtspUrl.empty()) sourceCount++;
         if (sourceCount != 1) { dxapp::fatal_error("[ERROR] Please specify exactly one input source."); }
+        // Auto-download video if not found
+        if (!args.videoFile.empty() && !dxapp::fileExists(args.videoFile)) {
+            if (!dxapp::autoDownloadVideos() || !dxapp::fileExists(args.videoFile)) {
+                dxapp::fatal_error("[ERROR] Video file not found: " + args.videoFile + "\n"
+                    "        -> Download videos: ./setup_sample_videos.sh");
+            }
+            std::cout << "[INFO] Video downloaded successfully: " << args.videoFile << std::endl;
+        }
+
+        // Validate that --video is not given an image file
+        if (!args.videoFile.empty()) {
+            std::string ext = fs::path(args.videoFile).extension().string();
+            std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+            if (ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".bmp" || ext == ".tiff") {
+                dxapp::fatal_error("[ERROR] Image file detected for --video (-v) option. "
+                                  "Use --image (-i) for image files.\nUse -h or --help for usage information.");
+            }
+        }
     }
 
     std::pair<std::vector<std::string>, int> processImagePath(const std::string& imageFilePath, int loopTest) {

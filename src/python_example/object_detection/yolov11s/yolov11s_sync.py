@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (C) 2018- DEEPX Ltd. All rights reserved.
 """
-Yolov8 Synchronous Inference Example
+Yolov11s Synchronous Inference Example
 
 Usage:
     python yolov11s_sync.py --model model.dxnn --image input.jpg

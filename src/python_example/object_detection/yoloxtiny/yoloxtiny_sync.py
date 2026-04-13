@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (C) 2018- DEEPX Ltd. All rights reserved.
 """
-YOLOX Synchronous Inference Example
+Yoloxtiny Synchronous Inference Example
 
 Usage:
     python yoloxtiny_sync.py --model model.dxnn --image input.jpg

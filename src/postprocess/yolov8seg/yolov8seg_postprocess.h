@@ -64,8 +64,8 @@ class YOLOv8SegPostProcess {
     float score_threshold_{0.5f};  // Class confidence threshold
     float nms_threshold_{0.45f};   // NMS IoU threshold
 
-    // Model configuration - using const where appropriate
-    enum { num_classes_ = 80 };  // Number of classes (COCO dataset)
+    // Model configuration
+    int num_classes_{80};  // Number of classes (default: COCO 80)
 
     bool is_ort_configured_{false};  // Whether ORT inference is configured
 
@@ -113,6 +113,10 @@ class YOLOv8SegPostProcess {
     YOLOv8SegPostProcess(const int input_w, const int input_h, const float score_threshold,
                           const float nms_threshold, const bool is_ort_configured = false);
 
+    YOLOv8SegPostProcess(const int input_w, const int input_h, const float score_threshold,
+                          const float nms_threshold, const bool is_ort_configured,
+                          const int num_classes);
+
     YOLOv8SegPostProcess();
 
     /**
@@ -154,8 +158,8 @@ class YOLOv8SegPostProcess {
     float get_nms_threshold() const { return nms_threshold_; }
     bool get_is_ort_configured() const { return is_ort_configured_; }
 
-    // Static configuration getters
-    static int get_num_classes() { return num_classes_; }
+    // Configuration getters
+    int get_num_classes() const { return num_classes_; }
 
     const std::map<int, std::vector<std::pair<int, int>>>& get_anchors_by_strides() const {
         return anchors_by_strides_;

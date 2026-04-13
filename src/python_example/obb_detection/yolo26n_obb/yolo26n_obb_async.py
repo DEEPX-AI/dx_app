@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (C) 2018- DEEPX Ltd. All rights reserved.
 """
-Yolov26OBB Asynchronous Inference Example
+Yolo26n_obb Asynchronous Inference Example
 
 Usage:
     python yolo26n_obb_async.py --model model.dxnn --image input.jpg

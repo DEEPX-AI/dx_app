@@ -15,8 +15,8 @@ from typing import List
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from common.constants import PROJECT_ROOT  # noqa: E402
-from common.utils import discover_python_scripts, setup_environment  # noqa: E402
+from test_helpers.constants import PROJECT_ROOT  # noqa: E402
+from test_helpers.utils import discover_python_scripts, setup_environment  # noqa: E402
 
 
 _TEST_VIDEO = PROJECT_ROOT / "assets" / "videos" / "dance-group.mov"

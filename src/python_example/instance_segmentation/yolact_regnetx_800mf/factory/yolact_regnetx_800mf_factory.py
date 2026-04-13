@@ -3,7 +3,7 @@ yolact_regnetx_800mf Factory
 """
 
 from common.base import IInstanceSegFactory
-from common.processors import LetterboxPreprocessor, YOLACTPostprocessor
+from common.processors import SimpleResizePreprocessor, YOLACTPostprocessor
 from common.visualizers import InstanceSegVisualizer
 
 
@@ -14,7 +14,7 @@ class Yolact_regnetx_800mfFactory(IInstanceSegFactory):
         self.config = config or {}
     
     def create_preprocessor(self, input_width: int, input_height: int):
-        return LetterboxPreprocessor(input_width, input_height)
+        return SimpleResizePreprocessor(input_width, input_height)
     
     def create_postprocessor(self, input_width: int, input_height: int):
         return YOLACTPostprocessor(input_width, input_height, self.config)

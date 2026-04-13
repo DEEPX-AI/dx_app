@@ -97,6 +97,14 @@ KEYPOINT_NAMES: List[str] = [
     "right_ankle",
 ]
 
+# CenterPose 3D bounding box edges (8-keypoint cuboid)
+# Vertex ordering: [front-tl, front-tr, front-br, front-bl, back-tl, back-tr, back-br, back-bl]
+CENTERPOSE_EDGES: List[List[int]] = [
+    [0, 1], [1, 2], [2, 3], [3, 0],  # front face
+    [4, 5], [5, 6], [6, 7], [7, 4],  # back face
+    [0, 4], [1, 5], [2, 6], [3, 7],  # connecting edges
+]
+
 # Face keypoint names (5-point)
 FACE_KEYPOINT_NAMES: List[str] = [
     "left_eye",

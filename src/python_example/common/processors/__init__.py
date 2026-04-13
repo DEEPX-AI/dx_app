@@ -41,6 +41,7 @@ from .ppu_postprocessor import (
     YOLOv7PPUPostprocessor,
     YOLOv8PPUPostprocessor,
     YOLOv10PPUPostprocessor,
+    YOLOXPPUPostprocessor,
     SCRFDPPUPostprocessor,
     YOLOv5PosePPUPostprocessor,
 )
@@ -108,6 +109,7 @@ __all__ = [
     'YOLOv7PPUPostprocessor',
     'YOLOv8PPUPostprocessor',
     'YOLOv10PPUPostprocessor',
+    'YOLOXPPUPostprocessor',
     'SCRFDPPUPostprocessor',
     'YOLOv5PosePPUPostprocessor',
     # CenterNet Postprocessor

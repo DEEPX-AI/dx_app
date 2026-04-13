@@ -1,0 +1,1 @@
+from .deeplabv3plusmobilenetv2_factory import Deeplabv3plusmobilenetv2Factory

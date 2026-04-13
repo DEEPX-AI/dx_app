@@ -10,7 +10,7 @@ import cv2
 from typing import List
 
 from ..base import IVisualizer, PoseResult
-from ..utility.skeleton import SKELETON, POSE_LIMB_COLOR, POSE_KPT_COLOR, KEYPOINT_NAMES
+from ..utility.skeleton import SKELETON, POSE_LIMB_COLOR, POSE_KPT_COLOR, KEYPOINT_NAMES, CENTERPOSE_EDGES
 
 
 class PoseVisualizer(IVisualizer):
@@ -87,26 +87,44 @@ class PoseVisualizer(IVisualizer):
         return output
     
     def _draw_skeleton(self, image: np.ndarray, keypoints: List) -> None:
-        """Draw skeleton connections between keypoints."""
-        for i, (start_idx, end_idx) in enumerate(SKELETON):
-            if start_idx >= len(keypoints) or end_idx >= len(keypoints):
+        """Draw skeleton connections between keypoints.
+        
+        Adapts to different keypoint formats:
+        - 17 keypoints: COCO body skeleton
+        - 8 keypoints: CenterPose 3D bounding box cuboid
+        - Other counts: skip skeleton (keypoints still drawn separately)
+        """
+        num_kpts = len(keypoints)
+
+        if num_kpts == 17:
+            edges = SKELETON
+            colors = POSE_LIMB_COLOR
+        elif num_kpts == 8:
+            edges = CENTERPOSE_EDGES
+            colors = None  # uniform color for cuboid
+        else:
+            return  # no known skeleton for this keypoint count
+
+        for i, (start_idx, end_idx) in enumerate(edges):
+            if start_idx >= num_kpts or end_idx >= num_kpts:
                 continue
-            
+
             kp_start = keypoints[start_idx]
             kp_end = keypoints[end_idx]
-            
-            # Check confidence
+
             if kp_start.confidence < self.kpt_conf_threshold:
                 continue
             if kp_end.confidence < self.kpt_conf_threshold:
                 continue
-            
+
             start_point = (int(kp_start.x), int(kp_start.y))
             end_point = (int(kp_end.x), int(kp_end.y))
-            
-            # Get color
-            color = POSE_LIMB_COLOR[i] if i < len(POSE_LIMB_COLOR) else (255, 255, 255)
-            
+
+            if colors and i < len(colors):
+                color = colors[i]
+            else:
+                color = (0, 255, 255)  # cyan for CenterPose cuboid
+
             cv2.line(image, start_point, end_point, color, self.skeleton_thickness)
     
     def _draw_keypoints(self, image: np.ndarray, keypoints: List) -> None:

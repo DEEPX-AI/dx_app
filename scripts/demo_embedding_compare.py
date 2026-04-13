@@ -177,7 +177,7 @@ def make_comparison_canvas(img1: np.ndarray, img2: np.ndarray,
     cv2.putText(canvas, "Aligned", (ax, ay - 5), font, 0.5, (200, 200, 200), 1)
 
     # Similarity bar
-    match = similarity > 0.5
+    match = similarity > 0.4
     color = (0, 200, 0) if match else (0, 0, 220)
     label = "SAME" if match else "DIFFERENT"
     text = f"Cosine Similarity: {similarity:.4f}  [{label}]"
@@ -265,7 +265,7 @@ def main():
 
     # Compare
     sim = cosine_similarity(emb1, emb2)
-    match = sim > 0.5
+    match = sim > 0.4  # Lowered from 0.5: better recall for same-person pairs
 
     print(f"\n{'='*55}")
     print(f"          COMPARISON RESULT")

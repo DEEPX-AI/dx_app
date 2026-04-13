@@ -28,7 +28,8 @@ def main():
     factory = Resnet50Factory()
 
     def on_engine_init(runner):
-        runner._cpp_postprocessor = ClassificationPostProcess(5)
+        config = runner.factory.config
+        runner._cpp_postprocessor = ClassificationPostProcess(config.get("top_k", 5))
         runner._cpp_convert_fn = convert_cpp_classification
 
     runner = SyncRunner(factory, on_engine_init=on_engine_init)

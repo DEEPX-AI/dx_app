@@ -19,7 +19,7 @@ source "${DX_APP_PATH}/scripts/color_env.sh"
 source "${DX_APP_PATH}/scripts/common_util.sh"
 
 # =============================================================================
-# Demo Registry (17 entries)
+# Demo Registry (18 entries)
 # =============================================================================
 DEMO_LABELS=(
     # ── Detection (4) ──
@@ -27,9 +27,10 @@ DEMO_LABELS=(
     "Object Detection         (YOLOv11N)"
     "Face Detection           (SCRFD500M)"
     "OBB Detection            (YOLO26N-OBB)"
-    # ── Pose & Landmark (2) ──
+    # ── Pose & Landmark (3) ──
     "Pose Estimation          (YOLOv8s-Pose)"
     "Hand Landmark            (HandLandmarkLite)"
+    "Face Alignment           (3DDFA-V2-MobileNetV1)"
     # ── Segmentation (2) ──
     "Instance Segmentation    (YOLOv8N-Seg)"
     "Semantic Segmentation    (DeepLabV3+MobileNet)"
@@ -51,7 +52,7 @@ DEMO_LABELS=(
 
 DEMO_GROUPS=(
     "Detection" "Detection" "Detection" "Detection"
-    "Pose & Landmark" "Pose & Landmark"
+    "Pose & Landmark" "Pose & Landmark" "Pose & Landmark"
     "Segmentation" "Segmentation"
     "Classification"
     "Depth Estimation"
@@ -62,7 +63,7 @@ DEMO_GROUPS=(
 
 DEMO_CPP_BASE=(
     yolov7 yolov11n scrfd500m yolo26n_obb
-    yolov8s_pose handlandmarklite_1
+    yolov8s_pose handlandmarklite_1 3ddfa_v2_mobilnetv1_120x120
     yolov8n_seg deeplabv3plusmobilenet
     resnet50
     scdepthv3
@@ -78,6 +79,7 @@ DEMO_PY_DIR=(
     "obb_detection/yolo26n_obb"
     "pose_estimation/yolov8s_pose"
     "hand_landmark/handlandmarklite_1"
+    "face_alignment/3ddfa_v2_mobilnetv1_120x120"
     "instance_segmentation/yolov8n_seg"
     "semantic_segmentation/deeplabv3plusmobilenet"
     "classification/resnet50"
@@ -93,7 +95,7 @@ DEMO_PY_DIR=(
 
 DEMO_PY_BASE=(
     yolov7 yolov11n scrfd500m yolo26n_obb
-    yolov8s_pose handlandmarklite_1
+    yolov8s_pose handlandmarklite_1 3ddfa_v2_mobilnetv1_120x120
     yolov8n_seg deeplabv3plusmobilenet
     resnet50
     scdepthv3
@@ -104,7 +106,7 @@ DEMO_PY_BASE=(
 
 DEMO_MODEL=(
     YoloV7.dxnn YOLOV11N.dxnn SCRFD500M.dxnn yolo26n-obb.dxnn
-    yolov8s_pose.dxnn HandLandmarkLite_1.dxnn
+    yolov8s_pose.dxnn HandLandmarkLite_1.dxnn 3ddfa_v2_mobilnetv1_120x120.dxnn
     yolov8n_seg.dxnn DeepLabV3PlusMobilenet.dxnn
     ResNet50.dxnn
     scdepthv3.dxnn
@@ -119,7 +121,8 @@ DEMO_VIDEO=(
     "assets/videos/dance-group.mov"
     "assets/videos/dron-citry-road.mov"
     "assets/videos/dance-solo.mov"
-    "assets/videos/dance-solo.mov"
+    "assets/videos/hand.mp4"
+    "assets/videos/face-alignment-closeup.mp4"
     "assets/videos/dogs.mp4"
     "assets/videos/blackbox-city-road.mp4"
     "assets/videos/dogs.mp4"
@@ -127,9 +130,9 @@ DEMO_VIDEO=(
     "assets/videos/dance-group.mov"
     "assets/videos/dance-group.mov"
     "assets/videos/dance-group.mov"
-    "assets/videos/dance-solo.mov"
-    "assets/videos/dance-group.mov"
-    "assets/videos/dance-group.mov"
+    "assets/videos/face-pair-sofa.mp4"
+    "assets/videos/person-pair-hallway.mp4"
+    "assets/videos/person-pair-hallway.mp4"
     "assets/videos/snowboard.mp4"
 )
 
@@ -140,6 +143,7 @@ DEMO_IMAGE=(
     "sample/dota8_test/P0284.png"
     "sample/img/sample_people.jpg"
     "sample/img/sample_hand.jpg"
+    "sample/img/sample_face_a1.jpg"
     "sample/img/sample_street.jpg"
     "sample/img/sample_parking.jpg"
     "sample/img/sample_dog.jpg"
@@ -147,28 +151,28 @@ DEMO_IMAGE=(
     "sample/img/sample_denoising.jpg"
     "sample/img/sample_superresolution.png"
     "sample/img/sample_lowlight.jpg"
-    "sample/img/sample_face_a1.jpg"
+    "sample/img/face_pair"
     "sample/img/sample_person_a1.jpg"
-    "sample/img/sample_person_a1.jpg"
+    "sample/img/person_pair"
     "sample/img/sample_street.jpg"
 )
 
-# "full" = all 6 modes, "no_py_async" = classification/embedding (no async python)
+# "full" = all 6 modes, "no_py_async" = classification only (no async python)
 DEMO_PY_ASYNC=(
     full full full full
-    full full
+    full full full
     full full
     no_py_async
     full
     full full full
-    no_py_async no_py_async no_py_async
+    full full full
     full
 )
 
 # 1 = image only (skip video selection), 0 = both image and video
 DEMO_IMAGE_ONLY=(
     0 0 0 0
-    0 0
+    0 0 0
     0 0
     0
     0
@@ -269,11 +273,41 @@ if [ ! -d "./bin" ] || [ -z "$(ls -A ./bin 2>/dev/null)" ]; then
     ./build.sh
 fi
 
-if check_valid_dir_or_symlink "./assets/models" && check_valid_dir_or_symlink "./assets/videos"; then
-    print_colored "Models and videos directory found." "INFO"
+# Ensure videos directory exists
+if ! check_valid_dir_or_symlink "./assets/videos"; then
+    print_colored "Videos not found. Running setup for videos..." "INFO"
+    ./setup_sample_videos.sh --output=./assets/videos
+fi
+
+# Ensure all 18 demo models are present; download any missing ones
+MODELS_DIR="./assets/models"
+if [ -L "$MODELS_DIR" ]; then
+    MODELS_REAL=$(readlink -f "$MODELS_DIR")
 else
-    print_colored "Models/videos not found. Running setup.sh..." "INFO"
-    ./setup.sh --force
+    MODELS_REAL="$MODELS_DIR"
+fi
+mkdir -p "$MODELS_REAL"
+MISSING_DEMO_MODELS=()
+for model_file in "${DEMO_MODEL[@]}"; do
+    if [ ! -f "${MODELS_REAL}/${model_file}" ]; then
+        MISSING_DEMO_MODELS+=("${model_file%.dxnn}")
+    fi
+done
+
+if [ ${#MISSING_DEMO_MODELS[@]} -gt 0 ]; then
+    print_colored "Missing ${#MISSING_DEMO_MODELS[@]} of ${#DEMO_MODEL[@]} demo model(s)." "WARNING"
+    print_colored "Missing: ${MISSING_DEMO_MODELS[*]}" "WARNING"
+    print_colored "Automatically downloading missing demo models... (no manual setup.sh needed)" "INFO"
+    ./setup_sample_models.sh --output="${MODELS_REAL}" --models ${MISSING_DEMO_MODELS[*]}
+    if [ $? -ne 0 ]; then
+        print_colored "Failed to download demo models." "ERROR"
+        print_colored "You can also download manually: ./setup.sh --models ${MISSING_DEMO_MODELS[*]}" "INFO"
+        popd > /dev/null
+        exit 1
+    fi
+    print_colored "Demo models ready. Continuing..." "INFO"
+else
+    print_colored "All ${#DEMO_MODEL[@]} demo models found." "INFO"
 fi
 
 WRC="$DX_APP_PATH"
@@ -497,6 +531,22 @@ case "$selected_mode" in
         ;;
 esac
 
+# --- Python dependency check (only for Python modes) ---
+case "$selected_mode" in
+    py_*)
+        _missing_deps=()
+        python3 -c "import cv2" 2>/dev/null || _missing_deps+=("opencv-python")
+        python3 -c "import numpy" 2>/dev/null || _missing_deps+=("numpy")
+        if [ ${#_missing_deps[@]} -gt 0 ]; then
+            print_colored "Python dependency missing: ${_missing_deps[*]}" "ERROR"
+            print_colored "Install with:  pip3 install -r ${DX_APP_PATH}/requirements.txt" "INFO"
+            print_colored "Or run:        ./install.sh --dep" "INFO"
+            popd > /dev/null
+            exit 1
+        fi
+        ;;
+esac
+
 echo ""
 printf "${COLOR_CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${COLOR_RESET}\n"
 printf "  ${COLOR_BOLD}Task  :${COLOR_RESET} %s\n" "${DEMO_LABELS[$task_sel]}"
@@ -506,50 +556,6 @@ printf "  ${COLOR_BOLD}Cmd   :${COLOR_RESET} %s\n" "$CMD"
 printf "${COLOR_CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${COLOR_RESET}\n"
 echo ""
 
-# =============================================================================
-# Embedding: skip single-image inference, run comparison demo directly
-# =============================================================================
-if [ "${DEMO_LABELS[$task_sel]}" = "Embedding                (ArcFace)" ]; then
-    printf "${COLOR_CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${COLOR_RESET}\n"
-    printf "  ${COLOR_BOLD}Running Embedding Comparison Demo...${COLOR_RESET}\n"
-    printf "${COLOR_CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${COLOR_RESET}\n"
-    COMPARE_DISPLAY=""
-    if echo "$CMD" | grep -q "\-\-no-display\|no.display"; then
-        COMPARE_DISPLAY="--no-display"
-    fi
-    echo ""
-    echo "[INFO] Comparing same person (A1 vs A2)..."
-    python3 "$WRC/scripts/demo_embedding_compare.py" \
-        --model "$model_path" \
-        --image1 sample/img/sample_face_a1.jpg \
-        --image2 sample/img/sample_face_a2.jpg \
-        $COMPARE_DISPLAY
-    echo ""
-    echo "[INFO] Comparing different persons (A1 vs B)..."
-    python3 "$WRC/scripts/demo_embedding_compare.py" \
-        --model "$model_path" \
-        --image1 sample/img/sample_face_a1.jpg \
-        --image2 sample/img/sample_face_b.jpg \
-        $COMPARE_DISPLAY
-elif [ "${DEMO_LABELS[$task_sel]}" = "Person Re-ID             (CasViT-T)" ]; then
-    printf "${COLOR_CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${COLOR_RESET}\n"
-    printf "  ${COLOR_BOLD}Running Person Re-ID Comparison Demo...${COLOR_RESET}\n"
-    printf "${COLOR_CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${COLOR_RESET}\n"
-    COMPARE_DISPLAY=""
-    if echo "$CMD" | grep -q "\-\-no-display\|no.display"; then
-        COMPARE_DISPLAY="--no-display"
-    fi
-    echo ""
-    echo "[INFO] Pair 1: same person, different poses (A1 vs A2)..."
-    echo "[INFO] Pair 2: different persons (A1 vs B)..."
-    python3 "$WRC/scripts/demo_reid_compare.py" \
-        --model "$model_path" \
-        --image1 sample/img/sample_person_a1.jpg \
-        --image2 sample/img/sample_person_a2.jpg \
-        --image3 sample/img/sample_person_b.jpg \
-        $COMPARE_DISPLAY
-else
-    eval "$CMD"
-fi
+eval "$CMD"
 
 popd > /dev/null

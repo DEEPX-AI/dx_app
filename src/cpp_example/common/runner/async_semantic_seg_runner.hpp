@@ -64,6 +64,11 @@ public:
 
         CommandLineArgs args = parseCommandLine(argc, argv);
         verbose_ = args.verbose;
+        // Apply default sample image if no input specified
+        if (args.imageFilePath.empty() && args.videoFile.empty() && args.cameraIndex < 0 && args.rtspUrl.empty()) {
+            args.imageFilePath = dxapp::getDefaultSampleImage(factory_->getTaskType());
+            std::cout << "[INFO] No input specified. Using default sample: " << args.imageFilePath << std::endl;
+        }
         validateArguments(args);
 
         std::vector<std::string> imageFiles;
@@ -181,7 +186,7 @@ public:
             dxapp::displayResize(frame, display_image, SHOW_WINDOW_SIZE_W, SHOW_WINDOW_SIZE_H);
             PreprocessContext ctx;
             cv::Mat preprocessed;
-            preprocessor->process(display_image, preprocessed, ctx);
+            preprocessor->process(frame, preprocessed, ctx);
             auto t_pre_end = std::chrono::high_resolution_clock::now();
             {
                 std::lock_guard<std::mutex> lock(metrics_.metrics_mutex);
@@ -209,7 +214,7 @@ public:
             last_job_id = ie.RunAsync(buf.data(), user_data);
             buffer_index++;
             processCount++;
-            if (!args.no_display) pollDisplay();
+            if (!args.no_display && !pollDisplay()) return;
         };
 
         if (is_image) {
@@ -229,11 +234,11 @@ public:
                 cv::Mat img = cv::imread(imageFiles[i % imageFiles.size()]);
                 auto t_read_end = std::chrono::high_resolution_clock::now();
                 if (img.empty()) continue;
-                cv::resize(img, display_image, cv::Size(SHOW_WINDOW_SIZE_W, SHOW_WINDOW_SIZE_H));
+                dxapp::displayResize(img, display_image, SHOW_WINDOW_SIZE_W, SHOW_WINDOW_SIZE_H);
                 PreprocessContext ctx;
                 cv::Mat preprocessed;
                 auto t_pre_start = std::chrono::high_resolution_clock::now();
-                preprocessor->process(display_image, preprocessed, ctx);
+                preprocessor->process(img, preprocessed, ctx);
                 auto t_pre_end = std::chrono::high_resolution_clock::now();
                 {
                     std::lock_guard<std::mutex> lock(metrics_.metrics_mutex);
@@ -265,7 +270,7 @@ public:
                 last_job_id = ie.RunAsync(buf.data(), static_cast<void*>(ud.release()));
                 buffer_index++;
                 processCount++;
-                if (!args.no_display) pollDisplay();
+                if (!args.no_display && !pollDisplay()) break;
             }
         } else {
             for (int loop_idx = 0; loop_idx < loopTest && running_ && !g_interrupted(); ++loop_idx) {
@@ -308,7 +313,7 @@ public:
                 inference_done.store(true, std::memory_order_release);
             });
             while (!inference_done.load(std::memory_order_acquire) && running_) {
-                if (!args.no_display) pollDisplay();
+                if (!args.no_display && !pollDisplay()) break;
                 else std::this_thread::sleep_for(std::chrono::milliseconds(10));
             }
             waitThread.join();
@@ -382,7 +387,6 @@ private:
         double t_postprocess = std::chrono::duration<double, std::milli>(t_post_end - t_post_start).count();
             { std::lock_guard<std::mutex> lock(metrics_.metrics_mutex); metrics_.sum_postprocess += t_postprocess; }
 
-        printSegmentationStats(results, verbose_);
         completeInflightMetrics();
 
         AsyncSemanticSegDisplayArgs display_args;
@@ -400,31 +404,7 @@ private:
         return 0;
     }
 
-    /** Print semantic segmentation results for pipeline parsing. */
-    static void printSegmentationStats(const std::vector<SegmentationResult>& res, bool verbose = false) {
-        if (!verbose) return;
-        if (res.empty() || res[0].mask.empty()) return;
-        const auto& seg = res[0];
-        int total = static_cast<int>(seg.mask.size());
-        if (total == 0) return;
-        int counts[256] = {};
-        for (int v : seg.mask) { if (v >= 0 && v < 256) counts[v]++; }
-        std::cout << "[SEG]";
-        for (int c = 0; c < 256; ++c) {
-            if (counts[c] == 0) continue;
-            double pct = counts[c] * 100.0 / total;
-            if (pct < 0.1) continue;
-            std::string label = std::to_string(c);
-            for (size_t j = 0; j < seg.class_ids.size(); ++j) {
-                if (seg.class_ids[j] == c && j < seg.class_names.size() && !seg.class_names[j].empty()) {
-                    label = dxapp::sanitize_name(seg.class_names[j]);
-                    break;
-                }
-            }
-            std::cout << " " << label << " " << std::fixed << std::setprecision(1) << pct;
-        }
-        std::cout << std::endl;
-    }
+
 
     /** Update metrics when an async inference job completes. */
     void completeInflightMetrics() {
@@ -469,13 +449,44 @@ private:
     }
 
     void validateArguments(const CommandLineArgs& args) {
-        if (args.modelPath.empty()) { dxapp::fatal_error("[ERROR] Model path is required."); }
+        if (args.modelPath.empty()) { dxapp::fatal_error("[ERROR] Model path is required. Use -m or --model_path option.\n"
+                "        -> Download:  ./setup.sh --models <model_name>\n"
+                "        -> Or use:    ./run_demo.sh  (auto-downloads demo models)"); }
+        // Auto-download model if not found
+        if (!dxapp::fileExists(args.modelPath)) {
+            if (!dxapp::autoDownloadModel(args.modelPath)) {
+                std::string stem = fs::path(args.modelPath).stem().string();
+                dxapp::fatal_error("[ERROR] Model file not found: " + args.modelPath + "\n"
+                    "        -> Download:  ./setup.sh --models " + stem + "\n"
+                    "        -> Or use:    ./run_demo.sh  (auto-downloads demo models)");
+            }
+            std::cout << "[INFO] Model downloaded successfully: " << args.modelPath << std::endl;
+        }
+
         int sourceCount = 0;
         if (!args.imageFilePath.empty()) sourceCount++;
         if (!args.videoFile.empty()) sourceCount++;
         if (args.cameraIndex >= 0) sourceCount++;
         if (!args.rtspUrl.empty()) sourceCount++;
         if (sourceCount != 1) { dxapp::fatal_error("[ERROR] Please specify exactly one input source."); }
+        // Auto-download video if not found
+        if (!args.videoFile.empty() && !dxapp::fileExists(args.videoFile)) {
+            if (!dxapp::autoDownloadVideos() || !dxapp::fileExists(args.videoFile)) {
+                dxapp::fatal_error("[ERROR] Video file not found: " + args.videoFile + "\n"
+                    "        -> Download videos: ./setup_sample_videos.sh");
+            }
+            std::cout << "[INFO] Video downloaded successfully: " << args.videoFile << std::endl;
+        }
+
+        // Validate that --video is not given an image file
+        if (!args.videoFile.empty()) {
+            std::string ext = fs::path(args.videoFile).extension().string();
+            std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+            if (ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".bmp" || ext == ".tiff") {
+                dxapp::fatal_error("[ERROR] Image file detected for --video (-v) option. "
+                                  "Use --image (-i) for image files.\nUse -h or --help for usage information.");
+            }
+        }
     }
 
     std::pair<std::vector<std::string>, int> processImagePath(const std::string& imageFilePath, int loopTest) {
@@ -523,6 +534,7 @@ private:
             if (!args.save_path.empty() && !result_frame.empty()) {
                 auto t_save_start = std::chrono::high_resolution_clock::now();
                 cv::imwrite(args.save_path, result_frame);
+                std::cout << "\n[INFO] Saved output image: " << fs::absolute(args.save_path).string() << std::endl;
                 dxapp::saveDebugImage(result_frame);
                 auto t_save_end = std::chrono::high_resolution_clock::now();
                 std::lock_guard<std::mutex> lock(metrics_.metrics_mutex);

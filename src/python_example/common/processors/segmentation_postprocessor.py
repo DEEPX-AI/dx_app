@@ -97,7 +97,15 @@ class SemanticSegmentationPostprocessor(IPostprocessor):
 
         # ---- parse shape ---------------------------------------------------
         if output.ndim == 4:
-            logits = output[0]           # [C, H, W]
+            logits = output[0]           # [C, H, W] or [H, W, C] (NHWC)
+            # Pre-argmaxed: single-channel or integer type → skip upsample+argmax
+            if logits.shape[0] == 1 or np.issubdtype(logits.dtype, np.integer):
+                class_map = logits.squeeze().astype(np.int32)
+                class_map = self._maybe_resize_to_original(class_map, ctx)
+                return [self._make_result(class_map)]
+            # NHWC detection: last dim is small class count, first dims are spatial
+            if logits.ndim == 3 and logits.shape[2] < logits.shape[0] and logits.shape[2] < logits.shape[1]:
+                logits = np.transpose(logits, (2, 0, 1))  # [H, W, C] → [C, H, W]
         elif output.ndim == 3:
             # Could be [C, H, W] logits OR [1, H, W] pre-argmaxed (NPU).
             # Heuristic: if first dim == 1 or dtype is integer → pre-argmaxed.

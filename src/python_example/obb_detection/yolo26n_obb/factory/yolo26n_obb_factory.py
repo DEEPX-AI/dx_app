@@ -26,4 +26,4 @@ class Yolo26n_obbFactory(IOBBFactory):
         return "yolo26n_obb"
     
     def get_task_type(self) -> str:
-        return "object_detection"
+        return "obb_detection"

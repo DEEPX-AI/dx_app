@@ -66,6 +66,17 @@ class PPUPostprocessor(IPostprocessor):
         self.score_threshold = self.config.get('conf_threshold', 0.25)
         self.nms_threshold = self.config.get('nms_threshold', 0.45)
 
+        # Allow caller to override per-model anchors and strides via config
+        custom_anchors = self.config.get('anchors', None)
+        if custom_anchors is not None:
+            self.ANCHORS = {
+                k: np.array(v, dtype=np.float32)
+                for k, v in custom_anchors.items()
+            }
+        custom_strides = self.config.get('strides', None)
+        if custom_strides is not None:
+            self.STRIDES = np.array(custom_strides, dtype=np.float32)
+
     def process(self, outputs: List[np.ndarray], ctx: PreprocessContext) -> List[DetectionResult]:
         if len(outputs) == 0 or outputs[0].ndim == 2:
             return []
@@ -656,3 +667,128 @@ class YOLOv10PPUPostprocessor(IPostprocessor):
 
     def get_model_name(self) -> str:
         return "yolov10_ppu"
+
+
+class YOLOXPPUPostprocessor(IPostprocessor):
+    """
+    YOLOX PPU — anchor-free detection postprocessor.
+
+    YOLOX PPU output uses DeviceBoundingBox_t (32 bytes) but with a different
+    box encoding from the anchor-based YOLOv5/v7 PPU:
+      Bytes  0-15: tx, ty, tw, th (float32) — raw (pre-sigmoid) grid offsets
+      Bytes 16-19: grid_y, grid_x, box_idx, layer_idx (uint8)
+      Bytes 20-23: score (float32)
+      Bytes 24-27: label (uint32)
+      Bytes 28-31: padding
+
+    Anchor-free box decoding (YOLOX style):
+      cx = (tx + grid_x) * stride
+      cy = (ty + grid_y) * stride
+      w  = exp(tw) * stride
+      h  = exp(th) * stride
+    """
+
+    STRIDES = np.array([8, 16, 32], dtype=np.float32)
+
+    def __init__(self, input_width: int, input_height: int, config: dict = None):
+        self.input_width = input_width
+        self.input_height = input_height
+        self.config = config or {}
+        self.score_threshold = self.config.get('conf_threshold',
+                                               self.config.get('score_threshold', 0.25))
+        self.nms_threshold = self.config.get('nms_threshold', 0.45)
+
+    def process(self, outputs: List[np.ndarray], ctx: PreprocessContext) -> List[DetectionResult]:
+        if len(outputs) == 0 or outputs[0].ndim == 2:
+            return []
+
+        output_tensor = outputs[0][0]  # remove batch dim → [N, 32]
+
+        if output_tensor.ndim != 2 or output_tensor.shape[1] != 32:
+            return []
+
+        n = output_tensor.shape[0]
+        if n == 0:
+            return []
+
+        # Parse DeviceBoundingBox_t fields
+        boxes_raw = output_tensor[:, :16].view(np.float32).reshape(-1, 4)  # tx, ty, tw, th
+        grid_info = output_tensor[:, 16:20].view(np.uint8)
+        g_y = grid_info[:, 0].astype(np.float32)
+        g_x = grid_info[:, 1].astype(np.float32)
+        layer_idx = grid_info[:, 3]
+        scores = output_tensor[:, 20:24].view(np.float32).flatten()
+        labels = output_tensor[:, 24:28].view(np.uint32).flatten()
+
+        # Score filter
+        mask = scores >= self.score_threshold
+        if not np.any(mask):
+            return []
+
+        boxes_raw = boxes_raw[mask]
+        scores = scores[mask]
+        labels = labels[mask]
+        g_x = g_x[mask]
+        g_y = g_y[mask]
+        layer_idx = layer_idx[mask]
+
+        # Anchor-free YOLOX decode: cx=(tx+gx)*s, cy=(ty+gy)*s, w=exp(tw)*s, h=exp(th)*s
+        stride = self.STRIDES[layer_idx]
+        cx = (boxes_raw[:, 0] + g_x) * stride
+        cy = (boxes_raw[:, 1] + g_y) * stride
+        tw_clipped = np.clip(boxes_raw[:, 2], -10, 10)  # avoid exp overflow
+        th_clipped = np.clip(boxes_raw[:, 3], -10, 10)
+        w = np.exp(tw_clipped) * stride
+        h = np.exp(th_clipped) * stride
+
+        boxes_x1y1x2y2 = np.column_stack([
+            cx - w * 0.5,
+            cy - h * 0.5,
+            cx + w * 0.5,
+            cy + h * 0.5,
+        ])
+
+        # Convert to x1y1wh for NMS
+        boxes_x1y1wh = np.column_stack([
+            boxes_x1y1x2y2[:, 0],
+            boxes_x1y1x2y2[:, 1],
+            boxes_x1y1x2y2[:, 2] - boxes_x1y1x2y2[:, 0],
+            boxes_x1y1x2y2[:, 3] - boxes_x1y1x2y2[:, 1],
+        ])
+
+        # Apply NMS
+        indices = cv2.dnn.NMSBoxes(
+            boxes_x1y1wh.tolist(),
+            scores.tolist(),
+            self.score_threshold,
+            self.nms_threshold,
+        )
+
+        if len(indices) == 0:
+            return []
+
+        keep = np.array(indices).reshape(-1)
+
+        # Convert to original coordinates
+        gain = max(ctx.scale, 1e-6)
+        pad_x = ctx.pad_x
+        pad_y = ctx.pad_y
+
+        results = []
+        for idx in keep:
+            box = boxes_x1y1x2y2[idx].copy()
+            box[0] = np.clip((box[0] - pad_x) / gain, 0, ctx.original_width - 1)
+            box[1] = np.clip((box[1] - pad_y) / gain, 0, ctx.original_height - 1)
+            box[2] = np.clip((box[2] - pad_x) / gain, 0, ctx.original_width - 1)
+            box[3] = np.clip((box[3] - pad_y) / gain, 0, ctx.original_height - 1)
+
+            results.append(DetectionResult(
+                box=[float(box[0]), float(box[1]), float(box[2]), float(box[3])],
+                confidence=float(scores[idx]),
+                class_id=int(labels[idx])
+            ))
+
+        return results
+
+    def get_model_name(self) -> str:
+        return "yolox_ppu"

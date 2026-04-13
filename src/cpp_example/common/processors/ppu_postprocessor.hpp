@@ -109,6 +109,33 @@ private:
 };
 
 // ============================================================================
+// YOLOv3Tiny PPU Detection Postprocessor (2-scale, YOLOv3 anchors)
+// ============================================================================
+class YOLOv3TinyPPUPostprocessor : public IPostprocessor<DetectionResult> {
+public:
+    YOLOv3TinyPPUPostprocessor(int input_width = 416, int input_height = 416,
+                               float obj_threshold = 0.25f,
+                               float score_threshold = 0.25f,
+                               float nms_threshold = 0.45f,
+                               bool /*is_ort_configured*/ = false)
+        : impl_(input_width, input_height, obj_threshold, score_threshold,
+                nms_threshold) {}
+
+    std::vector<DetectionResult> process(const dxrt::TensorPtrs& outputs,
+                                         const PreprocessContext& ctx) override {
+        auto legacy_results = impl_.postprocess(outputs);
+        std::vector<DetectionResult> results = convertAll(legacy_results);
+        detail::scalePPUDetectionResults(results, ctx);
+        return results;
+    }
+
+    std::string getModelName() const override { return "YOLOv3Tiny-PPU"; }
+
+private:
+    YOLOv3TinyPPUPostProcess impl_;
+};
+
+// ============================================================================
 // YOLOv8 PPU Detection Postprocessor (anchor-free)
 // ============================================================================
 class YOLOv8PPUPostprocessor : public IPostprocessor<DetectionResult> {
@@ -132,6 +159,32 @@ public:
 
 private:
     YOLOv8PPUPostProcess impl_;
+};
+
+// ============================================================================
+// YOLOX PPU Detection Postprocessor (anchor-free, grid-based decoding)
+// ============================================================================
+class YOLOXPPUPostprocessor : public IPostprocessor<DetectionResult> {
+public:
+    YOLOXPPUPostprocessor(int input_width = 640, int input_height = 640,
+                          float /*obj_threshold*/ = 0.25f,
+                          float score_threshold = 0.25f,
+                          float nms_threshold = 0.45f,
+                          bool /*is_ort_configured*/ = false)
+        : impl_(input_width, input_height, score_threshold, nms_threshold) {}
+
+    std::vector<DetectionResult> process(const dxrt::TensorPtrs& outputs,
+                                         const PreprocessContext& ctx) override {
+        auto legacy_results = impl_.postprocess(outputs);
+        std::vector<DetectionResult> results = convertAll(legacy_results);
+        detail::scalePPUDetectionResults(results, ctx);
+        return results;
+    }
+
+    std::string getModelName() const override { return "YOLOX-PPU"; }
+
+private:
+    YOLOXPPUPostProcess impl_;
 };
 
 // ============================================================================

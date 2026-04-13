@@ -18,11 +18,11 @@ from typing import List
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from common.constants import (  # noqa: E402
+from test_helpers.constants import (  # noqa: E402
     PROJECT_ROOT,
     SAMPLE_DIR,
 )
-from common.utils import discover_python_scripts, setup_environment  # noqa: E402
+from test_helpers.utils import discover_python_scripts, setup_environment  # noqa: E402
 
 TEST_IMAGE = SAMPLE_DIR / "img" / "sample_kitchen.jpg"
 

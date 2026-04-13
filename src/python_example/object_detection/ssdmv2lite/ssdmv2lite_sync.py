@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-SSDMV1 Synchronous Inference Example
+Ssdmv2lite Synchronous Inference Example
 """
 
 import sys

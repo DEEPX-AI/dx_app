@@ -332,24 +332,28 @@ private:
     }
 
     // Rebuild priors matching the model's actual anchor count.
+    // Uses RetinaNet-style scales: [base, base*2^(1/3), base*2^(2/3)]
     void rebuildPriorsForN(int target_n) {
         int strides[] = {8, 16, 32, 64, 128};
+        float base_sizes[] = {24.0f, 48.0f, 96.0f, 192.0f, 384.0f};
+        float r13 = std::pow(2.0f, 1.0f / 3.0f);
+        float r23 = std::pow(2.0f, 2.0f / 3.0f);
 
-        // Candidate configurations: (scales_per_level, aspect_ratios_per_level)
         struct AnchorConfig {
             std::vector<std::vector<float>> scales;
             std::vector<float> aspect_ratios;
         };
         std::vector<AnchorConfig> configs = {
-            // 3 scales × 3 ARs = 9 anchors/cell (most YOLACT models)
-            {{{24,48,96}, {48,96,192}, {96,192,384}, {192,384,768}, {384,768,1536}},
+            // RetinaNet 3 scales × 3 ARs = 9 anchors/cell
+            {{{base_sizes[0], base_sizes[0]*r13, base_sizes[0]*r23},
+              {base_sizes[1], base_sizes[1]*r13, base_sizes[1]*r23},
+              {base_sizes[2], base_sizes[2]*r13, base_sizes[2]*r23},
+              {base_sizes[3], base_sizes[3]*r13, base_sizes[3]*r23},
+              {base_sizes[4], base_sizes[4]*r13, base_sizes[4]*r23}},
              {1.0f, 0.5f, 2.0f}},
             // 1 scale × 3 ARs = 3 anchors/cell (default YOLACT)
-            {{{24}, {48}, {96}, {192}, {384}},
+            {{{base_sizes[0]}, {base_sizes[1]}, {base_sizes[2]}, {base_sizes[3]}, {base_sizes[4]}},
              {1.0f, 0.5f, 2.0f}},
-            // 2 scales × 1 AR = 2 anchors/cell
-            {{{24,48}, {48,96}, {96,192}, {192,384}, {384,768}},
-             {1.0f}},
         };
 
         for (auto& cfg : configs) {
@@ -370,8 +374,9 @@ private:
                 int fw = (input_width_ + stride - 1) / stride;
                 for (int y = 0; y < fh; ++y) {
                     for (int x = 0; x < fw; ++x) {
-                        float cx = (x + 0.5f) / fw;
-                        float cy = (y + 0.5f) / fh;
+                        float cx = (x + 0.5f) * stride / input_width_;
+                        float cy = (y + 0.5f) * stride / input_height_;
+                        // Scale (outer) → AR (inner)
                         for (float sc : cfg.scales[s]) {
                             for (float ar : cfg.aspect_ratios) {
                                 float pw = sc / input_width_ * std::sqrt(ar);
@@ -384,7 +389,7 @@ private:
             }
             return;
         }
-        // Fallback: use first config (9 anchors/cell)
+        // Fallback: use first config
         rebuildPriorsForN(0);
     }
 

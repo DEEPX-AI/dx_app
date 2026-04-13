@@ -80,7 +80,17 @@ public:
     std::vector<AnchorYOLOResult> postprocess(const dxrt::TensorPtrs& outputs) {
         auto aligned = align_tensors(outputs);
         std::vector<AnchorYOLOResult> dets;
-        if (is_ort_configured_) {
+        // Determine decode path: if aligned has a 3D tensor, use CPU (decoded) path;
+        // otherwise use NPU (raw) path for NCHW/NHWC/5D tensors
+        bool use_cpu_path = is_ort_configured_;
+        if (use_cpu_path && !aligned.empty()) {
+            bool has_3d = false;
+            for (const auto& t : aligned) {
+                if (t->shape().size() == 3) { has_3d = true; break; }
+            }
+            if (!has_3d) use_cpu_path = false;  // Fall back to NPU decode for raw outputs
+        }
+        if (use_cpu_path) {
             dets = decoding_cpu_outputs(aligned);
         } else {
             dets = decoding_npu_outputs(aligned);
@@ -94,14 +104,38 @@ public:
             for (const auto& o : outputs) {
                 if (o->shape().size() == 3) { aligned.push_back(o); break; }
             }
-            return aligned;
+            // If no 3D tensor found, check for 5D raw or NHWC 4D → fall through to NPU path
+            if (!aligned.empty()) return aligned;
         }
         for (const auto& as : anchors_by_strides_) {
             for (const auto& o : outputs) {
-                if (o->shape().size() == 4 &&
-                    o->shape()[2] == input_width_ / as.first &&
-                    o->shape()[3] == input_height_ / as.first &&
-                    o->shape()[1] == static_cast<int64_t>((num_classes_ + 5) * as.second.size())) {
+                auto shape = o->shape();
+                int stride = as.first;
+                int expected_w = input_width_ / stride;
+                int expected_h = input_height_ / stride;
+                int expected_c = static_cast<int>((num_classes_ + 5) * as.second.size());
+                // NCHW: [1, C, H, W]
+                if (shape.size() == 4 &&
+                    shape[1] == expected_c &&
+                    shape[2] == expected_h &&
+                    shape[3] == expected_w) {
+                    aligned.push_back(o);
+                    break;
+                }
+                // NHWC: [1, H, W, C]
+                if (shape.size() == 4 &&
+                    shape[1] == expected_h &&
+                    shape[2] == expected_w &&
+                    shape[3] == expected_c) {
+                    aligned.push_back(o);
+                    break;
+                }
+                // 5D raw: [1, num_anchors, H, W, (5+num_classes)]
+                if (shape.size() == 5 &&
+                    shape[1] == static_cast<int64_t>(as.second.size()) &&
+                    shape[2] == expected_h &&
+                    shape[3] == expected_w &&
+                    shape[4] == (num_classes_ + 5)) {
                     aligned.push_back(o);
                     break;
                 }
@@ -223,12 +257,50 @@ private:
         };
 
         for (size_t oi = 0; oi < outputs.size(); ++oi) {
-            auto data = static_cast<const float*>(outputs[oi]->data());
+            auto shape = outputs[oi]->shape();
             int stride = std::next(anchors_by_strides_.begin(), oi)->first;
             const auto& anchors = anchors_by_strides_.at(stride);
             int gx_sz = input_width_ / stride;
             int gy_sz = input_height_ / stride;
-            decode_stride_npu(data, stride, anchors, gx_sz, gy_sz);
+            int num_anchors = static_cast<int>(anchors.size());
+            int det_per_anchor = num_classes_ + 5;
+
+            if (shape.size() == 5) {
+                // 5D raw: [1, num_anchors, H, W, det_per_anchor] → reshape to NCHW logically
+                const float* raw = static_cast<const float*>(outputs[oi]->data());
+                // Repack to NCHW [1, num_anchors*det_per_anchor, H, W] for decode
+                std::vector<float> nchw(num_anchors * det_per_anchor * gx_sz * gy_sz);
+                for (int a = 0; a < num_anchors; ++a) {
+                    for (int gy = 0; gy < gy_sz; ++gy) {
+                        for (int gx = 0; gx < gx_sz; ++gx) {
+                            for (int d = 0; d < det_per_anchor; ++d) {
+                                int src_idx = ((a * gy_sz + gy) * gx_sz + gx) * det_per_anchor + d;
+                                int dst_idx = ((a * det_per_anchor + d) * gy_sz + gy) * gx_sz + gx;
+                                nchw[dst_idx] = raw[src_idx];
+                            }
+                        }
+                    }
+                }
+                decode_stride_npu(nchw.data(), stride, anchors, gx_sz, gy_sz);
+            } else if (shape.size() == 4 && shape[3] == num_anchors * det_per_anchor) {
+                // NHWC: [1, H, W, C] → transpose to NCHW
+                const float* nhwc = static_cast<const float*>(outputs[oi]->data());
+                int C = static_cast<int>(shape[3]);
+                std::vector<float> nchw(C * gx_sz * gy_sz);
+                for (int gy = 0; gy < gy_sz; ++gy) {
+                    for (int gx = 0; gx < gx_sz; ++gx) {
+                        for (int c = 0; c < C; ++c) {
+                            nchw[c * gy_sz * gx_sz + gy * gx_sz + gx] =
+                                nhwc[gy * gx_sz * C + gx * C + c];
+                        }
+                    }
+                }
+                decode_stride_npu(nchw.data(), stride, anchors, gx_sz, gy_sz);
+            } else {
+                // Standard NCHW: [1, C, H, W]
+                auto data = static_cast<const float*>(outputs[oi]->data());
+                decode_stride_npu(data, stride, anchors, gx_sz, gy_sz);
+            }
         }
         return detections;
     }

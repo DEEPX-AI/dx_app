@@ -46,7 +46,7 @@ class SemanticSegmentationVisualizer(IVisualizer):
     """
     
     def __init__(self, palette: str = 'cityscapes', alpha: float = 0.6, 
-                 custom_palette: np.ndarray = None):
+                 custom_palette: np.ndarray = None, background_class: int = 0):
         """
         Initialize segmentation visualizer.
         
@@ -54,8 +54,10 @@ class SemanticSegmentationVisualizer(IVisualizer):
             palette: Predefined palette name ('cityscapes', 'ade20k')
             alpha: Mask overlay transparency (0-1)
             custom_palette: Custom color palette (N, 3) array
+            background_class: Class ID to skip (treat as background)
         """
         self.alpha = alpha
+        self.background_class = background_class
         
         if custom_palette is not None:
             self.color_palette = custom_palette
@@ -94,7 +96,7 @@ class SemanticSegmentationVisualizer(IVisualizer):
 
         colored_mask_small = np.zeros((cm_h, cm_w, 3), dtype=np.uint8)
         for class_id in range(len(self.color_palette)):
-            if class_id == 0:
+            if class_id == self.background_class:
                 continue
             mask = class_map.astype(np.int32) == class_id
             if np.any(mask):

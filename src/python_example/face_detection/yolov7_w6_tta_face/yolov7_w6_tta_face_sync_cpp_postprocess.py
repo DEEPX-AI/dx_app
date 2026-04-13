@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (C) 2018- DEEPX Ltd. All rights reserved.
 """
-Yolov5Face Synchronous Inference Example
+YOLOv7-Face Synchronous Inference Example
 
 Usage:
     python yolov7_w6_tta_face_sync_cpp_postprocess.py --model model.dxnn --image input.jpg
@@ -16,19 +16,30 @@ for _path in [str(_v3_dir), str(_module_dir)]:
     if _path not in sys.path:
         sys.path.insert(0, _path)
 
-from common.processors.cpp_compat import PythonFallbackPostProcess
+from dx_postprocess import YOLOv5FacePostProcess
+from dx_engine import InferenceOption
+from common.utility import convert_cpp_face_detections
 from factory import Yolov7_w6_tta_faceFactory
 from common.runner import SyncRunner, parse_common_args
 
 def parse_args():
-    return parse_common_args("YOLOv7_w6_tta-Face Sync Inference")
+    return parse_common_args("YOLOv7-Face Sync Inference (C++ Postprocess)")
 def main():
     args = parse_args()
     factory = Yolov7_w6_tta_faceFactory()
 
     def on_engine_init(runner):
-        runner._cpp_postprocessor = PythonFallbackPostProcess(runner)
-        runner._cpp_convert_fn = None
+        input_w = runner.input_width
+        input_h = runner.input_height
+        use_ort = InferenceOption().get_use_ort()
+        config = runner.factory.config
+        obj_thr = config.get("obj_threshold", 0.25)
+        score_thr = config.get("score_threshold", 0.3)
+        nms_thr = config.get("nms_threshold", 0.45)
+        runner._cpp_postprocessor = YOLOv5FacePostProcess(
+            input_w, input_h, obj_thr, score_thr, nms_thr, use_ort
+        )
+        runner._cpp_convert_fn = convert_cpp_face_detections
 
     runner = SyncRunner(factory, on_engine_init=on_engine_init)
     runner.run(args)

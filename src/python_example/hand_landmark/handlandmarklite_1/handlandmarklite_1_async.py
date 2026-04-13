@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (C) 2018- DEEPX Ltd. All rights reserved.
 """
-Hand Landmark Lite Asynchronous Inference Example
+Handlandmarklite_1 Asynchronous Inference Example
 
 Usage:
     python handlandmarklite_1_async.py --model model.dxnn --video input.mp4

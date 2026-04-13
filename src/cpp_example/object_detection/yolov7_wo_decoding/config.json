@@ -1,0 +1,5 @@
+{
+    "obj_threshold": 0.25,
+    "score_threshold": 0.4,
+    "nms_threshold": 0.45
+}

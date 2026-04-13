@@ -1,0 +1,1 @@
+from .arcface_iresnet50_ms1m_factory import Arcface_iresnet50_ms1mFactory

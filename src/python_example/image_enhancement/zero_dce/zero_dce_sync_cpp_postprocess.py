@@ -16,9 +16,8 @@ for _path in [str(_v3_dir), str(_module_dir)]:
     if _path not in sys.path:
         sys.path.insert(0, _path)
 
-# Always use Python fallback — the compiled dx_postprocess.ZeroDCEPostProcess
-# does not support 3-channel direct enhanced image output, causing hangs.
-from common.processors.cpp_compat import ZeroDCEPostProcess
+# Use native C++ postprocessor from dx_postprocess.so
+from dx_postprocess import ZeroDCEPostProcess
 from common.utility import convert_cpp_zero_dce
 from factory import Zero_dceFactory
 from common.runner import SyncRunner, parse_common_args

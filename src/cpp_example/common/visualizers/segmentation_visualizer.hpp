@@ -26,20 +26,31 @@ class SemanticSegmentationVisualizer : public IVisualizer<SegmentationResult> {
 public:
     SemanticSegmentationVisualizer() = default;
 
+    /**
+     * @brief Construct with a custom color palette.
+     * @param palette  Custom color palette (index = class id).
+     * @param skip_bg  When true, class 0 is treated as background and not drawn.
+     */
+    SemanticSegmentationVisualizer(std::vector<cv::Vec3b> palette, bool skip_bg = true)
+        : custom_palette_(std::move(palette)), skip_background_(skip_bg) {}
+
     cv::Mat draw(const cv::Mat& frame,
                  const std::vector<SegmentationResult>& results,
                  const PreprocessContext& ctx) override {
         if (results.empty()) return frame.clone();
         
         const auto& seg = results[0];  // Typically one result for semantic seg
+        const auto& palette = custom_palette_.empty() ? SEGMENTATION_COLORS : custom_palette_;
         
         // Create colored mask
-        cv::Mat colored_mask(seg.height, seg.width, CV_8UC3);
+        cv::Mat colored_mask(seg.height, seg.width, CV_8UC3, cv::Scalar(0, 0, 0));
         for (int y = 0; y < seg.height; ++y) {
             for (int x = 0; x < seg.width; ++x) {
                 int class_id = seg.mask[y * seg.width + x];
+                if (skip_background_ &&
+                    palette[class_id % palette.size()] == cv::Vec3b(0, 0, 0)) continue;
                 colored_mask.at<cv::Vec3b>(y, x) = 
-                    SEGMENTATION_COLORS[class_id % SEGMENTATION_COLORS.size()];
+                    palette[class_id % palette.size()];
             }
         }
         
@@ -83,6 +94,8 @@ public:
 
 private:
     float alpha_{0.6f};
+    std::vector<cv::Vec3b> custom_palette_;
+    bool skip_background_{false};
 };
 
 /**
@@ -90,7 +103,7 @@ private:
  */
 class InstanceSegmentationVisualizer : public IVisualizer<InstanceSegmentationResult> {
 public:
-    InstanceSegmentationVisualizer() = default;
+    InstanceSegmentationVisualizer(bool show_boxes = true) : show_boxes_(show_boxes) {}
 
     cv::Mat draw(const cv::Mat& frame,
                  const std::vector<InstanceSegmentationResult>& results,
@@ -101,36 +114,33 @@ public:
         for (size_t i = 0; i < results.size(); ++i) {
             const auto& inst = results[i];
             
-            // Get color for this instance
-            cv::Vec3b color = SEGMENTATION_COLORS[(inst.class_id + i) % SEGMENTATION_COLORS.size()];
+            // Get color for this instance (use instance index for variety)
+            cv::Vec3b color = SEGMENTATION_COLORS[i % SEGMENTATION_COLORS.size()];
             cv::Scalar box_color(color[0], color[1], color[2]);
             
-            // Draw bounding box
-            if (inst.box.size() >= 4) {
+            // Draw mask overlay first (so boxes appear on top)
+            if (!inst.mask.empty()) {
+                cv::Mat binary_mask = convertToBinaryMask(inst.mask);
+
+                if (binary_mask.size() != frame.size()) {
+                    cv::resize(binary_mask, binary_mask, frame.size());
+                }
+
+                blendMaskRegion(binary_mask, color, alpha_, output);
+            }
+
+            // Draw bounding box and label
+            if (show_boxes_ && inst.box.size() >= 4) {
                 cv::Point pt1(static_cast<int>(inst.box[0]), static_cast<int>(inst.box[1]));
                 cv::Point pt2(static_cast<int>(inst.box[2]), static_cast<int>(inst.box[3]));
                 cv::rectangle(output, pt1, pt2, box_color, line_thickness_);
                 
-                // Draw label
                 std::string label = inst.class_name + ": " + 
                     std::to_string(static_cast<int>(inst.confidence * 100)) + "%";
                 int baseline;
                 cv::getTextSize(label, cv::FONT_HERSHEY_SIMPLEX, font_scale_, 1, &baseline);
                 cv::putText(output, label, cv::Point(pt1.x, std::max(pt1.y - 5, 15)),
                            cv::FONT_HERSHEY_SIMPLEX, font_scale_, box_color, 1);
-            }
-            
-            // Draw mask overlay
-            if (!inst.mask.empty()) {
-                cv::Mat binary_mask = convertToBinaryMask(inst.mask);
-
-                // Resize if needed
-                if (binary_mask.size() != frame.size()) {
-                    cv::resize(binary_mask, binary_mask, frame.size());
-                }
-
-                // Apply mask overlay
-                blendMaskRegion(binary_mask, color, alpha_, output);
             }
         }
 
@@ -149,6 +159,7 @@ private:
     int line_thickness_{2};
     double font_scale_{0.5};
     float alpha_{0.4f};
+    bool show_boxes_{true};
 
     /** Convert mask to binary uint8 format. */
     static cv::Mat convertToBinaryMask(const cv::Mat& mask) {

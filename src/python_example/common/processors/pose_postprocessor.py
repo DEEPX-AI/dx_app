@@ -165,16 +165,18 @@ class YOLOv8PosePostprocessor(IPostprocessor):
         if squeezed.shape[0] < squeezed.shape[1]:
             # [C, N] format (e.g. yolov8 [56, 8400]) → transpose to [N, C]
             output = np.transpose(squeezed)
+            is_end_to_end = False
         else:
             # [N, C] format (e.g. yolo26 [300, 57]) → already correct
             output = squeezed
+            is_end_to_end = True  # Post-NMS: boxes are [x1,y1,x2,y2]
 
         total_cols = output.shape[1]
         kp_values = self.num_keypoints * 3  # typically 51
 
         # Determine keypoint start column:
-        # yolov8: [x,y,w,h, score, kp*51] → 56 cols, kps at col 5
-        # yolo26: [x,y,w,h, score, class_id, kp*51] → 57 cols, kps at col 6
+        # yolov8: [cx,cy,w,h, score, kp*51] → 56 cols, kps at col 5
+        # yolo26: [x1,y1,x2,y2, score, class_id, kp*51] → 57 cols, kps at col 6
         kp_start = total_cols - kp_values
         
         # Filter by score (always at column 4)
@@ -189,15 +191,19 @@ class YOLOv8PosePostprocessor(IPostprocessor):
         
         # Keypoints — use auto-detected start column
         keypoints_raw = filtered[:, kp_start:]
-        
-        # Box conversion
-        boxes_cxcywh = filtered[:, :4]
-        boxes_x1y1x2y2 = np.column_stack([
-            boxes_cxcywh[:, 0] - boxes_cxcywh[:, 2] * 0.5,
-            boxes_cxcywh[:, 1] - boxes_cxcywh[:, 3] * 0.5,
-            boxes_cxcywh[:, 0] + boxes_cxcywh[:, 2] * 0.5,
-            boxes_cxcywh[:, 1] + boxes_cxcywh[:, 3] * 0.5,
-        ])
+
+        if is_end_to_end:
+            # YOLO26 post-NMS: cols 0-3 are [x1, y1, x2, y2] already
+            boxes_x1y1x2y2 = filtered[:, :4].copy()
+        else:
+            # YOLOv8 pre-NMS: cols 0-3 are [cx, cy, w, h]
+            boxes_cxcywh = filtered[:, :4]
+            boxes_x1y1x2y2 = np.column_stack([
+                boxes_cxcywh[:, 0] - boxes_cxcywh[:, 2] * 0.5,
+                boxes_cxcywh[:, 1] - boxes_cxcywh[:, 3] * 0.5,
+                boxes_cxcywh[:, 0] + boxes_cxcywh[:, 2] * 0.5,
+                boxes_cxcywh[:, 1] + boxes_cxcywh[:, 3] * 0.5,
+            ])
         
         # NMS
         boxes_xywh = np.column_stack([

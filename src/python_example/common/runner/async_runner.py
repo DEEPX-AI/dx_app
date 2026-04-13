@@ -34,6 +34,7 @@ import sys
 import time
 import threading
 import traceback
+import logging
 from pathlib import Path
 from typing import Dict, List, Optional, Union
 
@@ -48,9 +49,11 @@ from .verify_serialize import is_verify_enabled, dump_verify_json
 
 # Import shared validation / version check / helpers from sync_runner
 from .sync_runner import (
-    _check_dxrt_version, _validate_inputs, _has_display,
+    _check_dxrt_version, _validate_inputs, _apply_default_input, _has_display,
     _resolve_config_path, _parse_loop_value, _window_should_close,
 )
+
+logger = logging.getLogger(__name__)
 
 # Sentinel object for queue termination chain
 _SENTINEL = object()
@@ -159,6 +162,7 @@ class AsyncRunner:
 
     def run(self, args) -> None:
         _check_dxrt_version()
+        _apply_default_input(args, self.factory)
         _validate_inputs(args)
 
         self._verbose = getattr(args, "verbose", False)
@@ -170,7 +174,7 @@ class AsyncRunner:
         self._dump_tensors = getattr(args, "dump_tensors", False)
         self._loop = _parse_loop_value(args)
 
-        print("\n[INFO] Starting inference...")
+        logger.info("\nStarting inference...")
         self._dispatch_input(args)
 
     def _dispatch_input(self, args) -> None:
@@ -206,7 +210,7 @@ class AsyncRunner:
             else:
                 self._run_stream(source, display)
         else:
-            print("[ERROR] No input source specified.")
+            logger.error("No input source specified.")
             sys.exit(1)
 
     # ------------------------------------------------------------------
@@ -224,6 +228,9 @@ class AsyncRunner:
 
         input_info = self.ie.get_input_tensors_info()
         shape = input_info[0]["shape"]
+        self._input_dtype = input_info[0].get("dtype", None)
+        self._input_shape = shape
+        self._nchw = len(shape) >= 4 and shape[1] in (1, 3, 4)
         if len(shape) >= 4:
             if shape[-1] in (1, 3, 4):
                 input_h, input_w = shape[1], shape[2]
@@ -236,8 +243,8 @@ class AsyncRunner:
         else:
             input_h, input_w = 1, 1
 
-        print(f"\n[INFO] Model loaded: {model_path}")
-        print(f"[INFO] Model input size (WxH): {input_w}x{input_h}")
+        logger.info(f"\nModel loaded: {model_path}")
+        logger.info(f"Model input size (WxH): {input_w}x{input_h}")
 
         if config_path:
             from ..config import load_config
@@ -359,6 +366,14 @@ class AsyncRunner:
                 t1 = time.perf_counter()
 
                 # Submit async inference
+                if self._input_dtype is not None and input_tensor.dtype != self._input_dtype:
+                    if self._input_dtype == np.float32 and input_tensor.dtype == np.uint8:
+                        input_tensor = input_tensor.astype(np.float32) / 255.0
+                    else:
+                        input_tensor = input_tensor.astype(self._input_dtype)
+                # HWC → CHW for NCHW models (e.g., ViT, DeiT)
+                if getattr(self, "_nchw", False) and input_tensor.ndim == 3:
+                    input_tensor = np.transpose(input_tensor, (2, 0, 1))
                 req_id = self.ie.run_async([input_tensor])
                 t_submit = time.perf_counter()
 
@@ -525,6 +540,7 @@ class AsyncRunner:
         """Run on main thread. Consumes display_queue."""
         display_q = queues["display_queue"]
         has_gui = _has_display()
+        is_image = getattr(self, "_is_image_input", False)
         while not self._stop_event.is_set():
             item = display_q.get(timeout=0.5)
             if item is _SENTINEL:
@@ -535,10 +551,15 @@ class AsyncRunner:
                 continue
             t_d0 = time.perf_counter()
             cv2.imshow("Output", item)
-            # Detect user quit via keypress or window close (X).
-            if _window_should_close("Output"):
-                self._set_stop(queues)
-                break
+            if is_image:
+                # Image mode: pause on each result until user presses a key
+                while not _window_should_close("Output"):
+                    time.sleep(0.01)
+            else:
+                # Video/stream mode: check quit on each frame
+                if _window_should_close("Output"):
+                    self._set_stop(queues)
+                    break
             with self._metrics_lock:
                 self._metrics["sum_display"] += time.perf_counter() - t_d0
                 self._metrics["display_completed"] += 1
@@ -747,17 +768,17 @@ class AsyncRunner:
         source_label = (f"camera:{source}" if isinstance(source, int)
                         else str(source))
         if self._verbose:
-            print(f"[INFO] SR tiled mode (sync within async runner)")
+            logger.info(f"SR tiled mode (sync within async runner)")
 
         self._init_sr_cache()
         if self._sr_cache is None:
-            print("[WARN] SR probe failed, falling back to normal pipeline")
+            logger.warning("SR probe failed, falling back to normal pipeline")
             self._run_stream(source, display)
             return
 
         cap = cv2.VideoCapture(source)
         if not cap.isOpened():
-            print(f"[ERROR] Cannot open {source_label}")
+            logger.error(f"Cannot open {source_label}")
             return
 
         fps = cap.get(cv2.CAP_PROP_FPS)
@@ -802,7 +823,7 @@ class AsyncRunner:
                     if _window_should_close("Output"):
                         break
         except KeyboardInterrupt:
-            print("\n[INFO] Interrupted by user.")
+            logger.info("\nInterrupted by user.")
         finally:
             cap.release()
             if writer is not None:
@@ -812,23 +833,23 @@ class AsyncRunner:
 
         elapsed = time.perf_counter() - start
         if frame_count > 0:
-            print(f"\n[INFO] SR tiled: {frame_count} frames, "
+            logger.info(f"\nSR tiled: {frame_count} frames, "
                   f"{frame_count / elapsed:.1f} FPS, "
                   f"{elapsed:.1f}s total")
 
     def _run_image_sr(self, image_path: str, display: bool) -> None:
         """SR tiled path for a single image (mirrors sync runner _run_image_sr_tiled)."""
         if self._verbose:
-            print(f"[INFO] SR tiled image mode")
+            logger.info(f"SR tiled image mode")
         self._init_sr_cache()
         if self._sr_cache is None:
-            print("[WARN] SR probe failed, falling back to normal pipeline")
+            logger.warning("SR probe failed, falling back to normal pipeline")
             self._run_image(image_path, display)
             return
 
         img = cv2.imread(image_path)
         if img is None:
-            print(f"[ERROR] Cannot read image: {image_path}")
+            logger.error(f"Cannot read image: {image_path}")
             return
 
         start = time.perf_counter()
@@ -845,7 +866,7 @@ class AsyncRunner:
                 time.sleep(0.01)
             cv2.destroyAllWindows()
 
-        print(f"\n[INFO] SR tiled: 1 frame, {1.0 / elapsed:.1f} FPS, {elapsed:.1f}s total")
+        logger.info(f"\nSR tiled: 1 frame, {1.0 / elapsed:.1f} FPS, {elapsed:.1f}s total")
 
     # ------------------------------------------------------------------
     # VideoWriter with mp4v → XVID fallback
@@ -963,7 +984,7 @@ class AsyncRunner:
             else:
                 self._drain_display_queue(queues)
         except KeyboardInterrupt:
-            print("\n[INFO] Interrupted by user.")
+            logger.info("\nInterrupted by user.")
             self._set_stop(queues)
 
         for t in threads:
@@ -974,7 +995,7 @@ class AsyncRunner:
         if self._video_writer is not None:
             self._video_writer.release()
             if run_dir and self._verbose:
-                print(f"[INFO] Saved output video to: {run_dir}/")
+                logger.info(f"Saved output video to: {run_dir}/")
 
         if _has_display():
             cv2.destroyAllWindows()
@@ -1029,7 +1050,7 @@ class AsyncRunner:
 
         processed = len(results)
         if self._verbose:
-            print(f"\n[INFO] Average performance over {processed}"
+            logger.info(f"\nAverage performance over {processed}"
                   f"/{self._loop} loops")
         print_async_performance_summary_legacy(
             agg, total_count, total_elapsed,
@@ -1042,7 +1063,7 @@ class AsyncRunner:
     def _run_stream(self, source: Union[str, int], display: bool) -> None:
         source_label = f"camera:{source}" if isinstance(source, int) else str(source)
         if self._verbose:
-            print(f"[INFO] Input: {source_label}")
+            logger.info(f"Input: {source_label}")
             probe_cap = cv2.VideoCapture(source)
             if probe_cap.isOpened():
                 w = int(probe_cap.get(cv2.CAP_PROP_FRAME_WIDTH))
@@ -1050,19 +1071,19 @@ class AsyncRunner:
                 fps = probe_cap.get(cv2.CAP_PROP_FPS)
                 total = int(probe_cap.get(cv2.CAP_PROP_FRAME_COUNT))
                 probe_cap.release()
-                print(f"[INFO] Resolution: {w}x{h}, FPS: {fps:.1f}, "
+                logger.info(f"Resolution: {w}x{h}, FPS: {fps:.1f}, "
                       f"Frames: {total if total > 0 else 'N/A'}")
             else:
                 probe_cap.release()
         else:
-            print("Processing... Only FPS will be displayed.")
+            logger.info("Processing... Only FPS will be displayed.")
 
         need_run_dir = self._save or self._dump_tensors
         results = []
 
         for loop_idx in range(self._loop):
             if self._loop > 1 and self._verbose:
-                print(f"\n{'='*40}\n Loop [{loop_idx + 1}/{self._loop}]\n{'='*40}")
+                logger.info(f"\n{'='*40}\n Loop [{loop_idx + 1}/{self._loop}]\n{'='*40}")
 
             save_enabled = self._save and (loop_idx == 0)
             run_dir = None
@@ -1103,10 +1124,10 @@ class AsyncRunner:
         self._input_path = image_path
         self._verify_dumped = False
         if self._verbose:
-            print(f"[INFO] Input image: {image_path}")
+            logger.info(f"Input image: {image_path}")
             img_probe = cv2.imread(image_path)
             if img_probe is not None:
-                print(f"[INFO] Resolution (WxH): "
+                logger.info(f"Resolution (WxH): "
                       f"{img_probe.shape[1]}x{img_probe.shape[0]}")
 
         need_run_dir = self._save or self._dump_tensors
@@ -1114,7 +1135,7 @@ class AsyncRunner:
 
         for loop_idx in range(self._loop):
             if self._loop > 1 and self._verbose:
-                print(f"\n{'='*40}\n Loop [{loop_idx + 1}/{self._loop}]\n{'='*40}")
+                logger.info(f"\n{'='*40}\n Loop [{loop_idx + 1}/{self._loop}]\n{'='*40}")
 
             save_enabled = self._save and (loop_idx == 0)
             run_dir = None
@@ -1158,13 +1179,13 @@ class AsyncRunner:
             raise FileNotFoundError(f"No images found in: {dir_path}")
 
         if self._verbose:
-            print(f"[INFO] Processing {len(image_files)} images from: {dir_path}")
+            logger.info(f"Processing {len(image_files)} images from: {dir_path}")
         need_run_dir = self._save or self._dump_tensors
         results = []
 
         for loop_idx in range(self._loop):
             if self._loop > 1 and self._verbose:
-                print(f"\n{'='*40}\n Loop [{loop_idx + 1}/{self._loop}]\n{'='*40}")
+                logger.info(f"\n{'='*40}\n Loop [{loop_idx + 1}/{self._loop}]\n{'='*40}")
 
             save_enabled = self._save and (loop_idx == 0)
             run_dir = None

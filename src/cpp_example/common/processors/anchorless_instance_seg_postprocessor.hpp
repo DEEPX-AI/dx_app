@@ -75,7 +75,8 @@ class YOLOv8SegPostProcess {
     float nms_threshold_{0.45f};   // NMS IoU threshold
 
     // Model configuration - using const where appropriate
-    enum { num_classes_ = 80 };  // Number of classes (COCO dataset)
+    int num_classes_{80};  // Number of classes (COCO=80, FastSAM=1)
+    int num_mask_coefs_{32};  // Number of mask coefficients
 
     bool is_ort_configured_{false};  // Whether ORT inference is configured
 
@@ -87,6 +88,7 @@ class YOLOv8SegPostProcess {
 
     // Private helper methods - const correctness
     std::vector<YOLOv8SegResult> decoding_cpu_outputs(const dxrt::TensorPtrs& outputs) const;
+    std::vector<YOLOv8SegResult> decoding_post_nms_outputs(const dxrt::TensorPtrs& outputs) const;
     std::vector<YOLOv8SegResult> decoding_npu_outputs(const dxrt::TensorPtrs& outputs) const;
     std::vector<YOLOv8SegResult> apply_nms(const std::vector<YOLOv8SegResult>& detections) const;
     void decoding_mask_cpu_outputs(const dxrt::TensorPtrs& outputs,
@@ -135,7 +137,8 @@ class YOLOv8SegPostProcess {
      */
 
     YOLOv8SegPostProcess(const int input_w, const int input_h, const float score_threshold,
-                          const float nms_threshold, const bool is_ort_configured = false);
+                          const float nms_threshold, const bool is_ort_configured = false,
+                          const int num_classes = 80);
 
     YOLOv8SegPostProcess();
 
@@ -179,7 +182,7 @@ class YOLOv8SegPostProcess {
     bool get_is_ort_configured() const { return is_ort_configured_; }
 
     // Static configuration getters
-    static int get_num_classes() { return num_classes_; }
+    int get_num_classes() const { return num_classes_; }
 
     const std::map<int, std::vector<std::pair<int, int>>>& get_anchors_by_strides() const {
         return anchors_by_strides_;
@@ -212,12 +215,13 @@ inline bool YOLOv8SegResult::is_invalid(int image_width, int image_height) const
 
 inline YOLOv8SegPostProcess::YOLOv8SegPostProcess(const int input_w, const int input_h,
                                              const float score_threshold, const float nms_threshold,
-                                             const bool is_ort_configured) {
+                                             const bool is_ort_configured, const int num_classes) {
     input_width_ = input_w;
     input_height_ = input_h;
     score_threshold_ = score_threshold;
     nms_threshold_ = nms_threshold;
     is_ort_configured_ = is_ort_configured;
+    num_classes_ = num_classes;
 
     if (!is_ort_configured_) {
         throw std::invalid_argument(
@@ -265,19 +269,27 @@ inline std::vector<YOLOv8SegResult> YOLOv8SegPostProcess::postprocess(const dxrt
         msg << "[DXAPP] [ER] YOLOv8SegPostProcess::postprocess - Aligned outputs are empty.\n"
             << "  Unexpected shape\n";
         msg << postprocess_utils::format_tensor_shapes(outputs);
-        msg << ", Expected (1, 116, 8400) and (1, 32, 160, 160).\n"
+        msg << ", Expected (1, " << (4 + num_classes_ + num_mask_coefs_) << ", N) and (1, "
+            << num_mask_coefs_ << ", H, W).\n"
             << "Please re-compile the model with the correct output configuration.\n";
 
-        throw PostprocessConfigError(msg.str());  // Safe termination: propagate error to caller
+        throw PostprocessConfigError(msg.str());
     }
 
-    std::vector<YOLOv8SegResult> detections;
-    detections = decoding_cpu_outputs(aligned_outputs);
-    // Apply Non-Maximum Suppression (mask will be included in NMS process)
-    detections = apply_nms(detections);
-    /////////////////////////////////////////////////////////////////////////// OK
+    // Detect post-NMS row-major format (e.g., YOLO26-seg: [1, 300, 38])
+    // vs pre-NMS transposed format (e.g., YOLOv8: [1, 116, 8400])
+    auto det_shape = aligned_outputs[0]->shape();
+    bool is_post_nms = (det_shape.size() == 3 && det_shape[2] < det_shape[1]);
 
-    // Process segmentation masks After NMS to maintain index alignment
+    std::vector<YOLOv8SegResult> detections;
+    if (is_post_nms) {
+        detections = decoding_post_nms_outputs(aligned_outputs);
+    } else {
+        detections = decoding_cpu_outputs(aligned_outputs);
+        detections = apply_nms(detections);
+    }
+
+    // Process segmentation masks after detection filtering
     decoding_mask_cpu_outputs(aligned_outputs, detections);
 
     return detections;
@@ -285,13 +297,11 @@ inline std::vector<YOLOv8SegResult> YOLOv8SegPostProcess::postprocess(const dxrt
 
 inline void YOLOv8SegPostProcess::decoding_mask_cpu_outputs(const dxrt::TensorPtrs& outputs,
                                                       std::vector<YOLOv8SegResult>& detections) {
-    /**
-     * @note YOLOv8-seg has different output format:
-     * output0: [1, 116, 8400] - contains bbox (4) + classes (80) + seg_coef (32)
-     * output1: [1, 32, 160, 160] - segmentation masks   (*** Used in this field)
-     */
     const float* mask_output = static_cast<const float*>(outputs[1]->data());
-    int mask_height = 160, mask_width = 160;
+    // Read mask dimensions from tensor shape instead of hardcoding
+    auto proto_shape = outputs[1]->shape();
+    int mask_height = static_cast<int>(proto_shape.size() == 4 ? proto_shape[2] : proto_shape[1]);
+    int mask_width  = static_cast<int>(proto_shape.size() == 4 ? proto_shape[3] : proto_shape[2]);
     if (mask_output && !detections.empty()) {
         auto masks = process_segmentation_masks(mask_output, detections, mask_height, mask_width);
         for (size_t i = 0; i < detections.size() && i < masks.size(); ++i) {
@@ -354,17 +364,19 @@ inline std::vector<YOLOv8SegResult> YOLOv8SegPostProcess::decoding_cpu_outputs(
         YOLOv8SegResult result;
         result.confidence = max_scores[i];
         result.class_id = best_classes[i];
-        result.class_name = dxapp::common::get_coco_class_name(result.class_id);
+        result.class_name = (num_classes_ == 1)
+            ? "object"
+            : dxapp::common::get_coco_class_name(result.class_id);
         result.box.resize(4);
         result.box[0] = x1;
         result.box[1] = y1;
         result.box[2] = x2;
         result.box[3] = y2;
 
-        // Extract seg coefficients like Python x[..., 84:84+32]
-        result.seg_mask_coef.resize(32);
-        const float* coefs = bbox_output + 84 * num_dets;
-        for (int j = 0; j < 32; ++j) {
+        // Extract seg coefficients: offset = (4 + num_classes_) channels into the tensor
+        result.seg_mask_coef.resize(num_mask_coefs_);
+        const float* coefs = bbox_output + (4 + num_classes_) * num_dets;
+        for (int j = 0; j < num_mask_coefs_; ++j) {
             result.seg_mask_coef[j] = coefs[j * num_dets + i];
         }
 
@@ -378,6 +390,50 @@ inline std::vector<YOLOv8SegResult> YOLOv8SegPostProcess::decoding_cpu_outputs(
 inline std::vector<YOLOv8SegResult> YOLOv8SegPostProcess::apply_nms(
     const std::vector<YOLOv8SegResult>& detections) const {
     return postprocess_utils::apply_nms(detections, nms_threshold_);
+}
+
+/**
+ * @brief Decode post-NMS row-major format (e.g., YOLO26-seg output).
+ *   Shape: [1, N, 4+1+1+32] = [1, 300, 38]
+ *   Layout per row: [x, y, w, h, score, class_id, mask_coef_0..31]
+ */
+inline std::vector<YOLOv8SegResult> YOLOv8SegPostProcess::decoding_post_nms_outputs(
+    const dxrt::TensorPtrs& outputs) const {
+    std::vector<YOLOv8SegResult> detections;
+    const float* data = static_cast<const float*>(outputs[0]->data());
+    auto shape = outputs[0]->shape();
+    int N = static_cast<int>(shape[1]);    // number of detections
+    int cols = static_cast<int>(shape[2]); // features per detection
+
+    for (int i = 0; i < N; ++i) {
+        const float* row = data + i * cols;
+        // Post-NMS: cols 0-3 are already [x1, y1, x2, y2] (NOT cx,cy,w,h)
+        float x1 = row[0], y1 = row[1], x2 = row[2], y2 = row[3];
+        float score = row[4];
+        if (score < score_threshold_) continue;
+
+        int class_id = (cols >= 6) ? static_cast<int>(row[5]) : 0;
+
+        YOLOv8SegResult result;
+        result.confidence = score;
+        result.class_id = class_id;
+        result.class_name = (num_classes_ == 1)
+            ? "object"
+            : dxapp::common::get_coco_class_name(class_id);
+        result.box = {x1, y1, x2, y2};
+
+        // Extract mask coefficients (after box+score+class_id)
+        int coef_start = (cols >= 6) ? 6 : 5;
+        int num_coefs = std::min(num_mask_coefs_, cols - coef_start);
+        result.seg_mask_coef.resize(num_coefs);
+        for (int j = 0; j < num_coefs; ++j) {
+            result.seg_mask_coef[j] = row[coef_start + j];
+        }
+
+        detections.emplace_back(std::move(result));
+    }
+
+    return detections;
 }
 
 // Set thresholds
@@ -421,30 +477,29 @@ inline dxrt::TensorPtrs YOLOv8SegPostProcess::align_tensors(const dxrt::TensorPt
     dxrt::TensorPtrs aligned;
 
     if (is_ort_configured_) {
-        // YOLOv8-seg ORT outputs should be aligned as:
-        // aligned[0]: [1, 116, 8400] - bbox + classes + seg_coef (detection output)
-        // aligned[1]: [1, 32, 160, 160] - segmentation masks (mask output)
-
         dxrt::TensorPtr detection_output = nullptr;
         dxrt::TensorPtr mask_output = nullptr;
 
         for (const auto& output : outputs) {
-            if (output->shape().size() == 3 && output->shape()[1] == 116) {
-                // This is the detection output (bbox + classes + seg_coef)
-                detection_output = output;
-            } else if (output->shape().size() == 4 && output->shape()[1] == 32) {
-                // This is the mask output
+            auto shape = output->shape();
+            if (shape.size() == 3) {
+                // Pre-NMS transposed: [1, features, N] where features = 4+C+32
+                // Post-NMS row-major: [1, N, features] where features = 4+1+1+32
+                if (shape[1] == (4 + num_classes_ + num_mask_coefs_)) {
+                    detection_output = output;
+                } else if (shape[2] <= (4 + 2 + num_mask_coefs_) && shape[1] > shape[2]) {
+                    // Post-NMS: shape[1]=N (large), shape[2]=features (small)
+                    detection_output = output;
+                } else if (!detection_output) {
+                    detection_output = output;
+                }
+            } else if (shape.size() == 4 && shape[1] == num_mask_coefs_) {
                 mask_output = output;
             }
         }
 
-        // Ensure correct order: detection first, then mask
-        if (detection_output) {
-            aligned.push_back(detection_output);
-        }
-        if (mask_output) {
-            aligned.push_back(mask_output);
-        }
+        if (detection_output) aligned.push_back(detection_output);
+        if (mask_output) aligned.push_back(mask_output);
 
         return aligned;
     } else {

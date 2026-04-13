@@ -15,9 +15,11 @@ Usage:
 
 import glob
 import os
+import subprocess
 import sys
 import time
 import traceback
+import logging
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Union
 
@@ -30,7 +32,10 @@ from ..utility import print_image_processing_summary, print_sync_performance_sum
 from .run_dir import create_run_dir, write_run_info, dump_tensors, dump_tensors_on_exception
 from .verify_serialize import is_verify_enabled, dump_verify_json
 
-_MSG_HEADLESS_SKIP = "[INFO] Headless environment - display skipped"
+logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s")
+logger = logging.getLogger(__name__)
+
+_MSG_HEADLESS_SKIP = "Headless environment - display skipped"
 
 
 def _has_display() -> bool:
@@ -98,10 +103,8 @@ def _check_dxrt_version(minimum: str = "3.0.0") -> None:
         from packaging import version
         rt_ver = Configuration().get_version()
         if version.parse(rt_ver) < version.parse(minimum):
-            print(
-                f"[ERROR] DX-RT v{minimum} or higher is required "
-                f"(current: {rt_ver}). Please update DX-RT."
-            )
+            logger.error(f"DX-RT v{minimum} or higher is required "
+                f"(current: {rt_ver}). Please update DX-RT.")
             sys.exit(1)
     except ImportError:
         pass
@@ -112,11 +115,9 @@ def _check_model_version(ie, minimum_format: int = 7) -> None:
     try:
         fmt_ver = ie.get_model_version()
         if isinstance(fmt_ver, int) and fmt_ver < minimum_format:
-            print(
-                f"[WARN] Model format version ({fmt_ver}) is older than "
+            logger.warning(f"Model format version ({fmt_ver}) is older than "
                 f"recommended minimum ({minimum_format}). "
-                f"Re-compile with latest DX-Compiler for best results."
-            )
+                f"Re-compile with latest DX-Compiler for best results.")
     except (AttributeError, RuntimeError):
         pass  # API not available or model doesn't report version
 
@@ -154,43 +155,182 @@ def _parse_loop_value(args) -> int:
 
 
 # ======================================================================
+# Default sample image per task type (bundled in sample/)
+# ======================================================================
+
+_IMG_STREET = "sample/img/sample_street.jpg"
+_IMG_PARKING = "sample/img/sample_parking.jpg"
+_VID_DANCE_GROUP = "assets/videos/dance-group.mov"
+_VID_BLACKBOX = "assets/videos/blackbox-city-road.mp4"
+_VID_DOGS = "assets/videos/dogs.mp4"
+_VID_SNOWBOARD = "assets/videos/snowboard.mp4"
+
+_DEFAULT_SAMPLE_IMAGE = {
+    "object_detection":       _IMG_STREET,
+    "face_detection":         "sample/img/sample_face.jpg",
+    "obb_detection":          "sample/dota8_test/P0284.png",
+    "pose_estimation":        "sample/img/sample_people.jpg",
+    "hand_landmark":          "sample/img/sample_hand.jpg",
+    "face_alignment":         "sample/img/sample_face_a1.jpg",
+    "instance_segmentation":  _IMG_STREET,
+    "semantic_segmentation":  _IMG_PARKING,
+    "classification":         "sample/img/sample_dog.jpg",
+    "depth_estimation":       _IMG_PARKING,
+    "image_denoising":        "sample/img/sample_denoising.jpg",
+    "super_resolution":       "sample/img/sample_superresolution.png",
+    "image_enhancement":      "sample/img/sample_lowlight.jpg",
+    "embedding":              "sample/img/face_pair",
+    "attribute_recognition":  "sample/img/sample_person_a1.jpg",
+    "reid":                   "sample/img/person_pair",
+    "ppu":                    _IMG_STREET,
+}
+
+# ======================================================================
+# Default sample video per task type (downloaded to assets/videos/)
+# ======================================================================
+
+_DEFAULT_SAMPLE_VIDEO = {
+    "object_detection":       _VID_SNOWBOARD,
+    "face_detection":         _VID_DANCE_GROUP,
+    "obb_detection":          "assets/videos/dron-citry-road.mov",
+    "pose_estimation":        "assets/videos/dance-solo.mov",
+    "hand_landmark":          "assets/videos/hand.mp4",
+    "face_alignment":         "assets/videos/face-alignment-closeup.mp4",
+    "instance_segmentation":  _VID_DOGS,
+    "semantic_segmentation":  _VID_BLACKBOX,
+    "classification":         _VID_DOGS,
+    "depth_estimation":       _VID_BLACKBOX,
+    "image_denoising":        _VID_DANCE_GROUP,
+    "super_resolution":       _VID_DANCE_GROUP,
+    "image_enhancement":      _VID_DANCE_GROUP,
+    "embedding":              None,   # image-only task
+    "attribute_recognition":  None,   # image-only task
+    "reid":                   None,   # image-only task
+    "ppu":                    _VID_SNOWBOARD,
+}
+
+
+def _apply_default_input(args, factory=None) -> None:
+    """If no input source was specified, fall back to a bundled sample image."""
+    has_input = any([
+        getattr(args, "image", None),
+        getattr(args, "video", None),
+        getattr(args, "camera", None) is not None and getattr(args, "camera", None) != -1,
+        getattr(args, "rtsp", None),
+    ])
+    if has_input:
+        return
+
+    task_type = factory.get_task_type() if factory else None
+    default_image = _DEFAULT_SAMPLE_IMAGE.get(
+        task_type, "sample/img/sample_street.jpg")
+    args.image = default_image
+    logger.info(f"No input specified. Using default sample: {default_image}")
+
+
+def _find_script(name: str) -> Optional[str]:
+    """Locate a setup script relative to dx_app root."""
+    # Walk up from this file to find dx_app root (contains setup.sh)
+    candidate = Path(__file__).resolve()
+    for _ in range(10):
+        candidate = candidate.parent
+        if (candidate / name).is_file():
+            return str(candidate / name)
+    return None
+
+
+def _auto_download_model(model_path: Path) -> bool:
+    """Attempt to download a missing model via setup_sample_models.sh."""
+    script = _find_script("setup_sample_models.sh")
+    if not script:
+        return False
+    model_stem = model_path.stem
+    models_dir = str(model_path.parent) if str(model_path.parent) != "." else "./assets/models"
+    logger.info(f"Model not found: {model_path} — attempting auto-download...")
+    result = subprocess.run(
+        [script, f"--output={models_dir}", "--models", model_stem],
+        timeout=300)
+    return result.returncode == 0 and model_path.is_file()
+
+
+def _auto_download_videos() -> bool:
+    """Attempt to download sample videos via setup_sample_videos.sh."""
+    script = _find_script("setup_sample_videos.sh")
+    if not script:
+        return False
+    logger.info("Videos not found — attempting auto-download...")
+    result = subprocess.run(
+        [script, "--output=./assets/videos"],
+        timeout=600)
+    return result.returncode == 0
+
+
+# ======================================================================
 # Input validation
 # ======================================================================
 
-def _validate_inputs(args) -> None:
-    """Pre-validate input paths before starting inference."""
+def _validate_model(args) -> None:
+    """Validate model file exists, auto-download if needed."""
     model = Path(args.model)
-    if not model.is_file():
-        print("[ERROR] .dxnn model file does not exist. "
-              "Please provide a valid model path.")
-        sys.exit(1)
+    if model.is_file():
+        return
+    if _auto_download_model(model):
+        logger.info(f"Model downloaded successfully: {args.model}")
+        return
+    model_stem = model.stem
+    logger.error(
+        f"Model file not found: {args.model}\n"
+        f"        → Download:  ./setup.sh --models {model_stem}\n"
+        f"        → Or use:    ./run_demo.sh  (auto-downloads demo models)")
+    sys.exit(1)
 
+
+def _validate_media(args) -> None:
+    """Validate image/video paths exist, auto-download videos if needed."""
     if getattr(args, "image", None):
         p = Path(args.image)
         if not p.exists():
-            print("[ERROR] Image path does not exist.")
+            logger.error(f"Image path does not exist: {args.image}")
             sys.exit(1)
         if not p.is_file() and not p.is_dir():
-            print("[ERROR] Image path must be a valid file or directory.")
+            logger.error(f"Image path must be a valid file or directory: {args.image}")
             sys.exit(1)
 
-    if getattr(args, "video", None):
-        p = Path(args.video)
-        if not p.is_file():
-            print("[ERROR] Video file does not exist.")
-            sys.exit(1)
+    if not getattr(args, "video", None):
+        return
+    p = Path(args.video)
+    if p.is_file():
+        return
+    _auto_download_videos()
+    if p.is_file():
+        logger.info(f"Video downloaded successfully: {args.video}")
+        return
+    logger.error(
+        f"Video file not found: {args.video}\n"
+        f"        → Download videos: ./setup_sample_videos.sh")
+    sys.exit(1)
 
+
+def _validate_loop(args) -> None:
+    """Validate loop and live-source options."""
     loop = getattr(args, "loop", 1)
     if isinstance(loop, bool):
         loop = 2 if loop else 1
     if isinstance(loop, int) and loop < 1:
-        print("[ERROR] --loop must be >= 1.")
+        logger.error("--loop must be >= 1.")
         sys.exit(1)
     is_live = (getattr(args, "camera", None) is not None) or \
               (getattr(args, "rtsp", None) is not None)
     if is_live and isinstance(loop, int) and loop > 1:
-        print("[ERROR] --loop is not valid with --camera or --rtsp.")
+        logger.error("--loop is not valid with --camera or --rtsp.")
         sys.exit(1)
+
+
+def _validate_inputs(args) -> None:
+    """Pre-validate input paths before starting inference."""
+    _validate_model(args)
+    _validate_media(args)
+    _validate_loop(args)
 
 
 # ======================================================================
@@ -250,6 +390,7 @@ class SyncRunner:
     def run(self, args) -> None:
         """Main entry point."""
         _check_dxrt_version()
+        _apply_default_input(args, self.factory)
         _validate_inputs(args)
 
         self._verbose = getattr(args, "verbose", False)
@@ -261,7 +402,7 @@ class SyncRunner:
         self._dump_tensors = getattr(args, "dump_tensors", False)
         self._loop = _parse_loop_value(args)
 
-        print("\n[INFO] Starting inference...")
+        logger.info("\nStarting inference...")
         self._dispatch_input(args)
 
     def _dispatch_input(self, args) -> None:
@@ -287,7 +428,7 @@ class SyncRunner:
         option = InferenceOption()
         if self._use_ort is None:
             if not option.get_use_ort():
-                print("[ERROR] USE_ORT=OFF is not supported in this example.")
+                logger.error("USE_ORT=OFF is not supported in this example.")
                 sys.exit(1)
             self.ie = InferenceEngine(model_path)
         elif self._use_ort is False:
@@ -300,11 +441,14 @@ class SyncRunner:
 
         input_info = self.ie.get_input_tensors_info()
         shape = input_info[0]["shape"]
+        self._input_dtype = input_info[0].get("dtype", np.uint8)
+        self._input_shape = shape
+        self._nchw = len(shape) >= 4 and shape[1] in (1, 3, 4)
         self.input_height, self.input_width = self._resolve_input_shape(shape)
-        print(f"\n[INFO] Model loaded: {model_path}")
-        print(f"[INFO] Model input size (WxH): {self.input_width}x{self.input_height}")
+        logger.info(f"\nModel loaded: {model_path}")
+        logger.info(f"Model input size (WxH): {self.input_width}x{self.input_height}")
         if len(shape) < 3:
-            print(f"[WARN] Non-image model detected (shape={shape}).")
+            logger.warning(f"Non-image model detected (shape={shape}).")
 
         if config_path:
             config = load_config(config_path, verbose=self._verbose)
@@ -337,6 +481,15 @@ class SyncRunner:
         return self.preprocessor.process(image)
 
     def infer(self, input_tensor: np.ndarray) -> List[np.ndarray]:
+        expected = getattr(self, "_input_dtype", None)
+        if expected is not None and input_tensor.dtype != expected:
+            if expected == np.float32 and input_tensor.dtype == np.uint8:
+                input_tensor = input_tensor.astype(np.float32) / 255.0
+            else:
+                input_tensor = input_tensor.astype(expected)
+        # HWC → CHW for NCHW models (e.g., ViT, DeiT)
+        if getattr(self, "_nchw", False) and input_tensor.ndim == 3:
+            input_tensor = np.transpose(input_tensor, (2, 0, 1))
         return self.ie.run([input_tensor])
 
     def postprocess(self, outputs: List[np.ndarray], ctx):
@@ -420,7 +573,7 @@ class SyncRunner:
 
         for loop_idx in range(loop):
             if loop > 1 and self._verbose:
-                print(f"\n{'='*40}\n Loop [{loop_idx + 1}/{loop}]\n{'='*40}")
+                logger.info(f"\n{'='*40}\n Loop [{loop_idx + 1}/{loop}]\n{'='*40}")
             save_enabled = save and (loop_idx == 0)
             result = run_once(loop_idx, save_enabled)
             _add_sync_metrics(agg_metrics, result["metrics"])
@@ -441,10 +594,10 @@ class SyncRunner:
         processed = result["processed_loops"]
         if self._verbose:
             if processed < loop:
-                print(f"\n[INFO] Average performance over {processed}/{loop} loops "
+                logger.info(f"\nAverage performance over {processed}/{loop} loops "
                       "(stopped early)")
             else:
-                print(f"\n[INFO] Average performance over {loop} loops")
+                logger.info(f"\nAverage performance over {loop} loops")
         print_sync_performance_summary(
             result["metrics"], count, result["elapsed"],
             result["summary_render"])
@@ -503,7 +656,7 @@ class SyncRunner:
                 self._save_dir)
             dump_tensors_on_exception(input_tensor, outputs,
                                       dump_dir / "tensors")
-            print(f"[WARN] Exception — tensors dumped → {dump_dir / 'tensors'}")
+            logger.warning(f"Exception — tensors dumped → {dump_dir / 'tensors'}")
             raise
 
         return {"metrics": metrics, "count": 1,
@@ -553,7 +706,7 @@ class SyncRunner:
     def _display_image_output(self, output_img: np.ndarray,
                               display: bool) -> float:
         """Show image with waitKey(0). Returns time spent."""
-        if not display:
+        if not display or output_img is None:
             return 0.0
         t0 = time.perf_counter()
         if _has_display():
@@ -561,17 +714,16 @@ class SyncRunner:
             # Wait until user presses q/ESC or closes the window (X).
             while not _window_should_close("Output"):
                 time.sleep(0.01)
-            cv2.destroyAllWindows()
         elif self._verbose:
-            print(_MSG_HEADLESS_SKIP)
+            logger.info(_MSG_HEADLESS_SKIP)
         return time.perf_counter() - t0
 
     def _image_inference(self, image_path: str, display: bool) -> None:
         if self._verbose:
-            print(f"[INFO] Input image: {image_path}")
+            logger.info(f"Input image: {image_path}")
             img_probe = cv2.imread(image_path)
             if img_probe is not None:
-                print(f"[INFO] Resolution (WxH): "
+                logger.info(f"Resolution (WxH): "
                       f"{img_probe.shape[1]}x{img_probe.shape[0]}")
 
         if self._is_sr_tiled():
@@ -599,6 +751,8 @@ class SyncRunner:
                 result["metrics"], result["count"], result["elapsed"],
                 display or self._save)
         self._print_average_summary(result, loop=self._loop)
+        if display and _has_display():
+            cv2.destroyAllWindows()
 
     def _image_dir_inference(self, dir_path: str, display: bool) -> None:
         extensions = ("*.jpg", "*.jpeg", "*.png", "*.bmp",
@@ -612,7 +766,7 @@ class SyncRunner:
             raise FileNotFoundError(f"No images found in: {dir_path}")
 
         if self._verbose:
-            print(f"[INFO] Processing {len(image_files)} images from: {dir_path}")
+            logger.info(f"Processing {len(image_files)} images from: {dir_path}")
         need_run_dir = self._save or self._dump_tensors
 
         def run_once(loop_idx: int, save_enabled: bool) -> dict:
@@ -627,7 +781,7 @@ class SyncRunner:
 
             for i, img_path in enumerate(image_files, 1):
                 if self._verbose:
-                    print(f"\n[INFO] [{i}/{len(image_files)}] "
+                    logger.info(f"\n[{i}/{len(image_files)}] "
                           f"{os.path.basename(img_path)}")
                 sub_dir = None
                 if batch_run_dir:
@@ -651,6 +805,8 @@ class SyncRunner:
                 result["metrics"], result["count"], result["elapsed"],
                 display or self._save)
         self._print_average_summary(result, loop=self._loop)
+        if display and _has_display():
+            cv2.destroyAllWindows()
 
     # ------------------------------------------------------------------
     # Stream inference
@@ -685,7 +841,7 @@ class SyncRunner:
             dump_tensors_on_exception(
                 input_tensor, outputs, dump_target / "tensors",
                 frame_index=frame_count)
-            print(f"[WARN] Exception at frame {frame_count} — "
+            logger.warning(f"Exception at frame {frame_count} — "
                   f"tensors dumped → {dump_target / 'tensors'}")
             raise
 
@@ -796,7 +952,7 @@ class SyncRunner:
             if _window_should_close("Output"):
                 quit_requested = True
         elif frame_count == 1 and self._verbose:
-            print(_MSG_HEADLESS_SKIP)
+            logger.info(_MSG_HEADLESS_SKIP)
         return time.perf_counter() - t0, quit_requested
 
     def _stream_loop_body(self, cap, frame_count, run_dir, source_label,
@@ -864,15 +1020,15 @@ class SyncRunner:
             cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 
         if self._verbose:
-            print(f"[INFO] Input: {source_label}")
+            logger.info(f"Input: {source_label}")
             w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
             h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
             fps = cap.get(cv2.CAP_PROP_FPS)
             total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-            print(f"[INFO] Resolution: {w}x{h}, FPS: {fps:.1f}, "
+            logger.info(f"Resolution: {w}x{h}, FPS: {fps:.1f}, "
                   f"Frames: {total if total > 0 else 'N/A'}")
         else:
-            print("Processing... Only FPS will be displayed.")
+            logger.info("Processing... Only FPS will be displayed.")
 
         metrics = _create_sync_metrics()
         frame_count = 0
@@ -914,7 +1070,7 @@ class SyncRunner:
                 if quit_requested:
                     break
         except KeyboardInterrupt:
-            print("\n[INFO] Interrupted by user.")
+            logger.info("\nInterrupted by user.")
         finally:
             self._release_capture(writer, cap)
 
@@ -964,7 +1120,7 @@ class SyncRunner:
         writer = cv2.VideoWriter(save_path, fourcc, fps, (w, h))
         if writer.isOpened():
             if self._verbose:
-                print(f"[INFO] Saving output video: {save_path}")
+                logger.info(f"Saving output video: {save_path}")
             return writer
         writer.release()
 
@@ -973,7 +1129,7 @@ class SyncRunner:
         writer = cv2.VideoWriter(save_path, fourcc, fps, (w, h))
         if writer.isOpened():
             if self._verbose:
-                print(f"[INFO] Saving output video: {save_path} (XVID fallback)")
+                logger.info(f"Saving output video: {save_path} (XVID fallback)")
             return writer
         writer.release()
         raise RuntimeError("Failed to open VideoWriter for output.")
@@ -1065,7 +1221,7 @@ class SyncRunner:
 
         tiles_x = lr_w // tile_w
         tiles_y = lr_h // tile_h
-        print(f"\n[INFO] SR tiled: {tiles_x}x{tiles_y}={tiles_done} tiles, "
+        logger.info(f"\nSR tiled: {tiles_x}x{tiles_y}={tiles_done} tiles, "
               f"LR {lr_w}x{lr_h} -> SR {out_w}x{out_h} (x{scale_x})")
         print_image_processing_summary(t_start, t0, t_i0, t_i1, t3, t4)
 
@@ -1088,7 +1244,7 @@ class SyncRunner:
                     time.sleep(0.01)
                 cv2.destroyAllWindows()
             elif self._verbose:
-                print(_MSG_HEADLESS_SKIP)
+                logger.info(_MSG_HEADLESS_SKIP)
 
     def _is_sr_tiled(self) -> bool:
         task_type = self.factory.get_task_type() \

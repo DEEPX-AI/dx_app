@@ -3,6 +3,9 @@
 """
 YOLOv12N PPU Asynchronous Inference Example
 
+NOTE: C++ PostProcess binding is not yet implemented for this model.
+      Falls back to Python postprocessing.
+
 Usage:
     python yolov12n_ppu_async_cpp_postprocess.py --model model.dxnn --video input.mp4
 """

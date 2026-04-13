@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (C) 2018- DEEPX Ltd. All rights reserved.
 """
-SCRFD500M PPU Synchronous Inference Example
+Scrfd500m_ppu Synchronous Inference Example
 
 Usage:
     python scrfd500m_ppu_sync.py --model model.dxnn --image input.jpg

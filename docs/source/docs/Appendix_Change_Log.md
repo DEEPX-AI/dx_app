@@ -1,3 +1,36 @@
+# RELEASE_NOTES
+## v3.1.0 / 2026-04-06
+
+### 1. Changed
+- Unified 5-layer architecture and design patterns across Python and C++ implementations
+    - **App** Entry point -> `yolov5s_sync.cpp` : `yolov5s_sync.py`
+    - **Runner** Pipeline orchestration (Sync/Async) -> `sync_detection_runner.hpp` : `sync_runner.py`
+    - **Factory** Per-model component assembly -> `yolov5s_factory.hpp` : `yolov5s_factory.py`
+    - **Component** Preprocessor / Postprocessor / Visualizer -> `processors/*.hpp` : `processors/*.py`
+    - **Interface** Abstract contracts -> `i_factory.hpp`, `i_processor.hpp` : `i_factory.py`, `i_processor.py`
+- Consolidated cross-language(Python : c++) common modules and 1:1 mapping structure
+- Modernized `run_demo.sh` with a 3-stage interactive menu supporting variable AI tasks
+- `--model`, `--image`, `--video` arguments are now optional — when omitted, task-appropriate default sample image/video is automatically selected
+- `setup_sample_models.sh` migrated to Python-based downloader — supports `--list`, `--dry-run`, `--category`, `--models` and other granular download options
+- `setup.sh` now integrates model download options — e.g. `setup.sh --models YoloV7 YoloV8S` to download specific models
+- `run_demo.sh` fully redesigned — 18 demo models, 3-stage interactive menu (Task→Mode→Input), unified C++/Python support, `--task`/`--mode`/`--input` CLI arguments for non-interactive usage
+
+### 2. Fixed
+
+### 3. Added
+- Supported new Depth Estimation task featuring FastDepth for monocular depth estimation
+- Supported new Image Restoration task featuring DnCNN, Zero-DCE, and ESPCN models
+- Migrated Full DX-Model Zoo encompassing 280 models across 17 taskcategories with 560 C++/Python examples (sync+async)
+- Added yolov8, v9, v10, v11, v12 PPU models and C++/Python examples
+- Implemented https://sdk.deepx.ai manifest-based DX-ModelZoo auto-download system (`scripts/download_models.py`)
+- Auto-download for models and videos — automatically invokes `setup_sample_models.sh` when model file is missing, videos via `setup_sample_videos.sh`
+- Interactive mode for `scripts/run_examples.sh` — 6-stage menu (Language→Category→Filter→ExecMode→InputType→Options) when run without arguments, with case-insensitive keyword filtering
+- `dx_tool.sh run` unified with `run_examples.sh` interactive mode
+- Real-time performance table output during example execution
+- `--verbose` option for Python examples — controls per-frame detailed log output
+
+---
+
 ## v3.0.4 / 2026-03-27
 
 ### 1. Changed
@@ -53,12 +86,12 @@
 ### 3. Added
 
 #### Shared Runtime Layer (`common/`)
-- **C++ (`src/cpp_example/common/`)**: Base interfaces (`IFactory`, `IProcessor`, `IVisualizer`, `IInputSource`), 44 processors, 24 task-specific sync/async runner pairs, 12 visualizers, input source abstraction, config loader, utility
+- **C++ (`src/cpp_example/common/`)**: Base interfaces (`IFactory`, `IProcessor`, `IVisualizer`, `IInputSource`), 45 processors, 24 task-specific sync/async runner pairs, 12 visualizers, input source abstraction, config loader, utility
 - **Python (`src/python_example/common/`)**: Base interfaces (`IFactory`, `IProcessor`, `IVisualizer`, `IInputSource`), 35 processors, generic `SyncRunner`/`AsyncRunner`, 10 visualizers, input source abstraction, `ModelConfig` loader, utility
 - Both languages share the same 7-module architecture (`base/`, `config/`, `processors/`, `runner/`, `inputs/`, `visualizers/`, `utility/`) and factory-based delegation pattern
 
 #### Model Registry System
-- **`config/model_registry.json`**: centralized registry of 137 models with per-model metadata (task, postprocessor, input dimensions, thresholds)
+- **`config/model_registry.json`**: centralized registry of 280 models with per-model metadata (task, postprocessor, input dimensions, thresholds)
 - **`scripts/add_model.sh`**: registry-driven auto-generation of factory files, config.json, and entry-point scripts (4 variants per model)
 
 #### Numerical Verification Framework
