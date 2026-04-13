@@ -92,6 +92,30 @@ into the NPU graph, changing input from NCHW float32 to NHWC uint8.
 
 See `common_pitfalls.md` Pitfall #19 for the complete auto-detect code pattern.
 
+## Skeleton-First Development (MANDATORY)
+
+NEVER write demo scripts from scratch. ALWAYS use the closest existing example
+in `src/python_example/<task>/` as a skeleton base:
+
+1. Identify the target model's task type (detection, segmentation, etc.)
+2. Find the closest example: `ls src/python_example/<task>/`
+3. Copy factory + sync + async files as skeleton
+4. Modify ONLY: factory class name, model name, preprocessor/postprocessor, input shape
+
+See `common_pitfalls.md` Pitfall #20 for the task→skeleton mapping table.
+
+## CPU MemoryOps and DXRT_DYNAMIC_CPU_THREAD
+
+When the compiled model has CPU MemoryOps (preprocessing bake-in with ops
+remaining on CPU), add `export DXRT_DYNAMIC_CPU_THREAD=ON` to `run.sh`.
+
+To diagnose CPU bottleneck, compare:
+- `run_model -m model.dxnn -t 5 -v` (NPU+CPU)
+- `run_model -m model.dxnn -t 5 -v --use-ort` (CPU-only)
+
+If NPU+CPU FPS ≈ CPU-only FPS → CPU ops are the bottleneck → enable THREAD=ON.
+See `common_pitfalls.md` Pitfall #21 for details.
+
 ## Pre-Flight Check (HARD-GATE)
 
 Before generating any code or creating any files, ALL of these checks must pass.

@@ -273,3 +273,66 @@ runner = AsyncRunner(factory, max_queue_depth=2)
 **Note:** Actual FPS depends on NPU hardware (DX-M1 vs DX-M1A (discontinued)), host CPU, input
 source latency, and display overhead. Always benchmark with `--no-display` for
 accurate NPU-only measurements.
+
+---
+
+## CPU MemoryOps Bottleneck Diagnosis
+
+When dxcom compiles a model with preprocessing bake-in, some operations (transpose,
+resize, expandDim) may remain as CPU MemoryOps. These run on a single CPU thread by
+default, limiting throughput even when the async pipeline has high inflight count.
+
+### Diagnosis via `run_model` Comparison
+
+Compare NPU+CPU mode vs CPU-only (ONNX Runtime) mode to isolate the bottleneck:
+
+```bash
+# NPU + CPU ops (default) — measures full graph including CPU MemoryOps
+run_model -m model.dxnn -t 5 -v
+
+# CPU-only via ORT — bypasses NPU entirely, runs everything on CPU
+run_model -m model.dxnn -t 5 -v --use-ort
+```
+
+| Result | Interpretation | Action |
+|---|---|---|
+| NPU+CPU FPS ≈ CPU-only FPS | CPU ops are the bottleneck | Enable `DXRT_DYNAMIC_CPU_THREAD=ON` |
+| NPU+CPU FPS >> CPU-only FPS | NPU is the primary compute path | Normal — optimize via async/C++ postprocess |
+| Low FPS + high inflight | Pipeline is buffered but CPU-bound | Enable `DXRT_DYNAMIC_CPU_THREAD=ON` |
+
+### `DXRT_DYNAMIC_CPU_THREAD=ON` — Multi-Threaded CPU Ops
+
+Enables multi-threaded execution of CPU MemoryOps in the DXNN inference graph.
+
+```bash
+export DXRT_DYNAMIC_CPU_THREAD=ON
+python demo_async.py --model model.dxnn --video input.mp4
+```
+
+| Metric | Without (default) | With THREAD=ON |
+|---|---|---|
+| CPU queue load | 78.9% (saturated) | 28.4% |
+| FPS (plant-seg example) | 0.6 fps | 1.4 fps (2.3x) |
+
+**When to use**: Always enable when the compiled model has CPU MemoryOps
+(check compiler log for skipped preprocessing ops, or DXRT verbose output
+for `CPU TASK` queue load > 50%).
+
+**Always add to `run.sh`** for models compiled with preprocessing bake-in:
+```bash
+#!/usr/bin/env bash
+export DXRT_DYNAMIC_CPU_THREAD=ON
+# ... rest of run.sh
+```
+
+### Identifying CPU MemoryOps in Compiled Models
+
+1. **Compiler log**: Look for preprocessing ops marked as "skipped" or "not supported on NPU"
+   (e.g., transpose, resize, expandDim)
+2. **DXRT verbose output**: Run with `-v` flag and check for `CPU TASK` lines:
+   ```
+   [DXRT] CPU TASK [cpu_0] Inference Worker - Average Input Queue Load : 78.9%
+   ```
+   Queue load > 50% indicates CPU ops are a significant bottleneck.
+3. **Input format change**: If DXNN input is NHWC uint8 while ONNX was NCHW float32,
+   preprocessing was partially baked in and CPU MemoryOps likely exist.

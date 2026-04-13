@@ -513,3 +513,140 @@ elif is_nchw:
 **Prevention**: Every demo script that loads a `.dxnn` model MUST call
 `get_input_tensors_info()` and use the auto-detect pattern above. This
 applies to all variants: sync, async, video, and verify.py.
+
+---
+
+## 20. [UNIVERSAL] Writing Demo Scripts from Scratch Instead of Using Existing Skeleton
+
+**Symptom**: Agent generates async demo code that looks correct syntactically
+but runs sequentially (single-thread sliding-window instead of true pipeline),
+uses wrong API patterns, or misses framework integration points. NPU utilization
+is 1 core instead of 3, inflight count is 1 instead of 6, and throughput is
+far below expected.
+
+**Cause**: Agent writes demo scripts from scratch based on API documentation
+alone, instead of copying an existing working example as a skeleton. The
+dx_app framework has intricate patterns (AsyncRunner 5-worker pipeline,
+IFactory interface, SyncRunner metrics, signal handling) that are difficult
+to replicate correctly from documentation.
+
+**Fix — MANDATORY Skeleton-First Development**:
+
+1. **Identify the task type** of the target model (detection, semantic_segmentation,
+   classification, pose_estimation, etc.)
+2. **Find the closest existing example** in `src/python_example/<task>/`:
+   ```bash
+   ls src/python_example/<task>/
+   # e.g., src/python_example/semantic_segmentation/bisenetv2/
+   ```
+3. **Copy the existing factory + sync + async files** as the skeleton base
+4. **Modify ONLY model-specific parts**:
+   - Factory class name and `get_model_name()` return value
+   - Preprocessor selection (if model needs different preprocessing)
+   - Postprocessor selection (if model uses different output format)
+   - Input shape handling (NHWC vs NCHW — see Pitfall #19)
+5. **NEVER write demo scripts from scratch** when a similar example exists
+
+**Example — plant-seg semantic segmentation model**:
+```bash
+# Step 1: Find closest example
+ls src/python_example/semantic_segmentation/
+# → bisenetv1/ bisenetv2/ deeplabv3plusmobilenet/ segformer_b0/
+
+# Step 2: Copy bisenetv2 as skeleton (same task type)
+cp -r src/python_example/semantic_segmentation/bisenetv2/ \
+      dx-agentic-dev/<session>/
+
+# Step 3: Modify ONLY:
+# - factory class name: BisenetV2Factory → PlantSegFactory
+# - get_model_name(): "bisenetv2" → "plant_seg"
+# - preprocessor: if NHWC uint8, simplify to resize-only
+# - model path in sync/async scripts
+```
+
+**Why this matters**: Existing examples have been tested and validated. They
+use correct AsyncRunner patterns (5-worker pipeline with proper inflight
+buffering), proper signal handling, and correct metric collection. Writing
+from scratch almost always produces subtle bugs that are hard to diagnose.
+
+**Task → Best Skeleton Mapping**:
+
+| Target Task | Best Skeleton Source |
+|---|---|
+| semantic_segmentation | `bisenetv2/` or `deeplabv3plusmobilenet/` |
+| object_detection | `yolov8n/` or `yolo26n/` |
+| classification | `efficientnet_b0/` or `mobilenetv2/` |
+| pose_estimation | `yolov8n_pose/` |
+| instance_segmentation | `yolov8n_seg/` |
+| face_detection | `scrfd_10g/` |
+| depth_estimation | `fastdepth_1/` |
+| image_denoising | `dncnn_15/` |
+| image_enhancement | `zero_dce/` |
+| super_resolution | `espcn_x4/` |
+| obb_detection | `yolo26n_obb/` |
+| hand_landmark | `handlandmarklite_1/` |
+
+**For cross-project tasks** (compile + demo): The dx-compiler-builder must
+also use this skeleton-first approach when generating demo scripts. See
+`dx-compiler/.deepx/agents/dx-compiler-builder.md` for the cross-project rule.
+
+---
+
+## 21. [UNIVERSAL] CPU MemoryOps Bottleneck — Low FPS Despite High Inflight Count
+
+**Symptom**: Async pipeline shows high inflight count (e.g., 6.0 avg) confirming
+the pipeline is correctly buffered, but throughput is still very low (e.g., 0.6 FPS).
+NPU profiler shows the model is fast, but overall FPS doesn't match.
+
+**Cause**: When dxcom compiles a model with preprocessing bake-in, some ops
+(transpose, resize, expandDim) may remain as CPU MemoryOps because they cannot
+be executed on NPU hardware. These CPU ops run on a **single CPU thread** by
+default, creating a bottleneck:
+
+```
+DXRT log: [DXRT] CPU TASK [cpu_0] Inference Worker - Average Input Queue Load : 78.9%
+                                                                                ^^^^
+                                                                    Single thread saturated
+```
+
+**Diagnosis — `run_model` Comparison**:
+```bash
+# NPU + CPU ops (default mode)
+run_model -m model.dxnn -t 5 -v
+
+# CPU-only via ONNX Runtime (no NPU, no CPU MemoryOps bottleneck)
+run_model -m model.dxnn -t 5 -v --use-ort
+```
+
+| Result | Interpretation |
+|---|---|
+| NPU+CPU FPS ≈ CPU-only FPS | CPU ops are the bottleneck, not NPU |
+| NPU+CPU FPS >> CPU-only FPS | NPU is the primary compute path (normal) |
+| NPU+CPU FPS << CPU-only FPS | Should not happen — investigate driver/hardware |
+
+**Fix — Enable Multi-Threaded CPU Ops**:
+```bash
+export DXRT_DYNAMIC_CPU_THREAD=ON
+```
+
+- Enables multi-threaded execution of CPU MemoryOps
+- Typical improvement: **2-3x FPS** when CPU ops are the bottleneck
+- Example: plant-seg model went from 0.6 FPS → 1.4 FPS (2.3x improvement)
+- CPU queue load dropped from 78.9% → 28.4%
+
+**ALWAYS add to `run.sh`** when the compiled model has CPU MemoryOps:
+```bash
+#!/usr/bin/env bash
+export DXRT_DYNAMIC_CPU_THREAD=ON   # Multi-thread CPU ops in DXNN graph
+python demo_dxnn_async.py --model plant-seg.dxnn --image sample.jpg
+```
+
+**How to detect CPU MemoryOps**: Check the compiler log for preprocessing
+ops that were "skipped" (not inserted into NPU). If transpose, resize, or
+expandDim were skipped, the compiled model likely has CPU MemoryOps.
+Also check DXRT verbose output for `CPU TASK` queue load > 50%.
+
+**Prevention**: When generating `run.sh` for a compiled DXNN model:
+1. Check if the compiler log shows skipped preprocessing ops
+2. If yes, add `export DXRT_DYNAMIC_CPU_THREAD=ON` to run.sh
+3. Document in README.md that the model has CPU MemoryOps and the env var is required

@@ -374,6 +374,15 @@ After confirmation, hand off to the appropriate sub-agent with the gathered cont
 4. **Always create the factory first** — it is shared across all Python variants.
 5. **Never create an app without querying model_registry.json** — verify the model exists.
 6. **Always include config.json** — even if using defaults.
+7. **MANDATORY Skeleton-First Development** — NEVER write demo scripts from scratch.
+   Find the closest existing example in `src/python_example/<task>/` for the target
+   model's task type, copy it as the skeleton, and modify ONLY model-specific parts
+   (factory class name, model name, preprocessor/postprocessor selection, input shape).
+   See `memory/common_pitfalls.md` Pitfall #20 for the task→skeleton mapping table.
+8. **DXRT_DYNAMIC_CPU_THREAD=ON** — When the target model has CPU MemoryOps
+   (compiler baked in preprocessing with some ops remaining on CPU), ALWAYS add
+   `export DXRT_DYNAMIC_CPU_THREAD=ON` to `run.sh`. See `memory/common_pitfalls.md`
+   Pitfall #21 and `memory/performance_patterns.md` for diagnosis method.
 
 ## 15 Supported AI Tasks
 
