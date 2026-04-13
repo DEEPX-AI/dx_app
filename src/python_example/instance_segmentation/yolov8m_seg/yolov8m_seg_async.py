@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (C) 2018- DEEPX Ltd. All rights reserved.
 """
-Yolov8Seg Asynchronous Inference Example
+Yolov8m_seg Asynchronous Inference Example
 
 Usage:
     python yolov8m_seg_async.py --model model.dxnn --video input.mp4

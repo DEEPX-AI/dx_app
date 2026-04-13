@@ -15,7 +15,7 @@ PROJECT_ROOT = Path(__file__).parent.parent.parent
 PYTHON_EXAMPLE_PATH = PROJECT_ROOT / "src" / "python_example"
 SCRIPTS_DIR = PROJECT_ROOT / "scripts"
 sys.path.insert(0, str(PYTHON_EXAMPLE_PATH))
-# Make tests/common available to all test modules
+# Make tests/test_helpers available to all test modules
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 
@@ -26,12 +26,57 @@ def pytest_addoption(parser):
         default="1",
         help="Number of inference iterations for E2E image tests (default: 1)",
     )
+    parser.addoption(
+        "--camera-index",
+        action="store",
+        default=None,
+        help="Camera device index for e2e_camera tests (e.g. 0)",
+    )
+    parser.addoption(
+        "--rtsp-url",
+        action="store",
+        default=None,
+        help="RTSP stream URL for e2e_rtsp tests",
+    )
+    parser.addoption(
+        "--stream-duration",
+        action="store",
+        default="10",
+        help="Seconds to run each camera/RTSP test (default: 10)",
+    )
 
 
 @pytest.fixture
 def loop_count(request):
     """Number of inference loops (from --loop CLI option)."""
     return int(request.config.getoption("--loop"))
+
+
+@pytest.fixture(scope="session")
+def camera_index(request):
+    """Camera device index from --camera-index."""
+    val = request.config.getoption("--camera-index")
+    if val is None:
+        pytest.skip("--camera-index not provided")
+    return int(val)
+
+
+@pytest.fixture(scope="session")
+def rtsp_url(request):
+    """RTSP URL from --rtsp-url."""
+    val = request.config.getoption("--rtsp-url")
+    if val is None:
+        pytest.skip("--rtsp-url not provided")
+    return val
+
+
+@pytest.fixture(scope="session")
+def stream_duration(request) -> int:
+    """Seconds to run each camera/RTSP test."""
+    try:
+        return int(request.config.getoption("--stream-duration"))
+    except (TypeError, ValueError):
+        return 10
 
 
 def load_module_from_file(file_path: str, module_name: str):
@@ -41,21 +86,16 @@ def load_module_from_file(file_path: str, module_name: str):
         # (src/python_example/<task>/<model>/<script>.py)
         py_example_root = str(Path(file_path).resolve().parent.parent.parent)
 
-        # Remove stale 'factory' and 'common' modules so each script loads its
-        # own versions.  Without purging 'common', the test-suite's
-        # tests/common package (cached at pytest collection time) shadows
-        # src/python_example/common, causing "No module named 'common.base'"
-        # inside factory files.
+        # Remove stale 'factory' modules so each script loads its
+        # own versions.
         stale_keys = [k for k in sys.modules.keys()
-                      if k in ('factory', 'common')
-                      or k.startswith('factory.')
-                      or k.startswith('common.')]
+                      if k in ('factory',)
+                      or k.startswith('factory.')]
         for key in stale_keys:
             sys.modules.pop(key, None)
 
         # Ensure sys.path order: script_dir first (factory/ lives here),
-        # then py_example_root (common/ lives here), both before tests/.
-        # This prevents tests/common from shadowing src/python_example/common.
+        # then py_example_root (common/ lives here).
         for p in (py_example_root, script_dir):
             if p in sys.path:
                 sys.path.remove(p)

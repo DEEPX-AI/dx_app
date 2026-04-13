@@ -23,7 +23,7 @@ import pytest
 
 # -- common module ---------------------------------------------------------
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from common.constants import (  # noqa: E402
+from test_helpers.constants import (  # noqa: E402
     BIN_DIR,
     MODELS_DIR,
     MULTI_MODEL_EXECUTABLES,
@@ -32,7 +32,7 @@ from common.constants import (  # noqa: E402
     SAMPLE_DIR,
     VIS_RESULT_DIR,
 )
-from common.utils import (  # noqa: E402
+from test_helpers.utils import (  # noqa: E402
     discover_cpp_executables,
     setup_environment,
 )

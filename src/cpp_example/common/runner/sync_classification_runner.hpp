@@ -47,6 +47,11 @@ public:
 
         CommandLineArgs args = parseCommandLine(argc, argv);
         verbose_ = args.verbose;
+        // Apply default sample image if no input specified
+        if (args.imageFilePath.empty() && args.videoFile.empty() && args.cameraIndex < 0 && args.rtspUrl.empty()) {
+            args.imageFilePath = dxapp::getDefaultSampleImage(factory_->getTaskType());
+            std::cout << "[INFO] No input specified. Using default sample: " << args.imageFilePath << std::endl;
+        }
         validateArguments(args);
 
         std::vector<std::string> imageFiles;
@@ -74,6 +79,8 @@ public:
         auto input_shape = ie.GetInputs().front().shape();
         int input_height, input_width;
         parseInputShape(input_shape, input_width, input_height);
+        bool is_float_input = (ie.GetInputs().front().type() == dxrt::DataType::FLOAT);
+        bool is_nhwc = isInputNHWC(input_shape);
 
         // Load model configuration if provided
         if (!args.configPath.empty()) {
@@ -85,10 +92,8 @@ public:
         auto postprocessor = factory_->createPostprocessor(input_width, input_height);
         auto visualizer = factory_->createVisualizer();
 
-        if (verbose_) {
-            std::cout << "[INFO] Model loaded: " << args.modelPath << std::endl;
-            std::cout << "[INFO] Model input size (WxH): " << input_width << "x" << input_height << std::endl;
-        }
+        std::cout << "[INFO] Model loaded: " << args.modelPath << std::endl;
+        std::cout << "[INFO] Model input size (WxH): " << input_width << "x" << input_height << std::endl;
         std::cout << std::endl;
 
         SyncProfilingMetrics metrics;
@@ -192,8 +197,9 @@ public:
             }
         }
 
-        if (verbose_) {
-            std::cout << "[INFO] Starting inference..." << std::endl;
+        std::cout << "[INFO] Starting inference..." << std::endl;
+        if (args.no_display) {
+            std::cout << "Processing... Only FPS will be displayed." << std::endl;
         }
 
         cv::Mat display_image(SHOW_WINDOW_SIZE_H, SHOW_WINDOW_SIZE_W, CV_8UC3);
@@ -203,12 +209,13 @@ public:
             processImageFrames(imageFiles, loopTest, display_image,
                                ie, *preprocessor, *postprocessor, *visualizer, metrics,
                                processCount, args.no_display, args.saveMode,
-                               run_dir, args.dumpTensors);
+                               run_dir, args.dumpTensors, is_float_input, is_nhwc);
         } else {
             processVideoFrames(video, display_image,
                                ie, *preprocessor, *postprocessor, *visualizer, metrics,
                                processCount, writer, args.no_display, args.saveMode,
-                               loopTest, args.videoFile, dumpTensorsBaseDir, vid_fps);
+                               loopTest, args.videoFile, dumpTensorsBaseDir, vid_fps,
+                               is_float_input, is_nhwc);
         }
 
         auto e_time = std::chrono::high_resolution_clock::now();
@@ -277,8 +284,21 @@ private:
 
     void validateArguments(const CommandLineArgs& args) {
         if (args.modelPath.empty()) {
-            dxapp::fatal_error("[ERROR] Model path is required. Use -m or --model_path option.");
+            dxapp::fatal_error("[ERROR] Model path is required. Use -m or --model_path option.\n"
+                "        -> Download:  ./setup.sh --models <model_name>\n"
+                "        -> Or use:    ./run_demo.sh  (auto-downloads demo models)");
         }
+        // Auto-download model if not found
+        if (!dxapp::fileExists(args.modelPath)) {
+            if (!dxapp::autoDownloadModel(args.modelPath)) {
+                std::string stem = fs::path(args.modelPath).stem().string();
+                dxapp::fatal_error("[ERROR] Model file not found: " + args.modelPath + "\n"
+                    "        -> Download:  ./setup.sh --models " + stem + "\n"
+                    "        -> Or use:    ./run_demo.sh  (auto-downloads demo models)");
+            }
+            std::cout << "[INFO] Model downloaded successfully: " << args.modelPath << std::endl;
+        }
+
         int sourceCount = 0;
         if (!args.imageFilePath.empty()) sourceCount++;
         if (!args.videoFile.empty()) sourceCount++;
@@ -286,6 +306,24 @@ private:
         if (!args.rtspUrl.empty()) sourceCount++;
         if (sourceCount != 1) {
             dxapp::fatal_error("[ERROR] Please specify exactly one input source.");
+        }
+        // Auto-download video if not found
+        if (!args.videoFile.empty() && !dxapp::fileExists(args.videoFile)) {
+            if (!dxapp::autoDownloadVideos() || !dxapp::fileExists(args.videoFile)) {
+                dxapp::fatal_error("[ERROR] Video file not found: " + args.videoFile + "\n"
+                    "        -> Download videos: ./setup_sample_videos.sh");
+            }
+            std::cout << "[INFO] Video downloaded successfully: " << args.videoFile << std::endl;
+        }
+
+        // Validate that --video is not given an image file
+        if (!args.videoFile.empty()) {
+            std::string ext = fs::path(args.videoFile).extension().string();
+            std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+            if (ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".bmp" || ext == ".tiff") {
+                dxapp::fatal_error("[ERROR] Image file detected for --video (-v) option. "
+                                  "Use --image (-i) for image files.\nUse -h or --help for usage information.");
+            }
         }
     }
 
@@ -334,7 +372,9 @@ private:
         int frameIdx = 0,
         const std::string& dumpTensorsDir = "",
         bool dumpPerFrameDir = false,
-        const std::string& saveImagePath = "") {
+        const std::string& saveImagePath = "",
+        bool is_float_input = false,
+        bool is_nhwc = false) {
 
         if (input_frame.empty()) return false;
 
@@ -346,7 +386,14 @@ private:
         auto t1 = std::chrono::high_resolution_clock::now();
         double t_preprocess = std::chrono::duration<double, std::milli>(t1 - t0).count();
 
-        auto outputs = ie.Run(preprocessed.data, nullptr, nullptr);
+        dxrt::TensorPtrs outputs;
+        std::vector<float> float_buf;
+        if (is_float_input && !preprocessed.empty()) {
+            float_buf = convertToFloatBuffer(preprocessed, is_nhwc);
+            outputs = ie.Run(float_buf.data(), nullptr, nullptr);
+        } else {
+            outputs = ie.Run(preprocessed.data, nullptr, nullptr);
+        }
         auto t2 = std::chrono::high_resolution_clock::now();
         double t_inference = std::chrono::duration<double, std::milli>(t2 - t1).count();
 
@@ -433,7 +480,8 @@ private:
         IPreprocessor& preprocessor, IPostprocessor<ClassificationResult>& postprocessor,
         IVisualizer<ClassificationResult>& visualizer, SyncProfilingMetrics& metrics,
         int& processCount, bool no_display, bool saveMode,
-        const std::string& runDir = "", bool dumpEnabled = false) {
+        const std::string& runDir = "", bool dumpEnabled = false,
+        bool is_float_input = false, bool is_nhwc = false) {
         cv::VideoWriter dummy;  // classification doesn't save video in image mode
         for (int i = 0; i < loopTest && !g_interrupted().load(); ++i) {
             std::string currentImagePath = imageFiles[i % imageFiles.size()];
@@ -455,7 +503,8 @@ private:
             }
             if (!processSingleFrame(img, display_image, ie, preprocessor, postprocessor,
                                     visualizer, metrics, dummy, no_display, saveMode, t_read,
-                                    currentImagePath, i, frameDumpPath, false, savePath)) break;
+                                    currentImagePath, i, frameDumpPath, false, savePath,
+                                    is_float_input, is_nhwc)) break;
             processCount++;
             if (!no_display) {
                 while (!dxapp::windowShouldClose("Output")) {
@@ -471,7 +520,8 @@ private:
         IVisualizer<ClassificationResult>& visualizer, SyncProfilingMetrics& metrics,
         int& processCount, cv::VideoWriter& writer, bool no_display, bool saveMode,
         int loopTest, const std::string& videoFile,
-        const std::string& dumpTensorsBaseDir = "", double /*vid_fps*/ = 30.0) {
+        const std::string& dumpTensorsBaseDir = "", double /*vid_fps*/ = 30.0,
+        bool is_float_input = false, bool is_nhwc = false) {
 
         std::string videoSavePathResolved;
 
@@ -498,7 +548,8 @@ private:
             while (!g_interrupted().load() && readFrame(frame)) {
                 if (!processSingleFrame(frame, display_image, ie, preprocessor, postprocessor,
                                     visualizer, metrics, writer, no_display, saveMode, t_read,
-                                    "video", processCount, dumpTensorsBaseDir, true, "")) break;
+                                    "video", processCount, dumpTensorsBaseDir, true, "",
+                                    is_float_input, is_nhwc)) break;
                 processCount++;
             }
             // Reopen video for next loop

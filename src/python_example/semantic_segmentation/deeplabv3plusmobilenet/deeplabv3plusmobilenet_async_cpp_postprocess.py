@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 # Copyright (C) 2018- DEEPX Ltd. All rights reserved.
 """
-Deeplabv3 Asynchronous Inference Example
+DeepLabV3Plus-MobileNet Asynchronous Inference Example
+
+NOTE: Model outputs pre-argmaxed class indices — C++ postprocess re-argmax would corrupt results.
+      Falls back to Python postprocessing instead of C++ PostProcess binding.
 
 Usage:
-    python deeplabv3plusmobilenet_async_cpp_postprocess.py --model model.dxnn --video input.mp4
+    python deeplabv3plusmobilenet_async_cpp_postprocess.py --model model.dxnn --image input.jpg
 """
 
 import sys
@@ -16,21 +19,16 @@ for _path in [str(_v3_dir), str(_module_dir)]:
     if _path not in sys.path:
         sys.path.insert(0, _path)
 
-from common.processors.cpp_compat import PythonFallbackPostProcess
 from factory import Deeplabv3Factory
 from common.runner import AsyncRunner, parse_common_args
 
 def parse_args():
-    return parse_common_args("DeepLabV3Plus-MobileNet Async Inference")
+    return parse_common_args("DeepLabV3Plus-MobileNet Asynchronous Inference")
 def main():
     args = parse_args()
     factory = Deeplabv3Factory()
 
-    def on_engine_init(runner):
-        runner._cpp_postprocessor = PythonFallbackPostProcess(runner)
-        runner._cpp_convert_fn = None
-
-    runner = AsyncRunner(factory, on_engine_init=on_engine_init)
+    runner = AsyncRunner(factory)
     runner.run(args)
 
 if __name__ == "__main__":

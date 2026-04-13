@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (C) 2018- DEEPX Ltd. All rights reserved.
 """
-SCRFD Synchronous Inference Example
+Scrfd500m Synchronous Inference Example
 
 Usage:
     python scrfd500m_sync.py --model model.dxnn --image input.jpg

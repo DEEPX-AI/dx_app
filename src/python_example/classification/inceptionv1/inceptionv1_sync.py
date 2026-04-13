@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (C) 2018- DEEPX Ltd. All rights reserved.
 """
-Efficientnet Synchronous Inference Example
+Inceptionv1 Synchronous Inference Example
 
 Usage:
     python inceptionv1_sync.py --model model.dxnn --image input.jpg

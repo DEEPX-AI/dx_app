@@ -16,8 +16,8 @@ from unittest.mock import patch
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from common.constants import PROJECT_ROOT  # noqa: E402
-from common.utils import discover_python_scripts, setup_environment  # noqa: E402
+from test_helpers.constants import PROJECT_ROOT  # noqa: E402
+from test_helpers.utils import discover_python_scripts, setup_environment  # noqa: E402
 from conftest import load_module_from_file  # noqa: E402
 
 

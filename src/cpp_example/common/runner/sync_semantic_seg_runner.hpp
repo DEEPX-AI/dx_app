@@ -48,6 +48,15 @@ public:
 
         CommandLineArgs args = parseCommandLine(argc, argv);
         verbose_ = args.verbose;
+        if (verbose_) {
+            std::cout << "[INFO] --verbose: This task produces image-based output. "
+                         "Use --save or display mode to view results." << std::endl;
+        }
+        // Apply default sample image if no input specified
+        if (args.imageFilePath.empty() && args.videoFile.empty() && args.cameraIndex < 0 && args.rtspUrl.empty()) {
+            args.imageFilePath = dxapp::getDefaultSampleImage(factory_->getTaskType());
+            std::cout << "[INFO] No input specified. Using default sample: " << args.imageFilePath << std::endl;
+        }
         validateArguments(args);
 
         std::vector<std::string> imageFiles;
@@ -263,8 +272,21 @@ private:
 
     void validateArguments(const CommandLineArgs& args) {
         if (args.modelPath.empty()) {
-            dxapp::fatal_error("[ERROR] Model path is required. Use -m or --model_path option.");
+            dxapp::fatal_error("[ERROR] Model path is required. Use -m or --model_path option.\n"
+                "        -> Download:  ./setup.sh --models <model_name>\n"
+                "        -> Or use:    ./run_demo.sh  (auto-downloads demo models)");
         }
+        // Auto-download model if not found
+        if (!dxapp::fileExists(args.modelPath)) {
+            if (!dxapp::autoDownloadModel(args.modelPath)) {
+                std::string stem = fs::path(args.modelPath).stem().string();
+                dxapp::fatal_error("[ERROR] Model file not found: " + args.modelPath + "\n"
+                    "        -> Download:  ./setup.sh --models " + stem + "\n"
+                    "        -> Or use:    ./run_demo.sh  (auto-downloads demo models)");
+            }
+            std::cout << "[INFO] Model downloaded successfully: " << args.modelPath << std::endl;
+        }
+
         int sourceCount = 0;
         if (!args.imageFilePath.empty()) sourceCount++;
         if (!args.videoFile.empty()) sourceCount++;
@@ -272,6 +294,25 @@ private:
         if (!args.rtspUrl.empty()) sourceCount++;
         if (sourceCount != 1) {
             dxapp::fatal_error("[ERROR] Please specify exactly one input source.");
+        }
+
+        // Auto-download video if not found
+        if (!args.videoFile.empty() && !dxapp::fileExists(args.videoFile)) {
+            if (!dxapp::autoDownloadVideos() || !dxapp::fileExists(args.videoFile)) {
+                dxapp::fatal_error("[ERROR] Video file not found: " + args.videoFile + "\n"
+                    "        -> Download videos: ./setup_sample_videos.sh");
+            }
+            std::cout << "[INFO] Video downloaded successfully: " << args.videoFile << std::endl;
+        }
+
+        // Validate that --video is not given an image file
+        if (!args.videoFile.empty()) {
+            std::string ext = fs::path(args.videoFile).extension().string();
+            std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+            if (ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".bmp" || ext == ".tiff") {
+                dxapp::fatal_error("[ERROR] Image file detected for --video (-v) option. "
+                                  "Use --image (-i) for image files.\nUse -h or --help for usage information.");
+            }
         }
     }
 
@@ -308,30 +349,6 @@ private:
         return video.isOpened();
     }
 
-    /** Print per-class pixel percentages from a segmentation result for pipeline parsing. */
-    static void printSegStats(const SegmentationResult& seg, bool verbose = false) {
-        if (!verbose) return;
-        int total = static_cast<int>(seg.mask.size());
-        if (total == 0) return;
-        int counts[256] = {};
-        for (int v : seg.mask) { if (v >= 0 && v < 256) counts[v]++; }
-        std::cout << "[SEG]";
-        for (int c = 0; c < 256; ++c) {
-            if (counts[c] == 0) continue;
-            double pct = counts[c] * 100.0 / total;
-            if (pct < 0.1) continue;
-            std::string label = std::to_string(c);
-            for (size_t j = 0; j < seg.class_ids.size(); ++j) {
-                if (seg.class_ids[j] == c && j < seg.class_names.size() && !seg.class_names[j].empty()) {
-                    label = dxapp::sanitize_name(seg.class_names[j]);
-                    break;
-                }
-            }
-            std::cout << " " << label << " " << std::fixed << std::setprecision(1) << pct;
-        }
-        std::cout << std::endl;
-    }
-
     bool processSingleFrame(
         const cv::Mat& input_frame, cv::Mat& display_image,
         dxrt::InferenceEngine& ie,
@@ -346,11 +363,13 @@ private:
 
         if (input_frame.empty()) return false;
 
+        // Preprocess using the original input frame so ctx.original_width/height
+        // reflect the true source image size. Resize for display afterwards.
         auto t0 = std::chrono::high_resolution_clock::now();
-        dxapp::displayResize(input_frame, display_image, SHOW_WINDOW_SIZE_W, SHOW_WINDOW_SIZE_H);
         PreprocessContext ctx;
         cv::Mat preprocessed;
-        preprocessor.process(display_image, preprocessed, ctx);
+        preprocessor.process(input_frame, preprocessed, ctx);
+        dxapp::displayResize(input_frame, display_image, SHOW_WINDOW_SIZE_W, SHOW_WINDOW_SIZE_H);
         auto t1 = std::chrono::high_resolution_clock::now();
         double t_preprocess = std::chrono::duration<double, std::milli>(t1 - t0).count();
 
@@ -395,9 +414,6 @@ private:
         }
         auto t3 = std::chrono::high_resolution_clock::now();
         double t_postprocess = std::chrono::duration<double, std::milli>(t3 - t_post_start).count();
-
-        if (!results.empty() && !results[0].mask.empty())
-            printSegStats(results[0], verbose_);
 
 
         // --- Numerical verification dump (DXAPP_VERIFY=1) ---

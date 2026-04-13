@@ -89,6 +89,12 @@ class NanoDetPostprocessor(IPostprocessor):
         candidate_sizes = [self.input_width, 416, 320, 384, 448, 480, 512, 640]
         candidate_strides = [[8, 16, 32], [8, 16, 32, 64]]
 
+        # Prioritize hint strides if provided
+        if self._hint_strides:
+            candidate_strides = [self._hint_strides] + [
+                s for s in candidate_strides if s != self._hint_strides
+            ]
+
         import itertools
         for size, strides, use_ceil in itertools.product(
                 candidate_sizes, candidate_strides, [False, True]):
@@ -140,6 +146,12 @@ class NanoDetPostprocessor(IPostprocessor):
         # --- Auto-detect reg_max from tensor shape ---
         reg_cols = total_cols - self.num_classes
         bins = reg_cols // 4  # reg_max + 1
+
+        # Use hint if provided and consistent with tensor shape
+        if self._hint_reg_max is not None:
+            hint_bins = self._hint_reg_max + 1
+            if hint_bins * 4 == reg_cols:
+                bins = hint_bins
 
         if bins < 2 or reg_cols % 4 != 0:
             raise ValueError(

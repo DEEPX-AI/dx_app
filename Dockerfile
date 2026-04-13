@@ -15,7 +15,7 @@ add-apt-repository universe && \
 add-apt-repository multiverse && \
 apt-get update
 
-RUN apt-get install -y x11-apps libx11-6 xauth libxext6 libxrender1 libxtst6 libxi6
+RUN apt-get install -y x11-apps libx11-6 xauth libxext6 libxrender1 libxtst6 libxi6 fonts-dejavu-core
 
 RUN apt-get install -y gpg-agent tar
 RUN add-apt-repository ppa:deadsnakes/ppa && \

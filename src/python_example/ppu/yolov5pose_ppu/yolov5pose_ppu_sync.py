@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (C) 2018- DEEPX Ltd. All rights reserved.
 """
-YOLOv5Pose PPU Synchronous Inference Example
+Yolov5pose_ppu Synchronous Inference Example
 
 Usage:
     python yolov5pose_ppu_sync.py --model model.dxnn --image input.jpg

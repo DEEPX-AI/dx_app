@@ -1,0 +1,1 @@
+from .yolov6n_0_2_1_nms_core_factory import Yolov6n_0_2_1_nms_coreFactory

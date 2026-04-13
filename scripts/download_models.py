@@ -24,6 +24,7 @@ Requirements:
 
 import argparse
 import json
+import shutil
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -32,9 +33,10 @@ from urllib.parse import urlparse
 
 # ── Constants ──────────────────────────────────────────────────────────────────
 
-SCRIPT_DIR       = Path(__file__).parent
-DEFAULT_OUTPUT   = SCRIPT_DIR.parent / "assets" / "models"
-DEFAULT_MANIFEST = SCRIPT_DIR / "modelzoo_manifest.json"
+SCRIPT_DIR            = Path(__file__).parent
+DEFAULT_OUTPUT        = SCRIPT_DIR.parent / "assets" / "models"
+DEFAULT_MANIFEST      = SCRIPT_DIR / "modelzoo_manifest.json"
+DEFAULT_INTERNAL_PATH = Path("/mnt/regression_storage/atd/models_v3.1.0")
 
 # ANSI colors
 _G = "\033[92m"; _Y = "\033[93m"; _R = "\033[91m"; _C = "\033[96m"; _RST = "\033[0m"
@@ -238,7 +240,10 @@ def _handle_download_result(res: dict, name: str, kind: str, bar: str, pct: int,
 def download_all(models: list[dict], output_dir: Path, session,
                  workers: int = 4, force: bool = False, with_json: bool = True):
     """Download all models in parallel."""
-    output_dir.mkdir(parents=True, exist_ok=True)
+    if not output_dir.is_dir():
+        if output_dir.is_symlink():
+            output_dir.unlink()
+        output_dir.mkdir(parents=True, exist_ok=True)
 
     # Build download task list
     tasks = []
@@ -281,6 +286,75 @@ def download_all(models: list[dict], output_dir: Path, session,
         warn("The models are listed on the page but may not be published yet.")
         if counters["first_err_url"]:
             warn(f"Example URL: {counters['first_err_url']}")
+    head(f"{'─'*60}\n")
+
+
+# ── Internal (local copy) ─────────────────────────────────────────────────────
+
+def copy_file(src: Path, dest: Path, force: bool = False) -> dict:
+    """Copy a single file from local path. Skips if already exists, unless force=True."""
+    filename = dest.name
+    if dest.exists() and not force:
+        return {"status": "skip", "file": filename, "size": dest.stat().st_size}
+    if not src.exists():
+        return {"status": "error", "file": filename, "error": f"source not found: {src}"}
+
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        shutil.copy2(src, dest)
+        return {"status": "ok", "file": filename, "size": dest.stat().st_size}
+    except Exception as e:
+        return {"status": "error", "file": filename, "error": str(e)}
+
+
+def copy_all(models: list[dict], output_dir: Path, internal_path: Path,
+             workers: int = 4, force: bool = False, with_json: bool = True):
+    """Copy all models in parallel from a local directory."""
+    if not internal_path.is_dir():
+        error(f"Internal path not found or not a directory: {internal_path}")
+        sys.exit(1)
+
+    if not output_dir.is_dir():
+        if output_dir.is_symlink():
+            output_dir.unlink()
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+    tasks = []
+    for m in models:
+        fname = Path(urlparse(m["dxnn_url"]).path).name
+        tasks.append(("dxnn", m["name"], internal_path / fname, output_dir / fname))
+        if with_json and m.get("json_url"):
+            jname = Path(urlparse(m["json_url"]).path).name
+            tasks.append(("json", m["name"], internal_path / jname, output_dir / jname))
+
+    total = len(tasks)
+    head(f"\n{'─'*60}")
+    head(f"  Starting copy: {total} files")
+    head(f"  From: {internal_path}")
+    head(f"  To  : {output_dir}")
+    head(f"{'─'*60}")
+
+    counters = {"ok": 0, "skip": 0, "err": 0, "err_403": 0, "first_err_url": None}
+    t0 = time.time()
+
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        futures = {
+            pool.submit(copy_file, src, dest, force): (kind, name)
+            for kind, name, src, dest in tasks
+        }
+        done = 0
+        for fut in as_completed(futures):
+            done += 1
+            kind, name = futures[fut]
+            res = fut.result()
+            pct = done * 100 // total
+            bar = "█" * (pct // 5) + "░" * (20 - pct // 5)
+            _handle_download_result(res, name, kind, bar, pct, counters)
+
+    elapsed = time.time() - t0
+    head(f"\n{'─'*60}")
+    head(f"  Done: {counters['ok']} copied, {counters['skip']} skipped, {counters['err']} errors  ({elapsed:.1f}s)")
+    head(f"  Saved to: {output_dir.resolve()}")
     head(f"{'─'*60}\n")
 
 
@@ -338,6 +412,13 @@ examples:
                       metavar="FILE",    help="save parsed model list to a JSON file")
     misc.add_argument("--manifest", type=str, default=None, metavar="FILE",
                       help=f"path to manifest JSON file (default: {DEFAULT_MANIFEST})")
+
+    src = parser.add_argument_group("source")
+    src.add_argument("--internal", action="store_true",
+                     help="use local mount instead of S3 (internal/air-gapped network)")
+    src.add_argument("--internal-path", type=str, default=str(DEFAULT_INTERNAL_PATH),
+                     metavar="DIR",
+                     help=f"local model directory for --internal mode (default: {DEFAULT_INTERNAL_PATH})")
     return parser.parse_args()
 
 
@@ -396,6 +477,14 @@ def _print_filtered_model_list(models: list[dict], output_dir: Path):
 
 def main():
     args = parse_args()
+
+    # Auto-detect internal mode: if the local model path exists and --internal
+    # was not explicitly requested, switch automatically (e.g. on CI runners
+    # that have the internal mount available).
+    if not args.internal and Path(args.internal_path).is_dir():
+        info(f"Local model path detected ({args.internal_path}) — switching to internal mode automatically")
+        args.internal = True
+
     manifest_path = Path(args.manifest) if args.manifest else DEFAULT_MANIFEST
     output_dir = Path(args.output)
 
@@ -405,9 +494,13 @@ def main():
     head(f"\n{_DOUBLE_LINE}")
     head("  DEEPX ModelZoo Auto Downloader")
     head(f"{_SINGLE_LINE}")
-    print(f"  Manifest: {manifest_path}")
-    print(f"  Output  : {output_dir.resolve()}")
-    print(f"  Workers : {args.workers}  |  Force : {args.force}  |  Dry-run : {args.dry_run}")
+    print(f"  Manifest : {manifest_path}")
+    print(f"  Output   : {output_dir.resolve()}")
+    print(f"  Workers  : {args.workers}  |  Force : {args.force}  |  Dry-run : {args.dry_run}")
+    if args.internal:
+        print(f"  Source   : {_C}internal{_RST} ({args.internal_path})")
+    else:
+        print(f"  Source   : {_C}S3 / public{_RST}")
     head(f"{_DOUBLE_LINE}\n")
 
     models = load_manifest(manifest_path)
@@ -427,15 +520,25 @@ def main():
         info("--dry-run/--list mode: skipping download.")
         return
 
-    session = _setup_session()
-    download_all(
-        models=models,
-        output_dir=output_dir,
-        session=session,
-        workers=args.workers,
-        force=args.force,
-        with_json=not args.no_json,
-    )
+    if args.internal:
+        copy_all(
+            models=models,
+            output_dir=output_dir,
+            internal_path=Path(args.internal_path),
+            workers=args.workers,
+            force=args.force,
+            with_json=not args.no_json,
+        )
+    else:
+        session = _setup_session()
+        download_all(
+            models=models,
+            output_dir=output_dir,
+            session=session,
+            workers=args.workers,
+            force=args.force,
+            with_json=not args.no_json,
+        )
 
 
 if __name__ == "__main__":

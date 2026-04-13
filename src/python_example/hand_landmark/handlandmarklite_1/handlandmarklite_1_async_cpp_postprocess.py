@@ -18,13 +18,20 @@ for _path in [str(_v3_dir), str(_module_dir)]:
 
 from factory import Handlandmarklite_1Factory
 from common.runner import AsyncRunner, parse_common_args
+from dx_postprocess import HandLandmarkPostProcess
+from common.utility import convert_cpp_hand_landmark
 
 def parse_args():
     return parse_common_args("HandLandmarkLite Async Inference (C++ PP)")
 def main():
     args = parse_args()
     factory = Handlandmarklite_1Factory()
-    runner = AsyncRunner(factory)
+
+    def on_engine_init(runner):
+        runner._cpp_postprocessor = HandLandmarkPostProcess(runner.input_width, runner.input_height)
+        runner._cpp_convert_fn = convert_cpp_hand_landmark
+
+    runner = AsyncRunner(factory, on_engine_init=on_engine_init)
     runner.run(args)
 
 if __name__ == "__main__":

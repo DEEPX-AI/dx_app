@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (C) 2018- DEEPX Ltd. All rights reserved.
 """
-YOLOv8N PPU Synchronous Inference Example
+Yolov8n_ppu Synchronous Inference Example
 
 Usage:
     python yolov8n_ppu_sync.py --model model.dxnn --image input.jpg

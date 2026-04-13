@@ -63,10 +63,21 @@ public:
 
         CommandLineArgs args = parseCommandLine(argc, argv);
         verbose_ = args.verbose;
+
+        if (verbose_) {
+            std::cout << "[INFO] --verbose: This task produces image-based output. "
+                         "Use --save or display mode to view results." << std::endl;
+        }
+        // Apply default sample image if no input specified
+        if (args.imageFilePath.empty() && args.videoFile.empty() && args.cameraIndex < 0 && args.rtspUrl.empty()) {
+            args.imageFilePath = dxapp::getDefaultSampleImage(factory_->getTaskType());
+            std::cout << "[INFO] No input specified. Using default sample: " << args.imageFilePath << std::endl;
+        }
         validateArguments(args);
 
         std::vector<std::string> imageFiles;
         bool is_image = !args.imageFilePath.empty();
+        is_image_mode_ = is_image;
         int loopTest = args.loopTest;
         if (is_image) {
             auto result = processImagePath(args.imageFilePath, loopTest);
@@ -247,7 +258,7 @@ public:
             last_job_id = ie.RunAsync(buf.data(), user_data);
             buffer_index++;
             processCount++;
-            if (!args.no_display) pollDisplay();
+            if (!args.no_display && !pollDisplay()) return;
         };
 
         if (is_image) {
@@ -267,7 +278,7 @@ public:
                 cv::Mat img = cv::imread(imageFiles[i % imageFiles.size()]);
                 auto t_read_end = std::chrono::high_resolution_clock::now();
                 if (img.empty()) continue;
-                cv::resize(img, display_image, cv::Size(SHOW_WINDOW_SIZE_W, SHOW_WINDOW_SIZE_H));
+                dxapp::displayResize(img, display_image, SHOW_WINDOW_SIZE_W, SHOW_WINDOW_SIZE_H);
                 PreprocessContext ctx;
                 cv::Mat preprocessed;
                 auto t_pre_start = std::chrono::high_resolution_clock::now();
@@ -303,7 +314,7 @@ public:
                 last_job_id = ie.RunAsync(buf.data(), static_cast<void*>(ud.release()));
                 buffer_index++;
                 processCount++;
-                if (!args.no_display) pollDisplay();
+                if (!args.no_display && !pollDisplay()) break;
             }
         } else {
             for (int loop_idx = 0; loop_idx < loopTest && running_ && !g_interrupted(); ++loop_idx) {
@@ -346,17 +357,53 @@ public:
                 inference_done.store(true, std::memory_order_release);
             });
             while (!inference_done.load(std::memory_order_acquire) && running_) {
-                if (!args.no_display) pollDisplay();
-                else std::this_thread::sleep_for(std::chrono::milliseconds(10));
+                // Pump events only — do NOT consume frames from rendered_queue_ here
+                cv::waitKey(1);
+                std::this_thread::sleep_for(std::chrono::milliseconds(10));
             }
             waitThread.join();
         }
-        // For images: keep display alive until user closes window
+        // Wait for displayThread to finish processing all queued items
+        while (!display_queue_.empty() && running_) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        }
+        // Give render thread time to push last frame to rendered_queue_
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        // For images: show each rendered frame one by one, waiting for user input
         if (is_image && !args.no_display) {
-            // Drain remaining rendered frames
-            while (running_) {
-                if (!pollDisplay()) break;
-                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            std::vector<cv::Mat> rendered_frames;
+            for (int attempts = 0; attempts < 20; ++attempts) {
+                cv::Mat f;
+                while (rendered_queue_.try_pop(f, std::chrono::milliseconds(100))) {
+                    rendered_frames.push_back(std::move(f));
+                }
+                if (!rendered_frames.empty()) break;
+            }
+            bool wp_supported = true;
+            for (size_t fi = 0; fi < rendered_frames.size() && running_; ++fi) {
+                cv::imshow("Output", rendered_frames[fi]);
+                if (fi == 0) {
+                    cv::waitKey(1);
+                    try {
+                        double probe = cv::getWindowProperty("Output", cv::WND_PROP_VISIBLE);
+                        if (probe < 0.0) wp_supported = false;
+                    } catch (...) { wp_supported = false; }
+                }
+                bool is_last = (fi + 1 == rendered_frames.size());
+                while (running_) {
+                    int k = cv::waitKey(10);
+                    if (k == 'q' || k == 27) {
+                        if (is_last) { running_ = false; break; }
+                        break;  // advance to next image
+                    }
+                    if (k >= 0) break;
+                    if (wp_supported) {
+                        try {
+                            double v = cv::getWindowProperty("Output", cv::WND_PROP_VISIBLE);
+                            if (v < 0.0) { running_ = false; break; }
+                        } catch (...) { running_ = false; break; }
+                    }
+                }
             }
         }
         running_ = false;
@@ -391,6 +438,7 @@ private:
     std::atomic<bool> running_{true};
     bool window_shown_ = false;
     bool window_prop_supported_ = true;  // false if backend always returns -1
+    bool is_image_mode_ = false;
     SafeQueue<AsyncEmbeddingDisplayArgs> display_queue_;
     SafeQueue<cv::Mat> rendered_queue_;  // Rendered frames for main-thread display
     AsyncProfilingMetrics metrics_;
@@ -421,13 +469,44 @@ private:
     }
 
     void validateArguments(const CommandLineArgs& args) {
-        if (args.modelPath.empty()) { dxapp::fatal_error("[ERROR] Model path is required."); }
+        if (args.modelPath.empty()) { dxapp::fatal_error("[ERROR] Model path is required. Use -m or --model_path option.\n"
+                "        -> Download:  ./setup.sh --models <model_name>\n"
+                "        -> Or use:    ./run_demo.sh  (auto-downloads demo models)"); }
+        // Auto-download model if not found
+        if (!dxapp::fileExists(args.modelPath)) {
+            if (!dxapp::autoDownloadModel(args.modelPath)) {
+                std::string stem = fs::path(args.modelPath).stem().string();
+                dxapp::fatal_error("[ERROR] Model file not found: " + args.modelPath + "\n"
+                    "        -> Download:  ./setup.sh --models " + stem + "\n"
+                    "        -> Or use:    ./run_demo.sh  (auto-downloads demo models)");
+            }
+            std::cout << "[INFO] Model downloaded successfully: " << args.modelPath << std::endl;
+        }
+
         int sourceCount = 0;
         if (!args.imageFilePath.empty()) sourceCount++;
         if (!args.videoFile.empty()) sourceCount++;
         if (args.cameraIndex >= 0) sourceCount++;
         if (!args.rtspUrl.empty()) sourceCount++;
         if (sourceCount != 1) { dxapp::fatal_error("[ERROR] Please specify exactly one input source."); }
+        // Auto-download video if not found
+        if (!args.videoFile.empty() && !dxapp::fileExists(args.videoFile)) {
+            if (!dxapp::autoDownloadVideos() || !dxapp::fileExists(args.videoFile)) {
+                dxapp::fatal_error("[ERROR] Video file not found: " + args.videoFile + "\n"
+                    "        -> Download videos: ./setup_sample_videos.sh");
+            }
+            std::cout << "[INFO] Video downloaded successfully: " << args.videoFile << std::endl;
+        }
+
+        // Validate that --video is not given an image file
+        if (!args.videoFile.empty()) {
+            std::string ext = fs::path(args.videoFile).extension().string();
+            std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+            if (ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".bmp" || ext == ".tiff") {
+                dxapp::fatal_error("[ERROR] Image file detected for --video (-v) option. "
+                                  "Use --image (-i) for image files.\nUse -h or --help for usage information.");
+            }
+        }
     }
 
     std::pair<std::vector<std::string>, int> processImagePath(const std::string& imageFilePath, int loopTest) {
@@ -471,10 +550,15 @@ private:
                 metrics_.sum_render += std::chrono::duration<double, std::milli>(t_render_end - t_render_start).count();
             }
             if (save_on && writer.isOpened() && !result_frame.empty()) writer << result_frame;
+            if (!result_frame.empty()) {
+                dxapp::saveDebugImage(result_frame);
+            }
             if (!args.save_path.empty() && !result_frame.empty()) {
                 auto t_save_start = std::chrono::high_resolution_clock::now();
                 cv::imwrite(args.save_path, result_frame);
-                dxapp::saveDebugImage(result_frame);
+                if (verbose_) {
+                    std::cout << "\n[INFO] Saved output image: " << fs::absolute(args.save_path).string() << std::endl;
+                }
                 auto t_save_end = std::chrono::high_resolution_clock::now();
                 std::lock_guard<std::mutex> lock(metrics_.metrics_mutex);
                 metrics_.sum_save += std::chrono::duration<double, std::milli>(t_save_end - t_save_start).count();
@@ -488,14 +572,18 @@ private:
 
     /** Poll rendered_queue_ and display on main thread. Returns false if user requested quit. */
     bool pollDisplay() {
+        // In image mode, do NOT consume rendered frames here.
+        // All image display is handled by the post-loop wait section so that
+        // async results (which may arrive out of order) are shown sequentially.
+        if (is_image_mode_) {
+            cv::waitKey(1);
+            return true;
+        }
         cv::Mat frame;
         if (rendered_queue_.try_pop(frame, std::chrono::milliseconds(1))) {
             cv::imshow("Output", frame);
             if (!window_shown_) {
                 window_shown_ = true;
-                // Probe backend: some backends (e.g. GTK2) always return -1
-                // for WND_PROP_VISIBLE. Detect this on the first frame so we
-                // never falsely interpret -1 as "window closed by user".
                 cv::waitKey(1);
                 double probe = cv::getWindowProperty("Output", cv::WND_PROP_VISIBLE);
                 if (probe < 0.0) {

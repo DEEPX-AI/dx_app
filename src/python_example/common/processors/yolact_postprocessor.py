@@ -242,6 +242,18 @@ class YOLACTPostprocessor(IPostprocessor):
 
         boxes_pixel = self._decode_boxes(boxes_f, orig_indices)
 
+        # Reject degenerate or near-full-image boxes
+        img_area = self.input_width * self.input_height
+        bw = boxes_pixel[:, 2] - boxes_pixel[:, 0]
+        bh = boxes_pixel[:, 3] - boxes_pixel[:, 1]
+        valid = (bw >= 1) & (bh >= 1) & ((bw * bh) / img_area <= 0.65)
+        if not np.any(valid):
+            return []
+        boxes_pixel = boxes_pixel[valid]
+        scores_f = scores_f[valid]
+        cls_ids_f = cls_ids_f[valid]
+        coeff_f = coeff_f[valid]
+
         keep = self._fast_nms(boxes_pixel, scores_f, self.nms_threshold)
         if len(keep) == 0:
             return []
@@ -265,49 +277,42 @@ class YOLACTPostprocessor(IPostprocessor):
         """
         Decode box coordinates to pixel [x1, y1, x2, y2] in input space.
 
+        YOLACT always uses SSD-encoded deltas (tx, ty, tw, th) relative to
+        anchors.  Previous heuristic-based auto-detection was unreliable and
+        caused box coordinate errors.  Now always uses SSD delta decoding
+        (matching the C++ postprocessor).
+
         Args:
             boxes: Filtered box values [M, 4]
             orig_indices: Original row indices into the full loc tensor (and
                           therefore into self._anchors). Required for correct
                           SSD delta decoding after score-threshold filtering.
-
-        YOLACT boxes may be:
-          1. SSD-encoded deltas (tx, ty, tw, th) relative to anchors
-          2. Already decoded normalized [0,1] coordinates
-          3. Already decoded pixel coordinates
         """
-        abs_vals = np.abs(boxes)
-        mean_abs = np.mean(abs_vals)
-        max_abs = np.percentile(abs_vals, 99)
-
-        if max_abs < 10.0 and mean_abs < 2.0 and self._anchors is not None:
-            # SSD delta encoding: decode using the correct anchors
-            if orig_indices is not None:
-                anchors = self._anchors[orig_indices]
-            elif boxes.shape[0] <= self._anchors.shape[0]:
-                anchors = self._anchors[:boxes.shape[0]]
-            else:
-                return self._decode_normalized(boxes)
-
-            # anchors: [M, 4] as (cx, cy, w, h) normalized
-            variance = [0.1, 0.2]  # SSD default variances
-            a_cx, a_cy, a_w, a_h = anchors[:, 0], anchors[:, 1], anchors[:, 2], anchors[:, 3]
-
-            cx = boxes[:, 0] * variance[0] * a_w + a_cx
-            cy = boxes[:, 1] * variance[0] * a_h + a_cy
-            w = a_w * np.exp(np.clip(boxes[:, 2] * variance[1], -10, 10))
-            h = a_h * np.exp(np.clip(boxes[:, 3] * variance[1], -10, 10))
-
-            x1 = (cx - w / 2) * self.input_width
-            y1 = (cy - h / 2) * self.input_height
-            x2 = (cx + w / 2) * self.input_width
-            y2 = (cy + h / 2) * self.input_height
-            return np.column_stack([x1, y1, x2, y2])
-
-        elif np.percentile(abs_vals, 95) < 2.0:
+        if self._anchors is None:
             return self._decode_normalized(boxes)
+
+        # Select matching anchors for filtered detections
+        if orig_indices is not None:
+            anchors = self._anchors[orig_indices]
+        elif boxes.shape[0] <= self._anchors.shape[0]:
+            anchors = self._anchors[:boxes.shape[0]]
         else:
-            return boxes.copy()
+            return self._decode_normalized(boxes)
+
+        # SSD delta decoding with standard variances (matching C++ implementation)
+        variance = [0.1, 0.2]
+        a_cx, a_cy, a_w, a_h = anchors[:, 0], anchors[:, 1], anchors[:, 2], anchors[:, 3]
+
+        cx = boxes[:, 0] * variance[0] * a_w + a_cx
+        cy = boxes[:, 1] * variance[0] * a_h + a_cy
+        w = a_w * np.exp(np.clip(boxes[:, 2] * variance[1], -10, 10))
+        h = a_h * np.exp(np.clip(boxes[:, 3] * variance[1], -10, 10))
+
+        x1 = (cx - w / 2) * self.input_width
+        y1 = (cy - h / 2) * self.input_height
+        x2 = (cx + w / 2) * self.input_width
+        y2 = (cy + h / 2) * self.input_height
+        return np.column_stack([x1, y1, x2, y2])
 
     def _decode_normalized(self, boxes: np.ndarray) -> np.ndarray:
         """Decode normalized [0,1] boxes to pixel coordinates."""
@@ -318,7 +323,11 @@ class YOLACTPostprocessor(IPostprocessor):
         return np.column_stack([x1, y1, x2, y2])
 
     def _cell_anchors(self, cx, cy, scales, aspect_ratios):
-        """Generate anchor entries for one grid cell from given scales and aspect ratios."""
+        """Generate anchor entries for one grid cell.
+
+        Ordering: scale (outer) → aspect_ratio (inner), matching RetinaNet/YOLACT
+        DXNN model convention.
+        """
         result = []
         for s in scales:
             for ar in aspect_ratios:
@@ -331,11 +340,13 @@ class YOLACTPostprocessor(IPostprocessor):
         """
         Generate SSD-style prior boxes matching YOLACT config.
 
-        Tries multiple anchor configurations and picks the one whose total
-        anchor count matches `target_n` (the model's loc tensor N).
-        Falls back to the 3-scale × 3-AR config if no target is given.
+        Uses RetinaNet-style anchor scales: [base, base*2^(1/3), base*2^(2/3)]
+        with Scale→AR ordering.
         """
         strides = [8, 16, 32, 64, 128]
+        base_sizes = [24, 48, 96, 192, 384]
+        r13 = 2 ** (1.0 / 3)
+        r23 = 2 ** (2.0 / 3)
         total_cells = sum(
             ((self.input_height + s - 1) // s) * ((self.input_width + s - 1) // s)
             for s in strides
@@ -343,15 +354,12 @@ class YOLACTPostprocessor(IPostprocessor):
 
         # Candidate anchor configurations: (scales_per_level, aspect_ratios)
         configs = [
-            # 3 scales × 3 aspect ratios = 9 anchors/cell
-            ([[24, 48, 96], [48, 96, 192], [96, 192, 384], [192, 384, 768], [384, 768, 1536]],
+            # RetinaNet 3 scales × 3 ARs = 9 anchors/cell (primary)
+            ([[b, b * r13, b * r23] for b in base_sizes],
              [[1, 0.5, 2]] * 5),
-            # 1 scale × 3 aspect ratios = 3 anchors/cell  (YOLACT default)
-            ([[24], [48], [96], [192], [384]],
+            # 1 scale × 3 ARs = 3 anchors/cell (YOLACT default)
+            ([[b] for b in base_sizes],
              [[1, 0.5, 2]] * 5),
-            # 2 scales × 1 aspect ratio = 2 anchors/cell  (some YOLACT variants)
-            ([[24, 48], [48, 96], [96, 192], [192, 384], [384, 768]],
-             [[1]] * 5),
         ]
 
         for scales_list, ar_list in configs:
@@ -359,7 +367,6 @@ class YOLACTPostprocessor(IPostprocessor):
             expected = total_cells * anchors_per_cell
             if target_n > 0 and expected != target_n:
                 continue
-            # Build anchors with this config
             anchors = []
             for fpn, stride in enumerate(strides):
                 conv_h = (self.input_height + stride - 1) // stride
@@ -367,11 +374,12 @@ class YOLACTPostprocessor(IPostprocessor):
                 for i in range(conv_h):
                     for j in range(conv_w):
                         anchors.extend(self._cell_anchors(
-                            (j + 0.5) / conv_w, (i + 0.5) / conv_h,
+                            (j + 0.5) * stride / self.input_width,
+                            (i + 0.5) * stride / self.input_height,
                             scales_list[fpn], ar_list[fpn]))
             return np.array(anchors, dtype=np.float32) if anchors else None
 
-        # No config matched target_n — fall back to 3-AR config
+        # No config matched — fall back without target constraint
         return self._generate_ssd_anchors(target_n=0)
 
     def get_model_name(self) -> str:

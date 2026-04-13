@@ -20,9 +20,9 @@ For end-to-end Python example usage, refer to the DX-APP Python usage documentat
 
 ## Supported Models & Tasks
 
-The library wraps **36 C++ post-processing classes** with pybind11 bindings, ensuring consistent results between C++ and Python implementations.  
+The library wraps **41 C++ post-processing classes** with pybind11 bindings, ensuring consistent results between C++ and Python implementations.  
 
-- **Object Detection:** YOLOv5, YOLOv7, YOLOv8, YOLOv9, YOLOv10, YOLOv11, YOLOv12, YOLOv26, YOLOX, NanoDet, DAMOYOLO, SSD, CenterPose  
+- **Object Detection:** YOLOv5, YOLOv7, YOLOv8, YOLOv9, YOLOv10, YOLOv11, YOLOv12, YOLOv26, YOLOX, NanoDet, DAMOYOLO, SSD, CenterPose, EfficientDet, YOLACT  
 - **Face Detection:** SCRFD, YOLOv5Face, RetinaFace, ULFGFD, Face3D  
 - **Pose Estimation:** YOLOv5Pose, YOLOv8Pose  
 - **Semantic Segmentation:** DeepLabV3, SemanticSeg (BiSeNet/SegFormer)  
@@ -34,7 +34,8 @@ The library wraps **36 C++ post-processing classes** with pybind11 bindings, ens
 - **Super Resolution:** ESPCN  
 - **Image Enhancement:** Zero-DCE  
 - **Embedding:** ArcFace  
-- **PPU Variants:** YOLOv5-PPU, YOLOv7-PPU, YOLOv8-PPU, SCRFD-PPU, YOLOv5Pose-PPU  
+- **Hand Landmark:** HandLandmark  
+- **PPU Variants:** YOLOv5-PPU, YOLOv7-PPU, YOLOv8-PPU, SCRFD-PPU, YOLOv5Pose-PPU, YOLOX-PPU, YOLOv3Tiny-PPU  
 
 ---
 

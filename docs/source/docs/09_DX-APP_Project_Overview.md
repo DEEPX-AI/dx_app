@@ -30,16 +30,16 @@ The project is structured to separate core logic from language-specific implemen
 ```text
 dx_app/
 ├── src/
-│   ├── cpp_example/            # C++ end-to-end examples (137 models across 16 tasks)
+│   ├── cpp_example/            # C++ end-to-end examples (280 models across 17 tasks)
 │   │   └── common/             # ← Shared C++ runtime layer
 │   │       ├── base/           #   Abstract interfaces (IFactory, IProcessor, ...)
-│   │       ├── processors/     #   44 shared processors (42 post + 2 pre)
+│   │       ├── processors/     #   45 shared processors (42 post + 3 pre)
 │   │       ├── runner/         #   24 task-specific sync/async runner pairs
 │   │       ├── inputs/         #   Image/Video/Camera/RTSP input sources
 │   │       ├── visualizers/    #   12 task-specific visualizers
 │   │       ├── config/         #   ModelConfig loader
 │   │       └── utility/        #   Labels, preprocessing, profiling, run_dir, signal_handler, verify_serialize
-│   ├── python_example/         # Python end-to-end examples (137 models across 16 tasks)
+│   ├── python_example/         # Python end-to-end examples (280 models across 17 tasks)
 │   │   └── common/             # ← Shared Python runtime layer
 │   │       ├── base/           #   Abstract interfaces (IFactory, IProcessor, ...)
 │   │       ├── processors/     #   35 shared post-processors
@@ -120,7 +120,7 @@ All C++ and Python examples share a consistent set of command-line arguments.
 
 | Flag | C++ | Python | Description |
 |------|-----|--------|-------------|
-| `-m` / `--model` | `-m` (required) | `--model` (required) | Path to `.dxnn` model file |
+| `-m` / `--model` | `-m` | `--model` | Path to `.dxnn` model file (auto-downloaded if missing) |
 | `-i` / `--image` | `-i` | `--image` | Input image file or directory |
 | `-v` / `--video` | `-v` | `--video` | Input video file |
 | `-c` / `--camera` | `-c` | `--camera` | Camera device index |
@@ -133,7 +133,7 @@ All C++ and Python examples share a consistent set of command-line arguments.
 | `--config` | `--config` | `--config` | Model config JSON path (auto-detected if omitted) |
 | `-h` / `--help` | `-h` | `-h` | Show usage |
 
-> **Input Source Rule:** Exactly one of `--image`, `--video`, `--camera`, or `--rtsp` must be specified.
+> **Input Source Rule:** `--image`, `--video`, `--camera`, and `--rtsp` form a mutually exclusive group. If none is specified, a **default sample image** is automatically selected based on the task type.
 
 ### Environment Variables
 
@@ -147,6 +147,14 @@ All C++ and Python examples share a consistent set of command-line arguments.
 ## Advanced Features
 
 DX-APP includes several production-oriented features built into all templates.
+
+### Auto-Download
+
+When running any example (C++ or Python), if the specified model file is not found locally, the runner automatically attempts to download it via `setup_sample_models.sh`. Similarly, if a `--video` file is missing, `setup_sample_videos.sh` is invoked automatically. If the download fails, a clear error message with manual download instructions is displayed.
+
+### Default Input Fallback
+
+If no input source (`--image`, `--video`, `--camera`, `--rtsp`) is provided, the runner automatically selects a **default sample image** appropriate for the task type. A log message indicates which default was applied.
 
 ### Signal Handling
 
@@ -198,7 +206,7 @@ Python runners detect the absence of `DISPLAY`/`WAYLAND_DISPLAY` and skip `cv2.i
 
 These templates provide high-performance, production-ready references for building applications using the DX-RT C++ API.  
 
-The refactored C++ tree is organized by **task → model family → variant**, with a shared `common/` layer providing base interfaces, 44 processors, 24 task-specific runners, 12 visualizers, and input abstraction. Each model directory delegates to `common/` via the factory pattern. For details, refer to [DX-APP C++ Usage Guide](03_DX-APP_CPP_Example_Usage_Guide.md) and [DX-APP Example Source Structure](11_DX-APP_Example_Source_Structure.md).
+The refactored C++ tree is organized by **task → model family → variant**, with a shared `common/` layer providing base interfaces, 45 processors, 24 task-specific runners, 12 visualizers, and input abstraction. Each model directory delegates to `common/` via the factory pattern. For details, refer to [DX-APP C++ Usage Guide](03_DX-APP_CPP_Example_Usage_Guide.md) and [DX-APP Example Source Structure](11_DX-APP_Example_Source_Structure.md).
 
 **Pipeline Architecture**  
 
@@ -349,13 +357,12 @@ Download the required models and sample media files.
 | `--category=<name>` | Download models of a specific category only |
 | `--models <m1> [m2...]` | Download specific models by name |
 | `--no-json` | Skip JSON metadata file downloads |
-| `--manifest=<path>` | Use an alternate manifest JSON file (e.g., for air-gapped environments) |
+| `--manifest=<path>` | Use an alternate manifest JSON file |
 | `--force` | Force overwrite if files already exist |
 | `--verbose` | Enable verbose logging |
 
-- **Models:** Saved to `assets/models/`. By default, an interactive menu lets you select which model categories and models to download. Use `--all` to skip the menu and download everything automatically.  
-- **Media:** Saved to `assets/videos/`.  
-- **Air-gapped environments:** Provide a local manifest JSON via `--manifest=/path/to/manifest.json`.
+- **Models:** Saved to `assets/models/`. By default, an interactive menu lets you select which model categories and models to download. Use `--all` to skip the menu and download everything automatically.
+- **Media:** Saved to `assets/videos/`.
 
 For most users, `./setup.sh` is the only required entry point for asset preparation.
 
@@ -369,6 +376,12 @@ Build the C++ binaries and the Python dx_postprocess bindings simultaneously.
 ./build.sh
 
 ## For a clean rebuild, use: ./build.sh --clean
+
+## Build specific targets only (faster incremental builds)
+./build.sh --target yolov9s_sync yolov9s_async
+
+## List all available build targets
+./build.sh --target list
 ```
 
 - **Output:** Binaries are located in `bin/`, and shared libraries are in their respective build folders.  

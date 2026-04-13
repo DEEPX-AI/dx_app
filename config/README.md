@@ -72,7 +72,7 @@ yolov8n	object_detection	assets/models/YoloV8N.dxnn
 
 | Script | Purpose |
 |---|---|
-| `scripts/run_examples.sh` | Maps each model to its `.dxnn` path and category-specific default input |
+| `scripts/run_examples.sh` | Interactive or CLI execution of examples with per-model performance output |
 | `scripts/bench_models.sh` | Selects models and `.dxnn` paths for benchmarking |
 
 ### Category → Default Input Mapping

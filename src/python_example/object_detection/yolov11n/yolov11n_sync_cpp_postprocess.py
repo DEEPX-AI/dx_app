@@ -32,7 +32,10 @@ def main():
         input_w = runner.input_width
         input_h = runner.input_height
         use_ort = InferenceOption().get_use_ort()
-        runner._cpp_postprocessor = YOLOv11PostProcess(input_w, input_h, 0.3, 0.45, use_ort)
+        config = runner.factory.config
+        score_thr = config.get("score_threshold", 0.3)
+        nms_thr = config.get("nms_threshold", 0.45)
+        runner._cpp_postprocessor = YOLOv11PostProcess(input_w, input_h, score_thr, nms_thr, use_ort)
         runner._cpp_convert_fn = convert_cpp_detections
 
     runner = SyncRunner(factory, on_engine_init=on_engine_init)

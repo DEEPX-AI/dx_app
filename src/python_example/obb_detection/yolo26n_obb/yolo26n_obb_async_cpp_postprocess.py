@@ -31,7 +31,9 @@ def main():
     def on_engine_init(runner):
         input_w = runner.input_width
         input_h = runner.input_height
-        runner._cpp_postprocessor = OBBPostProcess(input_w, input_h, 0.3)
+        config = runner.factory.config
+        score_thr = config.get("score_threshold", 0.3)
+        runner._cpp_postprocessor = OBBPostProcess(input_w, input_h, score_thr)
         runner._cpp_convert_fn = convert_cpp_obb_detections
 
     runner = AsyncRunner(factory, on_engine_init=on_engine_init)

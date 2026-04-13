@@ -43,6 +43,16 @@ public:
 
         CommandLineArgs args = parseCommandLine(argc, argv);
         verbose_ = args.verbose;
+
+        if (verbose_) {
+            std::cout << "[INFO] --verbose: This task produces image-based output. "
+                         "Use --save or display mode to view results." << std::endl;
+        }
+        // Apply default sample image if no input specified
+        if (args.imageFilePath.empty() && args.videoFile.empty() && args.cameraIndex < 0 && args.rtspUrl.empty()) {
+            args.imageFilePath = dxapp::getDefaultSampleImage(factory_->getTaskType());
+            std::cout << "[INFO] No input specified. Using default sample: " << args.imageFilePath << std::endl;
+        }
         validateArguments(args);
 
         std::vector<std::string> imageFiles;
@@ -257,8 +267,21 @@ private:
 
     void validateArguments(const CommandLineArgs& args) {
         if (args.modelPath.empty()) {
-            dxapp::fatal_error("[ERROR] Model path is required. Use -m or --model_path option.");
+            dxapp::fatal_error("[ERROR] Model path is required. Use -m or --model_path option.\n"
+                "        -> Download:  ./setup.sh --models <model_name>\n"
+                "        -> Or use:    ./run_demo.sh  (auto-downloads demo models)");
         }
+        // Auto-download model if not found
+        if (!dxapp::fileExists(args.modelPath)) {
+            if (!dxapp::autoDownloadModel(args.modelPath)) {
+                std::string stem = fs::path(args.modelPath).stem().string();
+                dxapp::fatal_error("[ERROR] Model file not found: " + args.modelPath + "\n"
+                    "        -> Download:  ./setup.sh --models " + stem + "\n"
+                    "        -> Or use:    ./run_demo.sh  (auto-downloads demo models)");
+            }
+            std::cout << "[INFO] Model downloaded successfully: " << args.modelPath << std::endl;
+        }
+
         int sourceCount = 0;
         if (!args.imageFilePath.empty()) sourceCount++;
         if (!args.videoFile.empty()) sourceCount++;
@@ -266,6 +289,24 @@ private:
         if (!args.rtspUrl.empty()) sourceCount++;
         if (sourceCount != 1) {
             dxapp::fatal_error("[ERROR] Please specify exactly one input source.");
+        }
+        // Auto-download video if not found
+        if (!args.videoFile.empty() && !dxapp::fileExists(args.videoFile)) {
+            if (!dxapp::autoDownloadVideos() || !dxapp::fileExists(args.videoFile)) {
+                dxapp::fatal_error("[ERROR] Video file not found: " + args.videoFile + "\n"
+                    "        -> Download videos: ./setup_sample_videos.sh");
+            }
+            std::cout << "[INFO] Video downloaded successfully: " << args.videoFile << std::endl;
+        }
+
+        // Validate that --video is not given an image file
+        if (!args.videoFile.empty()) {
+            std::string ext = fs::path(args.videoFile).extension().string();
+            std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+            if (ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".bmp" || ext == ".tiff") {
+                dxapp::fatal_error("[ERROR] Image file detected for --video (-v) option. "
+                                  "Use --image (-i) for image files.\nUse -h or --help for usage information.");
+            }
         }
     }
 
@@ -365,16 +406,6 @@ private:
         }
         auto t3 = std::chrono::high_resolution_clock::now();
         double t_postprocess = std::chrono::duration<double, std::milli>(t3 - t_post_start).count();
-
-        // Print depth estimation results for pipeline parsing
-        if (!results.empty() && !results[0].depth_map.empty()) {
-            const auto& d = results[0];
-            double mean_val = cv::mean(d.depth_map)[0];
-            if (verbose_) {
-                std::cout << "[DEPTH] " << std::fixed << std::setprecision(2)
-                          << d.min_depth << " " << d.max_depth << " " << mean_val << std::endl;
-            }
-        }
 
 
         // --- Numerical verification dump (DXAPP_VERIFY=1) ---

@@ -9,7 +9,7 @@
 #define RETINAFACE_MOBILENET0_25_640_FACTORY_HPP
 
 #include "common/base/i_factory.hpp"
-#include "common/processors/simple_resize_preprocessor.hpp"
+#include "common/processors/letterbox_preprocessor.hpp"
 #include "common/processors/retinaface_postprocessor.hpp"
 #include "common/visualizers/face_visualizer.hpp"
 #include "common/config/model_config.hpp"
@@ -24,7 +24,7 @@ public:
           nms_threshold_(nms_threshold) {}
 
     PreprocessorPtr createPreprocessor(int input_width, int input_height) override {
-        return std::make_unique<SimpleResizePreprocessor>(input_width, input_height);
+        return std::make_unique<DetectionPreprocessor>(input_width, input_height);
     }
 
     PostprocessorPtr<FaceDetectionResult> createPostprocessor(

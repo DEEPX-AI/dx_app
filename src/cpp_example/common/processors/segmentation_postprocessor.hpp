@@ -83,9 +83,17 @@ public:
 
         std::set<int> unique_classes;
 
-        if (elem_size == 2) {
+        if (elem_size == 8) {
+            // int64 pre-argmaxed (e.g. SegFormer Hailo)
+            fillMaskInt64(static_cast<const int64_t*>(tensor->data()),
+                          C, H, W, seg.mask, unique_classes);
+        } else if (elem_size == 2) {
             fillMaskInt16(static_cast<const int16_t*>(tensor->data()),
                           H, W, seg.mask, unique_classes);
+        } else if (C == 1) {
+            // Single channel float = pre-argmaxed class indices
+            fillMaskSingleChannel(static_cast<const float*>(tensor->data()),
+                                  H, W, seg.mask, unique_classes);
         } else if (do_upsample) {
             fillMaskFloatUpsampled(static_cast<const float*>(tensor->data()),
                                     C, H, W, out_h, out_w, is_nhwc,
@@ -110,6 +118,34 @@ private:
         for (int y = 0; y < H; ++y) {
             for (int x = 0; x < W; ++x) {
                 int cls = static_cast<int>(data[y * W + x]);
+                mask[y * W + x] = cls;
+                unique_classes.insert(cls);
+            }
+        }
+    }
+
+    // Helper: copy int64 argmax-already indices into mask (e.g. SegFormer Hailo)
+    // Shape: [1,1,H,W] or [1,H,W] — single channel containing class indices
+    static void fillMaskInt64(const int64_t* data, int C, int H, int W,
+                              std::vector<int>& mask,
+                              std::set<int>& unique_classes) {
+        const int64_t* p = data;
+        for (int y = 0; y < H; ++y) {
+            for (int x = 0; x < W; ++x) {
+                int cls = static_cast<int>(p[y * W + x]);
+                mask[y * W + x] = cls;
+                unique_classes.insert(cls);
+            }
+        }
+    }
+
+    // Helper: single-channel float → treat as pre-argmaxed class indices
+    static void fillMaskSingleChannel(const float* data, int H, int W,
+                                      std::vector<int>& mask,
+                                      std::set<int>& unique_classes) {
+        for (int y = 0; y < H; ++y) {
+            for (int x = 0; x < W; ++x) {
+                int cls = static_cast<int>(std::round(data[y * W + x]));
                 mask[y * W + x] = cls;
                 unique_classes.insert(cls);
             }
@@ -213,9 +249,9 @@ class YOLOv8SegPostprocessor : public IPostprocessor<InstanceSegmentationResult>
 public:
     YOLOv8SegPostprocessor(int input_width = 640, int input_height = 640,
                            float score_threshold = 0.45f, float nms_threshold = 0.4f,
-                           bool is_ort_configured = false)
+                           bool is_ort_configured = false, int num_classes = 80)
         : impl_(input_width, input_height, score_threshold, nms_threshold,
-                is_ort_configured) {}
+                is_ort_configured, num_classes) {}
 
     std::vector<InstanceSegmentationResult> process(const dxrt::TensorPtrs& outputs,
                                                     const PreprocessContext& ctx) override {

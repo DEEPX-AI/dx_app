@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-DamoYolo Synchronous Inference Example
+Damoyolo_tinynasl25_s Synchronous Inference Example
 """
 
 import sys

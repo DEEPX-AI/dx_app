@@ -1,0 +1,1 @@
+from .yolox_s_2_ppu_factory import Yolox_s_2_ppuFactory

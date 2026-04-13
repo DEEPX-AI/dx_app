@@ -32,6 +32,7 @@ Representative task directories include:
 - `ppu/`
 - `attribute_recognition/`
 - `reid/`
+- `face_alignment/`
 
 For the full repository-level structure, refer to [DX-APP Example Source Structure](11_DX-APP_Example_Source_Structure.md).
 
@@ -47,7 +48,7 @@ The `common/` directory is the engine behind all C++ examples:
 |--------|----------|------|
 | `common/base/` | 4 interfaces (.hpp) | `IFactory`, `IProcessor`, `IVisualizer`, `IInputSource` |
 | `common/config/` | `model_config.hpp` | Loads `config.json` (input size, labels, thresholds) |
-| `common/processors/` | 44 processors | Shared decode logic for all model families |
+| `common/processors/` | 45 processors | Shared decode logic for all model families |
 | `common/runner/` | 24 runner headers | 12 sync + 12 async task-specific runner pairs |
 | `common/inputs/` | 5 source headers | Image, Video, Camera, RTSP input abstraction |
 | `common/visualizers/` | 12 visualizers | Task-specific result rendering |
@@ -139,6 +140,21 @@ Use this variant when you want:
 ./build.sh
 ```
 
+To build only specific targets (faster incremental builds):
+
+```bash
+# Single target
+./build.sh --target yolov9s_sync
+
+# Multiple targets at once
+./build.sh --target yolov9s_sync yolov9s_async resnet50_sync
+
+# List all available targets
+./build.sh --target list
+```
+
+Built binaries are automatically copied to `bin/`.
+
 ### 3. Run a C++ example
 
 ```bash
@@ -154,7 +170,7 @@ All C++ examples use `cxxopts` for argument parsing and share a consistent inter
 
 | Flag | Short | Type | Description |
 |------|-------|------|-------------|
-| `--model_path` | `-m` | string (required) | Path to `.dxnn` model file |
+| `--model_path` | `-m` | string | Path to `.dxnn` model file (auto-downloaded if missing) |
 | `--image_path` | `-i` | string | Input image file or directory |
 | `--video_path` | `-v` | string | Input video file |
 | `--camera_index` | `-c` | int | Camera device index |
@@ -168,11 +184,19 @@ All C++ examples use `cxxopts` for argument parsing and share a consistent inter
 | `--config` | — | string | Model config JSON path (auto-detected if omitted) |
 | `--help` | `-h` | — | Show usage |
 
-> **Input source:** Exactly one of `--image_path`, `--video_path`, `--camera_index`, or `--rtsp_url` must be specified.
+> **Input source:** `--image_path`, `--video_path`, `--camera_index`, and `--rtsp_url` form a mutually exclusive group. If none is specified, a **default sample image** is automatically selected based on the task type.
 
 ---
 
 ## Advanced Features
+
+### Auto-Download
+
+When a specified model file is not found locally, the runner automatically attempts to download it via `setup_sample_models.sh`. If a `--video` file is missing, `setup_sample_videos.sh` is invoked. If the download fails, a clear error message with manual download instructions is displayed.
+
+### Default Input Fallback
+
+If no input source is provided, the runner automatically selects a default sample image appropriate for the task type (e.g., `sample/img/sample_street.jpg` for object detection). A log message indicates which default was applied.
 
 ### Signal Handling
 

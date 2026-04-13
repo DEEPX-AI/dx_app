@@ -163,15 +163,26 @@ std::vector<CenterPoseResult> CenterPosePostProcess::postprocess(
 
     if (outputs.size() < 4) return {};
 
+    // ── 0. Auto-detect K from hps tensor (channel count = K*2) ─────────────
+    // The hps tensor has the largest even channel count > 4 among all tensors.
+    int detected_K = num_keypoints_;
+    for (const auto& t : outputs) {
+        auto sh = t->shape();
+        if (sh.size() < 3) continue;
+        int C = static_cast<int>(sh[sh.size() - 3]);
+        if (C > 4 && C % 2 == 0 && C / 2 > detected_K) {
+            detected_K = C / 2;
+        }
+    }
+    int K  = detected_K;
+    int K2 = K * 2;
+
     // ── 1. Identify tensors by channel count ────────────────────────────────
     dxrt::Tensor* hm_tensor   = nullptr;  // center heatmap   [C, H, W]
     dxrt::Tensor* wh_tensor   = nullptr;  // bbox size        [2, H, W]
     dxrt::Tensor* reg_tensor  = nullptr;  // center offset    [2, H, W]
     dxrt::Tensor* hps_tensor  = nullptr;  // keypoint offsets [K*2, H, W]
     dxrt::Tensor* hmhp_tensor = nullptr;  // kp heatmaps      [K, H, W]
-
-    int K2 = num_keypoints_ * 2;
-    int K  = num_keypoints_;
 
     // Delegate tensor identification to helper
     assign_output_tensors(outputs, K,
@@ -191,6 +202,23 @@ std::vector<CenterPoseResult> CenterPosePostProcess::postprocess(
     size_t hm_total = static_cast<size_t>(C) * H * W;
     std::vector<float> hm_nms(static_cast<const float*>(hm_tensor->data()),
                                static_cast<const float*>(hm_tensor->data()) + hm_total);
+
+    // Auto-detect whether heatmap needs sigmoid.
+    // If any value is outside [0, 1.01], apply sigmoid to convert logits to probabilities.
+    {
+        bool need_sigmoid = false;
+        for (size_t i = 0; i < std::min(hm_total, size_t(1000)); ++i) {
+            if (hm_nms[i] < 0.0f || hm_nms[i] > 1.01f) {
+                need_sigmoid = true;
+                break;
+            }
+        }
+        if (need_sigmoid) {
+            for (size_t i = 0; i < hm_total; ++i) {
+                hm_nms[i] = 1.0f / (1.0f + std::exp(-hm_nms[i]));
+            }
+        }
+    }
 
     // ── 3. Heatmap pseudo-NMS ───────────────────────────────────────────────
     heatmap_nms_inplace(hm_nms, C, H, W);

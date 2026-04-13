@@ -1,0 +1,6 @@
+{
+    "score_threshold": 0.4,
+    "nms_threshold": 0.45,
+    "num_classes": 20,
+    "has_background": true
+}

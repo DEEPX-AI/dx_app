@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-FastDepth Asynchronous Inference Example
+Fastdepth_1 Asynchronous Inference Example
 """
 
 import sys

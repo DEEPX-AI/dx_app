@@ -370,6 +370,42 @@ get_reference_info() {
             CPP_FACTORY_CLASS="Handlandmarklite_1Factory"; CPP_MODEL_CLASS="Handlandmarklite_1"
             PY_FACTORY_CLASS="Handlandmarklite_1Factory" ;;
 
+        # Face 3D (3DDFA_V2) — uses face_alignment runner
+        tddfa)
+            REF_DIR="embedding/arcface_mobilefacenet"; REF_MODEL="arcface_mobilefacenet"
+            CPP_FACTORY_CLASS="ArcFaceFactory"; CPP_MODEL_CLASS="ArcFace"
+            PY_FACTORY_CLASS="Arcface_mobilefacenetFactory" ;;
+
+        # CenterPose — uses pose runner
+        centerpose)
+            REF_DIR="pose_estimation/yolov8s_pose"; REF_MODEL="yolov8s_pose"
+            CPP_FACTORY_CLASS="YOLOv8PoseFactory"; CPP_MODEL_CLASS="YOLOv8Pose"
+            PY_FACTORY_CLASS="Yolov8poseFactory" ;;
+
+        # EfficientDet — uses detection runner
+        efficientdet)
+            REF_DIR="object_detection/yolov8n"; REF_MODEL="yolov8n"
+            CPP_FACTORY_CLASS="YOLOv8Factory"; CPP_MODEL_CLASS="YOLOv8"
+            PY_FACTORY_CLASS="Yolov8Factory" ;;
+
+        # ULFG-FD — uses face detection runner
+        ulfgfd)
+            REF_DIR="face_detection/scrfd500m"; REF_MODEL="scrfd500m"
+            CPP_FACTORY_CLASS="SCRFDFactory"; CPP_MODEL_CLASS="SCRFD"
+            PY_FACTORY_CLASS="ScrfdFactory" ;;
+
+        # CasViT ReID — uses embedding runner
+        casvit)
+            REF_DIR="embedding/arcface_mobilefacenet"; REF_MODEL="arcface_mobilefacenet"
+            CPP_FACTORY_CLASS="ArcFaceFactory"; CPP_MODEL_CLASS="ArcFace"
+            PY_FACTORY_CLASS="Arcface_mobilefacenetFactory" ;;
+
+        # DeepMAR Attribute Recognition — uses classification runner
+        deepmar)
+            REF_DIR="classification/efficientnet_lite0"; REF_MODEL="efficientnet_lite0"
+            CPP_FACTORY_CLASS="EfficientNetFactory"; CPP_MODEL_CLASS="EfficientNet"
+            PY_FACTORY_CLASS="EfficientnetFactory" ;;
+
         *)
             print_error "Unknown postprocessor: $pp"
             print_error "Available: yolov5 yolov7 yolov8 yolov9 yolov10 yolov11 yolov12 yolov26"
@@ -444,6 +480,10 @@ case "$TASK_TYPE" in
                           [ -z "$POSTPROCESSOR" ] && POSTPROCESSOR="clip_image" ;;
     hand_landmark)        [ -z "$CATEGORY" ] && CATEGORY="hand_landmark"
                           [ -z "$POSTPROCESSOR" ] && POSTPROCESSOR="hand_landmark" ;;
+    attribute_recognition) [ -z "$CATEGORY" ] && CATEGORY="attribute_recognition"
+                          [ -z "$POSTPROCESSOR" ] && POSTPROCESSOR="deepmar" ;;
+    reid)                 [ -z "$CATEGORY" ] && CATEGORY="reid"
+                          [ -z "$POSTPROCESSOR" ] && POSTPROCESSOR="casvit" ;;
     *)                    print_error "Invalid task type: $TASK_TYPE"; usage ;;
 esac
 
@@ -912,6 +952,7 @@ def infer_pp(mn, category):
     # Face detection
     if cat == "face_detection":
         if "scrfd" in n: return "scrfd"
+        if "ulfgfd" in n: return "ulfgfd"
         if "yolov7" in n or "yolov5" in n: return "yolov5face"
         return "scrfd"
     # Depth
@@ -925,6 +966,12 @@ def infer_pp(mn, category):
         if "text" in n: return "clip_text"
         if "osnet" in n: return "arcface"
         return "clip_image"
+    # Attribute recognition
+    if cat == "attribute_recognition":  return "deepmar"
+    # ReID
+    if cat == "reid":                  return "casvit"
+    # Face alignment / Face 3D
+    if cat == "face_alignment":         return "tddfa"
     # PPU
     if cat == "ppu":
         if "yolov7" in n: return "yolov7_ppu"
@@ -951,6 +998,9 @@ CAT_TO_TASK = {
     "ppu":                      "ppu",
     "hand_landmark":            "hand_landmark",
     "obb_detection":            "obb",
+    "attribute_recognition":    "classification",
+    "reid":                     "embedding",
+    "face_alignment":           "embedding",
 }
 
 actual_dxnn = {f.name for f in MODELS.glob("*.dxnn")}

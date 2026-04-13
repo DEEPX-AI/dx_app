@@ -56,6 +56,7 @@ src/postprocess/
 ├── deeplabv3/
 ├── depth/
 ├── dncnn/
+├── efficientdet/
 ├── embedding/
 ├── espcn/
 ├── face3d/
@@ -68,6 +69,7 @@ src/postprocess/
 ├── semantic_seg/
 ├── ssd/
 ├── ulfgfd/
+├── yolact/
 ├── yolov5/
 ├── yolov5_ppu/
 ├── yolov5face/
@@ -86,6 +88,8 @@ src/postprocess/
 ├── yolov12/
 ├── yolov26/
 ├── yolox/
+├── yolox_ppu/
+├── yolov3tiny_ppu/
 └── zero_dce/
 ```
 

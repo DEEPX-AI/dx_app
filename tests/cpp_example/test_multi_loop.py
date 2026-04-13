@@ -17,7 +17,7 @@ from typing import List
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from common.utils import setup_environment  # noqa: E402
+from test_helpers.utils import setup_environment  # noqa: E402
 
 from conftest import resolve_bin_dir
 

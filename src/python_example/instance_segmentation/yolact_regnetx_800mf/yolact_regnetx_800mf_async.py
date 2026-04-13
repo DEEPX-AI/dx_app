@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (C) 2018- DEEPX Ltd. All rights reserved.
 """
-Yolov8Seg Asynchronous Inference Example
+Yolact_regnetx_800mf Asynchronous Inference Example
 
 Usage:
     python yolact_regnetx_800mf_async.py --model model.dxnn --video input.mp4

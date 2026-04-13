@@ -151,7 +151,7 @@ function install_opencv() {
         echo " Install opencv dependent library "
         sudo apt -y install libjpeg-dev libtiff5-dev ffmpeg \
              libavcodec-dev libavformat-dev libswscale-dev libxvidcore-dev libavutil-dev \
-             libtbb-dev libeigen3-dev libx264-dev libv4l-dev v4l-utils
+             libtbb-dev libeigen3-dev libx264-dev libv4l-dev v4l-utils fonts-dejavu-core
         
         if apt-cache show libfreetype-dev > /dev/null 2>&1; then
             sudo apt-get install -y libfreetype-dev
@@ -300,6 +300,26 @@ function install_python() {
         exit 1
     fi
 
+    # Install Python runtime dependencies from requirements.txt
+    local REQ_FILE="${DX_APP_PATH}/requirements.txt"
+    if [ -f "${REQ_FILE}" ]; then
+        local PIP_CMD=""
+        if [ -n "${VENV_PATH}" ] && [ -f "${VENV_PATH}/bin/pip" ]; then
+            PIP_CMD="${VENV_PATH}/bin/pip"
+        elif [ -f "${DX_APP_PATH}/.venv/bin/pip" ]; then
+            PIP_CMD="${DX_APP_PATH}/.venv/bin/pip"
+        else
+            PIP_CMD="pip3"
+        fi
+        print_colored "Installing Python dependencies from requirements.txt ..." "INFO"
+        ${PIP_CMD} install -r "${REQ_FILE}"
+        if [ $? -ne 0 ]; then
+            print_colored "Failed to install Python dependencies." "ERROR"
+            exit 1
+        fi
+        print_colored "[OK] Python dependencies installed." "INFO"
+    fi
+
     print_colored "[OK] Completed to setup python" "INFO"
 }
 
@@ -336,7 +356,7 @@ while (( $# )); do
             ENABLE_DEBUG_LOGS=1
             shift # Consume argument
             ;;
-        --help) 
+        -h|--help) 
             help; 
             exit 0
             ;;
@@ -346,6 +366,12 @@ while (( $# )); do
             ;;
     esac
 done
+
+# Default to --all when no relevant install options are specified
+if [ "$install_dep" == false ] && [ "$install_opencv" == false ] && [ "$opencv_source_build" == false ]; then
+    install_dep=true
+    install_opencv=true
+fi
 
 if [ $target_arch == "arm64" ]; then
     target_arch=aarch64

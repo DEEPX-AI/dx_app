@@ -30,7 +30,10 @@ def main():
     def on_engine_init(runner):
         input_w = runner.input_width
         input_h = runner.input_height
-        runner._cpp_postprocessor = RetinaFacePostProcess(input_w, input_h, 0.5, 0.4)
+        config = runner.factory.config
+        score_thr = config.get("score_threshold", 0.5)
+        nms_thr = config.get("nms_threshold", 0.4)
+        runner._cpp_postprocessor = RetinaFacePostProcess(input_w, input_h, score_thr, nms_thr)
         runner._cpp_convert_fn = convert_cpp_face_detections
 
     runner = SyncRunner(factory, on_engine_init=on_engine_init)

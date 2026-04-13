@@ -67,7 +67,7 @@ Before running tests, ensure the environment is prepared.
 
 **For E2E Tests (Additional)**
 
-- **Models**: Run `./setup_sample_models.sh` to populate `assets/models/`. The current setup flow uses the DX-ModelZoo downloader path and can prepare models non-interactively for internal-network environments.
+- **Models**: Run `./setup_sample_models.sh` to populate `assets/models/`.
 - **Test Data**: Ensure images exist in `sample/img/` and videos in `assets/videos/` (Run `./setup_sample_videos.sh`).
 - **Libraries**: Shared libraries must be present in the `lib/` directory.
 

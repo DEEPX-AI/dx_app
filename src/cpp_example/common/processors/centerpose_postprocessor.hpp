@@ -60,10 +60,34 @@ public:
         int H = static_cast<int>(shape[2]);
         int W = static_cast<int>(shape[3]);
 
-        const float* heatmap = static_cast<const float*>((*heatmap_t)->data());
+        const float* heatmap_raw = static_cast<const float*>((*heatmap_t)->data());
         const float* sizes   = static_cast<const float*>((*size_t_ptr)->data());
         const float* offsets = offset_t ? static_cast<const float*>((*offset_t)->data()) : nullptr;
         const float* hps     = hps_t    ? static_cast<const float*>((*hps_t)->data())    : nullptr;
+
+        // Apply sigmoid if heatmap contains raw logits (values outside [0,1])
+        std::vector<float> heatmap_buf;
+        const float* heatmap;
+        bool needs_sigmoid = false;
+        {
+            int total = C * H * W;
+            for (int i = 0; i < std::min(total, 1000); ++i) {
+                if (heatmap_raw[i] < -0.01f || heatmap_raw[i] > 1.01f) {
+                    needs_sigmoid = true;
+                    break;
+                }
+            }
+        }
+        if (needs_sigmoid) {
+            int total = C * H * W;
+            heatmap_buf.resize(total);
+            for (int i = 0; i < total; ++i) {
+                heatmap_buf[i] = 1.0f / (1.0f + std::exp(-heatmap_raw[i]));
+            }
+            heatmap = heatmap_buf.data();
+        } else {
+            heatmap = heatmap_raw;
+        }
 
         auto heatmap_nms = computePseudoNms_(heatmap, C, H, W);
         auto peaks       = extractTopKPeaks_(heatmap_nms, C, H, W);
@@ -132,13 +156,16 @@ private:
 
     struct Peak_ { float score; int cls, y, x; };
 
-    // Categorise outputs: heatmap (C>2), hps (2*K ch), 2-ch tensors → size/offset.
+    // Categorise outputs by channel count.
+    // Tensors: heatmap (C classes, often C=1), hps (2*K ch), hm_hp (K ch),
+    //          size (2 ch), offset (2 ch), hps_offset (2 ch).
     bool identifyTensors_(const dxrt::TensorPtrs& outputs,
                           const dxrt::TensorPtr*& heatmap_t,
                           const dxrt::TensorPtr*& size_t_ptr,
                           const dxrt::TensorPtr*& offset_t,
                           const dxrt::TensorPtr*& hps_t) const {
         std::vector<const dxrt::TensorPtr*> two_ch;
+        const dxrt::TensorPtr* one_ch = nullptr;
         for (auto& t : outputs) {
             auto sh = t->shape();
             if (sh.size() < 3) continue;
@@ -146,8 +173,11 @@ private:
             if      (ch == num_keypoints_ * 2) hps_t     = &t;
             else if (ch == num_keypoints_)     { /* hm_hp – not used in decode */ }
             else if (ch == 2)                  two_ch.push_back(&t);
+            else if (ch == 1)                  one_ch = &t;
             else if (ch > 2)                   heatmap_t = &t;
         }
+        // For single-class models (C=1), heatmap has 1 channel
+        if (!heatmap_t && one_ch) heatmap_t = one_ch;
         if (!heatmap_t) return false;
 
         auto sh = (*heatmap_t)->shape();

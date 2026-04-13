@@ -4,6 +4,10 @@
 #include <cmath>
 #include <iostream>
 
+// C++14 requires out-of-class definitions for static constexpr members that are ODR-used
+constexpr int HandLandmarkPostProcess::NUM_LANDMARKS;
+constexpr int HandLandmarkPostProcess::COORDS_PER_LANDMARK;
+
 HandLandmarkPostProcess::HandLandmarkPostProcess(int input_w, int input_h, float confidence_threshold)
     : input_width_(input_w), input_height_(input_h), confidence_threshold_(confidence_threshold) {}
 

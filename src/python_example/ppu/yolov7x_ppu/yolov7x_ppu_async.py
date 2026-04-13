@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (C) 2018- DEEPX Ltd. All rights reserved.
 """
-YOLOv7X PPU Asynchronous Inference Example
+Yolov7x_ppu Asynchronous Inference Example
 
 Usage:
     python yolov7x_ppu_async.py --model model.dxnn --video input.mp4

@@ -17,31 +17,105 @@ from ..base import IVisualizer
 
 
 class EmbeddingVisualizer(IVisualizer):
-    """Visualizer for embedding models (CLIP, ArcFace)."""
+    """Stateful embedding comparison visualizer.
+
+    First image is captured as a reference. Subsequent calls produce a
+    side-by-side comparison canvas with cosine similarity, matching the
+    demo_embedding_compare / demo_reid_compare output.
+    """
+
+    def __init__(self):
+        self._ref_image = None
+        self._ref_embedding = None
+        self._ref_dim = 0
 
     def visualize(self, image: np.ndarray, results: List[Any]) -> np.ndarray:
-        output = image.copy()
         if not results:
-            return output
+            return image.copy()
 
         result = results[0]
-        emb = result.embedding
-        model_type = result.model_type
+        emb = np.asarray(result.embedding, dtype=np.float32)
 
+        if self._ref_image is None:
+            # First call — store as reference silently (no display)
+            self._ref_image = image.copy()
+            self._ref_embedding = emb
+            self._ref_dim = len(emb)
+            return None
+
+        # Subsequent calls — comparison canvas
+        sim = self._cosine_similarity(self._ref_embedding, emb)
+        return self._make_comparison_canvas(self._ref_image, image, sim,
+                                            self._ref_dim)
+
+    # ---- helpers -----------------------------------------------------------
+
+    @staticmethod
+    def _cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
+        na, nb = np.linalg.norm(a), np.linalg.norm(b)
+        if na < 1e-8 or nb < 1e-8:
+            return 0.0
+        return float(np.dot(a, b) / (na * nb))
+
+    @staticmethod
+    def _fit_to_box(img: np.ndarray, box_w: int,
+                    box_h: int) -> np.ndarray:
+        h, w = img.shape[:2]
+        scale = min(box_w / w, box_h / h)
+        nw, nh = int(w * scale), int(h * scale)
+        return cv2.resize(img, (nw, nh))
+
+    def _make_comparison_canvas(self, ref: np.ndarray, cur: np.ndarray,
+                                similarity: float,
+                                dim: int) -> np.ndarray:
+        # Ensure minimum canvas size for readability
+        MIN_W, MIN_H = 960, 640
+        H = max(cur.shape[0], MIN_H)
+        W = max(cur.shape[1], MIN_W)
+        bar_h = 60
+        gap = 6
+        img_h = H - bar_h
+        half_w = (W - gap) // 2
+
+        canvas = np.zeros((H, W, 3), dtype=np.uint8)
+
+        r1 = self._fit_to_box(ref, half_w, img_h)
+        r2 = self._fit_to_box(cur, half_w, img_h)
+
+        h1, w1 = r1.shape[:2]
+        x1 = (half_w - w1) // 2
+        y1 = (img_h - h1) // 2
+        canvas[y1:y1 + h1, x1:x1 + w1] = r1
+
+        h2, w2 = r2.shape[:2]
+        x2 = half_w + gap + (half_w - w2) // 2
+        y2 = (img_h - h2) // 2
+        canvas[y2:y2 + h2, x2:x2 + w2] = r2
+
+        # Separator
+        sx = half_w + gap // 2
+        cv2.line(canvas, (sx, 0), (sx, img_h), (80, 80, 80), 1)
+
+        # Labels
         font = cv2.FONT_HERSHEY_SIMPLEX
-        y = 30
-        cv2.putText(output, f"Model: {model_type}", (10, y), font, 0.7, (0, 255, 0), 2)
-        y += 30
-        cv2.putText(output, f"Embedding dim: {len(emb)}", (10, y), font, 0.7, (0, 255, 0), 2)
-        y += 30
-        norm = np.linalg.norm(emb)
-        cv2.putText(output, f"L2 norm: {norm:.4f}", (10, y), font, 0.7, (0, 255, 0), 2)
-        y += 30
-        # Show first few values
-        vals = ", ".join([f"{v:.3f}" for v in emb[:5]])
-        cv2.putText(output, f"Values: [{vals}, ...]", (10, y), font, 0.5, (200, 200, 200), 1)
+        cv2.putText(canvas, "Reference", (x1 + 4, y1 + 22),
+                    font, 0.55, (0, 255, 0), 2, cv2.LINE_AA)
+        cv2.putText(canvas, "Current", (x2 + 4, y2 + 22),
+                    font, 0.55, (0, 255, 0), 2, cv2.LINE_AA)
 
-        return output
+        # Bottom bar
+        overlay = canvas.copy()
+        cv2.rectangle(overlay, (0, img_h), (W, H), (0, 0, 0), -1)
+        cv2.addWeighted(overlay, 0.7, canvas, 0.3, 0, canvas)
+
+        match = similarity > 0.4
+        color = (0, 200, 0) if match else (0, 0, 220)
+        label = "SAME" if match else "DIFFERENT"
+        text = f"Cosine Similarity: {similarity:.4f}  [{label}]"
+        cv2.putText(canvas, text, (10, img_h + 35),
+                    font, 0.7, color, 2, cv2.LINE_AA)
+
+        return canvas
 
 
 class SuperResolutionVisualizer(IVisualizer):

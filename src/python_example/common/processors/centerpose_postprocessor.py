@@ -57,6 +57,15 @@ class CenterPosePostprocessor(IPostprocessor):
         if heatmap is None:
             return []
 
+        # Auto-detect num_keypoints from tensor shapes if not explicitly set
+        if hps_tensor is not None and hps_tensor.shape[0] != self.num_keypoints * 2:
+            if hps_tensor.shape[0] % 2 == 0:
+                self.num_keypoints = hps_tensor.shape[0] // 2
+
+        # Apply sigmoid if heatmap values look like raw logits (values outside 0-1)
+        if np.min(heatmap) < -0.1 or np.max(heatmap) > 1.1:
+            heatmap = 1.0 / (1.0 + np.exp(-np.clip(heatmap, -50, 50)))
+
         feat_h, feat_w = heatmap.shape[1], heatmap.shape[2]
         hm_nms = self._heatmap_nms(heatmap)
 
@@ -99,25 +108,24 @@ class CenterPosePostprocessor(IPostprocessor):
         return self._build_pose_results(keep, x1, y1, x2, y2, top_scores, class_ids, keypoints_arr, ctx)
 
     def _classify_multi_ch(self, tensors):
-        """Assign heatmap, hps_tensor, hm_hp_tensor from multi-channel 3-D tensors."""
-        k2, k = self.num_keypoints * 2, self.num_keypoints
+        """Assign heatmap, hps_tensor, hm_hp_tensor from multi-channel 3-D tensors.
+        
+        Strategy: sort by channel count descending. The tensor with most channels
+        is hps (K*2), the second largest is hm_hp (K), and the smallest is heatmap (num_classes).
+        """
+        sorted_by_c = sorted(tensors, key=lambda t: t.shape[0], reverse=True)
         heatmap = hps_tensor = hm_hp_tensor = None
-        for t in tensors:
-            c = t.shape[0]
-            if c == k2 and hps_tensor is None:
-                hps_tensor = t
-            elif c == k and hm_hp_tensor is None:
-                hm_hp_tensor = t
-            elif heatmap is None:
-                heatmap = t
-        if hps_tensor is None:
-            rest = [t for t in tensors if t is not heatmap and t is not hm_hp_tensor]
-            if rest:
-                hps_tensor = max(rest, key=lambda t: t.shape[0])
-        if heatmap is None:
-            rest = [t for t in tensors if t is not hps_tensor and t is not hm_hp_tensor]
-            if rest:
-                heatmap = min(rest, key=lambda t: t.shape[0])
+        
+        if len(sorted_by_c) >= 3:
+            hps_tensor = sorted_by_c[0]    # largest C
+            hm_hp_tensor = sorted_by_c[1]  # second largest
+            heatmap = sorted_by_c[2]       # smallest (num_classes)
+        elif len(sorted_by_c) == 2:
+            hps_tensor = sorted_by_c[0]
+            heatmap = sorted_by_c[1]
+        elif len(sorted_by_c) == 1:
+            heatmap = sorted_by_c[0]
+        
         return heatmap, hps_tensor, hm_hp_tensor
 
     def _classify_2ch(self, two_ch_tensors):
@@ -131,7 +139,15 @@ class CenterPosePostprocessor(IPostprocessor):
 
     def _identify_tensors(self, squeezed):
         """Identify and categorize CenterPose output tensors by channel count."""
-        sorted_t = sorted(squeezed, key=lambda t: t.shape[0] if t.ndim == 3 else 0, reverse=True)
+        # Expand 2D tensors (e.g. squeezed [1,1,H,W] → [H,W]) back to [1,H,W]
+        expanded = []
+        for t in squeezed:
+            if t.ndim == 2:
+                expanded.append(t[np.newaxis, ...])  # [H,W] → [1,H,W]
+            else:
+                expanded.append(t)
+
+        sorted_t = sorted(expanded, key=lambda t: t.shape[0] if t.ndim == 3 else 0, reverse=True)
         two_ch = [t for t in sorted_t if t.ndim == 3 and t.shape[0] == 2]
         multi_ch = [t for t in sorted_t if t.ndim == 3 and t.shape[0] != 2]
         if not multi_ch:

@@ -351,21 +351,24 @@ def convert_cpp_obb_detections(detections: np.ndarray) -> List:
         List of OBBResult
     """
     from ..base import OBBResult
+    from ..processors.obb_postprocessor import DOTAV1_LABELS
 
     results = []
     if detections is None or len(detections) == 0:
         return results
 
     for det in detections:
+        cid = int(det[5])
+        class_name = DOTAV1_LABELS[cid] if 0 <= cid < len(DOTAV1_LABELS) else f"class_{cid}"
         results.append(OBBResult(
             cx=float(det[0]),
             cy=float(det[1]),
             width=float(det[2]),
             height=float(det[3]),
             confidence=float(det[4]),
-            class_id=int(det[5]),
+            class_id=cid,
             angle=float(det[6]),
-            class_name=""
+            class_name=class_name
         ))
 
     return results
@@ -387,6 +390,38 @@ def convert_cpp_embedding(embedding: np.ndarray) -> List:
         return []
 
     return [EmbeddingResult(embedding=embedding)]
+
+
+def convert_cpp_hand_landmark(result_tuple, ctx=None) -> list:
+    """
+    Convert C++ HandLandmarkPostProcess output to HandLandmarkResult list.
+
+    Args:
+        result_tuple: tuple(landmarks[21,3], confidence, handedness) from dx_postprocess.
+        ctx: Optional PreprocessContext for coordinate scaling.
+
+    Returns:
+        List containing a single HandLandmarkResult.
+    """
+    from ..base import HandLandmarkResult
+
+    landmarks, confidence, handedness = result_tuple
+    landmarks = np.asarray(landmarks, dtype=np.float32)
+
+    if landmarks.size == 0:
+        return []
+
+    # Scale normalized [0,1] coords to original image space if context available
+    if ctx is not None:
+        landmarks[:, 0] *= ctx.original_width
+        landmarks[:, 1] *= ctx.original_height
+
+    result = HandLandmarkResult(
+        landmarks=landmarks,
+        confidence=float(confidence),
+        handedness=str(handedness)
+    )
+    return [result]
 
 
 def convert_cpp_zero_dce(image: np.ndarray, ctx=None) -> list:
@@ -422,6 +457,80 @@ def convert_cpp_zero_dce(image: np.ndarray, ctx=None) -> list:
         img = (img * 255.0).astype(np.uint8)
 
     return [EnhancedImageResult(output_image=img)]
+
+
+def convert_cpp_face3d(params: np.ndarray, ctx=None) -> list:
+    """
+    Convert C++ Face3DPostProcess output to FaceAlignmentResult list.
+
+    Uses BFM (Basel Face Model) data to reconstruct 68 facial landmarks
+    from the 62 raw 3DMM parameters output by 3DDFA v2.
+
+    Args:
+        params: numpy array of raw 3DMM parameters (62 floats)
+        ctx: Optional PreprocessContext with original image dimensions.
+
+    Returns:
+        List containing a single FaceAlignmentResult
+    """
+    from ..base import FaceAlignmentResult
+    from ..processors._bfm_data import load_bfm as _load_bfm
+    import math
+
+    if params is None or len(params) == 0:
+        return []
+
+    raw = np.asarray(params, dtype=np.float32).flatten()
+    result = FaceAlignmentResult()
+    result.params = raw
+
+    INPUT_W, INPUT_H = 120, 120
+
+    bfm = _load_bfm()
+
+    # Denormalize
+    p = raw * bfm['param_std'] + bfm['param_mean']
+
+    # Parse affine
+    R_ = p[:12].reshape(3, 4)
+    R = R_[:, :3]
+    offset = R_[:, 3:].reshape(3, 1)
+    alpha_shp = p[12:52].reshape(-1, 1)
+    alpha_exp = p[52:62].reshape(-1, 1)
+
+    # Euler angles
+    sy = float(np.clip(R[2, 0], -1.0, 1.0))
+    pitch = math.asin(sy)
+    cp = math.cos(pitch)
+    if abs(cp) > 1e-6:
+        yaw = math.atan2(float(R[2, 1]) / cp, float(R[2, 2]) / cp)
+        roll = math.atan2(float(R[1, 0]) / cp, float(R[0, 0]) / cp)
+    else:
+        yaw = 0.0
+        roll = math.atan2(float(-R[0, 1]), float(R[1, 1]))
+    result.pose = [math.degrees(yaw), math.degrees(pitch), math.degrees(roll)]
+
+    # Reconstruct 68 landmarks: pts3d = R @ (u + W_shp@a_shp + W_exp@a_exp) + offset
+    shp_deform = np.einsum('ijk,kl->ij', bfm['w_shp_base'], alpha_shp)
+    exp_deform = np.einsum('ijk,kl->ij', bfm['w_exp_base'], alpha_exp)
+    vertices = bfm['u_base'] + shp_deform + exp_deform
+    pts3d = R @ vertices + offset  # (3, 68)
+
+    # y-flip: BFM y-up → image y-down
+    pts3d[0, :] -= 1
+    pts3d[1, :] = INPUT_H - pts3d[1, :]
+
+    ow = ctx.original_width if ctx and hasattr(ctx, 'original_width') and ctx.original_width > 0 else INPUT_W
+    oh = ctx.original_height if ctx and hasattr(ctx, 'original_height') and ctx.original_height > 0 else INPUT_H
+    sx, sy_s = ow / INPUT_W, oh / INPUT_H
+
+    lmks = np.zeros((68, 2), dtype=np.float32)
+    lmks[:, 0] = pts3d[0, :] * sx
+    lmks[:, 1] = pts3d[1, :] * sy_s
+
+    result.landmarks_2d = lmks
+    result.landmarks_3d = np.column_stack([lmks, np.zeros(len(lmks))])
+    return [result]
 
 
 def _apply_le_curves_from_params(params: np.ndarray, ctx) -> list:
