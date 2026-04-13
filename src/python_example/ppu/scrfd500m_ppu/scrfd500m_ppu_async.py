@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (C) 2018- DEEPX Ltd. All rights reserved.
 """
-SCRFD500M PPU Asynchronous Inference Example
+Scrfd500m_ppu Asynchronous Inference Example
 
 Usage:
     python scrfd500m_ppu_async.py --model model.dxnn --video input.mp4

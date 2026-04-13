@@ -30,6 +30,7 @@ Representative task directories include:
 - `ppu/` — PPU-accelerated variants (YOLOv5/v7/v8/v9/v10/v11/v12/SCRFD/Pose)
 - `attribute_recognition/` — Attribute recognition (DeepMAR)
 - `reid/` — Person re-identification (CasViT)
+- `face_alignment/` — Face alignment / 3D landmark (3DDFA v2)
 
 For the full repository-level structure, refer to [DX-APP Example Source Structure](11_DX-APP_Example_Source_Structure.md).
 
@@ -146,7 +147,7 @@ All Python examples use `argparse` via `common/runner/args.py` and share a consi
 
 | Flag | Short | Type | Description |
 |------|-------|------|-------------|
-| `--model` | `-m` | string (required) | Path to `.dxnn` model file |
+| `--model` | `-m` | string | Path to `.dxnn` model file (auto-downloaded if missing) |
 | `--image` | `-i` | string | Input image file or directory |
 | `--video` | `-v` | string | Input video file |
 | `--camera` | `-c` | int | Camera device index |
@@ -161,11 +162,22 @@ All Python examples use `argparse` via `common/runner/args.py` and share a consi
 | `--output` | `-o` | string | Output file path (restoration/depth/SR only) |
 | `--help` | `-h` | — | Show usage |
 
-> **Input source:** `--image`, `--video`, `--camera`, and `--rtsp` form a mutually exclusive group.
+> **Input source:** `--image`, `--video`, `--camera`, and `--rtsp` form a mutually exclusive group. If none is specified, a **default sample image** is automatically selected based on the task type.
 
 ---
 
 ## Advanced Features
+
+### Auto-Download
+
+When a specified model file is not found locally, the runner automatically attempts to download it via `setup_sample_models.sh`. If a `--video` file is missing, `setup_sample_videos.sh` is invoked. If the download fails, a clear error message with manual download instructions is displayed.
+
+### Default Input Fallback
+
+If no input source is provided, the runner automatically selects a default sample image appropriate for the task type (e.g., `sample/img/sample_street.jpg` for object detection). A log message indicates which default was applied:
+```
+[INFO] No input specified. Using default sample: sample/img/sample_street.jpg
+```
 
 ### Signal Handling
 

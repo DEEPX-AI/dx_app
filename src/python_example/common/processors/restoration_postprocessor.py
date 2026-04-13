@@ -45,18 +45,31 @@ class DnCNNPostprocessor(IPostprocessor):
         Returns:
             RestorationResult with denoised image
         """
-        raw = np.squeeze(outputs[0])  # [H, W] or [C, H, W] for color
+        raw = np.squeeze(outputs[0])  # [H, W] or [C, H, W] or [H, W, C] for color
 
-        # CHW → HWC for color models (e.g. dncnn_color_blind outputs [3, H, W])
+        # CHW → HWC for color models, but skip if already HWC (NHWC models like UNet)
         if raw.ndim == 3:
-            raw = np.transpose(raw, (1, 2, 0))
+            if raw.shape[2] <= 4 and raw.shape[0] > 4:
+                pass  # Already HWC (e.g. unet output [256, 256, 3])
+            else:
+                raw = np.transpose(raw, (1, 2, 0))  # CHW → HWC
 
         # Model outputs denoised image directly — use as-is
         denoised = raw
 
-        # Clip and scale to uint8
-        denoised = np.clip(denoised, 0.0, 1.0)
-        denoised_uint8 = (denoised * 255.0).astype(np.uint8)
+        # Normalize to uint8: handle different output value ranges
+        dmin, dmax = float(denoised.min()), float(denoised.max())
+        if dmax - dmin < 1e-6:
+            denoised_uint8 = np.zeros_like(denoised, dtype=np.uint8)
+        elif dmin >= -0.1 and dmax <= 1.1:
+            # [0, 1] range — standard DnCNN output
+            denoised_uint8 = (np.clip(denoised, 0.0, 1.0) * 255.0).astype(np.uint8)
+        elif dmin >= -1.0 and dmax <= 256.0:
+            # Roughly [0, 255] range
+            denoised_uint8 = np.clip(denoised, 0.0, 255.0).astype(np.uint8)
+        else:
+            # Arbitrary range — min-max normalize to [0, 255]
+            denoised_uint8 = ((denoised - dmin) / (dmax - dmin) * 255.0).astype(np.uint8)
 
         return [RestorationResult(output_image=denoised_uint8)]
 

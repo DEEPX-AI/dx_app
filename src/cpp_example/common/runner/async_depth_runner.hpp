@@ -63,6 +63,16 @@ public:
 
         CommandLineArgs args = parseCommandLine(argc, argv);
         verbose_ = args.verbose;
+
+        if (verbose_) {
+            std::cout << "[INFO] --verbose: This task produces image-based output. "
+                         "Use --save or display mode to view results." << std::endl;
+        }
+        // Apply default sample image if no input specified
+        if (args.imageFilePath.empty() && args.videoFile.empty() && args.cameraIndex < 0 && args.rtspUrl.empty()) {
+            args.imageFilePath = dxapp::getDefaultSampleImage(factory_->getTaskType());
+            std::cout << "[INFO] No input specified. Using default sample: " << args.imageFilePath << std::endl;
+        }
         validateArguments(args);
 
         std::vector<std::string> imageFiles;
@@ -179,16 +189,6 @@ public:
             double t_postprocess = std::chrono::duration<double, std::milli>(t_post_end - t_post_start).count();
             { std::lock_guard<std::mutex> lock(metrics_.metrics_mutex); metrics_.sum_postprocess += t_postprocess; }
 
-            // Print depth estimation results for pipeline parsing
-            if (!results.empty() && !results[0].depth_map.empty()) {
-                const auto& d = results[0];
-                double mean_val = cv::mean(d.depth_map)[0];
-                if (verbose_) {
-                    std::cout << "[DEPTH] " << std::fixed << std::setprecision(2)
-                              << d.min_depth << " " << d.max_depth << " " << mean_val << std::endl;
-                }
-            }
-
             auto now = std::chrono::high_resolution_clock::now();
             {
                 std::lock_guard<std::mutex> lock(metrics_.metrics_mutex);
@@ -257,7 +257,7 @@ public:
             last_job_id = ie.RunAsync(buf.data(), user_data);
             buffer_index++;
             processCount++;
-            if (!args.no_display) pollDisplay();
+            if (!args.no_display && !pollDisplay()) return;
         };
 
         if (is_image) {
@@ -277,7 +277,7 @@ public:
                 cv::Mat img = cv::imread(imageFiles[i % imageFiles.size()]);
                 auto t_read_end = std::chrono::high_resolution_clock::now();
                 if (img.empty()) continue;
-                cv::resize(img, display_image, cv::Size(SHOW_WINDOW_SIZE_W, SHOW_WINDOW_SIZE_H));
+                dxapp::displayResize(img, display_image, SHOW_WINDOW_SIZE_W, SHOW_WINDOW_SIZE_H);
                 PreprocessContext ctx;
                 cv::Mat preprocessed;
                 auto t_pre_start = std::chrono::high_resolution_clock::now();
@@ -313,7 +313,7 @@ public:
                 last_job_id = ie.RunAsync(buf.data(), static_cast<void*>(ud.release()));
                 buffer_index++;
                 processCount++;
-                if (!args.no_display) pollDisplay();
+                if (!args.no_display && !pollDisplay()) break;
             }
         } else {
             for (int loop_idx = 0; loop_idx < loopTest && running_ && !g_interrupted(); ++loop_idx) {
@@ -356,7 +356,7 @@ public:
                 inference_done.store(true, std::memory_order_release);
             });
             while (!inference_done.load(std::memory_order_acquire) && running_) {
-                if (!args.no_display) pollDisplay();
+                if (!args.no_display && !pollDisplay()) break;
                 else std::this_thread::sleep_for(std::chrono::milliseconds(10));
             }
             waitThread.join();
@@ -431,13 +431,44 @@ private:
     }
 
     void validateArguments(const CommandLineArgs& args) {
-        if (args.modelPath.empty()) { dxapp::fatal_error("[ERROR] Model path is required."); }
+        if (args.modelPath.empty()) { dxapp::fatal_error("[ERROR] Model path is required. Use -m or --model_path option.\n"
+                "        -> Download:  ./setup.sh --models <model_name>\n"
+                "        -> Or use:    ./run_demo.sh  (auto-downloads demo models)"); }
+        // Auto-download model if not found
+        if (!dxapp::fileExists(args.modelPath)) {
+            if (!dxapp::autoDownloadModel(args.modelPath)) {
+                std::string stem = fs::path(args.modelPath).stem().string();
+                dxapp::fatal_error("[ERROR] Model file not found: " + args.modelPath + "\n"
+                    "        -> Download:  ./setup.sh --models " + stem + "\n"
+                    "        -> Or use:    ./run_demo.sh  (auto-downloads demo models)");
+            }
+            std::cout << "[INFO] Model downloaded successfully: " << args.modelPath << std::endl;
+        }
+
         int sourceCount = 0;
         if (!args.imageFilePath.empty()) sourceCount++;
         if (!args.videoFile.empty()) sourceCount++;
         if (args.cameraIndex >= 0) sourceCount++;
         if (!args.rtspUrl.empty()) sourceCount++;
         if (sourceCount != 1) { dxapp::fatal_error("[ERROR] Please specify exactly one input source."); }
+        // Auto-download video if not found
+        if (!args.videoFile.empty() && !dxapp::fileExists(args.videoFile)) {
+            if (!dxapp::autoDownloadVideos() || !dxapp::fileExists(args.videoFile)) {
+                dxapp::fatal_error("[ERROR] Video file not found: " + args.videoFile + "\n"
+                    "        -> Download videos: ./setup_sample_videos.sh");
+            }
+            std::cout << "[INFO] Video downloaded successfully: " << args.videoFile << std::endl;
+        }
+
+        // Validate that --video is not given an image file
+        if (!args.videoFile.empty()) {
+            std::string ext = fs::path(args.videoFile).extension().string();
+            std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+            if (ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".bmp" || ext == ".tiff") {
+                dxapp::fatal_error("[ERROR] Image file detected for --video (-v) option. "
+                                  "Use --image (-i) for image files.\nUse -h or --help for usage information.");
+            }
+        }
     }
 
     std::pair<std::vector<std::string>, int> processImagePath(const std::string& imageFilePath, int loopTest) {

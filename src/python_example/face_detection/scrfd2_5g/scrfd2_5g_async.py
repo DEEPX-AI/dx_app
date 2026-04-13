@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (C) 2018- DEEPX Ltd. All rights reserved.
 """
-SCRFD Asynchronous Inference Example
+Scrfd2_5g Asynchronous Inference Example
 
 Usage:
     python scrfd2_5g_async.py --model model.dxnn --video input.mp4

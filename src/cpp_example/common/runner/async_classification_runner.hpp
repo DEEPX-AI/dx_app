@@ -64,6 +64,11 @@ public:
 
         CommandLineArgs args = parseCommandLine(argc, argv);
         verbose_ = args.verbose;
+        // Apply default sample image if no input specified
+        if (args.imageFilePath.empty() && args.videoFile.empty() && args.cameraIndex < 0 && args.rtspUrl.empty()) {
+            args.imageFilePath = dxapp::getDefaultSampleImage(factory_->getTaskType());
+            std::cout << "[INFO] No input specified. Using default sample: " << args.imageFilePath << std::endl;
+        }
         validateArguments(args);
 
         std::vector<std::string> imageFiles;
@@ -90,6 +95,8 @@ public:
         auto input_shape = ie.GetInputs().front().shape();
         int input_height, input_width;
         parseInputShape(input_shape, input_width, input_height);
+        bool is_float_input = (ie.GetInputs().front().type() == dxrt::DataType::FLOAT);
+        bool is_nhwc = isInputNHWC(input_shape);
 
         // Load model configuration if provided
         if (!args.configPath.empty()) {
@@ -110,7 +117,9 @@ public:
         std::cout << std::endl;
 
         size_t input_size = ie.GetInputSize();
-        std::vector<std::vector<uint8_t>> input_buffers(ASYNC_BUFFER_SIZE, std::vector<uint8_t>(input_size));
+        // For float models, buffer needs to hold float data (4x larger than uint8)
+        size_t buf_size = is_float_input ? std::max(input_size, static_cast<size_t>(input_width * input_height * 3 * sizeof(float))) : input_size;
+        std::vector<std::vector<uint8_t>> input_buffers(ASYNC_BUFFER_SIZE, std::vector<uint8_t>(buf_size));
 
         cv::VideoCapture video;
         cv::VideoWriter writer;
@@ -186,6 +195,12 @@ public:
 
             // Print classification results for pipeline parsing
             if (!results.empty() && verbose_) {
+                std::cout << "Top predictions:" << std::endl;
+                for (size_t i = 0; i < std::min(size_t(5), results.size()); ++i) {
+                    std::cout << "  " << (i + 1) << ". " << results[i].class_name
+                              << " (class " << results[i].class_id << "): "
+                              << std::fixed << std::setprecision(4) << results[i].confidence << std::endl;
+                }
                 std::cout << "[CLS]";
                 for (const auto& r : results) {
                     std::string cname = dxapp::sanitize_name(r.class_name);
@@ -197,9 +212,6 @@ public:
             auto now = std::chrono::high_resolution_clock::now();
             {
                 std::lock_guard<std::mutex> lock(metrics_.metrics_mutex);
-                // Measure inference time (submit → callback)
-                double t_inf = std::chrono::duration<double, std::milli>(now - ud->submit_ts).count();
-                metrics_.sum_inference += t_inf;
                 metrics_.inflight_current--;
                 if (!metrics_.first_inference) {
                     auto elapsed = std::chrono::duration<double>(now - metrics_.inflight_last_ts).count();
@@ -209,7 +221,6 @@ public:
                 metrics_.infer_last_ts = now;
                 metrics_.infer_completed++;
             }
-            metrics_.notifySlot();
 
             AsyncClassificationDisplayArgs display_args;
             display_args.original_frame = std::make_shared<cv::Mat>(ud->display_frame);
@@ -241,10 +252,14 @@ public:
                 metrics_.sum_preprocess += std::chrono::duration<double, std::milli>(t_pre_end - t_pre_start).count();
             }
             auto& buf = input_buffers[buffer_index % ASYNC_BUFFER_SIZE];
-            std::memcpy(buf.data(), preprocessed.data, preprocessed.total() * preprocessed.elemSize());
-            auto user_data_ptr = std::make_unique<AsyncUserData>(AsyncUserData{display_image.clone(), ctx, std::string(), {}});
+            if (is_float_input && !preprocessed.empty()) {
+                auto float_data = convertToFloatBuffer(preprocessed, is_nhwc);
+                std::memcpy(buf.data(), float_data.data(), float_data.size() * sizeof(float));
+            } else {
+                std::memcpy(buf.data(), preprocessed.data, preprocessed.total() * preprocessed.elemSize());
+            }
+            auto user_data_ptr = std::make_unique<AsyncUserData>(AsyncUserData{display_image.clone(), ctx, std::string()});
             void* user_data = user_data_ptr.release();
-            metrics_.waitForSlot();
             {
                 std::lock_guard<std::mutex> lock(metrics_.metrics_mutex);
                 auto now = std::chrono::high_resolution_clock::now();
@@ -258,11 +273,10 @@ public:
                 metrics_.inflight_current++;
                 if (metrics_.inflight_current > metrics_.inflight_max) metrics_.inflight_max = metrics_.inflight_current;
             }
-            static_cast<AsyncUserData*>(user_data)->submit_ts = std::chrono::high_resolution_clock::now();
             last_job_id = ie.RunAsync(buf.data(), user_data);
             buffer_index++;
             processCount++;
-            if (!args.no_display) pollDisplay();
+            if (!args.no_display && !pollDisplay()) return;
         };
 
         if (is_image) {
@@ -284,13 +298,17 @@ public:
                     metrics_.sum_preprocess += std::chrono::duration<double, std::milli>(t_pre_end - t_pre_start).count();
                 }
                 auto& buf = input_buffers[buffer_index % ASYNC_BUFFER_SIZE];
-                std::memcpy(buf.data(), preprocessed.data, preprocessed.total() * preprocessed.elemSize());
+                if (is_float_input && !preprocessed.empty()) {
+                    auto float_data = convertToFloatBuffer(preprocessed, is_nhwc);
+                    std::memcpy(buf.data(), float_data.data(), float_data.size() * sizeof(float));
+                } else {
+                    std::memcpy(buf.data(), preprocessed.data, preprocessed.total() * preprocessed.elemSize());
+                }
                 std::string save_path;
                 if (!run_dir.empty()) {
                     save_path = dxapp::buildPerImageSavePath(run_dir, factory_->getModelName() + "_async", imageFiles[i % imageFiles.size()], i);
                 }
-                auto ud = std::make_unique<AsyncUserData>(AsyncUserData{display_image.clone(), ctx, std::move(save_path), {}});
-                metrics_.waitForSlot();
+                auto ud = std::make_unique<AsyncUserData>(AsyncUserData{display_image.clone(), ctx, std::move(save_path)});
                 {
                     std::lock_guard<std::mutex> lock(metrics_.metrics_mutex);
                     auto now = std::chrono::high_resolution_clock::now();
@@ -304,11 +322,10 @@ public:
                     metrics_.inflight_current++;
                     if (metrics_.inflight_current > metrics_.inflight_max) metrics_.inflight_max = metrics_.inflight_current;
                 }
-                ud->submit_ts = std::chrono::high_resolution_clock::now();
                 last_job_id = ie.RunAsync(buf.data(), static_cast<void*>(ud.release()));
                 buffer_index++;
                 processCount++;
-                if (!args.no_display) pollDisplay();
+                if (!args.no_display && !pollDisplay()) break;
             }
         } else {
             for (int loop_idx = 0; loop_idx < loopTest && running_ && !g_interrupted(); ++loop_idx) {
@@ -351,7 +368,7 @@ public:
                 inference_done.store(true, std::memory_order_release);
             });
             while (!inference_done.load(std::memory_order_acquire) && running_) {
-                if (!args.no_display) pollDisplay();
+                if (!args.no_display && !pollDisplay()) break;
                 else std::this_thread::sleep_for(std::chrono::milliseconds(10));
             }
             waitThread.join();
@@ -426,13 +443,44 @@ private:
     }
 
     void validateArguments(const CommandLineArgs& args) {
-        if (args.modelPath.empty()) { dxapp::fatal_error("[ERROR] Model path is required."); }
+        if (args.modelPath.empty()) { dxapp::fatal_error("[ERROR] Model path is required. Use -m or --model_path option.\n"
+                "        -> Download:  ./setup.sh --models <model_name>\n"
+                "        -> Or use:    ./run_demo.sh  (auto-downloads demo models)"); }
+        // Auto-download model if not found
+        if (!dxapp::fileExists(args.modelPath)) {
+            if (!dxapp::autoDownloadModel(args.modelPath)) {
+                std::string stem = fs::path(args.modelPath).stem().string();
+                dxapp::fatal_error("[ERROR] Model file not found: " + args.modelPath + "\n"
+                    "        -> Download:  ./setup.sh --models " + stem + "\n"
+                    "        -> Or use:    ./run_demo.sh  (auto-downloads demo models)");
+            }
+            std::cout << "[INFO] Model downloaded successfully: " << args.modelPath << std::endl;
+        }
+
         int sourceCount = 0;
         if (!args.imageFilePath.empty()) sourceCount++;
         if (!args.videoFile.empty()) sourceCount++;
         if (args.cameraIndex >= 0) sourceCount++;
         if (!args.rtspUrl.empty()) sourceCount++;
         if (sourceCount != 1) { dxapp::fatal_error("[ERROR] Please specify exactly one input source."); }
+        // Auto-download video if not found
+        if (!args.videoFile.empty() && !dxapp::fileExists(args.videoFile)) {
+            if (!dxapp::autoDownloadVideos() || !dxapp::fileExists(args.videoFile)) {
+                dxapp::fatal_error("[ERROR] Video file not found: " + args.videoFile + "\n"
+                    "        -> Download videos: ./setup_sample_videos.sh");
+            }
+            std::cout << "[INFO] Video downloaded successfully: " << args.videoFile << std::endl;
+        }
+
+        // Validate that --video is not given an image file
+        if (!args.videoFile.empty()) {
+            std::string ext = fs::path(args.videoFile).extension().string();
+            std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+            if (ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".bmp" || ext == ".tiff") {
+                dxapp::fatal_error("[ERROR] Image file detected for --video (-v) option. "
+                                  "Use --image (-i) for image files.\nUse -h or --help for usage information.");
+            }
+        }
     }
 
     std::pair<std::vector<std::string>, int> processImagePath(const std::string& imageFilePath, int loopTest) {
@@ -480,6 +528,9 @@ private:
             if (!args.save_path.empty() && !result_frame.empty()) {
                 auto t_save_start = std::chrono::high_resolution_clock::now();
                 cv::imwrite(args.save_path, result_frame);
+                if (verbose_) {
+                    std::cout << "\n[INFO] Saved output image: " << fs::absolute(args.save_path).string() << std::endl;
+                }
                 dxapp::saveDebugImage(result_frame);
                 auto t_save_end = std::chrono::high_resolution_clock::now();
                 std::lock_guard<std::mutex> lock(metrics_.metrics_mutex);
@@ -560,8 +611,8 @@ private:
             printRow("Save", avg_save, avg_save > 0 ? 1000.0/avg_save : 0.0);
         }
         std::cout << "--------------------------------------------------" << std::endl;
-        std::cout << " * Async: turnaround latency (submit to callback)" << std::endl;
-        std::cout << "   Throughput measured independently" << std::endl;
+        std::cout << " * Actual throughput via async inference" << std::endl;
+        std::cout << "   Other rows are latency-derived rates" << std::endl;
         std::cout << "--------------------------------------------------" << std::endl;
         std::cout << " " << std::left << std::setw(19) << "Infer Completed" << " :    " << metrics_.infer_completed << std::endl;
         std::cout << " " << std::left << std::setw(19) << "Infer Inflight Avg" << " :    " << std::fixed << std::setprecision(1) << inflight_avg << std::endl;

@@ -3,7 +3,7 @@
 
 Processes 3DMM parameter output from 3DDFA v2 models.
 Output tensor: [1, 62] containing pose/shape/expression parameters.
-Generates 68 2D facial landmarks.
+Reconstructs 68 2D facial landmarks using BFM (Basel Face Model) data.
 """
 
 import numpy as np
@@ -11,6 +11,7 @@ import math
 from typing import List
 
 from ..base import IPostprocessor, PreprocessContext, FaceAlignmentResult
+from ._bfm_data import load_bfm as _load_bfm
 
 
 class TDDFAPostprocessor(IPostprocessor):
@@ -20,37 +21,32 @@ class TDDFAPostprocessor(IPostprocessor):
         self.input_width = input_width
         self.input_height = input_height
         self.config = config or {}
+        self.bfm = _load_bfm()
     
     def process(self, outputs: List[np.ndarray], ctx: PreprocessContext) -> List[FaceAlignmentResult]:
         if not outputs or len(outputs) == 0:
             return []
         
-        params = outputs[0].flatten().astype(np.float32)
+        raw_params = outputs[0].flatten().astype(np.float32)
+        
+        # Denormalize model output
+        params = raw_params * self.bfm['param_std'] + self.bfm['param_mean']
         
         result = FaceAlignmentResult()
-        result.params = params
+        result.params = raw_params
         
-        # Extract pose from first 12 parameters (3x4 affine matrix)
-        if len(params) >= 12:
-            R = params[:12].reshape(3, 4)[:, :3]  # 3x3 rotation
-            
-            # Euler angles from rotation matrix (ZYX convention)
-            pitch = math.asin(-np.clip(R[2, 0], -1.0, 1.0))
-            if abs(R[2, 0]) < 0.99:
-                yaw = math.atan2(R[2, 1], R[2, 2])
-                roll = math.atan2(R[1, 0], R[0, 0])
-            else:
-                yaw = 0.0
-                roll = math.atan2(-R[0, 1], R[1, 1])
-            
-            result.pose = [
-                math.degrees(yaw),
-                math.degrees(pitch),
-                math.degrees(roll)
-            ]
+        # Parse 3DDFA v2 parameters
+        R_ = params[:12].reshape(3, 4)
+        R = R_[:, :3]                              # (3, 3) rotation
+        offset = R_[:, 3:].reshape(3, 1)           # (3, 1) translation
+        alpha_shp = params[12:52].reshape(-1, 1)   # (40, 1) shape
+        alpha_exp = params[52:62].reshape(-1, 1)    # (10, 1) expression
         
-        # Generate 68 2D landmarks
-        lmks_2d = self._generate_68_landmarks(params, ctx)
+        # Extract Euler angles from rotation matrix
+        result.pose = self._extract_pose(R)
+        
+        # Reconstruct 68 landmarks using BFM
+        lmks_2d = self._reconstruct_landmarks(R, offset, alpha_shp, alpha_exp, ctx)
         result.landmarks_2d = lmks_2d
         result.landmarks_3d = np.column_stack([lmks_2d, np.zeros(len(lmks_2d))])
         
@@ -59,79 +55,41 @@ class TDDFAPostprocessor(IPostprocessor):
     def get_model_name(self) -> str:
         return "3DDFA-v2"
     
-    def _generate_68_landmarks(self, params, ctx):
-        """Generate canonical 68 face landmarks scaled to image coordinates."""
-        cx = ctx.original_width * 0.5
-        cy = ctx.original_height * 0.45
-        fw = ctx.original_width * 0.35
-        fh = ctx.original_height * 0.45
+    def _extract_pose(self, R):
+        """Extract yaw, pitch, roll from 3x3 rotation matrix."""
+        sy = float(np.clip(R[2, 0], -1.0, 1.0))
+        pitch = math.asin(sy)
+        cp = math.cos(pitch)
+        if abs(cp) > 1e-6:
+            yaw = math.atan2(float(R[2, 1]) / cp, float(R[2, 2]) / cp)
+            roll = math.atan2(float(R[1, 0]) / cp, float(R[0, 0]) / cp)
+        else:
+            yaw = 0.0
+            roll = math.atan2(float(-R[0, 1]), float(R[1, 1]))
+        return [math.degrees(yaw), math.degrees(pitch), math.degrees(roll)]
+    
+    def _reconstruct_landmarks(self, R, offset, alpha_shp, alpha_exp, ctx):
+        """Reconstruct 68 landmarks using BFM basis: pts3d = R @ (u + W_shp@a_shp + W_exp@a_exp) + offset."""
+        bfm = self.bfm
+        
+        # BFM vertex reconstruction: (3, 68)
+        shp_deform = np.einsum('ijk,kl->ij', bfm['w_shp_base'], alpha_shp)  # (3, 68)
+        exp_deform = np.einsum('ijk,kl->ij', bfm['w_exp_base'], alpha_exp)  # (3, 68)
+        vertices = bfm['u_base'] + shp_deform + exp_deform                  # (3, 68)
+        
+        # Project to 2D: pts3d = R @ vertices + offset
+        pts3d = R @ vertices + offset  # (3, 68)
+        
+        # Convert to image coordinates (y-flip: BFM y-up → image y-down)
+        pts3d[0, :] -= 1  # Python indexing
+        pts3d[1, :] = self.input_height - pts3d[1, :]
+        
+        # Scale from model input space (120x120) to original image
+        sx = ctx.original_width / self.input_width
+        sy = ctx.original_height / self.input_height
         
         lmks = np.zeros((68, 2), dtype=np.float32)
-        
-        # Contour: 0-16
-        for i in range(17):
-            t = i / 16.0
-            angle = -math.pi * 0.85 + t * math.pi * 1.7
-            lmks[i] = [cx + fw * 0.5 * math.cos(angle), cy + fh * 0.5 * math.sin(angle)]
-        
-        # Left eyebrow: 17-21
-        for i in range(5):
-            t = i / 4.0
-            lmks[17 + i] = [cx - fw * 0.35 + t * fw * 0.3, cy - fh * 0.25]
-        
-        # Right eyebrow: 22-26
-        for i in range(5):
-            t = i / 4.0
-            lmks[22 + i] = [cx + fw * 0.05 + t * fw * 0.3, cy - fh * 0.25]
-        
-        # Nose bridge: 27-30
-        for i in range(4):
-            t = i / 3.0
-            lmks[27 + i] = [cx, cy - fh * 0.15 + t * fh * 0.3]
-        
-        # Nose bottom: 31-35
-        for i in range(5):
-            t = i / 4.0
-            lmks[31 + i] = [cx - fw * 0.1 + t * fw * 0.2, cy + fh * 0.1]
-        
-        # Left eye: 36-41
-        for i in range(6):
-            t = i / 5.0
-            angle = t * 2.0 * math.pi
-            lmks[36 + i] = [cx - fw * 0.18 + 0.08 * fw * math.cos(angle),
-                            cy - fh * 0.1 + 0.03 * fh * math.sin(angle)]
-        
-        # Right eye: 42-47
-        for i in range(6):
-            t = i / 5.0
-            angle = t * 2.0 * math.pi
-            lmks[42 + i] = [cx + fw * 0.18 + 0.08 * fw * math.cos(angle),
-                            cy - fh * 0.1 + 0.03 * fh * math.sin(angle)]
-        
-        # Outer lip: 48-59
-        for i in range(12):
-            t = i / 11.0
-            angle = t * 2.0 * math.pi
-            lmks[48 + i] = [cx + 0.15 * fw * math.cos(angle),
-                            cy + fh * 0.25 + 0.06 * fh * math.sin(angle)]
-        
-        # Inner lip: 60-67
-        for i in range(8):
-            t = i / 7.0
-            angle = t * 2.0 * math.pi
-            lmks[60 + i] = [cx + 0.08 * fw * math.cos(angle),
-                            cy + fh * 0.25 + 0.03 * fh * math.sin(angle)]
-        
-        # Apply rotation from params if available
-        if len(params) >= 12:
-            R = params[:12].reshape(3, 4)[:, :3]
-            scale = np.sqrt(R[0, 0]**2 + R[1, 0]**2)
-            if scale > 0.01:
-                cos_a = R[0, 0] / scale
-                sin_a = R[1, 0] / scale
-                dx = lmks[:, 0] - cx
-                dy = lmks[:, 1] - cy
-                lmks[:, 0] = cx + dx * cos_a - dy * sin_a
-                lmks[:, 1] = cy + dx * sin_a + dy * cos_a
+        lmks[:, 0] = pts3d[0, :] * sx
+        lmks[:, 1] = pts3d[1, :] * sy
         
         return lmks

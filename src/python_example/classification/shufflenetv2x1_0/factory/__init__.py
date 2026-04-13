@@ -1,0 +1,1 @@
+from .shufflenetv2x1_0_factory import Shufflenetv2x1_0Factory

@@ -21,7 +21,7 @@ from performance_collector import get_collector, PerformanceMetrics
 
 # -- common module ---------------------------------------------------------
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from common.constants import (  # noqa: E402
+from test_helpers.constants import (  # noqa: E402
     ASSETS_DIR,
     E2E_SHORT_MODELS,
     MODELS_DIR,
@@ -29,7 +29,7 @@ from common.constants import (  # noqa: E402
     PROJECT_ROOT,
     SAMPLE_DIR,
 )
-from common.utils import (  # noqa: E402
+from test_helpers.utils import (  # noqa: E402
     normalize_model_name as _normalize_model_to_exe,
     setup_environment,
 )
@@ -42,7 +42,7 @@ TEST_IMAGE = SAMPLE_DIR / "img" / "sample_kitchen.jpg"
 TEST_VIDEO = ASSETS_DIR / "videos" / "dance-group.mov"
 
 # Multi-model executables expanded with sync/async suffix for E2E test use.
-# The base map lives in common.constants.MULTI_MODEL_EXECUTABLES.
+# The base map lives in test_helpers.constants.MULTI_MODEL_EXECUTABLES.
 _MULTI_MODEL_E2E = {}
 for _base, _pairs in MULTI_MODEL_EXECUTABLES.items():
     _MULTI_MODEL_E2E[f"{_base}_sync"] = _pairs
@@ -141,7 +141,7 @@ DISCOVERED_CASES = discover_test_cases()
 EXECUTABLE_PARAMS = _with_async_sync_marks(DISCOVERED_CASES)
 
 
-# setup_environment() is now imported from common.utils
+# setup_environment() is now imported from test_helpers.utils
 
 
 def parse_fps_from_output(output: str) -> float:

@@ -50,6 +50,18 @@ while [ $# -gt 0 ]; do
             SYMLINK_TARGET="$2"
             shift 2
             ;;
+        --internal)
+            ARGS+=("$1")
+            shift
+            ;;
+        --internal-path=*)
+            ARGS+=("$1")
+            shift
+            ;;
+        --internal-path)
+            ARGS+=("$1" "$2")
+            shift 2
+            ;;
         *)
             ARGS+=("$1")
             shift

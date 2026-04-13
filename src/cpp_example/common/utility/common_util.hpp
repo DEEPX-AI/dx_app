@@ -217,9 +217,14 @@ inline void saveDebugImage(const cv::Mat& frame) {
 inline std::atomic<bool>& g_interrupted();
 
 inline bool windowShouldClose(const std::string& winname = "Output") {
-    int key = cv::waitKey(1);
-    if (key == 'q' || key == 27) {
-        g_interrupted().store(true);
+    try {
+        int key = cv::waitKey(1);
+        if (key == 'q' || key == 27) {
+            g_interrupted().store(true);
+            return true;
+        }
+    } catch (...) {
+        // Qt backend throws if no window exists
         return true;
     }
     // getWindowProperty returns -1 when window was destroyed (user closed),
@@ -230,14 +235,22 @@ inline bool windowShouldClose(const std::string& winname = "Output") {
     static bool prop_supported = true;
     if (!probed) {
         probed = true;
-        double probe = cv::getWindowProperty(winname, cv::WND_PROP_VISIBLE);
-        if (probe < 0.0) {
+        try {
+            double probe = cv::getWindowProperty(winname, cv::WND_PROP_VISIBLE);
+            if (probe < 0.0) {
+                prop_supported = false;
+            }
+        } catch (...) {
             prop_supported = false;
         }
     }
     if (prop_supported) {
-        double visible = cv::getWindowProperty(winname, cv::WND_PROP_VISIBLE);
-        if (visible < 0.0) {
+        try {
+            double visible = cv::getWindowProperty(winname, cv::WND_PROP_VISIBLE);
+            if (visible < 0.0) {
+                return true;
+            }
+        } catch (...) {
             return true;
         }
     }
@@ -291,6 +304,82 @@ inline std::string buildPerImageSavePath(const std::string& runDir,
     fs::path out = model_dir / (stem + std::string("_output.jpg"));
     fs::create_directories(out.parent_path());
     return out.string();
+}
+
+/**
+ * @brief Get default sample image path for a given task type.
+ *
+ * When no input source is specified, returns a bundled sample image
+ * appropriate for the task.
+ */
+inline std::string getDefaultSampleImage(const std::string& taskType) {
+    if (taskType == "object_detection")       return "sample/img/sample_street.jpg";
+    if (taskType == "face_detection")         return "sample/img/sample_face.jpg";
+    if (taskType == "obb_detection")          return "sample/dota8_test/P0284.png";
+    if (taskType == "pose_estimation")        return "sample/img/sample_people.jpg";
+    if (taskType == "hand_landmark")          return "sample/img/sample_hand.jpg";
+    if (taskType == "face_alignment")         return "sample/img/sample_face_a1.jpg";
+    if (taskType == "instance_segmentation")  return "sample/img/sample_street.jpg";
+    if (taskType == "semantic_segmentation")  return "sample/img/sample_parking.jpg";
+    if (taskType == "classification")         return "sample/img/sample_dog.jpg";
+    if (taskType == "depth_estimation")       return "sample/img/sample_parking.jpg";
+    if (taskType == "image_denoising")        return "sample/img/sample_denoising.jpg";
+    if (taskType == "super_resolution")       return "sample/img/sample_superresolution.png";
+    if (taskType == "image_enhancement")      return "sample/img/sample_lowlight.jpg";
+    if (taskType == "embedding")              return "sample/img/face_pair";
+    if (taskType == "attribute_recognition")  return "sample/img/sample_person_a1.jpg";
+    if (taskType == "reid")                   return "sample/img/person_pair";
+    if (taskType == "ppu")                    return "sample/img/sample_street.jpg";
+    return "sample/img/sample_street.jpg";
+}
+
+/**
+ * @brief Get default sample video path for a given task type.
+ *
+ * Returns empty string for image-only tasks (embedding, attribute_recognition, reid).
+ */
+inline std::string getDefaultSampleVideo(const std::string& taskType) {
+    if (taskType == "object_detection")       return "assets/videos/snowboard.mp4";
+    if (taskType == "face_detection")         return "assets/videos/dance-group.mov";
+    if (taskType == "obb_detection")          return "assets/videos/dron-citry-road.mov";
+    if (taskType == "pose_estimation")        return "assets/videos/dance-solo.mov";
+    if (taskType == "hand_landmark")          return "assets/videos/hand.mp4";
+    if (taskType == "face_alignment")         return "assets/videos/face-alignment-closeup.mp4";
+    if (taskType == "instance_segmentation")  return "assets/videos/dogs.mp4";
+    if (taskType == "semantic_segmentation")  return "assets/videos/blackbox-city-road.mp4";
+    if (taskType == "classification")         return "assets/videos/dogs.mp4";
+    if (taskType == "depth_estimation")       return "assets/videos/blackbox-city-road.mp4";
+    if (taskType == "image_denoising")        return "assets/videos/dance-group.mov";
+    if (taskType == "super_resolution")       return "assets/videos/dance-group.mov";
+    if (taskType == "image_enhancement")      return "assets/videos/dance-group.mov";
+    if (taskType == "ppu")                    return "assets/videos/snowboard.mp4";
+    return "";  // image-only tasks (embedding, attribute_recognition, reid)
+}
+
+/**
+ * @brief Attempt to auto-download a missing model via setup_sample_models.sh.
+ * @return true if download succeeded and file now exists.
+ */
+inline bool autoDownloadModel(const std::string& modelPath) {
+    std::string stem = fs::path(modelPath).stem().string();
+    std::string modelsDir = fs::path(modelPath).parent_path().string();
+    if (modelsDir.empty()) modelsDir = "./assets/models";
+    std::cout << "[INFO] Model not found: " << modelPath
+              << " — attempting auto-download..." << std::endl;
+    std::string cmd = "./setup_sample_models.sh --output=" + modelsDir
+                    + " --models " + stem;
+    int ret = std::system(cmd.c_str());
+    return (ret == 0) && fs::exists(modelPath);
+}
+
+/**
+ * @brief Attempt to auto-download sample videos via setup_sample_videos.sh.
+ * @return true if download succeeded.
+ */
+inline bool autoDownloadVideos() {
+    std::cout << "[INFO] Videos not found — attempting auto-download..." << std::endl;
+    int ret = std::system("./setup_sample_videos.sh --output=./assets/videos");
+    return ret == 0;
 }
 
 }  // namespace dxapp

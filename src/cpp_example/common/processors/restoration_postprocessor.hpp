@@ -37,12 +37,22 @@ public:
         const float* data = static_cast<const float*>(output->data());
         if (!data) return {};
 
-        // Determine C, H, W from shape
+        // Determine C, H, W from shape; detect NCHW vs NHWC
         int channels, h, w;
-        if (shape.size() == 4) {        // [1, C, H, W]
-            channels = static_cast<int>(shape[1]);
-            h = static_cast<int>(shape[2]);
-            w = static_cast<int>(shape[3]);
+        bool is_nhwc = false;
+        if (shape.size() == 4) {        // [1, C, H, W] or [1, H, W, C]
+            if (shape[3] <= 4 && shape[1] > 4) {
+                // NHWC: [1, H, W, C] — last dim is small channel count
+                is_nhwc = true;
+                h = static_cast<int>(shape[1]);
+                w = static_cast<int>(shape[2]);
+                channels = static_cast<int>(shape[3]);
+            } else {
+                // NCHW: [1, C, H, W]
+                channels = static_cast<int>(shape[1]);
+                h = static_cast<int>(shape[2]);
+                w = static_cast<int>(shape[3]);
+            }
         } else if (shape.size() == 3) { // [C, H, W] or [1, H, W]
             channels = static_cast<int>(shape[0]);
             h = static_cast<int>(shape[1]);
@@ -80,9 +90,18 @@ public:
             for (int y = 0; y < h; ++y) {
                 for (int x = 0; x < w; ++x) {
                     int idx = y * w + x;
-                    float r = std::max(0.0f, std::min(1.0f, data[0 * hw + idx]));
-                    float g = std::max(0.0f, std::min(1.0f, data[1 * hw + idx]));
-                    float b = std::max(0.0f, std::min(1.0f, data[2 * hw + idx]));
+                    float r, g, b;
+                    if (is_nhwc) {
+                        // NHWC: data[y*w*3 + x*3 + c]
+                        r = std::max(0.0f, std::min(1.0f, data[idx * 3 + 0]));
+                        g = std::max(0.0f, std::min(1.0f, data[idx * 3 + 1]));
+                        b = std::max(0.0f, std::min(1.0f, data[idx * 3 + 2]));
+                    } else {
+                        // NCHW: data[c*H*W + y*W + x]
+                        r = std::max(0.0f, std::min(1.0f, data[0 * hw + idx]));
+                        g = std::max(0.0f, std::min(1.0f, data[1 * hw + idx]));
+                        b = std::max(0.0f, std::min(1.0f, data[2 * hw + idx]));
+                    }
                     float_img.at<cv::Vec3f>(y, x) = cv::Vec3f(b, g, r); // BGR
                 }
             }

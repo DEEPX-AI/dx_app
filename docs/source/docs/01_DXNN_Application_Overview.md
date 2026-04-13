@@ -13,7 +13,7 @@ This chapter provides an overview of the DEEPX SDK architecture and explains eac
 
 **DX-STREAM** is a custom GStreamer plugin that enables real-time streaming data integration into AI inference applications on DEEPX NPU. It provides a modular pipeline framework with configurable elements for preprocessing, inference, and postprocessing, tailored to vision AI work. DX-Stream allows developers to build flexible, high-performance applications for use cases such as video analytics, smart cameras, and edge AI systems.  
 
-**DX-APP** is a collection of runnable example applications that execute compiled models on DEEPX NPUs through DX-RT. It provides examples across 16 AI task categories including classification, object detection, face detection, pose estimation, semantic/instance segmentation, depth estimation, OBB detection, embedding, image denoising, enhancement, super resolution, hand landmark detection, attribute recognition, and person re-identification. The current DX-APP repository is organized around refactored `src/cpp_example/` and `src/python_example/` trees, each with their own shared runtime layer (`common/`) providing base interfaces, processors, runners, visualizers, and utilities via a factory pattern. Additionally, `src/postprocess/` provides C++ post-processing consumed by pybind11 bindings for `*_cpp_postprocess.py` variants. DX-APP is intended both as a quick-start runtime package for users and as a reusable application baseline for further customization. Below are representative run examples.   
+**DX-APP** is a collection of runnable example applications that execute compiled models on DEEPX NPUs through DX-RT. It provides examples across 17 AI task categories including classification, object detection, face detection, pose estimation, semantic/instance segmentation, depth estimation, OBB detection, embedding, image denoising, enhancement, super resolution, hand landmark detection, attribute recognition, person re-identification, and face alignment. The current DX-APP repository is organized around refactored `src/cpp_example/` and `src/python_example/` trees, each with their own shared runtime layer (`common/`) providing base interfaces, processors, runners, visualizers, and utilities via a factory pattern. Additionally, `src/postprocess/` provides C++ post-processing consumed by pybind11 bindings for `*_cpp_postprocess.py` variants. DX-APP is intended both as a quick-start runtime package for users and as a reusable application baseline for further customization. Below are representative run examples.   
 
 ---
 
@@ -39,8 +39,8 @@ You can quickly evaluate inference capabilities without modifying the source cod
 - Output: Top-1 class  
 - Example run  
 ```bash
-./bin/efficientnet_lite0_async -m ./assets/models/EfficientNet_Lite0.dxnn -i ./sample/ILSVRC2012/0.jpeg -l 1
-./bin/efficientnet_lite0_sync  -m ./assets/models/EfficientNet_Lite0.dxnn -i ./sample/ILSVRC2012/0.jpeg -l 1
+./bin/efficientnet_lite0_async -m ./assets/models/EfficientNet_Lite0.dxnn -i ./sample/img/sample_dog.jpg -l 1
+./bin/efficientnet_lite0_sync  -m ./assets/models/EfficientNet_Lite0.dxnn -i ./sample/img/sample_dog.jpg -l 1
 ```
 
 **Object Detection (YOLOv8N)**  

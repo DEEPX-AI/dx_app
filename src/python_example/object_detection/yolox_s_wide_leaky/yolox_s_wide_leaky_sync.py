@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (C) 2018- DEEPX Ltd. All rights reserved.
 """
-YOLOX Synchronous Inference Example
+Yolox_s_wide_leaky Synchronous Inference Example
 
 Usage:
     python yolox_s_wide_leaky_sync.py --model model.dxnn --image input.jpg

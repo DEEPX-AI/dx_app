@@ -34,7 +34,7 @@ src/
 ### Directory roles
 
 - **`src/cpp_example/`**: end-to-end C++ example applications — each model directory contains thin entry-point files that delegate to the shared `common/` layer
-- **`src/cpp_example/common/`**: shared C++ runtime layer — base interfaces (4 hpp), processors (44 hpp), runners (24 hpp), visualizers (12 hpp), input sources (5 hpp), config (1 hpp), and utilities (8 hpp)
+- **`src/cpp_example/common/`**: shared C++ runtime layer — base interfaces (4 hpp), processors (45 hpp), runners (24 hpp), visualizers (12 hpp), input sources (5 hpp), config (1 hpp), and utilities (8 hpp)
 - **`src/python_example/`**: end-to-end Python example applications — same factory-based delegation pattern as C++
 - **`src/python_example/common/`**: shared Python runtime layer — base interfaces (4 py), processors (35 py), runners (5 py), visualizers (10 py), input sources (5 py), config (1 py), and utilities (7 py)
 - **`src/postprocess/`**: C++ post-processing libraries consumed by the **pybind11 bindings** (`src/bindings/`). This enables `*_cpp_postprocess` variants to use C++ decode logic from Python.
@@ -67,6 +67,7 @@ Representative task directories include:
 - `hand_landmark/`
 - `attribute_recognition/`
 - `reid/`
+- `face_alignment/`
 
 This makes it easy to answer both questions below:
 
@@ -170,7 +171,7 @@ Both `cpp_example/` and `python_example/` contain a `common/` directory with the
 |--------|-----|--------|------|
 | `base/` | 4 interfaces (.hpp) | 4 interfaces (.py) | `IFactory`, `IProcessor`, `IVisualizer`, `IInputSource` |
 | `config/` | `model_config.hpp` | `model_config.py` | Loads `config.json` (input size, labels, thresholds) |
-| `processors/` | 44 header files | 35 Python files | Shared processors for all model families |
+| `processors/` | 45 header files | 35 Python files | Shared processors for all model families |
 | `runner/` | 24 runner headers | 5 runner files | Sync/Async execution engines with profiling |
 | `inputs/` | 5 source headers | 5 source files | Image, Video, Camera, RTSP input abstraction |
 | `visualizers/` | 12 visualizer headers | 10 visualizer files | Task-specific result rendering |
@@ -207,7 +208,7 @@ src/cpp_example/common/
 │   └── i_input_source.hpp         #   IInputSource — image/video/camera/RTSP abstraction
 ├── config/
 │   └── model_config.hpp           # ModelConfig — loads config.json
-├── processors/                    # 44 shared processors
+├── processors/                    # 45 shared processors
 │   ├── yolov5_postprocessor.hpp
 │   ├── yolov8_postprocessor.hpp
 │   ├── scrfd_postprocessor.hpp

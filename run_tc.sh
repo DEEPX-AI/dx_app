@@ -5,7 +5,9 @@
 #
 # Runs pytest-based tests for Python and C++ examples.
 # Options: --cli, --e2e, --e2e-quick, --e2e-short, --vis,
-#          --signal, --coverage, --loop <N>
+#          --signal, --coverage, --loop <N>,
+#          --camera, --camera-index <N>, --rtsp, --rtsp-url <URL>,
+#          --stream-duration <N>
 # Scope:   --python, --cpp (default: both)
 #########################################################
 
@@ -28,10 +30,14 @@ PYTHON_E2E_RESULT=-1
 PYTHON_VIS_RESULT=-1
 PYTHON_SIGNAL_RESULT=-1
 PYTHON_COVERAGE_RESULT=-1
+PYTHON_CAMERA_RESULT=-1
+PYTHON_RTSP_RESULT=-1
 CPP_CLI_RESULT=-1
 CPP_E2E_RESULT=-1
 CPP_VIS_RESULT=-1
 CPP_SIGNAL_RESULT=-1
+CPP_CAMERA_RESULT=-1
+CPP_RTSP_RESULT=-1
 
 print_header() {
     echo -e "\n${BLUE}========================================${NC}"
@@ -75,6 +81,13 @@ run_python_tests() {
 
     if [ "$COVERAGE" = true ]; then
         RUN_COVERAGE=true
+    fi
+
+    # Camera/RTSP mode: skip normal CLI/E2E, only run camera/rtsp sections
+    if [ "$CAMERA_MODE" = true ] || [ "$RTSP_MODE" = true ]; then
+        RUN_CLI=false
+        RUN_E2E=false
+        RUN_COVERAGE=false
     fi
 
     # Test selection rules (allow combining CLI + E2E when both flags are set)
@@ -181,6 +194,46 @@ run_python_tests() {
         fi
     fi
 
+    # 5. Camera Tests
+    if [ "$CAMERA_MODE" = true ]; then
+        print_info "Running Python Camera tests (camera-index=${CAMERA_INDEX})..."
+        PYTEST_CAM_CMD=(pytest test_e2e_camera_rtsp.py -m e2e_camera --camera-index "$CAMERA_INDEX" --tb=short -v)
+        if [ "$E2E_SHORT" = true ]; then
+            PYTEST_CAM_CMD=(pytest test_e2e_camera_rtsp.py -m "e2e_camera and e2e_short" --camera-index "$CAMERA_INDEX" --tb=short -v)
+        fi
+        if [ -n "$STREAM_DURATION" ]; then
+            PYTEST_CAM_CMD+=(--stream-duration "$STREAM_DURATION")
+        fi
+        PYTHON_CAMERA_RESULT=0
+        "${PYTEST_CAM_CMD[@]}" || PYTHON_CAMERA_RESULT=$?
+        if [ "$PYTHON_CAMERA_RESULT" -eq 0 ] || [ "$PYTHON_CAMERA_RESULT" -eq 5 ]; then
+            PYTHON_CAMERA_RESULT=0
+            print_success "Python Camera tests passed"
+        else
+            print_error "Python Camera tests failed"
+        fi
+    fi
+
+    # 6. RTSP Tests
+    if [ "$RTSP_MODE" = true ]; then
+        print_info "Running Python RTSP tests (url=${RTSP_URL})..."
+        PYTEST_RTSP_CMD=(pytest test_e2e_camera_rtsp.py -m e2e_rtsp --rtsp-url "$RTSP_URL" --tb=short -v)
+        if [ "$E2E_SHORT" = true ]; then
+            PYTEST_RTSP_CMD=(pytest test_e2e_camera_rtsp.py -m "e2e_rtsp and e2e_short" --rtsp-url "$RTSP_URL" --tb=short -v)
+        fi
+        if [ -n "$STREAM_DURATION" ]; then
+            PYTEST_RTSP_CMD+=(--stream-duration "$STREAM_DURATION")
+        fi
+        PYTHON_RTSP_RESULT=0
+        "${PYTEST_RTSP_CMD[@]}" || PYTHON_RTSP_RESULT=$?
+        if [ "$PYTHON_RTSP_RESULT" -eq 0 ] || [ "$PYTHON_RTSP_RESULT" -eq 5 ]; then
+            PYTHON_RTSP_RESULT=0
+            print_success "Python RTSP tests passed"
+        else
+            print_error "Python RTSP tests failed"
+        fi
+    fi
+
     # 5. Coverage Tests (all tests with coverage)
     if [ "$RUN_COVERAGE" = true ]; then
         print_info "Running Python tests with coverage..."
@@ -220,6 +273,12 @@ run_cpp_tests() {
     RUN_CLI=true
     RUN_E2E=true
     RUN_VIS=false
+
+    # Camera/RTSP mode: skip normal CLI/E2E, only run camera/rtsp sections
+    if [ "$CAMERA_MODE" = true ] || [ "$RTSP_MODE" = true ]; then
+        RUN_CLI=false
+        RUN_E2E=false
+    fi
 
     # Handle test selection flags
     if [ "$VIS_ONLY" = true ]; then
@@ -375,6 +434,46 @@ run_cpp_tests() {
         fi
     fi
 
+    # 5. Camera Tests
+    if [ "$CAMERA_MODE" = true ]; then
+        print_info "Running C++ Camera tests (camera-index=${CAMERA_INDEX})..."
+        PYTEST_CAM_CMD=(pytest test_e2e_camera_rtsp.py -m e2e_camera --camera-index "$CAMERA_INDEX" --tb=short -v)
+        if [ "$E2E_SHORT" = true ]; then
+            PYTEST_CAM_CMD=(pytest test_e2e_camera_rtsp.py -m "e2e_camera and e2e_short" --camera-index "$CAMERA_INDEX" --tb=short -v)
+        fi
+        if [ -n "$STREAM_DURATION" ]; then
+            PYTEST_CAM_CMD+=(--stream-duration "$STREAM_DURATION")
+        fi
+        CPP_CAMERA_RESULT=0
+        "${PYTEST_CAM_CMD[@]}" || CPP_CAMERA_RESULT=$?
+        if [ "$CPP_CAMERA_RESULT" -eq 0 ] || [ "$CPP_CAMERA_RESULT" -eq 5 ]; then
+            CPP_CAMERA_RESULT=0
+            print_success "C++ Camera tests passed"
+        else
+            print_error "C++ Camera tests failed"
+        fi
+    fi
+
+    # 6. RTSP Tests
+    if [ "$RTSP_MODE" = true ]; then
+        print_info "Running C++ RTSP tests (url=${RTSP_URL})..."
+        PYTEST_RTSP_CMD=(pytest test_e2e_camera_rtsp.py -m e2e_rtsp --rtsp-url "$RTSP_URL" --tb=short -v)
+        if [ "$E2E_SHORT" = true ]; then
+            PYTEST_RTSP_CMD=(pytest test_e2e_camera_rtsp.py -m "e2e_rtsp and e2e_short" --rtsp-url "$RTSP_URL" --tb=short -v)
+        fi
+        if [ -n "$STREAM_DURATION" ]; then
+            PYTEST_RTSP_CMD+=(--stream-duration "$STREAM_DURATION")
+        fi
+        CPP_RTSP_RESULT=0
+        "${PYTEST_RTSP_CMD[@]}" || CPP_RTSP_RESULT=$?
+        if [ "$CPP_RTSP_RESULT" -eq 0 ] || [ "$CPP_RTSP_RESULT" -eq 5 ]; then
+            CPP_RTSP_RESULT=0
+            print_success "C++ RTSP tests passed"
+        else
+            print_error "C++ RTSP tests failed"
+        fi
+    fi
+
     cd "${SCRIPT_DIR}"
 }
 
@@ -432,6 +531,24 @@ print_summary() {
             TOTAL_FAILURES=$((TOTAL_FAILURES + PYTHON_COVERAGE_RESULT))
         fi
 
+        if [ $PYTHON_CAMERA_RESULT -eq -1 ]; then
+            echo -e "  Camera Tests: SKIPPED"
+        elif [ $PYTHON_CAMERA_RESULT -eq 0 ]; then
+            print_success "  Camera Tests: PASSED"
+        else
+            print_error "  Camera Tests: FAILED (exit code: $PYTHON_CAMERA_RESULT)"
+            TOTAL_FAILURES=$((TOTAL_FAILURES + PYTHON_CAMERA_RESULT))
+        fi
+
+        if [ $PYTHON_RTSP_RESULT -eq -1 ]; then
+            echo -e "  RTSP Tests: SKIPPED"
+        elif [ $PYTHON_RTSP_RESULT -eq 0 ]; then
+            print_success "  RTSP Tests: PASSED"
+        else
+            print_error "  RTSP Tests: FAILED (exit code: $PYTHON_RTSP_RESULT)"
+            TOTAL_FAILURES=$((TOTAL_FAILURES + PYTHON_RTSP_RESULT))
+        fi
+
         echo ""
     fi
 
@@ -474,6 +591,24 @@ print_summary() {
             TOTAL_FAILURES=$((TOTAL_FAILURES + CPP_SIGNAL_RESULT))
         fi
 
+        if [ $CPP_CAMERA_RESULT -eq -1 ]; then
+            echo -e "  Camera Tests: SKIPPED"
+        elif [ $CPP_CAMERA_RESULT -eq 0 ]; then
+            print_success "  Camera Tests: PASSED"
+        else
+            print_error "  Camera Tests: FAILED (exit code: $CPP_CAMERA_RESULT)"
+            TOTAL_FAILURES=$((TOTAL_FAILURES + CPP_CAMERA_RESULT))
+        fi
+
+        if [ $CPP_RTSP_RESULT -eq -1 ]; then
+            echo -e "  RTSP Tests: SKIPPED"
+        elif [ $CPP_RTSP_RESULT -eq 0 ]; then
+            print_success "  RTSP Tests: PASSED"
+        else
+            print_error "  RTSP Tests: FAILED (exit code: $CPP_RTSP_RESULT)"
+            TOTAL_FAILURES=$((TOTAL_FAILURES + CPP_RTSP_RESULT))
+        fi
+
         echo ""
     fi
 
@@ -498,6 +633,11 @@ E2E_SHORT=false
 LOOP_COUNT=""
 VIS_ONLY=false
 SIGNAL_ONLY=false
+CAMERA_MODE=false
+RTSP_MODE=false
+CAMERA_INDEX=""
+RTSP_URL=""
+STREAM_DURATION=""
 
 usage() {
     echo "Usage: $0 [OPTIONS]"
@@ -512,6 +652,11 @@ usage() {
     echo "  --vis             Run visualization tests (can combine with --python or --cpp)"
     echo "  --signal          Run signal handling tests (SIGINT graceful shutdown)"
     echo "  --coverage        Run all tests with coverage for SonarQube (standalone option)"
+    echo "  --camera          Run camera input inference tests (requires --camera-index)"
+    echo "  --camera-index <N>  Camera device index (e.g., 0)"
+    echo "  --rtsp            Run RTSP input inference tests (requires --rtsp-url)"
+    echo "  --rtsp-url <URL>  RTSP stream URL (e.g., rtsp://192.168.30.100:8554/stream1)"
+    echo "  --stream-duration <N>  Seconds to run each camera/RTSP test (default: 10)"
     echo "  --loop <N>        Override loop count for E2E image tests (default: C++ 50, Python 1)"
     echo "  --quick           Same as --cli"
     echo "  -h, --help        Show this help message"
@@ -532,6 +677,11 @@ usage() {
     echo "  $0 --vis                 # Run Python + C++ visualization tests"
     echo "  $0 --cpp --vis           # Run C++ visualization tests"
     echo "  $0 --signal              # Run signal handling tests"
+    echo "  $0 --camera --camera-index 0                  # Camera tests (all models)"
+    echo "  $0 --cpp --camera --camera-index 0             # C++ camera tests only"
+    echo "  $0 --rtsp --rtsp-url rtsp://host:8554/stream   # RTSP tests (all models)"
+    echo "  $0 --camera --rtsp --camera-index 0 --rtsp-url rtsp://host:8554/stream  # Both"
+    echo "  $0 --camera --camera-index 0 --e2e-short       # Camera tests for representative models"
     echo "  $0 --coverage            # Run all tests with coverage (Python + C++)"
     echo "  $0 --cpp --coverage      # Run C++ tests with coverage"
     echo "  $0 --python --coverage   # Run Python tests with coverage"
@@ -588,6 +738,26 @@ while [[ $# -gt 0 ]]; do
             CLI_ONLY=true  # --quick is same as --cli
             shift
             ;;
+        --camera)
+            CAMERA_MODE=true
+            shift
+            ;;
+        --camera-index)
+            CAMERA_INDEX="$2"
+            shift 2
+            ;;
+        --rtsp)
+            RTSP_MODE=true
+            shift
+            ;;
+        --rtsp-url)
+            RTSP_URL="$2"
+            shift 2
+            ;;
+        --stream-duration)
+            STREAM_DURATION="$2"
+            shift 2
+            ;;
         --loop)
             LOOP_COUNT="$2"
             shift 2
@@ -622,6 +792,18 @@ fi
 # Validate options - allow --cli with --e2e-quick for combined testing
 if [ "$CLI_ONLY" = true ] && [ "$E2E_ONLY" = true ] && [ "$E2E_QUICK" = false ] && [ "$E2E_SHORT" = false ]; then
     print_error "Cannot specify both --cli and --e2e"
+    usage
+    exit 1
+fi
+
+# Validate camera/rtsp options
+if [ "$CAMERA_MODE" = true ] && [ -z "$CAMERA_INDEX" ]; then
+    print_error "--camera requires --camera-index <N>"
+    usage
+    exit 1
+fi
+if [ "$RTSP_MODE" = true ] && [ -z "$RTSP_URL" ]; then
+    print_error "--rtsp requires --rtsp-url <URL>"
     usage
     exit 1
 fi

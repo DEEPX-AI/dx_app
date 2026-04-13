@@ -1,3 +1,38 @@
+## v3.0.5 / 2026-04-07
+
+### 1. Changed
+
+#### Build System Improvements
+- **Multi-target build**: `./build.sh --target name1 name2 ...` now accepts multiple targets in a single invocation with auto-copy to `bin/`
+- **Build acceleration**: Added precompiled headers (PCH), ccache support, and OBJECT library for `common_util.cpp` to speed up full builds
+- **Build directory priority**: `run_examples.sh` now prioritizes `bin/` over stale build directories
+
+#### Demo & Script Updates
+- **`run_examples.sh` interactive mode**: Running with no arguments now launches a 6-stage guided menu (language, category, model filter, sync/async, input type, display/save options) with a configuration summary before execution
+- **`run_examples.sh` performance output**: Each test now displays its full PERFORMANCE SUMMARY table (pipeline latencies, throughput, FPS) to the terminal in addition to saving it to logs
+- **`run_examples.sh` model listing**: Selecting a category in interactive mode shows all available models in that category
+- **`run_examples.sh` case-insensitive filter**: Keyword filter accepts any casing (e.g., `YOLOv5` matches `yolov5`) and shows input examples
+- **`dx_tool.sh run` delegation**: `dx_tool.sh run` with no arguments now delegates directly to `run_examples.sh` interactive mode instead of using a separate menu
+- **`run_demo.sh`**: Added Face Alignment task (3DDFA-V2-MobileNetV1), total 18 demo entries; embedding/reid/attribute tasks now use image pair directories and image-only mode, matching `run_examples.sh` behavior
+- **Face alignment log suppression**: `[ALIGN]` numerical output now only shown with `--show-log`/`--verbose` flag
+- **Sample videos**: Updated tarball reference to `sample_videos_v3.1.0.tar.gz` across all scripts
+
+#### Documentation Update
+- Updated README.md, installation guide, C++ usage guide, and project overview to reflect multi-target build, current sample paths, and demo changes
+
+### 2. Fixed
+
+#### Post-Processing Bug Fixes
+- **YOLACT**: Fixed SSD anchor decode with RetinaNet-style scales and Scale→AR ordering; fixed mask crop indexing
+- **FastSAM**: Fixed instance segmentation threshold and mask processing
+- **UNet**: Fixed semantic segmentation output handling for pre-argmaxed models
+- **DeiT/ViT**: Added HWC→CHW conversion for NCHW classification models
+
+### 3. Added
+- `scripts/dx_tool.sh`: Unified developer tool for run/bench/add/delete/search/validate operations across all 280+ models
+
+---
+
 ## v3.0.4 / 2026-03-27
 
 ### 1. Changed
@@ -53,12 +88,12 @@
 ### 3. Added
 
 #### Shared Runtime Layer (`common/`)
-- **C++ (`src/cpp_example/common/`)**: Base interfaces (`IFactory`, `IProcessor`, `IVisualizer`, `IInputSource`), 44 processors, 24 task-specific sync/async runner pairs, 12 visualizers, input source abstraction, config loader, utility
+- **C++ (`src/cpp_example/common/`)**: Base interfaces (`IFactory`, `IProcessor`, `IVisualizer`, `IInputSource`), 45 processors, 24 task-specific sync/async runner pairs, 12 visualizers, input source abstraction, config loader, utility
 - **Python (`src/python_example/common/`)**: Base interfaces (`IFactory`, `IProcessor`, `IVisualizer`, `IInputSource`), 35 processors, generic `SyncRunner`/`AsyncRunner`, 10 visualizers, input source abstraction, `ModelConfig` loader, utility
 - Both languages share the same 7-module architecture (`base/`, `config/`, `processors/`, `runner/`, `inputs/`, `visualizers/`, `utility/`) and factory-based delegation pattern
 
 #### Model Registry System
-- **`config/model_registry.json`**: centralized registry of 137 models with per-model metadata (task, postprocessor, input dimensions, thresholds)
+- **`config/model_registry.json`**: centralized registry of 280 models with per-model metadata (task, postprocessor, input dimensions, thresholds)
 - **`scripts/add_model.sh`**: registry-driven auto-generation of factory files, config.json, and entry-point scripts (4 variants per model)
 
 #### Numerical Verification Framework

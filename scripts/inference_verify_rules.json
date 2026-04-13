@@ -30,5 +30,13 @@
   },
   "sample/dota8_test/P0284.png": {
     "obb_detection": {"min_detections": 0}
+  },
+  "sample/img/sample_face_a1.jpg": {
+    "embedding": {},
+    "face_alignment": {}
+  },
+  "sample/img/sample_person.jpg": {
+    "attribute_recognition": {},
+    "reid": {}
   }
 }

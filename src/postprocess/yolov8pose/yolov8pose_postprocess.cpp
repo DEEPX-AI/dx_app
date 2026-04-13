@@ -82,6 +82,12 @@ std::vector<YOLOv8PoseResult> YOLOv8PosePostProcess::decode_outputs(
         return {};
     }
 
+    // Determine format by examining feature count:
+    //   56 cols = YOLOv8 pre-NMS  [cx,cy,w,h, score, kp*51]       → kps at col 5, cxcywh
+    //   57 cols = YOLO26 post-NMS [x1,y1,x2,y2, score, cls, kp*51] → kps at col 6, xyxy
+    const bool is_end_to_end = (num_features > 5 + kps_count);  // 57 > 56
+    const int kps_start = is_end_to_end ? 6 : 5;
+
     std::vector<YOLOv8PoseResult> results;
 
     for (int i = 0; i < num_anchors; ++i) {
@@ -99,23 +105,25 @@ std::vector<YOLOv8PoseResult> YOLOv8PosePostProcess::decode_outputs(
 
         if (score < score_threshold_) continue;
 
-        // Bbox: cx, cy, w, h → x1, y1, x2, y2
-        float cx = get_val(0);
-        float cy = get_val(1);
-        float w = get_val(2);
-        float h = get_val(3);
+        // Bbox
+        float v0 = get_val(0);
+        float v1 = get_val(1);
+        float v2 = get_val(2);
+        float v3 = get_val(3);
 
-        std::vector<float> box = {
-            cx - w * 0.5f,
-            cy - h * 0.5f,
-            cx + w * 0.5f,
-            cy + h * 0.5f
-        };
+        std::vector<float> box;
+        if (is_end_to_end) {
+            // YOLO26 post-NMS: [x1, y1, x2, y2] already in xyxy format
+            box = {v0, v1, v2, v3};
+        } else {
+            // YOLOv8 pre-NMS: [cx, cy, w, h] → convert to xyxy
+            box = {v0 - v2 * 0.5f, v1 - v3 * 0.5f, v0 + v2 * 0.5f, v1 + v3 * 0.5f};
+        }
 
-        // Keypoints: 17 * (x, y, conf)
+        // Keypoints: NUM_KEYPOINTS * (x, y, conf) starting at kps_start
         std::vector<float> landmarks(kps_count);
         for (int j = 0; j < kps_count; ++j) {
-            landmarks[j] = get_val(5 + j);
+            landmarks[j] = get_val(kps_start + j);
         }
 
         results.emplace_back(std::move(box), score, std::move(landmarks));

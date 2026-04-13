@@ -1,10 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (C) 2018- DEEPX Ltd. All rights reserved.
 """
-YOLACT-RegNetX Synchronous Inference Example
-
-Uses Python fallback since a YOLACT-specific C++ postprocessor is not available
-in dx_postprocess.
+YOLACT Synchronous Inference Example
 
 Usage:
     python yolact_regnetx_800mf_sync_cpp_postprocess.py --model model.dxnn --image input.jpg
@@ -19,19 +16,27 @@ for _path in [str(_v3_dir), str(_module_dir)]:
     if _path not in sys.path:
         sys.path.insert(0, _path)
 
-from common.processors.cpp_compat import PythonFallbackPostProcess
+from dx_postprocess import YOLACTPostProcess
+from common.utility.visualization import yolov8seg_cpp_visualize
 from factory import Yolact_regnetx_800mfFactory
 from common.runner import SyncRunner, parse_common_args
 
 def parse_args():
-    return parse_common_args("YOLACT-RegNetX Sync Inference")
+    return parse_common_args("YOLACT Sync Inference (C++ Postprocess)")
 def main():
     args = parse_args()
     factory = Yolact_regnetx_800mfFactory()
 
     def on_engine_init(runner):
-        runner._cpp_postprocessor = PythonFallbackPostProcess(runner)
-        runner._cpp_convert_fn = None
+        input_w = runner.input_width
+        input_h = runner.input_height
+        config = runner.factory.config
+        score_thr = config.get("score_threshold", 0.3)
+        nms_thr = config.get("nms_threshold", 0.5)
+        runner._cpp_postprocessor = YOLACTPostProcess(
+            input_w, input_h, score_thr, nms_thr, 80, True
+        )
+        runner._cpp_visualize_fn = yolov8seg_cpp_visualize
 
     runner = SyncRunner(factory, on_engine_init=on_engine_init)
     runner.run(args)

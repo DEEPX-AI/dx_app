@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-SSDMV1 Asynchronous Inference Example
+Ssdmv1 Asynchronous Inference Example
 """
 
 import sys

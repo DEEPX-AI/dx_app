@@ -71,19 +71,28 @@ set(COMMON_COMPILE_FLAGS -Wall -Wextra -O3)
 set(COMMON_COMPILE_DEFINITIONS PROJECT_ROOT_DIR="${PROJECT_ROOT}")
 
 # =============================================================================
-# Common Source Files
+# Common Source Files — build once as OBJECT library instead of per-target
 # =============================================================================
-set(UTILITY_SOURCES
+add_library(dxapp_common_obj OBJECT
     ${PROJECT_ROOT}/src/utility/common_util.cpp
 )
+target_compile_options(dxapp_common_obj PRIVATE ${COMMON_COMPILE_FLAGS})
+target_compile_definitions(dxapp_common_obj PRIVATE ${COMMON_COMPILE_DEFINITIONS})
+target_include_directories(dxapp_common_obj PRIVATE
+    ${OpenCV_INCLUDE_DIRS}
+    ${PROJECT_ROOT}/extern/
+    ${PROJECT_ROOT}/src/utility/
+    ${CPP_EXAMPLE_DIR}
+    ${CPP_EXAMPLE_DIR}/common/processors
+)
 
+# =============================================================================
 # =============================================================================
 # Helper Function to Create Example Executables
 # =============================================================================
 function(add_example TARGET_NAME SOURCE_FILE POSTPROCESS_DIR)
     add_executable(${TARGET_NAME}
         ${SOURCE_FILE}
-        ${UTILITY_SOURCES}
     )
 
     target_compile_options(${TARGET_NAME} PRIVATE ${COMMON_COMPILE_FLAGS})
@@ -94,9 +103,9 @@ function(add_example TARGET_NAME SOURCE_FILE POSTPROCESS_DIR)
 
     if(DXAPP_WITH_SHAREDLIB)
         target_link_directories(${TARGET_NAME} PRIVATE ${PROJECT_ROOT}/lib/)
-        target_link_libraries(${TARGET_NAME} ${COMMON_LIBS})
+        target_link_libraries(${TARGET_NAME} dxapp_common_obj ${COMMON_LIBS})
     else()
-        target_link_libraries(${TARGET_NAME} ${COMMON_LIBS})
+        target_link_libraries(${TARGET_NAME} dxapp_common_obj ${COMMON_LIBS})
     endif()
 endfunction()
 

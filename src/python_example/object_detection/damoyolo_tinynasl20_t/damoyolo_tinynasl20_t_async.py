@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-DamoYolo Asynchronous Inference Example
+Damoyolo_tinynasl20_t Asynchronous Inference Example
 """
 
 import sys

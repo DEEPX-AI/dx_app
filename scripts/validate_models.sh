@@ -74,7 +74,7 @@ Usage:
 Valid task filters:
   all classification detection face_detection instance_segmentation
   semantic_segmentation pose depth image_denoising super_resolution
-  image_enhancement obb embedding ppu hand_landmark
+  image_enhancement obb embedding ppu hand_landmark attribute_recognition reid
 HELPEOF
             exit 0
             ;;
@@ -155,6 +155,8 @@ task_to_category() {
         embedding)               echo "embedding" ;;
         ppu)                     echo "ppu" ;;
         hand_landmark)           echo "hand_landmark" ;;
+        attribute_recognition)   echo "attribute_recognition" ;;
+        reid)                    echo "reid" ;;
         *)                       echo "$1" ;;
     esac
 }
@@ -178,9 +180,11 @@ filter_to_task() {
         embedding)              echo "embedding" ;;
         ppu)                    echo "ppu" ;;
         hand_landmark|hand)     echo "hand_landmark" ;;
+        attribute_recognition|attr) echo "attribute_recognition" ;;
+        reid|re_id)              echo "reid" ;;
         all)                    echo "" ;;
         *)  echo -e "${RED}Unknown filter: $1${NC}" >&2
-            echo "Valid: all|classification|detection|face_detection|instance_segmentation|semantic_segmentation|pose|depth|image_denoising|super_resolution|image_enhancement|obb|embedding|ppu|hand_landmark" >&2
+            echo "Valid: all|classification|detection|face_detection|instance_segmentation|semantic_segmentation|pose|depth|image_denoising|super_resolution|image_enhancement|obb|embedding|ppu|hand_landmark|attribute_recognition|reid" >&2
             exit 1 ;;
     esac
 }
@@ -505,6 +509,8 @@ REFERENCE_DIRS=(
     "ppu/yolov7_ppu"
     "ppu/yolov5pose_ppu"
     "hand_landmark/handlandmarklite_1"
+    "attribute_recognition/deepmar_resnet50"
+    "reid/casvit_s"
 )
 
 is_reference() {

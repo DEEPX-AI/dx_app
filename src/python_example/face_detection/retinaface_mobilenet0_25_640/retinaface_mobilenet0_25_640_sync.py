@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (C) 2018- DEEPX Ltd. All rights reserved.
 """
-SCRFD Synchronous Inference Example
+Retinaface_mobilenet0_25_640 Synchronous Inference Example
 
 Usage:
     python retinaface_mobilenet0_25_640_sync.py --model model.dxnn --image input.jpg

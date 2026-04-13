@@ -90,9 +90,11 @@ CATEGORY_IMAGE=(
     [image_denoising]="sample/img/sample_dark_room.jpg"
     [super_resolution]="sample/img/sample_dark_room.jpg"
     [image_enhancement]="sample/img/sample_dark_room.jpg"
-    [embedding]="sample/img/sample_face.jpg"
+    [embedding]="sample/img/sample_face_a1.jpg"
     [ppu]="sample/img/sample_street.jpg"
     [hand_landmark]="sample/img/sample_people.jpg"
+    [attribute_recognition]="sample/img/sample_person.jpg"
+    [reid]="sample/img/sample_person.jpg"
 )
 CATEGORY_VIDEO=(
     [object_detection]="assets/videos/dance-group.mov"
@@ -108,7 +110,9 @@ CATEGORY_VIDEO=(
     [image_enhancement]="assets/videos/dance-group.mov"
     [embedding]="assets/videos/dance-group.mov"
     [ppu]="assets/videos/dance-group.mov"
-    [hand_landmark]="assets/videos/dance-solo.mov"
+    [hand_landmark]="assets/videos/hand.mp4"
+    [attribute_recognition]="assets/videos/dance-group.mov"
+    [reid]="assets/videos/dance-group.mov"
 )
 CATEGORY_DISPLAY=(
     [object_detection]="Object Detection"
@@ -125,6 +129,8 @@ CATEGORY_DISPLAY=(
     [embedding]="Embedding"
     [ppu]="PPU (Post-Processing Unit)"
     [hand_landmark]="Hand Landmark"
+    [attribute_recognition]="Attribute Recognition"
+    [reid]="Person Re-Identification"
 )
 
 CATEGORY_ORDER=(
@@ -133,6 +139,7 @@ CATEGORY_ORDER=(
     image_denoising super_resolution image_enhancement
     embedding ppu
     hand_landmark
+    attribute_recognition reid
 )
 
 # ============================================================================

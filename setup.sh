@@ -22,6 +22,8 @@ WORKERS_ARG=""
 NO_JSON_ARG=""
 CATEGORY_ARG=""
 MODELS_ARG=""
+INTERNAL_ARG=""
+INTERNAL_PATH_ARG=""
 
 # If the user only asked for downloader help, forward to the inner setup_sample_models helper
 if [ "$#" -eq 1 ]; then
@@ -50,6 +52,9 @@ show_help() {
     print_colored "  [--force]                      Force overwrite if the file already exists" "GREEN"
     print_colored "  [--force-remove-models]        Force remove models if they exist" "GREEN"
     print_colored "  [--force-remove-videos]        Force remove videos if they exist" "GREEN"
+    print_colored "  [--internal]                   Use local mount instead of S3 (internal/air-gapped network)" "GREEN"
+    print_colored "  [--internal-path=<path>]       Local model directory for --internal mode" "GREEN"
+    print_colored "                                 (default: /mnt/regression_storage/atd/models_v3.1.0)" "GREEN"
     print_colored "  [--verbose]                    Enable verbose (debug) logging." "GREEN"
     print_colored "  [--help]                       Show this help message" "GREEN"
 
@@ -77,18 +82,16 @@ while [ $# -gt 0 ]; do
             DOCKER_VOLUME_PATH="$2"
             shift 2
             ;;
-        --source=*)
-            DOWNLOAD_SOURCE="${1#*=}"
-            if [[ "$DOWNLOAD_SOURCE" != "public" && "$DOWNLOAD_SOURCE" != "internal" ]]; then
-                show_help "error" "Invalid --source value '$DOWNLOAD_SOURCE'. Use 'public' or 'internal'."
-            fi
+        --internal)
+            INTERNAL_ARG="--internal"
             shift
             ;;
-        --source)
-            DOWNLOAD_SOURCE="$2"
-            if [[ "$DOWNLOAD_SOURCE" != "public" && "$DOWNLOAD_SOURCE" != "internal" ]]; then
-                show_help "error" "Invalid --source value '$DOWNLOAD_SOURCE'. Use 'public' or 'internal'."
-            fi
+        --internal-path=*)
+            INTERNAL_PATH_ARG="--internal-path=${1#*=}"
+            shift
+            ;;
+        --internal-path)
+            INTERNAL_PATH_ARG="--internal-path=$2"
             shift 2
             ;;
         --all)
@@ -218,6 +221,18 @@ setup_assets() {
     fi
     if [ -n "$MODELS_ARG" ]; then
         SETUP_MODEL_ARGS="$SETUP_MODEL_ARGS $MODELS_ARG"
+    fi
+    if [ -n "$INTERNAL_ARG" ]; then
+        SETUP_MODEL_ARGS="$SETUP_MODEL_ARGS $INTERNAL_ARG"
+    fi
+    if [ -n "$INTERNAL_PATH_ARG" ]; then
+        SETUP_MODEL_ARGS="$SETUP_MODEL_ARGS $INTERNAL_PATH_ARG"
+    fi
+    if [ -n "$INTERNAL_ARG" ]; then
+        SETUP_VIDEO_ARGS="$SETUP_VIDEO_ARGS $INTERNAL_ARG"
+    fi
+    if [ -n "$INTERNAL_PATH_ARG" ]; then
+        SETUP_VIDEO_ARGS="$SETUP_VIDEO_ARGS $INTERNAL_PATH_ARG"
     fi
 
     print_colored " MODEL_PATH: ${MODEL_PATH}" "INFO"

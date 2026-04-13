@@ -3,17 +3,15 @@ EfficientDet Postprocessor
 
 Handles EfficientDet-D0~D6 detection model outputs.
 
-EfficientDet (TF-style post-NMS) outputs 2 tensors:
-  - output[0]: [1, N, 4]   bounding boxes (normalized [ymin, xmin, ymax, xmax])
-  - output[1]: [1, N]      class scores or [1, N, C+1] softmax
+EfficientDet outputs come in different forms:
+  A) TF post-processed: 4 tensors [boxes, classes, scores, num_detections]
+  B) 2-tensor: [boxes, scores] post-NMS
+  C) Multi-output (BiFPN + raw): BiFPN features + anchor regressions + class scores
 
-Auto-detects output format:
-  A) TF post-processed: 2 tensors with boxes and class scores
-  B) SSD-like: 2 tensors with softmax scores and box coordinates
-  C) Multi-output (BiFPN features): attempts best-effort parsing
-
-Coordinates are in [ymin, xmin, ymax, xmax] normalized (0-1) format,
-converted to [x1, y1, x2, y2] pixel coordinates internally.
+For multi-output format, anchor decoding is performed automatically:
+  - Anchors generated for pyramid levels P3-P7
+  - Box regressions decoded relative to anchor centers
+  - NMS applied on decoded boxes
 """
 
 import numpy as np
@@ -39,6 +37,7 @@ class EfficientDetPostprocessor(IPostprocessor):
         self.nms_threshold = self.config.get('nms_threshold', 0.45)
         self.num_classes = self.config.get('num_classes', 90)
         self.has_background = self.config.get('has_background', True)
+        self._anchors = None
 
     def process(self, outputs: List[np.ndarray], ctx: PreprocessContext) -> List[DetectionResult]:
         """
@@ -155,21 +154,149 @@ class EfficientDetPostprocessor(IPostprocessor):
 
     def _process_multi_output(self, outputs: List[np.ndarray], ctx: PreprocessContext) -> List[DetectionResult]:
         """
-        Multi-output (BiFPN feature outputs). Best-effort: look for box-like and score-like tensors.
+        Multi-output format: BiFPN features + box regressions + class scores.
+        Identifies box tensor (last_dim=4) and score tensor, then decodes
+        anchor-based regressions if boxes look like regressions.
         """
         boxes_cand = None
         scores_cand = None
+        scores_2d = None
 
         for t in outputs:
             s = np.squeeze(t)
-            boxes_cand, scores_cand = self._classify_tensor(s, boxes_cand, scores_cand)
+            if s.ndim == 2 and s.shape[-1] == 4 and boxes_cand is None:
+                boxes_cand = s
+            elif s.ndim == 2 and s.shape[-1] > 4 and scores_2d is None:
+                scores_2d = s
+            elif s.ndim == 1 and scores_cand is None:
+                scores_cand = s
 
-        if boxes_cand is not None and scores_cand is not None:
-            n = min(len(boxes_cand), len(scores_cand))
-            return self._decode_results(
-                boxes_cand[:n], scores_cand[:n], None, ctx)
+        if boxes_cand is None:
+            return []
 
-        return []
+        # Parse scores from 2D tensor if no 1D score tensor found
+        if scores_cand is None and scores_2d is not None:
+            if self.has_background and scores_2d.shape[-1] > 1:
+                fg = scores_2d[:, 1:]
+            else:
+                fg = scores_2d
+            scores_cand = np.max(fg, axis=1)
+            class_ids = np.argmax(fg, axis=1)
+        elif scores_cand is not None:
+            class_ids = np.zeros(len(scores_cand), dtype=int)
+        else:
+            return []
+
+        n = min(len(boxes_cand), len(scores_cand))
+        boxes_cand = boxes_cand[:n]
+        scores_cand = scores_cand[:n]
+        class_ids = class_ids[:n]
+
+        # Detect if boxes are anchor regressions vs absolute coordinates
+        # Regressions: small values centered around 0 (95pct < ~5)
+        # Pixel coordinates: values in [0, image_size] range (95pct > 50)
+        box_95pct = np.percentile(np.abs(boxes_cand), 95)
+        median_val = np.median(boxes_cand)
+        image_size = max(self.input_width, self.input_height)
+        if box_95pct < image_size * 0.1 and abs(median_val) < 2.0:
+            return self._decode_anchor_results(boxes_cand, scores_cand, class_ids, ctx)
+
+        return self._decode_results(boxes_cand, scores_cand, class_ids, ctx)
+
+    def _generate_anchors(self, image_size: int):
+        """Generate EfficientDet anchors for pyramid levels P3-P7."""
+        if self._anchors is not None:
+            return self._anchors
+
+        strides = [8, 16, 32, 64, 128]
+        scales = [2 ** 0, 2 ** (1.0 / 3.0), 2 ** (2.0 / 3.0)]
+        ratios = [(1.0, 1.0), (1.4, 0.7), (0.7, 1.4)]
+        anchor_sizes = [32, 64, 128, 256, 512]
+
+        anchors = []
+        for level, stride in enumerate(strides):
+            feat_h = image_size // stride
+            feat_w = image_size // stride
+            base_size = anchor_sizes[level]
+
+            for y in range(feat_h):
+                for x in range(feat_w):
+                    cx = (x + 0.5) * stride
+                    cy = (y + 0.5) * stride
+                    for scale in scales:
+                        for ratio_w, ratio_h in ratios:
+                            w = base_size * scale * ratio_w
+                            h = base_size * scale * ratio_h
+                            anchors.append([cx, cy, w, h])
+
+        self._anchors = np.array(anchors, dtype=np.float32)
+        return self._anchors
+
+    def _decode_anchor_results(self, box_regs: np.ndarray, scores: np.ndarray,
+                                class_ids: np.ndarray, ctx: PreprocessContext) -> List[DetectionResult]:
+        """Decode boxes from anchor regressions [dy, dx, dh, dw]."""
+        image_size = max(self.input_width, self.input_height)
+        anchors = self._generate_anchors(image_size)
+
+        n = min(len(box_regs), len(anchors))
+        box_regs = box_regs[:n]
+        scores = scores[:n]
+        class_ids = class_ids[:n]
+        anchors = anchors[:n]
+
+        # Score filter first (before expensive decode)
+        mask = scores >= self.score_threshold
+        if not np.any(mask):
+            return []
+        box_regs = box_regs[mask]
+        scores = scores[mask]
+        class_ids = class_ids[mask]
+        anchors = anchors[mask]
+
+        # Decode: box_regs format is [dy, dx, dh, dw]
+        a_cx, a_cy, a_w, a_h = anchors[:, 0], anchors[:, 1], anchors[:, 2], anchors[:, 3]
+        dy, dx = box_regs[:, 0], box_regs[:, 1]
+        dh, dw = box_regs[:, 2], box_regs[:, 3]
+
+        pred_cx = a_cx + dx * a_w
+        pred_cy = a_cy + dy * a_h
+        pred_w = a_w * np.exp(np.clip(dw, -10, 10))
+        pred_h = a_h * np.exp(np.clip(dh, -10, 10))
+
+        x1 = pred_cx - pred_w / 2
+        y1 = pred_cy - pred_h / 2
+        x2 = pred_cx + pred_w / 2
+        y2 = pred_cy + pred_h / 2
+
+        boxes_pixel = np.column_stack([x1, y1, x2, y2])
+        boxes_pixel = np.clip(boxes_pixel, 0, image_size)
+
+        # NMS
+        boxes_xywh = np.column_stack([x1, y1, pred_w, pred_h])
+        indices = cv2.dnn.NMSBoxes(
+            boxes_xywh.tolist(), scores.tolist(),
+            self.score_threshold, self.nms_threshold)
+
+        if len(indices) == 0:
+            return []
+        keep = np.array(indices).reshape(-1)
+
+        # Scale to original coordinates
+        if ctx.pad_x == 0 and ctx.pad_y == 0:
+            sx = ctx.original_width / self.input_width
+            sy = ctx.original_height / self.input_height
+        else:
+            sx = sy = None
+
+        results = []
+        for idx in keep:
+            box = self._scale_box(boxes_pixel[idx].copy(), ctx, sx, sy)
+            results.append(DetectionResult(
+                box=[float(box[0]), float(box[1]), float(box[2]), float(box[3])],
+                confidence=float(scores[idx]),
+                class_id=int(class_ids[idx]),
+            ))
+        return results
 
     def _decode_results(self, boxes: np.ndarray, scores: np.ndarray,
                          class_ids, ctx: PreprocessContext) -> List[DetectionResult]:

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-DnCNN Synchronous Inference Example
+Dncnn_25 Synchronous Inference Example
 """
 
 import sys

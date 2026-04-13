@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-FastDepth Synchronous Inference Example
+Fastdepth_1 Synchronous Inference Example
 """
 
 import sys

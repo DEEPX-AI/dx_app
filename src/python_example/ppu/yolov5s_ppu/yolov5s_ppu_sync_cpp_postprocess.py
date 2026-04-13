@@ -31,7 +31,11 @@ def main():
     def on_engine_init(runner):
         input_w = runner.input_width
         input_h = runner.input_height
-        runner._cpp_postprocessor = YOLOv5PPUPostProcess(input_w, input_h, 0.25, 0.3, 0.45)
+        config = runner.factory.config
+        obj_thr = config.get("obj_threshold", 0.25)
+        score_thr = config.get("score_threshold", 0.3)
+        nms_thr = config.get("nms_threshold", 0.45)
+        runner._cpp_postprocessor = YOLOv5PPUPostProcess(input_w, input_h, obj_thr, score_thr, nms_thr)
         runner._cpp_convert_fn = convert_cpp_detections
 
     runner = SyncRunner(factory, on_engine_init=on_engine_init)

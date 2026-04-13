@@ -236,7 +236,6 @@ std::vector<YOLOv5FaceResult> YOLOv5FacePostProcess::decoding_cpu_outputs(
                     result.landmarks.emplace_back(det[6 + kpt * 2]);  // kp_y
                 }
             }
-            detections.push_back(result);
         }
     }
     return detections;

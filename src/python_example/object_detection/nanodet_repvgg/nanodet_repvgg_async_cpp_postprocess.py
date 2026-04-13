@@ -30,8 +30,11 @@ def main():
     def on_engine_init(runner):
         input_w = runner.input_width
         input_h = runner.input_height
+        config = runner.factory.config
+        score_thr = config.get("score_threshold", 0.3)
+        nms_thr = config.get("nms_threshold", 0.45)
         runner._cpp_postprocessor = NanoDetPostProcess(
-            input_w, input_h, 0.3, 0.45, 80, 10
+            input_w, input_h, score_thr, nms_thr, 80, 10
         )
         runner._cpp_convert_fn = convert_cpp_detections
 

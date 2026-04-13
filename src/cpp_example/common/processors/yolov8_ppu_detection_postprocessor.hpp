@@ -134,4 +134,81 @@ private:
     }
 };
 
+// ============================================================================
+// YOLOX PPU — anchor-free detection with grid-based decoding
+//   cx = (tx + grid_x) * stride
+//   cy = (ty + grid_y) * stride
+//   w  = exp(tw) * stride
+//   h  = exp(th) * stride
+// ============================================================================
+class YOLOXPPUPostProcess {
+public:
+    YOLOXPPUPostProcess(int input_w = 640, int input_h = 640,
+                         float score_threshold = 0.25f,
+                         float nms_threshold = 0.45f)
+        : input_width_(input_w), input_height_(input_h),
+          score_threshold_(score_threshold), nms_threshold_(nms_threshold) {}
+
+    std::vector<YOLOv8PPUResult> postprocess(const dxrt::TensorPtrs& outputs) {
+        if (outputs.front()->type() != dxrt::DataType::BBOX) {
+            std::ostringstream msg;
+            msg << "[DXAPP] [ER] YOLOX PPU PostProcess - Tensor type must be BBOX.\n";
+            msg << postprocess_utils::format_tensor_shapes_with_type(outputs);
+            throw std::runtime_error(msg.str());
+        }
+        auto dets = decoding_ppu_outputs(outputs);
+        return apply_nms(dets);
+    }
+
+    void set_thresholds(float score_t, float nms_t) {
+        if (score_t >= 0.f && score_t <= 1.f) score_threshold_ = score_t;
+        if (nms_t >= 0.f && nms_t <= 1.f) nms_threshold_ = nms_t;
+    }
+
+private:
+    int input_width_;
+    int input_height_;
+    float score_threshold_;
+    float nms_threshold_;
+    static constexpr int STRIDES[3] = {8, 16, 32};
+
+    std::vector<YOLOv8PPUResult> decoding_ppu_outputs(const dxrt::TensorPtrs& outputs) const {
+        std::vector<YOLOv8PPUResult> detections;
+        if (outputs.empty() || outputs[0]->shape().size() < 2) return detections;
+
+        auto num_elements = outputs[0]->shape()[1];
+        auto* raw = static_cast<dxrt::DeviceBoundingBox_t*>(outputs[0]->data());
+
+        for (int i = 0; i < num_elements; ++i) {
+            auto& bb = raw[i];
+            if (bb.score < score_threshold_) continue;
+
+            int layer = bb.layer_idx;
+            int stride = (layer < 3) ? STRIDES[layer] : STRIDES[0];
+
+            // YOLOX anchor-free: tx/ty are raw grid offsets, tw/th need exp
+            float cx = (bb.x + static_cast<float>(bb.grid_x)) * stride;
+            float cy = (bb.y + static_cast<float>(bb.grid_y)) * stride;
+            float tw = std::min(bb.w, 10.0f);  // clamp to avoid exp overflow
+            float th = std::min(bb.h, 10.0f);
+            float w = std::exp(tw) * stride;
+            float h = std::exp(th) * stride;
+
+            YOLOv8PPUResult r;
+            r.confidence = bb.score;
+            r.class_id = bb.label;
+            r.class_name = dxapp::common::get_coco_class_name(r.class_id);
+            r.box = {cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2};
+            detections.push_back(std::move(r));
+        }
+        return detections;
+    }
+
+    std::vector<YOLOv8PPUResult> apply_nms(const std::vector<YOLOv8PPUResult>& dets) const {
+        return postprocess_utils::apply_nms(dets, nms_threshold_);
+    }
+};
+
+constexpr int YOLOXPPUPostProcess::STRIDES[3];
+
 #endif  // YOLOV8_PPU_DETECTION_POSTPROCESSOR_HPP

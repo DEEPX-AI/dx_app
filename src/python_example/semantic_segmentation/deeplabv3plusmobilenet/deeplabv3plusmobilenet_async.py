@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (C) 2018- DEEPX Ltd. All rights reserved.
 """
-Deeplabv3 Asynchronous Inference Example
+Deeplabv3plusmobilenet Asynchronous Inference Example
 
 Usage:
     python deeplabv3plusmobilenet_async.py --model model.dxnn --video input.mp4

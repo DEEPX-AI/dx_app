@@ -169,4 +169,17 @@ public:
                {32, {{142,110},{192,243},{459,401}}}}) {}
 };
 
+/**
+ * @brief YOLOv3Tiny PPU postprocess with 2-scale YOLOv3 anchors.
+ *   YOLOv3Tiny uses 2 detection scales (stride 16, 32) with 3 anchors each.
+ */
+class YOLOv3TinyPPUPostProcess : public PPUDetectionPostProcess {
+public:
+    YOLOv3TinyPPUPostProcess(int w = 416, int h = 416,
+                              float obj = 0.25f, float score = 0.25f, float nms = 0.45f)
+        : PPUDetectionPostProcess(w, h, obj, score, nms,
+              {{16, {{10,14},{23,27},{37,58}}},
+               {32, {{81,82},{135,169},{344,319}}}}) {}
+};
+
 #endif  // PPU_DETECTION_POSTPROCESSOR_HPP

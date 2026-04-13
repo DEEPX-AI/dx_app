@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (C) 2018- DEEPX Ltd. All rights reserved.
 """
-Efficientnet Synchronous Inference Example
+Hardnet68 Synchronous Inference Example
 
 Usage:
     python hardnet68_sync.py --model model.dxnn --image input.jpg

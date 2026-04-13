@@ -69,12 +69,47 @@ std::vector<ULFGFDResult> ULFGFDPostProcess::postprocess(const dxrt::TensorPtrs&
     const float* score_ptr = static_cast<const float*>(scores_t->data());
     const float* box_ptr   = static_cast<const float*>(boxes_t->data());
 
-    // Detect whether boxes are normalized [0,1] or already in pixel coords
+    // Detect box format:
+    // 1. Normalized [x1,y1,x2,y2] in [0,1] → max_val <= 2.0, few negatives
+    // 2. Pixel [x1,y1,x2,y2] → max_val > 2.0
+    // 3. SSD deltas [dcx,dcy,dw,dh] → many negative values (anchor offsets)
     float max_box_val = 0.0f;
-    for (int i = 0; i < std::min(n * 4, 20); ++i) {
+    int neg_count = 0;
+    int sample_count = std::min(n * 4, 200);
+    for (int i = 0; i < sample_count; ++i) {
         max_box_val = std::max(max_box_val, std::abs(box_ptr[i]));
+        if (box_ptr[i] < -0.01f) neg_count++;
     }
-    bool normalized = (max_box_val <= 2.0f);
+    bool is_ssd_delta = (neg_count > sample_count / 10);  // >10% negative → likely deltas
+    bool normalized = (!is_ssd_delta && max_box_val <= 2.0f);
+
+    // Generate SSD priors if needed (ULFG 320×240 config)
+    struct Prior { float cx, cy, w, h; };
+    std::vector<Prior> priors;
+    if (is_ssd_delta) {
+        int min_sizes_list[][3] = {{10,16,24}, {32,48,0}, {64,96,0}, {128,192,256}};
+        int min_sizes_count[] = {3, 2, 2, 3};
+        int strides[] = {8, 16, 32, 64};
+        float iw = static_cast<float>(input_width_);
+        float ih = static_cast<float>(input_height_);
+        for (int k = 0; k < 4; ++k) {
+            int fh = static_cast<int>(std::ceil(ih / strides[k]));
+            int fw = static_cast<int>(std::ceil(iw / strides[k]));
+            for (int i = 0; i < fh; ++i) {
+                for (int j = 0; j < fw; ++j) {
+                    for (int s = 0; s < min_sizes_count[k]; ++s) {
+                        float ms = static_cast<float>(min_sizes_list[k][s]);
+                        priors.push_back({
+                            (j + 0.5f) * strides[k] / iw,
+                            (i + 0.5f) * strides[k] / ih,
+                            ms / iw,
+                            ms / ih
+                        });
+                    }
+                }
+            }
+        }
+    }
 
     std::vector<ULFGFDResult> candidates;
     candidates.reserve(top_k_);
@@ -85,7 +120,22 @@ std::vector<ULFGFDResult> ULFGFDPostProcess::postprocess(const dxrt::TensorPtrs&
         if (face_score < score_threshold_) continue;
 
         float bx1, by1, bx2, by2;
-        if (normalized) {
+        if (is_ssd_delta && i < static_cast<int>(priors.size())) {
+            // SSD delta decode with priors
+            float variance0 = 0.1f, variance1 = 0.2f;
+            float dcx = box_ptr[i * 4 + 0];
+            float dcy = box_ptr[i * 4 + 1];
+            float dw  = box_ptr[i * 4 + 2];
+            float dh  = box_ptr[i * 4 + 3];
+            float cx = priors[i].cx + dcx * variance0 * priors[i].w;
+            float cy = priors[i].cy + dcy * variance0 * priors[i].h;
+            float pw = priors[i].w * std::exp(dw * variance1);
+            float ph = priors[i].h * std::exp(dh * variance1);
+            bx1 = (cx - pw * 0.5f) * static_cast<float>(input_width_);
+            by1 = (cy - ph * 0.5f) * static_cast<float>(input_height_);
+            bx2 = (cx + pw * 0.5f) * static_cast<float>(input_width_);
+            by2 = (cy + ph * 0.5f) * static_cast<float>(input_height_);
+        } else if (normalized) {
             bx1 = box_ptr[i * 4 + 0] * static_cast<float>(input_width_);
             by1 = box_ptr[i * 4 + 1] * static_cast<float>(input_height_);
             bx2 = box_ptr[i * 4 + 2] * static_cast<float>(input_width_);

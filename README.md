@@ -79,16 +79,16 @@ The project is structured to separate core logic from language-specific implemen
 ```text
 dx_app/
 ├── src/
-│   ├── cpp_example/            # C++ end-to-end examples (137 models across 16 tasks)
+│   ├── cpp_example/            # C++ end-to-end examples (280 models across 17 tasks)
 │   │   └── common/             # ← Shared C++ runtime layer
 │   │       ├── base/           #   Abstract interfaces (IFactory, IProcessor, ...)
-│   │       ├── processors/     #   44 shared processors (42 post + 2 pre)
+│   │       ├── processors/     #   45 shared processors (42 post + 3 pre)
 │   │       ├── runner/         #   24 task-specific sync/async runner pairs
 │   │       ├── inputs/         #   Image/Video/Camera/RTSP input sources
 │   │       ├── visualizers/    #   12 task-specific visualizers
 │   │       ├── config/         #   ModelConfig loader
 │   │       └── utility/        #   Labels, preprocessing, profiling, run_dir, signal_handler, verify_serialize
-│   ├── python_example/         # Python end-to-end examples (137 models across 16 tasks)
+│   ├── python_example/         # Python end-to-end examples (280 models across 17 tasks)
 │   │   └── common/             # ← Shared Python runtime layer
 │   │       ├── base/           #   Abstract interfaces (IFactory, IProcessor, ...)
 │   │       ├── processors/     #   35 shared post-processors
@@ -169,7 +169,7 @@ All C++ and Python examples share a consistent set of command-line arguments.
 
 | Flag | C++ | Python | Description |
 |------|-----|--------|-------------|
-| `-m` / `--model` | `-m` (required) | `--model` (required) | Path to `.dxnn` model file |
+| `-m` / `--model` | `-m` | `--model` | Path to `.dxnn` model file (auto-downloaded if missing) |
 | `-i` / `--image` | `-i` | `--image` | Input image file or directory |
 | `-v` / `--video` | `-v` | `--video` | Input video file |
 | `-c` / `--camera` | `-c` | `--camera` | Camera device index |
@@ -183,7 +183,7 @@ All C++ and Python examples share a consistent set of command-line arguments.
 | `--config` | `--config` | `--config` | Model config JSON path (auto-detected if omitted) |
 | `-h` / `--help` | `-h` | `-h` | Show usage |
 
-> **Input Source Rule:** Exactly one of `--image`, `--video`, `--camera`, or `--rtsp` must be specified.
+> **Input Source Rule:** `--image`, `--video`, `--camera`, and `--rtsp` form a mutually exclusive group. If none is specified, a **default sample image** is automatically selected based on the task type (e.g., `sample/img/sample_street.jpg` for object detection).
 
 ## Environment Variables
 
@@ -238,6 +238,21 @@ All runners verify:
 
 Incompatible versions produce a clear error message before exit.
 
+## Auto-Download
+
+When running any example (C++ or Python), if the specified model file is not found locally, the runner automatically attempts to download it via `setup_sample_models.sh`. Similarly, if a `--video` file is missing, `setup_sample_videos.sh` is invoked automatically. If the download fails, a clear error message is displayed with manual download instructions.
+
+## Default Input Fallback
+
+If no input source (`--image`, `--video`, `--camera`, `--rtsp`) is provided, the runner automatically selects a **default sample image** appropriate for the task type. For example, object detection tasks default to `sample/img/sample_street.jpg`, face detection to `sample/img/sample_face.jpg`, and so on. A log message indicates which default was applied:
+```
+[INFO] No input specified. Using default sample: sample/img/sample_street.jpg
+```
+This allows the simplest possible execution — just specify the model:
+```bash
+python src/python_example/object_detection/yolov7/yolov7_sync.py --model assets/models/YoloV7.dxnn
+```
+
 ## Headless Mode
 
 Python runners detect the absence of `DISPLAY`/`WAYLAND_DISPLAY` and skip `cv2.imshow()` automatically. Use `--no-display` for explicit headless operation in both C++ and Python.
@@ -248,7 +263,7 @@ Python runners detect the absence of `DISPLAY`/`WAYLAND_DISPLAY` and skip `cv2.i
 
 These templates provide high-performance, production-ready references for building applications using the DX-RT C++ API.  
 
-The refactored C++ tree is organized by **task → model family → variant**, with a shared `common/` layer providing base interfaces, 44 processors, 24 task-specific runners, 12 visualizers, and input abstraction. Each model directory delegates to `common/` via the factory pattern. For details, refer to [DX-APP C++ Usage Guide](./docs/source/docs/03_DX-APP_CPP_Example_Usage_Guide.md) and [DX-APP Example Source Structure](./docs/source/docs/11_DX-APP_Example_Source_Structure.md).
+The refactored C++ tree is organized by **task → model family → variant**, with a shared `common/` layer providing base interfaces, 45 processors, 24 task-specific runners, 12 visualizers, and input abstraction. Each model directory delegates to `common/` via the factory pattern. For details, refer to [DX-APP C++ Usage Guide](./docs/source/docs/03_DX-APP_CPP_Example_Usage_Guide.md) and [DX-APP Example Source Structure](./docs/source/docs/11_DX-APP_Example_Source_Structure.md).
 
 **Pipeline Architecture**  
 
@@ -399,13 +414,12 @@ Download the required models and sample media files.
 | `--category=<name>` | Download models of a specific category only |
 | `--models <m1> [m2...]` | Download specific models by name |
 | `--no-json` | Skip JSON metadata file downloads |
-| `--manifest=<path>` | Use an alternate manifest JSON file (e.g., for air-gapped environments) |
+| `--manifest=<path>` | Use an alternate manifest JSON file |
 | `--force` | Force overwrite if files already exist |
 | `--verbose` | Enable verbose logging |
 
-- **Models:** Saved to `assets/models/`. By default, an interactive menu lets you select which model categories and models to download. Use `--all` to skip the menu and download everything automatically.  
-- **Media:** Saved to `assets/videos/`.  
-- **Air-gapped environments:** Provide a local manifest JSON via `--manifest=/path/to/manifest.json`.
+- **Models:** Saved to `assets/models/`. By default, an interactive menu lets you select which model categories and models to download. Use `--all` to skip the menu and download everything automatically.
+- **Media:** Saved to `assets/videos/`.
 
 For most users, `./setup.sh` is the only required entry point for asset preparation.
 
@@ -419,13 +433,19 @@ Build the C++ binaries and the Python dx_postprocess bindings simultaneously.
 ./build.sh
 
 # For a clean rebuild, use: ./build.sh --clean
+
+# Build specific targets only (faster incremental builds)
+./build.sh --target yolov9s_sync yolov9s_async
+
+# List all available build targets
+./build.sh --target list
 ```
 
 - **Output:** Binaries are located in `bin/`, and shared libraries are in their respective build folders.  
 
 **Step 4. Execution Examples**  
 
-The quickest way to explore all 16 AI task categories (17 demos) is the unified interactive demo script:
+The quickest way to explore all 17 AI task categories (18 demos) is the unified interactive demo script:
 
 ```bash
 # Interactive — select task, mode, and input type from menus
@@ -439,23 +459,57 @@ The quickest way to explore all 16 AI task categories (17 demos) is the unified 
 
 | Option | Description |
 |--------|-------------|
-| `--task NUM` | Pre-select task (0–16) |
+| `--task NUM` | Pre-select task (0–17) |
 | `--mode NUM` | Pre-select mode (1=cpp_sync, 2=cpp_async, 3=py_sync, …) |
 | `--input NUM` | Pre-select input (1=video, 2=image) |
 | `--show-log` | Enable verbose log output (default: quiet) |
 
+**Demo Task ↔ Model Reference**
+
+Each of the 18 demo tasks uses exactly one model. When you run `run_demo.sh`, any missing models and videos are **automatically downloaded** — no manual `setup.sh` required.
+
+| # | Demo Task | Model File | Category | Size |
+|--:|-----------|-----------|----------|-----:|
+| 0 | Object Detection (YOLOv7) | YoloV7.dxnn | Object Detection | 74 MB |
+| 1 | Object Detection (YOLOv11N) | YOLOV11N.dxnn | Object Detection | 7.0 MB |
+| 2 | Face Detection (SCRFD500M) | SCRFD500M.dxnn | Face Detection | 2.1 MB |
+| 3 | OBB Detection (YOLO26N-OBB) | yolo26n-obb.dxnn | OBB Detection | 7.5 MB |
+| 4 | Pose Estimation (YOLOv8s-Pose) | yolov8s_pose.dxnn | Pose Estimation | 25 MB |
+| 5 | Hand Landmark (HandLandmarkLite) | HandLandmarkLite_1.dxnn | Hand Landmark | 2.5 MB |
+| 6 | Face Alignment (3DDFA-V2) | 3ddfa_v2_mobilnetv1_120x120.dxnn | Face Alignment | 6.5 MB |
+| 7 | Instance Segmentation (YOLOv8N-Seg) | yolov8n_seg.dxnn | Instance Segmentation | 8.9 MB |
+| 8 | Semantic Segmentation (DeepLabV3+) | DeepLabV3PlusMobilenet.dxnn | Semantic Segmentation | 13 MB |
+| 9 | Classification (ResNet50) | ResNet50.dxnn | Classification | 50 MB |
+| 10 | Depth Estimation (SCDepthV3) | scdepthv3.dxnn | Depth Estimation | 29 MB |
+| 11 | Image Denoising (DnCNN-50) | DnCNN_50.dxnn | Image Denoising | 4.1 MB |
+| 12 | Super Resolution (ESPCN-X4) | ESPCN_X4.dxnn | Super Resolution | 83 KB |
+| 13 | Image Enhancement (Zero-DCE) | zero_dce.dxnn | Image Enhancement | 9.7 MB |
+| 14 | Embedding (ArcFace) | arcface_mobilefacenet.dxnn | Embedding | 29 MB |
+| 15 | Attribute Recognition (DeepMAR) | deepmar_resnet50.dxnn | Attribute Recognition | 46 MB |
+| 16 | Person Re-ID (CasViT-T) | casvit_t.dxnn | ReID | 82 MB |
+| 17 | PPU Pipeline (YOLOv7-PPU) | YoloV7_PPU.dxnn | PPU | 74 MB |
+
+**Total demo models: ~470 MB** · Sample videos: ~1.1 GB
+
+To download only specific demo models without running the demo:
+```bash
+./setup.sh --models YoloV7 SCRFD500M ResNet50
+```
+
 > **TIP — Running other models**  
-> `run_demo.sh` showcases 17 representative models. To run or benchmark **all 130+ registered models**,
-> use the **DX Model Tool**:
+> `run_demo.sh` showcases 18 representative models. To run or benchmark **all 280 registered models**,
+> use the **example runner** or the **DX Model Tool**:
 >
 > ```bash
-> # Interactive — select category, language, filter from menus
-> ./scripts/dx_tool.sh run
+> # Interactive — 6-stage guided menu (language, category, model filter, etc.)
+> scripts/run_examples.sh
+> ./scripts/dx_tool.sh run          # same interactive menu
 >
 > # Interactive benchmark with performance report
 > ./scripts/dx_tool.sh bench
 >
 > # Non-interactive — pass options directly
+> scripts/run_examples.sh --lang cpp --category face_detection --filter scrfd
 > ./scripts/dx_tool.sh run --lang cpp --category face_detection --filter scrfd
 > ./scripts/dx_tool.sh bench --lang both --filter yolov8 --loops 5
 > ```
@@ -463,6 +517,14 @@ The quickest way to explore all 16 AI task categories (17 demos) is the unified 
 > Run `./scripts/dx_tool.sh help` for all available commands (add/delete/search/validate models, etc.).
 
 Alternatively, run individual binaries or scripts directly:
+
+**Simplest Execution (auto-download model + default sample image)**
+```bash
+# Just specify the model — everything else is automatic
+python src/python_example/object_detection/yolov7/yolov7_sync.py --model assets/models/YoloV7.dxnn
+# → Model auto-downloaded if missing
+# → Default sample image auto-selected for the task
+```
 
 C++ Implementation (High Performance)  
 ```bash
@@ -493,5 +555,50 @@ python src/python_example/object_detection/yolov9s/yolov9s_async_cpp_postprocess
 **Output and Analysis**  
 
 Following execution, a window will render results (`boxes/masks`), and the console will output a **Performance Summary** (`Latency/FPS`). For additional usage details, refer to [DX-APP C++ Usage Guide](./docs/source/docs/03_DX-APP_CPP_Example_Usage_Guide.md) and [DX-APP Python Usage Guide](./docs/source/docs/05_DX-APP_Python_Example_Usage_Guide.md).  
+
+---
+
+# Storage-Constrained Platforms (RPi, Edge Devices)
+
+When running on platforms with limited storage (e.g., Raspberry Pi 5, embedded boards), use the following strategies to minimize disk usage.
+
+**Disk Usage Summary**
+
+| Asset | Count | Size |
+|-------|------:|-----:|
+| Demo models (18 files) | 18 | ~470 MB |
+| All registered models | 280 | several GB |
+| Sample videos | 20 | ~1.1 GB |
+| Sample images (bundled) | — | ~5 MB |
+
+**Strategy 1 — Let `run_demo.sh` handle it**  
+Just run `./run_demo.sh`. It automatically downloads **only the 18 demo models** (~470 MB) on first run. No need to run `setup.sh --all`.
+
+**Strategy 2 — Download only what you need**  
+```bash
+# Download a single category
+./setup.sh --category "Face Detection"     # ~30 MB for 15 models
+
+# Download specific models by name
+./setup.sh --models SCRFD500M YOLOV11N     # ~9 MB total
+
+# Preview before downloading
+./setup.sh --list                          # List all available models
+./setup.sh --dry-run                       # Show what would be downloaded
+```
+
+**Strategy 3 — Skip video downloads**  
+Videos (~1.1 GB) are much larger than models. If storage is tight:
+- Use `--input 2` (image mode) with `run_demo.sh` — images are bundled in the repo and require no extra download
+- Run demos directly with `--image` flag instead of `--video`
+
+**Strategy 4 — Clean up after testing**  
+```bash
+# Remove all downloaded models
+rm -rf assets/models/*
+
+# Remove all downloaded videos
+rm -rf assets/videos/*
+```
 
 ---

@@ -3,6 +3,9 @@
 """
 DnCNN Asynchronous Inference Example
 
+NOTE: C++ PostProcess binding is not yet implemented for this model.
+      Falls back to Python postprocessing.
+
 Note: DnCNN requires the normalized input image to compute denoised output
       (denoised = input - residual), which the C++ postprocess API cannot
       provide. This file uses the Python postprocessor as fallback.

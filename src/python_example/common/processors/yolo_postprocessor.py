@@ -49,6 +49,14 @@ class YOLOv5Postprocessor(IPostprocessor):
         self.conf_threshold = self.config.get('conf_threshold', 0.3)
         self.nms_threshold = self.config.get('nms_threshold', 0.45)
         self.num_classes = self.config.get('num_classes', 80)
+
+        # Allow per-model anchor/stride override via config
+        custom_anchors = self.config.get('anchors', None)
+        if custom_anchors is not None:
+            self.ANCHORS = custom_anchors
+        custom_strides = self.config.get('strides', None)
+        if custom_strides is not None:
+            self.STRIDES = custom_strides
     
     @staticmethod
     def _sigmoid(x: np.ndarray) -> np.ndarray:
@@ -76,15 +84,29 @@ class YOLOv5Postprocessor(IPostprocessor):
         num_anchors = 3
         
         # Sort tensors by spatial size descending (stride 8 first)
-        sorted_outputs = sorted(outputs, key=lambda t: t.shape[-1] * t.shape[-2], reverse=True)
+        # Use max of the two middle dims to handle both NCHW and NHWC
+        def _spatial_size(t):
+            s = t.squeeze().shape
+            return max(s[0], s[-1]) * max(s[0], s[-1])
+        sorted_outputs = sorted(outputs, key=lambda t: t.size, reverse=True)
         
         all_detections = []
         
         for scale_idx, tensor in enumerate(sorted_outputs):
-            data = np.squeeze(tensor)  # [C, H, W]
-            stride = self.STRIDES[scale_idx]
-            anchors = self.ANCHORS[stride]
+            data = np.squeeze(tensor)  # [C, H, W] or [H, W, C]
+            
+            # Detect NHWC layout and transpose to NCHW
+            if data.shape[0] == num_anchors * num_fields:
+                pass  # Already NCHW: [C, H, W]
+            elif data.shape[-1] == num_anchors * num_fields:
+                data = data.transpose(2, 0, 1)  # NHWC → NCHW: [H, W, C] → [C, H, W]
+            
             grid_h, grid_w = data.shape[1], data.shape[2]
+            # Compute stride from input size and grid size
+            stride = self.input_height // grid_h
+            if stride not in self.ANCHORS:
+                continue  # skip scales without matching anchors (e.g. P6)
+            anchors = self.ANCHORS[stride]
             
             # Reshape to [num_anchors, num_fields, grid_h, grid_w]
             data = data.reshape(num_anchors, num_fields, grid_h, grid_w)
@@ -130,6 +152,58 @@ class YOLOv5Postprocessor(IPostprocessor):
         
         return np.concatenate(all_detections, axis=0)  # [N_total, 5+C]
     
+    def _decode_raw_multi_scale(self, outputs: list) -> np.ndarray:
+        """Decode [1, A, H, W, C] raw YOLOv5 feature maps with anchor-based grid decoding."""
+        num_fields = 5 + self.num_classes
+        # Sort by spatial size descending (stride 8 first = largest H*W)
+        sorted_outputs = sorted(outputs, key=lambda t: t.shape[2] * t.shape[3], reverse=True)
+
+        all_detections = []
+        for scale_idx, tensor in enumerate(sorted_outputs):
+            data = tensor[0]  # [A, H, W, C]
+            num_anchors = data.shape[0]
+            grid_h, grid_w = data.shape[1], data.shape[2]
+            # Compute stride from input size and grid size
+            stride = self.input_height // grid_h
+            if stride not in self.ANCHORS:
+                continue  # skip scales without matching anchors (e.g. P6)
+            anchors = self.ANCHORS[stride]
+
+            # Transpose to [A, C, H, W] for consistent processing
+            data = data.transpose(0, 3, 1, 2)  # [A, C, H, W]
+
+            gx = np.arange(grid_w, dtype=np.float32).reshape(1, 1, 1, grid_w)
+            gy = np.arange(grid_h, dtype=np.float32).reshape(1, 1, grid_h, 1)
+
+            tx = self._sigmoid(data[:, 0:1, :, :])
+            ty = self._sigmoid(data[:, 1:2, :, :])
+            tw = self._sigmoid(data[:, 2:3, :, :])
+            th = self._sigmoid(data[:, 3:4, :, :])
+
+            cx = (tx * 2.0 - 0.5 + gx) * stride
+            cy = (ty * 2.0 - 0.5 + gy) * stride
+
+            anchor_w = np.array([a[0] for a in anchors], dtype=np.float32).reshape(num_anchors, 1, 1, 1)
+            anchor_h = np.array([a[1] for a in anchors], dtype=np.float32).reshape(num_anchors, 1, 1, 1)
+            w = (tw * 2.0) ** 2 * anchor_w
+            h = (th * 2.0) ** 2 * anchor_h
+
+            obj = self._sigmoid(data[:, 4:5, :, :])
+            cls = self._sigmoid(data[:, 5:5+self.num_classes, :, :])
+
+            n = num_anchors * grid_h * grid_w
+            cx_flat = cx.reshape(n, 1)
+            cy_flat = cy.reshape(n, 1)
+            w_flat = w.reshape(n, 1)
+            h_flat = h.reshape(n, 1)
+            obj_flat = obj.reshape(n, 1)
+            cls_flat = cls.transpose(0, 2, 3, 1).reshape(n, self.num_classes)
+
+            scale_det = np.concatenate([cx_flat, cy_flat, w_flat, h_flat, obj_flat, cls_flat], axis=1)
+            all_detections.append(scale_det)
+
+        return np.concatenate(all_detections, axis=0)
+
     def process(self, outputs: List[np.ndarray], ctx: PreprocessContext) -> List[DetectionResult]:
         """
         Process YOLOv5-style outputs.
@@ -143,14 +217,18 @@ class YOLOv5Postprocessor(IPostprocessor):
         Returns:
             List of DetectionResult objects
         """
-        # Detect multi-scale NPU output (3 tensors with 4D shape)
-        if len(outputs) == 3 and all(o.ndim == 4 for o in outputs):
+        # Detect multi-scale NPU output (3+ tensors with 4D shape)
+        if len(outputs) >= 3 and all(o.ndim == 4 for o in outputs):
             output = self._decode_multi_scale_outputs(outputs)
         elif len(outputs) >= 2 and all(o.ndim == 5 for o in outputs):
-            # YOLOv4 DarkNet format: [1, H, W, num_anchors, 5+C] per scale
-            # Already decoded (sigmoid+grid applied by runtime) — just flatten
-            parts = [o.reshape(-1, o.shape[-1]) for o in outputs]
-            output = np.concatenate(parts, axis=0)
+            first = outputs[0]
+            # [1, A, H, W, C] raw YOLOv5 format (A=num_anchors, C=5+num_classes)
+            if first.shape[1] == 3 and first.shape[-1] == (5 + self.num_classes):
+                output = self._decode_raw_multi_scale(outputs)
+            else:
+                # YOLOv4 DarkNet format: [1, H, W, num_anchors, 5+C] already decoded
+                parts = [o.reshape(-1, o.shape[-1]) for o in outputs]
+                output = np.concatenate(parts, axis=0)
         elif len(outputs) == 2:
             # 2-tensor format: separate boxes + confs (e.g. YOLOv4 TFLite)
             return self._process_separate_boxes_confs(outputs, ctx)
@@ -247,10 +325,20 @@ class YOLOv5Postprocessor(IPostprocessor):
         filtered_scores = cls_max_scores[mask]
         filtered_cls_ids = cls_ids[mask]
 
-        # Auto-detect box format: if max value < ~2 → normalised; else pixel
-        boxes = _cxcywh_to_x1y1x2y2(filtered_boxes) \
-            if np.median(np.abs(filtered_boxes[:, 2:])) < 2.0 \
-            else filtered_boxes.copy()
+        # Auto-detect box format
+        box_format = self.config.get('box_format', 'auto')
+        if box_format == 'xyxy':
+            boxes = filtered_boxes.copy()
+        elif box_format == 'cxcywh':
+            boxes = _cxcywh_to_x1y1x2y2(filtered_boxes)
+        else:
+            # Heuristic: in x1y1x2y2, col2 > col0 and col3 > col1 for most boxes
+            frac_x2_gt_x1 = np.mean(filtered_boxes[:, 2] > filtered_boxes[:, 0])
+            frac_y2_gt_y1 = np.mean(filtered_boxes[:, 3] > filtered_boxes[:, 1])
+            if frac_x2_gt_x1 > 0.8 and frac_y2_gt_y1 > 0.8:
+                boxes = filtered_boxes.copy()  # already x1y1x2y2
+            else:
+                boxes = _cxcywh_to_x1y1x2y2(filtered_boxes)
 
         # If normalised (values mostly 0-1), scale to input dims
         if np.percentile(np.abs(boxes), 95) < 2.0:
@@ -261,16 +349,19 @@ class YOLOv5Postprocessor(IPostprocessor):
         if not indices:
             return []
 
-        gain = max(ctx.scale, 1e-6)
+        # Use per-axis scale when available (SimpleResizePreprocessor),
+        # fall back to uniform scale+pad (LetterboxPreprocessor).
+        scale_x = getattr(ctx, 'scale_x', 0) or max(ctx.scale, 1e-6)
+        scale_y = getattr(ctx, 'scale_y', 0) or max(ctx.scale, 1e-6)
         pad_x = ctx.pad_x
         pad_y = ctx.pad_y
         results = []
         for idx in indices:
             box = boxes[idx].copy()
-            box[0] = np.clip((box[0] - pad_x) / gain, 0, ctx.original_width - 1)
-            box[1] = np.clip((box[1] - pad_y) / gain, 0, ctx.original_height - 1)
-            box[2] = np.clip((box[2] - pad_x) / gain, 0, ctx.original_width - 1)
-            box[3] = np.clip((box[3] - pad_y) / gain, 0, ctx.original_height - 1)
+            box[0] = np.clip((box[0] - pad_x) / scale_x, 0, ctx.original_width - 1)
+            box[1] = np.clip((box[1] - pad_y) / scale_y, 0, ctx.original_height - 1)
+            box[2] = np.clip((box[2] - pad_x) / scale_x, 0, ctx.original_width - 1)
+            box[3] = np.clip((box[3] - pad_y) / scale_y, 0, ctx.original_height - 1)
             results.append(DetectionResult(
                 box=[float(box[0]), float(box[1]), float(box[2]), float(box[3])],
                 confidence=float(filtered_scores[idx]),

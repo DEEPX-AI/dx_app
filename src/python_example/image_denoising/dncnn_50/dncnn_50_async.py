@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-DnCNN Asynchronous Inference Example
+Dncnn_50 Asynchronous Inference Example
 """
 
 import sys

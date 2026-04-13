@@ -64,18 +64,19 @@ def parse_common_args(
     )
 
     # ---- Input source (mutually exclusive) ----
-    input_group = parser.add_mutually_exclusive_group(required=True)
+    input_group = parser.add_mutually_exclusive_group(required=False)
     input_group.add_argument(
-        "--image", "-i", type=str, help="Input image path or directory"
+        "--image", "-i", type=str, default=None,
+        help="Input image path or directory (default: task-appropriate sample)"
     )
     input_group.add_argument(
-        "--video", "-v", type=str, help="Input video path"
+        "--video", "-v", type=str, default=None, help="Input video path"
     )
     input_group.add_argument(
-        "--camera", "-c", type=int, help="Camera device ID (e.g. 0)"
+        "--camera", "-c", type=int, default=None, help="Camera device ID (e.g. 0)"
     )
     input_group.add_argument(
-        "--rtsp", "-r", type=str, help="RTSP stream URL"
+        "--rtsp", "-r", type=str, default=None, help="RTSP stream URL"
     )
 
     # ---- Display ----

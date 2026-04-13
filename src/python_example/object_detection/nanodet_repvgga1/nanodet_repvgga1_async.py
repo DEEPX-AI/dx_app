@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-NanoDet Asynchronous Inference Example
+Nanodet_repvgga1 Asynchronous Inference Example
 """
 
 import sys

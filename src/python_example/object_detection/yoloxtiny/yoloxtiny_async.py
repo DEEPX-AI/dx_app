@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (C) 2018- DEEPX Ltd. All rights reserved.
 """
-YOLOX Asynchronous Inference Example
+Yoloxtiny Asynchronous Inference Example
 
 Usage:
     python yoloxtiny_async.py --model model.dxnn --video input.mp4

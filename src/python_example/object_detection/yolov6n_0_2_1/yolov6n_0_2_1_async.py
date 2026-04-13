@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (C) 2018- DEEPX Ltd. All rights reserved.
 """
-Yolov5 Asynchronous Inference Example
+Yolov6n_0_2_1 Asynchronous Inference Example
 
 Usage:
     python yolov6n_0_2_1_async.py --model model.dxnn --video input.mp4

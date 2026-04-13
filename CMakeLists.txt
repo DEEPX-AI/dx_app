@@ -30,6 +30,14 @@ endif()
 
 add_compile_definitions(PROJECT_ROOT_DIR="${PROJECT_ROOT}")
 
+# Use ccache if available (speeds up incremental rebuilds significantly)
+find_program(CCACHE_PROGRAM ccache)
+if(CCACHE_PROGRAM)
+    set(CMAKE_C_COMPILER_LAUNCHER ${CCACHE_PROGRAM})
+    set(CMAKE_CXX_COMPILER_LAUNCHER ${CCACHE_PROGRAM})
+    message(STATUS "Using ccache: ${CCACHE_PROGRAM}")
+endif()
+
 # Provide portable thread target; on MSVC supply a stub for existing pthread links
 find_package(Threads REQUIRED)
 if(MSVC AND NOT TARGET pthread)
@@ -206,7 +214,7 @@ if(MSVC)
         endif()
     endif()
     
-    # Visual Studio Runtime DLL (¼±ÅÃ»çÇ× - ÇÊ¿ä½Ã ÁÖ¼® ÇØÁ¦)
+    # Visual Studio Runtime DLL (ï¿½ï¿½ï¿½Ã»ï¿½ï¿½ï¿½ - ï¿½Ê¿ï¿½ï¿½ ï¿½Ö¼ï¿½ ï¿½ï¿½ï¿½ï¿½)
     # set(CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS_SKIP TRUE)
     # include(InstallRequiredSystemLibraries)
     # install(PROGRAMS ${CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS}

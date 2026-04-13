@@ -15,7 +15,11 @@ import json
 import os
 from pathlib import Path
 from typing import Any, Dict, Optional
+import logging
 
+from .config_schema import validate_config
+
+logger = logging.getLogger(__name__)
 
 class ModelConfig:
     """Simple wrapper around a dict loaded from a JSON file."""
@@ -44,8 +48,11 @@ class ModelConfig:
             return cls()
         with open(path, "r") as f:
             data = json.load(f)
+        warnings = validate_config(data)
+        for w in warnings:
+            logger.warning(f"Config {path}: {w}")
         if verbose:
-            print(f"[INFO] Config loaded: {path} ({len(data)} keys)")
+            logger.info(f"Config loaded: {path} ({len(data)} keys)")
         return cls(data)
 
 
@@ -61,8 +68,11 @@ def load_config(path: str, verbose: bool = False) -> Dict[str, Any]:
         return {}
     with open(path, "r") as f:
         data = json.load(f)
+    warnings = validate_config(data)
+    for w in warnings:
+        logger.warning(f"Config {path}: {w}")
     if verbose:
-        print(f"[INFO] Config loaded: {path} ({len(data)} keys)")
+        logger.info(f"Config loaded: {path} ({len(data)} keys)")
     return data
 
 

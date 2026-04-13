@@ -113,6 +113,8 @@ Assets are downloaded and placed in the `assets/` directory.
 - **Models:** stored under `assets/models/`
 - **Videos:** stored under `assets/videos/`
 
+> **Note:** Running `setup.sh` beforehand is optional. When you run any individual example, missing models are **automatically downloaded** on demand. Videos are also auto-downloaded when a `--video` path is specified but the file does not exist.
+
 **`setup.sh` Options**
 
 | Option | Description |
@@ -124,15 +126,11 @@ Assets are downloaded and placed in the `assets/` directory.
 | `--category=<name>` | Download models of a specific category only |
 | `--models <m1> [m2...]` | Download specific models by name |
 | `--no-json` | Skip JSON metadata file downloads |
-| `--manifest=<path>` | Use an alternate manifest JSON file (e.g., for air-gapped environments) |
+| `--manifest=<path>` | Use an alternate manifest JSON file |
 | `--force` | Force overwrite if files already exist |
-
-In internal-network environments, the setup flow can use the internal [DX-ModelZoo](https://developer.deepx.ai/modelzoo/) source automatically when the intranet mode is enabled by the surrounding environment.
+| `--verbose` | Show detailed progress output |
 
 For most users, running only `./setup.sh` is sufficient. Contributor-facing setup details are documented separately in the developer guides.
-
-!!! note "Internal-Network Setup"
-    In internal environments, DX-APP can use the internal DX-ModelZoo source to prepare model assets without requiring manual model-by-model input during the standard setup flow.
 
 **Post-Processing Unit (PPU) Acceleration Integration**  
 
@@ -147,9 +145,14 @@ The PPU is engineered to offload computationally intensive post-processing tasks
 
 **PPU-Enabled Models**  
 
-DX-APP includes 11 PPU-accelerated model variants across multiple tasks. To run PPU models interactively, use `./run_demo.sh` and select "PPU Pipeline", or use the DX Model Tool:
+DX-APP includes 11 PPU-accelerated model variants across multiple tasks. To run PPU models interactively, use `./run_demo.sh` and select "PPU Pipeline", or use the example runner / DX Model Tool:
 
 ```bash
+# Interactive — select PPU from the category menu
+scripts/run_examples.sh
+./scripts/dx_tool.sh run
+
+# Non-interactive
 ./scripts/dx_tool.sh run --lang cpp --category ppu
 ```
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (C) 2018- DEEPX Ltd. All rights reserved.
 """
-Efficientnet Synchronous Inference Example
+Resnet50 Synchronous Inference Example
 
 Usage:
     python resnet50_sync.py --model model.dxnn --image input.jpg
