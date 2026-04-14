@@ -389,27 +389,54 @@ import json, ast, sys
 model_name = sys.argv[1]
 factory_path = sys.argv[2]  # e.g., factory/yolo26n_factory.py
 
-# Registry key → expected Python postprocessor class
-REGISTRY_TO_POSTPROCESSOR = {
-    "yolov5": "YOLOv5Postprocessor",
-    "yolov8": "YOLOv8Postprocessor",
-    "yolov26": "YOLOv8Postprocessor",       # yolo26 reuses YOLOv8 (end-to-end)
-    "yolov10": "YOLOv10Postprocessor",
-    "yolov11": "YOLOv11Postprocessor",
-    "ssd": "SSDPostprocessor",
-    "nanodet": "NanoDetPostprocessor",
-    "damoyolo": "DamoYoloPostprocessor",
-    "classification": "ClassificationPostprocessor",
-    "pose": "PosePostprocessor",
-    "instance_seg": "InstanceSegPostprocessor",
-    "semantic_seg": "SemanticSegPostprocessor",
-    "face": "FacePostprocessor",
-    "depth": "DepthPostprocessor",
-    "restoration": "RestorationPostprocessor",
-    "sr": "SRPostprocessor",
-    "embedding": "EmbeddingPostprocessor",
-    "obb": "OBBPostprocessor",
-}
+    # Registry key → expected Python postprocessor class
+    # ⚠️ Use exact class names from source code. Do NOT use generic names like PosePostprocessor, FacePostprocessor.
+    REGISTRY_TO_POSTPROCESSOR = {
+        # Detection
+        "yolov5": "YOLOv5Postprocessor",
+        "yolov8": "YOLOv8Postprocessor",
+        "yolov26": "YOLOv8Postprocessor",       # shares YOLOv8 postprocessor
+        "yolov10": "YOLOv8Postprocessor",       # shares YOLOv8 postprocessor (NOT YOLOv10Postprocessor)
+        "yolox": "YOLOXPostprocessor",
+        "ssd": "SSDPostprocessor",
+        "nanodet": "NanoDetPostprocessor",
+        "damoyolo": "DamoYoloPostprocessor",
+        # Classification
+        "efficientnet": "ClassificationPostprocessor",
+        # Pose
+        "yolov8pose": "YOLOv8PosePostprocessor",      # NOT generic "PosePostprocessor"
+        # Instance segmentation
+        "yolov5seg": "YOLOv5InstanceSegPostprocessor",
+        "yolov8seg": "YOLOv8InstanceSegPostprocessor",
+        "yolact": "YOLACTPostprocessor",
+        # Semantic segmentation
+        "bisenetv1": "SemanticSegmentationPostprocessor",  # NOT "SemanticSegPostprocessor"
+        "bisenetv2": "SemanticSegmentationPostprocessor",
+        "deeplabv3": "SemanticSegmentationPostprocessor",
+        "segformer": "SegFormerPostprocessor",
+        # Face
+        "scrfd": "SCRFDPostprocessor",                # NOT generic "FacePostprocessor"
+        "yolov5face": "YOLOv5FacePostprocessor",
+        "yolov7face": "YOLOv7FacePostprocessor",
+        "retinaface": "RetinaFacePostprocessor",
+        # Depth
+        "fastdepth": "DepthEstimationPostprocessor",  # NOT "DepthPostprocessor"
+        # Restoration
+        "dncnn": "DnCNNPostprocessor",                # NOT "RestorationPostprocessor"
+        # Super resolution
+        "espcn": "ESPCNPostprocessor",                # NOT "SRPostprocessor"
+        # Enhancement
+        "zero_dce": "ZeroDCEPostprocessor",
+        # Embedding
+        "arcface": "ArcFacePostprocessor",            # NOT "EmbeddingPostprocessor"
+        # OBB
+        "obb": "OBBPostprocessor",
+        # PPU
+        "yolov5_ppu": "YOLOv5PPUPostprocessor",
+        "yolov7_ppu": "YOLOv7PPUPostprocessor",
+        # Hand
+        "hand_landmark": "HandLandmarkPostprocessor",
+    }
 
 # Load registry
 with open("config/model_registry.json") as f:

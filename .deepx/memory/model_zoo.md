@@ -1,242 +1,165 @@
 # Model Zoo — dx_app
 
-> 133 models across 15 AI tasks with metadata, performance tiers, and recommendations.
-
-## Overview
-
-dx_app v3.0.0 supports 133 compiled `.dxnn` models organized into 15 AI tasks.
-All model metadata is stored in `config/model_registry.json`. This document provides
-a curated reference with representative models, performance tiers, and recommended
-postprocessors.
+> Compact reference for 133 models across 14 AI tasks. Do NOT enumerate models here —
+> query `config/model_registry.json` as the single source of truth.
 
 ---
 
-## Object Detection (~45 models)
+## Anti-Fabrication Warning
 
-### Representative Models
+**NEVER guess or fabricate model names.** The registry uses lowercase `model_name`
+values (e.g., `yolov8n`, `scrfd_10g`), NOT PascalCase class names. If you are unsure
+whether a model exists, query the registry. Fabricating names causes silent failures
+because the framework looks up `.dxnn` files by exact `model_name`.
 
-| Model | Input Size | Classes | Postprocessor | Tier |
-|---|---|---|---|---|
-| yolov5n | 640x640 | 80 (COCO) | YoloV5PostProcess | Fast |
-| yolov5s | 640x640 | 80 | YoloV5PostProcess | Balanced |
-| yolov5m | 640x640 | 80 | YoloV5PostProcess | Accurate |
-| yolov7 | 640x640 | 80 | YoloV7PostProcess | Accurate |
-| yolov7_tiny | 416x416 | 80 | YoloV7TinyPostProcess | Fast |
-| yolov8n | 640x640 | 80 | YoloV8PostProcess | Fast |
-| yolov8s | 640x640 | 80 | YoloV8PostProcess | Balanced |
-| yolov8m | 640x640 | 80 | YoloV8PostProcess | Accurate |
-| yolov10n | 640x640 | 80 | YoloV10PostProcess | Fast |
-| yolov10s | 640x640 | 80 | YoloV10PostProcess | Balanced |
-| yolov11n | 640x640 | 80 | YoloV11PostProcess | Fast |
-| yolov11s | 640x640 | 80 | YoloV11PostProcess | Balanced |
-| yolo26n | 640x640 | 80 | Yolo26PostProcess | Fast |
-| yolo26s | 640x640 | 80 | Yolo26PostProcess | Balanced |
-| ssd_mobilenetv2 | 300x300 | 91 | SSDPostProcess | Fast |
-| efficientdet_d0 | 512x512 | 90 | EfficientDetPostProcess | Balanced |
-| nanodet_m | 320x320 | 80 | NanodetPostProcess | Ultra-Fast |
-
-### Output Format
-
-Detection models output `(1, N, 4+1+C)` tensors where:
-- N = number of proposals (varies: 8400 for v8, 25200 for v5)
-- 4 = bbox coordinates (x, y, w, h or x1, y1, x2, y2)
-- 1 = objectness score
-- C = class scores (80 for COCO)
-
-### Recommended Starting Points
-
-- **Fastest inference:** nanodet_m (320x320) or yolov5n
-- **Best accuracy/speed tradeoff:** yolov8s or yolo26s
-- **Highest accuracy:** yolov8m or yolov7
+**NEVER guess postprocessor values.** The `postprocessor` field in the registry is a
+lowercase string key (e.g., `yolov8`, `scrfd`), NOT a Python or C++ class name.
+The framework maps these keys to implementation classes internally.
 
 ---
 
-## Classification (~20 models)
+## Source of Truth
 
-| Model | Input Size | Classes | Postprocessor | Tier |
-|---|---|---|---|---|
-| efficientnet_b0 | 224x224 | 1000 (ImageNet) | EfficientNetPostProcess | Fast |
-| efficientnet_b1 | 240x240 | 1000 | EfficientNetPostProcess | Balanced |
-| efficientnet_b4 | 380x380 | 1000 | EfficientNetPostProcess | Accurate |
-| mobilenetv2 | 224x224 | 1000 | MobileNetV2PostProcess | Fast |
-| resnet18 | 224x224 | 1000 | ResNetPostProcess | Fast |
-| resnet50 | 224x224 | 1000 | ResNetPostProcess | Balanced |
-| resnet101 | 224x224 | 1000 | ResNetPostProcess | Accurate |
-| inception_v3 | 299x299 | 1000 | ClassificationPostProcess | Balanced |
-| squeezenet | 224x224 | 1000 | ClassificationPostProcess | Ultra-Fast |
+```
+config/model_registry.json
+```
 
-### Output Format
+This is a **JSON array** of 133 model entries (not an object). Each entry has:
 
-Classification models output `(1, C)` where C = number of classes.
-Postprocessors apply softmax and return top-K results.
-
----
-
-## Pose Estimation (~8 models)
-
-| Model | Input Size | Keypoints | Postprocessor | Tier |
-|---|---|---|---|---|
-| yolov5s_pose | 640x640 | 17 (COCO) | YoloV5PosePostProcess | Balanced |
-| yolov5m_pose | 640x640 | 17 | YoloV5PosePostProcess | Accurate |
-| yolov8n_pose | 640x640 | 17 | YoloV8PosePostProcess | Fast |
-| yolov8s_pose | 640x640 | 17 | YoloV8PosePostProcess | Balanced |
-
-### Output Format
-
-Pose models output `(1, N, 4+1+K*3)` where K=17 COCO keypoints.
-Each keypoint has (x, y, confidence).
-
----
-
-## Instance Segmentation (~10 models)
-
-| Model | Input Size | Classes | Postprocessor | Tier |
-|---|---|---|---|---|
-| yolov5n_seg | 640x640 | 80 | YoloV5SegPostProcess | Fast |
-| yolov5s_seg | 640x640 | 80 | YoloV5SegPostProcess | Balanced |
-| yolov8n_seg | 640x640 | 80 | YoloV8SegPostProcess | Fast |
-| yolov8s_seg | 640x640 | 80 | YoloV8SegPostProcess | Balanced |
-
-### Output Format
-
-Instance segmentation outputs two tensors:
-- `(1, N, 4+1+C+32)` — proposals with mask coefficients
-- `(1, 32, H/4, W/4)` — mask prototypes
-
----
-
-## Semantic Segmentation (~10 models)
-
-| Model | Input Size | Classes | Postprocessor | Tier |
-|---|---|---|---|---|
-| bisenetv1 | 1024x512 | 19 (Cityscapes) | BisenetV1PostProcess | Fast |
-| deeplabv3plus_mobilenet | 513x513 | 21 (VOC) | DeepLabV3PostProcess | Balanced |
-| deeplabv3plus_resnet | 513x513 | 21 | DeepLabV3PostProcess | Accurate |
-| segformer_b0 | 512x512 | 19 | ClassificationPostProcess | Fast |
-| segformer_b1 | 512x512 | 19 | ClassificationPostProcess | Balanced |
-
-### Output Format
-
-Semantic segmentation outputs `(1, C, H, W)` — per-pixel class logits.
-Argmax along class dimension gives the segmentation mask.
-
----
-
-## Face Detection (~8 models)
-
-| Model | Input Size | Landmarks | Postprocessor | Tier |
-|---|---|---|---|---|
-| scrfd_10g | 640x640 | 5 | SCRFDPostProcess | Accurate |
-| scrfd_2.5g | 640x640 | 5 | SCRFDPostProcess | Fast |
-| yolov5s_face | 640x640 | 5 | YoloV5FacePostProcess | Balanced |
-| yolov5n_face | 640x640 | 5 | YoloV5FacePostProcess | Fast |
-| retinaface | 640x640 | 5 | RetinaFacePostProcess | Balanced |
-
-### Output Format
-
-Face detection outputs `(1, N, 4+1+10)` where 10 = 5 landmarks * 2 (x, y).
-
----
-
-## Depth Estimation (~4 models)
-
-| Model | Input Size | Output | Postprocessor | Tier |
-|---|---|---|---|---|
-| fastdepth_1 | 224x224 | Depth map | FastDepthPostProcess | Fast |
-| fastdepth_2 | 224x224 | Depth map | FastDepthPostProcess | Balanced |
-
-### Output Format
-
-Depth models output `(1, 1, H, W)` — per-pixel depth in meters.
-
----
-
-## Image Denoising (~6 models)
-
-| Model | Input Size | Noise Level | Postprocessor | Tier |
-|---|---|---|---|---|
-| dncnn_15 | 481x481 | sigma=15 | DnCNNPostProcess | Light noise |
-| dncnn_25 | 481x481 | sigma=25 | DnCNNPostProcess | Medium noise |
-| dncnn_50 | 481x481 | sigma=50 | DnCNNPostProcess | Heavy noise |
-
----
-
-## Image Enhancement (~3 models)
-
-| Model | Input Size | Task | Postprocessor | Tier |
-|---|---|---|---|---|
-| zero_dce | 256x256 | Low-light | ZeroDCEPostProcess | Fast |
-| zero_dce_pp | 256x256 | Low-light | ZeroDCEPostProcess | Balanced |
-
----
-
-## Super Resolution (~4 models)
-
-| Model | Input Size | Scale | Postprocessor | Tier |
-|---|---|---|---|---|
-| espcn_x2 | 224x224 | 2x | ESPCNPostProcess | Fast |
-| espcn_x3 | 224x224 | 3x | ESPCNPostProcess | Balanced |
-| espcn_x4 | 224x224 | 4x | ESPCNPostProcess | Balanced |
-
----
-
-## Embedding (~3 models)
-
-| Model | Input Size | Dim | Postprocessor | Tier |
-|---|---|---|---|---|
-| arcface_mobilefacenet | 112x112 | 128 | ArcFacePostProcess | Fast |
-| arcface_resnet50 | 112x112 | 512 | ArcFacePostProcess | Accurate |
-
----
-
-## OBB Detection (~3 models)
-
-| Model | Input Size | Classes | Postprocessor | Tier |
-|---|---|---|---|---|
-| yolo26n_obb | 640x640 | 15 (DOTA) | Yolo26OBBPostProcess | Fast |
-| yolo26s_obb | 640x640 | 15 | Yolo26OBBPostProcess | Balanced |
-
-**Note:** OBB uses score_threshold only — no NMS threshold.
-
----
-
-## Hand Landmark (~3 models)
-
-| Model | Input Size | Landmarks | Postprocessor | Tier |
-|---|---|---|---|---|
-| handlandmarklite_1 | 224x224 | 21 | HandLandmarkPostProcess | Fast |
-| handlandmarklite_2 | 224x224 | 21 | HandLandmarkPostProcess | Balanced |
-
----
-
-## PPU (~6 models)
-
-| Model | Input Size | Classes | Postprocessor | Tier |
-|---|---|---|---|---|
-| yolov5s_ppu | 640x640 | 80 | PPUPostProcess | Balanced |
-| yolov7_ppu | 640x640 | 80 | PPUPostProcess | Balanced |
-| yolov8n_ppu | 640x640 | 80 | PPUPostProcess | Fast |
-
-**Important:** PPU models use dedicated `PPUPostProcess`. Do NOT use standard YOLO
-postprocessors with PPU models.
-
----
-
-## Performance Tiers
-
-| Tier | Description | Typical FPS (DX-M1, 640x640) |
+| Field | Required | Description |
 |---|---|---|
-| Ultra-Fast | Minimal latency, small models | 100+ fps |
-| Fast | Low latency, nano variants | 60-100 fps |
-| Balanced | Good accuracy/speed tradeoff | 30-60 fps |
-| Accurate | Highest accuracy, larger models | 10-30 fps |
+| `model_name` | yes | Unique lowercase identifier (e.g., `yolov8n`) |
+| `dxnn_file` | yes | Compiled model filename (e.g., `yolov8n.dxnn`) |
+| `add_model_task` | yes | Task type (see Task Overview below) |
+| `postprocessor` | yes | Registry key for postprocessor (see mapping below) |
+| `supported` | yes | `true` if model is available for use |
+| `original_name` | no | Upstream model name |
+| `csv_task` | no | CSV-compatible task label |
+| `input_width` | no | Model input width in pixels |
+| `input_height` | no | Model input height in pixels |
+| `config` | no | Path to model-specific config JSON |
+| `source` | no | Model provenance |
 
-**Note:** FPS varies by input resolution, postprocess complexity, and whether using
-sync or async runner. Async typically achieves 2-3x the sync FPS.
+---
 
-## Choosing a Model
+## Quick Queries
 
-1. **Start with the Fast tier** — nano variants for rapid prototyping
-2. **Move to Balanced** for production — small variants offer good accuracy
-3. **Use Accurate only when needed** — medium/large variants for quality-critical apps
-4. **Check `supported: true`** in model_registry.json before selecting
+List all supported models:
+```bash
+jq '[.[] | select(.supported == true)] | length' config/model_registry.json
+```
+
+List models for a specific task:
+```bash
+jq '[.[] | select(.add_model_task == "object_detection" and .supported == true)] | .[].model_name' config/model_registry.json
+```
+
+Get a model's postprocessor and input size:
+```bash
+jq '.[] | select(.model_name == "yolov8n") | {postprocessor, input_width, input_height}' config/model_registry.json
+```
+
+List all distinct postprocessor keys:
+```bash
+jq '[.[].postprocessor] | unique' config/model_registry.json
+```
+
+List all distinct task types:
+```bash
+jq '[.[].add_model_task] | unique' config/model_registry.json
+```
+
+---
+
+## Postprocessor Mapping
+
+The `postprocessor` field in the registry is a **lowercase string key**. The framework
+maps it to a Python class (for Python runner) and a C++ binding (for C++ runner).
+
+| Registry Key | Python Class | C++ `dx_postprocess` | Notes |
+|---|---|---|---|
+| `yolov5` | `YOLOv5Postprocessor` | `YOLOv5PostProcess` | |
+| `yolov8` | `YOLOv8Postprocessor` | `YOLOv8PostProcess` | |
+| `yolov26` | `YOLOv8Postprocessor` | `YOLOv26PostProcess` | Python reuses YOLOv8 |
+| `yolov10` | `YOLOv8Postprocessor` | `YOLOv10PostProcess` | Python reuses YOLOv8 |
+| `yolox` | `YOLOXPostprocessor` | `YOLOXPostProcess` | |
+| `damoyolo` | `DamoYoloPostprocessor` | `DamoYOLOPostProcess` | |
+| `nanodet` | `NanoDetPostprocessor` | `NanoDetPostProcess` | |
+| `ssd` | `SSDPostprocessor` | `SSDPostProcess` | |
+| `efficientnet` | `ClassificationPostprocessor` | `ClassificationPostProcess` | All classifiers |
+| `yolov8pose` | `YOLOv8PosePostprocessor` | `YOLOv8PosePostProcess` | |
+| `yolov5seg` | `YOLOv5InstanceSegPostprocessor` | `YOLOv5SegPostProcess` | |
+| `yolov8seg` | `YOLOv8InstanceSegPostprocessor` | `YOLOv8SegPostProcess` | |
+| `yolact` | `YOLACTPostprocessor` | — | No C++ binding |
+| `bisenetv1` | `SemanticSegmentationPostprocessor` | `SemanticSegPostProcess` | |
+| `bisenetv2` | `SemanticSegmentationPostprocessor` | `SemanticSegPostProcess` | Shares with bisenetv1 |
+| `deeplabv3` | `SemanticSegmentationPostprocessor` | `DeepLabv3PostProcess` | |
+| `segformer` | `SegFormerPostprocessor` | `SemanticSegPostProcess` | |
+| `scrfd` | `SCRFDPostprocessor` | `SCRFDPostProcess` | |
+| `yolov5face` | `YOLOv5FacePostprocessor` | `YOLOv5FacePostProcess` | |
+| `yolov7face` | `YOLOv7FacePostprocessor` | — | No C++ binding |
+| `retinaface` | `RetinaFacePostprocessor` | `RetinaFacePostProcess` | |
+| `fastdepth` | `DepthEstimationPostprocessor` | `DepthPostProcess` | |
+| `dncnn` | `DnCNNPostprocessor` | `DnCNNPostProcess` | |
+| `espcn` | `ESPCNPostprocessor` | `ESPCNPostProcess` | |
+| `zero_dce` | `ZeroDCEPostprocessor` | `ZeroDCEPostProcess` | |
+| `arcface` | `ArcFacePostprocessor` | `EmbeddingPostProcess` | |
+| `obb` | `OBBPostprocessor` | `OBBPostProcess` | Score threshold only, no NMS |
+| `yolov5_ppu` | `YOLOv5PPUPostprocessor` | `YOLOv5PPUPostProcess` | |
+| `yolov7_ppu` | `YOLOv7PPUPostprocessor` | `YOLOv7PPUPostProcess` | |
+| `hand_landmark` | `HandLandmarkPostprocessor` | — | No C++ binding |
+
+**Key insight:** `yolov10` and `yolov26` share `YOLOv8Postprocessor` in Python but
+have distinct C++ postprocessors. PPU models have dedicated postprocessors — never
+use standard YOLO postprocessors with PPU models.
+
+---
+
+## Task Overview
+
+14 task types exist in the registry (`add_model_task` values):
+
+| Task | Postprocessor Keys Used | Example Models (query registry for full list) |
+|---|---|---|
+| `object_detection` | `yolov5`, `yolov8`, `yolov10`, `yolov26`, `yolox`, `damoyolo`, `nanodet`, `ssd` | yolov8n, yolov5s, ssd_mobilenetv2 |
+| `classification` | `efficientnet` | efficientnet_b0, resnet50 |
+| `pose_estimation` | `yolov8pose` | yolov8n_pose, yolov8s_pose |
+| `instance_segmentation` | `yolov5seg`, `yolov8seg`, `yolact` | yolov8n_seg, yolov5s_seg |
+| `semantic_segmentation` | `bisenetv1`, `bisenetv2`, `deeplabv3`, `segformer` | bisenetv1, deeplabv3plus |
+| `face_detection` | `scrfd`, `yolov5face`, `yolov7face`, `retinaface` | scrfd_10g, retinaface |
+| `depth_estimation` | `fastdepth` | fastdepth |
+| `image_denoising` | `dncnn` | dncnn_15, dncnn_25, dncnn_50 |
+| `super_resolution` | `espcn` | espcn_x2, espcn_x3, espcn_x4 |
+| `image_enhancement` | `zero_dce` | zero_dce |
+| `embedding` | `arcface` | arcface_mobilefacenet |
+| `obb_detection` | `obb` | yolo26n_obb |
+| `ppu` | `yolov5_ppu`, `yolov7_ppu` | yolov5s_ppu, yolov7_ppu |
+| `hand_landmark` | `hand_landmark` | hand_landmark_lite |
+
+**Do NOT hardcode model names from this table.** These are examples only. Always
+query `config/model_registry.json` for the current list.
+
+---
+
+## Common Mistakes
+
+1. **Fabricating model names** — e.g., `yolov11n` or `efficientdet_d0` may not exist
+   in the registry. Always verify with `jq`.
+
+2. **Using PascalCase for postprocessor** — the registry field is a lowercase string
+   like `yolov8`, not `YoloV8PostProcess`. The mapping to classes is internal.
+
+3. **Wrong postprocessor family** — `segformer` models use `segformer` postprocessor,
+   not `efficientnet`. Classification postprocessor is only for `classification` task.
+
+4. **Ignoring `supported` field** — some models have `"supported": false`. Always
+   filter by `supported == true` when listing available models.
+
+5. **Mixing PPU and standard postprocessors** — PPU models (`yolov5_ppu`, `yolov7_ppu`)
+   require their dedicated postprocessors. Standard YOLO postprocessors will fail.
+
+6. **Assuming input sizes** — not all YOLO models use 640x640. Check `input_width` and
+   `input_height` in the registry. Some models (e.g., nanodet, ssd) use smaller inputs.
+
+7. **Hardcoding model lists** — the registry is the live source. This document
+   intentionally does not list every model to avoid going stale.

@@ -1,12 +1,28 @@
 # Performance Patterns — dx_app
 
 > FPS optimization techniques, profiling, and benchmarking for dx_app inference applications.
+> All API references point to source files — verify there before using any call.
 
-## Overview
+## ⚠️ Anti-Fabrication Notice
 
-dx_app performance depends on the full pipeline: preprocessing → NPU inference →
-postprocessing → visualization. This document covers practical optimization techniques
-organized by impact.
+This file was audited and corrected. Previous versions contained fabricated API calls
+that do not exist in the DEEPX SDK. If you are uncertain about an API, check the source
+files listed below — do NOT invent methods. When in doubt, say "I need to verify this
+against the source" rather than guessing.
+
+---
+
+## Source Files
+
+| File | What it defines |
+|---|---|
+| `dx_rt/python_package/src/dx_engine/inference_engine.py` | `InferenceEngine`: `run()`, `run_async()`, `wait()`, `run_benchmark()`, `get_latency()`, `get_npu_inference_time()`, `get_input_tensors_info()` |
+| `dx_rt/python_package/src/dx_engine/inference_option.py` | `InferenceOption`: `use_ort`, `devices`, `bound_option`, `buffer_count` |
+| `dx_rt/python_package/src/dx_engine/configuration.py` | `Configuration`: profiler enable, thread config |
+| `src/python_example/common/runner/sync_runner.py` | `SyncRunner`: 7 timing sums (`sum_read`, `sum_preprocess`, etc.) |
+| `src/python_example/common/runner/async_runner.py` | `AsyncRunner`: 5+1 threads, 17 metrics fields, SafeQueue pipeline |
+
+Always verify against these files before using any API call in this document.
 
 ---
 
@@ -14,12 +30,19 @@ organized by impact.
 
 ### 1. Sync → Async Runner (2-3x Throughput)
 
-The single highest-impact optimization. AsyncRunner overlaps CPU work with NPU inference.
+The single highest-impact optimization. AsyncRunner uses a **5-worker-thread + main
+thread** pipeline (6 threads total) to overlap CPU work with NPU inference.
 
 | Runner | Behavior | Typical FPS (YOLOv8n, 640x640) |
 |---|---|---|
-| SyncRunner | Sequential: preprocess → infer → postprocess | 25-35 fps |
-| AsyncRunner | Pipelined: preprocess N+1 while inferring N | 60-90 fps |
+| SyncRunner | Sequential: read → preprocess → infer → postprocess → render | 25-35 fps |
+| AsyncRunner | 5+1 thread pipeline with SafeQueue (maxsize=4) between stages | 60-90 fps |
+
+**AsyncRunner thread pipeline:**
+```
+read → reqid → output → render → display
+(each stage is a worker thread; main thread coordinates)
+```
 
 ```python
 # Before: sync
@@ -32,12 +55,13 @@ runner = AsyncRunner(factory)
 ```
 
 **When to use SyncRunner:** Single image inference, debugging, or when frame ordering
-is critical and you cannot tolerate the 1-frame display latency of async.
+is critical and you cannot tolerate the multi-frame display latency of async.
 
 ### 2. Python → C++ Postprocess (5-10x Postprocess Speed)
 
 For detection models, C++ postprocess bindings (`dx_postprocess`) are 5-10x faster
-than equivalent Python implementations.
+than equivalent Python implementations. The C++ binding method is `postprocess()`
+(not `process()`).
 
 | Variant | Postprocess Time (YOLOv8n) | Total FPS Impact |
 |---|---|---|
@@ -100,81 +124,59 @@ Choosing the right model family has more impact than micro-optimizations:
 | yolov8s | 640x640 | 11.2M | 1.0x (baseline) |
 | yolov8m | 640x640 | 25.9M | 0.5x |
 
-### 6. Batch Tuning
-
-Batch inference can improve throughput for offline processing:
-
-```python
-option = InferenceOption()
-option.set_batch_size(4)  # Process 4 frames at once
-engine = InferenceEngine("model.dxnn", option)
-
-# Input shape changes from (1, H, W, 3) to (4, H, W, 3)
-batch_input = np.stack([frame1, frame2, frame3, frame4])
-outputs = engine.infer(batch_input)
-```
-
-**Note:** Batch size must match the compiled `.dxnn` model. Some models are compiled
-with batch=1 only. Check with `dxrt-cli --info model.dxnn`.
-
 ---
 
-## 7-Field Metrics
+## Profiling and Benchmarking
 
-SyncRunner and AsyncRunner both report 7 performance metrics:
+### Built-in Benchmark (Preferred)
 
-| Field | Unit | What It Measures |
-|---|---|---|
-| `preprocess_time` | ms | cv2.resize, normalization, tensor creation |
-| `inference_time` | ms | NPU execution (InferenceEngine.infer) |
-| `postprocess_time` | ms | NMS, decoding, coordinate scaling |
-| `visualize_time` | ms | cv2 drawing, imshow |
-| `total_time` | ms | End-to-end per-frame time |
-| `fps` | fps | 1000 / total_time (smoothed) |
-| `frame_count` | count | Total frames processed |
-
-### Reading Metrics
+Use `engine.run_benchmark()` for consistent FPS measurement:
 
 ```python
-runner.run(args)
+from dx_engine import InferenceEngine, InferenceOption
 
-# After run completes:
-m = runner.metrics
-print(f"Preprocess:  {m.preprocess_time:.1f} ms")
-print(f"Inference:   {m.inference_time:.1f} ms")
-print(f"Postprocess: {m.postprocess_time:.1f} ms")
-print(f"Visualize:   {m.visualize_time:.1f} ms")
-print(f"Total:       {m.total_time:.1f} ms")
-print(f"FPS:         {m.fps:.1f}")
-print(f"Frames:      {m.frame_count}")
-```
-
-### Identifying Bottlenecks
-
-| If this is highest... | Bottleneck is... | Fix |
-|---|---|---|
-| `preprocess_time` | CPU image processing | Reduce resolution, optimize resize |
-| `inference_time` | NPU speed | Use smaller model or lower resolution |
-| `postprocess_time` | CPU postprocessing | Switch to C++ postprocess variant |
-| `visualize_time` | Display overhead | Use `--no-display` for benchmarks |
-
----
-
-## Profiler Integration
-
-### Per-Layer NPU Profiling
-
-```python
 option = InferenceOption()
-option.set_profiling(True)
 engine = InferenceEngine("model.dxnn", option)
 
-outputs = engine.infer(input_tensor)
+# Returns average FPS over num_loops iterations
+fps = engine.run_benchmark(num_loops=100)
+print(f"Average FPS: {fps:.1f}")
+```
 
-# Get profiling data
-profile = engine.get_profile()
-for layer in profile:
-    print(f"{layer.name}: {layer.time_ms:.2f} ms ({layer.percentage:.1f}%)")
+### Manual Timing
+
+```python
+# Single-inference latency (microseconds)
+latency_us = engine.get_latency()
+print(f"Total latency: {latency_us} us ({latency_us / 1000:.2f} ms)")
+
+# NPU-only inference time (microseconds)
+npu_time_us = engine.get_npu_inference_time()
+print(f"NPU time: {npu_time_us} us ({npu_time_us / 1000:.2f} ms)")
+```
+
+### Getting Input Tensor Info
+
+```python
+# Correct way — returns List[Dict] with 'shape' key
+tensors_info = engine.get_input_tensors_info()
+for info in tensors_info:
+    print(f"Input shape: {info['shape']}")
+
+# ⚠️ WRONG: engine.get_input_shape() does NOT exist
+```
+
+### NPU Layer Profiling (via Configuration)
+
+```python
+from dx_engine import Configuration
+
+config = Configuration()
+config.set_enable(Configuration.ITEM.PROFILER, True)
+config.set_enable(Configuration.ITEM.SHOW_PROFILE, True)
+
+# ⚠️ WRONG: option.set_profiling(True) does NOT exist
+# ⚠️ WRONG: engine.get_profile() does NOT exist
 ```
 
 ### Python cProfile
@@ -184,7 +186,7 @@ python -m cProfile -s cumulative yolov8n_sync.py \
     --model yolov8n.dxnn --input test.mp4 --max-frames 100 --no-display
 ```
 
-### Benchmark Script Pattern
+### Benchmark Script Pattern (Corrected)
 
 ```python
 #!/usr/bin/env python3
@@ -197,82 +199,72 @@ from dx_engine import InferenceEngine, InferenceOption
 def benchmark(model_path, num_warmup=10, num_iterations=100):
     option = InferenceOption()
     engine = InferenceEngine(model_path, option)
-    shape = engine.get_input_shape()
+
+    # Get input shape via correct API
+    tensors_info = engine.get_input_tensors_info()
+    shape = tensors_info[0]['shape']
 
     # Create dummy input
     dummy = np.random.rand(*shape).astype(np.float32)
 
     # Warmup
     for _ in range(num_warmup):
-        engine.infer(dummy)
+        engine.run(dummy)
 
-    # Benchmark
+    # Benchmark — preferred: use built-in
+    fps = engine.run_benchmark(num_loops=num_iterations, input_data=dummy)
+    print(f"Built-in benchmark: {fps:.1f} fps")
+
+    # Or manual timing
     times = []
     for _ in range(num_iterations):
         start = time.perf_counter()
-        engine.infer(dummy)
+        engine.run(dummy)
         elapsed = (time.perf_counter() - start) * 1000
         times.append(elapsed)
 
     avg = np.mean(times)
     std = np.std(times)
-    fps = 1000.0 / avg
+    manual_fps = 1000.0 / avg
 
-    print(f"Inference: {avg:.2f} +/- {std:.2f} ms ({fps:.1f} fps)")
-    return avg, std, fps
+    print(f"Manual: {avg:.2f} +/- {std:.2f} ms ({manual_fps:.1f} fps)")
+    return avg, std, manual_fps
 ```
 
 ---
 
-## Memory Optimization
+## Metrics
 
-### NPU Memory
+### SyncRunner — 7 Timing Sums
 
-| Concern | Guideline |
-|---|---|
-| Model size | Larger models use more NPU memory |
-| Multi-model | Each engine allocates NPU context (~10-50 MB overhead) |
-| Batch size | Higher batch = more memory per inference |
-| Max simultaneous | 3-4 models on DX-M1 (depends on model sizes) |
+SyncRunner accumulates timing into **sum fields** (not per-frame attribute accessors):
 
-### Host Memory
-
-| Concern | Guideline |
-|---|---|
-| Input tensors | 640x640x3 float32 = ~4.7 MB per frame |
-| Output tensors | Varies (8400x84 float32 = ~2.7 MB for YOLOv8) |
-| OpenCV frames | 1080p BGR = ~6 MB per frame |
-| Async pipeline | 2-3 frames buffered = 2-3x memory |
-
-### Reducing Memory
-
-```python
-# Use uint8 input if model supports it (avoids float32 conversion)
-input_tensor = resized_frame  # Keep as uint8 if model input is UINT8
-
-# Release frames promptly
-del previous_frame
-
-# Limit async queue depth
-runner = AsyncRunner(factory, max_queue_depth=2)
-```
-
----
-
-## Performance Comparison Table
-
-| Configuration | FPS (YOLOv8n, 640x640) | Notes |
+| Field | Type | What It Accumulates |
 |---|---|---|
-| Python sync | 25-35 | Baseline |
-| Python sync + C++ postprocess | 35-50 | +40% |
-| Python async | 60-90 | 2-3x sync |
-| Python async + C++ postprocess | 80-120 | Best Python |
-| C++ sync | 100-140 | Native overhead minimal |
-| C++ async | 130-180 | Best overall |
+| `sum_read` | float | Total time reading/decoding frames |
+| `sum_preprocess` | float | Total time for resize, normalization, tensor creation |
+| `sum_inference` | float | Total time for `engine.run()` calls |
+| `sum_postprocess` | float | Total time for NMS, decoding, coordinate scaling |
+| `sum_render` | float | Total time for drawing overlays |
+| `sum_save` | float | Total time for saving output frames |
+| `sum_display` | float | Total time for cv2.imshow / display |
 
-**Note:** Actual FPS depends on NPU hardware (DX-M1 vs DX-M1A (discontinued)), host CPU, input
-source latency, and display overhead. Always benchmark with `--no-display` for
-accurate NPU-only measurements.
+**Source:** `src/python_example/common/runner/sync_runner.py`
+
+### AsyncRunner — 17 Metrics Fields
+
+AsyncRunner has 17 metrics fields including inflight tracking across its 5+1 thread
+pipeline. See `src/python_example/common/runner/async_runner.py` for the complete
+list.
+
+### Identifying Bottlenecks
+
+| If this sum is disproportionately large... | Bottleneck is... | Fix |
+|---|---|---|
+| `sum_preprocess` | CPU image processing | Reduce resolution, optimize resize |
+| `sum_inference` | NPU speed | Use smaller model or lower resolution |
+| `sum_postprocess` | CPU postprocessing | Switch to C++ postprocess variant |
+| `sum_render` / `sum_display` | Display overhead | Use `--no-display` for benchmarks |
 
 ---
 
@@ -336,3 +328,72 @@ export DXRT_DYNAMIC_CPU_THREAD=ON
    Queue load > 50% indicates CPU ops are a significant bottleneck.
 3. **Input format change**: If DXNN input is NHWC uint8 while ONNX was NCHW float32,
    preprocessing was partially baked in and CPU MemoryOps likely exist.
+
+---
+
+## Memory Optimization
+
+### NPU Memory
+
+| Concern | Guideline |
+|---|---|
+| Model size | Larger models use more NPU memory |
+| Multi-model | Each engine allocates NPU context (~10-50 MB overhead) |
+| Batch size | Higher batch = more memory per inference |
+| Max simultaneous | 3-4 models on DX-M1 (depends on model sizes) |
+
+### Host Memory
+
+| Concern | Guideline |
+|---|---|
+| Input tensors | 640x640x3 float32 = ~4.7 MB per frame |
+| Output tensors | Varies (8400x84 float32 = ~2.7 MB for YOLOv8) |
+| OpenCV frames | 1080p BGR = ~6 MB per frame |
+| Async pipeline | Multiple frames buffered across SafeQueues (maxsize=4) |
+
+### Reducing Memory
+
+```python
+# Use uint8 input if model supports it (avoids float32 conversion)
+input_tensor = resized_frame  # Keep as uint8 if model input is UINT8
+
+# Release frames promptly
+del previous_frame
+```
+
+---
+
+## Performance Comparison Table
+
+| Configuration | FPS (YOLOv8n, 640x640) | Notes |
+|---|---|---|
+| Python sync | 25-35 | Baseline |
+| Python sync + C++ postprocess | 35-50 | +40% |
+| Python async (5+1 threads) | 60-90 | 2-3x sync |
+| Python async + C++ postprocess | 80-120 | Best Python |
+| C++ sync | 100-140 | Native overhead minimal |
+| C++ async | 130-180 | Best overall |
+
+**Note:** Actual FPS depends on NPU hardware (DX-M1 vs DX-M1A (discontinued)), host CPU, input
+source latency, and display overhead. Always benchmark with `--no-display` for
+accurate NPU-only measurements.
+
+---
+
+## ⚠️ Fabricated API Calls to Avoid
+
+These calls appeared in previous versions of this file or may be hallucinated by LLMs.
+**None of them exist in the DEEPX SDK.**
+
+| Fabricated Call | Why It's Wrong | Correct Alternative |
+|---|---|---|
+| `engine.infer(data)` | Method does not exist | `engine.run(data)` |
+| `engine.get_input_shape()` | Method does not exist | `engine.get_input_tensors_info()` → `info['shape']` |
+| `engine.get_profile()` | Method does not exist | Use `Configuration` class with `PROFILER` and `SHOW_PROFILE` items |
+| `option.set_batch_size(n)` | Method does not exist | Batch size is set at model compile time (dxcom), not at runtime |
+| `option.set_profiling(True)` | Method does not exist | `Configuration().set_enable(Configuration.ITEM.PROFILER, True)` |
+| `option.set_num_threads(n)` | Method does not exist | `Configuration().set_enable(Configuration.ITEM.CUSTOM_INTRA_OP_THREADS, ...)` |
+| `runner.metrics.fps` | Wrong access pattern | SyncRunner uses `sum_*` timing fields, not named metric attributes |
+| `runner.metrics.inference_time` | Wrong access pattern | Use `sum_inference` field |
+| `runner.metrics.preprocess_time` | Wrong access pattern | Use `sum_preprocess` field |
+| `AsyncRunner` as "2-thread overlap" | Wrong architecture | 5 worker threads + main thread = 6 total, SafeQueue pipeline |

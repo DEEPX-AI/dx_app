@@ -416,27 +416,43 @@ src/python_example/<task>/<model>/
 |---|---|---|---|
 | `yolov5` | `YOLOv5Postprocessor` | `YOLOv5PostProcess` | object_detection |
 | `yolov8` | `YOLOv8Postprocessor` | `YOLOv8PostProcess` | object_detection |
-| `yolov26` | `YOLOv8Postprocessor` | `Yolo26PostProcess` | object_detection |
-| `yolov10` | `YOLOv10Postprocessor` | `YOLOv10PostProcess` | object_detection |
-| `yolov11` | `YOLOv11Postprocessor` | `YOLOv11PostProcess` | object_detection |
-| `classification` | `ClassificationPostprocessor` | — | classification |
-| `pose` | `PosePostprocessor` | `PosePostProcess` | pose_estimation |
-| `face` | `FacePostprocessor` | `FacePostProcess` | face_detection |
+| `yolov26` | `YOLOv8Postprocessor` | `YOLOv26PostProcess` | object_detection |
+| `yolov10` | `YOLOv8Postprocessor` | `YOLOv10PostProcess` | object_detection |
+| `yolox` | `YOLOXPostprocessor` | `YOLOXPostProcess` | object_detection |
+| `nanodet` | `NanoDetPostprocessor` | `NanoDetPostProcess` | object_detection |
+| `ssd` | `SSDPostprocessor` | `SSDPostProcess` | object_detection |
+| `damoyolo` | `DamoYoloPostprocessor` | `DamoYOLOPostProcess` | object_detection |
+| `efficientnet` | `ClassificationPostprocessor` | `ClassificationPostProcess` | classification |
+| `yolov8pose` | `YOLOv8PosePostprocessor` | `YOLOv8PosePostProcess` | pose_estimation |
+| `scrfd` | `SCRFDPostprocessor` | `SCRFDPostProcess` | face_detection |
+| `yolov5face` | `YOLOv5FacePostprocessor` | `YOLOv5FacePostProcess` | face_detection |
+| `retinaface` | `RetinaFacePostprocessor` | `RetinaFacePostProcess` | face_detection |
+| `yolov5seg` / `yolov8seg` | `YOLOv5/v8InstanceSegPostprocessor` | `YOLOv5/v8SegPostProcess` | instance_segmentation |
+| `bisenetv1` / `deeplabv3` / `segformer` | `SemanticSegmentationPostprocessor` / `SegFormerPostprocessor` | `SemanticSegPostProcess` | semantic_segmentation |
+| `fastdepth` | `DepthEstimationPostprocessor` | `DepthPostProcess` | depth_estimation |
+| `dncnn` | `DnCNNPostprocessor` | `DnCNNPostProcess` | image_denoising |
+| `espcn` | `ESPCNPostprocessor` | `ESPCNPostProcess` | super_resolution |
+| `arcface` | `ArcFacePostprocessor` | `EmbeddingPostProcess` | embedding |
+| `obb` | `OBBPostprocessor` | `OBBPostProcess` | obb_detection |
 
 > **WARNING — yolo26 trap**: Registry key `"yolov26"` maps to `YOLOv8Postprocessor`
 > (NOT `Yolo26Postprocessor` which does not exist). YOLO26 uses end-to-end `[1,300,6]` format.
 
+> **WARNING**: Only 3 preprocessor classes exist: `LetterboxPreprocessor`, `SimpleResizePreprocessor`, `GrayscaleResizePreprocessor`. Do NOT fabricate task-specific preprocessors.
+
 | Task | Preprocessor | Postprocessor | Visualizer |
 |---|---|---|---|
-| object_detection | LetterboxPreprocessor | YOLOv5/v8/v10/etc. | DetectionVisualizer |
-| classification | ClassificationPreprocessor | ClassificationPostprocessor | ClassificationVisualizer |
-| pose_estimation | LetterboxPreprocessor | PosePostprocessor | PoseVisualizer |
-| instance_segmentation | LetterboxPreprocessor | SegmentationPostprocessor | InstanceSegVisualizer |
-| semantic_segmentation | SegmentationPreprocessor | SemanticSegPostprocessor | SemanticSegVisualizer |
-| face_detection | LetterboxPreprocessor | FacePostprocessor | FaceVisualizer |
-| depth_estimation | DepthPreprocessor | DepthPostprocessor | DepthVisualizer |
-| image_denoising | RestorationPreprocessor | RestorationPostprocessor | RestorationVisualizer |
-| super_resolution | SRPreprocessor | SRPostprocessor | SRVisualizer |
+| object_detection | `LetterboxPreprocessor` | YOLOv5/v8/etc. (per model family) | `DetectionVisualizer` |
+| classification | `SimpleResizePreprocessor` | `ClassificationPostprocessor` | `ClassificationVisualizer` |
+| pose_estimation | `LetterboxPreprocessor` | `YOLOv5PosePostprocessor` / `YOLOv8PosePostprocessor` | `PoseVisualizer` |
+| instance_segmentation | `LetterboxPreprocessor` | `YOLOv5/v8InstanceSegPostprocessor` | `InstanceSegVisualizer` |
+| semantic_segmentation | `SimpleResizePreprocessor` | `SemanticSegmentationPostprocessor` | `SemanticSegmentationVisualizer` |
+| face_detection | `LetterboxPreprocessor` | `SCRFDPostprocessor` / `YOLOv5FacePostprocessor` | `FaceVisualizer` |
+| depth_estimation | `SimpleResizePreprocessor` | `DepthEstimationPostprocessor` | `DepthVisualizer` |
+| image_denoising | `GrayscaleResizePreprocessor` or `SimpleResizePreprocessor` | `DnCNNPostprocessor` | `RestorationVisualizer` |
+| super_resolution | `SimpleResizePreprocessor` | `ESPCNPostprocessor` | `SuperResolutionVisualizer` |
+| embedding | `SimpleResizePreprocessor` | `ArcFacePostprocessor` | `EmbeddingVisualizer` |
+| obb_detection | `LetterboxPreprocessor` | `OBBPostprocessor` | `OBBVisualizer` |
 
 ## Task-Aware Sample Image Selection
 

@@ -1,24 +1,101 @@
 # Common Framework API Reference
 
 > SyncRunner, AsyncRunner, IFactory hierarchy, IInputSource, and parse_common_args() —
-> the application framework for dx_app v3.0.0.
+> the application framework for dx_app.
 
-## Overview
+## ⚠️ Anti-Fabrication Notice
 
-The common framework (`src/python_example/common/`) provides:
-- **Runners** — SyncRunner (1104 lines) and AsyncRunner manage the inference lifecycle
-- **IFactory** — 11 abstract factory interfaces, each requiring 5 methods
-- **IInputSource** — Pluggable input sources (camera, video, image, RTSP)
-- **parse_common_args()** — Standard CLI argument parser with 11 flags
+This document is a **reference-level overview**. For exact signatures, default values,
+and edge cases, always read the source files listed below. If this document and source
+code disagree, **source code wins**. Do not invent CLI flags, method names, or
+constructor parameters — see the [Common Fabrications](#-common-fabrications-to-avoid)
+section at the end.
+
+---
+
+## Source Files
+
+| Component | Path |
+|-----------|------|
+| CLI parser | `src/python_example/common/runner/args.py` |
+| SyncRunner | `src/python_example/common/runner/sync_runner.py` |
+| AsyncRunner | `src/python_example/common/runner/async_runner.py` |
+| IFactory interfaces | `src/python_example/common/base/i_factory.py` |
+| IPreprocessor / IPostprocessor | `src/python_example/common/base/i_processor.py` |
+| IVisualizer | `src/python_example/common/base/i_visualizer.py` |
+| IInputSource | `src/python_example/common/base/i_input_source.py` |
+| Concrete input sources | `src/python_example/common/inputs/` |
+
+---
+
+## parse_common_args()
+
+**Location:** `src/python_example/common/runner/args.py`
+
+```python
+from common.runner import parse_common_args
+
+args = parse_common_args("YOLOv8n Object Detection")
+# or with output flag:
+args = parse_common_args("My App", include_output=True)
+```
+
+Signature: `parse_common_args(description="DX-APP Inference", *, include_output=False)`
+
+Parser uses `allow_abbrev=False`.
+
+### Input Sources — Mutually Exclusive Group (required=True)
+
+Input source must be exactly one of:
+
+| Flag | Short | Type | Description |
+|------|-------|------|-------------|
+| `--image` | `-i` | `str` | Input image path or directory |
+| `--video` | `-v` | `str` | Input video path |
+| `--camera` | `-c` | `int` | Camera device ID |
+| `--rtsp` | `-r` | `str` | RTSP stream URL |
+
+These are **mutually exclusive** — you cannot combine them.
+
+### Other Arguments
+
+| Flag | Short | Type | Default | Description |
+|------|-------|------|---------|-------------|
+| `--model` | `-m` | `str` | **Required** | Path to `.dxnn` model file |
+| `--display` | — | `store_true` | `True` | Show output window |
+| `--no-display` | — | `store_false` → `display` | — | Disable display |
+| `--save` | `-s` | `store_true` | `False` | Save output frames |
+| `--save-dir` | — | `str` | — | Output save directory |
+| `--loop` | `-l` | `int` | `1` (bare `--loop` = `2`) | Inference loops |
+| `--dump-tensors` | — | `store_true` | `False` | Dump raw tensors |
+| `--config` | — | `str` | — | Path to config.json |
+| `--verbose` | — | `store_true` | `False` | Detailed per-frame logs |
+| `--output` | `-o` | `str` | — | Only present when `include_output=True` |
+
+### Usage Examples
+
+```bash
+# Image inference
+python yolov8n_sync.py -m yolov8n.dxnn -i test.jpg
+
+# Video inference with save
+python yolov8n_sync.py -m yolov8n.dxnn -v video.mp4 --save --save-dir ./out
+
+# USB camera, headless mode
+python yolov8n_async.py -m yolov8n.dxnn -c 0 --no-display
+
+# RTSP stream
+python yolov8n_async.py -m yolov8n.dxnn -r rtsp://192.168.1.100:554/stream
+```
 
 ---
 
 ## SyncRunner
 
-Single-threaded inference runner. Reads frames, preprocesses, infers on NPU, postprocesses,
-and visualizes in a sequential loop.
+Single-threaded inference runner. Everything runs on the main thread in a sequential
+loop: read → preprocess → infer → postprocess → visualize.
 
-**Location:** `src/python_example/common/runner/sync_runner.py` (1104 lines)
+**Location:** `src/python_example/common/runner/sync_runner.py`
 
 ### Constructor
 
@@ -26,18 +103,25 @@ and visualizes in a sequential loop.
 from common.runner import SyncRunner
 
 runner = SyncRunner(
-    factory: IFactory,                # Required: factory implementing 5 methods
-    on_engine_init: callable = None,  # Optional: callback after engine initialization
-    config: dict = None               # Optional: override config.json values
+    factory,                        # IFactory implementation (duck-typed)
+    use_ort=None,                   # None=auto, True=force ORT, False=disable
+    cpp_postprocessor=None,         # Optional C++ postprocessor
+    cpp_convert_fn=None,            # Optional C++ result converter
+    cpp_visualize_fn=None,          # Optional custom viz function
+    on_engine_init=None,            # Callback after engine init
+    display_size=None,              # Default (960, 640)
 )
 ```
 
-**Parameters:**
 | Parameter | Type | Required | Description |
-|---|---|---|---|
-| `factory` | `IFactory` subclass | Yes | Abstract factory for model components |
-| `on_engine_init` | `callable(runner)` | No | Hook called after InferenceEngine is created |
-| `config` | `dict` | No | Config overrides (merged with config.json) |
+|-----------|------|----------|-------------|
+| `factory` | IFactory subclass | Yes | Abstract factory for model components |
+| `use_ort` | `bool` or `None` | No | `None`=auto, `True`=force ONNX Runtime, `False`=disable |
+| `cpp_postprocessor` | callable | No | C++ postprocessor binding |
+| `cpp_convert_fn` | callable | No | C++ result converter |
+| `cpp_visualize_fn` | callable | No | Custom C++ visualization function |
+| `on_engine_init` | callable | No | Hook called after InferenceEngine is created |
+| `display_size` | tuple | No | Display window size, default `(960, 640)` |
 
 ### run()
 
@@ -45,68 +129,41 @@ runner = SyncRunner(
 runner.run(args: argparse.Namespace)
 ```
 
-Executes the full inference pipeline:
-1. Loads config.json from the model directory
-2. Creates InferenceEngine with InferenceOption
-3. Calls `on_engine_init(self)` if provided
-4. Creates preprocessor, postprocessor, visualizer via factory
-5. Opens input source (camera/video/image)
-6. Runs inference loop with signal handling
-7. Prints performance metrics on exit
+Takes the parsed CLI arguments from `parse_common_args()`.
 
-**Parameters:**
-| Parameter | Type | Description |
-|---|---|---|
-| `args` | `argparse.Namespace` | Parsed CLI arguments from `parse_common_args()` |
+### Threading Model
+
+**NO threads.** Everything executes sequentially on the main thread.
+
+Public pipeline methods: `preprocess()`, `infer()`, `postprocess()`, `visualize()`
+
+### Shutdown
+
+No signal handler — uses `except KeyboardInterrupt` and window close detection.
 
 ### Performance Metrics
 
-SyncRunner tracks 7 metrics automatically:
+SyncRunner tracks 7 cumulative timing sums:
 
-| Metric | Description | Unit |
-|---|---|---|
-| `preprocess_time` | Frame preprocessing duration | ms |
-| `inference_time` | NPU inference duration | ms |
-| `postprocess_time` | Result postprocessing duration | ms |
-| `visualize_time` | Drawing/rendering duration | ms |
-| `total_time` | End-to-end frame time | ms |
-| `fps` | Frames per second | fps |
-| `frame_count` | Total frames processed | count |
+| Field | Description |
+|-------|-------------|
+| `sum_read` | Total frame reading time |
+| `sum_preprocess` | Total preprocessing time |
+| `sum_inference` | Total NPU inference time |
+| `sum_postprocess` | Total postprocessing time |
+| `sum_render` | Total visualization/rendering time |
+| `sum_save` | Total frame saving time |
+| `sum_display` | Total display time |
 
-Access metrics after `run()` completes:
-```python
-runner.run(args)
-print(f"Average FPS: {runner.metrics.fps:.1f}")
-print(f"Inference time: {runner.metrics.inference_time:.1f}ms")
-print(f"Frames processed: {runner.metrics.frame_count}")
-```
-
-### Signal Handling
-
-SyncRunner installs a `SIGINT` handler automatically. Pressing Ctrl+C triggers a
-graceful shutdown:
-1. Sets internal `_running = False`
-2. Completes current frame processing
-3. Releases input source
-4. Prints final metrics summary
-5. Exits with code 0
-
-### Key Properties
-
-| Property | Type | Description |
-|---|---|---|
-| `input_width` | `int` | Model input width (available after engine init) |
-| `input_height` | `int` | Model input height (available after engine init) |
-| `engine` | `InferenceEngine` | The underlying inference engine |
-| `metrics` | `Metrics` | Performance metrics object |
-| `_running` | `bool` | Loop control flag |
+> **Note:** These are cumulative sums, not per-frame averages or named attributes
+> like `fps` or `inference_time`. See source for exact access patterns.
 
 ---
 
 ## AsyncRunner
 
-Multi-threaded inference runner. Overlaps preprocessing of frame N+1 with NPU inference
-of frame N for 2-3x throughput improvement.
+Multi-threaded inference runner. Overlaps all pipeline stages across 6 threads for
+maximum throughput.
 
 **Location:** `src/python_example/common/runner/async_runner.py`
 
@@ -116,115 +173,107 @@ of frame N for 2-3x throughput improvement.
 from common.runner import AsyncRunner
 
 runner = AsyncRunner(
-    factory: IFactory,
-    on_engine_init: callable = None,
-    config: dict = None
+    factory,                        # IFactory implementation (duck-typed)
+    use_ort=None,                   # None=auto, True=force ORT, False=disable
+    on_engine_init=None,            # Callback after engine init
+    display_size=(960, 640),        # Display window size
 )
 ```
 
-Parameters are identical to SyncRunner.
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `factory` | IFactory subclass | Yes | Abstract factory for model components |
+| `use_ort` | `bool` or `None` | No | `None`=auto, `True`=force ORT, `False`=disable |
+| `on_engine_init` | callable | No | Hook called after InferenceEngine is created |
+| `display_size` | tuple | No | Display window size, default `(960, 640)` |
 
-### run()
+### 6-Thread Architecture (5 Workers + Main)
 
-```python
-runner.run(args: argparse.Namespace)
+```
+read_worker ──► preprocess_worker ──► wait_worker ──► postprocess_worker ──► render_worker
+                                                                                   │
+                                                                                   ▼
+                                                                          Main Thread (display)
 ```
 
-### Thread Architecture
+| Thread | Target Method | Purpose |
+|--------|---------------|---------|
+| `read_worker` | `_read_worker` | Reads frames from input source |
+| `preprocess_worker` | `_preprocess_worker` | Preprocess + `ie.run_async()` submit |
+| `wait_worker` | `_wait_worker` | `ie.wait(job_id)` to collect results |
+| `postprocess_worker` | `_postprocess_worker` | Run postprocessing |
+| `render_worker` | `_render_worker` | Visualize + save frames |
+| **Main thread** | `_run_display_loop` | `cv2.imshow()` (must be main for GUI) |
+
+### Queue Pipeline
 
 ```
-Main Thread                 Inference Thread
-===========                 ================
-read frame N        -->     [idle]
-preprocess frame N  -->     [idle]
-submit frame N      -->     infer frame N (NPU)
-read frame N+1      <--     [inferring...]
-preprocess frame N+1 <--    [inferring...]
-submit frame N+1    -->     return results N
-                            infer frame N+1 (NPU)
-postprocess N       <--     [inferring...]
-visualize N         <--     [inferring...]
+read_queue → reqid_queue → output_queue → render_queue → display_queue
 ```
 
-**Key difference from SyncRunner:** AsyncRunner uses `engine.run_async()` and
-`engine.wait()` to pipeline CPU work with NPU inference.
+All queues are `SafeQueue(maxsize=4)`.
 
-### Frame Order
+### Threading Details
 
-AsyncRunner maintains strict frame ordering. Results are always returned in
-submission order. However, if postprocessing is significantly slower than inference,
-a frame order inversion can occur. See `memory/common_pitfalls.md` [DX_APP] entry.
+- All 5 worker threads are `daemon=True`
+- Threads joined with `timeout=5.0`
+- Uses `_stop_event = threading.Event()` for graceful shutdown
+- Worker exceptions are captured and re-raised on the main thread
+
+### Performance Metrics
+
+AsyncRunner tracks **17 metrics fields** (including inflight tracking).
+See source for exact field names.
 
 ---
 
-## IFactory Hierarchy
+## Factory Interfaces (12)
 
-11 abstract factory interfaces, each requiring 5 methods. All factories extend
-the base `IFactory` interface.
+**Location:** `src/python_example/common/base/i_factory.py`
 
-### Base Interface: IFactory
+12 abstract factory interfaces. All extend the base `IFactory` interface.
 
-```python
-from abc import ABC, abstractmethod
+### Common Methods (all 12 interfaces)
 
-class IFactory(ABC):
-    @abstractmethod
-    def create_preprocessor(self, input_width: int, input_height: int):
-        """Return a preprocessor instance for the model."""
-        ...
+Every factory must implement these 5 methods:
 
-    @abstractmethod
-    def create_postprocessor(self, input_width: int, input_height: int):
-        """Return a postprocessor instance for the model."""
-        ...
+| Method | Signature | Returns |
+|--------|-----------|---------|
+| `create_preprocessor` | `(input_width, input_height)` | IPreprocessor |
+| `create_postprocessor` | `(input_width, input_height)` | IPostprocessor |
+| `create_visualizer` | `()` | IVisualizer |
+| `get_model_name` | `()` | `str` |
+| `get_task_type` | `()` | `str` |
 
-    @abstractmethod
-    def create_visualizer(self):
-        """Return a visualizer instance for displaying results."""
-        ...
+### 12 Task-Specific Interfaces
 
-    @abstractmethod
-    def get_model_name(self) -> str:
-        """Return the model name (e.g., 'yolov8n')."""
-        ...
+| # | Interface | Extra Methods |
+|---|-----------|---------------|
+| 1 | `IDetectionFactory` | — |
+| 2 | `ISegmentationFactory` | — |
+| 3 | `IClassificationFactory` | — |
+| 4 | `IPoseFactory` | `get_num_keypoints()` |
+| 5 | `IInstanceSegFactory` | — |
+| 6 | `IFaceFactory` | `get_num_keypoints()` |
+| 7 | `IDepthEstimationFactory` | — |
+| 8 | `IRestorationFactory` | — |
+| 9 | `IOBBFactory` | — |
+| 10 | `IEmbeddingFactory` | — |
+| 11 | `IFaceAlignmentFactory` | — |
+| 12 | `IHandLandmarkFactory` | — |
 
-    @abstractmethod
-    def get_task_type(self) -> str:
-        """Return the task type (e.g., 'object_detection')."""
-        ...
-```
+**Note:** `IRestorationFactory` serves multiple tasks (denoising, enhancement,
+super resolution) since they share the same input/output pattern.
 
-### 11 Task-Specific Interfaces
-
-| Interface | Task | Module |
-|---|---|---|
-| `IDetectionFactory` | object_detection | `common.base` |
-| `IClassificationFactory` | classification | `common.base` |
-| `IPoseFactory` | pose_estimation | `common.base` |
-| `IInstanceSegFactory` | instance_segmentation | `common.base` |
-| `ISegmentationFactory` | semantic_segmentation | `common.base` |
-| `IFaceFactory` | face_detection | `common.base` |
-| `IDepthEstimationFactory` | depth_estimation | `common.base` |
-| `IRestorationFactory` | image_denoising, image_enhancement, super_resolution | `common.base` |
-| `IEmbeddingFactory` | embedding | `common.base` |
-| `IOBBFactory` | obb_detection | `common.base` |
-| `IHandLandmarkFactory` | hand_landmark | `common.base` |
-
-**Note:** `IRestorationFactory` serves 3 tasks (denoising, enhancement, super resolution)
-since they share the same input/output pattern.
-
-### Required Methods (ALL 5 must be implemented)
+### Example Implementation
 
 ```python
 class YoloV8nFactory(IDetectionFactory):
-    def __init__(self, config: dict = None):
-        self.config = config or {}
-
     def create_preprocessor(self, input_width, input_height):
         return LetterboxPreprocessor(input_width, input_height)
 
     def create_postprocessor(self, input_width, input_height):
-        return YoloV8Postprocessor(input_width, input_height, self.config)
+        return YoloV8Postprocessor(input_width, input_height)
 
     def create_visualizer(self):
         return DetectionVisualizer()
@@ -236,124 +285,95 @@ class YoloV8nFactory(IDetectionFactory):
         return "object_detection"
 ```
 
-**Critical:** Omitting any method raises `TypeError` at instantiation. The constructor
-must accept `config: dict = None` to support `_FactoryConfigMixin.load_config()`.
-
 ---
 
 ## IInputSource
 
-Pluggable input sources for the runners.
+**Location:** `src/python_example/common/base/i_input_source.py`
 
-### Available Sources
+### 10 Abstract Methods
 
-| Source | Class | CLI Argument |
-|---|---|---|
-| USB Camera | `CameraSource` | `--input usb` or `--input /dev/video2` |
-| Image File | `ImageSource` | `--input image.jpg` |
-| Video File | `VideoSource` | `--input video.mp4` |
-| RTSP Stream | `RTSPSource` | `--input rtsp://...` |
-| Image Directory | `DirectorySource` | `--input /path/to/images/` |
+| Method | Signature | Returns |
+|--------|-----------|---------|
+| `get_frame` | `()` | `Tuple[bool, Optional[np.ndarray]]` |
+| `is_opened` | `()` | `bool` |
+| `release` | `()` | `None` |
+| `get_type` | `()` | `InputType` |
+| `get_width` | `()` | `int` |
+| `get_height` | `()` | `int` |
+| `get_fps` | `()` | `float` |
+| `get_total_frames` | `()` | `int` |
+| `get_description` | `()` | `str` |
+| `is_live_source` | `()` | `bool` |
 
-### InputFactory
+Also supports context manager protocol (`__enter__` / `__exit__`).
 
-Automatically selects the correct source based on the `--input` argument:
+### InputType Enum
 
-```python
-from common.inputs import InputFactory
+`IMAGE`, `VIDEO`, `CAMERA`, `RTSP`, `UNKNOWN`
 
-source = InputFactory.create(args.input)
-# Returns CameraSource, ImageSource, VideoSource, etc.
+### 4 Concrete Sources
 
-while source.is_open():
-    frame = source.read()
-    if frame is None:
-        break
-    # ... process frame ...
-source.release()
-```
-
-### Custom Input Source
-
-```python
-from common.inputs import IInputSource
-
-class MyCustomSource(IInputSource):
-    def open(self) -> bool:
-        """Initialize the source. Return True on success."""
-        ...
-
-    def read(self) -> np.ndarray:
-        """Read next frame as BGR numpy array. Return None at end."""
-        ...
-
-    def is_open(self) -> bool:
-        """Return True if source is active."""
-        ...
-
-    def release(self):
-        """Release resources."""
-        ...
-
-    def get_frame_size(self) -> tuple:
-        """Return (width, height) of frames."""
-        ...
-```
+| Class | InputType | Location |
+|-------|-----------|----------|
+| `ImageSource` | `IMAGE` | `common/inputs/` |
+| `VideoSource` | `VIDEO` | `common/inputs/` |
+| `CameraSource` | `CAMERA` | `common/inputs/` |
+| `RTSPSource` | `RTSP` | `common/inputs/` |
 
 ---
 
-## parse_common_args()
+## Processor Interfaces
 
-Standard CLI argument parser. All dx_app examples use this exclusively — never define
-custom argparse.
+### IPreprocessor
+
+**Location:** `src/python_example/common/base/i_processor.py`
 
 ```python
-from common.runner import parse_common_args
-
-args = parse_common_args("YOLOv8n Object Detection")
+def process(self, image) -> Tuple[tensor, PreprocessContext]:
+    ...
 ```
 
-### 11 CLI Arguments
+### IPostprocessor
 
-| Flag | Short | Type | Default | Description |
-|---|---|---|---|---|
-| `--model` | `-m` | `str` | Required | Path to `.dxnn` model file |
-| `--input` | `-i` | `str` | `"usb"` | Input source (file, camera, RTSP URL) |
-| `--output` | `-o` | `str` | `None` | Output file path (save results) |
-| `--score-threshold` | `-s` | `float` | `0.25` | Detection confidence threshold |
-| `--nms-threshold` | `-n` | `float` | `0.45` | NMS IoU threshold |
-| `--no-display` | | `flag` | `False` | Run headless (no cv2.imshow) |
-| `--save-video` | | `str` | `None` | Save output to video file |
-| `--max-frames` | | `int` | `None` | Stop after N frames |
-| `--use-ort` | | `flag` | `False` | Use ONNX Runtime CPU backend |
-| `--config` | `-c` | `str` | `"config.json"` | Path to config file |
-| `--verbose` | `-v` | `flag` | `False` | Enable debug logging |
+**Location:** `src/python_example/common/base/i_processor.py`
 
-### Usage Examples
-
-```bash
-# Image inference with custom threshold
-python yolov8n_sync.py --model yolov8n.dxnn --input test.jpg --score-threshold 0.3
-
-# Video inference, save output
-python yolov8n_sync.py --model yolov8n.dxnn --input video.mp4 --save-video output.mp4
-
-# USB camera, headless mode
-python yolov8n_async.py --model yolov8n.dxnn --input usb --no-display
-
-# RTSP stream, max 1000 frames
-python yolov8n_async.py --model yolov8n.dxnn --input rtsp://192.168.1.100:554/stream --max-frames 1000
-
-# CPU-only mode (no NPU required)
-python yolov8n_sync.py --model yolov8n.dxnn --input test.jpg --use-ort
+```python
+def process(self, outputs, ctx) -> results:
+    ...
 ```
 
-### Argument Precedence
+### IVisualizer
 
-1. CLI arguments (highest priority)
-2. config.json values
-3. Default values (lowest priority)
+**Location:** `src/python_example/common/base/i_visualizer.py`
 
-**Note on `--score-threshold` alias:** In `config.json`, the key is `score_threshold`
-(underscore). On the CLI, it is `--score-threshold` (hyphen). Both map to the same
-value. See `memory/common_pitfalls.md` for the alias confusion pitfall.
+```python
+def visualize(self, frame, results) -> frame:
+    ...
+```
+
+> **Note:** Python framework uses `process()` for preprocessor/postprocessor and
+> `visualize()` for visualizer. The C++ `dx_postprocess` bindings use `postprocess()`.
+> These are different layers — do not confuse them.
+
+---
+
+## ⚠️ Common Fabrications to Avoid
+
+| Fabrication | Reality |
+|-------------|---------|
+| `--input` / `-i` single input arg | **Does not exist.** Input is a mutually exclusive group: `--image`/`-i`, `--video`/`-v`, `--camera`/`-c`, `--rtsp`/`-r` |
+| `--score-threshold` / `-s` | **Does not exist.** `-s` is `--save`. Thresholds come from `config.json` |
+| `--nms-threshold` / `-n` | **Does not exist.** NMS config is in `config.json` |
+| `--output` / `-o` always available | Only present when `include_output=True` is passed to `parse_common_args()` |
+| `--save-video` flag | **Does not exist.** Use `--save` + `--save-dir` |
+| `--max-frames` flag | **Does not exist.** Use `--loop` for iteration control |
+| `--use-ort` CLI flag | **Does not exist.** ORT is configured via `use_ort` constructor param or `InferenceOption` in code |
+| `runner.metrics.fps` / `.inference_time` | **Do not exist.** Metrics are cumulative timing sums (`sum_read`, `sum_inference`, etc.) |
+| AsyncRunner is 2-thread | **Wrong.** It is 6 threads: 5 daemon workers + main thread |
+| IFactory has 11 interfaces | **Wrong.** There are 12 interfaces |
+| `is_open()` method | **Wrong.** The method is `is_opened()` |
+| `read()` method on IInputSource | **Wrong.** The method is `get_frame()` → `Tuple[bool, Optional[np.ndarray]]` |
+| `get_frame_size()` method | **Wrong.** Use `get_width()` and `get_height()` separately |
+| `draw()` method on IVisualizer | **Wrong.** The method is `visualize()` |
+| `SyncRunner(factory, on_engine_init, config)` | **Wrong.** Constructor has 7 params: `factory`, `use_ort`, `cpp_postprocessor`, `cpp_convert_fn`, `cpp_visualize_fn`, `on_engine_init`, `display_size` |

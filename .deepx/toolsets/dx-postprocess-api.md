@@ -1,534 +1,260 @@
 # DX Postprocess API Reference
 
-> 37 pybind11 C++ postprocess bindings for dx_app, organized by AI task.
+> 35 pybind11 C++ postprocess bindings exposed via `dx_postprocess` module.
+> All classes live in a single pybind11 module built from C++ for 5-10x speedup
+> over equivalent Python implementations.
 
-## Overview
+## ⚠️ Anti-Fabrication Notice
 
-`dx_postprocess` is a pybind11 module that exposes high-performance C++ postprocessing
-functions to Python. These are 5-10x faster than equivalent Python implementations and
-are used by the `*_cpp_postprocess` variants of dx_app examples.
+**Do NOT invent classes.** There are exactly 35 postprocess classes. If a class
+is not listed in the table below, it does not exist. When uncertain, check the
+pybind11 source file directly. Common mistakes:
+- Using `process()` — the method is **`postprocess()`**
+- Describing returns as Python dataclasses — returns are **always numpy arrays**
+- Inventing architecture-specific wrappers (e.g., `MobileNetV2PostProcess`) —
+  use the generic class instead (e.g., `ClassificationPostProcess`)
 
-**Installation:** Built and installed via `./build.sh` from dx_app root. The shared
-library is installed into the Python environment as `dx_postprocess.so`.
+## Source File
 
-**Import:**
-```python
-import dx_postprocess
-# or import specific functions:
-from dx_postprocess import YoloV8PostProcess, ClassificationPostProcess
+```
+dx_app/src/bindings/python/dx_postprocess/postprocess_pybinding.cpp  (1541 lines)
 ```
 
----
+All constructor signatures, method names, and return types are defined in this
+single file. When in doubt, read the source — it is the only authority.
 
-## Detection (11 bindings)
+## Key Rules
 
-### YoloV5PostProcess
+1. **Method is ALWAYS `postprocess(ie_output)`** — never `process()`, never `run()`
+2. **`ie_output` is always `List[np.ndarray]`** — the raw output tensors from inference
+3. **Returns are always numpy arrays** — never Python dataclasses, never lists of objects
+4. **`is_ort_configured`** (not `use_ort`) — boolean flag for ONNX Runtime tensor layout
+5. **Import:** `from dx_postprocess import YOLOv8PostProcess`
+
+## Complete Class Reference Table
+
+| # | Class | Category | Params | Return Shape |
+|---|-------|----------|--------|-------------|
+| 1 | `YOLOv5PostProcess` | Detection | 6 | `ndarray[N,6]` |
+| 2 | `YOLOv7PostProcess` | Detection | 6 | `ndarray[N,6]` |
+| 3 | `YOLOXPostProcess` | Detection | 6 | `ndarray[N,6]` |
+| 4 | `YOLOv8PostProcess` | Detection | 5 | `ndarray[N,6]` |
+| 5 | `YOLOv9PostProcess` | Detection | 5 | `ndarray[N,6]` |
+| 6 | `YOLOv10PostProcess` | Detection | 5 | `ndarray[N,6]` |
+| 7 | `YOLOv11PostProcess` | Detection | 5 | `ndarray[N,6]` |
+| 8 | `YOLOv12PostProcess` | Detection | 5 | `ndarray[N,6]` |
+| 9 | `YOLOv26PostProcess` | Detection | 5 | `ndarray[N,6]` |
+| 10 | `SSDPostProcess` | Detection | 6 | `ndarray[N,6]` |
+| 11 | `NanoDetPostProcess` | Detection | 6 | `ndarray[N,6]` |
+| 12 | `DamoYOLOPostProcess` | Detection | 5 | `ndarray[N,6]` |
+| 13 | `YOLOv5FacePostProcess` | Face | 6 | `ndarray[N,21]` |
+| 14 | `SCRFDPostProcess` | Face | 5 | `ndarray[N,21]` |
+| 15 | `RetinaFacePostProcess` | Face | 4 | `ndarray[N,16]` |
+| 16 | `ULFGFDPostProcess` | Face | 4 | `ndarray[N,6]` |
+| 17 | `Face3DPostProcess` | Face | 2 | `ndarray[P]` |
+| 18 | `YOLOv5PosePostProcess` | Pose | 6 | `ndarray[N,57]` |
+| 19 | `YOLOv8PosePostProcess` | Pose | 5 | `ndarray[N,57]` |
+| 20 | `CenterPosePostProcess` | Pose | 5 | `ndarray[N,30]` |
+| 21 | `YOLOv5SegPostProcess` | Segmentation | 6 | `tuple(ndarray[N,6], ndarray[N,H,W])` |
+| 22 | `YOLOv8SegPostProcess` | Segmentation | 5 | `tuple(ndarray[N,6], ndarray[N,H,W])` |
+| 23 | `DeepLabv3PostProcess` | Segmentation | 2 | `ndarray[H,W] int32` |
+| 24 | `SemanticSegPostProcess` | Segmentation | 3 | `ndarray[H,W] int32` |
+| 25 | `ClassificationPostProcess` | Classification | 1 | `ndarray[K,2] float32` |
+| 26 | `YOLOv5PPUPostProcess` | PPU | 5 | `ndarray[N,6]` |
+| 27 | `YOLOv7PPUPostProcess` | PPU | 5 | `ndarray[N,6]` |
+| 28 | `YOLOv5PosePPUPostProcess` | PPU | 4 | `ndarray[N,57]` |
+| 29 | `SCRFDPPUPostProcess` | PPU | 4 | `ndarray[N,21]` |
+| 30 | `DepthPostProcess` | Depth | 2 | `ndarray[H,W] uint8` |
+| 31 | `DnCNNPostProcess` | Denoising | 2 | `ndarray[H,W] float32` |
+| 32 | `EmbeddingPostProcess` | Embedding | 1 | `ndarray[D] float32` |
+| 33 | `ESPCNPostProcess` | Super Resolution | 3 | `ndarray float32` |
+| 34 | `ZeroDCEPostProcess` | Enhancement | 2 | `ndarray[C,H,W] float32` |
+| 35 | `OBBPostProcess` | OBB Detection | 3 | `ndarray[N,7]` |
+
+## Constructor Details by Category
+
+### Detection — Anchor-Based (6 params, includes `obj_threshold`)
 
 ```python
-pp = dx_postprocess.YoloV5PostProcess(
-    input_width: int,       # Model input width (e.g., 640)
-    input_height: int,      # Model input height (e.g., 640)
-    score_threshold: float, # Confidence threshold (e.g., 0.25)
-    nms_threshold: float,   # NMS IoU threshold (e.g., 0.45)
-    use_ort: bool           # True if using ONNX Runtime backend
+# YOLOv5, YOLOv7, YOLOX — all share the same 6-param signature
+pp = dx_postprocess.YOLOv5PostProcess(input_w, input_h, obj_threshold, score_threshold, nms_threshold, is_ort_configured)
+pp = dx_postprocess.YOLOv7PostProcess(input_w, input_h, obj_threshold, score_threshold, nms_threshold, is_ort_configured)
+pp = dx_postprocess.YOLOXPostProcess(input_w, input_h, obj_threshold, score_threshold, nms_threshold, is_ort_configured)
+```
+
+### Detection — Anchor-Free (5 params, NO `obj_threshold`)
+
+```python
+# YOLOv8, v9, v10, v11, v12, v26 — all share the same 5-param signature
+pp = dx_postprocess.YOLOv8PostProcess(input_w, input_h, score_threshold, nms_threshold, is_ort_configured)
+pp = dx_postprocess.YOLOv9PostProcess(input_w, input_h, score_threshold, nms_threshold, is_ort_configured)
+pp = dx_postprocess.YOLOv10PostProcess(input_w, input_h, score_threshold, nms_threshold, is_ort_configured)
+pp = dx_postprocess.YOLOv11PostProcess(input_w, input_h, score_threshold, nms_threshold, is_ort_configured)
+pp = dx_postprocess.YOLOv12PostProcess(input_w, input_h, score_threshold, nms_threshold, is_ort_configured)
+pp = dx_postprocess.YOLOv26PostProcess(input_w, input_h, score_threshold, nms_threshold, is_ort_configured)
+```
+
+### Detection — Special Parameters
+
+```python
+pp = dx_postprocess.SSDPostProcess(input_w, input_h, score_threshold, nms_threshold, num_classes=20, has_background=True)
+pp = dx_postprocess.NanoDetPostProcess(input_w, input_h, score_threshold, nms_threshold, num_classes=80, reg_max=10)
+pp = dx_postprocess.DamoYOLOPostProcess(input_w, input_h, score_threshold, nms_threshold, num_classes=80)
+```
+
+### Face Detection
+
+```python
+pp = dx_postprocess.YOLOv5FacePostProcess(input_w, input_h, obj_threshold, score_threshold, nms_threshold, is_ort_configured)  # → ndarray[N,21]
+pp = dx_postprocess.SCRFDPostProcess(input_w, input_h, score_threshold, nms_threshold, is_ort_configured)  # → ndarray[N,21]
+pp = dx_postprocess.RetinaFacePostProcess(input_w, input_h, score_threshold=0.5, nms_threshold=0.4)       # → ndarray[N,16]
+pp = dx_postprocess.ULFGFDPostProcess(input_w, input_h, score_threshold=0.7, nms_threshold=0.3)           # → ndarray[N,6]
+pp = dx_postprocess.Face3DPostProcess(input_w, input_h)                                                    # → ndarray[P]
+```
+
+### Pose Estimation
+
+```python
+pp = dx_postprocess.YOLOv5PosePostProcess(input_w, input_h, obj_threshold, score_threshold, nms_threshold, is_ort_configured)  # → ndarray[N,57]
+pp = dx_postprocess.YOLOv8PosePostProcess(input_w, input_h, score_threshold, nms_threshold, is_ort_configured=False)           # → ndarray[N,57]
+pp = dx_postprocess.CenterPosePostProcess(input_w, input_h, score_threshold=0.3, nms_threshold=0.5, num_keypoints=8)           # → ndarray[N,30]
+```
+
+### Segmentation
+
+```python
+# Instance segmentation — returns tuple of (detections, masks)
+pp = dx_postprocess.YOLOv5SegPostProcess(input_w, input_h, obj_threshold, score_threshold, nms_threshold, is_ort_configured=True)  # → tuple(ndarray[N,6], ndarray[N,H,W])
+pp = dx_postprocess.YOLOv8SegPostProcess(input_w, input_h, score_threshold, nms_threshold, is_ort_configured)                      # → tuple(ndarray[N,6], ndarray[N,H,W])
+
+# Semantic segmentation — returns per-pixel class map
+pp = dx_postprocess.DeepLabv3PostProcess(input_w, input_h)                  # → ndarray[H,W] int32
+pp = dx_postprocess.SemanticSegPostProcess(input_w, input_h, num_classes=0) # → ndarray[H,W] int32
+```
+
+### Classification
+
+```python
+pp = dx_postprocess.ClassificationPostProcess(top_k=5)  # → ndarray[K,2] float32
+# Extra methods: get_top_k() — NOT get_input_width()/get_input_height()
+```
+
+### PPU Variants (no `is_ort_configured` parameter)
+
+```python
+pp = dx_postprocess.YOLOv5PPUPostProcess(input_w, input_h, obj_threshold, score_threshold, nms_threshold)  # → ndarray[N,6]
+pp = dx_postprocess.YOLOv7PPUPostProcess(input_w, input_h, obj_threshold, score_threshold, nms_threshold)  # → ndarray[N,6]
+pp = dx_postprocess.YOLOv5PosePPUPostProcess(input_w, input_h, score_threshold, nms_threshold)             # → ndarray[N,57]
+pp = dx_postprocess.SCRFDPPUPostProcess(input_w, input_h, score_threshold, nms_threshold)                  # → ndarray[N,21]
+```
+
+### Depth, Denoising, Embedding, Super Resolution, Enhancement, OBB
+
+```python
+pp = dx_postprocess.DepthPostProcess(input_w, input_h)              # → ndarray[H,W] uint8
+pp = dx_postprocess.DnCNNPostProcess(input_w, input_h)              # → ndarray[H,W] float32
+pp = dx_postprocess.EmbeddingPostProcess(l2_normalize=True)         # → ndarray[D] float32
+# Extra methods: get_l2_normalize() — NOT get_input_width()/get_input_height()
+pp = dx_postprocess.ESPCNPostProcess(input_w, input_h, scale_factor=2)  # → ndarray float32
+pp = dx_postprocess.ZeroDCEPostProcess(input_w, input_h)            # → ndarray[C,H,W] float32
+pp = dx_postprocess.OBBPostProcess(input_w, input_h, score_threshold=0.3)  # → ndarray[N,7]
+```
+
+## Common Methods
+
+Most classes expose these methods (exceptions noted in Constructor Details):
+
+| Method | Description |
+|--------|-------------|
+| `postprocess(ie_output: List[np.ndarray])` | Run postprocessing on inference output |
+| `get_input_width() -> int` | Returns configured input width |
+| `get_input_height() -> int` | Returns configured input height |
+
+**Exceptions:**
+- `ClassificationPostProcess` has `get_top_k()` instead of width/height methods
+- `EmbeddingPostProcess` has `get_l2_normalize()` instead of width/height methods
+
+## Return Type Patterns
+
+| Pattern | Shape | Column Layout |
+|---------|-------|---------------|
+| Detection | `ndarray[N,6]` | `[x1, y1, x2, y2, confidence, class_id]` |
+| Face (5-pt) | `ndarray[N,21]` | `[x1, y1, x2, y2, conf, class_id, 5×(lm_x, lm_y, lm_conf)]` |
+| Face (RetinaFace) | `ndarray[N,16]` | `[x1, y1, x2, y2, conf, class_id, 5×(lm_x, lm_y)]` |
+| Face (ULFGFD) | `ndarray[N,6]` | `[x1, y1, x2, y2, confidence, class_id]` (no landmarks) |
+| Pose (17-kp) | `ndarray[N,57]` | `[x1, y1, x2, y2, conf, class_id, 17×(kp_x, kp_y, kp_conf)]` |
+| Pose (CenterPose) | `ndarray[N,30]` | `[x1, y1, x2, y2, conf, class_id, 8×(kp_x, kp_y, kp_conf)]` |
+| Instance Seg | `tuple(ndarray[N,6], ndarray[N,H,W])` | Detections + per-instance binary masks |
+| Semantic Seg | `ndarray[H,W] int32` | Per-pixel class ID map |
+| Classification | `ndarray[K,2] float32` | `[class_id, confidence]` per row |
+| OBB | `ndarray[N,7]` | `[cx, cy, w, h, confidence, class_id, angle]` |
+| Depth | `ndarray[H,W] uint8` | Per-pixel depth values |
+| Denoising | `ndarray[H,W] float32` | Denoised image |
+| Embedding | `ndarray[D] float32` | Feature vector (L2-normalized if configured) |
+| Enhancement | `ndarray[C,H,W] float32` | Enhanced image |
+| Super Resolution | `ndarray float32` | Upscaled image |
+| Face3D | `ndarray[P]` | 1D face parameter vector |
+
+## ⚠️ Classes That Do NOT Exist
+
+Do not fabricate these — they are common hallucinations:
+
+| Fabricated Name | What To Use Instead |
+|-----------------|---------------------|
+| `EfficientDetPostProcess` | Does not exist in bindings |
+| `BisenetV1PostProcess` | Use `SemanticSegPostProcess` |
+| `DeepLabV3PostProcess` (capital V) | Use `DeepLabv3PostProcess` (lowercase v) |
+| `MobileNetV2PostProcess` | Use `ClassificationPostProcess` |
+| `ResNetPostProcess` | Use `ClassificationPostProcess` |
+| `EfficientNetPostProcess` | Use `ClassificationPostProcess` |
+| `ArcFacePostProcess` | Use `EmbeddingPostProcess` |
+| `HandLandmarkPostProcess` | Does not exist in bindings |
+| `FastDepthPostProcess` | Use `DepthPostProcess` |
+| `YoloV5TinyPostProcess` | Use `YOLOv5PostProcess` (handles all v5 variants) |
+| `YoloV7TinyPostProcess` | Use `YOLOv7PostProcess` (handles all v7 variants) |
+| `Yolo26OBBPostProcess` | Use `OBBPostProcess` |
+| `PPUPostProcess` (generic) | Use specific PPU variants: `YOLOv5PPUPostProcess`, etc. |
+
+## Usage Example
+
+From actual skeleton code (`*_cpp_postprocess` examples):
+
+```python
+import numpy as np
+from dx_postprocess import YOLOv8PostProcess
+
+# Create postprocessor — matches model input dimensions
+pp = YOLOv8PostProcess(
+    640,     # input_w
+    640,     # input_h
+    0.25,    # score_threshold
+    0.45,    # nms_threshold
+    False    # is_ort_configured
 )
-results = pp.process(outputs: list[np.ndarray]) -> list[Detection]
-# Detection: (x1, y1, x2, y2, score, class_id)
+
+# ie_output is List[np.ndarray] from inference engine
+detections = pp.postprocess(ie_output)  # → ndarray[N,6]
+
+# Each row: [x1, y1, x2, y2, confidence, class_id]
+for det in detections:
+    x1, y1, x2, y2, conf, cls = det
+    print(f"Class {int(cls)}: ({x1:.0f},{y1:.0f})-({x2:.0f},{y2:.0f}) conf={conf:.2f}")
 ```
 
-### YoloV5TinyPostProcess
+Instance segmentation example:
 
 ```python
-pp = dx_postprocess.YoloV5TinyPostProcess(
-    input_width: int, input_height: int,
-    score_threshold: float, nms_threshold: float, use_ort: bool
-)
-results = pp.process(outputs: list[np.ndarray]) -> list[Detection]
+from dx_postprocess import YOLOv8SegPostProcess
+
+pp = YOLOv8SegPostProcess(640, 640, 0.25, 0.45, False)
+detections, masks = pp.postprocess(ie_output)  # → tuple(ndarray[N,6], ndarray[N,H,W])
+
+for i, det in enumerate(detections):
+    x1, y1, x2, y2, conf, cls = det
+    instance_mask = masks[i]  # ndarray[H,W] binary mask for this detection
 ```
 
-### YoloV7PostProcess
-
-```python
-pp = dx_postprocess.YoloV7PostProcess(
-    input_width: int, input_height: int,
-    score_threshold: float, nms_threshold: float, use_ort: bool
-)
-results = pp.process(outputs: list[np.ndarray]) -> list[Detection]
-```
-
-### YoloV7TinyPostProcess
-
-```python
-pp = dx_postprocess.YoloV7TinyPostProcess(
-    input_width: int, input_height: int,
-    score_threshold: float, nms_threshold: float, use_ort: bool
-)
-results = pp.process(outputs: list[np.ndarray]) -> list[Detection]
-```
-
-### YoloV8PostProcess
-
-```python
-pp = dx_postprocess.YoloV8PostProcess(
-    input_width: int, input_height: int,
-    score_threshold: float, nms_threshold: float, use_ort: bool
-)
-results = pp.process(outputs: list[np.ndarray]) -> list[Detection]
-```
-
-### YoloV10PostProcess
-
-```python
-pp = dx_postprocess.YoloV10PostProcess(
-    input_width: int, input_height: int,
-    score_threshold: float,  # NMS-free: only score_threshold
-    use_ort: bool
-)
-results = pp.process(outputs: list[np.ndarray]) -> list[Detection]
-```
-
-**Note:** YOLOv10 is NMS-free by design. The `nms_threshold` parameter is not used.
-
-### YoloV11PostProcess
-
-```python
-pp = dx_postprocess.YoloV11PostProcess(
-    input_width: int, input_height: int,
-    score_threshold: float, nms_threshold: float, use_ort: bool
-)
-results = pp.process(outputs: list[np.ndarray]) -> list[Detection]
-```
-
-### Yolo26PostProcess
-
-```python
-pp = dx_postprocess.Yolo26PostProcess(
-    input_width: int, input_height: int,
-    score_threshold: float, nms_threshold: float, use_ort: bool
-)
-results = pp.process(outputs: list[np.ndarray]) -> list[Detection]
-```
-
-### SSDPostProcess
-
-```python
-pp = dx_postprocess.SSDPostProcess(
-    input_width: int, input_height: int,
-    score_threshold: float, nms_threshold: float, use_ort: bool
-)
-results = pp.process(outputs: list[np.ndarray]) -> list[Detection]
-```
-
-### EfficientDetPostProcess
-
-```python
-pp = dx_postprocess.EfficientDetPostProcess(
-    input_width: int, input_height: int,
-    score_threshold: float, nms_threshold: float, use_ort: bool
-)
-results = pp.process(outputs: list[np.ndarray]) -> list[Detection]
-```
-
-### NanodetPostProcess
-
-```python
-pp = dx_postprocess.NanodetPostProcess(
-    input_width: int, input_height: int,
-    score_threshold: float, nms_threshold: float, use_ort: bool
-)
-results = pp.process(outputs: list[np.ndarray]) -> list[Detection]
-```
-
-### Detection Return Type
-
-All detection postprocessors return `list[Detection]` where each Detection is:
-
-```python
-class Detection:
-    x1: float       # Top-left x (normalized 0-1, relative to input_width)
-    y1: float       # Top-left y (normalized 0-1, relative to input_height)
-    x2: float       # Bottom-right x
-    y2: float       # Bottom-right y
-    score: float    # Confidence score (0-1)
-    class_id: int   # Class index into labels file
-```
-
----
-
-## Classification (4 bindings)
-
-### ClassificationPostProcess
-
-```python
-pp = dx_postprocess.ClassificationPostProcess(
-    top_k: int = 5,         # Number of top predictions to return
-    use_ort: bool = False
-)
-results = pp.process(outputs: list[np.ndarray]) -> list[ClassResult]
-# ClassResult: (class_id, score)
-```
-
-### EfficientNetPostProcess
-
-```python
-pp = dx_postprocess.EfficientNetPostProcess(top_k: int, use_ort: bool)
-results = pp.process(outputs: list[np.ndarray]) -> list[ClassResult]
-```
-
-### MobileNetV2PostProcess
-
-```python
-pp = dx_postprocess.MobileNetV2PostProcess(top_k: int, use_ort: bool)
-results = pp.process(outputs: list[np.ndarray]) -> list[ClassResult]
-```
-
-### ResNetPostProcess
-
-```python
-pp = dx_postprocess.ResNetPostProcess(top_k: int, use_ort: bool)
-results = pp.process(outputs: list[np.ndarray]) -> list[ClassResult]
-```
-
-### Classification Return Type
-
-```python
-class ClassResult:
-    class_id: int    # Class index
-    score: float     # Softmax probability (0-1)
-```
-
----
-
-## Segmentation (4 bindings)
-
-### YoloV5SegPostProcess (Instance)
-
-```python
-pp = dx_postprocess.YoloV5SegPostProcess(
-    input_width: int, input_height: int,
-    score_threshold: float, nms_threshold: float,
-    mask_threshold: float = 0.5,    # Mask binarization threshold
-    use_ort: bool = False
-)
-results = pp.process(outputs: list[np.ndarray]) -> list[SegResult]
-```
-
-### YoloV8SegPostProcess (Instance)
-
-```python
-pp = dx_postprocess.YoloV8SegPostProcess(
-    input_width: int, input_height: int,
-    score_threshold: float, nms_threshold: float,
-    mask_threshold: float = 0.5,
-    use_ort: bool = False
-)
-results = pp.process(outputs: list[np.ndarray]) -> list[SegResult]
-```
-
-### BisenetV1PostProcess (Semantic)
-
-```python
-pp = dx_postprocess.BisenetV1PostProcess(
-    input_width: int, input_height: int,
-    num_classes: int = 19,    # Cityscapes default
-    use_ort: bool = False
-)
-mask = pp.process(outputs: list[np.ndarray]) -> np.ndarray
-# mask: (H, W) int32 array with class IDs per pixel
-```
-
-### DeepLabV3PostProcess (Semantic)
-
-```python
-pp = dx_postprocess.DeepLabV3PostProcess(
-    input_width: int, input_height: int,
-    num_classes: int = 21,    # VOC default
-    use_ort: bool = False
-)
-mask = pp.process(outputs: list[np.ndarray]) -> np.ndarray
-```
-
-### Segmentation Return Types
-
-Instance segmentation:
-```python
-class SegResult:
-    x1: float        # Bounding box
-    y1: float
-    x2: float
-    y2: float
-    score: float     # Detection confidence
-    class_id: int    # Class index
-    mask: np.ndarray # (H, W) binary mask for this instance
-```
-
-Semantic segmentation returns `np.ndarray` of shape `(H, W)` with per-pixel class IDs.
-
----
-
-## Pose Estimation (2 bindings)
-
-### YoloV5PosePostProcess
-
-```python
-pp = dx_postprocess.YoloV5PosePostProcess(
-    input_width: int, input_height: int,
-    score_threshold: float, nms_threshold: float,
-    num_keypoints: int = 17,   # COCO keypoints
-    use_ort: bool = False
-)
-results = pp.process(outputs: list[np.ndarray]) -> list[PoseResult]
-```
-
-### YoloV8PosePostProcess
-
-```python
-pp = dx_postprocess.YoloV8PosePostProcess(
-    input_width: int, input_height: int,
-    score_threshold: float, nms_threshold: float,
-    num_keypoints: int = 17,
-    use_ort: bool = False
-)
-results = pp.process(outputs: list[np.ndarray]) -> list[PoseResult]
-```
-
-### Pose Return Type
-
-```python
-class PoseResult:
-    x1: float              # Person bounding box
-    y1: float
-    x2: float
-    y2: float
-    score: float           # Person detection confidence
-    keypoints: list[tuple] # [(x, y, confidence), ...] for each keypoint
-```
-
-COCO 17 keypoints: nose, left_eye, right_eye, left_ear, right_ear, left_shoulder,
-right_shoulder, left_elbow, right_elbow, left_wrist, right_wrist, left_hip, right_hip,
-left_knee, right_knee, left_ankle, right_ankle.
-
----
-
-## Face Detection (3 bindings)
-
-### SCRFDPostProcess
-
-```python
-pp = dx_postprocess.SCRFDPostProcess(
-    input_width: int, input_height: int,
-    score_threshold: float, nms_threshold: float,
-    use_ort: bool = False
-)
-results = pp.process(outputs: list[np.ndarray]) -> list[FaceResult]
-```
-
-### RetinaFacePostProcess
-
-```python
-pp = dx_postprocess.RetinaFacePostProcess(
-    input_width: int, input_height: int,
-    score_threshold: float, nms_threshold: float,
-    use_ort: bool = False
-)
-results = pp.process(outputs: list[np.ndarray]) -> list[FaceResult]
-```
-
-### YoloV5FacePostProcess
-
-```python
-pp = dx_postprocess.YoloV5FacePostProcess(
-    input_width: int, input_height: int,
-    score_threshold: float, nms_threshold: float,
-    use_ort: bool = False
-)
-results = pp.process(outputs: list[np.ndarray]) -> list[FaceResult]
-```
-
-### Face Return Type
-
-```python
-class FaceResult:
-    x1: float               # Face bounding box
-    y1: float
-    x2: float
-    y2: float
-    score: float            # Detection confidence
-    landmarks: list[tuple]  # 5 facial landmarks: [(x, y), ...]
-    # Landmarks: left_eye, right_eye, nose, left_mouth, right_mouth
-```
-
----
-
-## Depth Estimation (1 binding)
-
-### FastDepthPostProcess
-
-```python
-pp = dx_postprocess.FastDepthPostProcess(
-    input_width: int, input_height: int,
-    use_ort: bool = False
-)
-depth_map = pp.process(outputs: list[np.ndarray]) -> np.ndarray
-# depth_map: (H, W) float32 array with depth values in meters
-```
-
----
-
-## Image Denoising (1 binding)
-
-### DnCNNPostProcess
-
-```python
-pp = dx_postprocess.DnCNNPostProcess(
-    input_width: int, input_height: int,
-    use_ort: bool = False
-)
-denoised = pp.process(outputs: list[np.ndarray]) -> np.ndarray
-# denoised: (H, W, 3) uint8 BGR image
-```
-
----
-
-## Image Enhancement (1 binding)
-
-### ZeroDCEPostProcess
-
-```python
-pp = dx_postprocess.ZeroDCEPostProcess(
-    input_width: int, input_height: int,
-    use_ort: bool = False
-)
-enhanced = pp.process(outputs: list[np.ndarray]) -> np.ndarray
-# enhanced: (H, W, 3) uint8 BGR image with improved lighting
-```
-
----
-
-## Super Resolution (1 binding)
-
-### ESPCNPostProcess
-
-```python
-pp = dx_postprocess.ESPCNPostProcess(
-    input_width: int, input_height: int,
-    scale_factor: int = 4,    # Upscale factor
-    use_ort: bool = False
-)
-upscaled = pp.process(outputs: list[np.ndarray]) -> np.ndarray
-# upscaled: (H*scale, W*scale, 3) uint8 BGR image
-```
-
----
-
-## Embedding (1 binding)
-
-### ArcFacePostProcess
-
-```python
-pp = dx_postprocess.ArcFacePostProcess(
-    use_ort: bool = False
-)
-embedding = pp.process(outputs: list[np.ndarray]) -> np.ndarray
-# embedding: (128,) float32 normalized feature vector
-```
-
----
-
-## Hand Landmark (1 binding)
-
-### HandLandmarkPostProcess
-
-```python
-pp = dx_postprocess.HandLandmarkPostProcess(
-    input_width: int, input_height: int,
-    score_threshold: float = 0.5,
-    use_ort: bool = False
-)
-results = pp.process(outputs: list[np.ndarray]) -> list[HandResult]
-```
-
-### Hand Return Type
-
-```python
-class HandResult:
-    score: float            # Hand detection confidence
-    handedness: str         # "Left" or "Right"
-    landmarks: list[tuple]  # 21 landmarks: [(x, y, z), ...]
-    # MediaPipe hand landmark indices (0=wrist, 4=thumb_tip, 8=index_tip, ...)
-```
-
----
-
-## OBB Detection (1 binding)
-
-### Yolo26OBBPostProcess
-
-```python
-pp = dx_postprocess.Yolo26OBBPostProcess(
-    input_width: int, input_height: int,
-    score_threshold: float,     # Only score_threshold — NO NMS for OBB
-    use_ort: bool = False
-)
-results = pp.process(outputs: list[np.ndarray]) -> list[OBBResult]
-```
-
-**Important:** OBB (Oriented Bounding Box) detection uses `score_threshold` only.
-There is no NMS threshold parameter for OBB models.
-
-### OBB Return Type
-
-```python
-class OBBResult:
-    cx: float       # Center x
-    cy: float       # Center y
-    width: float    # Box width
-    height: float   # Box height
-    angle: float    # Rotation angle in radians
-    score: float    # Confidence
-    class_id: int   # Class index
-```
-
----
-
-## PPU (1 binding)
-
-### PPUPostProcess
-
-```python
-pp = dx_postprocess.PPUPostProcess(
-    input_width: int, input_height: int,
-    score_threshold: float, nms_threshold: float,
-    use_ort: bool = False
-)
-results = pp.process(outputs: list[np.ndarray]) -> list[Detection]
-```
-
-**Important:** PPU (Pre/Post Processing Unit) models have dedicated postprocessors.
-Do NOT use standard YOLO postprocessors with PPU models — output tensor format differs.
-
----
-
-## Common Usage Pattern (cpp_postprocess variant)
-
-```python
-from dx_postprocess import YoloV8PostProcess
-from dx_engine import InferenceOption
-from common.utility import convert_cpp_detections
-
-def on_engine_init(runner):
-    input_w = runner.input_width
-    input_h = runner.input_height
-    use_ort = InferenceOption().get_use_ort()
-    runner._cpp_postprocessor = YoloV8PostProcess(
-        input_w, input_h, 0.25, 0.45, use_ort
-    )
-    runner._cpp_convert_fn = convert_cpp_detections
-
-runner = SyncRunner(factory, on_engine_init=on_engine_init)
-```
-
-## Build Requirements
+## Build & Verify
 
 ```bash
 # Build from dx_app root
@@ -538,5 +264,4 @@ runner = SyncRunner(factory, on_engine_init=on_engine_init)
 python -c "import dx_postprocess; print(dir(dx_postprocess))"
 ```
 
-If `import dx_postprocess` raises `ImportError`, the pybind11 module has not been
-built. Run `./build.sh` from the dx_app root directory.
+If `import dx_postprocess` raises `ImportError`, run `./build.sh` from `dx_app/`.

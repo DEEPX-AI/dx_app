@@ -225,6 +225,13 @@ directly to "Ask clarifying questions" (step 3).
 If a feature does not exist, do not pretend it does. Stick to proven, documented
 capabilities only.
 
+**Autopilot / autonomous mode override**: When the user is absent (autopilot mode,
+auto-response "work autonomously", or `--yolo` flag), the brainstorming skill's
+"Ask clarifying questions" step MUST be replaced with "Make default decisions per
+knowledge base rules". Do NOT call `ask_user` — skip straight to producing the
+brainstorming spec using knowledge base defaults. All subsequent gates (spec review,
+plan, TDD, mandatory artifacts, execution verification) still apply without exception.
+
 ## Brainstorming — Spec Before Plan (HARD GATE)
 
 When using the superpowers `brainstorming` skill or `/dx-brainstorm-and-plan`:
@@ -239,7 +246,27 @@ When using the superpowers `brainstorming` skill or `/dx-brainstorm-and-plan`:
    to the approved spec document.
 4. **Prefer `/dx-brainstorm-and-plan`** — Use the project-level brainstorming skill
    instead of the generic superpowers `brainstorming` skill. The project-level skill
-   has domain-specific questions and pre-flight checks.
+    has domain-specific questions and pre-flight checks.
+
+## Autopilot Mode Guard (MANDATORY)
+
+When the user is absent — autopilot mode, `--yolo` flag, or system auto-response
+"The user is not available to respond" — the following rules apply:
+
+1. **"Work autonomously" means "follow all rules without asking", NOT "skip rules".**
+   Every mandatory gate still applies: brainstorming spec, plan, TDD, mandatory
+   artifacts, execution verification, and self-verification checks.
+2. **Do NOT call `ask_user`** — Make decisions using knowledge base defaults and
+   documented best practices. Calling `ask_user` in autopilot wastes a turn and
+   the auto-response does not grant permission to bypass any gate.
+3. **User approval gate adaptation** — In autopilot, the spec approval gate is
+   satisfied by writing the spec and self-reviewing it against the knowledge base.
+   Do NOT skip the spec entirely.
+4. **setup.sh FIRST** — Generate infrastructure artifacts (`setup.sh`, `config.json`)
+   before writing any application code. This is especially critical in autopilot
+   because there is no human to catch missing dependencies.
+5. **Execution verification is NOT optional** — Run the generated code and verify it
+   works before declaring completion. In autopilot, there is no user to catch errors.
 
 ## Hardware
 

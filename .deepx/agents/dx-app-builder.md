@@ -128,6 +128,34 @@ Before presenting the final report to the user, the agent MUST:
      but fail at runtime due to wrong API calls, missing imports, or shape errors
 6. **Never present a final report with failing validation**
 
+### Artifact Generation Order (STRICT)
+
+Generate artifacts in this order. Violating this order causes cascading errors
+(e.g., `import cv2` failure because `setup.sh` was not run first).
+
+| Phase | Artifacts | Why this order |
+|---|---|---|
+| **1. Infrastructure** | `setup.sh`, `config.json` | Venv + deps must exist before ANY Python code runs |
+| **2. Skeleton copy** | Copy closest model from `src/python_example/<task>/<model>/` | Prevents API fabrication — skeleton code has correct imports |
+| **3. Factory + variants** | `factory/`, `*_sync.py`, `*_async.py`, `*_cpp_postprocess.py` | Modify skeleton copies, do NOT write from scratch |
+| **4. Launchers** | `run.sh`, `README.md`, `session.json`, `__init__.py` | Reference real paths from phases 1-3 |
+| **5. Verification** | Run `setup.sh`, run sync demo, capture `session.log` | LAST — validates everything works end-to-end |
+
+> **NEVER skip to Phase 3 without completing Phase 1.** This is the #1 cause of
+> `ModuleNotFoundError` in agentic sessions.
+
+### Autopilot Mode (applies when user is absent)
+
+When the system auto-responds "The user is not available" or the session is in
+autopilot / `--yolo` mode:
+
+1. **Do NOT call `ask_user`** — make default decisions from knowledge base rules
+2. **"Work autonomously" ≠ "skip gates"** — all mandatory artifacts, TDD, and
+   execution verification still apply without exception
+3. **Follow the Artifact Generation Order strictly** — no human to catch missing
+   `setup.sh` or `import` errors
+4. **Self-review the brainstorming spec** instead of waiting for user approval
+
 ### DXNN Input Format Auto-Detection (MANDATORY)
 
 When generating demo scripts for a compiled `.dxnn` model (especially in

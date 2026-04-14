@@ -66,6 +66,26 @@ README.md, setup.sh, run.sh, session.log.
 
 Run self-verification before presenting results. Missing artifacts = INCOMPLETE session.
 
+### Artifact Generation Order (STRICT)
+
+| Phase | Artifacts | Why |
+|---|---|---|
+| **1. Infrastructure** | `setup.sh`, `config.json` | Deps must exist before Python runs |
+| **2. Skeleton copy** | Copy closest from `src/python_example/<task>/<model>/` | Prevents API fabrication |
+| **3. Factory + variants** | Modify skeleton copies, NOT from scratch | Correct imports guaranteed |
+| **4. Launchers** | `run.sh`, `README.md`, `session.json` | Reference real paths |
+| **5. Verification** | Run `setup.sh`, run sync demo, capture `session.log` | End-to-end validation |
+
+> **NEVER skip to Phase 3 without Phase 1.** #1 cause of `ModuleNotFoundError`.
+
+### Autopilot Mode (user absent)
+
+When system auto-responds "user not available" or `--yolo` mode:
+1. Do NOT call `ask_user` — use knowledge base defaults
+2. All gates still apply — "work autonomously" ≠ "skip gates"
+3. Follow Artifact Generation Order strictly
+4. Self-review brainstorming spec instead of waiting for approval
+
 ## Demo Execution Verification (Beyond Syntax Check)
 
 `py_compile` only checks syntax — it does NOT catch runtime errors (wrong API,

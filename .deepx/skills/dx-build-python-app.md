@@ -171,58 +171,74 @@ touch src/python_example/<TASK>/<MODEL>/factory/__init__.py
 
 ### Preprocessors (from `common.processors`)
 
-| Preprocessor | Used By |
-|---|---|
-| `LetterboxPreprocessor` | All YOLO variants, SSD, NanoDet, CenterPose |
-| `ClassificationPreprocessor` | EfficientNet, MobileNet, ResNet |
-| `SegmentationPreprocessor` | BiSeNet, DeepLabV3, SegFormer |
-| `DepthPreprocessor` | FastDepth |
-| `RestorationPreprocessor` | DnCNN, Zero-DCE |
-| `SRPreprocessor` | ESPCN |
+| Preprocessor | Used By | Source File |
+|---|---|---|
+| `LetterboxPreprocessor` | All YOLO detection/pose/face/seg, SSD, NanoDet, CenterPose, DamoYolo, OBB | `letterbox_preprocessor.py` |
+| `SimpleResizePreprocessor` | Classification, Semantic Segmentation, SegFormer, Depth, Restoration, Enhancement, Super Resolution, Embedding | `simple_resize_preprocessor.py` |
+| `GrayscaleResizePreprocessor` | DnCNN (grayscale denoising models) | `grayscale_preprocessor.py` |
+
+> **WARNING**: Only 3 preprocessor classes exist. Do NOT fabricate task-specific preprocessors
+> (e.g., `ClassificationPreprocessor`, `DepthPreprocessor` do not exist).
 
 ### Postprocessors (from `common.processors`)
 
 > **CRITICAL**: The `postprocessor` field in `model_registry.json` is a **registry key**,
 > NOT a Python class name. Always use this mapping table to find the correct Python class.
 
-| Registry Key | Python Postprocessor Class | C++ Binding (`dx_postprocess`) | Models |
-|---|---|---|---|
-| `yolov5` | `YOLOv5Postprocessor` | `YOLOv5PostProcess` | yolov5n/s/m/l, yolov3, yolox |
-| `yolov8` | `YOLOv8Postprocessor` | `YOLOv8PostProcess` | yolov8n/s/m/l/x |
-| `yolov26` | `YOLOv8Postprocessor` | `Yolo26PostProcess` | yolo26n/s/m/l/x |
-| `yolov10` | `YOLOv10Postprocessor` | `YOLOv10PostProcess` | yolov10n/s/m/b/l/x |
-| `yolov11` | `YOLOv11Postprocessor` | `YOLOv11PostProcess` | yolov11n/s/m/l/x |
-| `damoyolo` | `DamoYoloPostprocessor` | `DamoYoloPostProcess` | damoyolo variants |
-| `nanodet` | `NanoDetPostprocessor` | `NanoDetPostProcess` | nanodet_repvgg |
-| `ssd` | `SSDPostprocessor` | `SSDPostProcess` | ssdmv1, ssdmv2lite |
-| `classification` | `ClassificationPostprocessor` | — | all classification |
-| `pose` | `PosePostprocessor` | `PosePostProcess` | yolov5_pose, yolov8_pose |
-| `instance_seg` | `InstanceSegPostprocessor` | — | yolov5_seg, yolov8_seg, yolact |
-| `semantic_seg` | `SemanticSegPostprocessor` | — | bisenet, deeplabv3, segformer |
-| `face` | `FacePostprocessor` | `FacePostProcess` | scrfd, retinaface, yolov5face |
-| `depth` | `DepthPostprocessor` | — | fastdepth |
-| `restoration` | `RestorationPostprocessor` | — | dncnn |
-| `sr` | `SRPostprocessor` | — | espcn |
-| `embedding` | `EmbeddingPostprocessor` | — | arcface |
-| `obb` | `OBBPostprocessor` | `Yolo26OBBPostProcess` | yolo26n_obb |
+| Registry Key | Python Postprocessor Class | C++ Binding (`dx_postprocess`) |
+|---|---|---|
+| `yolov5` | `YOLOv5Postprocessor` | `YOLOv5PostProcess` |
+| `yolov8` | `YOLOv8Postprocessor` | `YOLOv8PostProcess` |
+| `yolov26` | `YOLOv8Postprocessor` | `YOLOv26PostProcess` |
+| `yolov10` | `YOLOv8Postprocessor` | `YOLOv10PostProcess` |
+| `yolox` | `YOLOXPostprocessor` | `YOLOXPostProcess` |
+| `damoyolo` | `DamoYoloPostprocessor` | `DamoYOLOPostProcess` |
+| `nanodet` | `NanoDetPostprocessor` | `NanoDetPostProcess` |
+| `ssd` | `SSDPostprocessor` | `SSDPostProcess` |
+| `efficientnet` | `ClassificationPostprocessor` | `ClassificationPostProcess` |
+| `yolov8pose` | `YOLOv8PosePostprocessor` | `YOLOv8PosePostProcess` |
+| `yolov5seg` | `YOLOv5InstanceSegPostprocessor` | `YOLOv5SegPostProcess` |
+| `yolov8seg` | `YOLOv8InstanceSegPostprocessor` | `YOLOv8SegPostProcess` |
+| `bisenetv1` / `bisenetv2` / `deeplabv3` | `SemanticSegmentationPostprocessor` | `SemanticSegPostProcess` / `DeepLabv3PostProcess` |
+| `segformer` | `SegFormerPostprocessor` | `SemanticSegPostProcess` |
+| `scrfd` | `SCRFDPostprocessor` | `SCRFDPostProcess` |
+| `yolov5face` | `YOLOv5FacePostprocessor` | `YOLOv5FacePostProcess` |
+| `retinaface` | `RetinaFacePostprocessor` | `RetinaFacePostProcess` |
+| `fastdepth` | `DepthEstimationPostprocessor` | `DepthPostProcess` |
+| `dncnn` | `DnCNNPostprocessor` | `DnCNNPostProcess` |
+| `espcn` | `ESPCNPostprocessor` | `ESPCNPostProcess` |
+| `zero_dce` | `ZeroDCEPostprocessor` | `ZeroDCEPostProcess` |
+| `arcface` | `ArcFacePostprocessor` | `EmbeddingPostProcess` |
+| `obb` | `OBBPostprocessor` | `OBBPostProcess` |
+| `yolov5_ppu` | `YOLOv5PPUPostprocessor` | `YOLOv5PPUPostProcess` |
+| `yolov7_ppu` | `YOLOv7PPUPostprocessor` | `YOLOv7PPUPostProcess` |
+| `hand_landmark` | `HandLandmarkPostprocessor` | — |
 
 > **WARNING — yolo26 trap**: `model_registry.json` uses registry key `"yolov26"`, but
 > the correct Python class is `YOLOv8Postprocessor` (NOT `Yolo26Postprocessor` which
 > does not exist). YOLO26 uses YOLOv8-compatible end-to-end output format `[1,300,6]`.
+>
+> **WARNING**: Generic names like `PosePostprocessor`, `FacePostprocessor` do NOT exist.
+> Each model family has its own specific postprocessor class.
 
 ### Visualizers (from `common.visualizers`)
 
-| Visualizer | Used By |
-|---|---|
-| `DetectionVisualizer` | All detection tasks |
-| `ClassificationVisualizer` | Classification |
-| `PoseVisualizer` | Pose estimation |
-| `InstanceSegVisualizer` | Instance segmentation |
-| `SemanticSegVisualizer` | Semantic segmentation |
-| `FaceVisualizer` | Face detection |
-| `DepthVisualizer` | Depth estimation |
-| `RestorationVisualizer` | Denoising, enhancement |
-| `SRVisualizer` | Super resolution |
+| Visualizer | Used By | Source File |
+|---|---|---|
+| `DetectionVisualizer` | All detection tasks | `detection_visualizer.py` |
+| `ClassificationVisualizer` | Classification | `classification_visualizer.py` |
+| `PoseVisualizer` | Pose estimation | `pose_visualizer.py` |
+| `InstanceSegVisualizer` | Instance segmentation | `instance_seg_visualizer.py` |
+| `SemanticSegmentationVisualizer` | Semantic segmentation | `segmentation_visualizer.py` |
+| `FaceVisualizer` | Face detection | `face_visualizer.py` |
+| `DepthVisualizer` | Depth estimation | `restoration_depth_visualizer.py` |
+| `RestorationVisualizer` | Denoising | `restoration_depth_visualizer.py` |
+| `SuperResolutionVisualizer` | Super resolution | `embedding_enhancement_visualizer.py` |
+| `EnhancementVisualizer` | Image enhancement | `embedding_enhancement_visualizer.py` |
+| `EmbeddingVisualizer` | Embedding | `embedding_enhancement_visualizer.py` |
+| `OBBVisualizer` | OBB detection | `obb_visualizer.py` |
+| `FaceAlignmentVisualizer` | Face alignment | `embedding_enhancement_visualizer.py` |
+| `HandLandmarkVisualizer` | Hand landmark | `embedding_enhancement_visualizer.py` |
 
 ## Step 6: Create Factory
 

@@ -36,7 +36,7 @@ copying, the result is drawn on frame N+1 instead of frame N.
 display_frame = original_frame.copy()
 draw_detections(display_frame, detections)
 ```
-Alternatively, use the built-in `IVisualizer.draw()` method which handles copying
+Alternatively, use the built-in `IVisualizer.visualize()` method which handles copying
 internally.
 
 ---
@@ -70,31 +70,34 @@ when using standard YOLOv5/v8 postprocessors with PPU models.
 format. The standard YOLO postprocessors expect raw grid outputs, but PPU models
 output pre-decoded detections in a PPU-specific format.
 
-**Fix:** Use the dedicated `PPUPostProcess` binding:
+**Fix:** Use the dedicated model-specific PPU postprocessor bindings:
 ```python
-from dx_postprocess import PPUPostProcess
-pp = PPUPostProcess(input_w, input_h, score_thresh, nms_thresh, use_ort)
+from dx_postprocess import YOLOv5PPUPostProcess    # for YOLOv5 PPU models
+from dx_postprocess import YOLOv7PPUPostProcess    # for YOLOv7 PPU models
+from dx_postprocess import YOLOv5PosePPUPostProcess  # for YOLOv5-Pose PPU models
+from dx_postprocess import SCRFDPPUPostProcess     # for SCRFD PPU models
 ```
-Never use `YoloV5PostProcess` or `YoloV8PostProcess` with PPU models.
+There is no generic `PPUPostProcess` class — each model family has its own dedicated
+PPU postprocessor. Never use `YoloV5PostProcess` or `YoloV8PostProcess` with PPU models.
 
 ---
 
 ## 5. [DX_APP] OBB Detection: score_threshold Only (No NMS)
 
 **Symptom:** `TypeError` or unexpected argument error when passing `nms_threshold`
-to `Yolo26OBBPostProcess`.
+to `OBBPostProcess`.
 
 **Cause:** Oriented Bounding Box (OBB) detection models do not use NMS. The
-`Yolo26OBBPostProcess` constructor accepts `score_threshold` only:
+`OBBPostProcess` constructor accepts only 3 parameters — `(input_w, input_h, score_threshold)`:
 ```python
 # WRONG:
-pp = Yolo26OBBPostProcess(w, h, 0.25, 0.45, use_ort)  # Too many args
+pp = OBBPostProcess(w, h, 0.25, 0.45, use_ort)  # Too many args
 # RIGHT:
-pp = Yolo26OBBPostProcess(w, h, 0.25, use_ort)
+pp = OBBPostProcess(w, h, 0.25)
 ```
 
-**Fix:** Pass only `score_threshold` to OBB postprocessors. Do not pass
-`nms_threshold`.
+**Fix:** Pass only `(input_w, input_h, score_threshold)` to OBB postprocessors. Do not pass
+`nms_threshold` or `is_ort_configured`.
 
 ---
 
@@ -114,7 +117,7 @@ if os.environ.get("DISPLAY") is None:
 ```
 Or run with the `--no-display` flag:
 ```bash
-python yolov8n_sync.py --model model.dxnn --input video.mp4 --no-display
+python yolov8n_sync.py --model model.dxnn --video video.mp4 --no-display
 ```
 
 ---
@@ -134,9 +137,9 @@ dxrt-cli -v
 # Must show: DX-RT v3.0.0 or higher
 ```
 ```python
-from dx_engine import InferenceEngine
+from dx_engine import Configuration
 # Check version programmatically
-version = InferenceEngine.get_runtime_version()
+version = Configuration().get_version()
 major = int(version.split('.')[0])
 if major < 3:
     raise RuntimeError(f"DX-RT {version} is too old. Upgrade to 3.0.0+")
@@ -144,23 +147,19 @@ if major < 3:
 
 ---
 
-## 8. [DX_APP] config.json score_threshold Alias Confusion
+## 8. [DX_APP] config.json score_threshold — Config Only, No CLI Flag
 
-**Symptom:** Changing `score_threshold` in config.json has no effect, or CLI
-`--score-threshold` doesn't override the config file value.
+**Symptom:** User tries to override score threshold via CLI with `--score-threshold`
+but the flag is not recognized by `parse_common_args()`.
 
-**Cause:** The config.json field is `score_threshold` (with underscore), but
-the CLI flag is `--score-threshold` (with hyphen). argparse converts hyphens
-to underscores in the namespace (`args.score_threshold`). However, if the
-config loading code uses a different key name, one may shadow the other.
+**Cause:** There is no `--score-threshold` CLI flag in the dx_app argument parser.
+Score threshold is configured exclusively through `config.json` (the `"score_threshold"`
+field). Agents sometimes fabricate this CLI flag by analogy with other frameworks.
 
-**Fix:** Ensure consistent naming:
-- In `config.json`: use `"score_threshold"` (underscore)
-- On CLI: use `--score-threshold` (hyphen, argparse standard)
-- In code: access as `args.score_threshold` (underscore)
-
-The precedence is: CLI > config.json > default. If CLI is not provided,
-config.json takes effect. If neither is provided, the default (0.25) is used.
+**Fix:** To change the score threshold, edit `config.json`:
+- In `config.json`: set `"score_threshold": 0.25` (or desired value)
+- There is NO CLI override — do NOT pass `--score-threshold` on the command line
+- Default value when not specified in config.json is `0.25`
 
 ---
 
@@ -291,10 +290,10 @@ YOLO26 models use the YOLOv8-compatible end-to-end output format `[1, 300, 6]` =
 | `yolov26` | `YOLOv8Postprocessor` |
 | `yolov5` | `YOLOv5Postprocessor` |
 | `yolov8` | `YOLOv8Postprocessor` |
-| `yolov10` | `YOLOv10Postprocessor` |
-| `yolov11` | `YOLOv11Postprocessor` |
+| `yolov10` | `YOLOv8Postprocessor` |
+| `yolov11` | `YOLOv8Postprocessor` |
 
-For C++ bindings (`dx_postprocess`), yolo26 has its own `Yolo26PostProcess` class.
+For C++ bindings (`dx_postprocess`), yolo26 has its own `YOLOv26PostProcess` class.
 Only the Python postprocessor is shared with YOLOv8.
 
 **Validation:** After generating a factory, cross-check the postprocessor import against
@@ -420,11 +419,11 @@ deliverables list before claiming completion.
 
 **Symptom**: All generated `.py` files pass `py_compile` syntax check, but
 fail at runtime with `ImportError`, `AttributeError`, shape mismatch, or
-wrong API calls (e.g., `ie.run([tensor])` instead of `engine.infer(tensor)`).
+wrong API calls (e.g., `ie.infer([tensor])` instead of `engine.run(tensor)`).
 
 **Cause**: `py_compile` only verifies Python syntax (no SyntaxError), NOT
 runtime behavior. Common runtime errors that syntax checks miss:
-- Wrong dx_engine API (e.g., `ie.run()` vs `engine.infer()`)
+- Wrong dx_engine API (e.g., `ie.infer()` does not exist — correct method is `engine.run()`)
 - Missing imports (works locally if cached, fails in clean env)
 - NHWC/NCHW tensor format mismatch
 - Wrong output indexing (e.g., `outputs[0][0][0]` vs `outputs[0].squeeze()`)
@@ -650,3 +649,49 @@ Also check DXRT verbose output for `CPU TASK` queue load > 50%.
 1. Check if the compiler log shows skipped preprocessing ops
 2. If yes, add `export DXRT_DYNAMIC_CPU_THREAD=ON` to run.sh
 3. Document in README.md that the model has CPU MemoryOps and the env var is required
+
+---
+
+## 22. [UNIVERSAL] InferenceOption API Fabrication — set_device_id() Does Not Exist
+
+**Symptom:** `AttributeError: 'InferenceOption' object has no attribute 'set_device_id'`
+at runtime. Other fabricated methods: `set_num_threads()`, `set_batch_size()`,
+`set_profiling()`, `set_log_level()`.
+
+**Cause:** The agent invents API methods that don't exist in the actual `dx_engine`
+Python bindings. This happens when:
+- Writing code from scratch instead of using skeleton examples (see Pitfall #20)
+- Relying on LLM "knowledge" rather than actual API documentation
+- Guessing method names by analogy with other frameworks
+
+**Actual InferenceOption API** (source: `dx_rt/python_package/src/dx_engine/inference_option.py`):
+
+| ❌ Fabricated | ✅ Correct |
+|---|---|
+| `set_device_id(int)` | `set_devices([int])` or `option.devices = [0]` |
+| `set_num_threads(int)` | Does not exist |
+| `set_batch_size(int)` | Does not exist |
+| `set_profiling(bool)` | Use `dx_engine.Configuration` class |
+| `set_log_level(int)` | Does not exist |
+
+**Available methods:**
+
+| Method | Parameter | Description |
+|---|---|---|
+| `set_use_ort(bool)` | `bool` | Enable ONNX Runtime CPU backend |
+| `set_devices(List[int])` | `List[int]` | Set NPU device IDs (e.g., `[0]`, `[0, 1]`) |
+| `set_bound_option(BOUND_OPTION)` | `BOUND_OPTION` | NPU core binding (`NPU_ALL`, `NPU_0`, `NPU_1`, `NPU_2`, `NPU_01`, `NPU_12`, `NPU_02`) |
+| `set_buffer_count(int)` | `int` | Internal buffers (default: 6, range: 1-100) |
+
+**Property syntax also works:**
+```python
+option = InferenceOption()
+option.devices = [0]       # same as set_devices([0])
+option.use_ort = True      # same as set_use_ort(True)
+option.buffer_count = 8    # same as set_buffer_count(8)
+```
+
+**Prevention:**
+1. Always copy InferenceOption usage from skeleton code (Pitfall #20)
+2. Refer to `dx-engine-api.md` toolset for the complete API
+3. If unsure whether a method exists, check `inference_option.py` source

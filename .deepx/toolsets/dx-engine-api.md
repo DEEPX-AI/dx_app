@@ -1,373 +1,365 @@
 # DX Engine API Reference
 
-> InferenceEngine and InferenceOption — the core NPU inference interface for dx_app.
+> Reference-based guide to `dx_engine` — the core NPU inference interface for dx_app.
+> This document provides an overview and points to source files for current API details.
+> Do NOT rely on memorized signatures — always verify against the source files listed below.
 
-## Overview
+## ⚠️ Anti-Fabrication Notice
 
-`dx_engine` is the C++ shared library (with pybind11 Python bindings) that manages model
-loading, tensor I/O, and NPU execution. All dx_app inference flows — Python and C++ — go
-through InferenceEngine.
+**AI agents MUST verify every method name and signature against the actual source files
+before generating code.** Previous versions of this document contained fabricated API
+methods (`infer()`, `get_input_shape()`, `get_model_info()`, `get_output_shapes()`,
+wrong `run_async()` return value name). These methods do not exist and will cause
+`AttributeError` at runtime.
 
-## InferenceEngine
+**Rule:** If you are unsure whether a method exists, read the source file. Never guess.
 
-### Constructor
+## Source Files
+
+All API definitions live in the DX-RT source tree. Read these files for current signatures:
+
+| Class | Source File |
+|---|---|
+| `InferenceEngine` | `dx_rt/python_package/src/dx_engine/inference_engine.py` |
+| `InferenceOption` | `dx_rt/python_package/src/dx_engine/inference_option.py` |
+| `Configuration` | `dx_rt/python_package/src/dx_engine/configuration.py` |
+| `DeviceStatus` | `dx_rt/python_package/src/dx_engine/device_status.py` |
+| `RuntimeEventDispatcher` | `dx_rt/python_package/src/dx_engine/runtime_event_dispatcher.py` |
+| Python API docs | `dx_rt/docs/source/docs/10_02_Python_API_Reference.md` |
+
+## Package Overview
+
+Exported from `dx_engine`:
+
+```python
+from dx_engine import (
+    InferenceEngine,       # Core inference class
+    InferenceOption,       # Engine configuration
+    Configuration,         # Runtime settings singleton
+    DeviceStatus,          # Hardware diagnostics
+    RuntimeEventDispatcher # Event handling
+)
+```
+
+## InferenceEngine — Overview
+
+> **Source of truth**: `dx_rt/python_package/src/dx_engine/inference_engine.py`
+> Always read this file for exact signatures and parameter names.
+
+### Construction
 
 ```python
 from dx_engine import InferenceEngine, InferenceOption
 
+# Option is OPTIONAL — defaults to None (creates default internally)
+engine = InferenceEngine("model.dxnn")
+
+# With explicit option
 option = InferenceOption()
-engine = InferenceEngine("path/to/model.dxnn", option)
+engine = InferenceEngine("model.dxnn", option)
+
+# From memory buffer
+import numpy as np
+engine = InferenceEngine.from_buffer(memory_buffer, inference_option=None)
+
+# Context manager supported (calls dispose() on exit)
+with InferenceEngine("model.dxnn") as engine:
+    outputs = engine.run(input_data)
 ```
 
-```cpp
-#include "dx_engine/inference_engine.h"
-#include "dx_engine/inference_option.h"
+### Method Categories
 
-dx::InferenceOption option;
-dx::InferenceEngine engine("path/to/model.dxnn", option);
-```
+**Inference (synchronous):**
 
-**Parameters:**
-| Parameter | Type | Description |
+| Method | Returns | Notes |
 |---|---|---|
-| `model_path` | `str` / `const char*` | Path to `.dxnn` model file |
-| `option` | `InferenceOption` | Configuration for the engine |
+| `run(input_data, output_buffers=None, user_args=None)` | `List[np.ndarray]` | Primary sync inference. **NOT `infer()`** |
+| `run_multi_input(input_tensors: Dict[str, np.ndarray], ...)` | `List[np.ndarray]` | For multi-input models |
+| `run_benchmark(num_loops, input_data=None)` | `float` | Returns FPS |
+| `validate_device(input_data, device_id=0)` | — | Debug compile type only |
 
-**Raises:**
-| Error | Code | When |
+**Inference (asynchronous):**
+
+| Method | Returns | Notes |
 |---|---|---|
-| `RuntimeError` | `DX_ERR_MODEL_NOT_FOUND` | `.dxnn` file does not exist |
-| `RuntimeError` | `DX_ERR_MODEL_INVALID` | `.dxnn` file is corrupt or incompatible |
-| `RuntimeError` | `DX_ERR_DEVICE_NOT_FOUND` | No NPU device detected |
-| `RuntimeError` | `DX_ERR_DEVICE_BUSY` | NPU is locked by another process |
+| `run_async(input_data, user_arg=None, output_buffer=None)` | `int` (**`job_id`**) | Single inference, NOT batch. Returns `job_id`, **NOT** `request_id` |
+| `wait(job_id)` | `List[np.ndarray]` | Parameter is `job_id` (int) |
+| `register_callback(callback)` | — | For async completion callbacks |
 
-### infer() / run()
+**Model information:**
 
-Synchronous inference. Accepts a preprocessed input tensor, returns output tensors.
+| Method | Returns | Notes |
+|---|---|---|
+| `get_input_tensors_info()` | `List[Dict]` | Keys: `name`, `shape`, `dtype`, `elem_size`. **Dict access** (`info[0]['shape']`), NOT dot-access |
+| `get_output_tensors_info()` | `List[Dict]` | Same keys as above |
+| `get_input_tensor_count()` | `int` | Number of input tensors |
+| `get_output_tensor_count()` | `int` | Number of output tensors |
+| `get_input_tensor_names()` | `List[str]` | Input tensor names |
+| `get_output_tensor_names()` | `List[str]` | Output tensor names |
+| `get_input_size()` | `int` | Total input bytes |
+| `get_output_size()` | `int` | Total output bytes |
+| `get_input_tensor_sizes()` | `List[int]` | Per-tensor byte sizes |
+| `get_output_tensor_sizes()` | `List[int]` | Per-tensor byte sizes |
+| `has_dynamic_output()` | `bool` | — |
+| `is_multi_input_model()` | `bool` | — |
+| `is_ppu()` | `bool` | — |
+| `get_compile_type()` | `str` | e.g. `"debug"` or `"release"` |
+| `get_model_version()` | `str` | — |
+
+**Performance metrics:**
+
+| Method | Returns | Notes |
+|---|---|---|
+| `get_latency()` | `int` | Microseconds |
+| `get_npu_inference_time()` | `int` | Microseconds |
+| `get_latency_list()` | `List[int]` | Historical latency samples |
+| `get_npu_inference_time_list()` | `List[int]` | Historical NPU time samples |
+| `get_latency_mean()` | `float` | — |
+| `get_npu_inference_time_mean()` | `float` | — |
+| `get_latency_std()` | `float` | — |
+| `get_npu_inference_time_std()` | `float` | — |
+
+**Lifecycle:**
+
+| Method | Notes |
+|---|---|
+| `dispose()` | Explicit resource release. Also called by `__exit__` in context manager |
+
+### Verified Code Pattern
 
 ```python
+from dx_engine import InferenceEngine
 import numpy as np
 
-# Prepare input: NHWC float32 tensor
-input_tensor = np.zeros((1, 640, 640, 3), dtype=np.float32)
-outputs = engine.infer(input_tensor)
-# outputs: list[np.ndarray] — one array per output head
-```
+with InferenceEngine("model.dxnn") as engine:
+    # Query model shape via get_input_tensors_info() — returns List[Dict]
+    info = engine.get_input_tensors_info()
+    shape = info[0]['shape']   # Dict access, NOT dot-access
+    dtype = info[0]['dtype']
+    print(f"Input shape: {shape}")
 
-```cpp
-std::vector<float> input_data(1 * 640 * 640 * 3, 0.0f);
-auto outputs = engine.run({input_data});
-// outputs: vector<vector<float>> — one vector per output head
-```
+    # Synchronous inference — use run(), NOT infer()
+    input_data = np.zeros(shape, dtype=np.float32)
+    outputs = engine.run(input_data)
 
-**Parameters:**
-| Parameter | Type | Description |
-|---|---|---|
-| `input_data` | `np.ndarray` / `vector<float>` | Preprocessed input tensor |
-
-**Returns:** List of output tensors (one per model output head).
-
-### run_async() / wait()
-
-Asynchronous inference for pipelined execution.
-
-```python
-request_id = engine.run_async(input_tensor)
-# ... do other work (preprocess next frame) ...
-outputs = engine.wait(request_id)
-```
-
-```cpp
-int req_id = engine.run_async({input_data});
-auto outputs = engine.wait(req_id);
-```
-
-**Parameters:**
-| Method | Parameter | Type | Description |
-|---|---|---|---|
-| `run_async` | `input_data` | tensor | Input data (same as `infer()`) |
-| `wait` | `request_id` | `int` | ID returned by `run_async()` |
-
-### get_input_shape()
-
-Returns the expected input tensor shape for the loaded model.
-
-```python
-shape = engine.get_input_shape()
-# shape: (1, 640, 640, 3)  — (N, H, W, C) for NHWC models
-```
-
-```cpp
-auto shape = engine.get_input_shape();
-// shape: {1, 640, 640, 3}
-```
-
-**Returns:** Tuple/vector of integers representing `(batch, height, width, channels)`.
-
-### get_output_shapes()
-
-Returns shapes for all output heads.
-
-```python
-shapes = engine.get_output_shapes()
-# shapes: [(1, 8400, 84), (1, 8400, 1)]  — example for YOLOv8
-```
-
-### get_input_tensors_info()
-
-Returns detailed tensor metadata including name, shape, and data type.
-
-```python
-info = engine.get_input_tensors_info()
-for tensor in info:
-    print(f"Name: {tensor.name}, Shape: {tensor.shape}, DType: {tensor.dtype}")
-```
-
-```cpp
-auto info = engine.get_input_tensors_info();
-// info[0].shape -> {1, 640, 640, 3}
-// info[0].name  -> "input"
-// info[0].dtype -> DX_DTYPE_FLOAT32
-```
-
-### get_output_tensors_info()
-
-Same as `get_input_tensors_info()` but for output tensors.
-
-```python
-out_info = engine.get_output_tensors_info()
-for tensor in out_info:
-    print(f"Output: {tensor.name}, Shape: {tensor.shape}")
-```
-
-### get_model_info()
-
-Returns model metadata embedded in the `.dxnn` file.
-
-```python
-info = engine.get_model_info()
-# info: {
-#   "name": "yolov8n",
-#   "task": "object_detection",
-#   "input_size": [640, 640],
-#   "format_version": 7,
-#   "quantization": "INT8"
-# }
+    for i, out in enumerate(outputs):
+        print(f"Output {i}: shape={out.shape}")
 ```
 
 ## InferenceOption
 
 Configuration object passed to InferenceEngine constructor.
 
+> **Source of truth**: `dx_rt/python_package/src/dx_engine/inference_option.py`
+> and `dx_rt/docs/source/docs/10_02_Python_API_Reference.md`.
+> Do NOT invent methods that are not listed here.
+
+### Quick Start (Python)
+
 ```python
+from dx_engine import InferenceOption
+
 option = InferenceOption()
-option.set_use_ort(True)          # Enable ONNX Runtime fallback (CPU)
-option.set_device_id(0)           # Select NPU device index
-option.set_num_threads(4)         # CPU threads for pre/postprocess
-option.set_batch_size(1)          # Batch size (default: 1)
-option.set_profiling(True)        # Enable inference profiling
+
+# Property syntax (preferred)
+option.use_ort = True              # Enable ONNX Runtime fallback (CPU)
+option.devices = [0]               # Use NPU device 0
+option.bound_option = InferenceOption.BOUND_OPTION.NPU_ALL  # Use all 3 cores
+option.buffer_count = 8            # Internal buffers (default: 6, range: 1-100)
+
+# Setter syntax (equivalent)
+option.set_use_ort(True)
+option.set_devices([0])
+option.set_bound_option(InferenceOption.BOUND_OPTION.NPU_ALL)
+option.set_buffer_count(8)
 ```
 
-```cpp
-dx::InferenceOption option;
-option.set_use_ort(true);
-option.set_device_id(0);
-option.set_num_threads(4);
-option.set_batch_size(1);
-option.set_profiling(true);
-```
+### Properties (get/set)
 
-### Option Methods
-
-| Method | Type | Default | Description |
+| Property | Type | Default | Description |
 |---|---|---|---|
-| `set_use_ort(bool)` | bool | `false` | Use ONNX Runtime CPU backend instead of NPU |
-| `get_use_ort()` | bool | — | Query current ORT setting |
-| `set_device_id(int)` | int | `0` | Select NPU device (multi-device systems) |
-| `set_num_threads(int)` | int | `4` | CPU thread count for ORT mode |
-| `set_batch_size(int)` | int | `1` | Inference batch size |
-| `set_profiling(bool)` | bool | `false` | Enable per-layer profiling |
-| `set_log_level(int)` | int | `2` | Log verbosity (0=off, 1=error, 2=warn, 3=info, 4=debug) |
+| `use_ort` | `bool` | `False` | Use ONNX Runtime CPU backend instead of NPU |
+| `devices` | `List[int]` | `[]` (all) | NPU device IDs to use; empty = all available |
+| `bound_option` | `BOUND_OPTION` | `NPU_ALL` | NPU core binding strategy |
+| `buffer_count` | `int` | `6` | Internal buffers for pipelined inference (range: 1-100) |
 
-## Error Codes
+### Setter / Getter Methods
 
-| Code | Constant | Description |
+| Method | Parameter | Description |
 |---|---|---|
-| `-1` | `DX_ERR_GENERIC` | Unspecified error |
-| `-2` | `DX_ERR_MODEL_NOT_FOUND` | Model file path does not exist |
-| `-3` | `DX_ERR_MODEL_INVALID` | Model file is corrupt or version mismatch |
-| `-4` | `DX_ERR_DEVICE_NOT_FOUND` | No NPU device detected on system |
-| `-5` | `DX_ERR_DEVICE_BUSY` | NPU is in use by another process |
-| `-6` | `DX_ERR_TENSOR_MISMATCH` | Input tensor shape does not match model expectation |
-| `-7` | `DX_ERR_OUT_OF_MEMORY` | NPU or host memory allocation failed |
-| `-8` | `DX_ERR_TIMEOUT` | Inference request timed out |
-| `-9` | `DX_ERR_VERSION_MISMATCH` | DX-RT version incompatible with .dxnn format |
+| `set_use_ort(bool)` | `bool` | Enable/disable ONNX Runtime CPU backend |
+| `get_use_ort()` | — | Returns current ORT setting |
+| `set_devices(List[int])` | `List[int]` | Set NPU device IDs (e.g., `[0]`, `[0, 1]`) |
+| `get_devices()` | — | Returns current device list |
+| `set_bound_option(BOUND_OPTION)` | `BOUND_OPTION` | Set NPU core binding |
+| `get_bound_option()` | — | Returns current binding |
+| `set_buffer_count(int)` | `int` | Set internal buffer count (1-100) |
+| `get_buffer_count()` | — | Returns current buffer count |
 
-## Multi-Model Pattern
+### BOUND_OPTION Enum
 
-Running multiple models sequentially (e.g., detection + classification pipeline):
+Controls which NPU cores are used for inference:
+
+| Value | Description |
+|---|---|
+| `NPU_ALL` | Use all 3 cores (default — maximum throughput) |
+| `NPU_0` | Core 0 only |
+| `NPU_1` | Core 1 only |
+| `NPU_2` | Core 2 only |
+| `NPU_01` | Cores 0 + 1 |
+| `NPU_12` | Cores 1 + 2 |
+| `NPU_02` | Cores 0 + 2 |
+
+### ⚠️ Methods That Do NOT Exist (InferenceOption)
+
+These methods were previously documented incorrectly. They will cause
+`AttributeError` at runtime. **Never use them:**
+
+| ❌ Fabricated Method | ✅ Correct Alternative |
+|---|---|
+| `set_device_id(int)` | `set_devices([int])` or `option.devices = [int]` |
+| `set_num_threads(int)` | Does not exist — no equivalent |
+| `set_batch_size(int)` | Does not exist — no equivalent |
+| `set_profiling(bool)` | Use `dx_engine.Configuration` class instead |
+| `set_log_level(int)` | Does not exist — no equivalent |
+
+## Configuration
+
+> **Source of truth**: `dx_rt/python_package/src/dx_engine/configuration.py`
+
+Singleton for runtime settings. Uses an `ITEM` enum to select what to configure.
+
+**Key methods:**
+
+| Method | Returns | Notes |
+|---|---|---|
+| `get_version()` | `str` | DX-RT runtime version. **This is the correct way to get version** (NOT `InferenceEngine.get_runtime_version()`) |
+| `get_driver_version()` | `str` | NPU driver version |
+| `set_enable(item, enabled)` | — | Enable/disable a feature by `ITEM` enum |
+| `set_attribute(item, attrib, value)` | — | Set a feature attribute |
+
+**ITEM enum values** include: `DEBUG`, `PROFILER`, `SERVICE`, `DYNAMIC_CPU_THREAD`, etc.
+Read the source file for the complete list.
 
 ```python
-from dx_engine import InferenceEngine, InferenceOption
+from dx_engine import Configuration
 
-option = InferenceOption()
-
-# Load both models
-det_engine = InferenceEngine("yolov8n.dxnn", option)
-cls_engine = InferenceEngine("efficientnet_b0.dxnn", option)
-
-# Run detection
-det_outputs = det_engine.infer(frame)
-
-# For each detection, crop and classify
-for bbox in parse_detections(det_outputs):
-    crop = extract_crop(frame, bbox)
-    cls_outputs = cls_engine.infer(crop)
-    label = parse_classification(cls_outputs)
+config = Configuration()
+version = config.get_version()
+driver_version = config.get_driver_version()
 ```
 
-**Important:** Each InferenceEngine instance holds an NPU context. The NPU handles
-context switching automatically, but loading too many models simultaneously may cause
-`DX_ERR_OUT_OF_MEMORY`.
+## DeviceStatus
 
-## Device Management
+> **Source of truth**: `dx_rt/python_package/src/dx_engine/device_status.py`
 
-### dxrt-cli
+Hardware diagnostics for NPU devices.
 
-Command-line tool for NPU diagnostics:
+**Class methods (no instance needed):**
 
-```bash
-# Check NPU device status
-dxrt-cli -s
-# Output:
-#   Device 0: DX-M1 (ready)
-#   Firmware: v3.2.1
-#   Temperature: 42°C
-#   Utilization: 0%
+| Method | Returns | Notes |
+|---|---|---|
+| `DeviceStatus.get_device_count()` | `int` | Number of NPU devices. **This is the correct way to list devices** (NOT `InferenceEngine.list_devices()`) |
+| `DeviceStatus.get_current_status(deviceId)` | `DeviceStatus` | Get status object for a specific device |
 
-# List loaded models
-dxrt-cli -m
+**Instance methods (on a DeviceStatus object):**
 
-# Show DX-RT version
-dxrt-cli -v
-# Output: DX-RT v3.0.0
+| Method | Returns | Notes |
+|---|---|---|
+| `get_id()` | `int` | Device ID |
+| `get_temperature(ch)` | `int` | Temperature for channel |
+| `get_npu_voltage(ch)` | `int` | Voltage for channel |
+| `get_npu_clock(ch)` | `int` | Clock speed for channel |
 
-# Reset NPU device
-dxrt-cli --reset
+```python
+from dx_engine import DeviceStatus
+
+count = DeviceStatus.get_device_count()
+for i in range(count):
+    status = DeviceStatus.get_current_status(i)
+    print(f"Device {status.get_id()}: temp={status.get_temperature(0)}")
 ```
 
-### Python Device Check
+## RuntimeEventDispatcher
+
+> **Source of truth**: `dx_rt/python_package/src/dx_engine/runtime_event_dispatcher.py`
+
+Event handling for runtime events. Defines `LEVEL`, `TYPE`, and `CODE` enums.
+Read the source file for available enum values and callback registration patterns.
+
+## ⚠️ Methods That Do NOT Exist (InferenceEngine)
+
+These methods have been fabricated in previous AI outputs. They will cause
+`AttributeError` at runtime. **Never use them:**
+
+| ❌ Fabricated Method | ✅ Correct Alternative |
+|---|---|
+| `infer(input_data)` | `run(input_data)` |
+| `get_input_shape()` | `get_input_tensors_info()[0]['shape']` |
+| `get_output_shapes()` | `[t['shape'] for t in get_output_tensors_info()]` |
+| `get_model_info()` | No such method — use `get_model_version()`, `get_compile_type()`, etc. |
+| `get_runtime_version()` | `Configuration().get_version()` |
+| `list_devices()` | `DeviceStatus.get_device_count()` + `DeviceStatus.get_current_status(id)` |
+| `predict(input_data)` | `run(input_data)` |
+| `load(path)` / `load_model(path)` | Use constructor: `InferenceEngine(path)` |
+| `close()` | `dispose()` or use context manager |
+| `tensor.name` (dot-access on tensor info) | `tensor['name']` (dict key access) |
+| `run_async()` returns `request_id` | Returns `job_id` — use `wait(job_id)` |
+
+## Quick Start Example
+
+```python
+#!/usr/bin/env python3
+"""Verified minimal InferenceEngine example."""
+
+import cv2
+import numpy as np
+from dx_engine import InferenceEngine
+
+def main():
+    # 1. Create engine (option is optional)
+    with InferenceEngine("yolov8n.dxnn") as engine:
+        # 2. Query model input — returns List[Dict], use dict key access
+        input_info = engine.get_input_tensors_info()
+        shape = input_info[0]['shape']   # e.g. (1, 640, 640, 3)
+        h, w = shape[1], shape[2]
+        print(f"Model input: {w}x{h}")
+
+        # 3. Preprocess
+        image = cv2.imread("test.jpg")
+        resized = cv2.resize(image, (w, h))
+        input_tensor = np.expand_dims(resized.astype(np.float32) / 255.0, axis=0)
+
+        # 4. Synchronous inference — use run(), NOT infer()
+        outputs = engine.run(input_tensor)
+
+        # 5. Inspect outputs
+        output_info = engine.get_output_tensors_info()
+        for i, out in enumerate(outputs):
+            print(f"Output '{output_info[i]['name']}': shape={out.shape}, dtype={out.dtype}")
+
+        # 6. Performance metrics
+        print(f"Latency: {engine.get_latency()} us")
+        print(f"NPU time: {engine.get_npu_inference_time()} us")
+
+if __name__ == "__main__":
+    main()
+```
+
+### Async Pipeline Pattern
 
 ```python
 from dx_engine import InferenceEngine
-
-# Quick device availability check
-try:
-    option = InferenceOption()
-    engine = InferenceEngine("test.dxnn", option)
-except RuntimeError as e:
-    if "DEVICE_NOT_FOUND" in str(e):
-        print("No NPU device — install DX-RT driver")
-    elif "DEVICE_BUSY" in str(e):
-        print("NPU busy — check for other running processes")
-```
-
-## Complete Sync Example
-
-```python
-#!/usr/bin/env python3
-"""Minimal InferenceEngine sync example."""
-
-import cv2
 import numpy as np
-from dx_engine import InferenceEngine, InferenceOption
 
-def main():
-    # 1. Configure
-    option = InferenceOption()
-    engine = InferenceEngine("yolov8n.dxnn", option)
+with InferenceEngine("model.dxnn") as engine:
+    input_info = engine.get_input_tensors_info()
+    shape = input_info[0]['shape']
 
-    # 2. Query model
-    h, w = engine.get_input_shape()[1:3]
-    print(f"Model input: {w}x{h}")
+    # run_async returns job_id (int), NOT request_id
+    job_id = engine.run_async(np.zeros(shape, dtype=np.float32))
 
-    # 3. Read and preprocess
-    image = cv2.imread("test.jpg")
-    resized = cv2.resize(image, (w, h))
-    input_tensor = resized.astype(np.float32) / 255.0
-    input_tensor = np.expand_dims(input_tensor, axis=0)  # Add batch dim
+    # ... do other work while NPU processes ...
 
-    # 4. Infer
-    outputs = engine.infer(input_tensor)
-
-    # 5. Process results
-    print(f"Got {len(outputs)} output tensors")
-    for i, out in enumerate(outputs):
-        print(f"  Output {i}: shape={out.shape}, dtype={out.dtype}")
-
-if __name__ == "__main__":
-    main()
+    outputs = engine.wait(job_id)  # Parameter is job_id
 ```
-
-## Complete Async Example
-
-```python
-#!/usr/bin/env python3
-"""Minimal InferenceEngine async pipeline example."""
-
-import cv2
-import numpy as np
-from dx_engine import InferenceEngine, InferenceOption
-
-def main():
-    option = InferenceOption()
-    engine = InferenceEngine("yolov8n.dxnn", option)
-    h, w = engine.get_input_shape()[1:3]
-
-    cap = cv2.VideoCapture("test.mp4")
-    pending_id = None
-    prev_outputs = None
-
-    while cap.isOpened():
-        ret, frame = cap.read()
-        if not ret:
-            break
-
-        # Preprocess current frame
-        resized = cv2.resize(frame, (w, h))
-        input_tensor = np.expand_dims(resized.astype(np.float32) / 255.0, 0)
-
-        # Wait for previous inference (if any)
-        if pending_id is not None:
-            prev_outputs = engine.wait(pending_id)
-            # ... postprocess prev_outputs on previous frame ...
-
-        # Submit current frame (non-blocking)
-        pending_id = engine.run_async(input_tensor)
-
-    # Wait for final frame
-    if pending_id is not None:
-        final_outputs = engine.wait(pending_id)
-
-    cap.release()
-
-if __name__ == "__main__":
-    main()
-```
-
-## Thread Safety
-
-- `InferenceEngine.infer()` is **NOT** thread-safe. Do not call from multiple threads.
-- `InferenceEngine.run_async()` / `wait()` are safe for single-producer patterns
-  (one thread submits, same thread waits).
-- For multi-threaded inference, create separate `InferenceEngine` instances per thread.
-- `InferenceOption` is a value type — safe to copy across threads.
-
-## Version Compatibility
-
-| DX-RT Version | .dxnn Format | InferenceEngine API |
-|---|---|---|
-| 3.0.x | v7+ | Full API (infer, run_async, profiling) |
-| 2.5.x | v6 | No profiling, no batch_size option |
-| 2.0.x | v5 | Sync only, no run_async |
-| < 2.0 | v4 | Not supported — upgrade required |

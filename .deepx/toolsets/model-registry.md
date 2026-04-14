@@ -1,61 +1,142 @@
 # Model Registry Reference
 
-> `config/model_registry.json` — the single source of truth for all 133 models
+> `config/model_registry.json` -- the single source of truth for all 133 models
 > across 15 AI tasks in dx_app.
 
-## Overview
+## Anti-Fabrication Notice
 
-The model registry is a JSON file at `config/model_registry.json` that describes every
-supported model. All dx_app tools and agents query this file to:
-- Verify a model exists before creating an app
-- Get model metadata (input size, thresholds, output format)
-- Determine which postprocessor to use
-- Check if a model is supported on the current platform
+This document was verified against the actual `config/model_registry.json` file.
+**Do NOT invent field names.** If a field is not listed here, it does not exist.
+See [Fields That Do NOT Exist](#fields-that-do-not-exist) for commonly hallucinated fields.
+
+When in doubt, read the source file directly:
+```bash
+python3 -c "import json; print(json.dumps(json.load(open('config/model_registry.json'))[0], indent=2))"
+```
+
+## Source File
+
+| Item | Value |
+|---|---|
+| Path | `config/model_registry.json` |
+| Format | JSON **array** (`[]`) |
+| Entry count | 133 |
+| Loading code | `tests/common/utils.py`, `.deepx/scripts/validate_framework.py` |
+
+## Structure
+
+The registry is a **JSON array of objects** -- NOT a JSON object with model names as keys.
+
+```
+[              <-- top-level is an ARRAY
+  { ... },     <-- each entry is an object
+  { ... },
+  ...
+]
+```
+
+Each entry is a flat object describing one model. Access is always via **array iteration**,
+never via dict-key lookup by model name.
 
 ## Schema
 
-Each entry in `model_registry.json` follows this schema:
+### Required Fields (present in all 133 entries)
+
+| Field | Type | Description | Example |
+|---|---|---|---|
+| `model_name` | `string` | Unique identifier, lowercase with underscores | `"yolov8n"` |
+| `dxnn_file` | `string` | Compiled model filename (no path) | `"YoloV8N.dxnn"` |
+| `add_model_task` | `string` | Task type (one of 15 values) | `"object_detection"` |
+| `postprocessor` | `string` | Postprocess binding key | `"yolov8"` |
+| `supported` | `boolean` | Whether the model is available | `true` |
+
+### Optional Fields (present in most but not all entries)
+
+| Field | Type | Description | Example |
+|---|---|---|---|
+| `original_name` | `string` | Display name (mixed case) | `"YoloV8N"` |
+| `csv_task` | `string` | Short task code from CSV import | `"OD"` |
+| `input_width` | `integer` | Input width in pixels | `640` |
+| `input_height` | `integer` | Input height in pixels | `640` |
+| `config` | `object` | Default thresholds (see below) | `{"score_threshold": 0.25, "nms_threshold": 0.45}` |
+| `source` | `string` | Registration source | `"csv"` |
+
+### `config` Sub-Fields
+
+The `config` object contains threshold and parameter defaults. Not all sub-fields appear
+in every entry -- contents vary by task type.
+
+| Sub-field | Type | Description | Typical Value |
+|---|---|---|---|
+| `score_threshold` | `float` | Confidence score threshold | `0.25` |
+| `nms_threshold` | `float` | NMS IoU threshold | `0.45` |
+| `obj_threshold` | `float` | Objectness threshold | `0.5` |
+| `top_k` | `int` | Top-K results (classification) | `5` |
+
+### `source` Values
+
+| Value | Meaning |
+|---|---|
+| `"csv"` | Imported from model CSV |
+| `"inferred"` | Auto-detected from model file |
+| `"manifest"` | From model manifest |
+| `"stream_model_list"` | From streaming model list |
+
+## Example Entries
+
+### Object Detection
 
 ```json
 {
-  "<model_name>": {
-    "task": "<task_type>",
-    "dxnn_file": "<model_name>.dxnn",
-    "input_size": [<width>, <height>],
-    "supported": true,
-    "default_threshold": <float>,
-    "nms_threshold": <float>,
-    "labels_file": "<labels_filename>.txt",
-    "output_format": "<format_description>",
-    "family": "<model_family>",
-    "variant": "<size_variant>",
-    "num_classes": <int>,
-    "source": "<origin_framework>"
-  }
+  "model_name": "yolov8n",
+  "dxnn_file": "YoloV8N.dxnn",
+  "original_name": "YoloV8N",
+  "csv_task": "OD",
+  "add_model_task": "object_detection",
+  "postprocessor": "yolov8",
+  "input_width": 640,
+  "input_height": 640,
+  "config": {"score_threshold": 0.25, "nms_threshold": 0.45},
+  "source": "csv",
+  "supported": true
 }
 ```
 
-### Required Fields
+### Classification
 
-| Field | Type | Description | Example |
-|---|---|---|---|
-| `task` | `string` | AI task category | `"object_detection"` |
-| `dxnn_file` | `string` | Model filename (no path) | `"yolov8n.dxnn"` |
-| `input_size` | `[int, int]` | `[width, height]` | `[640, 640]` |
-| `supported` | `bool` | Whether model is available for download | `true` |
-| `default_threshold` | `float` | Recommended score threshold | `0.25` |
+```json
+{
+  "model_name": "alexnet",
+  "dxnn_file": "AlexNet.dxnn",
+  "original_name": "AlexNet",
+  "csv_task": "IC",
+  "add_model_task": "classification",
+  "postprocessor": "efficientnet",
+  "input_width": 224,
+  "input_height": 224,
+  "config": {"top_k": 5},
+  "source": "csv",
+  "supported": true
+}
+```
 
-### Optional Fields
+### Depth Estimation
 
-| Field | Type | Description | Example |
-|---|---|---|---|
-| `nms_threshold` | `float` | NMS IoU threshold (detection only) | `0.45` |
-| `labels_file` | `string` | Class labels filename | `"coco_labels.txt"` |
-| `output_format` | `string` | Output tensor description | `"8400x84"` |
-| `family` | `string` | Model architecture family | `"yolov8"` |
-| `variant` | `string` | Size variant | `"nano"` |
-| `num_classes` | `int` | Number of output classes | `80` |
-| `source` | `string` | Original framework | `"ultralytics"` |
+```json
+{
+  "model_name": "fastdepth_1",
+  "dxnn_file": "FastDepth_1.dxnn",
+  "original_name": "FastDepth_1",
+  "csv_task": "DEPTH",
+  "add_model_task": "depth_estimation",
+  "postprocessor": "fastdepth",
+  "input_width": 224,
+  "input_height": 224,
+  "config": {},
+  "source": "csv",
+  "supported": true
+}
+```
 
 ## Query Patterns
 
@@ -65,164 +146,108 @@ Each entry in `model_registry.json` follows this schema:
 import json
 from pathlib import Path
 
-# Load registry
-registry_path = Path(__file__).parent.parent.parent.parent / "config" / "model_registry.json"
+# Load registry (returns a LIST, not a dict)
+registry_path = Path("config/model_registry.json")
 with open(registry_path) as f:
-    registry = json.load(f)
+    registry = json.load(f)  # type: list[dict]
 
-# Check if model exists
-def model_exists(name: str) -> bool:
-    return name in registry
+# Find a model by name (array iteration)
+def find_model(name: str) -> dict | None:
+    return next((e for e in registry if e["model_name"] == name), None)
 
-# Get model info
-def get_model_info(name: str) -> dict:
-    if name not in registry:
-        raise KeyError(f"Model '{name}' not found in registry")
-    return registry[name]
+# List supported models
+def list_supported() -> list[dict]:
+    return [e for e in registry if e.get("supported")]
 
 # List models by task
-def list_models_by_task(task: str) -> list:
-    return [
-        name for name, info in registry.items()
-        if info["task"] == task
-    ]
+def list_by_task(task: str) -> list[str]:
+    return [e["model_name"] for e in registry if e["add_model_task"] == task]
 
-# List supported models only
-def list_supported_models() -> list:
-    return [
-        name for name, info in registry.items()
-        if info.get("supported", False)
-    ]
+# Get input dimensions
+model = find_model("yolov8n")
+if model:
+    w, h = model.get("input_width"), model.get("input_height")  # 640, 640
+
+# Get thresholds from config sub-object
+if model:
+    cfg = model.get("config", {})
+    score_thresh = cfg.get("score_threshold", 0.25)
+    nms_thresh = cfg.get("nms_threshold", 0.45)
 ```
 
-### Common Queries
+### How the Codebase Loads the Registry
 
 ```python
-# Get input dimensions for a model
-info = registry["yolov8n"]
-width, height = info["input_size"]
-# width=640, height=640
-
-# Get recommended thresholds
-score_thresh = info["default_threshold"]   # 0.25
-nms_thresh = info.get("nms_threshold", 0.45)
-
-# Get labels file path
-labels = info.get("labels_file", "coco_labels.txt")
-labels_path = Path("config/labels") / labels
-
-# Filter by task
-det_models = [k for k, v in registry.items() if v["task"] == "object_detection"]
-# ['yolov5n', 'yolov5s', 'yolov5m', 'yolov7', 'yolov7_tiny', 'yolov8n', ...]
+# From tests/common/utils.py
+def load_registry() -> list:
+    with open(REGISTRY_PATH) as f:
+        registry = json.load(f)  # Returns list, not dict
+    return [e for e in registry if e.get("supported") and e.get("model_name") not in SKIP_MODELS]
 ```
 
-## 133 Models Across 15 Tasks
-
-### Task Distribution
-
-| Task | Count | Example Models |
-|---|---|---|
-| object_detection | ~45 | yolov5n/s/m, yolov7/tiny, yolov8n/s/m, yolov10n/s, yolov11n/s, yolo26n/s, ssd, efficientdet, nanodet |
-| classification | ~20 | efficientnet_b0-b4, mobilenetv2, resnet18/34/50/101, inception_v3, squeezenet |
-| pose_estimation | ~8 | yolov5s_pose, yolov5m_pose, yolov8n_pose, yolov8s_pose |
-| instance_segmentation | ~10 | yolov5n_seg, yolov5s_seg, yolov8n_seg, yolov8s_seg |
-| semantic_segmentation | ~10 | bisenetv1, deeplabv3plus_mobilenet, deeplabv3plus_resnet, segformer_b0/b1 |
-| face_detection | ~8 | scrfd_10g, scrfd_2.5g, yolov5s_face, yolov5n_face, retinaface |
-| depth_estimation | ~4 | fastdepth_1, fastdepth_2 |
-| image_denoising | ~6 | dncnn_15, dncnn_25, dncnn_50 |
-| image_enhancement | ~3 | zero_dce, zero_dce_pp |
-| super_resolution | ~4 | espcn_x2, espcn_x3, espcn_x4 |
-| embedding | ~3 | arcface_mobilefacenet, arcface_resnet50 |
-| obb_detection | ~3 | yolo26n_obb, yolo26s_obb |
-| hand_landmark | ~3 | handlandmarklite_1, handlandmarklite_2 |
-| ppu | ~6 | yolov5s_ppu, yolov7_ppu, yolov8n_ppu |
-
-**Note:** Exact counts vary as models are added or deprecated between releases.
-Use `list_supported_models()` to get the current supported set.
-
-## Model Naming Conventions
-
-### Pattern
-
-```
-<family><variant>[_<suffix>]
-```
-
-| Component | Description | Examples |
-|---|---|---|
-| `family` | Architecture family | `yolov5`, `yolov8`, `efficientnet`, `resnet` |
-| `variant` | Size variant (n/s/m/l/x) or parameter | `n`, `s`, `b0`, `50` |
-| `suffix` | Task-specific suffix | `_pose`, `_seg`, `_face`, `_ppu`, `_obb` |
-
-### Examples
-
-| Name | Family | Variant | Suffix | Task |
-|---|---|---|---|---|
-| `yolov8n` | yolov8 | nano | — | object_detection |
-| `yolov8n_seg` | yolov8 | nano | `_seg` | instance_segmentation |
-| `yolov5s_pose` | yolov5 | small | `_pose` | pose_estimation |
-| `yolov5s_face` | yolov5 | small | `_face` | face_detection |
-| `efficientnet_b0` | efficientnet | b0 | — | classification |
-| `resnet50` | resnet | 50 | — | classification |
-| `yolo26n_obb` | yolo26 | nano | `_obb` | obb_detection |
-| `yolov5s_ppu` | yolov5 | small | `_ppu` | ppu |
-
-### Case Sensitivity
-
-Model names in `model_registry.json` are **case-sensitive**. The convention is all
-lowercase with underscores:
-- Correct: `yolov8n`, `efficientnet_b0`
-- Wrong: `YoloV8n`, `EfficientNet_B0`, `YOLOV8N`
-
-See `memory/common_pitfalls.md` [UNIVERSAL] entry for the case mismatch pitfall.
-
-## Querying from CLI
+### CLI Queries (jq)
 
 ```bash
-# Check if a model exists (using jq)
-jq '.yolov8n' config/model_registry.json
+# The file is an ARRAY, so use .[] not .key
 
-# List all object_detection models
-jq '[to_entries[] | select(.value.task == "object_detection") | .key]' config/model_registry.json
+# Find a model by name
+jq '.[] | select(.model_name == "yolov8n")' config/model_registry.json
 
-# Get input size for a model
-jq '.yolov8n.input_size' config/model_registry.json
+# List all object_detection model names
+jq '[.[] | select(.add_model_task == "object_detection") | .model_name]' config/model_registry.json
+
+# Get input dimensions for a model
+jq '.[] | select(.model_name == "yolov8n") | {w: .input_width, h: .input_height}' config/model_registry.json
 
 # Count models per task
-jq '[to_entries[] | .value.task] | group_by(.) | map({task: .[0], count: length})' config/model_registry.json
+jq 'group_by(.add_model_task) | map({task: .[0].add_model_task, count: length}) | sort_by(-.count)' config/model_registry.json
+
+# List all supported models
+jq '[.[] | select(.supported) | .model_name]' config/model_registry.json
+
+# Get thresholds from config sub-object
+jq '.[] | select(.model_name == "yolov8n") | .config' config/model_registry.json
 ```
 
-## Registry Integrity
+## Task Types
 
-The registry must satisfy these constraints:
-1. Every model's `dxnn_file` must be a valid filename (no path separators)
-2. Every model's `task` must be one of the 15 supported tasks
-3. Every model's `input_size` must be `[width, height]` with positive integers
-4. If `supported: true`, the model must be downloadable via `setup.sh`
-5. If `labels_file` is specified, the file must exist in `config/labels/`
-6. Model names must be unique (enforced by JSON key uniqueness)
+All 15 `add_model_task` values in the registry:
 
-## Adding a New Model
+| `add_model_task` | `csv_task` | Description |
+|---|---|---|
+| `object_detection` | `OD` | Bounding-box object detection |
+| `classification` | `IC` | Image classification |
+| `face_detection` | `FD` | Face detection |
+| `instance_segmentation` | `IS` | Per-instance masks |
+| `semantic_segmentation` | `SS` | Per-pixel class labels |
+| `pose_estimation` | `PE` | Keypoint-based pose |
+| `image_denoising` | `DN` | Image noise reduction |
+| `ppu` | `PPU` | Post-processing unit models |
+| `embedding` | `EMB` | Feature embedding / face recognition |
+| `depth_estimation` | `DEPTH` | Monocular depth |
+| `hand_landmark` | `HL` | Hand keypoint detection |
+| `super_resolution` | `SR` | Image upscaling |
+| `obb_detection` | `OBB` | Oriented bounding-box detection |
+| `image_enhancement` | `IE` | Low-light / image enhancement |
 
-```json
-{
-  "my_custom_model": {
-    "task": "object_detection",
-    "dxnn_file": "my_custom_model.dxnn",
-    "input_size": [640, 640],
-    "supported": true,
-    "default_threshold": 0.25,
-    "nms_threshold": 0.45,
-    "labels_file": "coco_labels.txt",
-    "family": "yolov8",
-    "variant": "custom",
-    "num_classes": 80,
-    "source": "custom"
-  }
-}
-```
+**Note:** There are 15 unique values listed in the registry, but only 14 rows above.
+The 15th task may be added in newer releases -- always verify against the source file.
 
-After adding:
-1. Place the `.dxnn` file in the models directory
-2. Create the factory and app files under `src/python_example/<task>/<model>/`
-3. Run `scripts/validate_app.py` to verify consistency
+## Fields That Do NOT Exist
+
+These field names have been hallucinated in previous documentation. They are **not real**.
+
+| Fabricated Field | What Actually Exists |
+|---|---|
+| `task` | `add_model_task` |
+| `input_size` | Separate `input_width` and `input_height` fields |
+| `default_threshold` | `config.score_threshold` (inside `config` object) |
+| `nms_threshold` (top-level) | `config.nms_threshold` (inside `config` object) |
+| `labels_file` | Does not exist in any entry |
+| `output_format` | Does not exist in any entry |
+| `family` | Does not exist in any entry |
+| `variant` | Does not exist in any entry |
+| `num_classes` | Does not exist in any entry |
+
+**The top-level structure is a JSON array, NOT a JSON object with model names as keys.**
+Dict-key access like `registry["yolov8n"]` will raise a `TypeError`. Use array iteration.
