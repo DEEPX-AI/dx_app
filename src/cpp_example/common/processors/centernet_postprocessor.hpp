@@ -174,14 +174,18 @@ private:
 
     // 3×3 max-pool pseudo-NMS on a flat C×H×W heatmap.
     std::vector<float> computePseudoNms_(const float* heatmap, int C, int H, int W) const {
+        // 3×3 max-pool via cv::dilate, keep only values equal to their local max
         std::vector<float> nms(C * H * W, 0.0f);
+        cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 3));
         for (int c = 0; c < C; ++c) {
-            for (int y = 0; y < H; ++y) {
-                for (int x = 0; x < W; ++x) {
-                    int idx = c * H * W + y * W + x;
-                    nms[idx] = isLocalMax3x3_(heatmap, c, y, x, H, W) ? heatmap[idx] : 0.0f;
-                }
-            }
+            cv::Mat ch(H, W, CV_32FC1, const_cast<float*>(heatmap + c * H * W));
+            cv::Mat dilated;
+            cv::dilate(ch, dilated, kernel);
+            float* dst = nms.data() + c * H * W;
+            const float* src = ch.ptr<float>();
+            const float* dil = dilated.ptr<float>();
+            for (int i = 0; i < H * W; ++i)
+                dst[i] = (src[i] >= dil[i]) ? src[i] : 0.0f;
         }
         return nms;
     }

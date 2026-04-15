@@ -253,8 +253,8 @@ setup_assets() {
     print_colored "VIDEO_PATH: ${VIDEO_PATH}" "INFO"
     VIDEO_REAL_PATH=$(readlink -f "$VIDEO_PATH")
     # Check and set up models
-    if [ ! -d "$VIDEO_REAL_PATH" ] || [ "$FORCE_ARGS" != "" ]; then
-        if [ $FORCE_REMOVE_VIDEOS -eq 1 ]; then
+    if [ ! -d "$VIDEO_REAL_PATH" ] || [ "$FORCE_ARGS" != "" ] || [ "${FORCE_REMOVE_VIDEOS:-0}" -eq 1 ]; then
+        if [ "${FORCE_REMOVE_VIDEOS:-0}" -eq 1 ]; then
             FORCE_ARGS="--force"
         fi
         print_colored " Video directory not found. Running setup models script... ($VIDEO_REAL_PATH)" "INFO"

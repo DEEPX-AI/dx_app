@@ -13,7 +13,6 @@
 #include <chrono>
 #include <condition_variable>
 #include <cxxopts.hpp>
-#include <experimental/filesystem>
 #include <iomanip>
 #include <cstdlib>
 #include <iostream>
@@ -186,7 +185,7 @@ public:
         std::cout << "[INFO] Starting async inference..." << std::endl;
         if (args.no_display) std::cout << "Processing... Only FPS will be displayed." << std::endl;
 
-        cv::Mat display_image(SHOW_WINDOW_SIZE_H, SHOW_WINDOW_SIZE_W, CV_8UC3);
+        cv::Mat display_image;
 
         std::thread displayThr([this, &visualizer, &args, &writer]() {
             displayThread(*visualizer, args.no_display, args.saveMode, writer);
@@ -407,10 +406,10 @@ private:
     void submitDenoisingFrame(const cv::Mat& img, cv::Mat& display_image,
                               AsyncFrameParams& p, std::string save_path) {
         auto t_pre_start = std::chrono::high_resolution_clock::now();
-        dxapp::displayResize(img, display_image, SHOW_WINDOW_SIZE_W, SHOW_WINDOW_SIZE_H);
         PreprocessContext ctx;
         cv::Mat preprocessed;
-        p.preprocessor.process(display_image, preprocessed, ctx);
+        p.preprocessor.process(img, preprocessed, ctx);
+        dxapp::displayResize(img, display_image, SHOW_WINDOW_SIZE_W, SHOW_WINDOW_SIZE_H);
         auto t_pre_end = std::chrono::high_resolution_clock::now();
         {
             std::lock_guard<std::mutex> lock(metrics_.metrics_mutex);
@@ -532,10 +531,10 @@ private:
     /** Denoising: submit frame for async inference. */
     void processFrameDenoiseAsync(const cv::Mat& frame, AsyncFrameParams& p) {
         auto t_pre_start = std::chrono::high_resolution_clock::now();
-        dxapp::displayResize(frame, p.display_image, SHOW_WINDOW_SIZE_W, SHOW_WINDOW_SIZE_H);
         PreprocessContext ctx;
         cv::Mat preprocessed;
-        p.preprocessor.process(p.display_image, preprocessed, ctx);
+        p.preprocessor.process(frame, preprocessed, ctx);
+        dxapp::displayResize(frame, p.display_image, SHOW_WINDOW_SIZE_W, SHOW_WINDOW_SIZE_H);
         auto t_pre_end = std::chrono::high_resolution_clock::now();
         {
             std::lock_guard<std::mutex> lock(metrics_.metrics_mutex);
@@ -721,9 +720,9 @@ private:
             frame.rows != static_cast<int>(SHOW_WINDOW_SIZE_H)) {
             cv::Mat write_frame;
             cv::resize(frame, write_frame, cv::Size(SHOW_WINDOW_SIZE_W, SHOW_WINDOW_SIZE_H));
-            writer << write_frame;
+            dxapp::writeToVideo(writer, write_frame);
         } else {
-            writer << frame;
+            dxapp::writeToVideo(writer, frame);
         }
     }
 
@@ -744,6 +743,7 @@ private:
             {
                 std::lock_guard<std::mutex> lock(metrics_.metrics_mutex);
                 metrics_.sum_render += std::chrono::duration<double, std::milli>(t_render_end - t_render_start).count();
+                metrics_.render_completed++;
             }
             if (!args.save_path.empty() && !result_frame.empty()) {
                 cv::imwrite(args.save_path, result_frame);
@@ -764,7 +764,14 @@ private:
     bool pollDisplay() {
         cv::Mat frame;
         if (rendered_queue_.try_pop(frame, std::chrono::milliseconds(1))) {
-            cv::imshow("Output", frame);
+            auto display_start = std::chrono::high_resolution_clock::now();
+            dxapp::showOutput(frame);
+            auto display_end = std::chrono::high_resolution_clock::now();
+            {
+                std::lock_guard<std::mutex> lock(metrics_.metrics_mutex);
+                metrics_.sum_display += std::chrono::duration<double, std::milli>(display_end - display_start).count();
+                metrics_.display_completed++;
+            }
             if (!window_shown_) {
                 window_shown_ = true;
                 // Probe backend: some backends (e.g. GTK2) always return -1
@@ -823,9 +830,17 @@ private:
         printRow("Preprocess", avg_pre, avg_pre > 0 ? 1000.0/avg_pre : 0.0);
         printRow("Inference", avg_inf, infer_tp, "*");
         printRow("Postprocess", avg_post, avg_post > 0 ? 1000.0/avg_post : 0.0);
+        if (metrics_.render_completed > 0 && metrics_.sum_render > 0) {
+            double avg_render = metrics_.sum_render / metrics_.render_completed;
+            printRow("Render", avg_render, avg_render > 0 ? 1000.0/avg_render : 0.0);
+        }
         if (save_on && metrics_.sum_save > 0) {
             double avg_save = metrics_.sum_save / metrics_.infer_completed;
             printRow("Save", avg_save, avg_save > 0 ? 1000.0/avg_save : 0.0);
+        }
+        if (metrics_.display_completed > 0 && metrics_.sum_display > 0) {
+            double avg_display = metrics_.sum_display / metrics_.display_completed;
+            printRow("Display", avg_display, avg_display > 0 ? 1000.0/avg_display : 0.0);
         }
         std::cout << "--------------------------------------------------" << std::endl;
         std::cout << " * Async: turnaround latency (submit to callback)" << std::endl;

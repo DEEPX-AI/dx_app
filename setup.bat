@@ -1,52 +1,32 @@
 @echo off
-setlocal
+setlocal EnableDelayedExpansion
 
-set "MODELS_URL=https://sdk.deepx.ai/res/models/models-2_2_1.tar.gz"
-set "VIDEOS_URL=https://sdk.deepx.ai/res/video/sample_videos.tar.gz"
-set "MODELS_PATH=assets\models"
-set "VIDEOS_PATH=assets\videos"
+REM ── DEEPX Setup: Download sample models and videos ──
+REM Delegates to scripts\setup_assets.py (cross-platform Python)
 
-if not exist "%MODELS_PATH%" (
-    echo "not found models, make dir %MODELS_PATH%"
-    mkdir "%MODELS_PATH%"
-    echo "Download models tar.gz file URL : %MODELS_URL%"
-    curl -o models.tar.gz %MODELS_URL%
-    if %errorlevel%==0 (
-        echo "extract models.tar.gz to %MODELS_PATH%"
-        tar -xzvf models.tar.gz -C %MODELS_PATH%
-        if %errorlevel%==0 (
-            del /f /q models.tar.gz
-            echo "remove models.tar.gz"
-        )
-    )
-    if %errorlevel%==0 (
-        echo "Download models.tar.gz and extract models : Complete"
-    )
-) else (
-    echo "models directory found (%MODELS_PATH%)"
-    echo "stop downloading models tar gz"
+pushd "%~dp0" >nul
+set "PROJECT_ROOT=%cd%"
+
+REM Resolve Python: prefer venv, fall back to system python
+set "PYTHON_EXE=python"
+if exist "%PROJECT_ROOT%\venv\Scripts\python.exe" set "PYTHON_EXE=%PROJECT_ROOT%\venv\Scripts\python.exe"
+
+REM Ensure requests is available
+"%PYTHON_EXE%" -c "import requests" >nul 2>&1
+if !ERRORLEVEL! NEQ 0 (
+    echo Installing required dependency: requests
+    "%PYTHON_EXE%" -m pip install --quiet requests
 )
 
-if not exist "%VIDEOS_PATH%" (
-    echo "not found videos, make dir %VIDEOS_PATH%"
-    mkdir "%VIDEOS_PATH%"
-    echo "Download videos tar.gz file URL : %VIDEOS_URL%"
-    curl -o videos.tar.gz %VIDEOS_URL%
-    if %errorlevel%==0 (
-        echo "extract videos.tar.gz to %VIDEOS_PATH%"
-        tar -xzvf videos.tar.gz -C %VIDEOS_PATH%
-        if %errorlevel%==0 (
-            del /f /q videos.tar.gz
-            echo "remove videos.tar.gz"
-        )
-    )
-    if %errorlevel%==0 (
-        echo "Download videos.tar.gz and extract videos : Complete"
-    )
-) else (
-    echo "videos directory found (%VIDEOS_PATH%)"
-    echo "stop downloading videos tar gz"
-)
+REM Forward all arguments to the Python setup script
+"%PYTHON_EXE%" "%PROJECT_ROOT%\scripts\setup_assets.py" %*
+set "RC=!ERRORLEVEL!"
 
-pause
-endlocal
+popd >nul
+
+if !RC! NEQ 0 echo Setup failed with exit code !RC!.
+
+REM Pause for interactive users (CI sets DISABLE_BUILD_PAUSE=1)
+if not defined DISABLE_BUILD_PAUSE pause
+
+exit /b !RC!

@@ -237,7 +237,7 @@ def print_async_performance_summary(metrics: AsyncProfilingMetrics,
     print(f"{'='*60}\n")
 
 
-def print_image_processing_summary(t_start, t0, t1, t2, t3, t4=None):
+def print_image_processing_summary(t_start, t0, t1, t2, t3, t4=None, t5=None):
     """
     Print legacy-format image processing summary.
     
@@ -247,33 +247,45 @@ def print_image_processing_summary(t_start, t0, t1, t2, t3, t4=None):
         t1: After preprocess
         t2: After inference
         t3: After postprocess
-        t4: After display (optional)
+        t4: After render (optional)
+        t5: After display (optional, requires t4)
     """
     read_time = (t0 - t_start) * 1000.0
     preprocess_time = (t1 - t0) * 1000.0
     inference_time = (t2 - t1) * 1000.0
     postprocess_time = (t3 - t2) * 1000.0
 
-    print("\n" + "=" * 35)
-    print(f" {'IMAGE PROCESSING SUMMARY':^35}")
-    print("=" * 35)
-    print(f" {'Pipeline Step':<15} {'Latency':>11}")
-    print("-" * 35)
-    print(f" {'Read':<15} {read_time:8.2f} ms")
-    print(f" {'Preprocess':<15} {preprocess_time:8.2f} ms")
-    print(f" {'Inference':<15} {inference_time:8.2f} ms")
-    print(f" {'Postprocess':<15} {postprocess_time:8.2f} ms")
+    def _row(label, ms):
+        fps = 1000.0 / ms if ms > 0 else 0.0
+        print(f" {label:<15} {ms:8.2f} ms     {fps:6.1f} FPS")
 
+    print("\n" + "=" * 50)
+    print(f"{'PERFORMANCE SUMMARY':^50}")
+    print("=" * 50)
+    print(f" {'Pipeline Step':<15} {'Avg Latency':<15} {'Throughput':<15}")
+    print("-" * 50)
+    _row("Read", read_time)
+    _row("Preprocess", preprocess_time)
+    _row("Inference", inference_time)
+    _row("Postprocess", postprocess_time)
+
+    last_ts = t3
     if t4 is not None:
         draw_time = (t4 - t3) * 1000.0
-        print(f" {'Display':<15} {draw_time:8.2f} ms")
-        total_time = (t4 - t_start) * 1000.0
-    else:
-        total_time = (t3 - t_start) * 1000.0
+        _row("Render", draw_time)
+        last_ts = t4
+    if t5 is not None and t4 is not None:
+        display_time = (t5 - t4) * 1000.0
+        _row("Display", display_time)
+        last_ts = t5
 
-    print("-" * 35)
-    print(f" {'Total Time':<15} : {total_time:6.1f} ms")
-    print("=" * 35)
+    total_time = (last_ts - t_start) * 1000.0
+    print("-" * 50)
+    print(f" {'Total Frames':<15} : {'1':>6}")
+    print(f" {'Total Time':<15} : {total_time / 1000.0:6.1f} s")
+    overall_fps = 1000.0 / total_time if total_time > 0 else 0.0
+    print(f" {'Overall FPS':<15} : {overall_fps:6.1f} FPS")
+    print("=" * 50)
 
 
 def _print_metric_line(label: str, total_sum: float, cnt: int) -> None:
@@ -287,7 +299,9 @@ def _print_optional_metrics(metrics: dict, cnt: int) -> None:
     """Print render/save/display metrics when present."""
     if cnt <= 0:
         return
-    _print_metric_line("Render", metrics.get("sum_render", 0.0), cnt)
+    sum_render = metrics.get("sum_render", 0.0)
+    if sum_render > 0:
+        _print_metric_line("Render", sum_render, cnt)
     sum_save = metrics.get("sum_save", 0.0)
     if sum_save > 0:
         _print_metric_line("Save", sum_save, cnt)
@@ -384,11 +398,8 @@ def print_async_performance_summary_legacy(
     print(f" {'Inference':<15} {avg_inf:8.2f} ms     {infer_tp:6.1f} FPS*")
     print(f" {'Postprocess':<15} {avg_post:8.2f} ms     {post_fps:6.1f} FPS")
 
-    # Save row (conditional, no Render/Display for async)
-    save_cnt = metrics.get("save_completed", 0)
-    sum_save = metrics.get("sum_save", 0.0)
-    if save_cnt > 0 and sum_save > 0:
-        _print_metric_line("Save", sum_save, save_cnt)
+    # Render/Save/Display rows (conditional)
+    _print_async_optional_metrics(metrics, infer_completed)
 
     print("-" * 50)
     print(" * Async: turnaround latency (submit to callback)")

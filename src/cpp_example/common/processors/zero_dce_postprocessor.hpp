@@ -18,6 +18,7 @@
 #include "common/base/i_processor.hpp"
 #include <algorithm>
 #include <cmath>
+#include <cstring>
 
 namespace dxapp {
 
@@ -56,18 +57,12 @@ public:
         }
 
         const int num_rgb = 3;
+        int hw = h * w;
 
         // Direct enhanced image output: [3, H, W] — use as-is
         if (total_ch == num_rgb) {
-            cv::Mat restored = buildRestoredImage(
-                std::vector<float>(data, data + num_rgb * h * w), h, w);
-            // Resize to original dimensions if available
-            if (ctx.original_width > 0 && ctx.original_height > 0 &&
-                (restored.cols != ctx.original_width || restored.rows != ctx.original_height)) {
-                cv::resize(restored, restored,
-                           cv::Size(ctx.original_width, ctx.original_height),
-                           0, 0, cv::INTER_LINEAR);
-            }
+            cv::Mat restored = buildRestoredImage(data, h, w);
+            resizeToOriginal(restored, ctx);
             RestorationResult result;
             result.restored_image = restored;
             result.width = restored.cols;
@@ -80,12 +75,11 @@ public:
         if (n_iters <= 0) n_iters = num_iterations_;
 
         // Prepare enhanced image in CHW float [0, 1]
-        // From source_image (RGB uint8, stored by SimpleResizePreprocessor)
-        std::vector<float> enhanced(num_rgb * h * w, 0.5f);  // fallback: 0.5
+        // From source_image (BGR uint8, stored by SimpleResizePreprocessor)
+        std::vector<float> enhanced(num_rgb * hw, 0.5f);  // fallback: 0.5
 
         if (!ctx.source_image.empty()) {
             cv::Mat src = ctx.source_image;
-            // Resize if spatial dims don't match
             if (src.cols != w || src.rows != h) {
                 cv::resize(src, src, cv::Size(w, h), 0, 0, cv::INTER_LINEAR);
             }
@@ -93,18 +87,11 @@ public:
         }
 
         // Apply iterative LE curve: E = E + α · E · (1 - E)
-        applyLECurves(data, n_iters, num_rgb, h * w, enhanced);
+        applyLECurves(data, n_iters, num_rgb, hw, enhanced);
 
         // Convert CHW float → HWC BGR uint8
-        cv::Mat restored = buildRestoredImage(enhanced, h, w);
-
-        // Resize to original dimensions if available
-        if (ctx.original_width > 0 && ctx.original_height > 0 &&
-            (restored.cols != ctx.original_width || restored.rows != ctx.original_height)) {
-            cv::resize(restored, restored,
-                       cv::Size(ctx.original_width, ctx.original_height),
-                       0, 0, cv::INTER_LINEAR);
-        }
+        cv::Mat restored = buildRestoredImage(enhanced.data(), h, w);
+        resizeToOriginal(restored, ctx);
 
         RestorationResult result;
         result.restored_image = restored;
@@ -117,24 +104,32 @@ public:
     std::string getModelName() const override { return "Zero-DCE"; }
 
 private:
-    // Helper: fill enhanced CHW float [0,1] from a resized RGB source image
+    // Helper: resize restored image to original dimensions if available
+    static void resizeToOriginal(cv::Mat& restored, const PreprocessContext& ctx) {
+        if (ctx.original_width > 0 && ctx.original_height > 0 &&
+            (restored.cols != ctx.original_width || restored.rows != ctx.original_height)) {
+            cv::resize(restored, restored,
+                       cv::Size(ctx.original_width, ctx.original_height),
+                       0, 0, cv::INTER_LINEAR);
+        }
+    }
+
+    // Helper: fill enhanced CHW float [0,1] from a resized source image
+    // Channel layout mirrors OpenCV: enhanced[0]=ch0(B), [1]=ch1(G), [2]=ch2(R)
     static void loadSourceToEnhanced(const cv::Mat& src, int h, int w,
                                      std::vector<float>& enhanced) {
-        for (int y = 0; y < h; ++y) {
-            for (int x = 0; x < w; ++x) {
-                if (src.channels() >= 3) {
-                    const auto& px = src.at<cv::Vec3b>(y, x);
-                    enhanced[0 * h * w + y * w + x] = px[0] / 255.0f;  // R
-                    enhanced[1 * h * w + y * w + x] = px[1] / 255.0f;  // G
-                    enhanced[2 * h * w + y * w + x] = px[2] / 255.0f;  // B
-                } else {
-                    float v = src.at<uchar>(y, x) / 255.0f;
-                    enhanced[0 * h * w + y * w + x] = v;
-                    enhanced[1 * h * w + y * w + x] = v;
-                    enhanced[2 * h * w + y * w + x] = v;
-                }
-            }
+        cv::Mat bgr_src = src;
+        if (src.channels() == 1) {
+            cv::cvtColor(src, bgr_src, cv::COLOR_GRAY2BGR);
         }
+        cv::Mat float_img;
+        bgr_src.convertTo(float_img, CV_32FC3, 1.0 / 255.0);
+        std::vector<cv::Mat> channels;
+        cv::split(float_img, channels);  // [0]=B, [1]=G, [2]=R
+        int hw = h * w;
+        std::memcpy(&enhanced[0],      channels[0].data, hw * sizeof(float));
+        std::memcpy(&enhanced[hw],     channels[1].data, hw * sizeof(float));
+        std::memcpy(&enhanced[2 * hw], channels[2].data, hw * sizeof(float));
     }
 
     // Helper: apply iterative LE curve E = E + α·E·(1−E) in-place
@@ -153,21 +148,17 @@ private:
         }
     }
 
-    // Helper: convert CHW float [0,1] to HWC BGR uint8 Mat
-    static cv::Mat buildRestoredImage(const std::vector<float>& enhanced, int h, int w) {
+    // Helper: convert CHW float → HWC BGR uint8 Mat (vectorized via OpenCV)
+    // Channel layout: plane0, plane1, plane2 → mapped to Vec3b(plane2, plane1, plane0)
+    static cv::Mat buildRestoredImage(const float* enhanced, int h, int w) {
         int hw = h * w;
-        cv::Mat restored(h, w, CV_8UC3);
-        for (int y = 0; y < h; ++y) {
-            for (int x = 0; x < w; ++x) {
-                float r = std::max(0.0f, std::min(1.0f, enhanced[0 * hw + y * w + x]));
-                float g = std::max(0.0f, std::min(1.0f, enhanced[1 * hw + y * w + x]));
-                float b = std::max(0.0f, std::min(1.0f, enhanced[2 * hw + y * w + x]));
-                restored.at<cv::Vec3b>(y, x) = cv::Vec3b(
-                    static_cast<uchar>(b * 255.0f + 0.5f),
-                    static_cast<uchar>(g * 255.0f + 0.5f),
-                    static_cast<uchar>(r * 255.0f + 0.5f));
-            }
-        }
+        cv::Mat plane0(h, w, CV_32F, const_cast<float*>(enhanced));
+        cv::Mat plane1(h, w, CV_32F, const_cast<float*>(enhanced + hw));
+        cv::Mat plane2(h, w, CV_32F, const_cast<float*>(enhanced + 2 * hw));
+        cv::Mat merged;
+        cv::merge(std::vector<cv::Mat>{plane2, plane1, plane0}, merged);
+        cv::Mat restored;
+        merged.convertTo(restored, CV_8UC3, 255.0, 0.5);
         return restored;
     }
 

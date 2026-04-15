@@ -23,6 +23,13 @@ for _path in [str(_v3_dir), str(_module_dir)]:
     if _path not in sys.path:
         sys.path.insert(0, _path)
 
+
+import os
+if os.name == 'nt':
+    _dxrt_dir = os.environ.get('DXRT_DIR')
+    if _dxrt_dir:
+        os.add_dll_directory(os.path.join(_dxrt_dir, 'bin'))
+
 from factory import Dncnn_50Factory
 from common.runner import AsyncRunner, parse_common_args
 

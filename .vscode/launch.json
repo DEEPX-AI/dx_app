@@ -3164,7 +3164,7 @@
                 "-m",
                 "assets/models/yolo26s-obb.dxnn",
                 "-v",
-                "assets/videos/boat.mp4"
+                "assets/videos/obb.mp4"
             ],
             "cwd": "${workspaceFolder}",
             "stopAtEntry": false,
@@ -3189,7 +3189,7 @@
                 "-m",
                 "assets/models/yolo26s-obb.dxnn",
                 "-v",
-                "assets/videos/boat.mp4",
+                "assets/videos/obb.mp4",
                 "-s"
             ],
             "cwd": "${workspaceFolder}",
@@ -3319,7 +3319,7 @@
                 "-m",
                 "assets/models/yolo26s-obb.dxnn",
                 "-v",
-                "assets/videos/boat.mp4"
+                "assets/videos/obb.mp4"
             ],
             "cwd": "${workspaceFolder}",
             "stopAtEntry": false,
@@ -3344,7 +3344,7 @@
                 "-m",
                 "assets/models/yolo26s-obb.dxnn",
                 "-v",
-                "assets/videos/boat.mp4",
+                "assets/videos/obb.mp4",
                 "-s"
             ],
             "cwd": "${workspaceFolder}",

@@ -11,7 +11,6 @@
 #include <dxrt/dxrt_api.h>
 #include <chrono>
 #include <cxxopts.hpp>
-#include <experimental/filesystem>
 #include <iomanip>
 #include <cstdlib>
 #include <iostream>
@@ -202,7 +201,7 @@ public:
             std::cout << "Processing... Only FPS will be displayed." << std::endl;
         }
 
-        cv::Mat display_image(SHOW_WINDOW_SIZE_H, SHOW_WINDOW_SIZE_W, CV_8UC3);
+        cv::Mat display_image;
         auto s_time = std::chrono::high_resolution_clock::now();
 
         if (is_image) {
@@ -456,9 +455,10 @@ private:
 
         double t_render = 0.0;
         double t_save = 0.0;
+        double t_display = 0.0;
         bool quit_requested = false;
         if (!no_display || saveMode || std::getenv("DXAPP_SAVE_IMAGE")) {
-            std::tie(t_render, t_save, quit_requested) = renderSaveDisplay(
+            std::tie(t_render, t_save, t_display, quit_requested) = renderSaveDisplay(
                 display_image, results, ctx, visualizer, writer,
                 no_display, saveMode, saveImagePath, verbose_);
         }
@@ -469,6 +469,7 @@ private:
         metrics.sum_postprocess += t_postprocess;
         metrics.sum_render += t_render;
         metrics.sum_save += t_save;
+        metrics.sum_display += t_display;
         metrics.infer_completed++;
 
         return !quit_requested;
@@ -594,19 +595,26 @@ private:
         std::cout << " " << std::left << std::setw(15) << "Postprocess" << std::right << std::setw(8)
                   << std::fixed << std::setprecision(2) << avg_post << " ms     " << std::setw(6)
                   << std::setprecision(1) << post_fps << " FPS" << std::endl;
-        if (display_on) {
+        if (display_on && metrics.sum_render > 0) {
             double avg_render = metrics.sum_render / metrics.infer_completed;
             double render_fps = avg_render > 0 ? 1000.0 / avg_render : 0.0;
-            std::cout << " " << std::left << std::setw(15) << "Display" << std::right << std::setw(8)
+            std::cout << " " << std::left << std::setw(15) << "Render" << std::right << std::setw(8)
                       << std::fixed << std::setprecision(2) << avg_render << " ms     " << std::setw(6)
                       << std::setprecision(1) << render_fps << " FPS" << std::endl;
         }
-        if (save_on) {
+        if (save_on && metrics.sum_save > 0) {
             double avg_save = metrics.sum_save / metrics.infer_completed;
             double save_fps = avg_save > 0 ? 1000.0 / avg_save : 0.0;
             std::cout << " " << std::left << std::setw(15) << "Save" << std::right << std::setw(8)
                       << std::fixed << std::setprecision(2) << avg_save << " ms     " << std::setw(6)
                       << std::setprecision(1) << save_fps << " FPS" << std::endl;
+        }
+        if (display_on && metrics.sum_display > 0) {
+            double avg_display = metrics.sum_display / metrics.infer_completed;
+            double display_fps = avg_display > 0 ? 1000.0 / avg_display : 0.0;
+            std::cout << " " << std::left << std::setw(15) << "Display" << std::right << std::setw(8)
+                      << std::fixed << std::setprecision(2) << avg_display << " ms     " << std::setw(6)
+                      << std::setprecision(1) << display_fps << " FPS" << std::endl;
         }
         std::cout << "--------------------------------------------------" << std::endl;
         std::cout << " " << std::left << std::setw(19) << "Total Frames"

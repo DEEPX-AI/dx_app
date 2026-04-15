@@ -74,38 +74,27 @@ public:
         cv::Mat restored;
         if (channels == 1) {
             // Grayscale output
-            cv::Mat float_img(h, w, CV_32FC1);
-            for (int y = 0; y < h; ++y) {
-                for (int x = 0; x < w; ++x) {
-                    float v = std::max(0.0f, std::min(1.0f, data[y * w + x]));
-                    float_img.at<float>(y, x) = v;
-                }
-            }
-            float_img.convertTo(restored, CV_8UC1, 255.0);
-            cv::cvtColor(restored, restored, cv::COLOR_GRAY2BGR);
+            cv::Mat float_img(h, w, CV_32FC1, const_cast<float*>(data));
+            cv::Mat gray_u8;
+            float_img.convertTo(gray_u8, CV_8UC1, 255.0, 0.5);
+            cv::cvtColor(gray_u8, restored, cv::COLOR_GRAY2BGR);
         } else if (channels == 3) {
-            // RGB output → BGR
-            cv::Mat float_img(h, w, CV_32FC3);
             int hw = h * w;
-            for (int y = 0; y < h; ++y) {
-                for (int x = 0; x < w; ++x) {
-                    int idx = y * w + x;
-                    float r, g, b;
-                    if (is_nhwc) {
-                        // NHWC: data[y*w*3 + x*3 + c]
-                        r = std::max(0.0f, std::min(1.0f, data[idx * 3 + 0]));
-                        g = std::max(0.0f, std::min(1.0f, data[idx * 3 + 1]));
-                        b = std::max(0.0f, std::min(1.0f, data[idx * 3 + 2]));
-                    } else {
-                        // NCHW: data[c*H*W + y*W + x]
-                        r = std::max(0.0f, std::min(1.0f, data[0 * hw + idx]));
-                        g = std::max(0.0f, std::min(1.0f, data[1 * hw + idx]));
-                        b = std::max(0.0f, std::min(1.0f, data[2 * hw + idx]));
-                    }
-                    float_img.at<cv::Vec3f>(y, x) = cv::Vec3f(b, g, r); // BGR
-                }
+            if (is_nhwc) {
+                // NHWC: data is [H*W*3] interleaved RGB
+                cv::Mat rgb(h, w, CV_32FC3, const_cast<float*>(data));
+                cv::Mat bgr;
+                cv::cvtColor(rgb, bgr, cv::COLOR_RGB2BGR);
+                bgr.convertTo(restored, CV_8UC3, 255.0, 0.5);
+            } else {
+                // NCHW: data is [R-plane, G-plane, B-plane]
+                cv::Mat r_ch(h, w, CV_32FC1, const_cast<float*>(data));
+                cv::Mat g_ch(h, w, CV_32FC1, const_cast<float*>(data + hw));
+                cv::Mat b_ch(h, w, CV_32FC1, const_cast<float*>(data + 2 * hw));
+                cv::Mat merged;
+                cv::merge(std::vector<cv::Mat>{b_ch, g_ch, r_ch}, merged);
+                merged.convertTo(restored, CV_8UC3, 255.0, 0.5);
             }
-            float_img.convertTo(restored, CV_8UC3, 255.0);
         } else {
             return {};
         }

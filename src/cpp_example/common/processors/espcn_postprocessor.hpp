@@ -78,13 +78,9 @@ public:
         if (scale <= 0) scale = 2;
 
         // Extract Y-channel (first channel) — clamp to [0, 1] and convert to uint8
-        cv::Mat sr_y(out_h, out_w, CV_8UC1);
-        for (int y = 0; y < out_h; ++y) {
-            for (int x = 0; x < out_w; ++x) {
-                float v = std::max(0.0f, std::min(1.0f, data[y * out_w + x]));
-                sr_y.at<uchar>(y, x) = static_cast<uchar>(v * 255.0f + 0.5f);
-            }
-        }
+        cv::Mat float_y(out_h, out_w, CV_32FC1, const_cast<float*>(data));
+        cv::Mat sr_y;
+        float_y.convertTo(sr_y, CV_8UC1, 255.0, 0.5);
 
         cv::Mat restored;
 
@@ -113,17 +109,12 @@ public:
         } else if (out_c >= 3) {
             // Multi-channel output: treat as RGB (CHW) → BGR
             int hw = out_h * out_w;
-            cv::Mat float_img(out_h, out_w, CV_32FC3);
-            for (int y = 0; y < out_h; ++y) {
-                for (int x = 0; x < out_w; ++x) {
-                    int idx = y * out_w + x;
-                    float r = std::max(0.0f, std::min(1.0f, data[0 * hw + idx]));
-                    float g = std::max(0.0f, std::min(1.0f, data[1 * hw + idx]));
-                    float b = std::max(0.0f, std::min(1.0f, data[2 * hw + idx]));
-                    float_img.at<cv::Vec3f>(y, x) = cv::Vec3f(b, g, r);
-                }
-            }
-            float_img.convertTo(restored, CV_8UC3, 255.0);
+            cv::Mat r_ch(out_h, out_w, CV_32FC1, const_cast<float*>(data));
+            cv::Mat g_ch(out_h, out_w, CV_32FC1, const_cast<float*>(data + hw));
+            cv::Mat b_ch(out_h, out_w, CV_32FC1, const_cast<float*>(data + 2 * hw));
+            cv::Mat merged;
+            cv::merge(std::vector<cv::Mat>{b_ch, g_ch, r_ch}, merged);
+            merged.convertTo(restored, CV_8UC3, 255.0, 0.5);
         } else {
             // Grayscale-only fallback (no source image)
             cv::cvtColor(sr_y, restored, cv::COLOR_GRAY2BGR);

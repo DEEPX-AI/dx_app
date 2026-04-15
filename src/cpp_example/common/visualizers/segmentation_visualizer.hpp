@@ -43,15 +43,17 @@ public:
         const auto& palette = custom_palette_.empty() ? SEGMENTATION_COLORS : custom_palette_;
         
         // Create colored mask
-        cv::Mat colored_mask(seg.height, seg.width, CV_8UC3, cv::Scalar(0, 0, 0));
-        for (int y = 0; y < seg.height; ++y) {
-            for (int x = 0; x < seg.width; ++x) {
-                int class_id = seg.mask[y * seg.width + x];
-                if (skip_background_ &&
-                    palette[class_id % palette.size()] == cv::Vec3b(0, 0, 0)) continue;
-                colored_mask.at<cv::Vec3b>(y, x) = 
-                    palette[class_id % palette.size()];
-            }
+        cv::Mat colored_mask(seg.height, seg.width, CV_8UC3);
+        auto* dst = colored_mask.ptr<cv::Vec3b>();
+        int total = seg.height * seg.width;
+        int psize = static_cast<int>(palette.size());
+        for (int i = 0; i < total; ++i) {
+            int class_id = seg.mask[i];
+            const auto& c = palette[class_id % psize];
+            if (skip_background_ && c == cv::Vec3b(0, 0, 0))
+                dst[i] = cv::Vec3b(0, 0, 0);
+            else
+                dst[i] = c;
         }
         
         // Remove letterbox padding before resize (matching original)
@@ -108,8 +110,23 @@ public:
     cv::Mat draw(const cv::Mat& frame,
                  const std::vector<InstanceSegmentationResult>& results,
                  const PreprocessContext& ctx) override {
-        (void)ctx;
         cv::Mat output = frame.clone();
+
+        // Scale factor from original image space to display frame space.
+        // ctx.original_width/height reflect the source image dimensions that the
+        // postprocessor used when mapping boxes back from model space.  When
+        // displayResize() has down-scaled the frame (e.g. 1920x1080 → 960x540)
+        // the box coordinates must be scaled accordingly before drawing.
+        float disp_scale = 1.0f;
+        if (ctx.original_width > 0 && ctx.original_height > 0 &&
+            (ctx.original_width > output.cols || ctx.original_height > output.rows)) {
+            disp_scale = std::min(static_cast<float>(output.cols) / ctx.original_width,
+                                  static_cast<float>(output.rows) / ctx.original_height);
+        }
+        const float x_off = (ctx.original_width > 0)
+            ? (output.cols - ctx.original_width * disp_scale) / 2.0f : 0.0f;
+        const float y_off = (ctx.original_height > 0)
+            ? (output.rows - ctx.original_height * disp_scale) / 2.0f : 0.0f;
 
         for (size_t i = 0; i < results.size(); ++i) {
             const auto& inst = results[i];
@@ -131,8 +148,8 @@ public:
 
             // Draw bounding box and label
             if (show_boxes_ && inst.box.size() >= 4) {
-                cv::Point pt1(static_cast<int>(inst.box[0]), static_cast<int>(inst.box[1]));
-                cv::Point pt2(static_cast<int>(inst.box[2]), static_cast<int>(inst.box[3]));
+                cv::Point pt1(static_cast<int>(inst.box[0] * disp_scale + x_off), static_cast<int>(inst.box[1] * disp_scale + y_off));
+                cv::Point pt2(static_cast<int>(inst.box[2] * disp_scale + x_off), static_cast<int>(inst.box[3] * disp_scale + y_off));
                 cv::rectangle(output, pt1, pt2, box_color, line_thickness_);
                 
                 std::string label = inst.class_name + ": " + 
@@ -176,15 +193,10 @@ private:
     /** Blend a color into target where mask > 0. */
     static void blendMaskRegion(const cv::Mat& mask, const cv::Vec3b& color,
                                 float alpha, cv::Mat& target) {
-        for (int y = 0; y < target.rows; ++y) {
-            for (int x = 0; x < target.cols; ++x) {
-                if (mask.at<uchar>(y, x) == 0) continue;
-                cv::Vec3b& pixel = target.at<cv::Vec3b>(y, x);
-                pixel[0] = static_cast<uchar>(pixel[0] * (1 - alpha) + color[0] * alpha);
-                pixel[1] = static_cast<uchar>(pixel[1] * (1 - alpha) + color[1] * alpha);
-                pixel[2] = static_cast<uchar>(pixel[2] * (1 - alpha) + color[2] * alpha);
-            }
-        }
+        cv::Mat color_mat(target.size(), CV_8UC3, cv::Scalar(color[0], color[1], color[2]));
+        cv::Mat blended;
+        cv::addWeighted(target, 1.0 - alpha, color_mat, alpha, 0, blended);
+        blended.copyTo(target, mask);
     }
 };
 
