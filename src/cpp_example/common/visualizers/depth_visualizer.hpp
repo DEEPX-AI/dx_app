@@ -34,7 +34,7 @@ public:
 
         // Apply colormap
         cv::Mat colored_depth;
-        cv::applyColorMap(depth_u8, colored_depth, cv::COLORMAP_JET);
+        cv::applyColorMap(depth_u8, colored_depth, cv::COLORMAP_MAGMA);
 
         // Resize to match frame size
         cv::Mat resized_depth;

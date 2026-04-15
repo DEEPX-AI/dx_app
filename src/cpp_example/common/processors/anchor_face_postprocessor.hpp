@@ -230,6 +230,18 @@ inline YOLOv5FacePostProcess::YOLOv5FacePostProcess() {
 
 // Process model outputs
 inline std::vector<YOLOv5FaceResult> YOLOv5FacePostProcess::postprocess(const dxrt::TensorPtrs& outputs) {
+    static bool debug_logged = false;
+    if (!debug_logged && getenv("DXAPP_DEBUG")) {
+        debug_logged = true;
+        fprintf(stderr, "[DEBUG] is_ort_configured=%d, raw_outputs=%zu\n",
+                is_ort_configured_, outputs.size());
+        for (size_t i = 0; i < outputs.size(); ++i) {
+            fprintf(stderr, "[DEBUG]   output[%zu] shape:", i);
+            for (auto s : outputs[i]->shape()) fprintf(stderr, " %ld", s);
+            fprintf(stderr, "\n");
+        }
+    }
+
     auto aligned_outputs = align_tensors(outputs);
 
     std::vector<YOLOv5FaceResult> detections;
@@ -239,8 +251,23 @@ inline std::vector<YOLOv5FaceResult> YOLOv5FacePostProcess::postprocess(const dx
         detections = decoding_npu_outputs(aligned_outputs);
     }
 
+    static const bool s_debug = (std::getenv("DXAPP_DEBUG") != nullptr);
+    if (s_debug) {
+        fprintf(stderr, "[DEBUG] pre-NMS=%zu", detections.size());
+    }
+
     // Apply Non-Maximum Suppression
     detections = apply_nms(detections);
+
+    if (getenv("DXAPP_DEBUG")) {
+        fprintf(stderr, " post-NMS=%zu", detections.size());
+        for (size_t d = 0; d < detections.size() && d < 5; ++d) {
+            auto& b = detections[d].box;
+            fprintf(stderr, " [%.1f,%.1f,%.1f,%.1f c=%.3f]",
+                    b[0], b[1], b[2], b[3], detections[d].confidence);
+        }
+        fprintf(stderr, "\n");
+    }
 
     return detections;
 }

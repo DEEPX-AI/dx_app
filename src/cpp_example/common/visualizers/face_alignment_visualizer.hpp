@@ -23,9 +23,20 @@ public:
 
     cv::Mat draw(const cv::Mat& image,
                  const std::vector<FaceAlignmentResult>& results,
-                 const PreprocessContext& /*ctx*/) override {
+                 const PreprocessContext& ctx) override {
         cv::Mat output = image.clone();
         if (results.empty()) return output;
+
+        float disp_scale = 1.0f;
+        if (ctx.original_width > 0 && ctx.original_height > 0 &&
+            (ctx.original_width > output.cols || ctx.original_height > output.rows)) {
+            disp_scale = std::min(static_cast<float>(output.cols) / ctx.original_width,
+                                  static_cast<float>(output.rows) / ctx.original_height);
+        }
+        const float x_off = (ctx.original_width > 0)
+            ? (output.cols - ctx.original_width * disp_scale) / 2.0f : 0.0f;
+        const float y_off = (ctx.original_height > 0)
+            ? (output.rows - ctx.original_height * disp_scale) / 2.0f : 0.0f;
 
         const auto& result = results[0];
         const auto& lmks = result.landmarks_2d;
@@ -53,8 +64,8 @@ public:
                 int i1 = part.indices[i];
                 int i2 = part.indices[i + 1];
                 if (i1 < static_cast<int>(lmks.size()) && i2 < static_cast<int>(lmks.size())) {
-                    cv::Point pt1(static_cast<int>(lmks[i1].x), static_cast<int>(lmks[i1].y));
-                    cv::Point pt2(static_cast<int>(lmks[i2].x), static_cast<int>(lmks[i2].y));
+                    cv::Point pt1(static_cast<int>(lmks[i1].x * disp_scale + x_off), static_cast<int>(lmks[i1].y * disp_scale + y_off));
+                    cv::Point pt2(static_cast<int>(lmks[i2].x * disp_scale + x_off), static_cast<int>(lmks[i2].y * disp_scale + y_off));
                     cv::line(output, pt1, pt2, part.color, 1, cv::LINE_AA);
                 }
             }
@@ -62,8 +73,8 @@ public:
 
         // Draw landmark points
         for (size_t i = 0; i < std::min(static_cast<size_t>(68), lmks.size()); ++i) {
-            cv::circle(output, cv::Point(static_cast<int>(lmks[i].x),
-                                         static_cast<int>(lmks[i].y)),
+            cv::circle(output, cv::Point(static_cast<int>(lmks[i].x * disp_scale + x_off),
+                                         static_cast<int>(lmks[i].y * disp_scale + y_off)),
                        2, cv::Scalar(0, 255, 255), -1);
         }
 

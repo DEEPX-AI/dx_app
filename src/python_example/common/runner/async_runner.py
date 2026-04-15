@@ -44,6 +44,7 @@ import cv2
 from dx_engine import InferenceEngine, InferenceOption
 from ..inputs import InputFactory
 from ..utility import print_async_performance_summary_legacy, SafeQueue
+from ..utility import print_image_processing_summary, print_sync_performance_summary
 from .run_dir import create_run_dir, write_run_info, dump_tensors, dump_tensors_on_exception
 from .verify_serialize import is_verify_enabled, dump_verify_json
 
@@ -372,8 +373,12 @@ class AsyncRunner:
                     else:
                         input_tensor = input_tensor.astype(self._input_dtype)
                 # HWC → CHW for NCHW models (e.g., ViT, DeiT)
+                # Skip if already CHW (channel dim first); detect HWC by last dim being small channel count
+                # and first two dims being spatial (both > 4)
                 if getattr(self, "_nchw", False) and input_tensor.ndim == 3:
-                    input_tensor = np.transpose(input_tensor, (2, 0, 1))
+                    h, w, c = input_tensor.shape
+                    if c in (1, 3, 4) and h > 4 and w > 4:
+                        input_tensor = np.transpose(input_tensor, (2, 0, 1))
                 req_id = self.ie.run_async([input_tensor])
                 t_submit = time.perf_counter()
 
@@ -486,16 +491,10 @@ class AsyncRunner:
         if env_save and output_img is not None and render_idx == 0:
             cv2.imwrite(env_save, output_img)
 
-    def _resize_for_display(self, img: Optional[np.ndarray]) -> Optional[np.ndarray]:
-        """Resize image for display to prevent slowdown on 4K+ input."""
-        if img is None or not self._display_size:
-            return img
-        h, w = img.shape[:2]
-        dw, dh = self._display_size
-        if w <= dw and h <= dh:
-            return img
-        scale = min(dw / w, dh / h)
-        return cv2.resize(img, (int(w * scale), int(h * scale)))
+    def _show_output(self, img: Optional[np.ndarray]) -> None:
+        """Display image in a screen-aware resizable window."""
+        from common.utility import show_output
+        show_output(img)
 
     def _render_worker(self, queues: dict, save_enabled: bool,
                        image_save_paths: Optional[list] = None) -> None:
@@ -524,8 +523,7 @@ class AsyncRunner:
                     self._metrics["sum_save"] += time.perf_counter() - t_s0
 
                 render_idx += 1
-                display_img = self._resize_for_display(output_img)
-                if not self._enqueue(display_q, display_img):
+                if not self._enqueue(display_q, output_img):
                     break
         except Exception as exc:
             self._handle_worker_exception("render_worker", exc, queues)
@@ -550,7 +548,7 @@ class AsyncRunner:
             if not (display and has_gui):
                 continue
             t_d0 = time.perf_counter()
-            cv2.imshow("Output", item)
+            self._show_output(item)
             if is_image:
                 # Image mode: pause on each result until user presses a key
                 while not _window_should_close("Output"):
@@ -708,18 +706,20 @@ class AsyncRunner:
         except Exception:
             self._sr_cache = None
 
-    def _process_sr_frame(self, frame: np.ndarray) -> np.ndarray:
-        """Tiled super-resolution for one frame (sync)."""
+    def _process_sr_frame(self, frame: np.ndarray) -> dict:
+        """Tiled super-resolution for one frame (sync). Returns dict with canvas and timings."""
         sr = self._sr_cache
         tile_w, tile_h = self.input_width, self.input_height
         scale_x, scale_y = sr["scale_x"], sr["scale_y"]
         oth, otw = sr["oth"], sr["otw"]
 
+        t0 = time.perf_counter()
         lr_w = tile_w * 20
         lr_h = round(lr_w * frame.shape[0] / frame.shape[1])
         lr_h = max(tile_h, ((lr_h + tile_h - 1) // tile_h) * tile_h)
         lr_bgr = cv2.resize(frame, (lr_w, lr_h))
         lr_gray = cv2.cvtColor(lr_bgr, cv2.COLOR_BGR2GRAY)
+        t1 = time.perf_counter()
 
         out_w, out_h = lr_w * scale_x, lr_h * scale_y
         sr_y = np.zeros((out_h, out_w), dtype=np.uint8)
@@ -739,6 +739,7 @@ class AsyncRunner:
                 dy, dx = ty * oth, tx * otw
                 sr_y[dy:dy+oth, dx:dx+otw] = tile_u8
                 tiles_done += 1
+        t2 = time.perf_counter()
 
         # Merge with CrCb from LR
         lr_ycrcb = cv2.cvtColor(lr_bgr, cv2.COLOR_BGR2YCrCb)
@@ -748,6 +749,7 @@ class AsyncRunner:
                            interpolation=cv2.INTER_CUBIC)
         sr_bgr = cv2.cvtColor(np.stack([sr_y, cr_up, cb_up], axis=2),
                                cv2.COLOR_YCrCb2BGR)
+        t3 = time.perf_counter()
 
         # Side-by-side canvas
         lr_up = cv2.resize(lr_bgr, (out_w, out_h),
@@ -761,7 +763,11 @@ class AsyncRunner:
                     f"ESPCN x{scale_x} ({out_w}x{out_h}, {tiles_done} tiles)",
                     (out_w + 14, 25), cv2.FONT_HERSHEY_SIMPLEX,
                     0.6, (0, 255, 100), 2)
-        return canvas
+        t4 = time.perf_counter()
+
+        return {"output_frame": canvas,
+                "t_pre": t1 - t0, "t_infer": t2 - t1,
+                "t_post": t3 - t2, "t_render": t4 - t3}
 
     def _run_stream_sr(self, source, display: bool) -> None:
         """SR fallback: synchronous tiled loop (like C++ async SR path)."""
@@ -797,19 +803,31 @@ class AsyncRunner:
             writer = self._init_video_writer(run_dir, dw, dh,
                                              fps if fps > 0 else 30.0)
 
+        metrics = {"sum_preprocess": 0.0, "sum_inference": 0.0,
+                   "sum_postprocess": 0.0, "sum_render": 0.0,
+                   "sum_read": 0.0, "sum_save": 0.0, "sum_display": 0.0}
         frame_count = 0
         start = time.perf_counter()
         try:
             while True:
+                t_read0 = time.perf_counter()
                 ret, frame = cap.read()
+                t_read1 = time.perf_counter()
                 if not ret:
                     break
 
-                canvas = self._process_sr_frame(frame)
+                result = self._process_sr_frame(frame)
+                canvas = result["output_frame"]
                 frame_count += 1
 
-                disp = self._resize_for_display(canvas)
+                metrics["sum_read"] += t_read1 - t_read0
+                metrics["sum_preprocess"] += result["t_pre"]
+                metrics["sum_inference"] += result["t_infer"]
+                metrics["sum_postprocess"] += result["t_post"]
+                metrics["sum_render"] += result["t_render"]
+
                 if writer is not None:
+                    t_s0 = time.perf_counter()
                     ww = int(writer.get(cv2.CAP_PROP_FRAME_WIDTH))
                     wh = int(writer.get(cv2.CAP_PROP_FRAME_HEIGHT))
                     if ww > 0 and wh > 0 and (
@@ -817,9 +835,12 @@ class AsyncRunner:
                         writer.write(cv2.resize(canvas, (ww, wh)))
                     else:
                         writer.write(canvas)
+                    metrics["sum_save"] += time.perf_counter() - t_s0
 
                 if display and _has_display():
-                    cv2.imshow("Output", disp)
+                    t_d0 = time.perf_counter()
+                    self._show_output(canvas)
+                    metrics["sum_display"] += time.perf_counter() - t_d0
                     if _window_should_close("Output"):
                         break
         except KeyboardInterrupt:
@@ -833,9 +854,9 @@ class AsyncRunner:
 
         elapsed = time.perf_counter() - start
         if frame_count > 0:
-            logger.info(f"\nSR tiled: {frame_count} frames, "
-                  f"{frame_count / elapsed:.1f} FPS, "
-                  f"{elapsed:.1f}s total")
+            print_sync_performance_summary(
+                metrics, frame_count, elapsed,
+                display or self._save)
 
     def _run_image_sr(self, image_path: str, display: bool) -> None:
         """SR tiled path for a single image (mirrors sync runner _run_image_sr_tiled)."""
@@ -847,26 +868,37 @@ class AsyncRunner:
             self._run_image(image_path, display)
             return
 
+        t_start = time.perf_counter()
         img = cv2.imread(image_path)
         if img is None:
             logger.error(f"Cannot read image: {image_path}")
             return
+        t0 = time.perf_counter()
 
-        start = time.perf_counter()
-        canvas = self._process_sr_frame(img)
-        elapsed = time.perf_counter() - start
+        result = self._process_sr_frame(img)
+        canvas = result["output_frame"]
+        # Map internal timings to image summary timestamps
+        t_i0 = t0 + result["t_pre"]
+        t_i1 = t_i0 + result["t_infer"]
+        t3 = t_i1 + result["t_post"]
+        t4 = t3 + result["t_render"]
 
         env_save = os.environ.get("DXAPP_SAVE_IMAGE")
         if env_save:
             cv2.imwrite(env_save, canvas)
 
+        t5 = None
         if display and _has_display():
-            cv2.imshow("Output", canvas)
+            t_d0 = time.perf_counter()
+            self._show_output(canvas)
+            t5 = time.perf_counter()
+
+        print_image_processing_summary(t_start, t0, t_i0, t_i1, t3, t4, t5)
+
+        if display and _has_display():
             while not _window_should_close("Output"):
                 time.sleep(0.01)
             cv2.destroyAllWindows()
-
-        logger.info(f"\nSR tiled: 1 frame, {1.0 / elapsed:.1f} FPS, {elapsed:.1f}s total")
 
     # ------------------------------------------------------------------
     # VideoWriter with mp4v → XVID fallback

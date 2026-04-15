@@ -8,13 +8,14 @@ source ${SCRIPT_DIR}/scripts/common_util.sh
 BASE_URL="https://sdk.deepx.ai/"
 
 # default value
-SOURCE_PATH="res/video/sample_videos_v3.1.0.tar.gz"
+VIDEO_VERSION="v3.1.0"
+SOURCE_PATH="res/video/sample_videos_${VIDEO_VERSION}.tar.gz"
 OUTPUT_DIR="$SCRIPT_DIR/assets/videos"
 SYMLINK_TARGET_PATH=""
 SYMLINK_ARGS=""
 FORCE_ARGS=""
 INTERNAL_FLAG=""
-DEFAULT_INTERNAL_VIDEO_PATH="/mnt/regression_storage/atd/sample_videos_v3.1.0.tar.gz"
+DEFAULT_INTERNAL_VIDEO_PATH="/mnt/regression_storage/atd/sample_videos_${VIDEO_VERSION}.tar.gz"
 INTERNAL_VIDEO_PATH="$DEFAULT_INTERNAL_VIDEO_PATH"
 
 # Function to display help message
@@ -113,6 +114,30 @@ main() {
         #   - local suggested_action_cmd=$4
         handle_cmd_failure "$error_msg" "$hint_msg" "$origin_cmd" "$suggested_action_cmd"
     }
+
+    # When no symlink_target_path is set, get_resource.sh extracts into a versioned subdir
+    # (e.g. assets/videos/sample_videos_v3.1.0/). Flatten it so videos live directly in OUTPUT_DIR.
+    # The internal directory name may differ from the tar filename, so detect any single
+    # subdirectory that contains media files and flatten it.
+    if [ -z "$SYMLINK_TARGET_PATH" ]; then
+        local subdirs=()
+        for d in "$OUTPUT_DIR"/*/; do
+            [ -d "$d" ] && subdirs+=("$d")
+        done
+        if [ ${#subdirs[@]} -eq 1 ]; then
+            local subdir="${subdirs[0]}"
+            local media_count
+            media_count=$(find "$subdir" -maxdepth 1 -type f \( -name '*.mp4' -o -name '*.mov' -o -name '*.avi' -o -name '*.mkv' \) 2>/dev/null | wc -l)
+            if [ "$media_count" -gt 0 ]; then
+                print_colored "Flattening $subdir → $OUTPUT_DIR" "INFO"
+                shopt -s dotglob
+                mv "$subdir"* "$OUTPUT_DIR/"
+                shopt -u dotglob
+                rmdir "$subdir" 2>/dev/null || true
+                print_colored "[OK] Videos moved directly into $OUTPUT_DIR" "INFO"
+            fi
+        fi
+    fi
 }
 
 # parse args

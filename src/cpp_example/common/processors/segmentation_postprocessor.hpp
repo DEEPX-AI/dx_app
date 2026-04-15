@@ -185,23 +185,25 @@ private:
         // Upsample each class channel to (out_h, out_w)
         std::vector<cv::Mat> upsampled(C);
         for (int c = 0; c < C; ++c) {
-            cv::Mat ch(H, W, CV_32FC1);
-            for (int y = 0; y < H; ++y) {
-                for (int x = 0; x < W; ++x) {
-                    ch.at<float>(y, x) = is_nhwc ? data[y * W * C + x * C + c]
-                                                 : data[c * H * W + y * W + x];
-                }
+            cv::Mat ch;
+            if (!is_nhwc) {
+                ch = cv::Mat(H, W, CV_32FC1, const_cast<float*>(data + c * H * W));
+            } else {
+                ch = cv::Mat(H, W, CV_32FC1);
+                float* dst = ch.ptr<float>();
+                for (int i = 0; i < H * W; ++i)
+                    dst[i] = data[i * C + c];
             }
             cv::resize(ch, upsampled[c], cv::Size(out_w, out_h), 0, 0, cv::INTER_LINEAR);
         }
 
-        // Argmax at upsampled resolution
+        // Argmax at upsampled resolution using ptr<> row access
         for (int y = 0; y < out_h; ++y) {
             for (int x = 0; x < out_w; ++x) {
                 float max_val = -1e9f;
                 int max_cls = 0;
                 for (int c = 0; c < C; ++c) {
-                    float val = upsampled[c].at<float>(y, x);
+                    float val = upsampled[c].ptr<float>(y)[x];
                     if (val > max_val) { max_val = val; max_cls = c; }
                 }
                 mask[y * out_w + x] = max_cls;

@@ -24,7 +24,7 @@ examples = [
     ("YOLOv26", "yolov26", "yolo26s-1.dxnn", "boat.mp4", "sample/img/sample_kitchen.jpg", "stream6"),
     ("YOLOv26 Pose", "yolov26pose", "yolo26s-pose.dxnn", "dance-solo.mov", "sample/img/sample_people.jpg", "stream9"),
     ("YOLOv26 Segmentation", "yolov26seg", "yolo26s-seg.dxnn", "boat.mp4", "sample/img/sample_kitchen.jpg", "stream6"),
-    ("YOLOv26 OBB", "yolov26obb", "yolo26s-obb.dxnn", "boat.mp4", "sample/dota8_test/P0284.png", "stream6"),
+    ("YOLOv26 OBB", "yolov26obb", "yolo26s-obb.dxnn", "obb.mp4", "sample/dota8_test/P0284.png", "stream6"),
     ("YOLOv26 Classification", "yolov26cls", "yolo26s-cls.dxnn", "boat.mp4", "sample/img/sample_kitchen.jpg", "stream6"),
     ("YOLOX", "yolox", "YOLOX-S_1.dxnn", "boat.mp4", "sample/img/sample_kitchen.jpg", "stream6"),
     ("YOLOv5 Pose", "yolov5pose", "YOLOV5Pose640_1.dxnn", "dance-solo.mov", "sample/img/sample_people.jpg", "stream9"),

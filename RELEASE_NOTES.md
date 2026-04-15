@@ -14,6 +14,7 @@
 - `setup_sample_models.sh` migrated to Python-based downloader — supports `--list`, `--dry-run`, `--category`, `--models` and other granular download options
 - `setup.sh` now integrates model download options — e.g. `setup.sh --models YoloV7 YoloV8S` to download specific models
 - `run_demo.sh` fully redesigned — 18 demo models, 3-stage interactive menu (Task→Mode→Input), unified C++/Python support, `--task`/`--mode`/`--input` CLI arguments for non-interactive usage
+- Display windows now show original resolution frames with auto-sized window (~1/4 screen area)
 
 ### 2. Fixed
 

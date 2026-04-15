@@ -13,7 +13,6 @@
 #include <csignal>
 #include <thread>
 #include <cxxopts.hpp>
-#include <experimental/filesystem>
 #include <fstream>
 #include <iomanip>
 #include <cstdlib>
@@ -33,7 +32,7 @@
 namespace dxapp {
 
 constexpr size_t SHOW_WINDOW_SIZE_W = 960;
-constexpr size_t SHOW_WINDOW_SIZE_H = 640;
+constexpr size_t SHOW_WINDOW_SIZE_H = 540;
 
 // Profiling metrics structure
 struct SyncProfilingMetrics {
@@ -43,6 +42,7 @@ struct SyncProfilingMetrics {
     double sum_postprocess = 0.0;
     double sum_render = 0.0;
     double sum_save = 0.0;
+    double sum_display = 0.0;
     int infer_completed = 0;
 };
 
@@ -103,9 +103,9 @@ inline std::string buildSaveImagePath(
     return loopDir + "/output.jpg";
 }
 
-/** Render results, save output, and display. Returns {t_render, t_save, quit_requested}. */
+/** Render results, save output, and display. Returns {t_render, t_save, t_display, quit_requested}. */
 template <typename ResultT, typename VisualizerT>
-inline std::tuple<double, double, bool> renderSaveDisplay(
+inline std::tuple<double, double, double, bool> renderSaveDisplay(
     const cv::Mat& display_image,
     const std::vector<ResultT>& results,
     const PreprocessContext& ctx,
@@ -117,6 +117,7 @@ inline std::tuple<double, double, bool> renderSaveDisplay(
 
     double t_render = 0.0;
     double t_save = 0.0;
+    double t_display = 0.0;
     bool quit_requested = false;
     auto render_start = std::chrono::high_resolution_clock::now();
     cv::Mat result_frame = display_image.clone();
@@ -124,7 +125,7 @@ inline std::tuple<double, double, bool> renderSaveDisplay(
     auto render_end = std::chrono::high_resolution_clock::now();
     t_render = std::chrono::duration<double, std::milli>(render_end - render_start).count();
 
-    if (result_frame.empty()) return {t_render, t_save, quit_requested};
+    if (result_frame.empty()) return {t_render, t_save, t_display, quit_requested};
 
     if (saveMode) {
         auto save_start = std::chrono::high_resolution_clock::now();
@@ -136,19 +137,28 @@ inline std::tuple<double, double, bool> renderSaveDisplay(
                       << fs::absolute(saveImagePath).string() << std::endl;
             }
         } else if (writer.isOpened()) {
-            writer << result_frame;
+            int w = static_cast<int>(writer.get(cv::CAP_PROP_FRAME_WIDTH));
+            int h = static_cast<int>(writer.get(cv::CAP_PROP_FRAME_HEIGHT));
+            cv::Mat out_frame = result_frame;
+            if (result_frame.cols != w || result_frame.rows != h) {
+                cv::resize(result_frame, out_frame, cv::Size(w, h));
+            }
+            dxapp::writeToVideo(writer, out_frame);
         }
         auto save_end = std::chrono::high_resolution_clock::now();
         t_save = std::chrono::duration<double, std::milli>(save_end - save_start).count();
     }
     dxapp::saveDebugImage(result_frame);
     if (!no_display) {
-        cv::imshow("Output", result_frame);
+        auto display_start = std::chrono::high_resolution_clock::now();
+        dxapp::showOutput(result_frame);
         if (dxapp::windowShouldClose("Output")) {
             quit_requested = true;
         }
+        auto display_end = std::chrono::high_resolution_clock::now();
+        t_display = std::chrono::duration<double, std::milli>(display_end - display_start).count();
     }
-    return {t_render, t_save, quit_requested};
+    return {t_render, t_save, t_display, quit_requested};
 }
 
 /**
@@ -336,7 +346,7 @@ public:
             std::cout << "Processing... Only FPS will be displayed." << std::endl;
         }
 
-        cv::Mat display_image(SHOW_WINDOW_SIZE_H, SHOW_WINDOW_SIZE_W, CV_8UC3);
+        cv::Mat display_image;
         cv::Mat preprocessed_image(input_height, input_width, CV_8UC3, input_buffer.data());
         auto s_time = std::chrono::high_resolution_clock::now();
 
@@ -674,11 +684,12 @@ private:
         // Render
         double t_render = 0.0;
         double t_save = 0.0;
+        double t_display = 0.0;
         bool quit_requested = false;
         if (!no_display || saveMode || std::getenv("DXAPP_SAVE_IMAGE")) {
             // Draw/save on the original input frame so detection boxes (in original
             // coordinates) map correctly. display_image is a resized window copy.
-            std::tie(t_render, t_save, quit_requested) = renderSaveDisplay(
+            std::tie(t_render, t_save, t_display, quit_requested) = renderSaveDisplay(
                 input_frame, detections, ctx, visualizer, writer,
                 no_display, saveMode, saveImagePath, verbose_);
         }
@@ -690,6 +701,7 @@ private:
         metrics.sum_postprocess += t_postprocess;
         metrics.sum_render += t_render;
         metrics.sum_save += t_save;
+        metrics.sum_display += t_display;
         metrics.infer_completed++;
 
         return !quit_requested;
@@ -868,10 +880,10 @@ private:
                   << std::fixed << std::setprecision(2) << avg_post << " ms     " << std::setw(6)
                   << std::setprecision(1) << post_fps << " FPS" << std::endl;
 
-        if (display_on) {
+        if (display_on && metrics.sum_render > 0) {
             double avg_render = metrics.sum_render / metrics.infer_completed;
             double render_fps = avg_render > 0 ? 1000.0 / avg_render : 0.0;
-            std::cout << " " << std::left << std::setw(15) << "Display" << std::right << std::setw(8)
+            std::cout << " " << std::left << std::setw(15) << "Render" << std::right << std::setw(8)
                       << std::fixed << std::setprecision(2) << avg_render << " ms     " << std::setw(6)
                       << std::setprecision(1) << render_fps << " FPS" << std::endl;
         }
@@ -881,6 +893,13 @@ private:
             std::cout << " " << std::left << std::setw(15) << "Save" << std::right << std::setw(8)
                       << std::fixed << std::setprecision(2) << avg_save << " ms     " << std::setw(6)
                       << std::setprecision(1) << save_fps << " FPS" << std::endl;
+        }
+        if (display_on && metrics.sum_display > 0) {
+            double avg_display = metrics.sum_display / metrics.infer_completed;
+            double display_fps = avg_display > 0 ? 1000.0 / avg_display : 0.0;
+            std::cout << " " << std::left << std::setw(15) << "Display" << std::right << std::setw(8)
+                      << std::fixed << std::setprecision(2) << avg_display << " ms     " << std::setw(6)
+                      << std::setprecision(1) << display_fps << " FPS" << std::endl;
         }
         std::cout << "--------------------------------------------------" << std::endl;
         std::cout << " " << std::left << std::setw(19) << "Total Frames"

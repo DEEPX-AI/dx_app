@@ -40,13 +40,26 @@ namespace detail {
 
 /**
  * @brief Scale a [x1, y1, x2, y2] bounding box from preprocessed to original coords.
+ *
+ * When pad_x==0 && pad_y==0 (SimpleResize, no letterbox), uses per-axis
+ * scaling to correctly handle non-square aspect ratios.
  */
 inline void scaleBox(std::vector<float>& box, const PreprocessContext& ctx) {
     if (box.size() < 4) return;
-    box[0] = (box[0] - ctx.pad_x) / ctx.scale;
-    box[1] = (box[1] - ctx.pad_y) / ctx.scale;
-    box[2] = (box[2] - ctx.pad_x) / ctx.scale;
-    box[3] = (box[3] - ctx.pad_y) / ctx.scale;
+
+    if (ctx.pad_x == 0 && ctx.pad_y == 0 && ctx.scale_x > 0 && ctx.scale_y > 0) {
+        // SimpleResize: per-axis scaling
+        box[0] = box[0] / ctx.scale_x;
+        box[1] = box[1] / ctx.scale_y;
+        box[2] = box[2] / ctx.scale_x;
+        box[3] = box[3] / ctx.scale_y;
+    } else {
+        // Letterbox: uniform scaling with padding removal
+        box[0] = (box[0] - ctx.pad_x) / ctx.scale;
+        box[1] = (box[1] - ctx.pad_y) / ctx.scale;
+        box[2] = (box[2] - ctx.pad_x) / ctx.scale;
+        box[3] = (box[3] - ctx.pad_y) / ctx.scale;
+    }
 
     float w = static_cast<float>(ctx.original_width);
     float h = static_cast<float>(ctx.original_height);
@@ -60,8 +73,13 @@ inline void scaleBox(std::vector<float>& box, const PreprocessContext& ctx) {
  * @brief Scale a single keypoint from preprocessed to original coords.
  */
 inline void scaleKeypoint(Keypoint& kp, const PreprocessContext& ctx) {
-    kp.x = (kp.x - ctx.pad_x) / ctx.scale;
-    kp.y = (kp.y - ctx.pad_y) / ctx.scale;
+    if (ctx.pad_x == 0 && ctx.pad_y == 0 && ctx.scale_x > 0 && ctx.scale_y > 0) {
+        kp.x = kp.x / ctx.scale_x;
+        kp.y = kp.y / ctx.scale_y;
+    } else {
+        kp.x = (kp.x - ctx.pad_x) / ctx.scale;
+        kp.y = (kp.y - ctx.pad_y) / ctx.scale;
+    }
 }
 
 }  // namespace detail
@@ -182,10 +200,10 @@ inline InstanceSegmentationResult convertToInstanceSeg(const YOLOv8SegResult& sr
     result.class_id = src.class_id;
     result.class_name = src.class_name;
     
-    // Convert flat mask vector to cv::Mat
+    // Convert flat mask vector to cv::Mat (read-only wrap avoids allocation)
     if (!src.mask.empty() && src.mask_height > 0 && src.mask_width > 0) {
-        std::vector<float> mask_data(src.mask);  // copy to obtain non-const ptr for cv::Mat ctor
-        cv::Mat mask_float(src.mask_height, src.mask_width, CV_32FC1, mask_data.data());
+        cv::Mat mask_float(src.mask_height, src.mask_width, CV_32FC1,
+                           const_cast<float*>(src.mask.data()));
         mask_float.convertTo(result.mask, CV_8UC1, 255.0);
     }
     
