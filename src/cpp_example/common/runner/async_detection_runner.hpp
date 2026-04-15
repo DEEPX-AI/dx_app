@@ -13,7 +13,6 @@
 #include <chrono>
 #include <condition_variable>
 #include <cxxopts.hpp>
-#include <experimental/filesystem>
 #include <iomanip>
 #include <cstdlib>
 #include <iostream>
@@ -34,7 +33,7 @@
 namespace dxapp {
 
 constexpr size_t SHOW_WINDOW_SIZE_W = 960;
-constexpr size_t SHOW_WINDOW_SIZE_H = 640;
+constexpr size_t SHOW_WINDOW_SIZE_H = 540;
 constexpr size_t ASYNC_BUFFER_SIZE = 40;
 constexpr size_t ASYNC_MAX_QUEUE_SIZE = 100;
 
@@ -62,7 +61,10 @@ struct AsyncProfilingMetrics {
     double sum_postprocess = 0.0;
     double sum_render = 0.0;
     double sum_save = 0.0;
+    double sum_display = 0.0;
     int infer_completed = 0;
+    int render_completed = 0;
+    int display_completed = 0;
 
     // Inflight tracking
     std::chrono::high_resolution_clock::time_point infer_first_ts;
@@ -352,7 +354,7 @@ public:
             std::cout << "Processing... Only FPS will be displayed." << std::endl;
         }
 
-        cv::Mat display_image(SHOW_WINDOW_SIZE_H, SHOW_WINDOW_SIZE_W, CV_8UC3);
+        cv::Mat display_image;
 
         // Start display thread (render + save in background; imshow on main thread)
         std::thread displayThr([this, &visualizer, &args, &writer]() {
@@ -848,7 +850,9 @@ private:
                 }
             }
             if (save_on && writer.isOpened() && !result_frame.empty()) {
-                writer << result_frame;
+                cv::Mat save_frame;
+                cv::resize(result_frame, save_frame, cv::Size(SHOW_WINDOW_SIZE_W, SHOW_WINDOW_SIZE_H));
+                dxapp::writeToVideo(writer, save_frame);
             }
             dxapp::saveDebugImage(result_frame);
             auto t_save_end = std::chrono::high_resolution_clock::now();
@@ -859,6 +863,7 @@ private:
             {
                 std::lock_guard<std::mutex> lock(metrics_.metrics_mutex);
                 metrics_.sum_render += render_time;
+                metrics_.render_completed++;
                 metrics_.sum_save += save_time;
             }
 
@@ -873,7 +878,14 @@ private:
     bool pollDisplay() {
         cv::Mat frame;
         if (rendered_queue_.try_pop(frame, std::chrono::milliseconds(1))) {
-            cv::imshow("Output", frame);
+            auto display_start = std::chrono::high_resolution_clock::now();
+            dxapp::showOutput(frame);
+            auto display_end = std::chrono::high_resolution_clock::now();
+            {
+                std::lock_guard<std::mutex> lock(metrics_.metrics_mutex);
+                metrics_.sum_display += std::chrono::duration<double, std::milli>(display_end - display_start).count();
+                metrics_.display_completed++;
+            }
             if (!window_shown_) {
                 window_shown_ = true;
                 // Probe backend: some backends (e.g. GTK2) always return -1
@@ -934,9 +946,17 @@ private:
         printRow("Preprocess", avg_pre, avg_pre > 0 ? 1000.0/avg_pre : 0.0);
         printRow("Inference", avg_inf, infer_tp, "*");
         printRow("Postprocess", avg_post, avg_post > 0 ? 1000.0/avg_post : 0.0);
+        if (metrics_.render_completed > 0 && metrics_.sum_render > 0) {
+            double avg_render = metrics_.sum_render / metrics_.render_completed;
+            printRow("Render", avg_render, avg_render > 0 ? 1000.0/avg_render : 0.0);
+        }
         if (save_on && metrics_.sum_save > 0) {
             double avg_save = metrics_.sum_save / metrics_.infer_completed;
             printRow("Save", avg_save, avg_save > 0 ? 1000.0/avg_save : 0.0);
+        }
+        if (metrics_.display_completed > 0 && metrics_.sum_display > 0) {
+            double avg_display = metrics_.sum_display / metrics_.display_completed;
+            printRow("Display", avg_display, avg_display > 0 ? 1000.0/avg_display : 0.0);
         }
         std::cout << "--------------------------------------------------" << std::endl;
         std::cout << " * Async: turnaround latency (submit to callback)" << std::endl;

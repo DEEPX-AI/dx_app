@@ -16,7 +16,11 @@
 #include <chrono>
 #include <csignal>
 #include <ctime>
+#if __cplusplus >= 201703L || (defined(_MSVC_LANG) && _MSVC_LANG >= 201703L)
+#include <filesystem>
+#else
 #include <experimental/filesystem>
+#endif
 #include <fstream>
 #include <iomanip>
 #include <iostream>
@@ -29,7 +33,11 @@
 #include <dxrt/dxrt_api.h>
 
 namespace dxapp {
+#if __cplusplus >= 201703L || (defined(_MSVC_LANG) && _MSVC_LANG >= 201703L)
+namespace fs = std::filesystem;
+#else
 namespace fs = std::experimental::filesystem;
+#endif
 
 // ---------------------------------------------------------------
 // Global signal handler for graceful Ctrl+C shutdown
@@ -79,7 +87,11 @@ inline std::string makeRunDir(const std::string& baseDir,
                               const std::string& runName) {
     std::time_t now = std::time(nullptr);
     std::tm tm_buf{};
+#ifdef _WIN32
+    localtime_s(&tm_buf, &now);
+#else
     localtime_r(&now, &tm_buf);
+#endif
     std::string timestamp(20, '\0');
     auto len = std::strftime(&timestamp[0], timestamp.size(), "%Y%m%d-%H%M%S", &tm_buf);
     timestamp.resize(len);
@@ -181,14 +193,27 @@ inline cv::VideoWriter initVideoWriter(const std::string& saveDir,
     fs::create_directories(saveDir);
     double useFps = (fps > 0) ? fps : 30.0;
 
-    // Try mp4v first
     std::string mp4Path = saveDir + "/output.mp4";
     cv::VideoWriter writer;
-    writer.open(mp4Path, cv::VideoWriter::fourcc('m', 'p', '4', 'v'),
+
+    // Try H.264 (avc1) first — universally playable on all modern players/OS
+    writer.open(mp4Path, cv::VideoWriter::fourcc('a', 'v', 'c', '1'),
                 useFps, frameSize);
     if (writer.isOpened()) {
         resolvedPath = fs::absolute(mp4Path).string();
         std::cout << "[INFO] Saving output video: " << resolvedPath << std::endl;
+        return writer;
+    }
+    writer.release();
+
+    // Fallback: mp4v (MPEG-4 Part 2) — requires codec pack on some systems
+    std::cerr << "[WARN] avc1 codec failed, retrying with mp4v..." << std::endl;
+    writer.open(mp4Path, cv::VideoWriter::fourcc('m', 'p', '4', 'v'),
+                useFps, frameSize);
+    if (writer.isOpened()) {
+        resolvedPath = fs::absolute(mp4Path).string();
+        std::cout << "[INFO] Saving output video: " << resolvedPath
+                  << " (mp4v fallback)" << std::endl;
         return writer;
     }
     writer.release();

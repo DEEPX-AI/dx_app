@@ -60,7 +60,7 @@ public:
         const float* boxes_data = static_cast<const float*>((*boxes_t)->data());
         const float* lmks_data = static_cast<const float*>((*lmks_t)->data());
 
-        std::vector<cv::Rect> nms_boxes;
+        std::vector<cv::Rect2d> nms_boxes;
         std::vector<float> nms_scores;
         std::vector<int> nms_indices;
 
@@ -124,7 +124,7 @@ private:
 
     // Helper: filter candidates above threshold and convert to NMS input
     void collectCandidates(int N, const float* scores_data, const float* boxes_data,
-                           std::vector<cv::Rect>& nms_boxes,
+                           std::vector<cv::Rect2d>& nms_boxes,
                            std::vector<float>& nms_scores,
                            std::vector<int>& nms_indices) const {
         for (int i = 0; i < N; ++i) {
@@ -141,9 +141,9 @@ private:
 
             nms_indices.push_back(i);
             nms_scores.push_back(face_score);
-            nms_boxes.push_back(cv::Rect(
-                static_cast<int>(x1), static_cast<int>(y1),
-                static_cast<int>(x2 - x1), static_cast<int>(y2 - y1)));
+            nms_boxes.emplace_back(
+                static_cast<double>(x1), static_cast<double>(y1),
+                static_cast<double>(x2 - x1), static_cast<double>(y2 - y1));
         }
     }
 

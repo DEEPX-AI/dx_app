@@ -50,17 +50,12 @@ public:
         }
 
         // Create depth map and find min/max
-        cv::Mat depth_map(h, w, CV_32FC1);
-        float min_val = std::numeric_limits<float>::max();
-        float max_val = std::numeric_limits<float>::lowest();
-
-        int total = h * w;
-        for (int i = 0; i < total; ++i) {
-            float v = data[i];
-            depth_map.at<float>(i / w, i % w) = v;
-            min_val = std::min(min_val, v);
-            max_val = std::max(max_val, v);
-        }
+        cv::Mat depth_map(h, w, CV_32FC1, const_cast<float*>(data));
+        depth_map = depth_map.clone();  // own the data
+        double min_val_d, max_val_d;
+        cv::minMaxLoc(depth_map, &min_val_d, &max_val_d);
+        float min_val = static_cast<float>(min_val_d);
+        float max_val = static_cast<float>(max_val_d);
 
         // Normalize to [0, 1]
         float range = max_val - min_val;

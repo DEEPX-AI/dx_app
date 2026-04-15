@@ -12,7 +12,6 @@
 #include <chrono>
 #include <cxxopts.hpp>
 #include <thread>
-#include <experimental/filesystem>
 #include <iomanip>
 #include <cstdlib>
 #include <fstream>
@@ -174,7 +173,7 @@ public:
             std::cout << "Processing... Only FPS will be displayed." << std::endl;
         }
 
-        cv::Mat display_image(SHOW_WINDOW_SIZE_H, SHOW_WINDOW_SIZE_W, CV_8UC3);
+        cv::Mat display_image;
 
         // Image mode: create run_dir when saving
         if (is_image && args.saveMode) {
@@ -590,45 +589,60 @@ private:
         }
 
         auto render_start = std::chrono::high_resolution_clock::now();
-        bool quit_requested = renderAndDisplay_(result_frame, writer, no_display, saveMode);
+        auto [quit_requested, t_save, t_display] = renderAndDisplay_(result_frame, writer, no_display, saveMode);
         auto render_end = std::chrono::high_resolution_clock::now();
-        double t_render = std::chrono::duration<double, std::milli>(render_end - render_start).count();
+        // Note: result_frame is already rendered by visualizer.draw() in runSingleInference;
+        // render_start..render_end captures the renderAndDisplay_ overhead (negligible clone/resize).
+        // The actual render (visualizer.draw) time is included in postprocess.
+        double t_render = std::chrono::duration<double, std::milli>(render_end - render_start).count()
+                          - t_save - t_display;  // subtract save/display to isolate overhead
+        if (t_render < 0.0) t_render = 0.0;
 
         metrics.sum_read += t_read;
         metrics.sum_preprocess += t_preprocess;
         metrics.sum_inference += t_inference_total;
         metrics.sum_postprocess += t_postprocess_total;
         metrics.sum_render += t_render;
+        metrics.sum_save += t_save;
+        metrics.sum_display += t_display;
         metrics.infer_completed++;
 
         return !quit_requested;
     }
 
     // Render result frame: save video, save image, display.
-    // Returns true when the user requested quit (pressed 'q').
-    bool renderAndDisplay_(const cv::Mat& result_frame, cv::VideoWriter& writer,
+    // Returns {quit_requested, t_save_ms, t_display_ms}.
+    std::tuple<bool, double, double> renderAndDisplay_(const cv::Mat& result_frame, cv::VideoWriter& writer,
                            bool no_display, bool saveMode) const {
         bool quit_requested = false;
-        if (result_frame.empty()) return false;
+        double t_save = 0.0;
+        double t_display = 0.0;
+        if (result_frame.empty()) return {false, 0.0, 0.0};
 
         if (saveMode) {
+            auto save_start = std::chrono::high_resolution_clock::now();
             if (result_frame.cols != static_cast<int>(SHOW_WINDOW_SIZE_W) ||
                 result_frame.rows != static_cast<int>(SHOW_WINDOW_SIZE_H)) {
                 cv::Mat write_frame;
                 cv::resize(result_frame, write_frame,
                            cv::Size(SHOW_WINDOW_SIZE_W, SHOW_WINDOW_SIZE_H));
-                writer << write_frame;
+                dxapp::writeToVideo(writer, write_frame);
             } else {
-                writer << result_frame;
+                dxapp::writeToVideo(writer, result_frame);
             }
+            auto save_end = std::chrono::high_resolution_clock::now();
+            t_save = std::chrono::duration<double, std::milli>(save_end - save_start).count();
         }
         dxapp::saveDebugImage(result_frame);
 
             if (!no_display) {
-                cv::imshow("Output", result_frame);
+                auto display_start = std::chrono::high_resolution_clock::now();
+                dxapp::showOutput(result_frame);
                 if (dxapp::windowShouldClose("Output")) quit_requested = true;
+                auto display_end = std::chrono::high_resolution_clock::now();
+                t_display = std::chrono::duration<double, std::milli>(display_end - display_start).count();
             }
-        return quit_requested;
+        return {quit_requested, t_save, t_display};
     }
 
     void processImageFrames(
@@ -644,7 +658,11 @@ private:
             // Set per-image save path for this frame when saveMode is enabled
             if (!runDir.empty() && saveMode) {
                 std::string savePath = dxapp::buildPerImageSavePath(runDir, factory_->getModelName() + "_sync", currentImagePath, i);
-                setenv("DXAPP_SAVE_IMAGE", savePath.c_str(), 1);
+                #ifdef _WIN32
+                    _putenv_s("DXAPP_SAVE_IMAGE", savePath.c_str());
+                #else
+                    setenv("DXAPP_SAVE_IMAGE", savePath.c_str(), 1);
+                #endif
             }
             auto tr0 = std::chrono::high_resolution_clock::now();
             cv::Mat img = cv::imread(currentImagePath);
@@ -745,19 +763,26 @@ private:
                   << std::fixed << std::setprecision(2) << avg_post << " ms     " << std::setw(6)
                   << std::setprecision(1) << post_fps << " FPS" << std::endl;
 
-        if (display_on) {
+        if (display_on && metrics.sum_render > 0) {
             double avg_render = metrics.sum_render / metrics.infer_completed;
             double render_fps = avg_render > 0 ? 1000.0 / avg_render : 0.0;
-            std::cout << " " << std::left << std::setw(15) << "Display" << std::right << std::setw(8)
+            std::cout << " " << std::left << std::setw(15) << "Render" << std::right << std::setw(8)
                       << std::fixed << std::setprecision(2) << avg_render << " ms     " << std::setw(6)
                       << std::setprecision(1) << render_fps << " FPS" << std::endl;
         }
-        if (save_on) {
+        if (save_on && metrics.sum_save > 0) {
             double avg_save = metrics.sum_save / metrics.infer_completed;
             double save_fps = avg_save > 0 ? 1000.0 / avg_save : 0.0;
             std::cout << " " << std::left << std::setw(15) << "Save" << std::right << std::setw(8)
                       << std::fixed << std::setprecision(2) << avg_save << " ms     " << std::setw(6)
                       << std::setprecision(1) << save_fps << " FPS" << std::endl;
+        }
+        if (display_on && metrics.sum_display > 0) {
+            double avg_display = metrics.sum_display / metrics.infer_completed;
+            double display_fps = avg_display > 0 ? 1000.0 / avg_display : 0.0;
+            std::cout << " " << std::left << std::setw(15) << "Display" << std::right << std::setw(8)
+                      << std::fixed << std::setprecision(2) << avg_display << " ms     " << std::setw(6)
+                      << std::setprecision(1) << display_fps << " FPS" << std::endl;
         }
         std::cout << "--------------------------------------------------" << std::endl;
         std::cout << " " << std::left << std::setw(19) << "Total Frames"

@@ -40,8 +40,17 @@ public:
     cv::Mat draw(const cv::Mat& frame,
                  const std::vector<OBBResult>& results,
                  const PreprocessContext& ctx) override {
-        (void)ctx;  // Coordinates already scaled in postprocessor
         cv::Mat result = frame.clone();
+        float disp_scale = 1.0f;
+        if (ctx.original_width > 0 && ctx.original_height > 0 &&
+            (ctx.original_width > result.cols || ctx.original_height > result.rows)) {
+            disp_scale = std::min(static_cast<float>(result.cols) / ctx.original_width,
+                                  static_cast<float>(result.rows) / ctx.original_height);
+        }
+        const float x_off = (ctx.original_width > 0)
+            ? (result.cols - ctx.original_width * disp_scale) / 2.0f : 0.0f;
+        const float y_off = (ctx.original_height > 0)
+            ? (result.rows - ctx.original_height * disp_scale) / 2.0f : 0.0f;
 
         for (const auto& obb : results) {
             cv::Scalar color = OBB_CLASS_COLORS[obb.class_id % OBB_CLASS_COLORS.size()];
@@ -51,8 +60,8 @@ public:
             std::vector<cv::Point> pts;
             pts.reserve(4);
             for (const auto& corner : corners) {
-                pts.push_back(cv::Point(static_cast<int>(corner.x),
-                                        static_cast<int>(corner.y)));
+                pts.push_back(cv::Point(static_cast<int>(corner.x * disp_scale + x_off),
+                                        static_cast<int>(corner.y * disp_scale + y_off)));
             }
             cv::polylines(result, pts, true, color, line_thickness_);
 

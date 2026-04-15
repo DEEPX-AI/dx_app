@@ -62,12 +62,21 @@ public:
     cv::Mat draw(const cv::Mat& frame,
                  const std::vector<PoseResult>& results,
                  const PreprocessContext& ctx) override {
-        (void)ctx;
         cv::Mat output = frame.clone();
+        float disp_scale = 1.0f;
+        if (ctx.original_width > 0 && ctx.original_height > 0 &&
+            (ctx.original_width > output.cols || ctx.original_height > output.rows)) {
+            disp_scale = std::min(static_cast<float>(output.cols) / ctx.original_width,
+                                  static_cast<float>(output.rows) / ctx.original_height);
+        }
+        const float x_off = (ctx.original_width > 0)
+            ? (output.cols - ctx.original_width * disp_scale) / 2.0f : 0.0f;
+        const float y_off = (ctx.original_height > 0)
+            ? (output.rows - ctx.original_height * disp_scale) / 2.0f : 0.0f;
         for (const auto& pose : results) {
-            drawBoundingBox(output, pose);
-            drawSkeleton(output, pose);
-            drawKeypoints(output, pose);
+            drawBoundingBox(output, pose, disp_scale, x_off, y_off);
+            drawSkeleton(output, pose, disp_scale, x_off, y_off);
+            drawKeypoints(output, pose, disp_scale, x_off, y_off);
         }
         return output;
     }
@@ -86,10 +95,10 @@ public:
 
 private:
     // Draw bounding box and confidence label for one pose
-    void drawBoundingBox(cv::Mat& output, const PoseResult& pose) const {
+    void drawBoundingBox(cv::Mat& output, const PoseResult& pose, float disp_scale, float x_off, float y_off) const {
         if (pose.box.size() < 4) return;
-        cv::Point pt1(static_cast<int>(pose.box[0]), static_cast<int>(pose.box[1]));
-        cv::Point pt2(static_cast<int>(pose.box[2]), static_cast<int>(pose.box[3]));
+        cv::Point pt1(static_cast<int>(pose.box[0] * disp_scale + x_off), static_cast<int>(pose.box[1] * disp_scale + y_off));
+        cv::Point pt2(static_cast<int>(pose.box[2] * disp_scale + x_off), static_cast<int>(pose.box[3] * disp_scale + y_off));
         cv::rectangle(output, pt1, pt2, cv::Scalar(0, 255, 0), line_thickness_);
 
         std::string conf_text = "Person: " +
@@ -107,7 +116,7 @@ private:
     }
 
     // Draw skeleton connections for one pose
-    void drawSkeleton(cv::Mat& output, const PoseResult& pose) const {
+    void drawSkeleton(cv::Mat& output, const PoseResult& pose, float disp_scale, float x_off, float y_off) const {
         const auto& skeleton = (pose.keypoints.size() <= 8) ? BBOX3D_SKELETON : POSE_SKELETON;
         cv::Scalar bbox3d_color(0, 255, 128);
 
@@ -121,8 +130,8 @@ private:
             const auto& kp2 = pose.keypoints[idx2];
             if (kp1.confidence < kp_threshold_ || kp2.confidence < kp_threshold_) continue;
 
-            cv::Point pt1(static_cast<int>(kp1.x), static_cast<int>(kp1.y));
-            cv::Point pt2(static_cast<int>(kp2.x), static_cast<int>(kp2.y));
+            cv::Point pt1(static_cast<int>(kp1.x * disp_scale + x_off), static_cast<int>(kp1.y * disp_scale + y_off));
+            cv::Point pt2(static_cast<int>(kp2.x * disp_scale + x_off), static_cast<int>(kp2.y * disp_scale + y_off));
             cv::Scalar color = (pose.keypoints.size() <= 8) ? bbox3d_color
                 : (i < POSE_LIMB_COLORS.size() ? POSE_LIMB_COLORS[i] : bbox3d_color);
             cv::line(output, pt1, pt2, color, line_thickness_, cv::LINE_AA);
@@ -130,11 +139,11 @@ private:
     }
 
     // Draw individual keypoints for one pose
-    void drawKeypoints(cv::Mat& output, const PoseResult& pose) const {
+    void drawKeypoints(cv::Mat& output, const PoseResult& pose, float disp_scale, float x_off, float y_off) const {
         for (size_t i = 0; i < pose.keypoints.size(); ++i) {
             const auto& kp = pose.keypoints[i];
             if (kp.confidence < kp_threshold_) continue;
-            cv::Point pt(static_cast<int>(kp.x), static_cast<int>(kp.y));
+            cv::Point pt(static_cast<int>(kp.x * disp_scale + x_off), static_cast<int>(kp.y * disp_scale + y_off));
             cv::circle(output, pt, 3,
                        POSE_KPT_COLORS[i % POSE_KPT_COLORS.size()], -1, cv::LINE_AA);
         }

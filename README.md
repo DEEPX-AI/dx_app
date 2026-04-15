@@ -536,7 +536,7 @@ C++ Implementation (High Performance)
 # Video Stream Inference (Asynchronous)
 ./bin/yolov9s_async \
 -m assets/models/YoloV9S.dxnn \
--v assets/videos/dance-group.mov
+-v assets/videos/blackbox-city-road.mp4
 ```
 
 Python Implementation (Rapid Prototyping)  
@@ -549,7 +549,7 @@ python src/python_example/object_detection/yolov9s/yolov9s_sync.py \
 # Python Optimized (Asynchronous + C++ Post-processing)
 python src/python_example/object_detection/yolov9s/yolov9s_async_cpp_postprocess.py \
   --model assets/models/YoloV9S.dxnn \
-    --video assets/videos/dance-group.mov 
+    --video assets/videos/blackbox-city-road.mp4 
 ```
 
 **Output and Analysis**  

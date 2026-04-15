@@ -67,7 +67,11 @@ endif()
 # =============================================================================
 # Common Compiler Flags and Definitions
 # =============================================================================
-set(COMMON_COMPILE_FLAGS -Wall -Wextra -O3)
+if(MSVC)
+    set(COMMON_COMPILE_FLAGS /W3 /MP)
+else()
+    set(COMMON_COMPILE_FLAGS -Wall -Wextra -O3)
+endif()
 set(COMMON_COMPILE_DEFINITIONS PROJECT_ROOT_DIR="${PROJECT_ROOT}")
 
 # =============================================================================
@@ -150,7 +154,9 @@ foreach(CATEGORY ${CATEGORIES})
         if(EXISTS ${_MODEL_DIR}/${MODEL}_async.cpp)
             add_example(${MODEL}_async ${_MODEL_DIR}/${MODEL}_async.cpp "")
             # All async runners use std::thread → need pthread on Linux/GCC
-            target_link_libraries(${MODEL}_async pthread)
+            if(NOT MSVC)
+                target_link_libraries(${MODEL}_async pthread)
+            endif()
         endif()
     endforeach()
 endforeach()
@@ -175,7 +181,9 @@ foreach(MULTI_CAT ${_MULTI_CATEGORIES})
 
         if(EXISTS ${_MODEL_DIR}/${MODEL}_async.cpp)
             add_example(${MODEL}_async ${_MODEL_DIR}/${MODEL}_async.cpp "")
-            target_link_libraries(${MODEL}_async pthread)
+            if(NOT MSVC)
+                target_link_libraries(${MODEL}_async pthread)
+            endif()
         endif()
     endforeach()
 endforeach()

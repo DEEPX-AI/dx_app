@@ -37,7 +37,6 @@ static constexpr const char* DXAPP_RESET  = "\033[0m";
 #define LOG_INFO(msg) std::cout << "[INFO] " << msg << std::endl
 #define LOG_WARN(msg) std::cout << DXAPP_YELLOW << "[WARN] " << msg << DXAPP_RESET << std::endl
 #define LOG_ERROR(msg) std::cerr << DXAPP_RED << "[ERROR] " << msg << DXAPP_RESET << std::endl
-#define LOG_VALUE(var) std::cout << #var << " = " << var << std::endl
 
 #include <stdexcept>
 
@@ -237,7 +236,7 @@ inline bool windowShouldClose(const std::string& winname = "Output") {
         probed = true;
         try {
             double probe = cv::getWindowProperty(winname, cv::WND_PROP_VISIBLE);
-            if (probe < 0.0) {
+            if (probe < -0.5) {
                 prop_supported = false;
             }
         } catch (...) {
@@ -247,7 +246,7 @@ inline bool windowShouldClose(const std::string& winname = "Output") {
     if (prop_supported) {
         try {
             double visible = cv::getWindowProperty(winname, cv::WND_PROP_VISIBLE);
-            if (visible < 0.0) {
+            if (visible <= 0.0) {
                 return true;
             }
         } catch (...) {
@@ -258,27 +257,98 @@ inline bool windowShouldClose(const std::string& winname = "Output") {
 }
 
 /**
- * @brief Resize image for display preserving aspect ratio only when larger than max size.
- *        Matches Python SyncRunner._display_resize behaviour.
+ * @brief Resize image to exactly max_w × max_h with letterbox padding.
+ *        Scales down to fit within max_w×max_h (aspect-ratio preserved), then
+ *        pads with black bars so the output is always exactly max_w×max_h.
+ *        This ensures the result always matches the VideoWriter's declared frame size.
  * @param src Input image
- * @param dst Output image (resized or original)
- * @param max_w Maximum display width (default 960)
- * @param max_h Maximum display height (default 640)
+ * @param dst Output image (always max_w × max_h)
+ * @param max_w Output width (default 960)
+ * @param max_h Output height (default 540)
  */
-inline void displayResize(const cv::Mat &src, cv::Mat &dst, int max_w = 960, int max_h = 640) {
-    if (src.empty()) { dst = src; return; }
-    int w = src.cols;
-    int h = src.rows;
-    float scale = 1.0f;
-    if (w > max_w || h > max_h) {
-        float sx = static_cast<float>(max_w) / w;
-        float sy = static_cast<float>(max_h) / h;
-        scale = std::min(sx, sy);
+inline void displayResize(const cv::Mat &src, cv::Mat &dst, int max_w = 960, int max_h = 540) {
+    (void)max_w; (void)max_h;
+    dst = src;
+}
+
+/**
+ * @brief Query the primary screen resolution.
+ *
+ * Tries (in order):
+ *   1. Environment variables DXAPP_SCREEN_W / DXAPP_SCREEN_H
+ *   2. xdpyinfo (X11) parsing "dimensions: WxH"
+ * Falls back to 1920×1080 if detection fails.
+ */
+inline std::pair<int, int> getScreenResolution() {
+    // 1. Env override
+    const char* env_w = std::getenv("DXAPP_SCREEN_W");
+    const char* env_h = std::getenv("DXAPP_SCREEN_H");
+    if (env_w && env_h) {
+        int w = std::atoi(env_w);
+        int h = std::atoi(env_h);
+        if (w > 0 && h > 0) return {w, h};
     }
-    if (scale >= 1.0f) {
-        dst = src;
+#ifndef _WIN32
+    // 2. xdpyinfo
+    FILE* pipe = popen("xdpyinfo 2>/dev/null | grep dimensions", "r");
+    if (pipe) {
+        char buf[256];
+        if (fgets(buf, sizeof(buf), pipe)) {
+            int w = 0, h = 0;
+            if (sscanf(buf, " dimensions: %dx%d", &w, &h) == 2 && w > 0 && h > 0) {
+                pclose(pipe);
+                return {w, h};
+            }
+        }
+        pclose(pipe);
+    }
+#endif
+    return {1920, 1080};
+}
+
+/**
+ * @brief Display frame in a resizable window, sized to ~1/4 screen area on first call.
+ *
+ * On the first frame, detects screen resolution and sets the window to
+ * half-screen width × half-screen height, preserving the frame's aspect ratio.
+ * Subsequent frames reuse the same window without re-querying.
+ */
+inline void showOutput(const cv::Mat& frame) {
+    static bool window_sized = false;
+    cv::namedWindow("Output", cv::WINDOW_NORMAL);
+
+    if (!window_sized && !frame.empty()) {
+        auto [screen_w, screen_h] = getScreenResolution();
+        int target_w = screen_w / 2;
+        int target_h = screen_h / 2;
+
+        // Fit frame aspect ratio within target_w × target_h
+        double scale = std::min(
+            static_cast<double>(target_w) / frame.cols,
+            static_cast<double>(target_h) / frame.rows);
+        int win_w = static_cast<int>(frame.cols * scale);
+        int win_h = static_cast<int>(frame.rows * scale);
+
+        cv::resizeWindow("Output", win_w, win_h);
+        window_sized = true;
+    }
+
+    cv::imshow("Output", frame);
+}
+
+/**
+ * @brief Write frame to video, auto-resizing if frame size differs from writer.
+ */
+inline void writeToVideo(cv::VideoWriter& writer, const cv::Mat& frame) {
+    if (!writer.isOpened() || frame.empty()) return;
+    int w = static_cast<int>(writer.get(cv::CAP_PROP_FRAME_WIDTH));
+    int h = static_cast<int>(writer.get(cv::CAP_PROP_FRAME_HEIGHT));
+    if (frame.cols == w && frame.rows == h) {
+        writer << frame;
     } else {
-        cv::resize(src, dst, cv::Size(), scale, scale, cv::INTER_AREA);
+        cv::Mat resized;
+        cv::resize(frame, resized, cv::Size(w, h));
+        writer << resized;
     }
 }
 
@@ -341,7 +411,7 @@ inline std::string getDefaultSampleImage(const std::string& taskType) {
 inline std::string getDefaultSampleVideo(const std::string& taskType) {
     if (taskType == "object_detection")       return "assets/videos/snowboard.mp4";
     if (taskType == "face_detection")         return "assets/videos/dance-group.mov";
-    if (taskType == "obb_detection")          return "assets/videos/dron-citry-road.mov";
+    if (taskType == "obb_detection")          return "assets/videos/obb.mp4";
     if (taskType == "pose_estimation")        return "assets/videos/dance-solo.mov";
     if (taskType == "hand_landmark")          return "assets/videos/hand.mp4";
     if (taskType == "face_alignment")         return "assets/videos/face-alignment-closeup.mp4";
@@ -349,9 +419,9 @@ inline std::string getDefaultSampleVideo(const std::string& taskType) {
     if (taskType == "semantic_segmentation")  return "assets/videos/blackbox-city-road.mp4";
     if (taskType == "classification")         return "assets/videos/dogs.mp4";
     if (taskType == "depth_estimation")       return "assets/videos/blackbox-city-road.mp4";
-    if (taskType == "image_denoising")        return "assets/videos/dance-group.mov";
+    if (taskType == "image_denoising")        return "assets/videos/noisy_hand.mp4";
     if (taskType == "super_resolution")       return "assets/videos/dance-group.mov";
-    if (taskType == "image_enhancement")      return "assets/videos/dance-group.mov";
+    if (taskType == "image_enhancement")      return "assets/videos/lowlight.mp4";
     if (taskType == "ppu")                    return "assets/videos/snowboard.mp4";
     return "";  // image-only tasks (embedding, attribute_recognition, reid)
 }

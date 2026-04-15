@@ -261,16 +261,19 @@ private:
     static cv::Mat generateSigmoidMask_(const float* coeff, int orig_idx, int num_protos,
                                          const float* proto,
                                          int proto_h, int proto_w, int proto_c) {
-        cv::Mat mask(proto_h, proto_w, CV_32FC1);
-        for (int y = 0; y < proto_h; ++y) {
-            for (int x = 0; x < proto_w; ++x) {
-                float val = 0;
-                for (int c = 0; c < proto_c; ++c)
-                    val += coeff[orig_idx * num_protos + c] *
-                           proto[(y * proto_w + x) * proto_c + c];
-                mask.at<float>(y, x) = 1.0f / (1.0f + std::exp(-val));
-            }
-        }
+        // proto is [proto_h * proto_w, proto_c] in row-major (NHWC)
+        // coeff_vec is [proto_c, 1]
+        // result = proto_mat @ coeff_vec → [proto_h*proto_w, 1] → reshape to [proto_h, proto_w]
+        cv::Mat proto_mat(proto_h * proto_w, proto_c, CV_32FC1,
+                          const_cast<float*>(proto));
+        cv::Mat coeff_vec(proto_c, 1, CV_32FC1,
+                          const_cast<float*>(coeff + orig_idx * num_protos));
+        cv::Mat raw = proto_mat * coeff_vec;  // GEMM
+        raw = raw.reshape(1, proto_h);        // [proto_h, proto_w]
+        // Sigmoid: 1 / (1 + exp(-x))
+        cv::Mat neg_raw;
+        cv::exp(-raw, neg_raw);
+        cv::Mat mask = 1.0f / (1.0f + neg_raw);
         return mask;
     }
 
@@ -278,7 +281,6 @@ private:
     static cv::Mat cropAndThresholdMask_(const cv::Mat& resized_mask,
                                           int bx1, int by1, int bx2, int by2,
                                           int mask_h, int mask_w) {
-        // Clamp crop bounds to valid range to avoid OOB access
         int x0 = std::max(0, bx1);
         int y0 = std::max(0, by1);
         int x1 = std::min(mask_w, bx2);
@@ -287,16 +289,18 @@ private:
         cv::Mat cropped_mask = cv::Mat::zeros(mask_h, mask_w, CV_8UC1);
         if (x1 <= x0 || y1 <= y0) return cropped_mask;
 
-        for (int y = y0; y < y1; ++y) {
-            for (int x = x0; x < x1; ++x) {
-                // Safety: if resized_mask is float, use at<float>
-                float v = 0.0f;
-                if (resized_mask.type() == CV_32FC1) v = resized_mask.at<float>(y, x);
-                else if (resized_mask.type() == CV_8UC1) v = resized_mask.at<uchar>(y, x) / 255.0f;
-                else if (resized_mask.type() == CV_64FC1) v = static_cast<float>(resized_mask.at<double>(y, x));
-                if (v > 0.5f) cropped_mask.at<uint8_t>(y, x) = 255;
-            }
-        }
+        // Convert to float if needed for thresholding
+        cv::Mat roi_float;
+        cv::Rect roi(x0, y0, x1 - x0, y1 - y0);
+        cv::Mat src_roi = resized_mask(roi);
+        if (src_roi.type() != CV_32FC1)
+            src_roi.convertTo(roi_float, CV_32FC1, (src_roi.type() == CV_8UC1) ? 1.0 / 255.0 : 1.0);
+        else
+            roi_float = src_roi;
+
+        cv::Mat roi_binary;
+        cv::threshold(roi_float, roi_binary, 0.5f, 255.0, cv::THRESH_BINARY);
+        roi_binary.convertTo(cropped_mask(roi), CV_8UC1);
         return cropped_mask;
     }
 

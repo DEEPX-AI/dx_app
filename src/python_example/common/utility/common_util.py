@@ -2,9 +2,74 @@
 Common utility functions for neural network operations.
 """
 
+import os
+import subprocess
 from typing import List, Tuple
 import numpy as np
 import cv2
+
+
+# ---------------------------------------------------------------------------
+# Screen-aware display window
+# ---------------------------------------------------------------------------
+_window_initialized = False
+
+
+def _get_screen_resolution():
+    """Return (width, height) of the primary monitor.
+
+    Detection order:
+      1. DXAPP_SCREEN_W / DXAPP_SCREEN_H environment variables
+      2. xdpyinfo (X11)
+      3. Fallback 1920×1080
+    """
+    env_w = os.environ.get("DXAPP_SCREEN_W")
+    env_h = os.environ.get("DXAPP_SCREEN_H")
+    if env_w and env_h:
+        try:
+            w, h = int(env_w), int(env_h)
+            if w > 0 and h > 0:
+                return w, h
+        except ValueError:
+            pass
+
+    try:
+        result = subprocess.run(
+            ["xdpyinfo"], capture_output=True, text=True, timeout=2,
+        )
+        for line in result.stdout.splitlines():
+            if "dimensions" in line:
+                # "  dimensions:    2560x1440 pixels ..."
+                part = line.split(":")[1].strip().split()[0]
+                w, h = part.split("x")
+                return int(w), int(h)
+    except Exception:
+        pass
+
+    return 1920, 1080
+
+
+def show_output(img, winname: str = "Output"):
+    """Display *img* in a resizable OpenCV window.
+
+    On the first call the window is created and sized to half the screen
+    width and half the screen height (≈ 1/4 screen area), preserving the
+    frame's aspect ratio.  Subsequent calls just update the image.
+    """
+    if img is None:
+        return
+    global _window_initialized
+    if not _window_initialized:
+        cv2.namedWindow(winname, cv2.WINDOW_NORMAL)
+        screen_w, screen_h = _get_screen_resolution()
+        target_w = screen_w // 2
+        target_h = screen_h // 2
+        h, w = img.shape[:2]
+        if h > 0 and w > 0:
+            scale = min(target_w / w, target_h / h)
+            cv2.resizeWindow(winname, int(w * scale), int(h * scale))
+        _window_initialized = True
+    cv2.imshow(winname, img)
 
 
 def sigmoid(x: np.ndarray) -> np.ndarray:

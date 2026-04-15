@@ -62,7 +62,7 @@ def _window_should_close(winname: str = "Output") -> bool:
         # 0 during initial creation on some backends, and 1 when fully visible.
         # Use < 0 to avoid false positives on newly created windows.
         vis = cv2.getWindowProperty(winname, cv2.WND_PROP_VISIBLE)
-        if vis < 0.0:
+        if vis <= 0.0:
             return True
     except Exception:
         pass
@@ -192,7 +192,7 @@ _DEFAULT_SAMPLE_IMAGE = {
 _DEFAULT_SAMPLE_VIDEO = {
     "object_detection":       _VID_SNOWBOARD,
     "face_detection":         _VID_DANCE_GROUP,
-    "obb_detection":          "assets/videos/dron-citry-road.mov",
+    "obb_detection":          "assets/videos/obb.mp4",
     "pose_estimation":        "assets/videos/dance-solo.mov",
     "hand_landmark":          "assets/videos/hand.mp4",
     "face_alignment":         "assets/videos/face-alignment-closeup.mp4",
@@ -200,9 +200,9 @@ _DEFAULT_SAMPLE_VIDEO = {
     "semantic_segmentation":  _VID_BLACKBOX,
     "classification":         _VID_DOGS,
     "depth_estimation":       _VID_BLACKBOX,
-    "image_denoising":        _VID_DANCE_GROUP,
+    "image_denoising":        "assets/videos/noisy_hand.mp4",
     "super_resolution":       _VID_DANCE_GROUP,
-    "image_enhancement":      _VID_DANCE_GROUP,
+    "image_enhancement":      "assets/videos/lowlight.mp4",
     "embedding":              None,   # image-only task
     "attribute_recognition":  None,   # image-only task
     "reid":                   None,   # image-only task
@@ -488,8 +488,12 @@ class SyncRunner:
             else:
                 input_tensor = input_tensor.astype(expected)
         # HWC → CHW for NCHW models (e.g., ViT, DeiT)
+        # Skip if already CHW (channel dim first); detect HWC by last dim being small channel count
+        # and first two dims being spatial (both > 4)
         if getattr(self, "_nchw", False) and input_tensor.ndim == 3:
-            input_tensor = np.transpose(input_tensor, (2, 0, 1))
+            h, w, c = input_tensor.shape
+            if c in (1, 3, 4) and h > 4 and w > 4:
+                input_tensor = np.transpose(input_tensor, (2, 0, 1))
         return self.ie.run([input_tensor])
 
     def postprocess(self, outputs: List[np.ndarray], ctx):
@@ -648,7 +652,10 @@ class SyncRunner:
                 output_img, display)
 
             if self._verbose:
-                print_image_processing_summary(t_start, t0, t1, t2, t3, t4)
+                logger.info(
+                    f"  Read: {(t_read-t_start)*1000:.2f}ms  Pre: {(t1-t0)*1000:.2f}ms  "
+                    f"Infer: {(t2-t1)*1000:.2f}ms  Post: {(t3-t2)*1000:.2f}ms  "
+                    f"Render: {(t4-t3)*1000:.2f}ms")
 
         except Exception:
             dump_dir = run_dir if run_dir else create_run_dir(
@@ -663,16 +670,10 @@ class SyncRunner:
                 "elapsed": time.perf_counter() - t_start,
                 "quit_requested": False}
 
-    def _display_resize(self, img: np.ndarray) -> np.ndarray:
-        """Resize image for display to prevent slowdown on 4K+ input."""
-        if img is None or self._display_size is None:
-            return img
-        h, w = img.shape[:2]
-        dw, dh = self._display_size
-        if w > dw or h > dh:
-            scale = min(dw / w, dh / h)
-            return cv2.resize(img, (int(w * scale), int(h * scale)))
-        return img
+    def _show_output(self, img: np.ndarray) -> None:
+        """Display image in a screen-aware resizable window."""
+        from common.utility import show_output
+        show_output(img)
 
     def _try_verify_dump(self, results, image_path: str,
                          img: np.ndarray) -> None:
@@ -705,18 +706,20 @@ class SyncRunner:
 
     def _display_image_output(self, output_img: np.ndarray,
                               display: bool) -> float:
-        """Show image with waitKey(0). Returns time spent."""
+        """Show image and return imshow time (excludes user wait)."""
         if not display or output_img is None:
             return 0.0
         t0 = time.perf_counter()
         if _has_display():
-            cv2.imshow("Output", self._display_resize(output_img))
-            # Wait until user presses q/ESC or closes the window (X).
-            while not _window_should_close("Output"):
-                time.sleep(0.01)
+            self._show_output(output_img)
         elif self._verbose:
             logger.info(_MSG_HEADLESS_SKIP)
-        return time.perf_counter() - t0
+        t_display = time.perf_counter() - t0
+        # Block until user closes — outside timing.
+        if _has_display():
+            while not _window_should_close("Output"):
+                time.sleep(0.01)
+        return t_display
 
     def _image_inference(self, image_path: str, display: bool) -> None:
         if self._verbose:
@@ -948,7 +951,7 @@ class SyncRunner:
         t0 = time.perf_counter()
         quit_requested = False
         if _has_display():
-            cv2.imshow("Output", self._display_resize(output_frame))
+            self._show_output(output_frame)
             if _window_should_close("Output"):
                 quit_requested = True
         elif frame_count == 1 and self._verbose:
@@ -1223,7 +1226,9 @@ class SyncRunner:
         tiles_y = lr_h // tile_h
         logger.info(f"\nSR tiled: {tiles_x}x{tiles_y}={tiles_done} tiles, "
               f"LR {lr_w}x{lr_h} -> SR {out_w}x{out_h} (x{scale_x})")
-        print_image_processing_summary(t_start, t0, t_i0, t_i1, t3, t4)
+        env_save = os.environ.get("DXAPP_SAVE_IMAGE")
+        if env_save:
+            cv2.imwrite(env_save, canvas)
 
         if self._save:
             run_dir = create_run_dir(
@@ -1232,19 +1237,21 @@ class SyncRunner:
             write_run_info(run_dir, self._model_path, image_path or "unknown")
             cv2.imwrite(str(run_dir / "sr_result.jpg"), canvas)
 
-        env_save = os.environ.get("DXAPP_SAVE_IMAGE")
-        if env_save:
-            cv2.imwrite(env_save, canvas)
-
+        t5 = None
         if display:
             if _has_display():
-                cv2.imshow("Output", canvas)
-                # Block until user requests quit or closes window.
-                while not _window_should_close("Output"):
-                    time.sleep(0.01)
-                cv2.destroyAllWindows()
+                t_d0 = time.perf_counter()
+                self._show_output(canvas)
+                t5 = time.perf_counter()
             elif self._verbose:
                 logger.info(_MSG_HEADLESS_SKIP)
+
+        print_image_processing_summary(t_start, t0, t_i0, t_i1, t3, t4, t5)
+
+        if display and _has_display():
+            while not _window_should_close("Output"):
+                time.sleep(0.01)
+            cv2.destroyAllWindows()
 
     def _is_sr_tiled(self) -> bool:
         task_type = self.factory.get_task_type() \

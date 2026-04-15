@@ -132,7 +132,7 @@ std::vector<T> apply_nms(const std::vector<T>& dets, float threshold) {
         if (suppressed[i]) continue;
         result.push_back(sorted[i]);
         for (size_t j = i + 1; j < sorted.size(); ++j) {
-            if (!suppressed[j] && sorted[i].iou(sorted[j]) > threshold)
+            if (!suppressed[j] && sorted[i].iou(sorted[j]) >= threshold)
                 suppressed[j] = true;
         }
     }

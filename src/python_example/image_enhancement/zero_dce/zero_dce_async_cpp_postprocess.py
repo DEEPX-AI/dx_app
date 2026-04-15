@@ -17,6 +17,13 @@ for _path in [str(_v3_dir), str(_module_dir)]:
         sys.path.insert(0, _path)
 
 # Use native C++ postprocessor from dx_postprocess.so.
+
+import os
+if os.name == 'nt':
+    _dxrt_dir = os.environ.get('DXRT_DIR')
+    if _dxrt_dir:
+        os.add_dll_directory(os.path.join(_dxrt_dir, 'bin'))
+
 from dx_postprocess import ZeroDCEPostProcess
 from common.utility import convert_cpp_zero_dce
 from factory import Zero_dceFactory

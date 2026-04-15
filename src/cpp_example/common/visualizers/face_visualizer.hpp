@@ -20,15 +20,24 @@ public:
     cv::Mat draw(const cv::Mat& frame,
                  const std::vector<FaceDetectionResult>& results,
                  const PreprocessContext& ctx) override {
-        (void)ctx;
         cv::Mat output = frame.clone();
+        float disp_scale = 1.0f;
+        if (ctx.original_width > 0 && ctx.original_height > 0 &&
+            (ctx.original_width > output.cols || ctx.original_height > output.rows)) {
+            disp_scale = std::min(static_cast<float>(output.cols) / ctx.original_width,
+                                  static_cast<float>(output.rows) / ctx.original_height);
+        }
+        const float x_off = (ctx.original_width > 0)
+            ? (output.cols - ctx.original_width * disp_scale) / 2.0f : 0.0f;
+        const float y_off = (ctx.original_height > 0)
+            ? (output.rows - ctx.original_height * disp_scale) / 2.0f : 0.0f;
 
         for (const auto& face : results) {
             if (face.box.size() < 4) continue;
 
             // Draw bounding box
-            cv::Point pt1(static_cast<int>(face.box[0]), static_cast<int>(face.box[1]));
-            cv::Point pt2(static_cast<int>(face.box[2]), static_cast<int>(face.box[3]));
+            cv::Point pt1(static_cast<int>(face.box[0] * disp_scale + x_off), static_cast<int>(face.box[1] * disp_scale + y_off));
+            cv::Point pt2(static_cast<int>(face.box[2] * disp_scale + x_off), static_cast<int>(face.box[3] * disp_scale + y_off));
             cv::rectangle(output, pt1, pt2, cv::Scalar(0, 255, 0), line_thickness_);
 
             // Draw confidence
@@ -43,7 +52,7 @@ public:
             // Draw landmarks (5 points: left eye, right eye, nose, left mouth, right mouth)
             for (size_t i = 0; i < face.landmarks.size(); ++i) {
                 const auto& lm = face.landmarks[i];
-                cv::Point pt(static_cast<int>(lm.x), static_cast<int>(lm.y));
+                cv::Point pt(static_cast<int>(lm.x * disp_scale + x_off), static_cast<int>(lm.y * disp_scale + y_off));
                 cv::Scalar color;
                 switch (i) {
                     case 0: color = cv::Scalar(255, 0, 0); break;   // Left eye - Blue

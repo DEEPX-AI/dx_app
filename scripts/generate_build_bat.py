@@ -148,7 +148,7 @@ def build_configure_lines(cfg: Dict, project_var: str) -> List[str]:
     lines.extend(cfg_lines)
     lines.append("IF %ERRORLEVEL% NEQ 0 goto :err")
     lines.append("")
-    lines.append(f"cmake --build \"%BUILD_DIR%\" --config {cfg_type}")
+    lines.append(f"cmake --build \"%BUILD_DIR%\" --config {cfg_type} --parallel")
     lines.append("IF %ERRORLEVEL% NEQ 0 goto :err")
     lines.append("")
     lines.append(f"cmake --install \"%BUILD_DIR%\" --config {cfg_type} --prefix \"%INSTALL_DIR%\"")
