@@ -70,6 +70,16 @@ public:
         }
         validateArguments(args);
 
+        // Image-only tasks: reject video/camera/rtsp input
+        std::string task = factory_->getTaskType();
+        if ((task == "embedding" || task == "reid" || task == "attribute_recognition")
+            && args.imageFilePath.empty()) {
+            std::cerr << "[ERROR] Task '" << task << "' supports image input only (-i). "
+                         "Video/camera input requires a detection crop pipeline "
+                         "and is not supported in single-model examples." << std::endl;
+            return -1;
+        }
+
         std::vector<std::string> imageFiles;
         bool is_image = !args.imageFilePath.empty();
         int loopTest = args.loopTest;

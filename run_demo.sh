@@ -557,8 +557,8 @@ printf "${COLOR_CYAN}━━━━━━━━━━━━━━━━━━━�
 echo ""
 
 # Pre-flight check: verify the input and model files actually exist
-if [ ! -f "$input_file" ]; then
-    print_colored "Input file not found: $input_file" "ERROR"
+if [ ! -e "$input_file" ]; then
+    print_colored "Input not found: $input_file" "ERROR"
     print_colored "  -> Try re-downloading: ./setup_sample_videos.sh --force" "INFO"
     popd > /dev/null
     exit 1

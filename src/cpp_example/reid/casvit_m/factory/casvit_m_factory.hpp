@@ -35,7 +35,7 @@ public:
     }
 
     std::string getModelName() const override { return "Casvit_m"; }
-    std::string getTaskType() const override { return "embedding"; }
+    std::string getTaskType() const override { return "reid"; }
 };
 
 }  // namespace dxapp

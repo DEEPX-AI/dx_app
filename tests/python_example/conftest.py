@@ -49,7 +49,10 @@ def pytest_addoption(parser):
 @pytest.fixture
 def loop_count(request):
     """Number of inference loops (from --loop CLI option)."""
-    return int(request.config.getoption("--loop"))
+    try:
+        return int(request.config.getoption("--loop"))
+    except (TypeError, ValueError):
+        return 1
 
 
 @pytest.fixture(scope="session")
