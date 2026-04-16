@@ -157,6 +157,9 @@ function install_opencv() {
             sudo apt-get install -y libfreetype-dev
         fi
 
+        # Rebuild font cache so system Qt5 / fontconfig can find DejaVu fonts
+        fc-cache -f 2>/dev/null || true
+
         sudo apt-get clean && sudo apt update && sudo apt-get -y upgrade
         sudo apt -y install libgstreamer-plugins-base1.0-dev libgstreamer1.0-dev 
 
@@ -318,6 +321,39 @@ function install_python() {
             exit 1
         fi
         print_colored "[OK] Python dependencies installed." "INFO"
+
+        # Ensure Qt font directory exists for OpenCV's bundled Qt5.
+        # pip's opencv-python bundles Qt5 without fontconfig, so it looks for
+        # fonts at a hardcoded path (cv2/qt/fonts/). If that directory is missing
+        # (e.g. corrupted install), symlink system DejaVu fonts as a fallback.
+        local PYTHON_CMD=""
+        if [ -n "${VENV_PATH}" ] && [ -f "${VENV_PATH}/bin/python3" ]; then
+            PYTHON_CMD="${VENV_PATH}/bin/python3"
+        elif [ -f "${DX_APP_PATH}/.venv/bin/python3" ]; then
+            PYTHON_CMD="${DX_APP_PATH}/.venv/bin/python3"
+        else
+            PYTHON_CMD="python3"
+        fi
+        local CV2_QT_FONTS
+        CV2_QT_FONTS=$("${PYTHON_CMD}" -c "
+import os
+try:
+    import cv2
+    fonts_dir = os.path.join(os.path.dirname(cv2.__file__), 'qt', 'fonts')
+    print(fonts_dir)
+except Exception:
+    pass
+" 2>/dev/null)
+        if [ -n "${CV2_QT_FONTS}" ] && [ ! -d "${CV2_QT_FONTS}" ]; then
+            local SYS_FONT_DIR="/usr/share/fonts/truetype/dejavu"
+            if [ -d "${SYS_FONT_DIR}" ]; then
+                mkdir -p "$(dirname "${CV2_QT_FONTS}")"
+                ln -sf "${SYS_FONT_DIR}" "${CV2_QT_FONTS}"
+                print_colored "[OK] Created symlink: ${CV2_QT_FONTS} -> ${SYS_FONT_DIR}" "INFO"
+            else
+                print_colored "Qt font directory missing and system DejaVu fonts not found. Run: sudo apt install fonts-dejavu-core" "WARNING"
+            fi
+        fi
     fi
 
     print_colored "[OK] Completed to setup python" "INFO"

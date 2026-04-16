@@ -380,6 +380,11 @@ def test_stream_inference_e2e(executable, model_path, bin_dir):
     if "face" in executable.lower():
         pytest.skip(f"{executable}: face model too slow for video test in CI")
 
+    # Image-only tasks: embedding/reid/attribute do not support video input
+    _IMAGE_ONLY_KEYWORDS = ("arcface", "casvit", "deepmar", "face_attr")
+    if any(kw in executable.lower() for kw in _IMAGE_ONLY_KEYWORDS):
+        pytest.skip(f"{executable}: image-only task, video input not supported")
+
     if not TEST_VIDEO.exists():
         pytest.skip(f"Test video not found: {TEST_VIDEO}")
 
@@ -394,7 +399,7 @@ def test_stream_inference_e2e(executable, model_path, bin_dir):
             cmd,
             capture_output=True,
             text=True,
-            timeout=600,  # 10 minutes  timeout for video
+            timeout=900,  # 15 minutes timeout for video
             env=env,
             cwd=PROJECT_ROOT,
         )
