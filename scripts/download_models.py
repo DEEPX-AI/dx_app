@@ -395,7 +395,10 @@ examples:
     dl.add_argument("--output",   type=str, default=str(DEFAULT_OUTPUT),
                     help=f"output directory (default: {DEFAULT_OUTPUT})")
     dl.add_argument("--workers",  type=int, default=4,  help="parallel download threads (default: 4)")
-    dl.add_argument("--force",    action="store_true",  help="overwrite existing files")
+    dl.add_argument("--force",    action="store_true",  default=True,
+                    help="overwrite existing files (default: enabled)")
+    dl.add_argument("--no-force",  action="store_true",
+                    help="skip download if the file already exists")
     dl.add_argument("--no-json",  action="store_true",  help="skip JSON file downloads")
     dl.add_argument("--all",      action="store_true",
                     help="download all parsed models non-interactively")
@@ -477,6 +480,10 @@ def _print_filtered_model_list(models: list[dict], output_dir: Path):
 
 def main():
     args = parse_args()
+
+    # --no-force overrides --force default
+    if args.no_force:
+        args.force = False
 
     # Auto-detect internal mode: if the local model path exists and --internal
     # was not explicitly requested, switch automatically (e.g. on CI runners

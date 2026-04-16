@@ -68,7 +68,7 @@ FACTORY_TO_DXNN = {
     "classification/resnet50":             "ResNet50",
     "classification/resnext26_32x4d":      "ResNeXt26_32x4d",
     "classification/resnext50_32x4d":      "ResNeXt50_32x4d",
-    "classification/resnext50_32x4d_hailo":"ResNeXt50_32x4d_Hailo",
+    "classification/resnext50_32x4d_h":"ResNeXt50_32x4d_h",
     "classification/squeezenet1_0":        "SqueezeNet1_0",
     "classification/squeezenet1_1":        "SqueezeNet1_1",
     "classification/vgg11":                "VGG11",

@@ -204,6 +204,17 @@ inline void saveDebugImage(const cv::Mat& frame) {
 }
 
 /**
+ * @brief Shared flag: true once the display window has been closed by the user.
+ *
+ * Once set, showOutput() will no longer recreate the window, and
+ * windowShouldClose() will return true immediately.
+ */
+inline bool& _displayClosed() {
+    static bool closed = false;
+    return closed;
+}
+
+/**
  * @brief Handle window events and check whether the display window was closed or user requested quit.
  *
  * - Pressing 'q' sets the global interrupt flag and returns true.
@@ -216,14 +227,17 @@ inline void saveDebugImage(const cv::Mat& frame) {
 inline std::atomic<bool>& g_interrupted();
 
 inline bool windowShouldClose(const std::string& winname = "Output") {
+    if (_displayClosed()) return true;
     try {
         int key = cv::waitKey(1);
         if (key == 'q' || key == 27) {
+            _displayClosed() = true;
             g_interrupted().store(true);
             return true;
         }
     } catch (...) {
         // Qt backend throws if no window exists
+        _displayClosed() = true;
         return true;
     }
     // getWindowProperty returns -1 when window was destroyed (user closed),
@@ -247,9 +261,11 @@ inline bool windowShouldClose(const std::string& winname = "Output") {
         try {
             double visible = cv::getWindowProperty(winname, cv::WND_PROP_VISIBLE);
             if (visible <= 0.0) {
+                _displayClosed() = true;
                 return true;
             }
         } catch (...) {
+            _displayClosed() = true;
             return true;
         }
     }
@@ -314,8 +330,36 @@ inline std::pair<int, int> getScreenResolution() {
  * Subsequent frames reuse the same window without re-querying.
  */
 inline void showOutput(const cv::Mat& frame) {
+    if (_displayClosed()) return;
+
+    static bool window_ever_opened = false;
+
+    // After the window has been opened at least once, process pending GUI
+    // events (e.g. X-button close) and verify it is still alive BEFORE
+    // calling namedWindow/imshow which would recreate a destroyed window.
+    if (window_ever_opened) {
+        int key = -1;
+        try { key = cv::waitKey(1); } catch (...) {
+            _displayClosed() = true;
+            return;
+        }
+        if (key == 'q' || key == 27) {
+            _displayClosed() = true;
+            g_interrupted().store(true);
+            return;
+        }
+        try {
+            double v = cv::getWindowProperty("Output", cv::WND_PROP_VISIBLE);
+            if (v <= 0.0) { _displayClosed() = true; return; }
+        } catch (...) {
+            _displayClosed() = true;
+            return;
+        }
+    }
+
     static bool window_sized = false;
     cv::namedWindow("Output", cv::WINDOW_NORMAL);
+    window_ever_opened = true;
 
     if (!window_sized && !frame.empty()) {
         auto [screen_w, screen_h] = getScreenResolution();

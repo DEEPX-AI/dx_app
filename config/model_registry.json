@@ -2835,9 +2835,9 @@
     "supported": true
   },
   {
-    "model_name": "regnetx1_6gf_hailo",
-    "dxnn_file": "RegNetX1_6GF_Hailo.dxnn",
-    "original_name": "RegNetX1_6GF_Hailo",
+    "model_name": "regnetx1_6gf_h",
+    "dxnn_file": "RegNetX1_6GF_h.dxnn",
+    "original_name": "RegNetX1_6GF_h",
     "csv_task": "IC",
     "add_model_task": "classification",
     "postprocessor": "efficientnet",
@@ -3015,9 +3015,9 @@
     "supported": true
   },
   {
-    "model_name": "resnext50_32x4d_hailo",
-    "dxnn_file": "ResNeXt50_32x4d_Hailo.dxnn",
-    "original_name": "ResNeXt50_32x4d_Hailo",
+    "model_name": "resnext50_32x4d_h",
+    "dxnn_file": "ResNeXt50_32x4d_h.dxnn",
+    "original_name": "ResNeXt50_32x4d_h",
     "csv_task": "IC",
     "add_model_task": "classification",
     "postprocessor": "efficientnet",
@@ -3030,9 +3030,9 @@
     "supported": true
   },
   {
-    "model_name": "segformer_b0_512x1024_hailo",
-    "dxnn_file": "segformer_b0_512x1024_hailo.dxnn",
-    "original_name": "segformer_b0_512x1024_hailo",
+    "model_name": "segformer_b0_512x1024_h",
+    "dxnn_file": "segformer_b0_512x1024_h.dxnn",
+    "original_name": "segformer_b0_512x1024_h",
     "csv_task": "SEG",
     "add_model_task": "semantic_segmentation",
     "postprocessor": "segformer",
@@ -3809,9 +3809,9 @@
     "supported": true
   },
   {
-    "model_name": "yolov5l_hailo",
-    "dxnn_file": "YoloV5L_Hailo.dxnn",
-    "original_name": "YoloV5L_Hailo",
+    "model_name": "yolov5l_h",
+    "dxnn_file": "YoloV5L_h.dxnn",
+    "original_name": "YoloV5L_h",
     "csv_task": "OD",
     "add_model_task": "object_detection",
     "postprocessor": "yolov5",
@@ -3841,9 +3841,9 @@
     "supported": true
   },
   {
-    "model_name": "yolov5m6_61_hailo",
-    "dxnn_file": "YoloV5M6_61_Hailo.dxnn",
-    "original_name": "YoloV5M6_61_Hailo",
+    "model_name": "yolov5m6_61_h",
+    "dxnn_file": "YoloV5M6_61_h.dxnn",
+    "original_name": "YoloV5M6_61_h",
     "csv_task": "OD",
     "add_model_task": "object_detection",
     "postprocessor": "yolov5",
@@ -3857,9 +3857,9 @@
     "supported": true
   },
   {
-    "model_name": "yolov5m_hailo",
-    "dxnn_file": "YoloV5M_Hailo.dxnn",
-    "original_name": "YoloV5M_Hailo",
+    "model_name": "yolov5m_h",
+    "dxnn_file": "YoloV5M_h.dxnn",
+    "original_name": "YoloV5M_h",
     "csv_task": "OD",
     "add_model_task": "object_detection",
     "postprocessor": "yolov5",
@@ -3905,9 +3905,9 @@
     "supported": true
   },
   {
-    "model_name": "yolov5n6_61_hailo",
-    "dxnn_file": "YoloV5N6_61_Hailo.dxnn",
-    "original_name": "YoloV5N6_61_Hailo",
+    "model_name": "yolov5n6_61_h",
+    "dxnn_file": "YoloV5N6_61_h.dxnn",
+    "original_name": "YoloV5N6_61_h",
     "csv_task": "OD",
     "add_model_task": "object_detection",
     "postprocessor": "yolov5",
@@ -3937,9 +3937,9 @@
     "supported": true
   },
   {
-    "model_name": "yolov5s6_61_hailo",
-    "dxnn_file": "YoloV5S6_61_Hailo.dxnn",
-    "original_name": "YoloV5S6_61_Hailo",
+    "model_name": "yolov5s6_61_h",
+    "dxnn_file": "YoloV5S6_61_h.dxnn",
+    "original_name": "YoloV5S6_61_h",
     "csv_task": "OD",
     "add_model_task": "object_detection",
     "postprocessor": "yolov5",
@@ -4001,9 +4001,9 @@
     "supported": true
   },
   {
-    "model_name": "yolov5s_hailo",
-    "dxnn_file": "YoloV5S_Hailo.dxnn",
-    "original_name": "YoloV5S_Hailo",
+    "model_name": "yolov5s_h",
+    "dxnn_file": "YoloV5S_h.dxnn",
+    "original_name": "YoloV5S_h",
     "csv_task": "OD",
     "add_model_task": "object_detection",
     "postprocessor": "yolov5",
