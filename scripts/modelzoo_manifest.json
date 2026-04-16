@@ -516,9 +516,9 @@
     "json_url": null
   },
   {
-    "name": "RegNetX1_6GF_Hailo",
+    "name": "RegNetX1_6GF_h",
     "category": "Classification",
-    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/RegNetX1_6GF_Hailo.dxnn",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/RegNetX1_6GF_h.dxnn",
     "json_url": null
   },
   {
@@ -654,9 +654,9 @@
     "json_url": null
   },
   {
-    "name": "ResNeXt50_32x4d_Hailo",
+    "name": "ResNeXt50_32x4d_h",
     "category": "Classification",
-    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/ResNeXt50_32x4d_Hailo.dxnn",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/ResNeXt50_32x4d_h.dxnn",
     "json_url": null
   },
   {
@@ -702,9 +702,9 @@
     "json_url": null
   },
   {
-    "name": "segformer_b0_512x1024_hailo",
+    "name": "segformer_b0_512x1024_h",
     "category": "Semantic Segmentation",
-    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/segformer_b0_512x1024_hailo.dxnn",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/segformer_b0_512x1024_h.dxnn",
     "json_url": null
   },
   {
@@ -1206,9 +1206,9 @@
     "json_url": null
   },
   {
-    "name": "YoloV5L_Hailo",
+    "name": "YoloV5L_h",
     "category": "Object Detection",
-    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YoloV5L_Hailo.dxnn",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YoloV5L_h.dxnn",
     "json_url": null
   },
   {
@@ -1230,9 +1230,9 @@
     "json_url": null
   },
   {
-    "name": "YoloV5M6_61_Hailo",
+    "name": "YoloV5M6_61_h",
     "category": "Object Detection",
-    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YoloV5M6_61_Hailo.dxnn",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YoloV5M6_61_h.dxnn",
     "json_url": null
   },
   {
@@ -1248,9 +1248,9 @@
     "json_url": null
   },
   {
-    "name": "YoloV5M_Hailo",
+    "name": "YoloV5M_h",
     "category": "Object Detection",
-    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YoloV5M_Hailo.dxnn",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YoloV5M_h.dxnn",
     "json_url": null
   },
   {
@@ -1278,9 +1278,9 @@
     "json_url": null
   },
   {
-    "name": "YoloV5N6_61_Hailo",
+    "name": "YoloV5N6_61_h",
     "category": "Object Detection",
-    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YoloV5N6_61_Hailo.dxnn",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YoloV5N6_61_h.dxnn",
     "json_url": null
   },
   {
@@ -1302,9 +1302,9 @@
     "json_url": null
   },
   {
-    "name": "YoloV5S6_61_Hailo",
+    "name": "YoloV5S6_61_h",
     "category": "Object Detection",
-    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YoloV5S6_61_Hailo.dxnn",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YoloV5S6_61_h.dxnn",
     "json_url": null
   },
   {
@@ -1332,9 +1332,9 @@
     "json_url": null
   },
   {
-    "name": "YoloV5S_Hailo",
+    "name": "YoloV5S_h",
     "category": "Object Detection",
-    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YoloV5S_Hailo.dxnn",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_3_0/YoloV5S_h.dxnn",
     "json_url": null
   },
   {

@@ -893,7 +893,7 @@ private:
                 // never falsely interpret -1 as "window closed by user".
                 cv::waitKey(1);
                 double probe = cv::getWindowProperty("Output", cv::WND_PROP_VISIBLE);
-                if (probe < 0.0) {
+                if (probe < -0.5) {
                     window_prop_supported_ = false;
                 }
                 return true;
@@ -910,7 +910,7 @@ private:
         }
         if (window_prop_supported_) {
             double vis = cv::getWindowProperty("Output", cv::WND_PROP_VISIBLE);
-            if (vis < 0.0) {
+            if (vis <= 0.0) {
                 running_ = false;
                 display_queue_.shutdown();
                 rendered_queue_.shutdown();

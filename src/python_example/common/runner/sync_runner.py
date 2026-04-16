@@ -60,7 +60,8 @@ def _window_should_close(winname: str = "Output") -> bool:
     try:
         # getWindowProperty returns -1 when window was destroyed (user closed),
         # 0 during initial creation on some backends, and 1 when fully visible.
-        # Use < 0 to avoid false positives on newly created windows.
+        # Use <= 0 to detect window closed; the probe-based approach in C++
+        # handles GTK2 backends that always return -1.
         vis = cv2.getWindowProperty(winname, cv2.WND_PROP_VISIBLE)
         if vis <= 0.0:
             return True
@@ -393,7 +394,7 @@ class SyncRunner:
         _apply_default_input(args, self.factory)
         _validate_inputs(args)
 
-        self._verbose = getattr(args, "verbose", False)
+        self._verbose = getattr(args, "show_log", False)
         self._model_path = args.model
         self._init_engine(args.model, _resolve_config_path(args))
 
@@ -405,9 +406,19 @@ class SyncRunner:
         logger.info("\nStarting inference...")
         self._dispatch_input(args)
 
+    _IMAGE_ONLY_TASKS = {"embedding", "reid", "attribute_recognition"}
+
     def _dispatch_input(self, args) -> None:
         """Route to the correct inference method based on input args."""
         display = args.display
+        task = self.factory.get_task_type() if hasattr(self.factory, "get_task_type") else ""
+        if task in self._IMAGE_ONLY_TASKS and not getattr(args, "image", None):
+            logger.error(
+                f"Task '{task}' supports image input only "
+                f"(--image). Video/camera input requires a "
+                f"detection crop pipeline and is not supported "
+                f"in single-model examples.")
+            sys.exit(1)
         if getattr(args, "image", None):
             if os.path.isdir(args.image):
                 self._image_dir_inference(args.image, display)
@@ -946,7 +957,7 @@ class SyncRunner:
     def _display_stream_frame(self, output_frame: np.ndarray,
                               display: bool, frame_count: int) -> tuple:
         """Show frame if display enabled. Returns (time_spent, quit_requested)."""
-        if not display:
+        if not display or output_frame is None:
             return 0.0, False
         t0 = time.perf_counter()
         quit_requested = False

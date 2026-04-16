@@ -166,7 +166,7 @@ class AsyncRunner:
         _apply_default_input(args, self.factory)
         _validate_inputs(args)
 
-        self._verbose = getattr(args, "verbose", False)
+        self._verbose = getattr(args, "show_log", False)
         self._model_path = args.model
         self._init_engine(args.model, _resolve_config_path(args))
 
@@ -178,9 +178,19 @@ class AsyncRunner:
         logger.info("\nStarting inference...")
         self._dispatch_input(args)
 
+    _IMAGE_ONLY_TASKS = {"embedding", "reid", "attribute_recognition"}
+
     def _dispatch_input(self, args) -> None:
         """Route to the correct inference method based on input args."""
         display = args.display
+        task = self.factory.get_task_type() if hasattr(self.factory, "get_task_type") else ""
+        if task in self._IMAGE_ONLY_TASKS and not getattr(args, "image", None):
+            logger.error(
+                f"Task '{task}' supports image input only "
+                f"(--image). Video/camera input requires a "
+                f"detection crop pipeline and is not supported "
+                f"in single-model examples.")
+            sys.exit(1)
         if getattr(args, "image", None):
             self._is_image_input = True
             if os.path.isdir(args.image):

@@ -1,1 +1,0 @@
-from .yolov5m6_61_hailo_factory import Yolov5m6_61_hailoFactory

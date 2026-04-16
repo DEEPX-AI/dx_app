@@ -11,7 +11,7 @@ source ${SCRIPT_DIR}/scripts/common_util.sh
 # --- Initialize variables ---
 ENABLE_DEBUG_LOGS=0   # New flag for debug logging
 DOCKER_VOLUME_PATH=${DOCKER_VOLUME_PATH}
-FORCE_ARGS=""
+FORCE_ARGS="--force"
 FORCE_REMOVE_MODELS=0
 FORCE_REMOVE_VIDEOS=0
 MANIFEST_OVERRIDE=""
@@ -49,7 +49,8 @@ show_help() {
     print_colored "  [--no-json]                    Skip JSON file downloads" "GREEN"
     print_colored "  [--category=<name>]            Download models of a specific category only" "GREEN"
     print_colored "  [--models=<m1> [m2...]]        Download specific models by name" "GREEN"
-    print_colored "  [--force]                      Force overwrite if the file already exists" "GREEN"
+    print_colored "  [--force]                      Force overwrite if the file already exists (default)" "GREEN"
+    print_colored "  [--no-force]                   Skip download if the file already exists" "GREEN"
     print_colored "  [--force-remove-models]        Force remove models if they exist" "GREEN"
     print_colored "  [--force-remove-videos]        Force remove videos if they exist" "GREEN"
     print_colored "  [--internal]                   Use local mount instead of S3 (internal/air-gapped network)" "GREEN"
@@ -145,6 +146,10 @@ while [ $# -gt 0 ]; do
             ;;
         --force)
             FORCE_ARGS="--force"
+            shift
+            ;;
+        --no-force)
+            FORCE_ARGS=""
             shift
             ;;
         --force-remove-models)

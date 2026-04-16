@@ -44,7 +44,7 @@ public:
         verbose_ = args.verbose;
 
         if (verbose_) {
-            std::cout << "[INFO] --verbose: This task produces image-based output. "
+            std::cout << "[INFO] --show-log: This task produces image-based output. "
                          "Use --save or display mode to view results." << std::endl;
         }
         // Apply default sample image if no input specified

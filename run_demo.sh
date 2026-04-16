@@ -509,7 +509,7 @@ esac
 # Append verbose flag if show-log is set
 if [ -n "$ARG_SHOW_LOG" ]; then
     case "$selected_mode" in
-        py_*)  CMD="$CMD --verbose" ;;
+        py_*)  CMD="$CMD --show-log" ;;
         cpp_*) CMD="$CMD --show-log" ;;
     esac
 fi
@@ -555,6 +555,20 @@ printf "  ${COLOR_BOLD}Input :${COLOR_RESET} %s (%s)\n" "$input_type" "$input_fi
 printf "  ${COLOR_BOLD}Cmd   :${COLOR_RESET} %s\n" "$CMD"
 printf "${COLOR_CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${COLOR_RESET}\n"
 echo ""
+
+# Pre-flight check: verify the input and model files actually exist
+if [ ! -f "$input_file" ]; then
+    print_colored "Input file not found: $input_file" "ERROR"
+    print_colored "  -> Try re-downloading: ./setup_sample_videos.sh --force" "INFO"
+    popd > /dev/null
+    exit 1
+fi
+if [ ! -f "$model_path" ]; then
+    print_colored "Model file not found: $model_path" "ERROR"
+    print_colored "  -> Try re-downloading: ./setup_sample_models.sh --force --models ${DEMO_MODEL[$task_sel]%.dxnn}" "INFO"
+    popd > /dev/null
+    exit 1
+fi
 
 eval "$CMD"
 

@@ -116,7 +116,7 @@ def parse_common_args(
 
     # ---- Verbosity ----
     parser.add_argument(
-        "--verbose", action="store_true", default=False,
+        "--show-log", action="store_true", default=False,
         help="Show detailed per-frame/image [INFO] logs (default: quiet)",
     )
 

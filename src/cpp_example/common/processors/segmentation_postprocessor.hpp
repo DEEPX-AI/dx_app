@@ -84,7 +84,7 @@ public:
         std::set<int> unique_classes;
 
         if (elem_size == 8) {
-            // int64 pre-argmaxed (e.g. SegFormer Hailo)
+            // int64 pre-argmaxed (e.g. SegFormer h)
             fillMaskInt64(static_cast<const int64_t*>(tensor->data()),
                           C, H, W, seg.mask, unique_classes);
         } else if (elem_size == 2) {
@@ -124,7 +124,7 @@ private:
         }
     }
 
-    // Helper: copy int64 argmax-already indices into mask (e.g. SegFormer Hailo)
+    // Helper: copy int64 argmax-already indices into mask (e.g. SegFormer h)
     // Shape: [1,1,H,W] or [1,H,W] — single channel containing class indices
     static void fillMaskInt64(const int64_t* data, int C, int H, int W,
                               std::vector<int>& mask,
