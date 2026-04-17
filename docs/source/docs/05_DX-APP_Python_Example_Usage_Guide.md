@@ -6,41 +6,43 @@ This guide explains how to navigate and use the refactored Python example tree i
 
 ## Overview
 
-The Python examples are located under `src/python_example/` and are organized by:
+The Python examples are located under `src/python_example/` and are organized by:  
 
-1. **task**
-2. **model family**
-3. **execution and post-processing variant**
+- **task**    
+- **model family**    
+- **execution and post-processing variant**  
 
-All examples share a common runtime layer under `src/python_example/common/` that provides base interfaces, processors, runners, input sources, visualizers, and utilities. This is the Python counterpart of `src/cpp_example/common/` — both languages implement the same 7-module factory-based architecture. Each model directory contains only thin entry-point scripts and a factory that wires shared components together.
+All examples share a common runtime layer under `src/python_example/common/` that provides base interfaces, processors, runners, input sources, visualizers, and utilities. This is the Python counterpart of `src/cpp_example/common/` — both languages implement the same 7-module factory-based architecture. Each model directory contains only thin entry-point scripts and a factory that wires shared components together.  
 
-Representative task directories include:
+Representative task directories include:  
 
-- `classification/` — EfficientNet, AlexNet, ResNet, MobileNet, etc.
-- `object_detection/` — YOLOv3/v5/v7/v8/v9/v10/v11/v12, YOLO26, YOLOX, NanoDet, DAMOYOLO, SSD
-- `face_detection/` — SCRFD, YOLOv5Face, YOLOv7Face, RetinaFace
-- `pose_estimation/` — YOLOv8-Pose
-- `semantic_segmentation/` — BiSeNet, DeepLabV3+, SegFormer
-- `instance_segmentation/` — YOLOv8Seg, YOLOv26Seg
-- `depth_estimation/` — FastDepth, SCDepthV3
-- `embedding/` — ArcFace
-- `obb_detection/` — YOLOv26OBB
-- `image_denoising/`, `image_enhancement/`, `super_resolution/`
-- `hand_landmark/` — Hand landmark estimation
-- `ppu/` — PPU-accelerated variants (YOLOv5/v7/v8/v9/v10/v11/v12/SCRFD/Pose)
-- `attribute_recognition/` — Attribute recognition (DeepMAR)
-- `reid/` — Person re-identification (CasViT)
-- `face_alignment/` — Face alignment / 3D landmark (3DDFA v2)
+- `classification/` — EfficientNet, AlexNet, ResNet, MobileNet, etc.  
+- `object_detection/` — YOLOv3/v5/v7/v8/v9/v10/v11/v12, YOLO26, YOLOX, NanoDet, DAMOYOLO, SSD  
+- `face_detection/` — SCRFD, YOLOv5Face, YOLOv7Face, RetinaFace  
+- `pose_estimation/` — YOLOv8-Pose  
+- `semantic_segmentation/` — BiSeNet, DeepLabV3+, SegFormer  
+- `instance_segmentation/` — YOLOv8Seg, YOLOv26Seg  
+- `depth_estimation/` — FastDepth, SCDepthV3  
+- `embedding/` — ArcFace  
+- `obb_detection/` — YOLOv26OBB  
+- `image_denoising/`, `image_enhancement/`, `super_resolution/`  
+- `hand_landmark/` — Hand landmark estimation  
+- `ppu/` — PPU-accelerated variants (YOLOv5/v7/v8/v9/v10/v11/v12/SCRFD/Pose)  
+- `attribute_recognition/` — Attribute recognition (DeepMAR)  
+- `reid/` — Person re-identification (CasViT)  
+- `face_alignment/` — Face alignment / 3D landmark (3DDFA v2)  
 
-For the full repository-level structure, refer to [DX-APP Example Source Structure](11_DX-APP_Example_Source_Structure.md).
+For the full repository-level structure, refer to [DX-APP Example Source Structure](11_DX-APP_Example_Source_Structure.md).  
 
 ---
 
-## Architecture
+## Architecture & Design Pattern
 
-### Shared Runtime Layer (`common/`)
+### Architecture Strategy
 
-The `common/` directory is the engine behind all Python examples:
+**Shared Runtime Layer** (`common/`)  
+
+The `common/` directory is the engine behind all Python examples:  
 
 | Module | Role |
 |--------|------|
@@ -52,9 +54,9 @@ The `common/` directory is the engine behind all Python examples:
 | `common/visualizers/` | 10 task-specific visualizers (detection, segmentation, pose, etc.) |
 | `common/utility/` | Labels, preprocessing, profiling, drawing helpers |
 
-### Factory Pattern
+**Factory Pattern & Model Registry**  
 
-Each model directory has a `factory/{model}_factory.py` that implements `IFactory`:
+Each model directory has a `factory/{model}_factory.py` that implements `IFactory`:  
 
 ```python
 from common.processors import YOLOv5Postprocessor
@@ -67,7 +69,7 @@ class Yolov9sFactory(IFactory):
         return DetectionVisualizer(self.config)
 ```
 
-The entry-point script simply delegates to the runner:
+The entry-point script simply delegates to the runner:  
 
 ```python
 from common.runner import SyncRunner
@@ -75,15 +77,13 @@ runner = SyncRunner(factory)
 runner.run()
 ```
 
-### Model Registry (`config/model_registry.json`)
+Model Registry (`config/model_registry.json`)  
 
-A JSON registry stores per-model metadata (task, postprocessor type, input dimensions, thresholds). The `scripts/add_model.sh` tool reads this registry to auto-generate factory files, config.json, and all entry-point scripts — enabling zero-code model onboarding.
+A JSON registry stores per-model metadata (task, postprocessor type, input dimensions, thresholds). The `scripts/add_model.sh` tool reads this registry to auto-generate factory files, config.json, and all entry-point scripts — enabling zero-code model onboarding.  
 
----
+### Directory & File Pattern
 
-## Directory Pattern
-
-Each model family has its own directory with a consistent structure:
+Each model family has its own directory with a consistent structure:  
 
 ```text
 src/python_example/object_detection/yolov9s/
@@ -98,52 +98,29 @@ src/python_example/object_detection/yolov9s/
 
 ---
 
-## Variant Selection Guide
+## Execution Framework
 
-### Pure Python variants (`*_sync.py`, `*_async.py`)
+### Execution Variants
 
-Use these when you want:
+**Pure Python Flow** (`*_sync.py`, `*_async.py`)  
 
-- easier logic inspection — post-processing is readable Python in `common/processors/`
-- Python-first experimentation
-- simpler debugging during algorithm development
+Use these when you want:  
 
-### `*_cpp_postprocess.py` variants
+- easier logic inspection — post-processing is readable Python in `common/processors/`  
+- Python-first experimentation  
+- simpler debugging during algorithm development  
 
-Use these when you want:
+**C++ Post-process Flow** (`*_cpp_postprocess.py`)  
 
-- faster post-processing — uses C++ via pybind11 (`dx_postprocess`)
-- better alignment with shared C++ decode logic
-- more realistic performance validation
+Use these when you want:  
 
----
+- faster post-processing — uses C++ via pybind11 (`dx_postprocess`)  
+- better alignment with shared C++ decode logic  
+- more realistic performance validation  
 
-## Typical Workflow
+### CLI Interface
 
-### 1. Prepare assets
-
-```bash
-./setup.sh
-```
-
-### 2. Build shared libraries and bindings
-
-```bash
-./build.sh
-```
-
-### 3. Run a Python example
-
-```bash
-python src/python_example/object_detection/yolov9s/yolov9s_sync.py --model assets/models/YoloV9S.dxnn --image sample/img/sample_kitchen.jpg
-python src/python_example/object_detection/yolov9s/yolov9s_async_cpp_postprocess.py --model assets/models/YoloV9S.dxnn --video assets/videos/dance-group.mov
-```
-
----
-
-## CLI Arguments
-
-All Python examples use `argparse` via `common/runner/args.py` and share a consistent interface:
+All Python examples use `argparse` via `common/runner/args.py` and share a consistent interface:  
 
 | Flag | Short | Type | Description |
 |------|-------|------|-------------|
@@ -157,90 +134,110 @@ All Python examples use `argparse` via `common/runner/args.py` and share a consi
 | `--dump-tensors` | — | flag | Dump input/output tensors to `.npy` files |
 | `--loop` | `-l` | int | Inference repeat count (default: 1; bare `--loop` = 2) |
 | `--no-display` | — | flag | Disable visualization window |
-| `--verbose` | — | flag | Enable verbose log output (default: quiet) |
+| `--show-log` | — | flag | Enable verbose log output (default: quiet) |
 | `--config` | — | string | Model config JSON path (auto-detected if omitted) |
 | `--output` | `-o` | string | Output file path (restoration/depth/SR only) |
 | `--help` | `-h` | — | Show usage |
 
-> **Input source:** `--image`, `--video`, `--camera`, and `--rtsp` form a mutually exclusive group. If none is specified, a **default sample image** is automatically selected based on the task type.
+- **Input source:** `--image`, `--video`, `--camera`, and `--rtsp` form a mutually exclusive group. If none is specified, a **default sample image** is automatically selected based on the task type.
+
+!!! note "NOTE"
+    **Image-only tasks:** `embedding`, `reid`, and `attribute_recognition` tasks accept `--image` input only. `--video`, `--camera`, and `--rtsp` are not supported for these tasks because meaningful inference requires a crop of a pre-detected subject (face or person). Running a single embedding model on a raw video stream without a preceding detector would not produce valid results. Passing a video/camera source to these tasks exits with an error.
 
 ---
 
-## Advanced Features
+## Getting Started (Workflow)
 
-### Auto-Download
+**Step 1. Prepare assets**  
+
+```bash
+./setup.sh
+```
+
+**Step 2. Build shared libraries**  
+
+```bash
+./build.sh
+```
+
+**Step 3. Run a Python example**  
+
+```bash
+python src/python_example/object_detection/yolov9s/yolov9s_sync.py --model assets/models/YoloV9S.dxnn --image sample/img/sample_kitchen.jpg
+python src/python_example/object_detection/yolov9s/yolov9s_async_cpp_postprocess.py --model assets/models/YoloV9S.dxnn --video assets/videos/dance-group.mov
+```
+
+---
+
+## Advanced Operations & Debugging
+
+### Runtime Features
+
+**Auto-Download**
 
 When a specified model file is not found locally, the runner automatically attempts to download it via `setup_sample_models.sh`. If a `--video` file is missing, `setup_sample_videos.sh` is invoked. If the download fails, a clear error message with manual download instructions is displayed.
 
-### Default Input Fallback
+**Default Input Fallback**
 
 If no input source is provided, the runner automatically selects a default sample image appropriate for the task type (e.g., `sample/img/sample_street.jpg` for object detection). A log message indicates which default was applied:
 ```
 [INFO] No input specified. Using default sample: sample/img/sample_street.jpg
 ```
 
-### Signal Handling
+**Signal Handling**  
 
-Both `SyncRunner` and `AsyncRunner` use `stop_event` (`threading.Event`) for graceful Ctrl+C shutdown. The async pipeline uses a SENTINEL chain to propagate stop signals through all queues.
+Both `SyncRunner` and `AsyncRunner` use `stop_event` (`threading.Event`) for graceful Ctrl+C shutdown. The async pipeline uses a SENTINEL chain to propagate stop signals through all queues.  
 
-### Run Directory (`--save`)
+**Output Management** (`--save`)  
 
 When `--save` is enabled, a timestamped directory is created (e.g., `artifacts/python_example/{model}-image-{name}-{timestamp}/`) containing `run_info.txt`, saved images/video, and optional tensor dumps.
 
-### Numerical Verification (`DXAPP_VERIFY`)
+**Headless Mode**
 
-Set `DXAPP_VERIFY=1` to serialize all post-processing results to `logs/verify/{model}.json`. Use `scripts/verify_inference_output.py` to validate correctness against task-specific rules.
+When `DISPLAY`/`WAYLAND_DISPLAY` environment variables are absent, `cv2.imshow()` is automatically skipped. Use `--no-display` for explicit headless operation.  
 
-### Tensor Dump (`--dump-tensors`)
+**Model Configuration** (`--config`)  
 
-Dumps raw input/output tensors as `.npy` files. On exception, tensors and a `reason.txt` are auto-dumped for debugging.
+Runtime parameters (thresholds, top-k, etc.) are loaded via `_FactoryConfigMixin` with alias normalization (`score_threshold` → `conf_threshold`). If omitted, `config.json` is auto-detected adjacent to the model or script.  
 
-### Model Config (`--config`)
+### Verification & Diagnostics
 
-Runtime parameters (thresholds, top-k, etc.) are loaded via `_FactoryConfigMixin` with alias normalization (`score_threshold` → `conf_threshold`). If omitted, `config.json` is auto-detected adjacent to the model or script.
+**Numerical Verification** (`DXAPP_VERIFY`)  
 
-### Headless Mode
+Set `DXAPP_VERIFY=1` to serialize all post-processing results to `logs/verify/{model}.json`. Use `scripts/verify_inference_output.py` to validate correctness against task-specific rules.  
 
-When `DISPLAY`/`WAYLAND_DISPLAY` environment variables are absent, `cv2.imshow()` is automatically skipped. Use `--no-display` for explicit headless operation.
+**Tensor Dump for Debugging** (`--dump-tensors`)  
 
-### Environment Variables
+Dumps raw input/output tensors as `.npy` files. On exception, tensors and a `reason.txt` are auto-dumped for debugging.  
 
-| Variable | Description |
-|----------|-------------|
-| `DXAPP_SAVE_IMAGE` | Save visualization to the specified file path (no `--save` required) |
-| `DXAPP_VERIFY` | When `1`, dump JSON verification data |
-
-### 4. Validate all models (optional)
+**Model Validation** (optional)  
 
 ```bash
 # Run NPU inference + numerical verification for all supported models
 bash scripts/validate_models.sh --numerical --lang py
 ```
 
----
+### Environment Variables Reference
 
-## Relationship to `dx_postprocess`
-
-The `*_cpp_postprocess.py` variants depend on the shared Python binding exposed from `src/bindings/python/dx_postprocess/`.
-
-See also:
-
-- [DX-APP Pybind PostProcess Overview](08_DX-APP_Pybind_PostProcess_Overview.md)
+| Variable | Description |
+|----------|-------------|
+| `DXAPP_SAVE_IMAGE` | Save visualization to the specified file path (no `--save` required) |
+| `DXAPP_VERIFY` | When `1`, dump JSON verification data |
 
 ---
 
-## Developer Notes
+## Supplementary Information
 
-If you are modifying or adding Python examples, also review:
+### Component Relationships
 
-- [DX Tool Guide](10_DX-APP_DX-Tool_Guide.md) — model onboarding, validation, benchmarking
-- [DX-APP Example Source Structure](11_DX-APP_Example_Source_Structure.md) — detailed `common/` architecture
-- [DX-APP Python Example Tests](06_DX-APP_Python_Example_Test.md) — test framework
+The `*_cpp_postprocess.py` variants depend on the shared Python binding exposed from `src/bindings/python/dx_postprocess/`.  
 
----
+See also: [DX-APP Pybind PostProcess Overview](08_DX-APP_Pybind_PostProcess_Overview.md)  
 
-## Next Steps
+### Developer Resources
 
 - For contributor workflows, use [DX Tool Guide](10_DX-APP_DX-Tool_Guide.md)
 - For test execution, use [DX-APP Python Example Tests](06_DX-APP_Python_Example_Test.md)
 - For repository layout details, use [DX-APP Example Source Structure](11_DX-APP_Example_Source_Structure.md)
+
+---

@@ -1,39 +1,37 @@
 # DX-APP DX Tool Guide
 
-This document is intended for contributors and maintainers working on the DX-APP example repository.
+This guide is intended for contributors and maintainers working on the DX-APP example repository.  
 
-`scripts/dx_tool.sh` is the unified developer entry point for repetitive example maintenance tasks such as model onboarding, package extraction, example discovery, validation, execution, and benchmarking.
+`./scripts/dx_tool.sh` is the unified developer entry point for repetitive example maintenance tasks such as model onboarding, package extraction, example discovery, validation, execution, and benchmarking.  
 
 ---
 
 ## Overview
 
-The tool provides both:
+The tool provides both:  
 
-- **Interactive mode** for guided workflows
-- **Command mode** for repeatable developer operations and automation
+- **Interactive mode** for guided workflows  
+- **Command mode** for repeatable developer operations and automation  
 
-Primary script:
+Primary script:  
 
-- `scripts/dx_tool.sh`
+- `./scripts/dx_tool.sh`  
 
-Related helper scripts:
+Related helper scripts:  
 
-- `scripts/add_model.sh`
-- `scripts/extract_model_package.sh`
-- `scripts/validate_models.sh`
-- `scripts/verify_inference_output.py`
-- `scripts/run_examples.sh`
-- `scripts/bench_models.sh`
+- `./scripts/add_model.sh`  
+- `./scripts/extract_model_package.sh`  
+- `./scripts/validate_models.sh`  
+- `./scripts/verify_inference_output.py`  
+- `./scripts/run_examples.sh`  
+- `./scripts/bench_models.sh`  
 
-Key data files:
+Key data files:  
 
-- `config/model_registry.json` — model registry, single source of truth
-- `scripts/inference_verify_rules.json` — numerical verification thresholds per task
+- `./config/model_registry.json` — model registry, single source of truth  
+- `./scripts/inference_verify_rules.json` — numerical verification thresholds per task  
 
----
-
-## When to Use `dx_tool.sh`
+**When to Use `dx_tool.sh`**
 
 Use `dx_tool.sh` when you need to:
 
@@ -48,11 +46,34 @@ For end-user installation, setup, and basic inference execution, refer to the in
 
 ---
 
-## Execution Modes
+## Quick Start for Contributors
 
-### Interactive mode
+### Step 1. Full Developer Sequence
 
-Run the tool with no subcommand to enter the guided menu.
+If you are adding or refactoring an example, follow this standard sequence to ensure everything is built and tested correctly  
+
+```bash
+# 1. Prepare assets & Build
+./setup.sh
+./build.sh --clean
+
+# 2. Inspect & Validate repository state
+./scripts/dx_tool.sh list
+./scripts/dx_tool.sh validate
+
+# 3. Run and Verify (C++ and/or Python)
+./scripts/dx_tool.sh run --lang both
+./run_tc.sh --cpp --cli
+./run_tc.sh --python
+```
+
+This sequence prepares assets, rebuilds the repository, inspects available models, validates layout consistency, and performs a fast example-oriented test pass.  
+
+### Step 2. Execution Modes
+
+**Interactive mode** 
+
+Run the tool with no subcommand to enter the guided menu.  
 
 ```bash
 ./scripts/dx_tool.sh
@@ -64,13 +85,14 @@ This mode is useful when:
 - you do not remember the exact subcommand
 - you want menu-based task selection
 
-> **Note:** `dx_tool.sh run` with no arguments delegates to `scripts/run_examples.sh` interactive mode,
-> which provides a 6-stage guided menu (language, category, model filter, sync/async, input type, display/save options)
-> with a configuration summary before execution. Each test also displays its performance table.
+!!! note "NOTE"
+    `dx_tool.sh run` with no arguments delegates to `scripts/run_examples.sh` interactive mode,
+    which provides a 6-stage guided menu (language, category, model filter, sync/async, input type, display/save options)
+    with a configuration summary before execution. Each test also displays its performance table.
 
-### Command mode
+**Command mode**   
 
-Run a subcommand directly when you already know the intended task.
+Run a subcommand directly when you already know the intended task.  
 
 ```bash
 ./scripts/dx_tool.sh list
@@ -78,15 +100,13 @@ Run a subcommand directly when you already know the intended task.
 ./scripts/dx_tool.sh validate
 ```
 
-This mode is better for:
+This mode is better for:  
 
-- repeatable contributor workflows
-- shell history reuse
-- scripting and CI-friendly operations
+- repeatable contributor workflows  
+- shell history reuse  
+- scripting and CI-friendly operations  
 
----
-
-## Command Summary
+### Step 3. Command Summary
 
 | Command | Purpose |
 |---|---|
@@ -104,9 +124,13 @@ This mode is better for:
 
 ---
 
-## Model Registry
+## Core Capabilities & Reference
 
-`config/model_registry.json` is a JSON array that serves as the single source of truth for all model metadata. Each entry contains:
+### Model Management
+
+**Model Registry**  
+
+`config/model_registry.json` is a JSON array that serves as the single source of truth for all model metadata. Each entry contains:  
 
 | Field | Purpose |
 |-------|---------|
@@ -118,13 +142,18 @@ This mode is better for:
 | `config` | Extra parameters (thresholds, num_classes, etc.) |
 | `supported` | Whether the model is part of the standard validation flow |
 
-The `add` command reads this registry to auto-generate factory files, `config.json`, and all entry-point scripts.
+The `add` command reads this registry to auto-generate factory files, `config.json`, and all entry-point scripts.  
 
----
+**Adding Examples**  
 
-## Model Validation and Numerical Verification
+- Use `add` when you are onboarding a new model into an existing task category.  
+- Use `new-task` when you are introducing a new task-level grouping that does not yet exist in the current repository layout.  
 
-### Basic validation
+In both cases, validate the result and then update the related test registration if the example should be covered by automated tests.  
+
+### Validation & Verification 
+
+**Basic validation**  
 
 ```bash
 ./scripts/dx_tool.sh validate
@@ -132,23 +161,23 @@ The `add` command reads this registry to auto-generate factory files, `config.js
 ./scripts/validate_models.sh --lang py
 ```
 
-This runs code generation + NPU inference for all supported models.
+This runs code generation + NPU inference for all supported models.  
 
-### Numerical verification
+**Numerical verification**  
 
 ```bash
 ./scripts/validate_models.sh --numerical --lang py
 ```
 
-This additionally verifies that inference outputs are numerically correct:
+This additionally verifies that inference outputs are numerically correct:  
 
-1. **Inference** — runs each model through NPU
-2. **Serialization** — `common/runner/verify_serialize.py` converts results to JSON
-3. **Validation** — `scripts/verify_inference_output.py` checks results against `scripts/inference_verify_rules.json`
+- (1) **Inference** — runs each model through NPU  
+- (2) **Serialization** — `common/runner/verify_serialize.py` converts results to JSON  
+- (3) **Validation** — `scripts/verify_inference_output.py` checks results against `scripts/inference_verify_rules.json`  
 
 Verification covers 17 task types: bounding boxes, confidence ranges, class IDs, keypoints, segmentation masks, depth maps, embeddings, attributes, re-identification, face alignment, etc.
 
-### `validate_models.sh` options
+**`validate_models.sh` options**
 
 | Option | Purpose |
 |--------|---------|
@@ -161,51 +190,19 @@ Verification covers 17 task types: bounding boxes, confidence ranges, class IDs,
 | `--start-from <model>` | Resume from a specific model |
 | `<task_filter>` | Filter by task (e.g., `object_detection`) |
 
----
+### Execution & Benchmarking
 
-## Frequently Used Command Patterns
+- **Selective Run**: The `run` command abstracts the complexity of finding specific binaries. It uses filters to execute subsets of the 130+ models instantly.  
 
-The exact workflow depends on the contributor task, but the following command patterns are the most commonly used.
-
-### Inspect the current repository state
-
-```bash
-./scripts/dx_tool.sh list
-./scripts/dx_tool.sh search yolov8
-./scripts/dx_tool.sh info yolov9
-```
-
-### Validate after adding or refactoring examples
-
-```bash
-./scripts/dx_tool.sh validate
-```
-
-### Run language-specific example subsets
-
-```bash
-# Interactive — 6-stage guided menu
-./scripts/dx_tool.sh run
-scripts/run_examples.sh
-
-# Non-interactive — pass options directly
-./scripts/dx_tool.sh run --lang cpp
-./scripts/dx_tool.sh run --lang py
-./scripts/dx_tool.sh run --lang both
-```
-
-### Benchmark language-specific example subsets
-
-```bash
-./scripts/dx_tool.sh bench --lang cpp
-./scripts/dx_tool.sh bench --lang py
-```
+- **Performance Benchmarking**: The `bench` command runs models in a loop, calculating average latency and throughput (FPS) while minimizing system noise.  
 
 ---
 
 ## Common Workflows
 
-### 1. Discover existing examples
+### Step 1. New Model/Task Integration
+
+**1-1. Discover existing examples**  
 
 ```bash
 ./scripts/dx_tool.sh list
@@ -215,21 +212,21 @@ scripts/run_examples.sh
 
 Use this first to avoid creating duplicate or inconsistent example names.
 
-### 2. Add a new model example
+**1-2. Add a new model example**  
 
 ```bash
 ./scripts/dx_tool.sh add
 ```
 
-The add flow is intended for contributors creating a new example under the current task/model layout. Typical information includes:
+The add flow is intended for contributors creating a new example under the current task/model layout. Typical information includes:  
 
-- target language (`cpp`, `py`, or both)
-- task category
-- model name
-- post-processing selection
-- sync-only or multi-variant generation choice
+- target language (`cpp`, `py`, or both)  
+- task category  
+- model name  
+- post-processing selection  
+- sync-only or multi-variant generation choice  
 
-You can also invoke `add_model.sh` directly for non-interactive usage:
+You can also invoke `add_model.sh` directly for non-interactive usage:  
 
 ```bash
 # Create from a postprocessor template
@@ -242,7 +239,7 @@ You can also invoke `add_model.sh` directly for non-interactive usage:
 ./scripts/add_model.sh yolov30 detection --postprocessor yolov8 --verify --model assets/models/YoloV30.dxnn --git-push
 ```
 
-Key `add_model.sh` options:
+Key `add_model.sh` options
 
 | Option | Description |
 |--------|-------------|
@@ -257,23 +254,43 @@ Key `add_model.sh` options:
 
 After generation, review the resulting files under `src/cpp_example/` and/or `src/python_example/`.
 
-### 3. Extract a standalone package
+**1-3. Verify the integration**  
+
+After generation, verify that the new example is correctly integrated and runs without issues.  
+
+```bash
+# Check if all required files and registry entries are consistent
+./scripts/dx_tool.sh validate
+
+# Test the new example (e.g., for C++)
+./scripts/dx_tool.sh run --lang cpp --model <your_model_name>
+```
+
+!!! note "NOTE"
+    If you used the `--verify` flag with `add_model.sh` in the previous step, this manual verification might be redundant but is still recommended for visual confirmation.
+
+### Step 2. Packaging & Distribution
+
+**2. Extract a standalone package**
 
 ```bash
 ./scripts/dx_tool.sh extract
 ```
 
-Use this when you need to convert an external model package into the repository layout used by DX-APP.
+Use this when you need to convert an external model package into the repository layout used by DX-APP.  
 
-### 4. Validate repository consistency
+
+### Step 3. Repository Maintenance
+
+**3-1. Validate repository consistency**  
 
 ```bash
 ./scripts/dx_tool.sh validate
 ```
 
-Run validation after adding or restructuring examples. This helps catch mismatched files, missing variants, or incomplete model onboarding.
+Run validation after adding or restructuring examples. This helps catch mismatched files, missing variants, or incomplete model onboarding.  
 
-### 5. Run examples selectively
+**3-2. Run examples selectively**  
 
 ```bash
 # Interactive — guided category/model selection with performance output
@@ -286,105 +303,85 @@ scripts/run_examples.sh
 ./scripts/dx_tool.sh run --lang both
 ```
 
-Use `run` to execute filtered example sets without manually locating every command.
-In interactive mode, selecting a category shows all available models in that category.
+Use `run` to execute filtered example sets without manually locating every command.  
+In interactive mode, selecting a category shows all available models in that category.  
 
-### 6. Benchmark examples
+**3-3. Benchmark examples**  
 
 ```bash
 ./scripts/dx_tool.sh bench --lang cpp
 ./scripts/dx_tool.sh bench --lang py
 ```
 
-Use `bench` when you want comparable runtime results across example variants.
+Use `bench` when you want comparable runtime results across example variants.  
 
----
-
-## First 5 Commands for a Contributor
-
-If you are new to the repository, this is a practical starting sequence.
-
-```bash
-./setup.sh
-./build.sh --clean
-./scripts/dx_tool.sh list
-./scripts/dx_tool.sh validate
-./scripts/validate_models.sh --numerical --lang py
-./run_tc.sh --cpp --cli
-```
-
-This sequence prepares assets, rebuilds the repository, inspects available models, validates layout consistency, and performs a fast example-oriented test pass.
-
----
-
-## When to Use `add` vs `new-task`
-
-- Use `add` when you are onboarding a new model into an existing task category.
-- Use `new-task` when you are introducing a new task-level grouping that does not yet exist in the current repository layout.
-
-In both cases, validate the result and then update the related test registration if the example should be covered by automated tests.
-
----
-
-## Relationship to Other Top-Level Scripts
-
-`dx_tool.sh` is a **developer workflow tool**, not a replacement for every top-level script.
-
-- `setup.sh`: prepares shared assets such as models and videos
-- `build.sh`: builds C++ binaries and Python bindings
-- `run_tc.sh`: runs the repository test suites
-- `scripts/dx_tool.sh`: helps contributors add, inspect, validate, run, and benchmark example content
-
-A typical contributor workflow is:
-
-1. prepare assets with `./setup.sh`
-2. build binaries with `./build.sh`
-3. inspect or add examples with `./scripts/dx_tool.sh`
-4. run validations and tests with `./scripts/dx_tool.sh validate` and `./run_tc.sh`
-
----
-
-## Recommended Contributor Workflow
-
-### Add or refactor an example
-
-1. inspect the existing repository layout
-2. add or update the example structure
-3. prepare required models/assets
-4. build the repository
-5. validate layout and run examples
-6. execute relevant tests
-
-Example sequence:
-
-```bash
-./setup.sh
-./build.sh --clean
-./scripts/dx_tool.sh validate
-./scripts/dx_tool.sh run --lang cpp
-./run_tc.sh --cpp --cli
-```
-
-If the change also affects Python examples, extend the flow with:
-
-```bash
-./scripts/dx_tool.sh run --lang py
-./run_tc.sh --python
-```
-
----
-
-## Notes for Automation
+**Notes for Automation**  
 
 For CI or scripted usage:
 
-- prefer direct subcommands over interactive mode
-- keep `dx_tool.sh` for contributor automation, not end-user setup
-- use `setup.sh`, `build.sh`, and `run_tc.sh` for deterministic pipeline steps
+- prefer direct subcommands over interactive mode  
+- keep `dx_tool.sh` for contributor automation, not end-user setup  
+- use `setup.sh`, `build.sh`, and `run_tc.sh` for deterministic pipeline steps  
 
 ---
 
-## See Also
+## Supplementary Information
+
+### Script Relationships
+
+`dx_tool.sh` is a **developer workflow tool**, not a replacement for every top-level script.  
+
+- `setup.sh`: prepares shared assets such as models and videos  
+- `build.sh`: builds C++ binaries and Python bindings  
+- `run_tc.sh`: runs the repository test suites  
+- `scripts/dx_tool.sh`: helps contributors add, inspect, validate, run, and benchmark example   content
+
+A typical contributor workflow is:  
+
+- (1) prepare assets with `./setup.sh`
+- (2) build binaries with `./build.sh`  
+- (3) inspect or add examples with `./scripts/dx_tool.sh`  
+- (4) run validations and tests with `./scripts/dx_tool.sh validate` and `./run_tc.sh`  
+
+### FAQ & Troubleshooting
+
+The exact workflow depends on the contributor task, but the following command patterns are the most commonly used.  
+
+**Inspect the current repository state**    
+
+```bash
+./scripts/dx_tool.sh list
+./scripts/dx_tool.sh search yolov8
+./scripts/dx_tool.sh info yolov9
+```
+
+**Validate after adding or refactoring examples**  
+
+```bash
+./scripts/dx_tool.sh validate
+```
+
+**Run language-specific example subsets**  
+
+```bash
+# Interactive — 6-stage guided menu
+./scripts/dx_tool.sh run
+scripts/run_examples.sh
+
+# Non-interactive — pass options directly
+./scripts/dx_tool.sh run --lang cpp
+./scripts/dx_tool.sh run --lang py
+./scripts/dx_tool.sh run --lang both
+```
+
+**Benchmark language-specific example subsets**  
+
+```bash
+./scripts/dx_tool.sh bench --lang cpp
+./scripts/dx_tool.sh bench --lang py
+```
+
+### See Also
 
 - `scripts/dx_tool.sh`
 - `scripts/add_model.sh`
@@ -395,3 +392,5 @@ For CI or scripted usage:
 - `scripts/bench_models.sh`
 - `config/model_registry.json`
 - `docs/11_DX-APP_Example_Source_Structure.md`
+
+---

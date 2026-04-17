@@ -28,7 +28,7 @@
 - Interactive mode for `scripts/run_examples.sh` — 6-stage menu (Language→Category→Filter→ExecMode→InputType→Options) when run without arguments, with case-insensitive keyword filtering
 - `dx_tool.sh run` unified with `run_examples.sh` interactive mode
 - Real-time performance table output during example execution
-- `--verbose` option for Python examples — controls per-frame detailed log output
+- `--show-log` option for Python examples — controls per-frame detailed log output
 
 ## v3.0.2 / 2026-02-10
 

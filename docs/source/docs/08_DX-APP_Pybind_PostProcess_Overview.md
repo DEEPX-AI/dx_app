@@ -1,8 +1,10 @@
 # DX-APP Python Post-processing
 
-## dx_postprocess Overview & Performance Benefits  
+## Overview
 
 The `dx_postprocess` module provides high-performance Python bindings for the **DEEPX C++ post-processing library**. By utilizing `pybind11`, it allows Python applications to execute hardware-optimized decoding logic with near-native C++ performance.  
+
+**Performance Benefits**  
 
 Integrating C++ post-processing into your Python pipeline offers two primary advantages  
 
@@ -18,7 +20,20 @@ For end-to-end Python example usage, refer to the DX-APP Python usage documentat
 
 ---
 
-## Supported Models & Tasks
+## Technical Strategy & Support
+
+### Technical Strategy
+
+The SDK follows a **Single Source of Truth** strategy to ensure reliability across platforms:  
+
+- **Implementation:** C++ post-processing classes are wrapped with `pybind11` for seamless Python integration.  
+- **Unified Logic:** It directly wraps the C++ source code from `src/postprocess/`. This guarantees that results in Python are 100% identical to those in C++.  
+- **Build System:** Utilizes **CMake** with **scikit-build-core** for robust, cross-platform extension building.  
+- **Source Code Locations:**  
+    - **Python Bindings:** `src/bindings/python/dx_postprocess/postprocess_pybinding.cpp`  
+    - **C++ Implementations:** `src/postprocess/`  
+
+### Supported Models & Tasks
 
 The library wraps **41 C++ post-processing classes** with pybind11 bindings, ensuring consistent results between C++ and Python implementations.  
 
@@ -39,9 +54,11 @@ The library wraps **41 C++ post-processing classes** with pybind11 bindings, ens
 
 ---
 
-### Installation
+## Installation & Setup
 
-**Prerequisites:** Before building, ensure the following are installed on your system  
+### Prerequisites
+
+Before building, ensure the following are installed on your system  
 
 - **Python:** 3.8 or higher  
 - **Compiler:** GCC 4.8+ or Clang 3.3+  
@@ -49,16 +66,23 @@ The library wraps **41 C++ post-processing classes** with pybind11 bindings, ens
 
 During the installation, `pybind11` is automatically cloned from GitHub to `extern/pybind11` if it is not already present.  
 
-**Installation Methods:** The module is automatically built during the full SDK setup, but it can also be installed independently from the binding directory.  
+### Installation Steps
+
+The module is automatically built during the full SDK setup, but it can also be installed independently from the binding directory.  
 
 | **Method** | **Command** | **Recommended For** | 
 |----|----|----|
 | **Full Build** | `./build.sh` | Initial environment setup and full SDK deployment | 
 | **Standalone** | `cd ./src/bindings/python/dx_postprocess && python3 -m pip install .` | Focused updates to the post-processing logic | 
 
-**Standalone Installation Notes:** The standalone installation uses the local `pyproject.toml` and the configured Python packaging backend. Ensure your active Python environment has access to the required build dependencies before running `python3 -m pip install .`.  
+**Standalone Installation Notes** 
 
-**Verification:** To ensure the module is correctly linked to your Python environment, run:
+The standalone installation uses the local `pyproject.toml` and the configured Python packaging backend. Ensure your active Python environment has access to the required build dependencies before running `python3 -m pip install .`.  
+
+**Verification**  
+
+To ensure the module is correctly linked to your Python environment, run:  
+
 ```bash
 python3 -c "import dx_postprocess; print('dx_postprocess successfully installed!')"  
 ```
@@ -69,8 +93,22 @@ python3 -c "import dx_postprocess; print('dx_postprocess successfully installed!
 
 The `dx_postprocess` classes expect a list of NumPy arrays directly from the `InferenceEngine`.  
 
-Basic Implementation Example  
+### Running Examples  
+
 ```bash
+# Python examples in src/python_example/ utilize this library in their '_cpp_postprocess.py' variants.
+# From dx_app/ directory
+
+# Sync (Image Inference)
+python src/python_example/object_detection/yolov9s/yolov9s_sync_cpp_postprocess.py --model assets/models/YoloV9S.dxnn --image sample/img/sample_kitchen.jpg
+
+# Async (Stream Inference)
+python src/python_example/object_detection/yolov9s/yolov9s_async_cpp_postprocess.py --model assets/models/YoloV9S.dxnn --video assets/videos/dance-group.mov
+```
+
+### Direct API Call  
+
+```python
 from dx_postprocess import YOLOv9PostProcess 
 import numpy as np 
 
@@ -91,27 +129,4 @@ detections = postprocessor.postprocess(ie_output)
 # Each row: [x1, y1, x2, y2, confidence, class_id]
 ```
 
-Running Examples  
-```bash
-# Python examples in src/python_example/ utilize this library in their '_cpp_postprocess.py' variants.
-# From dx_app/ directory
-
-# Sync (Image Inference)
-python src/python_example/object_detection/yolov9s/yolov9s_sync_cpp_postprocess.py --model assets/models/YoloV9S.dxnn --image sample/img/sample_kitchen.jpg
-
-# Async (Stream Inference)
-python src/python_example/object_detection/yolov9s/yolov9s_async_cpp_postprocess.py --model assets/models/YoloV9S.dxnn --video assets/videos/dance-group.mov
-```
-
 ---
-
-## Technical Details 
-
-- **Implementation:** C++ post-processing classes wrapped with pybind11 for seamless Python integration.  
-- **Build System:** Utilizes CMake with scikit-build-core for robust, cross-platform extension building.  
-- **Source Code:**  
-     : **Python Bindings:** `src/bindings/python/dx_postprocess/postprocess_pybinding.cpp`  
-     : **C++ Implementations:** `src/postprocess/`  
-
----
-
