@@ -1,0 +1,5 @@
+{
+    "score_threshold": 0.35,
+    "nms_threshold": 0.6,
+    "reg_max": 7
+}

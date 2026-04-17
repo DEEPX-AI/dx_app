@@ -1,0 +1,1 @@
+from .yolact_regnetx_1_6gf_factory import Yolact_regnetx_1_6gfFactory

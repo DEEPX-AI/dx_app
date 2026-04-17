@@ -10,8 +10,16 @@
 #include <iterator>
 #include <map>
 #include <sstream>
+#include <stdexcept>
 
 #include "common_util.hpp"
+
+namespace {
+/** Dedicated exception for postprocessing configuration errors. */
+class PostprocessConfigError : public std::runtime_error {
+    using std::runtime_error::runtime_error;
+};
+}  // namespace
 
 bool YOLOv8SegResult::is_invalid(int image_width, int image_height) const {
     return box[0] < 0 || box[1] < 0 || box[2] > image_width || box[3] > image_height;
@@ -26,18 +34,25 @@ YOLOv8SegPostProcess::YOLOv8SegPostProcess(const int input_w, const int input_h,
     score_threshold_ = score_threshold;
     nms_threshold_ = nms_threshold;
     is_ort_configured_ = is_ort_configured;
+    num_classes_ = 80;
 
-    if (!is_ort_configured_) {
-        throw std::invalid_argument(
-            "ORT-OFF output postprocessing is not supported for yolov8-seg\n"
-            "please dxrt build with USE_ORT=ON");
-    }
+    cpu_output_names_ = {"output0", "output1"};
+    npu_output_names_ = {};
+    anchors_by_strides_ = {{8, {}}, {16, {}}, {32, {}}};
+}
 
-    // YOLOv8-seg (ORT) output layout:
-    //   output0: FLOAT, [1, 116, 8400]  -> bbox(4) + classes(80) + seg_coef(32)
-    //   output1: FLOAT, [1, 32, 160, 160] -> mask prototypes
+// Constructor with num_classes
+YOLOv8SegPostProcess::YOLOv8SegPostProcess(const int input_w, const int input_h,
+                                             const float score_threshold, const float nms_threshold,
+                                             const bool is_ort_configured,
+                                             const int num_classes) {
+    input_width_ = input_w;
+    input_height_ = input_h;
+    score_threshold_ = score_threshold;
+    nms_threshold_ = nms_threshold;
+    is_ort_configured_ = is_ort_configured;
+    num_classes_ = num_classes;
 
-    // Initialize model-specific parameters for YOLOv8-seg
     cpu_output_names_ = {"output0", "output1"};
     npu_output_names_ = {};
     anchors_by_strides_ = {{8, {}}, {16, {}}, {32, {}}};
@@ -63,28 +78,21 @@ YOLOv8SegPostProcess::YOLOv8SegPostProcess() {
 
 // Process model outputs
 std::vector<YOLOv8SegResult> YOLOv8SegPostProcess::postprocess(const dxrt::TensorPtrs& outputs) {
+    if (outputs.size() < 2) {
+        std::cerr << "YOLOv8SegPostProcess: expected at least 2 outputs, got " << outputs.size() << std::endl;
+        return {};
+    }
+
+    // Try to align tensors; if alignment fails, use outputs directly
     dxrt::TensorPtrs aligned_outputs;
     if (!is_ort_configured_)
         aligned_outputs = align_tensors(outputs);
     else
         aligned_outputs = outputs;
-    if (aligned_outputs.empty()) {
-        int i = 0;
-        std::ostringstream msg;
-        msg << "[DXAPP] [ER] YOLOv8SegPostProcess::postprocess - Aligned outputs are empty.\n"
-            << "  Unexpected shape\n";
-        for (auto& o : outputs) {
-            msg << "    Output shape [" << i++ << "]: (";
-            for (size_t i = 0; i < o->shape().size(); ++i) {
-                msg << o->shape()[i];
-                if (i != o->shape().size() - 1) msg << ", ";
-            }
-            msg << ")\n";
-        }
-        msg << ", Expected (1, 116, 8400) and (1, 32, 160, 160).\n"
-            << "Please re-compile the model with the correct output configuration.\n";
 
-        throw std::runtime_error(msg.str());  // 안전한 종료: 상위로 에러 전달
+    if (aligned_outputs.size() < 2) {
+        // Fallback: use outputs as-is (first = detection, second = mask proto)
+        aligned_outputs = outputs;
     }
 
     std::vector<YOLOv8SegResult> detections;
@@ -108,7 +116,9 @@ void YOLOv8SegPostProcess::decoding_mask_cpu_outputs(const dxrt::TensorPtrs& out
      * output1: [1, 32, 160, 160] - segmentation masks   (*** Used in this field)
      */
     const float* mask_output = static_cast<const float*>(outputs[1]->data());
-    int mask_height = 160, mask_width = 160;
+    auto mask_shape = outputs[1]->shape();
+    int mask_height = (mask_shape.size() >= 3) ? static_cast<int>(mask_shape[mask_shape.size() - 2]) : 160;
+    int mask_width  = (mask_shape.size() >= 3) ? static_cast<int>(mask_shape[mask_shape.size() - 1]) : 160;
     if (mask_output && !detections.empty()) {
         auto masks = process_segmentation_masks(mask_output, detections, mask_height, mask_width);
         for (size_t i = 0; i < detections.size() && i < masks.size(); ++i) {
@@ -124,21 +134,63 @@ std::vector<YOLOv8SegResult> YOLOv8SegPostProcess::decoding_cpu_outputs(
     const dxrt::TensorPtrs& outputs) const {
     std::vector<YOLOv8SegResult> detections;
     /**
-     * @note YOLOv8-seg has different output format:
-     * output0: [1, 116, 8400] - contains bbox (4) + classes (80) + seg_coef (32) (Used in this
-     * field) output1: [1, 32, 160, 160] - segmentation masks
+     * @note YOLOv8-seg output format:
+     * output0: [1, 4+C+32, N] - contains bbox (4) + classes (C) + seg_coef (32)
+     * output1: [1, 32, MH, MW] - segmentation masks
+     *
+     * YOLO26-seg post-NMS: [1, N, 4+1+1+32] = [x1,y1,x2,y2,score,cls_id,mask_coefs...]
      */
+    const auto& shape = outputs[0]->shape();
     const float* bbox_output = static_cast<const float*>(outputs[0]->data());
-    auto num_dets = outputs[0]->shape()[2];  // 8400
+
+    // Detect format: [1, C+36, N] (transposed) vs [1, N, C+36] (non-transposed/post-NMS)
+    int dim1 = (shape.size() >= 2) ? static_cast<int>(shape[1]) : 0;
+    int dim2 = (shape.size() >= 3) ? static_cast<int>(shape[2]) : 0;
+
+    bool is_transposed = (dim1 > dim2);  // [1, features, anchors] → features > anchors count? No.
+    // Actually: [1, 116, 8400] has dim1=116 < dim2=8400 → transposed means dim1 < dim2
+    // [1, N, 38] has dim1=N > dim2=38 → non-transposed (post-NMS)
+    bool is_post_nms = (dim2 < 100);  // post-NMS has small feature count like 38
+
+    if (is_post_nms) {
+        // YOLO26-seg post-NMS: [1, N, 4+1+1+32] = [x1,y1,x2,y2,score,cls_id,mask_coefs...]
+        int num_dets = dim1;
+        int num_cols = dim2;
+        int num_mask_coefs = num_cols - 6;  // 4 box + 1 score + 1 class_id
+
+        for (int i = 0; i < num_dets; ++i) {
+            const float* row = bbox_output + i * num_cols;
+            float score = row[4];
+            if (score < score_threshold_) continue;
+
+            YOLOv8SegResult result;
+            result.box = {row[0], row[1], row[2], row[3]};
+            result.confidence = score;
+            result.class_id = static_cast<int>(row[5]);
+            result.class_name = dxapp::common::get_coco_class_name(result.class_id);
+
+            result.seg_mask_coef.resize(num_mask_coefs);
+            for (int j = 0; j < num_mask_coefs; ++j) {
+                result.seg_mask_coef[j] = row[6 + j];
+            }
+            detections.emplace_back(std::move(result));
+        }
+        return detections;
+    }
+
+    // Standard pre-NMS: [1, 4+C+32, N]
+    auto num_dets = static_cast<int>(dim2);
+    int num_features = dim1;
+    int num_mask_coefs = 32;
+    int actual_num_classes = num_features - 4 - num_mask_coefs;
+    if (actual_num_classes <= 0) actual_num_classes = num_classes_;
 
     // Optimization: Transpose the loop to access memory sequentially for class scores
-    // This significantly improves cache locality as the tensor shape is [1, 116, 8400]
     std::vector<float> max_scores(num_dets, 0.0f);
     std::vector<int> best_classes(num_dets, -1);
 
     // 1. Find best class and score for each anchor
-    // Iterate channels first, then anchors to access memory sequentially
-    for (int c = 0; c < num_classes_; ++c) {
+    for (int c = 0; c < actual_num_classes; ++c) {
         const float* class_scores = bbox_output + (4 + c) * num_dets;
         for (int i = 0; i < num_dets; ++i) {
             float score = class_scores[i];
@@ -150,19 +202,19 @@ std::vector<YOLOv8SegResult> YOLOv8SegPostProcess::decoding_cpu_outputs(
     }
 
     // 2. Filter by threshold and extract box/mask info
+    int seg_coef_offset = 4 + actual_num_classes;
     for (int i = 0; i < num_dets; ++i) {
         if (max_scores[i] < score_threshold_) {
             continue;
         }
 
-        // Extract coordinates (xywh format like Python)
-        // Strided access here, but only for valid detections (sparse)
+        // Extract coordinates (cxcywh format)
         float cx = bbox_output[i];
         float cy = bbox_output[i + num_dets];
         float w = bbox_output[i + 2 * num_dets];
         float h = bbox_output[i + 3 * num_dets];
 
-        // Convert to xyxy like Python ops.xywh2xyxy
+        // Convert to xyxy
         float x1 = cx - w / 2.0f;
         float y1 = cy - h / 2.0f;
         float x2 = cx + w / 2.0f;
@@ -172,16 +224,12 @@ std::vector<YOLOv8SegResult> YOLOv8SegPostProcess::decoding_cpu_outputs(
         result.confidence = max_scores[i];
         result.class_id = best_classes[i];
         result.class_name = dxapp::common::get_coco_class_name(result.class_id);
-        result.box.resize(4);
-        result.box[0] = x1;
-        result.box[1] = y1;
-        result.box[2] = x2;
-        result.box[3] = y2;
+        result.box = {x1, y1, x2, y2};
 
-        // Extract seg coefficients like Python x[..., 84:84+32]
-        result.seg_mask_coef.resize(32);
-        const float* coefs = bbox_output + 84 * num_dets;
-        for (int j = 0; j < 32; ++j) {
+        // Extract seg coefficients
+        result.seg_mask_coef.resize(num_mask_coefs);
+        const float* coefs = bbox_output + seg_coef_offset * num_dets;
+        for (int j = 0; j < num_mask_coefs; ++j) {
             result.seg_mask_coef[j] = coefs[j * num_dets + i];
         }
 

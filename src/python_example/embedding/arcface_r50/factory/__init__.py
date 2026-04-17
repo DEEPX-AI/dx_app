@@ -1,0 +1,1 @@
+from .arcface_r50_factory import Arcface_r50Factory

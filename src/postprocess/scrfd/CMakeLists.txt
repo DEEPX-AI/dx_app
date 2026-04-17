@@ -65,12 +65,12 @@ set(COMMON_COMPILE_FLAGS -Wall -Wextra -O3 )
 # Common compile definitions
 set(COMMON_COMPILE_DEFINITIONS PROJECT_ROOT_DIR="${PROJECT_ROOT}")
 
-# scrfd_postprocess 라이브러리 생성 (공유 라이브러리, .so 파일)
+# Build scrfd_postprocess shared library (.so)
 if(SOURCES)
     add_library(scrfd_postprocess SHARED ${SOURCES} ${HEADERS})
     target_link_libraries(scrfd_postprocess PRIVATE ${COMMON_LIBS})
     
-    # 라이브러리 속성 설정
+    # Library properties
     set_target_properties(scrfd_postprocess PROPERTIES
         OUTPUT_NAME "dxapp_scrfd_postprocess"
         POSITION_INDEPENDENT_CODE ON

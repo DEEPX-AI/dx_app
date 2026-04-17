@@ -1,0 +1,7 @@
+{
+    "score_threshold": 0.3,
+    "nms_threshold": 0.5,
+    "num_classes": 81,
+    "num_protos": 32,
+    "top_k": 200
+}

@@ -13,6 +13,7 @@ from performance_collector import get_collector
 
 # Add project root to path
 PROJECT_ROOT = Path(__file__).parent.parent.parent
+SCRIPTS_DIR = PROJECT_ROOT / "scripts"
 sys.path.insert(0, str(PROJECT_ROOT))
 
 
@@ -51,12 +52,43 @@ def pytest_addoption(parser):
         default="50",
         help="Number of inference iterations to run in E2E image tests (default: 50)"
     )
+    parser.addoption(
+        "--camera-index",
+        action="store",
+        default=None,
+        help="Camera device index for e2e_camera tests (e.g. 0)"
+    )
+    parser.addoption(
+        "--rtsp-url",
+        action="store",
+        default=None,
+        help="RTSP stream URL for e2e_rtsp tests"
+    )
+    parser.addoption(
+        "--stream-duration",
+        action="store",
+        default="10",
+        help="Seconds to run each camera/RTSP test (default: 10)"
+    )
 
 
 @pytest.fixture
 def bin_dir():
     """Fixture providing path to bin directory"""
     return BIN_DIR
+
+
+@pytest.fixture(autouse=True)
+def wait_for_temperature(request):
+    """Wait for device temperature to drop below threshold before each e2e test."""
+    if request.node.get_closest_marker("e2e"):
+        check_temp_script = SCRIPTS_DIR / "check_temperature.sh"
+        if check_temp_script.exists():
+            print("\nWaiting for temperature to cool down...")
+            subprocess.run(
+                ["bash", str(check_temp_script), "--wait_target_temp=70"],
+                check=False
+            )
 
 
 @pytest.fixture(scope="session")
@@ -79,6 +111,33 @@ def loop_count(request) -> int:
         return int(request.config.getoption("--loop"))
     except (TypeError, ValueError):
         return 50
+
+
+@pytest.fixture(scope="session")
+def camera_index(request):
+    """Camera device index from --camera-index."""
+    val = request.config.getoption("--camera-index")
+    if val is None:
+        pytest.skip("--camera-index not provided")
+    return int(val)
+
+
+@pytest.fixture(scope="session")
+def rtsp_url(request):
+    """RTSP URL from --rtsp-url."""
+    val = request.config.getoption("--rtsp-url")
+    if val is None:
+        pytest.skip("--rtsp-url not provided")
+    return val
+
+
+@pytest.fixture(scope="session")
+def stream_duration(request) -> int:
+    """Seconds to run each camera/RTSP test."""
+    try:
+        return int(request.config.getoption("--stream-duration"))
+    except (TypeError, ValueError):
+        return 10
 
 
 def pytest_sessionfinish(session, exitstatus):

@@ -4,8 +4,16 @@
 #include <cstdlib>
 #include <iterator>
 #include <sstream>
+#include <stdexcept>
 
 #include "common_util.hpp"
+
+namespace {
+/** Dedicated exception for postprocessing configuration errors. */
+class PostprocessConfigError : public std::runtime_error {
+    using std::runtime_error::runtime_error;
+};
+}  // namespace
 
 // YOLOv7PPUResult methods implementation
 float YOLOv7PPUResult::iou(const YOLOv7PPUResult& other) const {
@@ -66,10 +74,6 @@ YOLOv7PPUPostProcess::YOLOv7PPUPostProcess() {
 std::vector<YOLOv7PPUResult> YOLOv7PPUPostProcess::postprocess(const dxrt::TensorPtrs& outputs) {
     std::vector<YOLOv7PPUResult> detections;
 
-    if (outputs.empty()) {
-        throw std::runtime_error("[DXAPP] [ER] YOLOv7 PPU PostProcess - outputs is empty");
-    }
-
     if (outputs.front()->type() != dxrt::DataType::BBOX) {
         int i = 0;
         std::ostringstream msg;
@@ -87,7 +91,7 @@ std::vector<YOLOv7PPUResult> YOLOv7PPUPostProcess::postprocess(const dxrt::Tenso
         msg << ", Expected (1, x ,x, x), Type = dxrt::DataType::BBOX.\n"
             << "Please re-compile the model with the correct output configuration.\n";
 
-        throw std::runtime_error(msg.str());  // 안전한 종료: 상위로 에러 전달
+        throw PostprocessConfigError(msg.str());  // Safe termination: propagate error to caller
     }
 
     detections = decoding_ppu_outputs(outputs);
@@ -104,9 +108,6 @@ std::vector<YOLOv7PPUResult> YOLOv7PPUPostProcess::decoding_ppu_outputs(
     std::vector<YOLOv7PPUResult> detections;
     // YOLOv7 PPU
     // "name":"BBOX", "shape":[1, num_emelements]
-    if (outputs.empty() || outputs[0]->shape().size() < 2) {
-        throw std::runtime_error("[DXAPP] [ER] YOLOv7 PPU decoding - Invalid output shape");
-    }
     auto num_elements = outputs[0]->shape()[1];
     auto* raw_data = static_cast<dxrt::DeviceBoundingBox_t*>(outputs[0]->data());
     for (int i = 0; i < num_elements; i++) {

@@ -1,0 +1,1 @@
+from .regnetx3_2gf_factory import Regnetx3_2gfFactory

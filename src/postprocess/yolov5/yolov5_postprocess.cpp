@@ -25,7 +25,6 @@ float YOLOv5Result::iou(const YOLOv5Result& other) const {
 
     return intersection_area / union_area;
 }
-
 bool YOLOv5Result::is_invalid(int image_width, int image_height) const {
     return box[0] < 0 || box[1] < 0 || box[2] > image_width || box[3] > image_height;
 }
@@ -127,8 +126,8 @@ std::vector<YOLOv5Result> YOLOv5PostProcess::decoding_npu_outputs(
     std::vector<YOLOv5Result> detections;
 
     // YOLOv5s typically has 3 output tensors for different scales
-    // Each output contains: [batch, anchors * 85, grid_y, grid_x]
-    // Where 85 = [x, y, w, h, obj_conf, cls_conf_0, ..., cls_conf_79]
+    // Each output contains: [batch, anchors * (num_classes+5), grid_y, grid_x]
+    // Where (num_classes+5) = [x, y, w, h, obj_conf, cls_conf_0, ..., cls_conf_(num_classes-1)]
     for (size_t output_idx = 0; output_idx < outputs.size(); ++output_idx) {
         const float* output = static_cast<const float*>(outputs[output_idx]->data());
         auto stride = std::next(anchors_by_strides_.begin(), output_idx)->first;
@@ -197,13 +196,13 @@ std::vector<YOLOv5Result> YOLOv5PostProcess::decoding_cpu_outputs(
     std::vector<YOLOv5Result> detections;
 
     // YOLOv5 typically has 1 output tensor
-    // output tensor contains: [batch, number of detections, 85]
-    // Where 85 = [x, y, w, h, obj_conf, class_conf_0, ..., class_conf_79]
+    // output tensor contains: [batch, number of detections, attribute_size]
+    // Where attribute_size = [x, y, w, h, obj_conf, cls_conf_0, ..., cls_conf_(num_classes-1)]
 
     for (size_t output_idx = 0; output_idx < outputs.size(); ++output_idx) {
         const float* output = static_cast<const float*>(outputs[output_idx]->data());
         auto num_dets = outputs[output_idx]->shape()[1];
-        auto attribute_size = outputs[output_idx]->shape()[2];
+        const int attribute_size = static_cast<int>(outputs[output_idx]->shape()[2]);
         for (int i = 0; i < num_dets; ++i) {
             const float* det = output + i * attribute_size;
             auto objectness_score = det[4];

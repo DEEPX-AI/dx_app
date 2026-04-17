@@ -1,4 +1,5 @@
 import importlib.util
+import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -8,13 +9,102 @@ import cv2
 import numpy as np
 import pytest
 
+_rng = np.random.default_rng(42)
+
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 PYTHON_EXAMPLE_PATH = PROJECT_ROOT / "src" / "python_example"
+SCRIPTS_DIR = PROJECT_ROOT / "scripts"
 sys.path.insert(0, str(PYTHON_EXAMPLE_PATH))
+# Make tests/test_helpers available to all test modules
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+
+def pytest_addoption(parser):
+    parser.addoption(
+        "--loop",
+        action="store",
+        default="1",
+        help="Number of inference iterations for E2E image tests (default: 1)",
+    )
+    parser.addoption(
+        "--camera-index",
+        action="store",
+        default=None,
+        help="Camera device index for e2e_camera tests (e.g. 0)",
+    )
+    parser.addoption(
+        "--rtsp-url",
+        action="store",
+        default=None,
+        help="RTSP stream URL for e2e_rtsp tests",
+    )
+    parser.addoption(
+        "--stream-duration",
+        action="store",
+        default="10",
+        help="Seconds to run each camera/RTSP test (default: 10)",
+    )
+
+
+@pytest.fixture
+def loop_count(request):
+    """Number of inference loops (from --loop CLI option)."""
+    try:
+        return int(request.config.getoption("--loop"))
+    except (TypeError, ValueError):
+        return 1
+
+
+@pytest.fixture(scope="session")
+def camera_index(request):
+    """Camera device index from --camera-index."""
+    val = request.config.getoption("--camera-index")
+    if val is None:
+        pytest.skip("--camera-index not provided")
+    return int(val)
+
+
+@pytest.fixture(scope="session")
+def rtsp_url(request):
+    """RTSP URL from --rtsp-url."""
+    val = request.config.getoption("--rtsp-url")
+    if val is None:
+        pytest.skip("--rtsp-url not provided")
+    return val
+
+
+@pytest.fixture(scope="session")
+def stream_duration(request) -> int:
+    """Seconds to run each camera/RTSP test."""
+    try:
+        return int(request.config.getoption("--stream-duration"))
+    except (TypeError, ValueError):
+        return 10
 
 
 def load_module_from_file(file_path: str, module_name: str):
     try:
+        script_dir = str(Path(file_path).parent)
+        # src/python_example/ root — two directories above the model dir
+        # (src/python_example/<task>/<model>/<script>.py)
+        py_example_root = str(Path(file_path).resolve().parent.parent.parent)
+
+        # Remove stale 'factory' modules so each script loads its
+        # own versions.
+        stale_keys = [k for k in sys.modules.keys()
+                      if k in ('factory',)
+                      or k.startswith('factory.')]
+        for key in stale_keys:
+            sys.modules.pop(key, None)
+
+        # Ensure sys.path order: script_dir first (factory/ lives here),
+        # then py_example_root (common/ lives here).
+        for p in (py_example_root, script_dir):
+            if p in sys.path:
+                sys.path.remove(p)
+        sys.path.insert(0, py_example_root)
+        sys.path.insert(0, script_dir)
+
         spec = importlib.util.spec_from_file_location(module_name, file_path)
         if spec is None or spec.loader is None:
             return None
@@ -46,9 +136,9 @@ def get_mock_outputs(config, script_name: str):
         )
 
     if is_ppu:
-        return [np.random.rand(*shape).astype(np.uint8) for shape in shapes]
+        return [_rng.integers(0, 256, shape, dtype=np.uint8) for shape in shapes]
     else:
-        return [np.random.rand(*shape).astype(np.float32) for shape in shapes]
+        return [_rng.random(shape).astype(np.float32) for shape in shapes]
 
 
 def pytest_configure(config):
@@ -66,6 +156,19 @@ def pytest_configure(config):
         sys.modules["dx_postprocess"] = mock_dx_postprocess
         print("✓ dx_postprocess mocked")
 
+    # Dynamically register per-model markers (one per model directory)
+    if PYTHON_EXAMPLE_PATH.exists():
+        for task_dir in sorted(PYTHON_EXAMPLE_PATH.iterdir()):
+            if not task_dir.is_dir():
+                continue
+            for model_dir in sorted(task_dir.iterdir()):
+                if not model_dir.is_dir() or model_dir.name == "__pycache__":
+                    continue
+                config.addinivalue_line(
+                    "markers",
+                    f"{model_dir.name}: {model_dir.name} model tests",
+                )
+
     report_dir = PROJECT_ROOT / "reports"
     report_dir.mkdir(exist_ok=True)
 
@@ -75,7 +178,7 @@ def pytest_configure(config):
 
 def pytest_sessionfinish(session, exitstatus):
 
-    from framework.performance_collector import get_collector
+    from test_e2e import get_collector
 
     collector = get_collector()
 
@@ -88,10 +191,27 @@ def pytest_sessionfinish(session, exitstatus):
     output_dir.mkdir(exist_ok=True)
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    csv_path = output_dir / f"performance_report_{timestamp}.csv"
+
+    # Include 'e2e_short' in filename when running the short suite
+    markers_used = session.config.option.markexpr or ""
+    label = "e2e_short" if "e2e_short" in markers_used else "e2e"
+    csv_path = output_dir / f"performance_report_{label}_{timestamp}.csv"
     collector.save_csv(str(csv_path))
 
     print(f"\n Report saved: {csv_path}")
+
+
+@pytest.fixture(scope="function", autouse=True)
+def wait_for_temperature(request):
+    """Wait for device temperature to drop below threshold before each e2e test."""
+    if request.node.get_closest_marker("e2e"):
+        check_temp_script = SCRIPTS_DIR / "check_temperature.sh"
+        if check_temp_script.exists():
+            print("\nWaiting for temperature to cool down...")
+            subprocess.run(
+                ["bash", str(check_temp_script), "--wait_target_temp=70"],
+                check=False
+            )
 
 
 @pytest.fixture(scope="function", autouse=True)
@@ -135,7 +255,7 @@ def mock_cv2_display(request):
 @pytest.fixture
 def mock_video_capture():
 
-    mock_image = np.random.randint(0, 255, (480, 640, 3), dtype=np.uint8)
+    mock_image = _rng.integers(0, 255, (480, 640, 3), dtype=np.uint8)
 
     mock_cap_instance = Mock()
     mock_cap_instance.isOpened.return_value = True

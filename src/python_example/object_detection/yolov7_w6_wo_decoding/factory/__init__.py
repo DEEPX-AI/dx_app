@@ -1,0 +1,1 @@
+from .yolov7_w6_wo_decoding_factory import Yolov7_w6_wo_decodingFactory

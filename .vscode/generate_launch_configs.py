@@ -14,32 +14,32 @@ import json
 
 # Example configurations: (name, binary, model, video, image, rtsp_stream)
 examples = [
-    ("YOLOv5", "yolov5", "YOLOV5S_3.dxnn", "boat.mp4", "sample/img/1.jpg", "stream6"),
-    ("YOLOv7", "yolov7", "YoloV7.dxnn", "snowboard.mp4", "sample/img/1.jpg", "stream6"),
-    ("YOLOv8", "yolov8", "YoloV8N.dxnn", "boat.mp4", "sample/img/1.jpg", "stream6"),
-    ("YOLOv9", "yolov9", "YOLOV9S.dxnn", "carrierbag.mp4", "sample/img/1.jpg", "stream6"),
-    ("YOLOv10", "yolov10", "YOLOV10N-1.dxnn", "boat.mp4", "sample/img/1.jpg", "stream6"),
-    ("YOLOv11", "yolov11", "YOLOV11N.dxnn", "boat.mp4", "sample/img/1.jpg", "stream6"),
-    ("YOLOv12", "yolov12", "YOLOV12N-1.dxnn", "boat.mp4", "sample/img/1.jpg", "stream6"),
-    ("YOLOv26", "yolov26", "yolo26s-1.dxnn", "boat.mp4", "sample/img/1.jpg", "stream6"),
-    ("YOLOv26 Pose", "yolov26pose", "yolo26s-pose.dxnn", "dance-solo.mov", "sample/img/7.jpg", "stream9"),
-    ("YOLOv26 Segmentation", "yolov26seg", "yolo26s-seg.dxnn", "boat.mp4", "sample/img/1.jpg", "stream6"),
-    ("YOLOv26 OBB", "yolov26obb", "yolo26s-obb.dxnn", "boat.mp4", "sample/dota8_test/P0284.png", "stream6"),
-    ("YOLOv26 Classification", "yolov26cls", "yolo26s-cls.dxnn", "boat.mp4", "sample/img/1.jpg", "stream6"),
-    ("YOLOX", "yolox", "YOLOX-S_1.dxnn", "boat.mp4", "sample/img/1.jpg", "stream6"),
-    ("YOLOv5 Pose", "yolov5pose", "YOLOV5Pose640_1.dxnn", "dance-solo.mov", "sample/img/7.jpg", "stream9"),
-    ("YOLOv8 Segmentation", "yolov8seg", "YOLOV8N_SEG-1.dxnn", "boat.mp4", "sample/img/1.jpg", "stream6"),
-    ("EfficientNet", "efficientnet", "EfficientNetB0_4.dxnn", "boat.mp4", "sample/img/1.jpg", "stream6"),
-    ("DeepLabV3", "deeplabv3", "DeepLabV3PlusMobileNetV2_2.dxnn", "blackbox-city-road.mp4", "sample/img/8.jpg", "stream6"),
-    ("SCRFD PPU", "scrfd_ppu", "SCRFD500M_PPU.dxnn", "dance-group.mov", "sample/img/face_sample.jpg", "stream9"),
-    ("YOLOv5 PPU", "yolov5_ppu", "YOLOV5S_PPU.dxnn", "boat.mp4", "sample/img/1.jpg", "stream6"),
-    ("YOLOv7 PPU", "yolov7_ppu", "YoloV7_PPU.dxnn", "snowboard.mp4", "sample/img/1.jpg", "stream6"),
-    ("YOLOv5 Pose PPU", "yolov5pose_ppu", "YOLOV5Pose_PPU.dxnn", "dance-solo.mov", "sample/img/7.jpg", "stream9"),
+    ("YOLOv5", "yolov5", "YOLOV5S_3.dxnn", "boat.mp4", "sample/img/sample_kitchen.jpg", "stream6"),
+    ("YOLOv7", "yolov7", "YoloV7.dxnn", "snowboard.mp4", "sample/img/sample_kitchen.jpg", "stream6"),
+    ("YOLOv8", "yolov8", "YoloV8N.dxnn", "boat.mp4", "sample/img/sample_kitchen.jpg", "stream6"),
+    ("YOLOv9", "yolov9", "YOLOV9S.dxnn", "carrierbag.mp4", "sample/img/sample_kitchen.jpg", "stream6"),
+    ("YOLOv10", "yolov10", "YOLOV10N-1.dxnn", "boat.mp4", "sample/img/sample_kitchen.jpg", "stream6"),
+    ("YOLOv11", "yolov11", "YOLOV11N.dxnn", "boat.mp4", "sample/img/sample_kitchen.jpg", "stream6"),
+    ("YOLOv12", "yolov12", "YOLOV12N-1.dxnn", "boat.mp4", "sample/img/sample_kitchen.jpg", "stream6"),
+    ("YOLOv26", "yolov26", "yolo26s-1.dxnn", "boat.mp4", "sample/img/sample_kitchen.jpg", "stream6"),
+    ("YOLOv26 Pose", "yolov26pose", "yolo26s-pose.dxnn", "dance-solo.mov", "sample/img/sample_people.jpg", "stream9"),
+    ("YOLOv26 Segmentation", "yolov26seg", "yolo26s-seg.dxnn", "boat.mp4", "sample/img/sample_kitchen.jpg", "stream6"),
+    ("YOLOv26 OBB", "yolov26obb", "yolo26s-obb.dxnn", "obb.mp4", "sample/dota8_test/P0284.png", "stream6"),
+    ("YOLOv26 Classification", "yolov26cls", "yolo26s-cls.dxnn", "boat.mp4", "sample/img/sample_kitchen.jpg", "stream6"),
+    ("YOLOX", "yolox", "YOLOX-S_1.dxnn", "boat.mp4", "sample/img/sample_kitchen.jpg", "stream6"),
+    ("YOLOv5 Pose", "yolov5pose", "YOLOV5Pose640_1.dxnn", "dance-solo.mov", "sample/img/sample_people.jpg", "stream9"),
+    ("YOLOv8 Segmentation", "yolov8seg", "YOLOV8N_SEG-1.dxnn", "boat.mp4", "sample/img/sample_kitchen.jpg", "stream6"),
+    ("EfficientNet", "efficientnet", "EfficientNetB0_4.dxnn", "boat.mp4", "sample/img/sample_kitchen.jpg", "stream6"),
+    ("DeepLabV3", "deeplabv3", "DeepLabV3PlusMobileNetV2_2.dxnn", "blackbox-city-road.mp4", "sample/img/sample_parking.jpg", "stream6"),
+    ("SCRFD PPU", "scrfd_ppu", "SCRFD500M_PPU.dxnn", "dance-group.mov", "sample/img/sample_face.jpg", "stream9"),
+    ("YOLOv5 PPU", "yolov5_ppu", "YOLOV5S_PPU.dxnn", "boat.mp4", "sample/img/sample_kitchen.jpg", "stream6"),
+    ("YOLOv7 PPU", "yolov7_ppu", "YoloV7_PPU.dxnn", "snowboard.mp4", "sample/img/sample_kitchen.jpg", "stream6"),
+    ("YOLOv5 Pose PPU", "yolov5pose_ppu", "YOLOV5Pose_PPU.dxnn", "dance-solo.mov", "sample/img/sample_people.jpg", "stream9"),
 ]
 
 # Multi-model example configurations: (name, binary, model1, model2, video, image, rtsp_stream)
 multi_model_examples = [
-    ("YOLOv7 x DeepLabV3", "yolov7_x_deeplabv3", "YoloV7.dxnn", "DeepLabV3PlusMobileNetV2_2.dxnn", "blackbox-city-road2.mov", "sample/img/8.jpg", "stream6"),
+    ("YOLOv7 x DeepLabV3", "yolov7_x_deeplabv3", "YoloV7.dxnn", "DeepLabV3PlusMobileNetV2_2.dxnn", "blackbox-city-road2.mov", "sample/img/sample_parking.jpg", "stream6"),
 ]
 
 def create_config(name, binary, mode, input_type, model, video, image, rtsp_stream):

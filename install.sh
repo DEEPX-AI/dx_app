@@ -108,7 +108,7 @@ function install_dep() {
             fi
             cd $DX_SRC_DIR/util
             if ! test -e $DX_SRC_DIR/util/cmake-$cmake_version_required.0; then
-                echo " Install CMake v$$cmake_version_required.0 "
+                echo " Install CMake v$cmake_version_required.0 "
                 wget https://cmake.org/files/v$cmake_version_required/cmake-$cmake_version_required.0.tar.gz --no-check-certificate    
                 tar xvf cmake-$cmake_version_required.0.tar.gz
             else
@@ -151,11 +151,14 @@ function install_opencv() {
         echo " Install opencv dependent library "
         sudo apt -y install libjpeg-dev libtiff5-dev ffmpeg \
              libavcodec-dev libavformat-dev libswscale-dev libxvidcore-dev libavutil-dev \
-             libtbb-dev libeigen3-dev libx264-dev libv4l-dev v4l-utils
+             libtbb-dev libeigen3-dev libx264-dev libv4l-dev v4l-utils fonts-dejavu-core
         
         if apt-cache show libfreetype-dev > /dev/null 2>&1; then
             sudo apt-get install -y libfreetype-dev
         fi
+
+        # Rebuild font cache so system Qt5 / fontconfig can find DejaVu fonts
+        fc-cache -f 2>/dev/null || true
 
         sudo apt-get clean && sudo apt update && sudo apt-get -y upgrade
         sudo apt -y install libgstreamer-plugins-base1.0-dev libgstreamer1.0-dev 
@@ -238,7 +241,7 @@ function install_opencv() {
             cmake \
             $toolchain_define \
             $define_list \
-            -D BUILD_LIST="imgcodecs,imgproc,core,highgui,videoio" \
+            -D BUILD_LIST="imgcodecs,imgproc,core,highgui,videoio,dnn" \
 	        -D OPENCV_EXTRA_MODULES_PATH=../../opencv_contrib-$suggestion_version/modules \
             -D CMAKE_BUILD_TYPE=RELEASE \
             -D WITH_TBB=ON -D WITH_PYTHON=ON -D WITH_QT=OFF -D WITH_GTK=ON \
@@ -300,6 +303,59 @@ function install_python() {
         exit 1
     fi
 
+    # Install Python runtime dependencies from requirements.txt
+    local REQ_FILE="${DX_APP_PATH}/requirements.txt"
+    if [ -f "${REQ_FILE}" ]; then
+        local PIP_CMD=""
+        if [ -n "${VENV_PATH}" ] && [ -f "${VENV_PATH}/bin/pip" ]; then
+            PIP_CMD="${VENV_PATH}/bin/pip"
+        elif [ -f "${DX_APP_PATH}/.venv/bin/pip" ]; then
+            PIP_CMD="${DX_APP_PATH}/.venv/bin/pip"
+        else
+            PIP_CMD="pip3"
+        fi
+        print_colored "Installing Python dependencies from requirements.txt ..." "INFO"
+        ${PIP_CMD} install -r "${REQ_FILE}"
+        if [ $? -ne 0 ]; then
+            print_colored "Failed to install Python dependencies." "ERROR"
+            exit 1
+        fi
+        print_colored "[OK] Python dependencies installed." "INFO"
+
+        # Ensure Qt font directory exists for OpenCV's bundled Qt5.
+        # pip's opencv-python bundles Qt5 without fontconfig, so it looks for
+        # fonts at a hardcoded path (cv2/qt/fonts/). If that directory is missing
+        # (e.g. corrupted install), symlink system DejaVu fonts as a fallback.
+        local PYTHON_CMD=""
+        if [ -n "${VENV_PATH}" ] && [ -f "${VENV_PATH}/bin/python3" ]; then
+            PYTHON_CMD="${VENV_PATH}/bin/python3"
+        elif [ -f "${DX_APP_PATH}/.venv/bin/python3" ]; then
+            PYTHON_CMD="${DX_APP_PATH}/.venv/bin/python3"
+        else
+            PYTHON_CMD="python3"
+        fi
+        local CV2_QT_FONTS
+        CV2_QT_FONTS=$("${PYTHON_CMD}" -c "
+import os
+try:
+    import cv2
+    fonts_dir = os.path.join(os.path.dirname(cv2.__file__), 'qt', 'fonts')
+    print(fonts_dir)
+except Exception:
+    pass
+" 2>/dev/null)
+        if [ -n "${CV2_QT_FONTS}" ] && [ ! -d "${CV2_QT_FONTS}" ]; then
+            local SYS_FONT_DIR="/usr/share/fonts/truetype/dejavu"
+            if [ -d "${SYS_FONT_DIR}" ]; then
+                mkdir -p "$(dirname "${CV2_QT_FONTS}")"
+                ln -sf "${SYS_FONT_DIR}" "${CV2_QT_FONTS}"
+                print_colored "[OK] Created symlink: ${CV2_QT_FONTS} -> ${SYS_FONT_DIR}" "INFO"
+            else
+                print_colored "Qt font directory missing and system DejaVu fonts not found. Run: sudo apt install fonts-dejavu-core" "WARNING"
+            fi
+        fi
+    fi
+
     print_colored "[OK] Completed to setup python" "INFO"
 }
 
@@ -336,7 +392,7 @@ while (( $# )); do
             ENABLE_DEBUG_LOGS=1
             shift # Consume argument
             ;;
-        --help) 
+        -h|--help) 
             help; 
             exit 0
             ;;
@@ -346,6 +402,12 @@ while (( $# )); do
             ;;
     esac
 done
+
+# Default to --all when no relevant install options are specified
+if [ "$install_dep" == false ] && [ "$install_opencv" == false ] && [ "$opencv_source_build" == false ]; then
+    install_dep=true
+    install_opencv=true
+fi
 
 if [ $target_arch == "arm64" ]; then
     target_arch=aarch64

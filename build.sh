@@ -2,9 +2,9 @@
 SCRIPT_DIR=$(realpath "$(dirname "$0")")
 DX_APP_PATH=$(realpath -s "${SCRIPT_DIR}")
 
-# Calculate number of CPU cores to use (half of available cores)
+# Calculate number of CPU cores to use (all but one to keep system responsive)
 NUM_CORES=$(nproc)
-BUILD_JOBS=$((NUM_CORES / 2))
+BUILD_JOBS=$((NUM_CORES - 1))
 # Ensure at least 1 job
 if [ $BUILD_JOBS -lt 1 ]; then
     BUILD_JOBS=1
@@ -26,7 +26,7 @@ help() {
     echo -e "  ${COLOR_GREEN}--verbose${COLOR_RESET}    Show detailed build commands during the process."
     echo -e "  ${COLOR_GREEN}--type <TYPE>${COLOR_RESET}  Specify the CMake build type. Valid options: [Release, Debug, RelWithDebInfo]."
     echo -e "  ${COLOR_GREEN}--arch <ARCH>${COLOR_RESET}  Specify the target CPU architecture. Valid options: [x86_64, aarch64]."
-    echo -e "  ${COLOR_GREEN}--target <NAME>${COLOR_RESET} Build only the specified target (e.g., yolov5_sync, efficientnet_async)."
+    echo -e "  ${COLOR_GREEN}--target <NAME> [NAME2 ...]${COLOR_RESET} Build only the specified target(s) (e.g., yolov5_sync yolov5_async)."
     echo -e "                            Use '--target list' to show all available targets."
     echo -e "  ${COLOR_GREEN}--make_so${COLOR_RESET}    Build postprocess shared library for dynamic linking (default: disabled)."
     echo -e "  ${COLOR_GREEN}--coverage${COLOR_RESET}   Enable code coverage reporting (adds --coverage flags)."
@@ -79,6 +79,7 @@ build_with_codec=false
 build_with_sharedlib=false
 enable_coverage=false
 build_target=""
+build_targets=()
 
 # global variaibles
 python_exec=""
@@ -118,8 +119,17 @@ while (( $# )); do
             shift;;
         --target)
             shift
-            build_target=$1
-            shift;;
+            if [ -z "$1" ]; then
+                echo "Error: No target specified. Use --target <target_name> [target_name2 ...]."
+                exit 1
+            fi
+            # Consume all following non-option arguments as targets
+            while [[ -n "$1" && "$1" != --* ]]; do
+                build_targets+=("$1")
+                shift
+            done
+            build_target="${build_targets[*]}"
+            ;;
         --v3codec)
             build_with_codec=true;
             shift;;
@@ -229,7 +239,7 @@ cmake .. ${cmd[@]} || {
     echo -e "${TAG_ERROR} CMake configuration failed. Please check the output above."
     exit 1
 }
-echo -e "${TAG_INFO} Using $BUILD_JOBS parallel jobs (half of $NUM_CORES available cores)"
+echo -e "${TAG_INFO} Using $BUILD_JOBS parallel jobs (of $NUM_CORES available cores)"
 
 # Handle --target list option
 if [ "$build_target" == "list" ]; then
@@ -240,17 +250,20 @@ if [ "$build_target" == "list" ]; then
 fi
 
 # Build specific target or all
-if [ -n "$build_target" ]; then
-    echo -e "${TAG_INFO} Building specific target: ${COLOR_GREEN}${build_target}${COLOR_RESET}"
-    cmake --build . --target ${build_target} --parallel $BUILD_JOBS || { echo -e "${TAG_ERROR} CMake build failed for target '${build_target}'. Please check the output above."; exit 1; }
-    
-    # Copy the built binary to bin directory if it exists
+if [ ${#build_targets[@]} -gt 0 ]; then
+    echo -e "${TAG_INFO} Building targets: ${COLOR_GREEN}${build_targets[*]}${COLOR_RESET}"
+    cmake --build . --target "${build_targets[@]}" --parallel $BUILD_JOBS || { echo -e "${TAG_ERROR} CMake build failed for target(s) '${build_targets[*]}'. Please check the output above."; exit 1; }
+
+    # Copy the built binaries to bin directory if they exist
     if [ $(uname -m) == "$target_arch" ]; then
-        if [ -f "src/cpp_example/*/${build_target}" ] || find . -name "${build_target}" -type f -executable 2>/dev/null | head -1 | grep -q .; then
-            mkdir -p ../bin
-            find . -name "${build_target}" -type f -executable 2>/dev/null | head -1 | xargs -I {} cp {} ../bin/ 2>/dev/null || true
-            echo -e "${TAG_INFO} Binary copied to bin/${build_target}"
-        fi
+        mkdir -p ../bin
+        for t in "${build_targets[@]}"; do
+            local_bin=$(find . -name "${t}" -type f -executable 2>/dev/null | head -1)
+            if [ -n "$local_bin" ]; then
+                cp "$local_bin" ../bin/ 2>/dev/null || true
+                echo -e "${TAG_INFO} Binary copied to bin/${t}"
+            fi
+        done
     fi
     popd >/dev/null 2>&1
 elif [ $(uname -m) != "$target_arch" ]; then
@@ -262,9 +275,9 @@ else
     fi
 fi
 
-# Skip dx_postprocess installation for single target builds
-if [ -n "$build_target" ]; then
-    echo -e "${TAG_INFO} Single target build completed: ${COLOR_GREEN}${build_target}${COLOR_RESET}"
+# Skip dx_postprocess installation for target builds
+if [ ${#build_targets[@]} -gt 0 ]; then
+    echo -e "${TAG_INFO} Target build completed: ${COLOR_GREEN}${build_targets[*]}${COLOR_RESET}"
     echo ""
     popd >/dev/null 2>&1 2>/dev/null || true
     exit 0

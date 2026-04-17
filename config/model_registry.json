@@ -1,0 +1,4339 @@
+[
+  {
+    "model_name": "alexnet",
+    "dxnn_file": "AlexNet.dxnn",
+    "original_name": "AlexNet",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 224,
+    "input_height": 224,
+    "config": {
+      "top_k": 5
+    },
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "arcface_mobilefacenet",
+    "dxnn_file": "arcface_mobilefacenet.dxnn",
+    "original_name": "arcface_mobilefacenet",
+    "csv_task": "FREC",
+    "add_model_task": "embedding",
+    "postprocessor": "arcface",
+    "input_width": 224,
+    "input_height": 224,
+    "config": {
+      "top_k": 5
+    },
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "bisenetv1",
+    "dxnn_file": "BiSeNetV1.dxnn",
+    "original_name": "BiSeNetV1",
+    "csv_task": "SEG",
+    "add_model_task": "semantic_segmentation",
+    "postprocessor": "bisenetv1",
+    "input_width": 224,
+    "input_height": 224,
+    "config": {},
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "bisenetv2",
+    "dxnn_file": "BiSeNetV2.dxnn",
+    "original_name": "BiSeNetV2",
+    "csv_task": "SEG",
+    "add_model_task": "semantic_segmentation",
+    "postprocessor": "bisenetv2",
+    "input_width": 224,
+    "input_height": 224,
+    "config": {},
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "damoyolo_tinynasl20_t",
+    "dxnn_file": "DamoYolo_tinynasL20_T.dxnn",
+    "original_name": "DamoYolo_tinynasL20_T",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "damoyolo",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "score_threshold": 0.3,
+      "nms_threshold": 0.45
+    },
+    "source": "inferred",
+    "supported": true
+  },
+  {
+    "model_name": "damoyolo_tinynasl25_s",
+    "dxnn_file": "DamoYolo_tinynasL25_S.dxnn",
+    "original_name": "DamoYolo_tinynasL25_S",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "damoyolo",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "score_threshold": 0.3,
+      "nms_threshold": 0.45
+    },
+    "source": "inferred",
+    "supported": true
+  },
+  {
+    "model_name": "damoyolo_tinynasl35_m",
+    "dxnn_file": "DamoYolo_tinynasL35_M.dxnn",
+    "original_name": "DamoYolo_tinynasL35_M",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "damoyolo",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "score_threshold": 0.3,
+      "nms_threshold": 0.45
+    },
+    "source": "inferred",
+    "supported": true
+  },
+  {
+    "model_name": "damoyolol",
+    "dxnn_file": "DamoYoloL.dxnn",
+    "original_name": "DamoYoloL",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "damoyolo",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "score_threshold": 0.3,
+      "nms_threshold": 0.45
+    },
+    "source": "inferred",
+    "supported": true
+  },
+  {
+    "model_name": "damoyolom",
+    "dxnn_file": "DamoYoloM.dxnn",
+    "original_name": "DamoYoloM",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "damoyolo",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "score_threshold": 0.3,
+      "nms_threshold": 0.45
+    },
+    "source": "inferred",
+    "supported": true
+  },
+  {
+    "model_name": "damoyolos",
+    "dxnn_file": "DamoYoloS.dxnn",
+    "original_name": "DamoYoloS",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "damoyolo",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "score_threshold": 0.3,
+      "nms_threshold": 0.45
+    },
+    "source": "inferred",
+    "supported": true
+  },
+  {
+    "model_name": "damoyolot",
+    "dxnn_file": "DamoYoloT.dxnn",
+    "original_name": "DamoYoloT",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "damoyolo",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "score_threshold": 0.3,
+      "nms_threshold": 0.45
+    },
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "deeplabv3plusmobilenet",
+    "dxnn_file": "DeepLabV3PlusMobilenet.dxnn",
+    "original_name": "DeepLabV3PlusMobilenet",
+    "csv_task": "SEG",
+    "add_model_task": "semantic_segmentation",
+    "postprocessor": "deeplabv3",
+    "input_width": 224,
+    "input_height": 224,
+    "config": {},
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "densenet121",
+    "dxnn_file": "DenseNet121.dxnn",
+    "original_name": "DenseNet121",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 224,
+    "input_height": 224,
+    "config": {
+      "top_k": 5
+    },
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "densenet161",
+    "dxnn_file": "DenseNet161.dxnn",
+    "original_name": "DenseNet161",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 224,
+    "input_height": 224,
+    "config": {
+      "top_k": 5
+    },
+    "source": "inferred",
+    "supported": true
+  },
+  {
+    "model_name": "dncnn_15",
+    "dxnn_file": "DnCNN_15.dxnn",
+    "original_name": "DnCNN_15",
+    "csv_task": "DN",
+    "add_model_task": "image_denoising",
+    "postprocessor": "dncnn",
+    "input_width": 50,
+    "input_height": 50,
+    "config": {},
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "dncnn_25",
+    "dxnn_file": "DnCNN_25.dxnn",
+    "original_name": "DnCNN_25",
+    "csv_task": "DN",
+    "add_model_task": "image_denoising",
+    "postprocessor": "dncnn",
+    "input_width": 50,
+    "input_height": 50,
+    "config": {},
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "dncnn_50",
+    "dxnn_file": "DnCNN_50.dxnn",
+    "original_name": "DnCNN_50",
+    "csv_task": "DN",
+    "add_model_task": "image_denoising",
+    "postprocessor": "dncnn",
+    "input_width": 50,
+    "input_height": 50,
+    "config": {},
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "efficientnet_lite0",
+    "dxnn_file": "EfficientNet_Lite0.dxnn",
+    "original_name": "EfficientNet_Lite0",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 224,
+    "input_height": 224,
+    "config": {
+      "top_k": 5
+    },
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "efficientnet_lite1",
+    "dxnn_file": "EfficientNet_Lite1.dxnn",
+    "original_name": "EfficientNet_Lite1",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 224,
+    "input_height": 224,
+    "config": {
+      "top_k": 5
+    },
+    "source": "inferred",
+    "supported": true
+  },
+  {
+    "model_name": "efficientnet_lite2",
+    "dxnn_file": "EfficientNet_Lite2.dxnn",
+    "original_name": "EfficientNet_Lite2",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 224,
+    "input_height": 224,
+    "config": {
+      "top_k": 5
+    },
+    "source": "inferred",
+    "supported": true
+  },
+  {
+    "model_name": "efficientnet_lite3",
+    "dxnn_file": "EfficientNet_Lite3.dxnn",
+    "original_name": "EfficientNet_Lite3",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 224,
+    "input_height": 224,
+    "config": {
+      "top_k": 5
+    },
+    "source": "inferred",
+    "supported": true
+  },
+  {
+    "model_name": "efficientnet_lite4",
+    "dxnn_file": "EfficientNet_Lite4.dxnn",
+    "original_name": "EfficientNet_Lite4",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 224,
+    "input_height": 224,
+    "config": {
+      "top_k": 5
+    },
+    "source": "inferred",
+    "supported": true
+  },
+  {
+    "model_name": "efficientnetb2",
+    "dxnn_file": "EfficientNetB2.dxnn",
+    "original_name": "EfficientNetB2",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 224,
+    "input_height": 224,
+    "config": {
+      "top_k": 5
+    },
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "espcn_x4",
+    "dxnn_file": "ESPCN_X4.dxnn",
+    "original_name": "ESPCN_X4",
+    "csv_task": "SR",
+    "add_model_task": "super_resolution",
+    "postprocessor": "espcn",
+    "input_width": 224,
+    "input_height": 224,
+    "config": {},
+    "source": "inferred",
+    "supported": true
+  },
+  {
+    "model_name": "fastdepth_1",
+    "dxnn_file": "FastDepth_1.dxnn",
+    "original_name": "FastDepth_1",
+    "csv_task": "DEPTH",
+    "add_model_task": "depth_estimation",
+    "postprocessor": "fastdepth",
+    "input_width": 224,
+    "input_height": 224,
+    "config": {},
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "handlandmarklite_1",
+    "dxnn_file": "HandLandmarkLite_1.dxnn",
+    "original_name": "HandLandmarkLite_1",
+    "csv_task": "HAND",
+    "add_model_task": "hand_landmark",
+    "postprocessor": "hand_landmark",
+    "input_width": 224,
+    "input_height": 224,
+    "config": {
+      "confidence_threshold": 0.5
+    },
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "hardnet39ds",
+    "dxnn_file": "HarDNet39DS.dxnn",
+    "original_name": "HarDNet39DS",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 224,
+    "input_height": 224,
+    "config": {
+      "top_k": 5
+    },
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "hardnet68",
+    "dxnn_file": "HarDNet68.dxnn",
+    "original_name": "HarDNet68",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 224,
+    "input_height": 224,
+    "config": {
+      "top_k": 5
+    },
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "inceptionv1",
+    "dxnn_file": "InceptionV1.dxnn",
+    "original_name": "InceptionV1",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 224,
+    "input_height": 224,
+    "config": {
+      "top_k": 5
+    },
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "mobilenetv1",
+    "dxnn_file": "MobileNetV1.dxnn",
+    "original_name": "MobileNetV1",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 224,
+    "input_height": 224,
+    "config": {
+      "top_k": 5
+    },
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "mobilenetv2",
+    "dxnn_file": "MobileNetV2.dxnn",
+    "original_name": "MobileNetV2",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 224,
+    "input_height": 224,
+    "config": {
+      "top_k": 5
+    },
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "mobilenetv3large",
+    "dxnn_file": "MobileNetV3Large.dxnn",
+    "original_name": "MobileNetV3Large",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 224,
+    "input_height": 224,
+    "config": {
+      "top_k": 5
+    },
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "nanodet_repvgg",
+    "dxnn_file": "NanoDet_RepVGG.dxnn",
+    "original_name": "NanoDet_RepVGG",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "nanodet",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "score_threshold": 0.3,
+      "nms_threshold": 0.45
+    },
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "nanodet_repvgga1",
+    "dxnn_file": "NanoDet_RepVGGA1.dxnn",
+    "original_name": "NanoDet_RepVGGA1",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "nanodet",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "score_threshold": 0.3,
+      "nms_threshold": 0.45
+    },
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "osnet0_25",
+    "dxnn_file": "OSNet0_25.dxnn",
+    "original_name": "OSNet0_25",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 224,
+    "input_height": 224,
+    "config": {
+      "top_k": 5
+    },
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "osnet0_5",
+    "dxnn_file": "OSNet0_5.dxnn",
+    "original_name": "OSNet0_5",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 224,
+    "input_height": 224,
+    "config": {
+      "top_k": 5
+    },
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "regnetx400mf",
+    "dxnn_file": "RegNetX400MF.dxnn",
+    "original_name": "RegNetX400MF",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 224,
+    "input_height": 224,
+    "config": {
+      "top_k": 5
+    },
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "regnetx800mf",
+    "dxnn_file": "RegNetX800MF.dxnn",
+    "original_name": "RegNetX800MF",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 224,
+    "input_height": 224,
+    "config": {
+      "top_k": 5
+    },
+    "source": "inferred",
+    "supported": true
+  },
+  {
+    "model_name": "regnety200mf",
+    "dxnn_file": "RegNetY200MF.dxnn",
+    "original_name": "RegNetY200MF",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 224,
+    "input_height": 224,
+    "config": {
+      "top_k": 5
+    },
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "regnety400mf",
+    "dxnn_file": "RegNetY400MF.dxnn",
+    "original_name": "RegNetY400MF",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 224,
+    "input_height": 224,
+    "config": {
+      "top_k": 5
+    },
+    "source": "inferred",
+    "supported": true
+  },
+  {
+    "model_name": "regnety800mf",
+    "dxnn_file": "RegNetY800MF.dxnn",
+    "original_name": "RegNetY800MF",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 224,
+    "input_height": 224,
+    "config": {
+      "top_k": 5
+    },
+    "source": "inferred",
+    "supported": true
+  },
+  {
+    "model_name": "resnet101",
+    "dxnn_file": "ResNet101.dxnn",
+    "original_name": "ResNet101",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 224,
+    "input_height": 224,
+    "config": {
+      "top_k": 5
+    },
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "resnet18",
+    "dxnn_file": "ResNet18.dxnn",
+    "original_name": "ResNet18",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 224,
+    "input_height": 224,
+    "config": {
+      "top_k": 5
+    },
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "resnet34",
+    "dxnn_file": "ResNet34.dxnn",
+    "original_name": "ResNet34",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 224,
+    "input_height": 224,
+    "config": {
+      "top_k": 5
+    },
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "resnet50",
+    "dxnn_file": "ResNet50.dxnn",
+    "original_name": "ResNet50",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 224,
+    "input_height": 224,
+    "config": {
+      "top_k": 5
+    },
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "resnext26_32x4d",
+    "dxnn_file": "ResNeXt26_32x4d.dxnn",
+    "original_name": "ResNeXt26_32x4d",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 224,
+    "input_height": 224,
+    "config": {
+      "top_k": 5
+    },
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "resnext50_32x4d",
+    "dxnn_file": "ResNeXt50_32x4d.dxnn",
+    "original_name": "ResNeXt50_32x4d",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 224,
+    "input_height": 224,
+    "config": {
+      "top_k": 5
+    },
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "retinaface_mobilenet0_25_640",
+    "dxnn_file": "retinaface_mobilenet0.25_640.dxnn",
+    "original_name": "retinaface_mobilenet0.25_640",
+    "csv_task": "FD",
+    "add_model_task": "face_detection",
+    "postprocessor": "retinaface",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "obj_threshold": 0.3,
+      "score_threshold": 0.3,
+      "nms_threshold": 0.4
+    },
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "scrfd10g",
+    "dxnn_file": "SCRFD10G.dxnn",
+    "original_name": "SCRFD10G",
+    "csv_task": "FD",
+    "add_model_task": "face_detection",
+    "postprocessor": "scrfd",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "obj_threshold": 0.3,
+      "score_threshold": 0.3,
+      "nms_threshold": 0.4
+    },
+    "source": "inferred",
+    "supported": true
+  },
+  {
+    "model_name": "scrfd2_5g",
+    "dxnn_file": "SCRFD2_5G.dxnn",
+    "original_name": "SCRFD2_5G",
+    "csv_task": "FD",
+    "add_model_task": "face_detection",
+    "postprocessor": "scrfd",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "obj_threshold": 0.3,
+      "score_threshold": 0.3,
+      "nms_threshold": 0.4
+    },
+    "source": "inferred",
+    "supported": true
+  },
+  {
+    "model_name": "scrfd500m",
+    "dxnn_file": "SCRFD500M.dxnn",
+    "original_name": "SCRFD500M",
+    "csv_task": "FD",
+    "add_model_task": "face_detection",
+    "postprocessor": "scrfd",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "obj_threshold": 0.3,
+      "score_threshold": 0.3,
+      "nms_threshold": 0.4
+    },
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "segformer_b0_512x1024",
+    "dxnn_file": "segformer_b0_512x1024.dxnn",
+    "original_name": "segformer_b0_512x1024",
+    "csv_task": "SEG",
+    "add_model_task": "semantic_segmentation",
+    "postprocessor": "segformer",
+    "input_width": 512,
+    "input_height": 1024,
+    "config": {},
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "squeezenet1_0",
+    "dxnn_file": "SqueezeNet1_0.dxnn",
+    "original_name": "SqueezeNet1_0",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 224,
+    "input_height": 224,
+    "config": {
+      "top_k": 5
+    },
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "squeezenet1_1",
+    "dxnn_file": "SqueezeNet1_1.dxnn",
+    "original_name": "SqueezeNet1_1",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 224,
+    "input_height": 224,
+    "config": {
+      "top_k": 5
+    },
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "ssdmv1",
+    "dxnn_file": "SSDMV1.dxnn",
+    "original_name": "SSDMV1",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "ssd",
+    "input_width": 300,
+    "input_height": 300,
+    "config": {
+      "score_threshold": 0.3,
+      "nms_threshold": 0.45
+    },
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "ssdmv2lite",
+    "dxnn_file": "SSDMV2Lite.dxnn",
+    "original_name": "SSDMV2Lite",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "ssd",
+    "input_width": 300,
+    "input_height": 300,
+    "config": {
+      "score_threshold": 0.3,
+      "nms_threshold": 0.45
+    },
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "vgg11",
+    "dxnn_file": "VGG11.dxnn",
+    "original_name": "VGG11",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 224,
+    "input_height": 224,
+    "config": {
+      "top_k": 5
+    },
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "vgg11bn",
+    "dxnn_file": "VGG11BN.dxnn",
+    "original_name": "VGG11BN",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 224,
+    "input_height": 224,
+    "config": {
+      "top_k": 5
+    },
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "vgg13",
+    "dxnn_file": "VGG13.dxnn",
+    "original_name": "VGG13",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 224,
+    "input_height": 224,
+    "config": {
+      "top_k": 5
+    },
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "vgg13bn",
+    "dxnn_file": "VGG13BN.dxnn",
+    "original_name": "VGG13BN",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 224,
+    "input_height": 224,
+    "config": {
+      "top_k": 5
+    },
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "vgg19bn",
+    "dxnn_file": "VGG19BN.dxnn",
+    "original_name": "VGG19BN",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 224,
+    "input_height": 224,
+    "config": {
+      "top_k": 5
+    },
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "wideresnet101_2",
+    "dxnn_file": "WideResNet101_2.dxnn",
+    "original_name": "WideResNet101_2",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 224,
+    "input_height": 224,
+    "config": {
+      "top_k": 5
+    },
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "wideresnet50_2",
+    "dxnn_file": "WideResNet50_2.dxnn",
+    "original_name": "WideResNet50_2",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 224,
+    "input_height": 224,
+    "config": {
+      "top_k": 5
+    },
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "yolact_regnetx_800mf",
+    "dxnn_file": "yolact_regnetx_800mf.dxnn",
+    "original_name": "yolact_regnetx_800mf",
+    "csv_task": "SEG",
+    "add_model_task": "instance_segmentation",
+    "postprocessor": "yolact",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {},
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "yolo26l",
+    "dxnn_file": "yolo26l.dxnn",
+    "original_name": "yolo26l",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolov26",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "score_threshold": 0.25,
+      "nms_threshold": 0.45
+    },
+    "source": "inferred",
+    "supported": true
+  },
+  {
+    "model_name": "yolo26m",
+    "dxnn_file": "yolo26m.dxnn",
+    "original_name": "yolo26m",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolov26",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "score_threshold": 0.25,
+      "nms_threshold": 0.45
+    },
+    "source": "inferred",
+    "supported": true
+  },
+  {
+    "model_name": "yolo26n",
+    "dxnn_file": "yolo26n.dxnn",
+    "original_name": "yolo26n",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolov26",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "score_threshold": 0.25,
+      "nms_threshold": 0.45
+    },
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "yolo26n_obb",
+    "dxnn_file": "yolo26n-obb.dxnn",
+    "original_name": "yolo26n-obb",
+    "csv_task": "OBB",
+    "add_model_task": "obb_detection",
+    "postprocessor": "obb",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "score_threshold": 0.3
+    },
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "yolo26s",
+    "dxnn_file": "yolo26s.dxnn",
+    "original_name": "yolo26s",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolov26",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "score_threshold": 0.25,
+      "nms_threshold": 0.45
+    },
+    "source": "inferred",
+    "supported": true
+  },
+  {
+    "model_name": "yolo26x",
+    "dxnn_file": "yolo26x.dxnn",
+    "original_name": "yolo26x",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolov26",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "score_threshold": 0.25,
+      "nms_threshold": 0.45
+    },
+    "source": "inferred",
+    "supported": true
+  },
+  {
+    "model_name": "yolov10b",
+    "dxnn_file": "YOLOV10B.dxnn",
+    "original_name": "YOLOV10B",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolov10",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "score_threshold": 0.25,
+      "nms_threshold": 0.45
+    },
+    "source": "inferred",
+    "supported": true
+  },
+  {
+    "model_name": "yolov10l",
+    "dxnn_file": "YOLOV10L.dxnn",
+    "original_name": "YOLOV10L",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolov10",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "score_threshold": 0.25,
+      "nms_threshold": 0.45
+    },
+    "source": "inferred",
+    "supported": true
+  },
+  {
+    "model_name": "yolov10m",
+    "dxnn_file": "YOLOV10M.dxnn",
+    "original_name": "YOLOV10M",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolov10",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "score_threshold": 0.25,
+      "nms_threshold": 0.45
+    },
+    "source": "inferred",
+    "supported": true
+  },
+  {
+    "model_name": "yolov10n",
+    "dxnn_file": "YOLOV10N.dxnn",
+    "original_name": "YOLOV10N",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolov10",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "score_threshold": 0.25,
+      "nms_threshold": 0.45
+    },
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "yolov10s",
+    "dxnn_file": "YOLOV10S.dxnn",
+    "original_name": "YOLOV10S",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolov10",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "score_threshold": 0.25,
+      "nms_threshold": 0.45
+    },
+    "source": "inferred",
+    "supported": true
+  },
+  {
+    "model_name": "yolov10x",
+    "dxnn_file": "YOLOV10X.dxnn",
+    "original_name": "YOLOV10X",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolov10",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "score_threshold": 0.25,
+      "nms_threshold": 0.45
+    },
+    "source": "inferred",
+    "supported": true
+  },
+  {
+    "model_name": "yolov11l",
+    "dxnn_file": "YOLOV11L.dxnn",
+    "original_name": "YOLOV11L",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolov8",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "score_threshold": 0.25,
+      "nms_threshold": 0.45
+    },
+    "source": "inferred",
+    "supported": true
+  },
+  {
+    "model_name": "yolov11m",
+    "dxnn_file": "YOLOV11M.dxnn",
+    "original_name": "YOLOV11M",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolov8",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "score_threshold": 0.25,
+      "nms_threshold": 0.45
+    },
+    "source": "inferred",
+    "supported": true
+  },
+  {
+    "model_name": "yolov11n",
+    "dxnn_file": "YOLOV11N.dxnn",
+    "original_name": "YOLOV11N",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolov8",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "score_threshold": 0.25,
+      "nms_threshold": 0.45
+    },
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "yolov11s",
+    "dxnn_file": "YOLOV11S.dxnn",
+    "original_name": "YOLOV11S",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolov8",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "score_threshold": 0.25,
+      "nms_threshold": 0.45
+    },
+    "source": "inferred",
+    "supported": true
+  },
+  {
+    "model_name": "yolov11x",
+    "dxnn_file": "YOLOV11X.dxnn",
+    "original_name": "YOLOV11X",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolov8",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "score_threshold": 0.25,
+      "nms_threshold": 0.45
+    },
+    "source": "inferred",
+    "supported": true
+  },
+  {
+    "model_name": "yolov3",
+    "dxnn_file": "YoloV3.dxnn",
+    "original_name": "YoloV3",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolov5",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "obj_threshold": 0.25,
+      "score_threshold": 0.25,
+      "nms_threshold": 0.45
+    },
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "yolov5l",
+    "dxnn_file": "YoloV5L.dxnn",
+    "original_name": "YoloV5L",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolov5",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "obj_threshold": 0.25,
+      "score_threshold": 0.25,
+      "nms_threshold": 0.45
+    },
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "yolov5l_seg",
+    "dxnn_file": "yolov5l_seg.dxnn",
+    "original_name": "yolov5l_seg",
+    "csv_task": "SEG",
+    "add_model_task": "instance_segmentation",
+    "postprocessor": "yolov5seg",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "obj_threshold": 0.25,
+      "score_threshold": 0.5,
+      "nms_threshold": 0.45
+    },
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "yolov5m",
+    "dxnn_file": "YoloV5M.dxnn",
+    "original_name": "YoloV5M",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolov5",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "obj_threshold": 0.25,
+      "score_threshold": 0.25,
+      "nms_threshold": 0.45
+    },
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "yolov5m_6_1",
+    "dxnn_file": "YoloV5M_6.1.dxnn",
+    "original_name": "YoloV5M_6.1",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolov5",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "obj_threshold": 0.25,
+      "score_threshold": 0.25,
+      "nms_threshold": 0.45
+    },
+    "source": "inferred",
+    "supported": true
+  },
+  {
+    "model_name": "yolov5m_face",
+    "dxnn_file": "YOLOv5m_Face.dxnn",
+    "original_name": "YOLOv5m_Face",
+    "csv_task": "FD",
+    "add_model_task": "face_detection",
+    "postprocessor": "yolov5face",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "obj_threshold": 0.3,
+      "score_threshold": 0.3,
+      "nms_threshold": 0.4
+    },
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "yolov5m_seg",
+    "dxnn_file": "yolov5m_seg.dxnn",
+    "original_name": "yolov5m_seg",
+    "csv_task": "SEG",
+    "add_model_task": "instance_segmentation",
+    "postprocessor": "yolov5seg",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "obj_threshold": 0.25,
+      "score_threshold": 0.5,
+      "nms_threshold": 0.45
+    },
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "yolov5n",
+    "dxnn_file": "YoloV5N.dxnn",
+    "original_name": "YoloV5N",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolov5",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "obj_threshold": 0.25,
+      "score_threshold": 0.25,
+      "nms_threshold": 0.45
+    },
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "yolov5n_seg",
+    "dxnn_file": "yolov5n_seg.dxnn",
+    "original_name": "yolov5n_seg",
+    "csv_task": "SEG",
+    "add_model_task": "instance_segmentation",
+    "postprocessor": "yolov5seg",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "obj_threshold": 0.25,
+      "score_threshold": 0.5,
+      "nms_threshold": 0.45
+    },
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "yolov5s",
+    "dxnn_file": "YoloV5S.dxnn",
+    "original_name": "YoloV5S",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolov5",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "obj_threshold": 0.25,
+      "score_threshold": 0.25,
+      "nms_threshold": 0.45
+    },
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "yolov5s_face",
+    "dxnn_file": "YOLOv5s_Face.dxnn",
+    "original_name": "YOLOv5s_Face",
+    "csv_task": "FD",
+    "add_model_task": "face_detection",
+    "postprocessor": "yolov5face",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "obj_threshold": 0.3,
+      "score_threshold": 0.3,
+      "nms_threshold": 0.4
+    },
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "yolov5s_ppu",
+    "dxnn_file": "YoloV5S_PPU.dxnn",
+    "original_name": "YoloV5S_PPU",
+    "csv_task": "OD",
+    "add_model_task": "ppu",
+    "postprocessor": "yolov5_ppu",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "obj_threshold": 0.25,
+      "score_threshold": 0.25
+    },
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "yolov5s_seg",
+    "dxnn_file": "yolov5s_seg.dxnn",
+    "original_name": "yolov5s_seg",
+    "csv_task": "SEG",
+    "add_model_task": "instance_segmentation",
+    "postprocessor": "yolov5seg",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "obj_threshold": 0.25,
+      "score_threshold": 0.5,
+      "nms_threshold": 0.45
+    },
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "yolov6n_0_1_0",
+    "dxnn_file": "YoloV6N_0.1.0.dxnn",
+    "original_name": "YoloV6N_0.1.0",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolov5",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "obj_threshold": 0.25,
+      "score_threshold": 0.25,
+      "nms_threshold": 0.45
+    },
+    "source": "inferred",
+    "supported": true
+  },
+  {
+    "model_name": "yolov6n_0_2_1",
+    "dxnn_file": "YoloV6n_0.2.1.dxnn",
+    "original_name": "YoloV6n_0.2.1",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolov5",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "obj_threshold": 0.25,
+      "score_threshold": 0.25,
+      "nms_threshold": 0.45
+    },
+    "source": "inferred",
+    "supported": true
+  },
+  {
+    "model_name": "yolov7",
+    "dxnn_file": "YoloV7.dxnn",
+    "original_name": "YoloV7",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolov5",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "obj_threshold": 0.25,
+      "score_threshold": 0.25,
+      "nms_threshold": 0.45
+    },
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "yolov7_face",
+    "dxnn_file": "YOLOv7_Face.dxnn",
+    "original_name": "YOLOv7_Face",
+    "csv_task": "FD",
+    "add_model_task": "face_detection",
+    "postprocessor": "yolov7face",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "obj_threshold": 0.3,
+      "score_threshold": 0.3,
+      "nms_threshold": 0.4
+    },
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "yolov7_ppu",
+    "dxnn_file": "YoloV7_PPU.dxnn",
+    "original_name": "YoloV7_PPU",
+    "csv_task": "OD",
+    "add_model_task": "ppu",
+    "postprocessor": "yolov7_ppu",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "obj_threshold": 0.25,
+      "score_threshold": 0.25
+    },
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "yolov7_w6",
+    "dxnn_file": "YoloV7W6.dxnn",
+    "original_name": "YOLOV7_W6",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolov5",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "obj_threshold": 0.25,
+      "score_threshold": 0.25,
+      "nms_threshold": 0.45
+    },
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "yolov7_w6_face",
+    "dxnn_file": "YOLOv7_W6_Face.dxnn",
+    "original_name": "YOLOv7_W6_Face",
+    "csv_task": "FD",
+    "add_model_task": "face_detection",
+    "postprocessor": "yolov7face",
+    "input_width": 960,
+    "input_height": 960,
+    "config": {
+      "obj_threshold": 0.3,
+      "score_threshold": 0.3,
+      "nms_threshold": 0.4
+    },
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "yolov7_w6_tta_face",
+    "dxnn_file": "YOLOv7_W6_TTA_Face.dxnn",
+    "original_name": "YOLOv7_W6_TTA_Face",
+    "csv_task": "FD",
+    "add_model_task": "face_detection",
+    "postprocessor": "yolov7face",
+    "input_width": 1280,
+    "input_height": 1280,
+    "config": {
+      "obj_threshold": 0.3,
+      "score_threshold": 0.3,
+      "nms_threshold": 0.4
+    },
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "yolov7e6",
+    "dxnn_file": "YoloV7E6.dxnn",
+    "original_name": "YoloV7E6",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolov5",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "obj_threshold": 0.25,
+      "score_threshold": 0.25,
+      "nms_threshold": 0.45
+    },
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "yolov7s_face",
+    "dxnn_file": "YOLOv7s_Face.dxnn",
+    "original_name": "YOLOv7s_Face",
+    "csv_task": "FD",
+    "add_model_task": "face_detection",
+    "postprocessor": "yolov7face",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "obj_threshold": 0.3,
+      "score_threshold": 0.3,
+      "nms_threshold": 0.4
+    },
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "yolov7tiny",
+    "dxnn_file": "YoloV7Tiny.dxnn",
+    "original_name": "YoloV7Tiny",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolov5",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "obj_threshold": 0.25,
+      "score_threshold": 0.25,
+      "nms_threshold": 0.45
+    },
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "yolov8l",
+    "dxnn_file": "YoloV8L.dxnn",
+    "original_name": "YoloV8L",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolov8",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "score_threshold": 0.25,
+      "nms_threshold": 0.45
+    },
+    "source": "inferred",
+    "supported": true
+  },
+  {
+    "model_name": "yolov8m",
+    "dxnn_file": "YoloV8M.dxnn",
+    "original_name": "YoloV8M",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolov8",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "score_threshold": 0.25,
+      "nms_threshold": 0.45
+    },
+    "source": "inferred",
+    "supported": true
+  },
+  {
+    "model_name": "yolov8m_pose",
+    "dxnn_file": "yolov8m_pose.dxnn",
+    "original_name": "yolov8m_pose",
+    "csv_task": "POSE",
+    "add_model_task": "pose_estimation",
+    "postprocessor": "yolov8pose",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "obj_threshold": 0.25,
+      "score_threshold": 0.25,
+      "nms_threshold": 0.45
+    },
+    "source": "manifest",
+    "supported": true
+  },
+  {
+    "model_name": "yolov8m_seg",
+    "dxnn_file": "yolov8m_seg.dxnn",
+    "original_name": "yolov8m_seg",
+    "csv_task": "SEG",
+    "add_model_task": "instance_segmentation",
+    "postprocessor": "yolov8seg",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "obj_threshold": 0.25,
+      "score_threshold": 0.25,
+      "nms_threshold": 0.45
+    },
+    "source": "manifest",
+    "supported": true
+  },
+  {
+    "model_name": "yolov8n",
+    "dxnn_file": "YoloV8N.dxnn",
+    "original_name": "YoloV8N",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolov8",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "score_threshold": 0.25,
+      "nms_threshold": 0.45
+    },
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "yolov8n_seg",
+    "dxnn_file": "yolov8n_seg.dxnn",
+    "original_name": "yolov8n_seg",
+    "csv_task": "SEG",
+    "add_model_task": "instance_segmentation",
+    "postprocessor": "yolov8seg",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "obj_threshold": 0.25,
+      "score_threshold": 0.25,
+      "nms_threshold": 0.45
+    },
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "yolov8s",
+    "dxnn_file": "YoloV8S.dxnn",
+    "original_name": "YoloV8S",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolov8",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "score_threshold": 0.25,
+      "nms_threshold": 0.45
+    },
+    "source": "inferred",
+    "supported": true
+  },
+  {
+    "model_name": "yolov8s_pose",
+    "dxnn_file": "yolov8s_pose.dxnn",
+    "original_name": "yolov8s_pose",
+    "csv_task": "POSE",
+    "add_model_task": "pose_estimation",
+    "postprocessor": "yolov8pose",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "obj_threshold": 0.25,
+      "score_threshold": 0.25,
+      "nms_threshold": 0.45
+    },
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "yolov8x",
+    "dxnn_file": "YoloV8X.dxnn",
+    "original_name": "YoloV8X",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolov8",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "score_threshold": 0.25,
+      "nms_threshold": 0.45
+    },
+    "source": "inferred",
+    "supported": true
+  },
+  {
+    "model_name": "yolov8n_ppu",
+    "dxnn_file": "YoloV8N_PPU.dxnn",
+    "original_name": "YoloV8N_PPU",
+    "csv_task": "OD",
+    "add_model_task": "ppu",
+    "postprocessor": "yolov8_ppu",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "obj_threshold": 0.25,
+      "score_threshold": 0.4,
+      "nms_threshold": 0.5
+    },
+    "source": "manifest",
+    "supported": true
+  },
+  {
+    "model_name": "yolov8s_ppu",
+    "dxnn_file": "YoloV8S_PPU.dxnn",
+    "original_name": "YoloV8S_PPU",
+    "csv_task": "OD",
+    "add_model_task": "ppu",
+    "postprocessor": "yolov8_ppu",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "obj_threshold": 0.25,
+      "score_threshold": 0.4,
+      "nms_threshold": 0.5
+    },
+    "source": "manifest",
+    "supported": true
+  },
+  {
+    "model_name": "yolov9t_ppu",
+    "dxnn_file": "YoloV9T_PPU.dxnn",
+    "original_name": "YoloV9T_PPU",
+    "csv_task": "OD",
+    "add_model_task": "ppu",
+    "postprocessor": "yolov8_ppu",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "obj_threshold": 0.25,
+      "score_threshold": 0.4,
+      "nms_threshold": 0.5
+    },
+    "source": "manifest",
+    "supported": true
+  },
+  {
+    "model_name": "yolov10n_ppu",
+    "dxnn_file": "YOLOV10N_PPU.dxnn",
+    "original_name": "YOLOV10N_PPU",
+    "csv_task": "OD",
+    "add_model_task": "ppu",
+    "postprocessor": "yolov8_ppu",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "obj_threshold": 0.25,
+      "score_threshold": 0.4,
+      "nms_threshold": 0.5
+    },
+    "source": "manifest",
+    "supported": true
+  },
+  {
+    "model_name": "yolov11n_ppu",
+    "dxnn_file": "YOLOV11N_PPU.dxnn",
+    "original_name": "YOLOV11N_PPU",
+    "csv_task": "OD",
+    "add_model_task": "ppu",
+    "postprocessor": "yolov8_ppu",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "obj_threshold": 0.25,
+      "score_threshold": 0.4,
+      "nms_threshold": 0.5
+    },
+    "source": "manifest",
+    "supported": true
+  },
+  {
+    "model_name": "yolov12n_ppu",
+    "dxnn_file": "YOLOV12N_PPU.dxnn",
+    "original_name": "YOLOV12N_PPU",
+    "csv_task": "OD",
+    "add_model_task": "ppu",
+    "postprocessor": "yolov8_ppu",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "obj_threshold": 0.25,
+      "score_threshold": 0.4,
+      "nms_threshold": 0.5
+    },
+    "source": "manifest",
+    "supported": true
+  },
+  {
+    "model_name": "yolov7x_ppu",
+    "dxnn_file": "YOLOv7x_PPU.dxnn",
+    "original_name": "YOLOv7x_PPU",
+    "csv_task": "OD",
+    "add_model_task": "ppu",
+    "postprocessor": "yolov7_ppu",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "obj_threshold": 0.25,
+      "score_threshold": 0.25,
+      "nms_threshold": 0.45
+    },
+    "source": "manifest",
+    "supported": true
+  },
+  {
+    "model_name": "scrfd500m_ppu",
+    "dxnn_file": "SCRFD500M_PPU.dxnn",
+    "original_name": "SCRFD500M_PPU",
+    "csv_task": "FD",
+    "add_model_task": "ppu",
+    "postprocessor": "scrfd_ppu",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "score_threshold": 0.5,
+      "nms_threshold": 0.45
+    },
+    "source": "manifest",
+    "supported": true
+  },
+  {
+    "model_name": "yolov5pose_ppu",
+    "dxnn_file": "YOLOV5Pose_PPU.dxnn",
+    "original_name": "YOLOV5Pose_PPU",
+    "csv_task": "POSE",
+    "add_model_task": "ppu",
+    "postprocessor": "yolov5pose_ppu",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "obj_threshold": 0.5,
+      "score_threshold": 0.5,
+      "nms_threshold": 0.45
+    },
+    "source": "manifest",
+    "supported": true
+  },
+  {
+    "model_name": "yolov9c",
+    "dxnn_file": "YoloV9C.dxnn",
+    "original_name": "YoloV9C",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolov8",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "score_threshold": 0.25,
+      "nms_threshold": 0.45
+    },
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "yolov9s",
+    "dxnn_file": "YoloV9S.dxnn",
+    "original_name": "YoloV9S",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolov8",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "score_threshold": 0.25,
+      "nms_threshold": 0.45
+    },
+    "source": "inferred",
+    "supported": true
+  },
+  {
+    "model_name": "yolov9t",
+    "dxnn_file": "YoloV9T.dxnn",
+    "original_name": "YoloV9T",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolov8",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "score_threshold": 0.25,
+      "nms_threshold": 0.45
+    },
+    "source": "inferred",
+    "supported": true
+  },
+  {
+    "model_name": "yolox_l_leaky",
+    "dxnn_file": "YoloX_L_Leaky.dxnn",
+    "original_name": "YoloX_L_Leaky",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolox",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "obj_threshold": 0.25,
+      "score_threshold": 0.25,
+      "nms_threshold": 0.45
+    },
+    "source": "inferred",
+    "supported": true
+  },
+  {
+    "model_name": "yolox_s_leaky",
+    "dxnn_file": "YoloX_S_Leaky.dxnn",
+    "original_name": "YoloX_S_Leaky",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolox",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "obj_threshold": 0.25,
+      "score_threshold": 0.25,
+      "nms_threshold": 0.45
+    },
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "yolox_s_wide_leaky",
+    "dxnn_file": "YoloX_S_Wide_Leaky.dxnn",
+    "original_name": "YoloX_S_Wide_Leaky",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolox",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "obj_threshold": 0.25,
+      "score_threshold": 0.25,
+      "nms_threshold": 0.45
+    },
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "yoloxs",
+    "dxnn_file": "YoloXS.dxnn",
+    "original_name": "YoloXS",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolox",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "obj_threshold": 0.25,
+      "score_threshold": 0.25,
+      "nms_threshold": 0.45
+    },
+    "source": "inferred",
+    "supported": true
+  },
+  {
+    "model_name": "yoloxtiny",
+    "dxnn_file": "YoloXTiny.dxnn",
+    "original_name": "YoloXTiny",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolox",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "obj_threshold": 0.25,
+      "score_threshold": 0.25,
+      "nms_threshold": 0.45
+    },
+    "source": "inferred",
+    "supported": true
+  },
+  {
+    "model_name": "zero_dce",
+    "dxnn_file": "zero_dce.dxnn",
+    "original_name": "zero_dce",
+    "csv_task": "LLIE",
+    "add_model_task": "image_enhancement",
+    "postprocessor": "zero_dce",
+    "input_width": 224,
+    "input_height": 224,
+    "config": {
+      "top_k": 5
+    },
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "efficientnetv2s",
+    "dxnn_file": "EfficientNetV2S.dxnn",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "config": {
+      "top_k": 5
+    },
+    "supported": true
+  },
+  {
+    "model_name": "yolov8s_seg",
+    "dxnn_file": "yolov8s_seg.dxnn",
+    "add_model_task": "instance_segmentation",
+    "postprocessor": "yolov8seg",
+    "config": {
+      "obj_threshold": 0.25,
+      "score_threshold": 0.25,
+      "nms_threshold": 0.45
+    },
+    "supported": true
+  },
+  {
+    "model_name": "deepmar_resnet50",
+    "dxnn_file": "deepmar_resnet50.dxnn",
+    "original_name": "deepmar_resnet50",
+    "csv_task": "MCL",
+    "add_model_task": "attribute_recognition",
+    "postprocessor": "deepmar",
+    "input_width": 224,
+    "input_height": 224,
+    "config": {},
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "casvit_t",
+    "dxnn_file": "casvit_t.dxnn",
+    "original_name": "casvit_t",
+    "csv_task": "FREC",
+    "add_model_task": "reid",
+    "postprocessor": "arcface",
+    "input_width": 224,
+    "input_height": 224,
+    "config": {
+      "top_k": 5
+    },
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "scdepthv3",
+    "dxnn_file": "scdepthv3.dxnn",
+    "original_name": "scdepthv3",
+    "csv_task": "DEPTH",
+    "add_model_task": "depth_estimation",
+    "postprocessor": "depth",
+    "input_width": 320,
+    "input_height": 256,
+    "config": {},
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "3ddfa_v2_mobilnet0_5_120x120",
+    "dxnn_file": "3ddfa_v2_mobilnet0.5_120x120.dxnn",
+    "original_name": "3ddfa_v2_mobilnet0.5_120x120",
+    "csv_task": "F3D",
+    "add_model_task": "face_alignment",
+    "postprocessor": "tddfa",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {},
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "3ddfa_v2_mobilnetv1_120x120",
+    "dxnn_file": "3ddfa_v2_mobilnetv1_120x120.dxnn",
+    "original_name": "3ddfa_v2_mobilnetv1_120x120",
+    "csv_task": "F3D",
+    "add_model_task": "face_alignment",
+    "postprocessor": "tddfa",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {},
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "arcface_iresnet100_ms1m",
+    "dxnn_file": "arcface_iresnet100_ms1m.dxnn",
+    "original_name": "arcface_iresnet100_ms1m",
+    "csv_task": "FREC",
+    "add_model_task": "embedding",
+    "postprocessor": "arcface",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "top_k": 5
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "arcface_iresnet50_ms1m",
+    "dxnn_file": "arcface_iresnet50_ms1m.dxnn",
+    "original_name": "arcface_iresnet50_ms1m",
+    "csv_task": "FREC",
+    "add_model_task": "embedding",
+    "postprocessor": "arcface",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "top_k": 5
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "arcface_r50",
+    "dxnn_file": "arcface_r50.dxnn",
+    "original_name": "arcface_r50",
+    "csv_task": "FREC",
+    "add_model_task": "embedding",
+    "postprocessor": "arcface",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "top_k": 5
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "casvit_m",
+    "dxnn_file": "casvit_m.dxnn",
+    "original_name": "casvit_m",
+    "csv_task": "REID",
+    "add_model_task": "reid",
+    "postprocessor": "casvit",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {},
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "casvit_s",
+    "dxnn_file": "casvit_s.dxnn",
+    "original_name": "casvit_s",
+    "csv_task": "REID",
+    "add_model_task": "reid",
+    "postprocessor": "casvit",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {},
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "casvit_xs",
+    "dxnn_file": "casvit_xs.dxnn",
+    "original_name": "casvit_xs",
+    "csv_task": "REID",
+    "add_model_task": "reid",
+    "postprocessor": "casvit",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {},
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "centerpose_regnetx_1_6gf_fpn",
+    "dxnn_file": "centerpose_regnetx_1.6gf_fpn.dxnn",
+    "original_name": "centerpose_regnetx_1.6gf_fpn",
+    "csv_task": "POSE",
+    "add_model_task": "pose_estimation",
+    "postprocessor": "centerpose",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "score_threshold": 0.3
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "centerpose_regnetx_800mf",
+    "dxnn_file": "centerpose_regnetx_800mf.dxnn",
+    "original_name": "centerpose_regnetx_800mf",
+    "csv_task": "POSE",
+    "add_model_task": "pose_estimation",
+    "postprocessor": "centerpose",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "score_threshold": 0.3
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "centerpose_repvgg_a0",
+    "dxnn_file": "centerpose_repvgg_a0.dxnn",
+    "original_name": "centerpose_repvgg_a0",
+    "csv_task": "POSE",
+    "add_model_task": "pose_estimation",
+    "postprocessor": "centerpose",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "score_threshold": 0.3
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "deeplabv3mobilenetv2",
+    "dxnn_file": "DeepLabV3MobileNetV2.dxnn",
+    "original_name": "DeepLabV3MobileNetV2",
+    "csv_task": "SEG",
+    "add_model_task": "semantic_segmentation",
+    "postprocessor": "deeplabv3",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {},
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "deeplabv3plusmobilenetv2",
+    "dxnn_file": "DeepLabV3PlusMobileNetV2.dxnn",
+    "original_name": "DeepLabV3PlusMobileNetV2",
+    "csv_task": "SEG",
+    "add_model_task": "semantic_segmentation",
+    "postprocessor": "deeplabv3",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {},
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "deepmar_resnet18_person_attr_resnet_v1_18",
+    "dxnn_file": "deepmar_resnet18_person_attr_resnet_v1_18.dxnn",
+    "original_name": "deepmar_resnet18_person_attr_resnet_v1_18",
+    "csv_task": "ATTR",
+    "add_model_task": "attribute_recognition",
+    "postprocessor": "deepmar",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {},
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "deitbase384_hug",
+    "dxnn_file": "DeiTBase384_hug.dxnn",
+    "original_name": "DeiTBase384_hug",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "top_k": 5
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "densenet169",
+    "dxnn_file": "DenseNet169.dxnn",
+    "original_name": "DenseNet169",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "top_k": 5
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "densenet201",
+    "dxnn_file": "DenseNet201.dxnn",
+    "original_name": "DenseNet201",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "top_k": 5
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "dncnn3",
+    "dxnn_file": "DnCNN3.dxnn",
+    "original_name": "DnCNN3",
+    "csv_task": "DN",
+    "add_model_task": "image_denoising",
+    "postprocessor": "dncnn",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {},
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "dncnn_color_blind",
+    "dxnn_file": "DnCNN_Color_Blind.dxnn",
+    "original_name": "DnCNN_Color_Blind",
+    "csv_task": "DN",
+    "add_model_task": "image_denoising",
+    "postprocessor": "dncnn",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {},
+    "source": "auto_classify",
+    "supported": false,
+    "failure_reason": "DMA write failure - device cannot handle 512x512x3 input buffer (errno=-70)",
+    "known_issue": "Device firmware DMA limit. Factory corrected to use color preprocessor. Awaiting firmware fix."
+  },
+  {
+    "model_name": "dncnn_gray_blind",
+    "dxnn_file": "DnCNN_Gray_Blind.dxnn",
+    "original_name": "DnCNN_Gray_Blind",
+    "csv_task": "DN",
+    "add_model_task": "image_denoising",
+    "postprocessor": "dncnn",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {},
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "efficientdetd1",
+    "dxnn_file": "EfficientDetD1.dxnn",
+    "original_name": "EfficientDetD1",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "efficientdet",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "score_threshold": 0.4,
+      "nms_threshold": 0.45
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "efficientdetd2",
+    "dxnn_file": "EfficientDetD2.dxnn",
+    "original_name": "EfficientDetD2",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "efficientdet",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "score_threshold": 0.4,
+      "nms_threshold": 0.45
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "efficientdetd4",
+    "dxnn_file": "EfficientDetD4.dxnn",
+    "original_name": "EfficientDetD4",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "efficientdet",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "score_threshold": 0.4,
+      "nms_threshold": 0.45
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "efficientformer_l3",
+    "dxnn_file": "efficientformer_l3.dxnn",
+    "original_name": "efficientformer_l3",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "top_k": 5
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "efficientformer_l7",
+    "dxnn_file": "efficientformer_l7.dxnn",
+    "original_name": "efficientformer_l7",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "top_k": 5
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "efficientformerv2_l",
+    "dxnn_file": "efficientformerv2_l.dxnn",
+    "original_name": "efficientformerv2_l",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "top_k": 5
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "efficientnetb3",
+    "dxnn_file": "EfficientNetB3.dxnn",
+    "original_name": "EfficientNetB3",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "top_k": 5
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "efficientnetb4",
+    "dxnn_file": "EfficientNetB4.dxnn",
+    "original_name": "EfficientNetB4",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "top_k": 5
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "efficientnetb5",
+    "dxnn_file": "EfficientNetB5.dxnn",
+    "original_name": "EfficientNetB5",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "top_k": 5
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "efficientnetb6",
+    "dxnn_file": "EfficientNetB6.dxnn",
+    "original_name": "EfficientNetB6",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "top_k": 5
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "efficientnetv2l",
+    "dxnn_file": "EfficientNetV2L.dxnn",
+    "original_name": "EfficientNetV2L",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "top_k": 5
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "espcn_x3",
+    "dxnn_file": "ESPCN_X3.dxnn",
+    "original_name": "ESPCN_X3",
+    "csv_task": "SR",
+    "add_model_task": "super_resolution",
+    "postprocessor": "espcn",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {},
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "face_attr_resnet_v1_18",
+    "dxnn_file": "face_attr_resnet_v1_18.dxnn",
+    "original_name": "face_attr_resnet_v1_18",
+    "csv_task": "ATTR",
+    "add_model_task": "attribute_recognition",
+    "postprocessor": "deepmar",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {},
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "fastsam_s",
+    "dxnn_file": "FastSAM-s.dxnn",
+    "original_name": "FastSAM-s",
+    "csv_task": "ISEG",
+    "add_model_task": "instance_segmentation",
+    "postprocessor": "yolov8seg",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "score_threshold": 0.4,
+      "nms_threshold": 0.45
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "levit128_hug",
+    "dxnn_file": "LeViT128_hug.dxnn",
+    "original_name": "LeViT128_hug",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "top_k": 5
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "levit192_hug",
+    "dxnn_file": "LeViT192_hug.dxnn",
+    "original_name": "LeViT192_hug",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "top_k": 5
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "levit256_hug",
+    "dxnn_file": "LeViT256_hug.dxnn",
+    "original_name": "LeViT256_hug",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "top_k": 5
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "levit384_hug",
+    "dxnn_file": "LeViT384_hug.dxnn",
+    "original_name": "LeViT384_hug",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "top_k": 5
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "mnasnet0_5",
+    "dxnn_file": "MNASNet0_5.dxnn",
+    "original_name": "MNASNet0_5",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "top_k": 5
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "mnasnet0_75",
+    "dxnn_file": "MNASNet0_75.dxnn",
+    "original_name": "MNASNet0_75",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "top_k": 5
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "mnasnet1_0",
+    "dxnn_file": "MNASNet1_0.dxnn",
+    "original_name": "MNASNet1_0",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "top_k": 5
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "mnasnet1_3",
+    "dxnn_file": "MNASNet1_3.dxnn",
+    "original_name": "MNASNet1_3",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "top_k": 5
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "nanodet_repvgga12",
+    "dxnn_file": "NanoDet_RepVGGA12.dxnn",
+    "original_name": "NanoDet_RepVGGA12",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "nanodet",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "score_threshold": 0.4,
+      "nms_threshold": 0.45
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "nanodetplusm",
+    "dxnn_file": "NanoDetPlusM.dxnn",
+    "original_name": "NanoDetPlusM",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "nanodet",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "score_threshold": 0.4,
+      "nms_threshold": 0.45
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "nanodetplusm_15",
+    "dxnn_file": "NanoDetPlusM_15.dxnn",
+    "original_name": "NanoDetPlusM_15",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "nanodet",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "score_threshold": 0.4,
+      "nms_threshold": 0.45
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "regnetx16gf",
+    "dxnn_file": "RegNetX16GF.dxnn",
+    "original_name": "RegNetX16GF",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "top_k": 5
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "regnetx1_6gf",
+    "dxnn_file": "RegNetX1_6GF.dxnn",
+    "original_name": "RegNetX1_6GF",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "top_k": 5
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "regnetx1_6gf_h",
+    "dxnn_file": "RegNetX1_6GF_h.dxnn",
+    "original_name": "RegNetX1_6GF_h",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "top_k": 5
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "regnetx32gf",
+    "dxnn_file": "RegNetX32GF.dxnn",
+    "original_name": "RegNetX32GF",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "top_k": 5
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "regnetx3_2gf",
+    "dxnn_file": "RegNetX3_2GF.dxnn",
+    "original_name": "RegNetX3_2GF",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "top_k": 5
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "regnetx8gf",
+    "dxnn_file": "RegNetX8GF.dxnn",
+    "original_name": "RegNetX8GF",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "top_k": 5
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "regnety16gf",
+    "dxnn_file": "RegNetY16GF.dxnn",
+    "original_name": "RegNetY16GF",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "top_k": 5
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "regnety1_6gf",
+    "dxnn_file": "RegNetY1_6GF.dxnn",
+    "original_name": "RegNetY1_6GF",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "top_k": 5
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "regnety32gf",
+    "dxnn_file": "RegNetY32GF.dxnn",
+    "original_name": "RegNetY32GF",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "top_k": 5
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "regnety3_2gf",
+    "dxnn_file": "RegNetY3_2GF.dxnn",
+    "original_name": "RegNetY3_2GF",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "top_k": 5
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "regnety8gf",
+    "dxnn_file": "RegNetY8GF.dxnn",
+    "original_name": "RegNetY8GF",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "top_k": 5
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "resnet152",
+    "dxnn_file": "ResNet152.dxnn",
+    "original_name": "ResNet152",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "top_k": 5
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "resnet18_h",
+    "dxnn_file": "ResNet18-H.dxnn",
+    "original_name": "ResNet18-H",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "top_k": 5
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "resnext101_64x4d",
+    "dxnn_file": "ResNeXt101_64x4d.dxnn",
+    "original_name": "ResNeXt101_64x4d",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "top_k": 5
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "resnext50_32x4d_h",
+    "dxnn_file": "ResNeXt50_32x4d_h.dxnn",
+    "original_name": "ResNeXt50_32x4d_h",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "top_k": 5
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "segformer_b0_512x1024_h",
+    "dxnn_file": "segformer_b0_512x1024_h.dxnn",
+    "original_name": "segformer_b0_512x1024_h",
+    "csv_task": "SEG",
+    "add_model_task": "semantic_segmentation",
+    "postprocessor": "segformer",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {},
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "shufflenetv1x1_0",
+    "dxnn_file": "ShuffleNetV1X1_0.dxnn",
+    "original_name": "ShuffleNetV1X1_0",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "top_k": 5
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "shufflenetv2x0_5",
+    "dxnn_file": "ShuffleNetV2X0_5.dxnn",
+    "original_name": "ShuffleNetV2X0_5",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "top_k": 5
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "shufflenetv2x1_0",
+    "dxnn_file": "ShuffleNetV2X1_0.dxnn",
+    "original_name": "ShuffleNetV2X1_0",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "top_k": 5
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "shufflenetv2x1_5",
+    "dxnn_file": "ShuffleNetV2X1_5.dxnn",
+    "original_name": "ShuffleNetV2X1_5",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "top_k": 5
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "shufflenetv2x2_0",
+    "dxnn_file": "ShuffleNetV2X2_0.dxnn",
+    "original_name": "ShuffleNetV2X2_0",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "top_k": 5
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "squeezenet1_1_h",
+    "dxnn_file": "SqueezeNet1_1_H.dxnn",
+    "original_name": "SqueezeNet1_1_H",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "top_k": 5
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "ssdvgg16",
+    "dxnn_file": "SSDVGG16.dxnn",
+    "original_name": "SSDVGG16",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "ssd",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "score_threshold": 0.4,
+      "nms_threshold": 0.45
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "ulfgfd_rfb_320",
+    "dxnn_file": "ulfgfd-RFB-320.dxnn",
+    "original_name": "ulfgfd-RFB-320",
+    "csv_task": "FD",
+    "add_model_task": "face_detection",
+    "postprocessor": "ulfgfd",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "score_threshold": 0.5,
+      "nms_threshold": 0.3
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "ulfgfd_rfb_320_without_postprocessing",
+    "dxnn_file": "ulfgfd-RFB-320_without_postprocessing.dxnn",
+    "original_name": "ulfgfd-RFB-320_without_postprocessing",
+    "csv_task": "FD",
+    "add_model_task": "face_detection",
+    "postprocessor": "ulfgfd",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "score_threshold": 0.5,
+      "nms_threshold": 0.3
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "ulfgfd_rfb_640",
+    "dxnn_file": "ulfgfd-RFB-640.dxnn",
+    "original_name": "ulfgfd-RFB-640",
+    "csv_task": "FD",
+    "add_model_task": "face_detection",
+    "postprocessor": "ulfgfd",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "score_threshold": 0.5,
+      "nms_threshold": 0.3
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "ulfgfd_slim_320",
+    "dxnn_file": "ulfgfd-slim-320.dxnn",
+    "original_name": "ulfgfd-slim-320",
+    "csv_task": "FD",
+    "add_model_task": "face_detection",
+    "postprocessor": "ulfgfd",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "score_threshold": 0.5,
+      "nms_threshold": 0.3
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "ulfgfd_slim_320_without_postprocessing",
+    "dxnn_file": "ulfgfd-slim-320_without_postprocessing.dxnn",
+    "original_name": "ulfgfd-slim-320_without_postprocessing",
+    "csv_task": "FD",
+    "add_model_task": "face_detection",
+    "postprocessor": "ulfgfd",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "score_threshold": 0.5,
+      "nms_threshold": 0.3
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "unet_mobilenet_v2",
+    "dxnn_file": "unet_mobilenet_v2.dxnn",
+    "original_name": "unet_mobilenet_v2",
+    "csv_task": "SEG",
+    "add_model_task": "semantic_segmentation",
+    "postprocessor": "deeplabv3",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {},
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "vgg16",
+    "dxnn_file": "VGG16.dxnn",
+    "original_name": "VGG16",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "top_k": 5
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "vgg16bn",
+    "dxnn_file": "VGG16BN.dxnn",
+    "original_name": "VGG16BN",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "top_k": 5
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "vgg19",
+    "dxnn_file": "VGG19.dxnn",
+    "original_name": "VGG19",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "top_k": 5
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "vitb32",
+    "dxnn_file": "ViTB32.dxnn",
+    "original_name": "ViTB32",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "top_k": 5
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "vitl32",
+    "dxnn_file": "ViTL32.dxnn",
+    "original_name": "ViTL32",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "top_k": 5
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "yolact_regnetx_1_6gf",
+    "dxnn_file": "yolact_regnetx_1.6gf.dxnn",
+    "original_name": "yolact_regnetx_1.6gf",
+    "csv_task": "ISEG",
+    "add_model_task": "instance_segmentation",
+    "postprocessor": "yolact",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "score_threshold": 0.4,
+      "nms_threshold": 0.45
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "yolo26l_cls",
+    "dxnn_file": "yolo26l-cls.dxnn",
+    "original_name": "yolo26l-cls",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "top_k": 5
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "yolo26l_obb",
+    "dxnn_file": "yolo26l-obb.dxnn",
+    "original_name": "yolo26l-obb",
+    "csv_task": "OBB",
+    "add_model_task": "obb_detection",
+    "postprocessor": "yolov26obb",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "score_threshold": 0.4,
+      "nms_threshold": 0.45
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "yolo26l_pose",
+    "dxnn_file": "yolo26l-pose.dxnn",
+    "original_name": "yolo26l-pose",
+    "csv_task": "POSE",
+    "add_model_task": "pose_estimation",
+    "postprocessor": "yolov26pose",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "score_threshold": 0.4,
+      "nms_threshold": 0.45
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "yolo26l_seg",
+    "dxnn_file": "yolo26l-seg.dxnn",
+    "original_name": "yolo26l-seg",
+    "csv_task": "ISEG",
+    "add_model_task": "instance_segmentation",
+    "postprocessor": "yolov26seg",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "score_threshold": 0.4,
+      "nms_threshold": 0.45
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "yolo26m_cls",
+    "dxnn_file": "yolo26m-cls.dxnn",
+    "original_name": "yolo26m-cls",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "top_k": 5
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "yolo26m_obb",
+    "dxnn_file": "yolo26m-obb.dxnn",
+    "original_name": "yolo26m-obb",
+    "csv_task": "OBB",
+    "add_model_task": "obb_detection",
+    "postprocessor": "yolov26obb",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "score_threshold": 0.4,
+      "nms_threshold": 0.45
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "yolo26m_pose",
+    "dxnn_file": "yolo26m-pose.dxnn",
+    "original_name": "yolo26m-pose",
+    "csv_task": "POSE",
+    "add_model_task": "pose_estimation",
+    "postprocessor": "yolov26pose",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "score_threshold": 0.4,
+      "nms_threshold": 0.45
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "yolo26m_seg",
+    "dxnn_file": "yolo26m-seg.dxnn",
+    "original_name": "yolo26m-seg",
+    "csv_task": "ISEG",
+    "add_model_task": "instance_segmentation",
+    "postprocessor": "yolov26seg",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "score_threshold": 0.4,
+      "nms_threshold": 0.45
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "yolo26n_cls",
+    "dxnn_file": "yolo26n-cls.dxnn",
+    "original_name": "yolo26n-cls",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "top_k": 5
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "yolo26n_pose",
+    "dxnn_file": "yolo26n-pose.dxnn",
+    "original_name": "yolo26n-pose",
+    "csv_task": "POSE",
+    "add_model_task": "pose_estimation",
+    "postprocessor": "yolov26pose",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "score_threshold": 0.4,
+      "nms_threshold": 0.45
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "yolo26n_seg",
+    "dxnn_file": "yolo26n-seg.dxnn",
+    "original_name": "yolo26n-seg",
+    "csv_task": "ISEG",
+    "add_model_task": "instance_segmentation",
+    "postprocessor": "yolov26seg",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "score_threshold": 0.4,
+      "nms_threshold": 0.45
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "yolo26s_cls",
+    "dxnn_file": "yolo26s-cls.dxnn",
+    "original_name": "yolo26s-cls",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "top_k": 5
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "yolo26s_obb",
+    "dxnn_file": "yolo26s-obb.dxnn",
+    "original_name": "yolo26s-obb",
+    "csv_task": "OBB",
+    "add_model_task": "obb_detection",
+    "postprocessor": "yolov26obb",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "score_threshold": 0.4,
+      "nms_threshold": 0.45
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "yolo26s_pose",
+    "dxnn_file": "yolo26s-pose.dxnn",
+    "original_name": "yolo26s-pose",
+    "csv_task": "POSE",
+    "add_model_task": "pose_estimation",
+    "postprocessor": "yolov26pose",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "score_threshold": 0.4,
+      "nms_threshold": 0.45
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "yolo26s_seg",
+    "dxnn_file": "yolo26s-seg.dxnn",
+    "original_name": "yolo26s-seg",
+    "csv_task": "ISEG",
+    "add_model_task": "instance_segmentation",
+    "postprocessor": "yolov26seg",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "score_threshold": 0.4,
+      "nms_threshold": 0.45
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "yolo26x_cls",
+    "dxnn_file": "yolo26x-cls.dxnn",
+    "original_name": "yolo26x-cls",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "top_k": 5
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "yolo26x_obb",
+    "dxnn_file": "yolo26x-obb.dxnn",
+    "original_name": "yolo26x-obb",
+    "csv_task": "OBB",
+    "add_model_task": "obb_detection",
+    "postprocessor": "yolov26obb",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "score_threshold": 0.4,
+      "nms_threshold": 0.45
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "yolo26x_pose",
+    "dxnn_file": "yolo26x-pose.dxnn",
+    "original_name": "yolo26x-pose",
+    "csv_task": "POSE",
+    "add_model_task": "pose_estimation",
+    "postprocessor": "yolov26pose",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "score_threshold": 0.4,
+      "nms_threshold": 0.45
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "yolo26x_seg",
+    "dxnn_file": "yolo26x-seg.dxnn",
+    "original_name": "yolo26x-seg",
+    "csv_task": "ISEG",
+    "add_model_task": "instance_segmentation",
+    "postprocessor": "yolov26seg",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "score_threshold": 0.4,
+      "nms_threshold": 0.45
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "yolov3_2",
+    "dxnn_file": "YOLOV3_2.dxnn",
+    "original_name": "YOLOV3_2",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolov5",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "score_threshold": 0.4,
+      "nms_threshold": 0.45
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "yolov3_2_ppu",
+    "dxnn_file": "YOLOV3_2_PPU.dxnn",
+    "original_name": "YOLOV3_2_PPU",
+    "csv_task": "PPU",
+    "add_model_task": "ppu",
+    "postprocessor": "yolov5_ppu",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "score_threshold": 0.4,
+      "nms_threshold": 0.45
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "yolov3_3_ppu",
+    "dxnn_file": "YOLOV3_3_PPU.dxnn",
+    "original_name": "YOLOV3_3_PPU",
+    "csv_task": "PPU",
+    "add_model_task": "ppu",
+    "postprocessor": "yolov5_ppu",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "score_threshold": 0.4,
+      "nms_threshold": 0.45
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "yolov3_gluon_416",
+    "dxnn_file": "yolov3_gluon_416.dxnn",
+    "original_name": "yolov3_gluon_416",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolov5",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "score_threshold": 0.4,
+      "nms_threshold": 0.45
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "yolov3_gluon_608",
+    "dxnn_file": "yolov3_gluon_608.dxnn",
+    "original_name": "yolov3_gluon_608",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolov5",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "score_threshold": 0.4,
+      "nms_threshold": 0.45
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "yolov3tiny_1",
+    "dxnn_file": "YOLOV3Tiny_1.dxnn",
+    "original_name": "YOLOV3Tiny_1",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolov5",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "score_threshold": 0.4,
+      "nms_threshold": 0.45
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "yolov3tiny_1_ppu",
+    "dxnn_file": "YOLOV3Tiny_1_PPU.dxnn",
+    "original_name": "YOLOV3Tiny_1_PPU",
+    "csv_task": "PPU",
+    "add_model_task": "ppu",
+    "postprocessor": "yolov5_ppu",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "score_threshold": 0.4,
+      "nms_threshold": 0.45
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "yolov4_2_ppu",
+    "dxnn_file": "YOLOV4_2_PPU.dxnn",
+    "original_name": "YOLOV4_2_PPU",
+    "csv_task": "PPU",
+    "add_model_task": "ppu",
+    "postprocessor": "yolov5_ppu",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "score_threshold": 0.4,
+      "nms_threshold": 0.45
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "yolov4_leaky_512_512",
+    "dxnn_file": "yolov4_leaky_512_512.dxnn",
+    "original_name": "yolov4_leaky_512_512",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolov5",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "score_threshold": 0.4,
+      "nms_threshold": 0.45
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "yolov4tiny_1",
+    "dxnn_file": "YOLOV4Tiny_1.dxnn",
+    "original_name": "YOLOV4Tiny_1",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolov5",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "score_threshold": 0.4,
+      "nms_threshold": 0.45
+    },
+    "source": "auto_classify",
+    "supported": false,
+    "failure_reason": "Inference hang - device compatibility issue"
+  },
+  {
+    "model_name": "yolov5l6",
+    "dxnn_file": "YoloV5L6.dxnn",
+    "original_name": "YoloV5L6",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolov5",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "score_threshold": 0.4,
+      "nms_threshold": 0.45
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "yolov5l_h",
+    "dxnn_file": "YoloV5L_h.dxnn",
+    "original_name": "YoloV5L_h",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolov5",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "score_threshold": 0.4,
+      "nms_threshold": 0.45
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "yolov5m6",
+    "dxnn_file": "YoloV5M6.dxnn",
+    "original_name": "YoloV5M6",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolov5",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "score_threshold": 0.4,
+      "nms_threshold": 0.45
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "yolov5m6_61_h",
+    "dxnn_file": "YoloV5M6_61_h.dxnn",
+    "original_name": "YoloV5M6_61_h",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolov5",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "score_threshold": 0.4,
+      "nms_threshold": 0.45
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "yolov5m_h",
+    "dxnn_file": "YoloV5M_h.dxnn",
+    "original_name": "YoloV5M_h",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolov5",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "score_threshold": 0.4,
+      "nms_threshold": 0.45
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "yolov5m_wo_spp_640",
+    "dxnn_file": "yolov5m_wo_spp_640.dxnn",
+    "original_name": "yolov5m_wo_spp_640",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolov5",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "score_threshold": 0.4,
+      "nms_threshold": 0.45
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "yolov5n6",
+    "dxnn_file": "YoloV5N6.dxnn",
+    "original_name": "YoloV5N6",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolov5",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "score_threshold": 0.4,
+      "nms_threshold": 0.45
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "yolov5n6_61_h",
+    "dxnn_file": "YoloV5N6_61_h.dxnn",
+    "original_name": "YoloV5N6_61_h",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolov5",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "score_threshold": 0.4,
+      "nms_threshold": 0.45
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "yolov5s6",
+    "dxnn_file": "YoloV5S6.dxnn",
+    "original_name": "YoloV5S6",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolov5",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "score_threshold": 0.4,
+      "nms_threshold": 0.45
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "yolov5s6_61_h",
+    "dxnn_file": "YoloV5S6_61_h.dxnn",
+    "original_name": "YoloV5S6_61_h",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolov5",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "score_threshold": 0.4,
+      "nms_threshold": 0.45
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "yolov5s_4",
+    "dxnn_file": "YOLOV5S_4.dxnn",
+    "original_name": "YOLOV5S_4",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolov5",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "score_threshold": 0.4,
+      "nms_threshold": 0.45
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "yolov5s_bbox_decoding_only_640",
+    "dxnn_file": "yolov5s_bbox_decoding_only_640.dxnn",
+    "original_name": "yolov5s_bbox_decoding_only_640",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolov5",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "score_threshold": 0.4,
+      "nms_threshold": 0.45
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "yolov5s_c3tr_640",
+    "dxnn_file": "yolov5s_c3tr_640.dxnn",
+    "original_name": "yolov5s_c3tr_640",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolov5",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "score_threshold": 0.4,
+      "nms_threshold": 0.45
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "yolov5s_h",
+    "dxnn_file": "YoloV5S_h.dxnn",
+    "original_name": "YoloV5S_h",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolov5",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "score_threshold": 0.4,
+      "nms_threshold": 0.45
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "yolov5s_wo_spp_640",
+    "dxnn_file": "yolov5s_wo_spp_640.dxnn",
+    "original_name": "yolov5s_wo_spp_640",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolov5",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "score_threshold": 0.4,
+      "nms_threshold": 0.45
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "yolov5x",
+    "dxnn_file": "YoloV5X.dxnn",
+    "original_name": "YoloV5X",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolov5",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "score_threshold": 0.4,
+      "nms_threshold": 0.45
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "yolov5x6",
+    "dxnn_file": "YoloV5X6.dxnn",
+    "original_name": "YoloV5X6",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolov5",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "score_threshold": 0.4,
+      "nms_threshold": 0.45
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "yolov5xs_wo_spp_512",
+    "dxnn_file": "yolov5xs_wo_spp_512.dxnn",
+    "original_name": "yolov5xs_wo_spp_512",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolov5",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "score_threshold": 0.4,
+      "nms_threshold": 0.45
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "yolov6l",
+    "dxnn_file": "YoloV6L.dxnn",
+    "original_name": "YoloV6L",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolov5",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "score_threshold": 0.4,
+      "nms_threshold": 0.45
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "yolov6m",
+    "dxnn_file": "YoloV6M.dxnn",
+    "original_name": "YoloV6M",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolov5",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "score_threshold": 0.4,
+      "nms_threshold": 0.45
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "yolov6n",
+    "dxnn_file": "YoloV6N.dxnn",
+    "original_name": "YoloV6N",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolov5",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "score_threshold": 0.4,
+      "nms_threshold": 0.45
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "yolov6n_0_2_1_nms_core",
+    "dxnn_file": "yolov6n_0.2.1_nms_core.dxnn",
+    "original_name": "yolov6n_0.2.1_nms_core",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolov5",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "score_threshold": 0.4,
+      "nms_threshold": 0.45
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "yolov7_w6_wo_decoding",
+    "dxnn_file": "yolov7_w6-wo_decoding.dxnn",
+    "original_name": "yolov7_w6-wo_decoding",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolov7",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "score_threshold": 0.4,
+      "nms_threshold": 0.45
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "yolov7_wo_decoding",
+    "dxnn_file": "yolov7-wo_decoding.dxnn",
+    "original_name": "yolov7-wo_decoding",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolov7",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "score_threshold": 0.4,
+      "nms_threshold": 0.45
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "yolov7d6",
+    "dxnn_file": "YoloV7D6.dxnn",
+    "original_name": "YoloV7D6",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolov7",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "score_threshold": 0.4,
+      "nms_threshold": 0.45
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "yolov7e6e",
+    "dxnn_file": "YoloV7E6E.dxnn",
+    "original_name": "YoloV7E6E",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolov7",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "score_threshold": 0.4,
+      "nms_threshold": 0.45
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "yolov7x",
+    "dxnn_file": "YOLOv7x.dxnn",
+    "original_name": "YOLOv7x",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolov7",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "score_threshold": 0.4,
+      "nms_threshold": 0.45
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "yolov8s_bbox_decoding_only_640",
+    "dxnn_file": "yolov8s_bbox_decoding_only_640.dxnn",
+    "original_name": "yolov8s_bbox_decoding_only_640",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolov8",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "score_threshold": 0.4,
+      "nms_threshold": 0.45
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "yolov9_gelan_c",
+    "dxnn_file": "YoloV9_GELAN_C.dxnn",
+    "original_name": "YoloV9_GELAN_C",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolov9",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "score_threshold": 0.4,
+      "nms_threshold": 0.45
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "yolov9m",
+    "dxnn_file": "YoloV9M.dxnn",
+    "original_name": "YoloV9M",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolov9",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "score_threshold": 0.4,
+      "nms_threshold": 0.45
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "yolox_s_2_ppu",
+    "dxnn_file": "YOLOX-S_2_PPU.dxnn",
+    "original_name": "YOLOX-S_2_PPU",
+    "csv_task": "PPU",
+    "add_model_task": "ppu",
+    "postprocessor": "yolov5_ppu",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "score_threshold": 0.4,
+      "nms_threshold": 0.45
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "yoloxl",
+    "dxnn_file": "YoloXL.dxnn",
+    "original_name": "YoloXL",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolox",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "score_threshold": 0.4,
+      "nms_threshold": 0.45
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "yoloxm",
+    "dxnn_file": "YoloXM.dxnn",
+    "original_name": "YoloXM",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolox",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "score_threshold": 0.4,
+      "nms_threshold": 0.45
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "yoloxx",
+    "dxnn_file": "YoloXX.dxnn",
+    "original_name": "YoloXX",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolox",
+    "input_width": 0,
+    "input_height": 0,
+    "config": {
+      "score_threshold": 0.4,
+      "nms_threshold": 0.45
+    },
+    "source": "auto_classify",
+    "supported": true
+  }
+]

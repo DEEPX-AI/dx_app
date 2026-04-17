@@ -1,12 +1,14 @@
-This chapter describes the system requirements and the installation instructions on Linux and WIndows to use **DX-APP**.  
+# DX-APP Installation and Build
+
+This guide describes the system requirements and the installation instructions on Linux and WIndows to use **DX-APP**.  
 
 ---
 
-## System Requirements
+## Overview & System Requirements 
 
 This section describes the hardware and software requirements for running **DX-APP**.
 
-**Hardware  Requirements**
+**Hardware Requirements**
 
 - **CPU:** amd64(x86_64), aarch64(arm64)  
 - **RAM:** 8GB RAM (16GB RAM or higher is recommended)  
@@ -29,7 +31,6 @@ This section describes the software requirements and installation steps for sett
 To run **DX-APP** on Linux, the following components **must** be installed.  
 
 - **OS**: Ubuntu 18.04 / 20.04 / 22.04 / 24.04 (x64) and Debian 12 / 13 (x64)  
-- **Deepx M1 Driver Version**: v1.7.1 or higher  
 - **Deepx M1 Runtime Lib Version**: v3.0.0 or higher  
 
 All required components are included in the **DXNN All Suite (DX-AS)** package.  
@@ -109,7 +110,38 @@ To download required models and sample videos, run the following command.
 ./setup.sh
 ```
 
-Assets are downloaded and placed in the `assets/` directory. The available assets include models for Classification, Object Detection, and Segmentation.  
+Assets are downloaded and placed in the `assets/` directory.
+
+- **Models:** stored under `assets/models/`
+- **Videos:** stored under `assets/videos/`
+
+!!! note "NOTE"
+    Running `setup.sh` beforehand is optional. When you run any individual example, missing models are **automatically downloaded** on demand. Videos are also auto-downloaded when a `--video` path is specified but the file does not exist.
+
+**`setup.sh` Options**
+
+| Option | Description |
+|--------|-------------|
+| `--all` | Download all models non-interactively |
+| `--dry-run` | List models that would be downloaded without downloading |
+| `--list` | List available models without downloading |
+| `--workers=<N>` | Parallel download threads (default: 4) |
+| `--category=<name>` | Download models of a specific category only |
+| `--models <m1> [m2...]` | Download specific models by name |
+| `--no-json` | Skip JSON metadata file downloads |
+| `--manifest=<path>` | Use an alternate manifest JSON file |
+| `--force` | Force overwrite if files already exist (default) |
+| `--no-force` | Skip download if the file already exists |
+| `--force-remove-models` | Force remove models if they exist |
+| `--force-remove-videos` | Force remove videos if they exist |
+| `--verbose` | Show detailed progress output |
+
+In internal-network environments, the setup flow can use the internal [DX-ModelZoo](https://developer.deepx.ai/modelzoo/) source automatically when the intranet mode is enabled by the surrounding environment.
+
+For most users, running only `./setup.sh` is sufficient. Contributor-facing setup details are documented separately in the developer guides.
+
+!!! note "Internal-Network Setup"
+    In internal environments, DX-APP can use the internal DX-ModelZoo source to prepare model assets without requiring manual model-by-model input during the standard setup flow.
 
 **Post-Processing Unit (PPU) Acceleration Integration**  
 
@@ -122,12 +154,20 @@ The PPU is engineered to offload computationally intensive post-processing tasks
 - **Improved Processing Speed:** Achieved by enabling the parallel execution of both the core inference and the post-processing operations.  
 - **Enhanced Throughput:** Provides a significant advantage for real-time applications that require sustained high frame rates.  
 
-**PPU-Enabled Demo Options**  
+**PPU-Enabled Models**  
 
-- **Option 1:** Object Detection With PPU (YoloV7-640)  
-- **Option 4:** Object Detection With PPU (YOLOv5S-512)  
-- **Option 6:** Face Detection With PPU (SCRFD500M-640)  
-- **Option 8:** Pose Estimation With PPU (YOLOv5Pose-640)  
+DX-APP includes 11 PPU-accelerated model variants across multiple tasks. To run PPU models interactively, use `./run_demo.sh` and select "PPU Pipeline", or use the example runner / DX Model Tool:
+
+```bash
+# Interactive — select PPU from the category menu
+scripts/run_examples.sh
+./scripts/dx_tool.sh run
+
+# Non-interactive
+./scripts/dx_tool.sh run --lang cpp --category ppu
+```
+
+Available PPU models: YOLOv5S, YOLOv7, YOLOv7x, YOLOv8N, YOLOv8S, YOLOv9T, YOLOv10N, YOLOv11N, YOLOv12N, SCRFD500M, YOLOv5Pose.
 
 **Step 4. Resolve Shared Library Errors**  
 
@@ -360,12 +400,12 @@ You can run the examples using the same command line instructions as in Linux, b
 
 classification example  
 ```shell
-./bin/efficientnet_async.exe -m ./assets/models/EfficientNetB0_4.dxnn -i ./sample/ILSVRC2012/0.jpeg 
+./bin/efficientnet_lite0_async.exe -m ./assets/models/EfficientNet_Lite0.dxnn -i ./sample/ILSVRC2012/0.jpeg 
 ```
 
 object detection example  
 ```shell
-./bin/yolov8_sync.exe  -m ./assets/models/YoloV8N.dxnn -i ./sample/img/1.jpg -l 10
+./bin/yolov8n_sync.exe  -m ./assets/models/YoloV8N.dxnn -i ./sample/img/sample_kitchen.jpg -l 10
 ```
 
 ---
