@@ -396,7 +396,7 @@ public:
                     try {
                         double probe = cv::getWindowProperty("Output", cv::WND_PROP_VISIBLE);
                         if (probe < 0.0) wp_supported = false;
-                    } catch (...) { wp_supported = false; }
+                    } catch (const cv::Exception&)  { wp_supported = false; }
                 }
                 bool is_last = (fi + 1 == rendered_frames.size());
                 while (running_) {
@@ -410,7 +410,7 @@ public:
                         try {
                             double v = cv::getWindowProperty("Output", cv::WND_PROP_VISIBLE);
                             if (v < 0.0) { running_ = false; break; }
-                        } catch (...) { running_ = false; break; }
+                        } catch (const cv::Exception&)  { running_ = false; break; }
                     }
                 }
             }

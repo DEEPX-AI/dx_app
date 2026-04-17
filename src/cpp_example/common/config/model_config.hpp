@@ -49,7 +49,7 @@ public:
         if (it == values_.end()) return default_value;
         try {
             return convert<T>(it->second);
-        } catch (...) {
+        } catch (const std::exception&) {
             std::cerr << "[WARN] Config: failed to convert key '"
                       << key << "' value '" << it->second << "'" << std::endl;
             return default_value;
