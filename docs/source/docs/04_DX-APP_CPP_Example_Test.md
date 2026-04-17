@@ -6,32 +6,36 @@ The project provides a comprehensive Python-based test suite located in `tests/c
 
 ---
 
-## Test Categories
+## Test Classification & Prerequisites
+
+### Test Categories
 
 The suite is organized into tiered categories based on execution speed and scope.
 
-**CLI Tests (Fast)**
+**CLI Tests (Fast)**  
 
-- **Files**: `test_cli_help.py`, `test_cli_basic.py`
-- **Scope**: Validates `--help` options, `--version` flag, invalid argument handling, and no-argument behaviors for all executables.
+- **Files**: `test_cli_help.py`, `test_cli_basic.py`  
+- **Scope**: Validates `--help` options, `--version` flag, invalid argument handling, and no-argument behaviors for all executables.  
 
-**E2E (End-to-End) Tests (Slow)**
+**E2E (End-to-End) Tests (Slow)**  
 
-- **File**: `test_e2e.py`
-- **Scope**: Performs real inference on images and videos using `.dxnn` models to verify the full pipeline and NPU utilization.
-     : Auto-discovers all (executable, model) pairs from `bin/` and `assets/models/`.
-     : Assets: Uses real models from `assets/models/` and test data from `sample/img/` and `assets/videos/`.
-     : Parameters: Default loop count configurable via `--loop`.
-     : Timeouts: 100 seconds for image inference (300s for TTA models), 10 minutes for video inference.
+- **File**: `test_e2e.py`  
+- **Scope**: Performs real inference on images and videos using `.dxnn` models to verify the full pipeline and NPU utilization.  
+     : Auto-discovers all (executable, model) pairs from `bin/` and `assets/models/`.  
+     : Assets: Uses real models from `assets/models/` and test data from `sample/img/` and `assets/videos/`.  
+     : Parameters: Default loop count configurable via `--loop`.  
+     : Timeouts: 100 seconds for image inference (300s for TTA models), 10 minutes for video inference.  
 
-**Visualization Tests**
+**Specialized Tests**  
 
-- **File**: `test_visualization.py`
-- **Scope**: Runs all sync + async binaries with `DXAPP_SAVE_IMAGE` and verifies image output is produced.
-     : Output directory: `tests/test_visualization_result/cpp_example/{sync,async}/<task>/`
-     : Can also be run standalone: `python test_visualization.py`
+Visualization Tests  
 
-**Feature Tests**
+- **File**: `test_visualization.py`  
+- **Scope**: Runs all sync + async binaries with `DXAPP_SAVE_IMAGE` and verifies image output is produced.  
+     : Output directory: `tests/test_visualization_result/cpp_example/{sync,async}/<task>/`  
+     : Can also be run standalone: `python test_visualization.py`  
+
+Feature Tests  
 
 | File | Marker | Scope |
 |------|--------|-------|
@@ -41,44 +45,51 @@ The suite is organized into tiered categories based on execution speed and scope
 | `test_multi_loop.py` | `multi_loop` | `-l N` loop count behavior |
 | `test_signal_handling.py` | `signal_handling` | SIGINT graceful shutdown |
 
----
+### Environment Setup
 
-## Test Infrastructure
+**Test Requirements**  
+Before running tests, ensure the environment is prepared.
 
-**Shared Module (`tests/common/`)**
+For CLI Tests  
 
-All test files import shared constants and utilities from `tests/common/`:
-- `constants.py`: `TASK_IMAGE_MAP`, `MODEL_IMAGE_OVERRIDE`, `MULTI_MODEL_EXECUTABLES`, path constants
-- `utils.py`: `setup_environment()`, `discover_cpp_executables()`, `normalize_model_name()`
+- Executables must be built in the `bin/` directory.  
+- Run `./build.sh` from the project root if executables are missing.  
 
-**Available Markers** (`pytest.ini`):
+For E2E Tests (Additional)  
+
+- **Models**: Run `./setup_sample_models.sh` to populate `assets/models/`. The current setup flow uses the DX-ModelZoo downloader path and can prepare models non-interactively for internal-network environments.  
+- **Test Data**: Ensure images exist in `sample/img/` and videos in `assets/videos/` (Run `./setup_sample_videos.sh`).  
+- **Libraries**: Shared libraries must be present in the `lib/` directory.  
+
+**Available Markers (`pytest.ini`)**  
+
 `cli`, `help`, `e2e`, `visualization`, `async_exec`, `sync_exec`, `save_mode`, `dump_tensors`, `verify`, `multi_loop`, `signal_handling`
 
 ---
 
-## Prerequisites
+## Test Infrastructure
 
-Before running tests, ensure the environment is prepared.
+### Shared Module (`tests/common/`)
 
-**For CLI Tests**
+All test files import shared constants and utilities from `tests/common/`:  
 
-- Executables must be built in the `bin/` directory.
-- Run `./build.sh` from the project root if executables are missing.
+- `constants.py`: `TASK_IMAGE_MAP`, `MODEL_IMAGE_OVERRIDE`, `MULTI_MODEL_EXECUTABLES`, path constants  
+- `utils.py`: `setup_environment()`, `discover_cpp_executables()`, `normalize_model_name()`  
 
-**For E2E Tests (Additional)**
+### Asset Management
 
-- **Models**: Run `./setup_sample_models.sh` to populate `assets/models/`.
-- **Test Data**: Ensure images exist in `sample/img/` and videos in `assets/videos/` (Run `./setup_sample_videos.sh`).
-- **Libraries**: Shared libraries must be present in the `lib/` directory.
+Assets required for testing are automatically managed by scripts within the `scripts/` directory:  
 
+- **Models**: Use `setup_sample_models.sh` to download lightweight, test-specific models.  
+- **Videos**: Use `setup_sample_videos.sh` to acquire sample video files required for E2E (End-to-End) pipeline verification.  
 
 ---
 
-## Running Tests
+## Test Execution Guide
 
-### Execution Methods (Standard)
+### Execution Methods
 
-**Method A. Unified Test Runner (Recommended)**
+**Method A. Unified Test Runner (Recommended)**  
 
 The `run_tc.sh` script provides a high-level interface for running standardized test suites directly from the project root.
 
@@ -108,11 +119,11 @@ cd ../../  # Go to project root (dx_app/)
     Use `--e2e-quick` during development. It takes ~2–3 minutes, compared to 8–10 minutes for a full test.
     Use `--coverage` for SonarQube analysis — it cannot be combined with --cli, --e2e, etc.
 
-**Method B. Manual Execution via Pytest**
+**Method B. Manual Execution via Pytest**  
 
 For granular control, run `pytest` directly from `tests/cpp_example/`.
 
-Basic Usage
+Basic Usage  
 
 ```bash
 # Install requirements
@@ -131,7 +142,7 @@ pytest test_e2e.py -v
 pytest -v -s
 ```
 
-Advanced Filtering
+Advanced Filtering  
 
 ```bash
 cd tests/cpp_example
@@ -161,34 +172,47 @@ pytest test_e2e.py::test_stream_inference_e2e[yolov7_async] \
             test_e2e.py::test_stream_inference_e2e[yolov8_async]
 ```
 
-### Performance Reporting
+### Result Analysis
 
-After running E2E tests, a performance report is automatically generated to provide deep insights into the inference pipeline efficiency.
+**Performance Reporting**  
 
-- **Console Output**: A formatted table with real-time FPS metrics.
-- **CSV File**: A detailed log saved as `performance_report_YYYYMMDD_HHMMSS.csv` in `tests/cpp_example/`.
+After running E2E tests, a performance report is automatically generated to provide deep insights into the inference pipeline efficiency.  
 
-The report includes
+- **Console Output**: A formatted table with real-time FPS metrics.  
+- **CSV File**: A detailed log saved as `performance_report_YYYYMMDD_HHMMSS.csv` in `tests/cpp_example/`.  
 
-- **E2E FPS:** Overall pipeline throughput.
-- **Read FPS:** Speed of frame ingestion.
-- **Preprocess FPS:** Speed of image transformation (resizing, normalization).
-- **Inference FPS:** Pure NPU model execution speed.
-- **Postprocess FPS:** Speed of result parsing (NMS, coordinate scaling).
-- **Bottleneck Detection:** The slowest stage in the pipeline is automatically marked with an **asterisk (*)** for quick optimization targeting.
+The report includes  
+
+- **E2E FPS:** Overall pipeline throughput.  
+- **Read FPS:** Speed of frame ingestion.  
+- **Preprocess FPS:** Speed of image transformation (resizing, normalization).  
+- **Inference FPS:** Pure NPU model execution speed.  
+- **Postprocess FPS:** Speed of result parsing (NMS, coordinate scaling).  
+- **Bottleneck Detection:** The slowest stage in the pipeline is automatically marked with an **asterisk (*)** for quick optimization targeting.  
+
+**Test Coverage Summary**  
+
+Example output: `./run_tc.sh --cpp --coverage`  
+
+| **Category** | **Count** | **Status** |
+|----|----|----|
+| **CLI Tests** | ~1,293 | All binaries validated (help + basic) |
+| **E2E Image Tests** | ~242 | sync + async, auto-discovered |
+| **Visualization Tests** | ~247 | sync + async image verification |
+| **Feature Tests** | ~22 | save_mode, dump_tensors, verify, multi_loop, signal_handling |
 
 ---
 
-## Code Coverage Analysis
+## Advanced Analysis: Code Coverage
 
 Code coverage measures how much of the source code is exercised during testing. This is essential for ensuring the robustness of the NPU inference pipeline.
 
-### Prerequisites
+### Coverage Analysis Strategy
 
 To generate code coverage reports, you need to build the project with instrumentation and install the following tools
 
-- **Step 1.** Build executables with coverage instrumentation.
-- **Step 2.** Install coverage tools (`gcovr` is recommended; `lcov` is supported as a fallback).
+- **Step 1.** Build executables with coverage instrumentation.  
+- **Step 2.** Install coverage tools (`gcovr` is recommended; `lcov` is supported as a fallback).  
 
 ```bash
 # Install gcovr (recommended - supports XML, HTML, JSON)
@@ -208,7 +232,7 @@ cd ../../  # Go to project root
 ls build_x86_64/src/examples/*.gcno
 ```
 
-**Build Type Recommendations**
+**Build & Environment**  
 
 - `relwithdebinfo`: Recommended for development (1.5–2x slower, optimized with debug info)
 - `debug`: Most detailed coverage (3–5x slower, no optimization, full symbol info)
@@ -222,11 +246,13 @@ cd ../../  # Go to project root
 ./build.sh --clean --coverage --type relwithdebinfo
 ```
 
-### Running Tests with Coverage
+### Report Generation
 
 Trigger coverage analysis using the following commands
 
-**Manual Execution** (from `tests/cpp_example/`)
+**Execution Flow** (Manual vs Unified)  
+
+Manual Execution (from `tests/cpp_example/`)  
 
 ```bash
 # Quick E2E with coverage (image tests only, 2-3 minutes)
@@ -239,7 +265,7 @@ pytest -m e2e --coverage -v
 pytest -m e2e -k "yolov7" --coverage -v
 ```
 
-**Unified Test Runner** (from project root)
+Unified Test Runner (from project root)  
 
 ```bash
 # [Recommended] Build with debug mode, then run coverage
@@ -249,7 +275,7 @@ pytest -m e2e -k "yolov7" --coverage -v
 ./run_tc.sh --cpp --coverage
 ```
 
-### Coverage Report Output
+**Report Interpretation** (HTML Report & Filtering)  
 
 After running tests with `--coverage`, several reports are generated in `tests/cpp_example/coverage/`
 
@@ -257,7 +283,7 @@ After running tests with `--coverage`, several reports are generated in `tests/c
 - **HTML report:** Located at `html/index.html`. Shows line-by-line visualization with uncovered code in **red**.
 - **XML (Cobertura) & JSON:** Timestamped for CI/CD integration.
 
-**View the HTML Report**
+View the HTML Report  
 
 ```bash
 # Open in your browser
@@ -266,28 +292,28 @@ firefox tests/cpp_example/coverage/html/index.html
 xdg-open tests/cpp_example/coverage/html/index.html
 ```
 
-**Report Features**
+Report Features  
 
-- Overall and file-by-file coverage statistics.
-- Line-by-line visualization with **uncovered code highlighted in red**.
-- Branch coverage analysis.
+- Overall and file-by-file coverage statistics.  
+- Line-by-line visualization with **uncovered code highlighted in red**.  
+- Branch coverage analysis.  
 
-**Coverage Filtering Rules**
+Coverage Filtering Rules  
 
-- **Included:** All source files within the `src/` directory.
+- **Included:** All source files within the `src/` directory.  
 - **Excluded:** System headers (`/usr/*\, third_party/*, extern/*`), and the `tests/` directory itself.
 
 ---
 
-## Test Coverage Summary
+## Maintenance & CI/CD
 
-> **Example output** — `./run_tc.sh --cpp --coverage`
+### Continuous Integration (CI) Integration
 
-| **Category** | **Count** | **Status** |
-|----|----|----|
-| **CLI Tests** | ~1,293 | All binaries validated (help + basic) |
-| **E2E Image Tests** | ~242 | sync + async, auto-discovered |
-| **Visualization Tests** | ~247 | sync + async image verification |
-| **Feature Tests** | ~22 | save_mode, dump_tensors, verify, multi_loop, signal_handling |
+**SonarQube Integration**  
+XML reports generated via the `--coverage` flag are utilized by the CI server for static code analysis and test coverage tracking. This ensures long-term code quality and helps identify untested logic paths during the development lifecycle.  
+
+**Nightly Build**  
+
+A full suite of E2E tests is executed every night to perform regression testing. This process ensures that the application remains stable and functional despite frequent updates to NPU drivers, firmware, and the underlying runtime environment.  
+
 ---
-

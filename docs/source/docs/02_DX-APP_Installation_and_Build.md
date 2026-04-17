@@ -1,12 +1,14 @@
-This chapter describes the system requirements and the installation instructions on Linux and WIndows to use **DX-APP**.  
+# DX-APP Installation and Build
+
+This guide describes the system requirements and the installation instructions on Linux and WIndows to use **DX-APP**.  
 
 ---
 
-## System Requirements
+## Overview & System Requirements 
 
 This section describes the hardware and software requirements for running **DX-APP**.
 
-**Hardware  Requirements**
+**Hardware Requirements**
 
 - **CPU:** amd64(x86_64), aarch64(arm64)  
 - **RAM:** 8GB RAM (16GB RAM or higher is recommended)  
@@ -113,7 +115,8 @@ Assets are downloaded and placed in the `assets/` directory.
 - **Models:** stored under `assets/models/`
 - **Videos:** stored under `assets/videos/`
 
-> **Note:** Running `setup.sh` beforehand is optional. When you run any individual example, missing models are **automatically downloaded** on demand. Videos are also auto-downloaded when a `--video` path is specified but the file does not exist.
+!!! note "NOTE"
+    Running `setup.sh` beforehand is optional. When you run any individual example, missing models are **automatically downloaded** on demand. Videos are also auto-downloaded when a `--video` path is specified but the file does not exist.
 
 **`setup.sh` Options**
 
@@ -127,10 +130,18 @@ Assets are downloaded and placed in the `assets/` directory.
 | `--models <m1> [m2...]` | Download specific models by name |
 | `--no-json` | Skip JSON metadata file downloads |
 | `--manifest=<path>` | Use an alternate manifest JSON file |
-| `--force` | Force overwrite if files already exist |
+| `--force` | Force overwrite if files already exist (default) |
+| `--no-force` | Skip download if the file already exists |
+| `--force-remove-models` | Force remove models if they exist |
+| `--force-remove-videos` | Force remove videos if they exist |
 | `--verbose` | Show detailed progress output |
 
+In internal-network environments, the setup flow can use the internal [DX-ModelZoo](https://developer.deepx.ai/modelzoo/) source automatically when the intranet mode is enabled by the surrounding environment.
+
 For most users, running only `./setup.sh` is sufficient. Contributor-facing setup details are documented separately in the developer guides.
+
+!!! note "Internal-Network Setup"
+    In internal environments, DX-APP can use the internal DX-ModelZoo source to prepare model assets without requiring manual model-by-model input during the standard setup flow.
 
 **Post-Processing Unit (PPU) Acceleration Integration**  
 

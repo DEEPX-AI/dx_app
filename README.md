@@ -104,13 +104,13 @@ dx_app/
 │           └── dx_postprocess/ # pybind11 bindings wrapping src/postprocess/
 ├── config/
 │   ├── model_registry.json     # Model registry — single source of truth
-│   └── test_models.conf        # Test model configuration
+│   ├── test_models.conf        # Test model configuration
+│   └── README.md               # Config directory documentation
 ├── scripts/                    # Developer tools, validation, and helper scripts
 ├── tests/                      # pytest-based test suites
 │   ├── common/                 #   Shared test constants & utilities
 │   ├── cpp_example/            #   C++ tests (CLI, E2E, visualization, features)
-│   ├── python_example/         #   Python tests (unit, integration, CLI, E2E, visualization)
-│   └── test_visualization_result/  #   Generated visualization images (gitignored)
+│   └── python_example/         #   Python tests (unit, integration, CLI, E2E, visualization)
 ├── assets/                     # Downloaded models/videos (via setup.sh)
 ├── build.sh                    # Top-level build script
 ├── run_tc.sh                   # Unified test runner for example tests
@@ -176,7 +176,7 @@ All C++ and Python examples share a consistent set of command-line arguments.
 | `-r` / `--rtsp` | `-r` | `--rtsp` | RTSP stream URL |
 | `-l` / `--loop` | `-l` (default: auto) | `--loop` (default: 1) | Inference repeat count |
 | `--no-display` | `--no-display` | `--no-display` | Disable visualization window |
-| `--show-log` / `--verbose` | `--show-log` | `--verbose` | Enable verbose log output (default: quiet) |
+| `--show-log` | `--show-log` | `--show-log` | Enable verbose log output (default: quiet) |
 | `-s` / `--save` | `--save` | `--save` | Save rendered output to run directory |
 | `--save-dir` | `--save-dir` | `--save-dir` | Base output directory (default: `artifacts/`) |
 | `--dump-tensors` | `--dump-tensors` | `--dump-tensors` | Dump raw input/output tensors to files |
@@ -536,7 +536,7 @@ C++ Implementation (High Performance)
 # Video Stream Inference (Asynchronous)
 ./bin/yolov9s_async \
 -m assets/models/YoloV9S.dxnn \
--v assets/videos/blackbox-city-road.mp4
+-v assets/videos/dance-group.mov
 ```
 
 Python Implementation (Rapid Prototyping)  
@@ -549,7 +549,7 @@ python src/python_example/object_detection/yolov9s/yolov9s_sync.py \
 # Python Optimized (Asynchronous + C++ Post-processing)
 python src/python_example/object_detection/yolov9s/yolov9s_async_cpp_postprocess.py \
   --model assets/models/YoloV9S.dxnn \
-    --video assets/videos/blackbox-city-road.mp4 
+    --video assets/videos/dance-group.mov 
 ```
 
 **Output and Analysis**  
