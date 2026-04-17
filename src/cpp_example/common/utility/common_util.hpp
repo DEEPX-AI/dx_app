@@ -235,8 +235,8 @@ inline bool windowShouldClose(const std::string& winname = "Output") {
             g_interrupted().store(true);
             return true;
         }
-    } catch (...) {
-        // Qt backend throws if no window exists
+    } catch (const cv::Exception&) {
+        // Backend throws if no window exists (e.g. Qt)
         _displayClosed() = true;
         return true;
     }
@@ -253,7 +253,7 @@ inline bool windowShouldClose(const std::string& winname = "Output") {
             if (probe < -0.5) {
                 prop_supported = false;
             }
-        } catch (...) {
+        } catch (const cv::Exception&) {
             prop_supported = false;
         }
     }
@@ -264,7 +264,7 @@ inline bool windowShouldClose(const std::string& winname = "Output") {
                 _displayClosed() = true;
                 return true;
             }
-        } catch (...) {
+        } catch (const cv::Exception&) {
             _displayClosed() = true;
             return true;
         }
@@ -339,7 +339,7 @@ inline void showOutput(const cv::Mat& frame) {
     // calling namedWindow/imshow which would recreate a destroyed window.
     if (window_ever_opened) {
         int key = -1;
-        try { key = cv::waitKey(1); } catch (...) {
+        try { key = cv::waitKey(1); } catch (const cv::Exception&) {
             _displayClosed() = true;
             return;
         }
@@ -348,12 +348,30 @@ inline void showOutput(const cv::Mat& frame) {
             g_interrupted().store(true);
             return;
         }
-        try {
-            double v = cv::getWindowProperty("Output", cv::WND_PROP_VISIBLE);
-            if (v <= 0.0) { _displayClosed() = true; return; }
-        } catch (...) {
-            _displayClosed() = true;
-            return;
+        // Some backends (e.g. GTK2) return -1 for WND_PROP_VISIBLE even
+        // when the window is alive.  Probe once and disable the check if
+        // the backend does not support it — same guard as windowShouldClose().
+        static bool show_probed = false;
+        static bool show_prop_supported = true;
+        if (!show_probed) {
+            show_probed = true;
+            try {
+                double probe = cv::getWindowProperty("Output", cv::WND_PROP_VISIBLE);
+                if (probe < -0.5) {
+                    show_prop_supported = false;
+                }
+            } catch (const cv::Exception&) {
+                show_prop_supported = false;
+            }
+        }
+        if (show_prop_supported) {
+            try {
+                double v = cv::getWindowProperty("Output", cv::WND_PROP_VISIBLE);
+                if (v <= 0.0) { _displayClosed() = true; return; }
+            } catch (const cv::Exception&) {
+                _displayClosed() = true;
+                return;
+            }
         }
     }
 
