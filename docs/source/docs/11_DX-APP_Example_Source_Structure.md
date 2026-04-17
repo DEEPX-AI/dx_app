@@ -355,13 +355,13 @@ Both `cpp_example/` and `python_example/` contain a `common/` directory with the
 
 | Module | C++ | Python | Role |
 |--------|-----|--------|------|
-| `base/` | 4 interfaces (.hpp) | 4 interfaces (.py) | `IFactory`, `IProcessor`, `IVisualizer`, `IInputSource` |
-| `config/` | `model_config.hpp` | `model_config.py` | Loads `config.json` (input size, labels, thresholds) |
-| `processors/` | 45 header files | 35 Python files | Shared processors for all model families |
-| `runner/` | 24 runner headers | 5 runner files | Sync/Async execution engines with profiling |
-| `inputs/` | 5 source headers | 5 source files | Image, Video, Camera, RTSP input abstraction |
+| `base/` | 4 interfaces (.hpp) | 4 interfaces (.py) | `IFactory`, `IProcessor`,<br> `IVisualizer`, `IInputSource` |
+| `config/` | `model_config.hpp` | `model_config.py` | Loads `config.json`<br> (input size, labels, thresholds) |
+| `processors/` | 45 header files | 35 Python files | Shared processors for<br> all model families |
+| `runner/` | 24 runner headers | 5 runner files | Sync/Async execution engines<br> with profiling |
+| `inputs/` | 5 source headers | 5 source files | Image, Video, Camera,<br> RTSP input abstraction |
 | `visualizers/` | 12 visualizer headers | 10 visualizer files | Task-specific result rendering |
-| `utility/` | 8 utility headers | 7 utility files | Labels, preprocessing, profiling, drawing, run_dir, queue, verify |
+| `utility/` | 8 utility headers | 7 utility files | Labels, preprocessing,<br> profiling, drawing, run_dir,<br> queue, verify |
 
 This is the core architectural pattern of DX-APP: model directories are thin wrappers (factory + entry points) that delegate all heavy logic to their respective `common/` layer.  
 
