@@ -1,0 +1,13 @@
+assets/
+bin/
+build_x86_64/
+download/
+docs/superpowers/
+dx-agentic-dev/
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+copilot-session-*.html
+.coverage
+artifacts/
