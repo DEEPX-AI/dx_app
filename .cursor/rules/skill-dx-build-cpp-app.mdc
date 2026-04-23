@@ -1,0 +1,6 @@
+---
+description: "Build C++ inference app for dx_app"
+alwaysApply: false
+---
+
+Read and follow the skill documentation at `.deepx/skills/dx-build-cpp-app/SKILL.md`.

@@ -11,6 +11,7 @@ or responding, use the same language the user is using.
 their original English form. Do NOT transliterate English terms into Korean phonetics
 (한글 음차 표기 금지). Established Korean loanwords (모델, 서버, 파일, 데이터) are acceptable.
 
+
 ## Recommended Model (Pre-Flight Check)
 
 DX Agentic Development requires strong instruction following and knowledge base
@@ -72,6 +73,7 @@ First question: ...?
 
 Only output this reminder ONCE (before the first question), not before every question.
 
+
 ## Shared Knowledge
 
 All skills, instructions, toolsets, and memory live in `.deepx/`.
@@ -94,6 +96,9 @@ dx_app provides 133 compiled `.dxnn` models across 15 AI tasks with Python (4 va
 | **Brainstorm, plan, design** | `.deepx/skills/dx-brainstorm-and-plan.md` |
 | **TDD, validation, incremental** | `.deepx/skills/dx-tdd.md` |
 | **Completion, verify, evidence** | `.deepx/skills/dx-verify-completion.md` |
+| **Debug, root cause, investigate** | `.deepx/skills/dx-systematic-debugging/SKILL.md` |
+| **Plan, execute, subagent** | `.deepx/skills/dx-writing-plans/SKILL.md`, `.deepx/skills/dx-executing-plans/SKILL.md` |
+| **Code review, feedback** | `.deepx/skills/dx-receiving-code-review/SKILL.md`, `.deepx/skills/dx-requesting-code-review/SKILL.md` |
 | **ALWAYS read (every task)** | `.deepx/memory/common_pitfalls.md`, `.deepx/instructions/coding-standards.md` |
 
 ## Skills
@@ -106,9 +111,18 @@ dx_app provides 133 compiled `.dxnn` models across 15 AI tasks with Python (4 va
 | dx-model-management | Download, register, and configure .dxnn models |
 | dx-validate | Run validation checks at every phase gate |
 | dx-validate-and-fix | Full feedback loop: validate, collect, approve, apply, verify |
-| dx-brainstorm-and-plan | Process: collaborative design session before code generation |
-| dx-tdd | Process: test-driven development — validate each file immediately after creation |
+| dx-brainstorm-and-plan | Brainstorm, propose 2-3 approaches, spec self-review, then plan |
+| dx-tdd | Validation-driven development with optional Red-Green-Refactor for unit tests |
 | dx-verify-completion | Process: verify before claiming completion — evidence before assertions |
+| dx-writing-plans | Write implementation plans with bite-sized tasks |
+| dx-executing-plans | Execute plans with review checkpoints |
+| dx-subagent-driven-development | Execute plans via fresh subagent per task with two-stage review |
+| dx-systematic-debugging | Systematic debugging — 4-phase root cause investigation before proposing fixes |
+| dx-receiving-code-review | Evaluate code review feedback with technical rigor |
+| dx-requesting-code-review | Request code review after completing features |
+| dx-skill-router | Skill discovery and invocation — check skills before any action |
+| dx-writing-skills | Create and edit skill files |
+| dx-dispatching-parallel-agents | Dispatch parallel subagents for independent tasks |
 
 ## Interactive Workflow (MUST FOLLOW)
 
@@ -238,6 +252,7 @@ NEVER generate stub/placeholder code. This includes:
 All generated code MUST be functional, using real APIs from the knowledge base.
 If the required SDK/API is unknown, read the relevant skill document first.
 
+
 ## Experimental Features — Prohibited
 
 Do NOT offer, suggest, or implement experimental or non-existent features. This includes:
@@ -262,6 +277,7 @@ knowledge base rules". Do NOT call `ask_user` — skip straight to producing the
 brainstorming spec using knowledge base defaults. All subsequent gates (spec review,
 plan, TDD, mandatory artifacts, execution verification) still apply without exception.
 
+
 ## Brainstorming — Spec Before Plan (HARD GATE)
 
 When using the superpowers `brainstorming` skill or `/dx-brainstorm-and-plan`:
@@ -276,12 +292,13 @@ When using the superpowers `brainstorming` skill or `/dx-brainstorm-and-plan`:
    to the approved spec document.
 4. **Prefer `/dx-brainstorm-and-plan`** — Use the project-level brainstorming skill
    instead of the generic superpowers `brainstorming` skill. The project-level skill
-   has domain-specific questions and pre-flight checks.
+    has domain-specific questions and pre-flight checks.
 5. **Rule conflict check is MANDATORY** — During brainstorming, the agent MUST check
    whether any user requirement conflicts with HARD GATE rules (IFactory pattern,
    skeleton-first, Output Isolation, SyncRunner/AsyncRunner). If a conflict is
    detected, the agent MUST resolve it during brainstorming — not silently comply
    with the violating request in the design spec. See the "Rule Conflict Resolution" section.
+
 
 ## Autopilot Mode Guard (MANDATORY)
 
@@ -331,6 +348,7 @@ When the user is absent — autopilot mode, `--yolo` flag, or system auto-respon
    unnecessary `cat` / `bash` read wastes 5-15 seconds. Use the knowledge
    already in your system prompt and conversation history.
 
+
 ## Hardware
 
 | Architecture | Value |
@@ -347,6 +365,7 @@ Do NOT ask about git branch operations (merge, PR, push, cleanup) at the end of
 work. The user will handle all git operations themselves. Never present options
 like "merge to main", "create PR", or "delete branch" — just finish the task.
 
+
 ## 15 Supported AI Tasks
 
 object_detection, classification, pose_estimation, instance_segmentation,
@@ -359,6 +378,7 @@ image_enhancement, super_resolution, embedding, obb_detection, hand_landmark, pp
 planning artifacts generated by the superpowers skill system (specs, plans). They are
 `.gitignore`d, but some tools may bypass `.gitignore` with `git add -f`. Creating the
 files is fine — committing them is forbidden.
+
 
 ## Session Sentinels (MANDATORY for Automated Testing)
 
@@ -397,6 +417,7 @@ Rules:
    Copilot Chat (VS Code), or OpenCode. The test harness (`test.sh`) will automatically
    detect and copy the exported HTML file to the session output directory.
 
+
 ## Plan Output (MANDATORY)
 
 When generating a plan document (e.g., via writing-plans or brainstorming skills),
@@ -405,33 +426,53 @@ saving the file. Do NOT only mention the file path — the user should be able t
 review the plan directly in the prompt without opening a separate file.
 
 
+
 ---
 
 ## Instruction File Verification Loop (HARD GATE) — Internal Development Only
 
-When modifying agentic knowledge base files — any file matching:
-`**/.cursor/**/*.mdc`, `**/.github/**/*.md`, `**/.opencode/**/*.md`,
-`**/AGENTS*.md`, `**/CLAUDE*.md`, or `**/.deepx/**/*.md` — the following
-verify-fix loop is **MANDATORY** before claiming work is complete:
+When modifying the canonical source — files in `**/.deepx/**/*.md`
+(agents, skills, templates, fragments) — the following verify-fix loop is
+**MANDATORY** before claiming work is complete:
 
-1. **Automated test loop** — Run `tests/test_agentic_scenarios/` and fix all failures:
+1. **Generator execution** — Propagate `.deepx/` changes to all platforms:
+   ```bash
+   dx-agentic-gen generate
+   # Suite-wide: bash tools/dx-agentic-dev-gen/scripts/run_all.sh generate
+   ```
+2. **Drift verification** — Confirm generated output matches committed state:
+   ```bash
+   dx-agentic-gen check
+   ```
+   If drift is detected, return to step 1.
+3. **Automated test loop** — Tests verify generator output satisfies policies:
    ```bash
    python -m pytest tests/test_agentic_scenarios/ -v --tb=short
    ```
-2. **Manual audit** — Without using test results, independently verify cross-platform
-   sync (CLAUDE vs AGENTS vs copilot) and level-to-level sync (suite → sub-levels)
-   by reading actual file contents.
-3. **Gap analysis** — If manual audit finds issues that tests did NOT catch,
-   **strengthen the test suite first** (add new test cases), then fix the files.
-4. **Repeat** — Go back to step 1. Continue until both automated tests pass AND
-   manual audit finds zero issues.
+   Failure handling:
+   - Generator bug → fix generator → step 1
+   - `.deepx/` content gap → fix `.deepx/` → step 1
+   - Insufficient test rules → strengthen tests → step 1
+4. **Manual audit** — Independently (without relying on test results) read
+   generated files to verify cross-platform sync (CLAUDE vs AGENTS vs copilot)
+   and level-to-level sync (suite → sub-levels).
+5. **Gap analysis** — For issues found by manual audit:
+   - Generator missed a case → **fix generator rules** → step 1
+   - Tests missed a case → **strengthen tests** → step 1
+6. **Repeat** — Continue until steps 3–5 all pass.
 
-**Why manual audit is required**: Tests can only verify known patterns. Manual audit
-catches emergent issues like cross-reference direction errors, section ordering
-problems, and semantic gaps that no existing test covers. Even after test hardening,
-manual audit has consistently found additional issues.
+**Do NOT edit platform files directly.** Files outside `.deepx/` — including
+CLAUDE.md, AGENTS.md, copilot-instructions.md, `.github/agents/`,
+`.github/skills/`, `.claude/agents/`, `.claude/skills/`, `.opencode/agents/`,
+`.cursor/rules/` — are all generator output and will be overwritten on
+next generate. A pre-commit hook enforces this: `git commit` will fail if
+generated files are out-of-date. Install hooks with:
+```bash
+tools/dx-agentic-dev-gen/scripts/install-hooks.sh
+```
 
-This gate applies whenever instruction files are the *primary deliverable* of the
-task (e.g., adding rules, syncing platforms, creating KO translations). It does NOT
-apply when instruction files receive only incidental single-line updates as part of
-a feature implementation.
+This gate applies when `.deepx/` files are the *primary deliverable* (e.g., adding
+rules, syncing platforms, creating KO translations, modifying agents/skills). It
+does NOT apply when a feature implementation incidentally triggers a single-line
+change in `.deepx/`.
+

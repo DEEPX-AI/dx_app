@@ -1,0 +1,215 @@
+# dx_app — Copilot 전역 지시사항
+
+> DEEPX NPU 가속기에서 독립형 추론을 위한 DXNN 애플리케이션 프레임워크.
+
+{{FRAGMENT:response-language}}
+
+
+{{FRAGMENT:recommended-model}}
+
+
+## 공유 지식
+
+모든 스킬, 지시사항, 도구셋, 메모리는 `.deepx/`에 있습니다.
+전체 색인은 `.deepx/README.md`를 참조하세요.
+
+## 개요
+
+dx_app은 15개 AI 작업에 걸쳐 133개의 컴파일된 `.dxnn` 모델을 제공하며, Python (4개 변형) 및 C++ 예제를 포함합니다.
+
+## 컨텍스트 라우팅 테이블
+
+| 작업에서 언급하는 내용... | 읽어야 할 파일 |
+|---|---|
+| **Python app, detection, classification** | `.deepx/skills/dx-build-python-app.md`, `.deepx/toolsets/common-framework-api.md` |
+| **C++ app, native** | `.deepx/skills/dx-build-cpp-app.md`, `.deepx/toolsets/dx-engine-api.md` |
+| **Async, performance, throughput** | `.deepx/skills/dx-build-async-app.md`, `.deepx/memory/performance_patterns.md` |
+| **Model, download, registry** | `.deepx/skills/dx-model-management.md`, `.deepx/toolsets/model-registry.md` |
+| **Validation, testing** | `.deepx/skills/dx-validate.md`, `.deepx/instructions/testing-patterns.md` |
+| **Validation, feedback, fix** | `.deepx/skills/dx-validate.md`, parent `dx-runtime/.deepx/skills/dx-validate-and-fix.md` |
+| **Brainstorm, plan, design** | `.deepx/skills/dx-brainstorm-and-plan.md` |
+| **TDD, validation, incremental** | `.deepx/skills/dx-tdd.md` |
+| **Completion, verify, evidence** | `.deepx/skills/dx-verify-completion.md` |
+| **항상 읽기 (모든 작업)** | `.deepx/memory/common_pitfalls.md`, `.deepx/instructions/coding-standards.md` |
+
+## 스킬
+
+| 스킬 | 설명 |
+|-------|-------------|
+| dx-build-python-app | Python 추론 앱 빌드 (sync, async, cpp_postprocess, async_cpp_postprocess) |
+| dx-build-cpp-app | InferenceEngine을 사용한 C++ 추론 앱 빌드 |
+| dx-build-async-app | 고성능 비동기 추론 앱 빌드 |
+| dx-model-management | .dxnn 모델 다운로드, 등록, 설정 |
+| dx-validate | 모든 단계 게이트에서 검증 체크 실행 |
+| dx-validate-and-fix | 전체 피드백 루프: 검증, 수집, 승인, 적용, 확인 |
+| dx-brainstorm-and-plan | 브레인스토밍, 2-3가지 접근법 제안, 스펙 자체 검토 후 계획 |
+| dx-tdd | 검증 주도 개발, 선택적 Red-Green-Refactor 단위 테스트 |
+| dx-verify-completion | 프로세스: 완료 선언 전 검증 — 주장보다 증거 우선 |
+| dx-writing-plans | 세분화된 태스크로 구현 계획 작성 |
+| dx-executing-plans | 리뷰 체크포인트와 함께 계획 실행 |
+| dx-subagent-driven-development | 태스크별 신규 서브에이전트로 계획 실행, 2단계 리뷰 |
+| dx-systematic-debugging | 체계적 디버깅 — 수정 제안 전 4단계 근본 원인 조사 |
+| dx-receiving-code-review | 코드 리뷰 피드백을 기술적 엄밀성으로 평가 |
+| dx-requesting-code-review | 기능 완료 후 코드 리뷰 요청 |
+| dx-skill-router | 스킬 탐색 및 호출 — 모든 작업 전 스킬 확인 |
+| dx-writing-skills | 스킬 파일 생성 및 편집 |
+| dx-dispatching-parallel-agents | 독립 태스크를 위한 병렬 서브에이전트 디스패치 |
+
+## 대화형 워크플로우 (반드시 준수)
+
+**빌드하기 전에 항상 사용자와 주요 결정 사항을 검토하세요.** 이것은 HARD GATE입니다.
+
+코드 생성 전:
+1. 2-3개의 명확화 질문 (변형, 작업 유형, 모델)
+2. 빌드 계획을 제시하고 사용자 승인을 대기
+3. 생성 후 각 파일을 검증
+
+### 앱 빌드 필수 질문 (HARD-GATE)
+
+코드 생성 전, 에이전트는 반드시 다음에 대한 답변을 질문하고 받아야 합니다:
+1. **언어/변형**: Python (sync/async/cpp_postprocess/async_cpp_postprocess) 또는 C++?
+2. **AI 작업**: detection, classification, segmentation, pose 등?
+3. **모델**: 특정 모델 이름 또는 자동 추천
+
+프롬프트가 명확해 보여도 이 질문은 건너뛸 수 없습니다.
+
+### 에이전트 라우팅 (필수)
+
+**모든 앱 빌드 요청은 반드시 `@dx-app-builder`**(마스터 라우터)를 통해야 합니다.
+`@dx-python-builder`, `@dx-cpp-builder` 또는 다른 전문 에이전트를 직접 호출하지 마세요.
+`@dx-app-builder`는 전문 에이전트가 건너뛰는 필수 brainstorming 질문(Q1: 언어/변형,
+Q2: AI 작업, Q3: 모델)을 강제합니다.
+
+### 출력 격리 (HARD GATE)
+모든 AI 생성 코드는 기본적으로 `dx-agentic-dev/<session_id>/`에 저장됩니다.
+기존 소스 디렉토리 (예: `src/`, `semseg_260323/` 또는 사용자의 기존 코드가 있는
+디렉토리)에 생성된 코드를 직접 작성하지 마세요.
+사용자가 명시적으로 요청할 때만 `src/`에 작성하세요.
+
+**세션 ID 형식**: `YYYYMMDD-HHMMSS_<model>_<task>` — 타임스탬프는 반드시
+**시스템 로컬 타임존**을 사용해야 합니다 (UTC 아님). Bash에서 `$(date +%Y%m%d-%H%M%S)`,
+Python에서 `datetime.now().strftime('%Y%m%d-%H%M%S')`를 사용하세요. `date -u`,
+`datetime.utcnow()`, `datetime.now(timezone.utc)`는 사용하지 마세요.
+
+### 규칙 충돌 해결 (HARD GATE)
+사용자의 요청이 HARD GATE 규칙(IFactory, skeleton-first,
+SyncRunner/AsyncRunner, Output Isolation)과 충돌할 때, 에이전트는 반드시:
+1. 사용자의 의도를 인정
+2. 충돌을 설명하고 구체적 규칙을 인용
+3. 프레임워크 내의 올바른 대안을 제안
+4. 올바른 접근법으로 진행 — 조용히 따르지 말 것
+
+**사용자가 명시적으로 API 메서드를 지정하더라도** (예: "`InferenceEngine.run()` 사용",
+"`run_async()` 사용"), 에이전트는 반드시 해당 호출을 IFactory 패턴 안에 래핑해야 합니다.
+상위 프로젝트 지시사항의 일반적인 충돌 패턴을 참조하세요.
+
+## 핵심 규칙
+
+1. **절대 임포트**: `from dx_app.src.python_example.common.xyz import ...`
+2. **모델 해석**: `config/model_registry.json` 조회 — .dxnn 경로를 하드코딩하지 말 것
+3. **IFactory 패턴**: 모든 Python 앱은 5개 메서드로 IFactory를 구현 (`create_preprocessor`, `create_postprocessor`, `create_visualizer`, `get_model_name`, `get_task_type`)
+4. **CLI 인자**: `common/runner/args.py`의 `parse_common_args()` 사용
+5. **NPU 확인**: 추론 작업 전 `dxrt-cli -s`
+6. **로깅**: `logging.getLogger(__name__)` — 단순 `print()` 금지
+7. **스킬 문서로 충분**: 스킬이 불충분하지 않는 한 소스 코드를 읽지 말 것
+8. **상대 임포트 금지**: 항상 패키지 루트에서 절대 임포트 사용
+9. **하드코딩된 모델 경로 금지**: 모든 모델 경로는 CLI 인자 또는 model_registry.json에서
+10. **4개 변형**: Python 앱은 sync, async, sync_cpp_postprocess, async_cpp_postprocess
+11. **PPU 모델 자동 감지**: 모델 이름 `_ppu` 접미사, `model_registry.json`의 `csv_task: "PPU"`, 또는 compiler session 컨텍스트로 PPU 모델을 자동 감지. PPU 모델은 `src/python_example/ppu/`에 배치하며 간소화된 후처리(별도 NMS 불필요).
+12. **기존 예제 검색**: 코드 생성 전 `src/python_example/<task>/<model>/`에서 기존 예제를 검색. 발견 시 사용자에게 질문: (a) 기존 예제만 설명, 또는 (b) 기존 예제 기반으로 새 예제 생성. 조용히 건너뛰거나 덮어쓰지 말 것.
+13. **PPU 예제 생성은 필수**: 컴파일된 .dxnn 모델이 PPU인 경우 에이전트는 반드시 동작하는 예제를 생성해야 함 — PPU 모델에 대해 예제 생성을 건너뛰지 말 것.
+14. **참조 모델과 교차 검증**: `assets/models/`에 사전 컴파일된 DXNN이 있거나 `src/python_example/`에 기존 검증된 예제가 있을 때, Level 5.5 감별 진단을 실행하여 앱 코드 vs 컴파일 문제를 분리. `dx-validate.md` Level 5.5 참조.
+15. **필수 출력 아티팩트**: 모든 세션은 반드시 13개 아티팩트 모두 생성 (factory, config, 4개 변형, __init__.py, session.json, README.md, setup.sh, run.sh, session.log). 에이전트의 MANDATORY OUTPUT REQUIREMENTS 섹션 참조. 완료 선언 전 자체 검증 체크 실행.
+16. **Skeleton 우선 개발** — 코드 작성 전 `.deepx/skills/dx-build-python-app.md` skeleton
+    템플릿을 먼저 읽으세요. `src/python_example/<task>/<model>/`에서 가장 유사한 기존 예제를
+    복사하고 모델별 부분만 수정(factory, postprocessor). 데모 스크립트를 처음부터 작성하지 마세요.
+    프레임워크를 우회하는 독립형 스크립트를 제안하지 마세요 (예: factory/runner 패턴 없이 직접
+    `InferenceEngine` 사용).
+17. **SyncRunner/AsyncRunner만 사용** — 프레임워크의 SyncRunner (단일 모델) 또는 AsyncRunner
+    (다중 모델)를 사용. 대안적 실행 방식을 제안하지 마세요 (독립형 스크립트, 직접 API 호출,
+    커스텀 runner, 수동 `run_async()` 루프).
+18. **C++14**: C++ 예제는 C++14 표준만 사용
+19. **RAII**: C++ 코드는 `std::unique_ptr` 사용, raw `new`/`delete` 금지
+
+## 빠른 참조
+
+```bash
+./install.sh && ./build.sh   # Build C++ and pybind11 bindings
+./setup.sh                   # Download models and test media
+dxrt-cli -s                  # Verify NPU availability
+pytest tests/                        # Run unit tests
+```
+
+## Python 임포트
+
+```python
+from dx_app.src.python_example.common.runner.args import parse_common_args
+from dx_app.src.python_example.common.runner.factory_runner import FactoryRunner
+from dx_app.src.python_example.common.utils.model_utils import load_model_config
+import logging
+
+logger = logging.getLogger(__name__)
+```
+
+## 파일 구조
+
+```
+src/python_example/{task}/{model}/
+├── __init__.py
+├── config.json
+├── {model}_factory.py
+├── {model}_sync.py
+├── {model}_async.py
+├── {model}_sync_cpp_postprocess.py
+└── {model}_async_cpp_postprocess.py
+
+src/cpp_example/{task}/{model}/
+├── CMakeLists.txt
+├── main.cpp
+├── config.json
+├── include/
+└── src/
+```
+
+{{FRAGMENT:no-placeholder-code}}
+
+
+{{FRAGMENT:experimental-features-prohibited}}
+
+
+{{FRAGMENT:brainstorming-spec-before-plan}}
+
+
+{{FRAGMENT:autopilot-mode-guard}}
+
+
+## 하드웨어
+
+| 아키텍처 | 값 |
+|---|---|
+| DX-M1 | `dx_m1` |
+
+## 메모리
+
+영속적 지식은 `.deepx/memory/`에 있습니다. 작업 시작 시 읽고, 학습 시 업데이트하세요.
+
+{{FRAGMENT:git-operations-user-handles}}
+
+
+## 15개 지원 AI 작업
+
+object_detection, classification, pose_estimation, instance_segmentation,
+semantic_segmentation, face_detection, depth_estimation, image_denoising,
+image_enhancement, super_resolution, embedding, obb_detection, hand_landmark, ppu
+
+{{FRAGMENT:git-safety-superpowers}}
+
+
+{{FRAGMENT:session-sentinels}}
+
+
+{{FRAGMENT:plan-output}}
+
+
+{{FRAGMENT:instruction-verification-loop}}
+
