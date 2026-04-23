@@ -1,6 +1,6 @@
 # DX-APP Installation and Build
 
-This guide describes the system requirements and the installation instructions on Linux and WIndows to use **DX-APP**.  
+This guide describes the system requirements and the installation instructions on Linux and Windows to use **DX-APP**.  
 
 ---
 
@@ -117,6 +117,9 @@ Assets are downloaded and placed in the `assets/` directory.
 
 !!! note "NOTE"
     Running `setup.sh` beforehand is optional. When you run any individual example, missing models are **automatically downloaded** on demand. Videos are also auto-downloaded when a `--video` path is specified but the file does not exist.
+
+!!! note "NOTE"
+    The sample models (`.dxnn`) and dataset images are provided for **evaluation and development purposes only** and are not licensed for commercial deployment. For full license details, see [Appendix: Third-Party License Notice](./Appendix_Third_Party_License.md).
 
 **`setup.sh` Options**
 
@@ -242,7 +245,7 @@ VCPKG is a C++ package manager used for handling third-party dependencies like O
 
 !!! note "NOTE" 
 
-    If you are using Visual Studio Community 2022, **VCPKG is pre-installed**. and no separate installation is necessary. 
+    If you are using Visual Studio Community 2022, **VCPKG is pre-installed**, so no separate installation is necessary. 
 
 If manual installation is required, follow the steps below.  
 
