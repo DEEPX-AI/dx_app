@@ -4,5 +4,5 @@
     ".deepx/memory/common_pitfalls.md",
     ".deepx/instructions/coding-standards.md"
   ],
-  "skills": {"paths": [".opencode/skills"]}
+  "skills": {"paths": [".deepx/skills"]}
 }
