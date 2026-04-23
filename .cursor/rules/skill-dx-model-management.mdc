@@ -1,0 +1,6 @@
+---
+description: "Model download, HEF resolution, and config management"
+alwaysApply: false
+---
+
+Read and follow the skill documentation at `.deepx/skills/dx-model-management/SKILL.md`.
