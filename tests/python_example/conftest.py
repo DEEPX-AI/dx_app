@@ -20,12 +20,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 
 def pytest_addoption(parser):
-    parser.addoption(
-        "--loop",
-        action="store",
-        default="1",
-        help="Number of inference iterations for E2E image tests (default: 1)",
-    )
+    try:
+        parser.addoption(
+            "--loop",
+            action="store",
+            default="1",
+            help="Number of inference iterations for E2E image tests (default: 1)",
+        )
+    except ValueError:
+        pass  # --loop already registered by another conftest (e.g. E2E suite)
     parser.addoption(
         "--camera-index",
         action="store",
