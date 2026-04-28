@@ -1,7 +1,7 @@
 ---
 description: Validate dx_app standalone inference applications and .deepx/ framework files. Runs static analysis, config checks,
   and triggers the feedback loop.
-mode: normal
+mode: subagent
 tools:
   bash: true
   edit: true

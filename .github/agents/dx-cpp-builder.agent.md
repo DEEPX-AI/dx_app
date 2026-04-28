@@ -4,6 +4,7 @@ description: (Sub-agent) Build a C++ inference application — invoked only via 
 argument-hint: e.g., yolo26n object detection C++ app
 tools:
 - agent/askQuestions
+- agent/runSubagent
 - edit/createDirectory
 - edit/createFile
 - edit/editFiles

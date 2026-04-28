@@ -2,7 +2,7 @@
 name: DX Benchmark Builder
 description: "(Sub-agent) Profile and optimize an existing inference application — invoked only via @dx-app-builder handoff. Do NOT invoke directly."
 argument-hint: 'e.g., Profile yolo26n detection app performance'
-capabilities: [ask-user, edit, execute, read, search, todo]
+capabilities: [ask-user, edit, execute, read, search, sub-agent, todo]
 routes-to:
   - target: dx-python-builder
     label: Rebuild as Optimized Variant

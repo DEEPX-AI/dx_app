@@ -5,6 +5,7 @@ description: (Sub-agent) Download, register, query, and validate .dxnn models â€
 argument-hint: e.g., Download yolo26n model, list all detection models
 tools:
 - agent/askQuestions
+- agent/runSubagent
 - edit/createDirectory
 - edit/createFile
 - edit/editFiles

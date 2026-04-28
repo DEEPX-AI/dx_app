@@ -5,6 +5,7 @@ description: Validate dx_app standalone inference applications and .deepx/ frame
 argument-hint: e.g., validate yolo26n app, validate framework
 tools:
 - agent/askQuestions
+- agent/runSubagent
 - edit/createDirectory
 - edit/createFile
 - edit/editFiles
