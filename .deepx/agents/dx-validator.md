@@ -2,7 +2,7 @@
 name: DX App Validator
 description: Validate dx_app standalone inference applications and .deepx/ framework files. Runs static analysis, config checks, and triggers the feedback loop.
 argument-hint: 'e.g., validate yolo26n app, validate framework'
-capabilities: [ask-user, edit, execute, read, search, todo]
+capabilities: [ask-user, edit, execute, read, search, sub-agent, todo]
 routes-to: []
 ---
 

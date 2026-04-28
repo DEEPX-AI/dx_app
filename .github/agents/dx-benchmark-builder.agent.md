@@ -5,6 +5,7 @@ description: (Sub-agent) Profile and optimize an existing inference application 
 argument-hint: e.g., Profile yolo26n detection app performance
 tools:
 - agent/askQuestions
+- agent/runSubagent
 - edit/createDirectory
 - edit/createFile
 - edit/editFiles
