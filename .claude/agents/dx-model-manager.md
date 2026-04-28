@@ -3,6 +3,7 @@ name: DX Model Manager
 description: (Sub-agent) Download, register, query, and validate .dxnn models — invoked only via @dx-app-builder handoff.
   Do NOT invoke directly.
 tools:
+- Agent
 - AskUserQuestion
 - Bash
 - Edit

@@ -4,6 +4,7 @@ description: (Sub-agent) Build a Python inference application — invoked only v
 argument-hint: e.g., yolo26n object detection sync app
 tools:
 - agent/askQuestions
+- agent/runSubagent
 - edit/createDirectory
 - edit/createFile
 - edit/editFiles

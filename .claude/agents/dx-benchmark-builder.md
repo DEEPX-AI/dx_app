@@ -3,6 +3,7 @@ name: DX Benchmark Builder
 description: (Sub-agent) Profile and optimize an existing inference application — invoked only via @dx-app-builder handoff.
   Do NOT invoke directly.
 tools:
+- Agent
 - AskUserQuestion
 - Bash
 - Edit

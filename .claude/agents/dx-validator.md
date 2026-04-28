@@ -3,6 +3,7 @@ name: DX App Validator
 description: Validate dx_app standalone inference applications and .deepx/ framework files. Runs static analysis, config checks,
   and triggers the feedback loop.
 tools:
+- Agent
 - AskUserQuestion
 - Bash
 - Edit

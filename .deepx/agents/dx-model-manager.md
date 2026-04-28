@@ -2,7 +2,7 @@
 name: DX Model Manager
 description: "(Sub-agent) Download, register, query, and validate .dxnn models — invoked only via @dx-app-builder handoff. Do NOT invoke directly."
 argument-hint: 'e.g., Download yolo26n model, list all detection models'
-capabilities: [ask-user, edit, execute, read, search, todo]
+capabilities: [ask-user, edit, execute, read, search, sub-agent, todo]
 routes-to: []
 ---
 

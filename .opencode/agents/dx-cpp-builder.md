@@ -1,6 +1,6 @@
 ---
 description: (Sub-agent) Build a C++ inference application — invoked only via @dx-app-builder handoff. Do NOT invoke directly.
-mode: normal
+mode: subagent
 tools:
   bash: true
   edit: true

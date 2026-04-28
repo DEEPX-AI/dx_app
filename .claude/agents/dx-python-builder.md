@@ -2,6 +2,7 @@
 name: DX Python Builder
 description: (Sub-agent) Build a Python inference application — invoked only via @dx-app-builder handoff. Do NOT invoke directly.
 tools:
+- Agent
 - AskUserQuestion
 - Bash
 - Edit
