@@ -152,7 +152,7 @@ explicit user approval.
 
 ### Rules
 
-1. **Default output**: `dx-agentic-dev/<YYYYMMDD-HHMMSS>_<model>_<task>/`
+1. **Default output**: `dx-agentic-dev/<YYYYMMDD-HHMMSS>_<agent>_<model>_<task>/`
 2. **Session metadata**: Every session directory includes `session.json` and `README.md`
 3. **Dynamic imports**: Use the root-finding boilerplate (see skill docs) instead of
    the standard `_v3_dir = _module_dir.parent.parent` pattern
@@ -167,7 +167,7 @@ isolation ensures experiments are safely contained.
 
 ### Session ID Format
 
-`YYYYMMDD-HHMMSS_<model>_<task>` — e.g., `20250403-143022_yolo26n_object_detection`
+`YYYYMMDD-HHMMSS_<agent>_<model>_<task>` — e.g., `20250403-143022_claude_yolo26n_object_detection`
 
 Use Python `datetime.now().strftime('%Y%m%d-%H%M%S')` or Bash `$(date +%Y%m%d-%H%M%S)`
 to generate the timestamp prefix. These use the **system local timezone** (NOT UTC).
