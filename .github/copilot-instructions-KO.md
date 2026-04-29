@@ -151,7 +151,7 @@ Q2: AI 작업, Q3: 모델)을 강제합니다.
 디렉토리)에 생성된 코드를 직접 작성하지 마세요.
 사용자가 명시적으로 요청할 때만 `src/`에 작성하세요.
 
-**세션 ID 형식**: `YYYYMMDD-HHMMSS_<model>_<task>` — 타임스탬프는 반드시
+**세션 ID 형식**: `YYYYMMDD-HHMMSS_<agent>_<model>_<task>` — 타임스탬프는 반드시
 **시스템 로컬 타임존**을 사용해야 합니다 (UTC 아님). Bash에서 `$(date +%Y%m%d-%H%M%S)`,
 Python에서 `datetime.now().strftime('%Y%m%d-%H%M%S')`를 사용하세요. `date -u`,
 `datetime.utcnow()`, `datetime.now(timezone.utc)`는 사용하지 마세요.

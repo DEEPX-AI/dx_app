@@ -149,10 +149,11 @@ NEVER write generated code directly into existing source directories (e.g., `src
 `semseg_260323/`, or any directory containing user's existing code).
 Only write to `src/` when explicitly requested by the user.
 
-**Session ID format**: `YYYYMMDD-HHMMSS_<model>_<task>` — the timestamp MUST use the
+**Session ID format**: `YYYYMMDD-HHMMSS_<agent>_<model>_<task>` — the timestamp MUST use the
 **system local timezone** (NOT UTC). Use `$(date +%Y%m%d-%H%M%S)` in Bash or
 `datetime.now().strftime('%Y%m%d-%H%M%S')` in Python. Do NOT use `date -u`,
 `datetime.utcnow()`, or `datetime.now(timezone.utc)`.
+`<agent>` identifies the coding tool: `claude` (Claude Code), `copilot` (Copilot CLI), `cursor` (Cursor), `opencode` (OpenCode).
 
 ### Rule Conflict Resolution (HARD GATE)
 When a user's request conflicts with a HARD GATE rule (IFactory, skeleton-first,
