@@ -47,14 +47,27 @@ dx-agentic-dev/<YYYYMMDD-HHMMSS>_<model>_<task>/
 ```json
 {
   "session_id": "<YYYYMMDD-HHMMSS>_<model>_<task>",
-  "created_at": "<ISO 8601 timestamp>",
+  "created_at": "<ISO 8601 timestamp with timezone, e.g. 2026-04-30T04:23:25+09:00>",
   "model": "<model_name>",
   "task": "<task_type>",
   "variants": ["sync", "async", "sync_cpp_postprocess", "async_cpp_postprocess"],
+  "compiler_session": "<relative path to compiler session, e.g. dx-compiler/dx-agentic-dev/20260430-032426_claude_yolo26n_compile>",
+  "agent": "<tool identifier: copilot | cursor | claude | opencode>",
   "status": "complete",
   "notes": "<any relevant notes>"
 }
 ```
+
+> **REC-5 — session.json `agent` and `compiler_session` fields are REQUIRED (R47)**:
+> - `agent`: The tool identifier — use `copilot`, `cursor`, `claude`, or `opencode`.
+>   This field disambiguates sessions when multiple tools run concurrently.
+> - `compiler_session`: The relative path (from suite root) to the companion
+>   dx-compiler session dir. Required for cross-project (compile + app) sessions.
+>   Omit only when no compilation was performed.
+> - `created_at` MUST include a timezone offset (e.g. `+09:00`). Plain UTC timestamps
+>   without offset are non-compliant.
+> - ALL tools (copilot, cursor, opencode, claude_code) MUST produce `session.json`.
+>   Do not skip this file for any tool.
 
 ### Import Boilerplate for dx-agentic-dev/
 
@@ -687,7 +700,66 @@ Before declaring the app complete, verify all files exist:
 - [ ] `src/python_example/<task>/<model>/<model>_async_cpp_postprocess.py` (if applicable)
 - [ ] `setup.sh` — environment setup script (**MUST** detect/activate venv — see setup.sh template below)
 - [ ] `run.sh` — one-command inference launcher (**MUST** use real model + sample image paths — see run.sh template below)
-- [ ] `session.log` — actual command output (captured via tee)
+- [ ] `session.log` — actual command output with structured blocks (see session.log template below)
+- [ ] `session.json` — build metadata (**REQUIRED** — see session.json template at top of this skill doc)
+
+  > **REC-T4 (iter-15) — session.json is MANDATORY for ALL tools including claude_code.**
+  > The agent skipping session.json is the most common source of `test_session_json_exists` failures.
+  > Write it BEFORE declaring DONE. Use this exact JSON structure:
+  >
+  > ```json
+  > {
+  >   "session_id": "<YYYYMMDD-HHMMSS>_<agent>_<model>_inference",
+  >   "created_at": "<ISO 8601 local timezone, e.g. 2026-04-30T08:20:54+09:00>",
+  >   "model": "<model_name, e.g. yolo26n>",
+  >   "task": "<task_type, e.g. object_detection>",
+  >   "variants": ["sync"],
+  >   "compiler_session": "dx-compiler/dx-agentic-dev/<compiler_session_id>",
+  >   "agent": "<copilot | cursor | claude | opencode>",
+  >   "status": "complete",
+  >   "notes": ""
+  > }
+  > ```
+  >
+  > **STOP before DONE if session.json is absent — the test harness WILL catch this.**
+- [ ] `config.json` — inference thresholds / model config for the app session (**REQUIRED**)
+
+## session.log Template (MANDATORY)
+
+> **R23**: session.log must have a structured header and named phase blocks. Reference: opencode session `224919` (58 lines, all phases logged).
+
+```bash
+# ── session.log init (write before any other command) ──────────────────────
+SESSION_ID="<YYYYMMDD-HHMMSS>_<agent>_<model>_<task>"
+echo "===== SESSION LOG: ${SESSION_ID} =====" > session.log
+echo "Date: $(date)" >> session.log
+echo "" >> session.log
+
+# After sanity check:
+echo "--- sanity_check ---" >> session.log
+echo "$ bash dx-runtime/scripts/sanity_check.sh --dx_rt" >> session.log
+<paste actual output> >> session.log
+echo "RESULT: PASS" >> session.log
+echo "" >> session.log
+
+# After inference run:
+echo "--- inference ---" >> session.log
+echo "$ python <model>_sync.py --input bus.jpg" >> session.log
+<paste actual output (FPS, latency, detections)> >> session.log
+echo "RESULT: PASS  (<N> FPS, <M> ms NPU)" >> session.log
+echo "" >> session.log
+
+# Artifacts listing:
+echo "--- artifacts ---" >> session.log
+ls -lh . >> session.log
+echo "RESULT: PASS" >> session.log
+```
+
+**session.log MUST contain**:
+- A `===== SESSION LOG: <session_id> =====` header
+- Named blocks: `sanity_check`, `inference`, `artifacts`
+- Each block ends with `RESULT: PASS` or `RESULT: FAIL`
+- Actual command output (NOT hand-written summaries)
 
 ## setup.sh Template (MANDATORY)
 
@@ -827,6 +899,13 @@ When generating run commands, resolve the model path in this priority order:
 
 If the model file cannot be located, use the precompiled assets path as the default
 and note in the README that the user may need to adjust the path.
+
+> **R46 — Do NOT copy `.dxnn` to the app session directory**:
+> The compiled `.dxnn` file belongs in `dx-compiler/dx-agentic-dev/<compiler_session>/`.
+> Reference it via a relative path from `run.sh` / `yolo26n_sync.py` — do NOT copy it
+> into `dx_app/dx-agentic-dev/<app_session>/`. Copying wastes 6–7 MB and blurs the
+> dual-session boundary. Use path #2 above (`../../../../dx-compiler/…/<model>.dxnn`)
+> or store the path in `config.json` and read it at runtime.
 
 ### Example Run Commands (with real paths)
 
