@@ -686,6 +686,70 @@ Select the sample image based on the model's AI task:
 
 **MUST** use these task-matched images instead of generic `test.jpg` or `input.jpg`.
 
+### Import Pattern for Session Directory (CRITICAL — Common Agent Bug)
+
+Generated code runs from `dx-agentic-dev/<session_id>/`, NOT from the dx_app source tree.
+The following import patterns are **PROHIBITED** in generated code:
+
+```python
+# WRONG — in-tree path doesn't exist in session dir
+from src.python_example.common.base import IDetectionFactory
+from src.python_example.object_detection.yolo26n.factory import Yolo26nFactory
+
+# WRONG — absolute path import from source tree
+from dx_runtime.dx_app.src.python_example.common.base import IDetectionFactory
+import src.python_example.common.postprocessors as pp
+```
+
+**Correct pattern** — factory is LOCAL to the session directory:
+
+```python
+# CORRECT — relative import within session dir
+from factory.yolo26n_factory import Yolo26nFactory
+from factory import Yolo26nFactory  # via factory/__init__.py
+
+# CORRECT — base class defined locally in factory/base.py
+from factory.base import IFactory
+```
+
+**Rule:** The base class (`IFactory`) MUST be defined in
+`factory/base.py` within the session directory. Copy the minimal 5-method interface
+(create_preprocessor, create_postprocessor, create_visualizer, get_model_name, get_task_type)
+from the source tree into this local file. Never import from the source tree path.
+
+**factory/base.py template:**
+```python
+"""Base factory interface for DXNN inference apps."""
+from abc import ABC, abstractmethod
+
+
+class IFactory(ABC):
+    @abstractmethod
+    def create_preprocessor(self):
+        """Create and return the preprocessor for this model."""
+        pass
+
+    @abstractmethod
+    def create_postprocessor(self):
+        """Create and return the postprocessor for this model."""
+        pass
+
+    @abstractmethod
+    def create_visualizer(self):
+        """Create and return the visualizer for this model's output."""
+        pass
+
+    @abstractmethod
+    def get_model_name(self) -> str:
+        """Return the model name (e.g., 'yolo26n')."""
+        pass
+
+    @abstractmethod
+    def get_task_type(self) -> str:
+        """Return the AI task type (e.g., 'object_detection')."""
+        pass
+```
+
 ## File Creation Checklist
 
 Before declaring the app complete, verify all files exist:
@@ -797,6 +861,11 @@ echo "RESULT: PASS" >> session.log
 
 ## setup.sh Template (MANDATORY)
 
+> **PEP 668 PROHIBITION (Ubuntu 24.04+)**: NEVER use bare `pip install` without
+> a virtual environment in `setup.sh`. Ubuntu 24.04+ blocks system-wide pip installs
+> with "externally-managed-environment" error. The template below handles venv
+> detection/creation — follow it EXACTLY. Using `--break-system-packages` is PROHIBITED.
+
 > **CRITICAL**: `setup.sh` must be runnable standalone. A user must be able to `cd` into
 > the session directory and run `./setup.sh` without manually activating any venv first.
 > Failure to include venv detection causes NumPy/OpenCV version conflicts on the host system.
@@ -852,6 +921,9 @@ echo "[INFO] Setup complete. Run: bash run.sh"
 - Adjust `pip install` line to include model-specific dependencies if needed
 - The 5-level upward search covers both `dx-agentic-dev/<session>/` (3 levels up)
   and `src/python_example/<task>/<model>/` (4 levels up) paths
+- NEVER remove or skip the venv detection/creation section (Section 1). This is non-negotiable.
+- NEVER use bare `pip install` outside the venv — PEP 668 will block it on Ubuntu 24.04+.
+- NEVER use `--break-system-packages` flag — it corrupts the system Python.
 
 ## run.sh Template (MANDATORY)
 
