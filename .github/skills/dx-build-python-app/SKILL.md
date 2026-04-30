@@ -707,6 +707,10 @@ Before declaring the app complete, verify all files exist:
   > The agent skipping session.json is the most common source of `test_session_json_exists` failures.
   > Write it BEFORE declaring DONE. Use this exact JSON structure:
   >
+  > ⚠️ **`session.txt` is NOT `session.json`.** Both files may exist, but only `session.json` (a
+  > JSON-formatted file) satisfies the `test_session_json_exists` requirement. Writing `session.txt`
+  > instead of `session.json` is the most common mistake — the file MUST be named exactly `session.json`.
+  >
   > ```json
   > {
   >   "session_id": "<YYYYMMDD-HHMMSS>_<agent>_<model>_inference",
@@ -722,6 +726,36 @@ Before declaring the app complete, verify all files exist:
   > ```
   >
   > **STOP before DONE if session.json is absent — the test harness WILL catch this.**
+  >
+  > **REC-V2 (iter-17) — opencode session.json regression HARD GATE**:
+  > opencode iter-17 did NOT produce `session.json` in the app session, causing
+  > `test_session_json_exists` to FAIL. To guarantee session.json is written,
+  > opencode agents MUST execute this Python snippet explicitly in the app session:
+  >
+  > ```python
+  > import json
+  > from datetime import datetime
+  > from pathlib import Path
+  >
+  > # ⛔ BLOCKING GATE — write session.json BEFORE emitting [DX-AGENTIC-DEV: DONE]
+  > session_json = {
+  >     "session_id": SESSION_ID,   # e.g. "20260430-101324_opencode_yolo26n_inference"
+  >     "created_at": datetime.now().strftime("%Y-%m-%dT%H:%M:%S+09:00"),
+  >     "model": "yolo26n",
+  >     "task": "object_detection",
+  >     "variants": ["sync"],
+  >     "compiler_session": "dx-compiler/dx-agentic-dev/<compiler_session_id>",
+  >     "agent": "opencode",
+  >     "status": "complete",
+  >     "notes": "",
+  > }
+  > (Path(APP_SESSION_DIR) / "session.json").write_text(
+  >     json.dumps(session_json, indent=2, ensure_ascii=False)
+  > )
+  > print("session.json written —", APP_SESSION_DIR)
+  > ```
+  >
+  > **Do NOT proceed to DONE without verifying `session.json` exists in the app session dir.**
 - [ ] `config.json` — inference thresholds / model config for the app session (**REQUIRED**)
 
 ## session.log Template (MANDATORY)
