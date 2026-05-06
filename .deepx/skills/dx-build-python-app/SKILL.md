@@ -336,8 +336,15 @@ Usage:
 import sys
 from pathlib import Path
 
+# Dynamic root finder — works for both src/python_example/<task>/<model>/ AND
+# dx-agentic-dev/<session>/ (NEVER use static parent.parent — depth differs)
 _module_dir = Path(__file__).parent
-_v3_dir = _module_dir.parent.parent
+_current = Path(__file__).resolve().parent
+while _current != _current.parent:
+    if (_current / 'src' / 'python_example' / 'common').exists():
+        break
+    _current = _current.parent
+_v3_dir = _current / 'src' / 'python_example'
 for _path in [str(_v3_dir), str(_module_dir)]:
     if _path not in sys.path:
         sys.path.insert(0, _path)
@@ -378,8 +385,15 @@ Usage:
 import sys
 from pathlib import Path
 
+# Dynamic root finder — works for both src/python_example/<task>/<model>/ AND
+# dx-agentic-dev/<session>/ (NEVER use static parent.parent — depth differs)
 _module_dir = Path(__file__).parent
-_v3_dir = _module_dir.parent.parent
+_current = Path(__file__).resolve().parent
+while _current != _current.parent:
+    if (_current / 'src' / 'python_example' / 'common').exists():
+        break
+    _current = _current.parent
+_v3_dir = _current / 'src' / 'python_example'
 for _path in [str(_v3_dir), str(_module_dir)]:
     if _path not in sys.path:
         sys.path.insert(0, _path)
@@ -420,8 +434,15 @@ Usage:
 import sys
 from pathlib import Path
 
+# Dynamic root finder — works for both src/python_example/<task>/<model>/ AND
+# dx-agentic-dev/<session>/ (NEVER use static parent.parent — depth differs)
 _module_dir = Path(__file__).parent
-_v3_dir = _module_dir.parent.parent
+_current = Path(__file__).resolve().parent
+while _current != _current.parent:
+    if (_current / 'src' / 'python_example' / 'common').exists():
+        break
+    _current = _current.parent
+_v3_dir = _current / 'src' / 'python_example'
 for _path in [str(_v3_dir), str(_module_dir)]:
     if _path not in sys.path:
         sys.path.insert(0, _path)
@@ -480,8 +501,15 @@ Usage:
 import sys
 from pathlib import Path
 
+# Dynamic root finder — works for both src/python_example/<task>/<model>/ AND
+# dx-agentic-dev/<session>/ (NEVER use static parent.parent — depth differs)
 _module_dir = Path(__file__).parent
-_v3_dir = _module_dir.parent.parent
+_current = Path(__file__).resolve().parent
+while _current != _current.parent:
+    if (_current / 'src' / 'python_example' / 'common').exists():
+        break
+    _current = _current.parent
+_v3_dir = _current / 'src' / 'python_example'
 for _path in [str(_v3_dir), str(_module_dir)]:
     if _path not in sys.path:
         sys.path.insert(0, _path)
@@ -562,8 +590,13 @@ done
 # 2. JSON validation
 python -c "import json; json.load(open('config.json')); print('OK: config.json')"
 
-# 3. Factory import test (requires dx_engine environment)
-PYTHONPATH=../../ python -c "from factory import <ModelClass>Factory; f = <ModelClass>Factory(); print(f'OK: {f.get_model_name()} / {f.get_task_type()}')"
+# 3. Factory import test — CRITICAL: run WITHOUT external PYTHONPATH to verify
+#    the generated code sets up sys.path correctly (dynamic walker must resolve common.*)
+#    WRONG: PYTHONPATH=../../ — this only adds dx_app/ not dx_app/src/python_example/
+#    CORRECT: use --help which exercises the full import chain via the dynamic walker
+python <model>_sync.py --help 2>&1 | grep -E "ImportError|ModuleNotFoundError|usage:" | head -5
+# If ImportError/ModuleNotFoundError appears → the dynamic walker failed to find src/python_example/common
+# If "usage:" appears → import chain resolved correctly
 
 # 4. Postprocessor cross-check (CRITICAL — catches wrong postprocessor)
 # Verify the factory uses the correct postprocessor for this model family.
@@ -905,10 +938,14 @@ fi
 pip install opencv-python numpy
 
 # --- 3. Verify dx_engine ---
-python -c "import dx_engine; print('[OK] dx_engine available')" 2>/dev/null || {
-    echo "[WARN] dx_engine not found in this venv."
-    echo "       Run: cd $(cd "$SCRIPT_DIR/../.." && pwd) && ./install.sh && ./build.sh"
-}
+if ! python -c "import dx_engine" 2>/dev/null; then
+    echo "[FATAL] dx_engine not available in the active venv."
+    echo "  This usually means venv-dx-runtime was not found and a new local venv was created."
+    echo "  Fix: cd $(cd "$SCRIPT_DIR/../.." && pwd) && ./install.sh && ./build.sh"
+    echo "  Then re-run: bash setup.sh"
+    exit 1
+fi
+echo "[OK] dx_engine available"
 
 echo "[INFO] Setup complete. Run: bash run.sh"
 ```
@@ -958,6 +995,19 @@ fi
 
 echo "[INFO] Model: $MODEL"
 echo "[INFO] Image: $IMAGE"
+
+# --- Standalone PYTHONPATH (backup for dynamic walker) ---
+# The _sync.py uses a dynamic walker to find src/python_example, but set PYTHONPATH
+# here as a belt-and-suspenders guarantee for standalone execution.
+_v3_search="$SCRIPT_DIR"
+while [ "$_v3_search" != "/" ]; do
+    if [ -d "$_v3_search/src/python_example/common" ]; then
+        export PYTHONPATH="$_v3_search/src/python_example${PYTHONPATH:+:$PYTHONPATH}"
+        break
+    fi
+    _v3_search="$(dirname "$_v3_search")"
+done
+
 python "$SCRIPT_DIR/<model>_sync.py" --model "$MODEL" --image "$IMAGE" --no-display
 ```
 
