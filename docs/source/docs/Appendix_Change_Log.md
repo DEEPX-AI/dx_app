@@ -1,4 +1,14 @@
 # RELEASE_NOTES
+## v3.1.1 / 2026-04-21
+
+### Fixed
+- Fix typo error in document(DX-APP User Manual)
+
+### Added
+- Add License information for third-party models & datasets
+
+---
+
 ## v3.1.0 / 2026-04-06
 
 ### Changed

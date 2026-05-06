@@ -26,6 +26,7 @@ For deeper technical specifications, refer to the [`docs/source/docs/`](./docs/s
 | 09 | [Project Overview](./docs/source/docs/09_DX-APP_Project_Overview.md) | Repository layout, CLI reference, advanced features |
 | 10 | [DX Tool Guide](./docs/source/docs/10_DX-APP_DX-Tool_Guide.md) | Developer tooling (dx_tool.sh) |
 | 11 | [Example Source Structure](./docs/source/docs/11_DX-APP_Example_Source_Structure.md) | Source tree conventions & contributor guide |
+| — | [Appendix: Third-Party License](./docs/source/docs/Appendix_Third_Party_License.md) | License information for third-party models & datasets |
 | — | [Change Log](./docs/source/docs/Appendix_Change_Log.md) | Version history |
 
 ---
@@ -602,3 +603,12 @@ rm -rf assets/videos/*
 ```
 
 ---
+
+# Third-Party License Notice
+
+Sample models (`.dxnn`) and dataset images included in DX-APP are provided for **evaluation and development purposes only** and are **not licensed for commercial deployment**.
+
+- **Models** are compiled from third-party open-source projects (e.g., AGPL-3.0, GPL-3.0, non-commercial research licenses). Commercial use requires obtaining licenses from the original model providers or using your own commercially licensed models.
+- **Datasets** (e.g., ImageNet, DOTA, COCO, Pascal VOC) are subject to their respective license terms, most of which restrict usage to non-commercial research and education.
+
+For full details, see [Appendix: Third-Party License Notice](./docs/source/docs/Appendix_Third_Party_License.md).

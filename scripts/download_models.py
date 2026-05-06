@@ -510,6 +510,22 @@ def main():
         print(f"  Source   : {_C}S3 / public{_RST}")
     head(f"{_DOUBLE_LINE}\n")
 
+    # Third-party license notice
+    print(f"  {_Y}┌────────────────────────────────────────────────────────┐{_RST}")
+    print(f"  {_Y}│  ⚠  THIRD-PARTY LICENSE NOTICE                       │{_RST}")
+    print(f"  {_Y}│                                                       │{_RST}")
+    print(f"  {_Y}│  The sample models (.dxnn) and dataset images are     │{_RST}")
+    print(f"  {_Y}│  compiled from third-party open-source projects and   │{_RST}")
+    print(f"  {_Y}│  are provided for EVALUATION AND DEVELOPMENT          │{_RST}")
+    print(f"  {_Y}│  PURPOSES ONLY. NOT licensed for commercial use.      │{_RST}")
+    print(f"  {_Y}│                                                       │{_RST}")
+    print(f"  {_Y}│  For commercial deployment, obtain licenses from the  │{_RST}")
+    print(f"  {_Y}│  original model/dataset providers.                    │{_RST}")
+    print(f"  {_Y}│                                                       │{_RST}")
+    print(f"  {_Y}│  Details: docs/source/docs/Appendix_Third_Party_License.md │{_RST}")
+    print(f"  {_Y}└────────────────────────────────────────────────────────┘{_RST}")
+    print()
+
     models = load_manifest(manifest_path)
     models = _apply_filters(models, args)
 
