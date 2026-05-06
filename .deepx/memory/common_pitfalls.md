@@ -715,3 +715,43 @@ option.buffer_count = 8    # same as set_buffer_count(8)
   4. NEVER mark the prerequisite check as "done" when it actually failed
 - **Prevention**: The HARD GATE rules now explicitly list "reinterpreting user's 'just continue' /
   'work to completion' / autopilot instructions as permission to override" as a PROHIBITED bypass.
+
+---
+
+## 24. [DX_APP] Static `parent.parent` Path in dx-agentic-dev Sessions
+
+- **Symptom**: `ModuleNotFoundError: No module named 'common'` when running `./run.sh`
+  after `setup.sh` succeeds. Works with `PYTHONPATH="../../src/python_example/"` manually.
+- **Root Cause**: Generated `_sync.py` uses `_v3_dir = _module_dir.parent.parent`.
+  - For `src/python_example/<task>/<model>/`: `.parent.parent` = `src/python_example/` ✓
+  - For `dx-agentic-dev/<session>/`: `.parent.parent` = `dx-agentic-dev/` ✗ (not `src/python_example/`)
+  The agent copied the static path template without noticing the "Import Boilerplate for
+  dx-agentic-dev/" override section which specifies the dynamic walker.
+- **Fix**: ALL generated `_sync.py` / `_async.py` in dx-agentic-dev MUST use the dynamic walker:
+  ```python
+  _current = Path(__file__).resolve().parent
+  while _current != _current.parent:
+      if (_current / 'src' / 'python_example' / 'common').exists():
+          break
+      _current = _current.parent
+  _v3_dir = _current / 'src' / 'python_example'
+  ```
+  The dynamic walker works for BOTH `src/python_example/` and `dx-agentic-dev/` paths.
+- **Prevention**: The `<model>_sync.py` and `<model>_async.py` templates now use the dynamic
+  walker directly. The Import Resolution Test now runs `python <model>_sync.py --help` (no
+  external PYTHONPATH) to catch this failure at generation time.
+
+---
+
+## 25. [DX_APP] dx_engine Not in Session venv (setup.sh WARN instead of FATAL)
+
+- **Symptom**: `setup.sh` step "[2] Checking dx_engine ... [OK]" passes but `run.sh` fails with
+  `ModuleNotFoundError: No module named 'dx_engine'`. The two scripts use different venvs.
+- **Root Cause**: `setup.sh` checked `dx_engine` BEFORE creating a local venv (system Python had
+  it from dx-runtime build). Then created a local venv, installed only opencv/numpy. `run.sh`
+  activated this local venv — no dx_engine. The original `[WARN]` (not `exit 1`) silently passed.
+- **Fix**: `setup.sh` template now uses `[FATAL] exit 1` if `dx_engine` is not importable in the
+  active venv. This ensures the local venv fallback path cannot silently succeed without dx_engine.
+- **Prevention**: Prefer `venv-dx-runtime` (searched upward in setup.sh). If NOT found, the local
+  venv creation will fail at the dx_engine check — forcing the user to fix the environment.
+  NEVER create a local venv that skips dx_engine availability verification.
