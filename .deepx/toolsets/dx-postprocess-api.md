@@ -1,5 +1,7 @@
 # DX Postprocess API Reference
 
+> **SDK Source of Truth**: `src/bindings/python/dx_postprocess/postprocess_pybinding.cpp`, `docs/source/docs/08_DX-APP_Pybind_PostProcess_Overview.md`
+
 > Pybind11 C++ postprocess bindings exposed via `dx_postprocess` module.
 > See `src/bindings/python/dx_postprocess/postprocess_pybinding.cpp` for the
 > complete list of postprocessor classes. All classes live in a single pybind11

@@ -1,5 +1,7 @@
 # DX Engine API Reference
 
+> **SDK Source of Truth**: `dx_rt/python_package/src/dx_engine/`, `dx_rt/docs/source/docs/10_02_Python_API_Reference.md`
+
 > Reference-based guide to `dx_engine` — the core NPU inference interface for dx_app.
 > This document provides an overview and points to source files for current API details.
 > Do NOT rely on memorized signatures — always verify against the source files listed below.

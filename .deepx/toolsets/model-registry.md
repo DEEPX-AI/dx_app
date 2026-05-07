@@ -1,5 +1,7 @@
 # Model Registry Reference
 
+> **SDK Source of Truth**: `config/model_registry.json`
+
 > `config/model_registry.json` -- the single source of truth for all models
 > and task types in dx_app. Query the file for current counts.
 

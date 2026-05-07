@@ -1,5 +1,7 @@
 # .dxnn Model Format Reference
 
+> **SDK Source of Truth**: `dx-compiler/docs/`, DX-COM User Manual
+
 > The compiled neural network model format for DEEPX NPU inference.
 
 ## Overview

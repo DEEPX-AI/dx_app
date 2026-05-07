@@ -35,10 +35,10 @@ dx-agentic-dev/<YYYYMMDD-HHMMSS>_<model>_<task>/
 ├── factory/
 │   ├── __init__.py
 │   └── <model>_factory.py
-├── <model>_sync.py
-├── <model>_async.py
-├── <model>_sync_cpp_postprocess.py
-├── <model>_async_cpp_postprocess.py
+├── <model>_sync.py                     # ALWAYS generated (default variant)
+├── <model>_async.py                    # Generated when user requests async
+├── <model>_sync_cpp_postprocess.py     # Generated when user requests cpp_postprocess
+├── <model>_async_cpp_postprocess.py    # Generated when user requests async + cpp
 └── config.json
 ```
 
@@ -50,7 +50,7 @@ dx-agentic-dev/<YYYYMMDD-HHMMSS>_<model>_<task>/
   "created_at": "<ISO 8601 timestamp with timezone, e.g. 2026-04-30T04:23:25+09:00>",
   "model": "<model_name>",
   "task": "<task_type>",
-  "variants": ["sync", "async", "sync_cpp_postprocess", "async_cpp_postprocess"],
+  "variants": ["sync"],
   "compiler_session": "<relative path to compiler session, e.g. dx-compiler/dx-agentic-dev/20260430-032426_claude_yolo26n_compile>",
   "agent": "<tool identifier: copilot | cursor | claude | opencode>",
   "status": "complete",
@@ -372,7 +372,16 @@ if __name__ == "__main__":
     main()
 ```
 
-## Step 8: Create Async Variant
+## Step 8: Create Async Variant (OPTIONAL — only when user requests)
+
+> **Variant generation policy**: Only `sync` (Step 7) is mandatory for every session.
+> The `async`, `sync_cpp_postprocess`, and `async_cpp_postprocess` variants are generated
+> ONLY when:
+> - The user explicitly requests them (e.g., "also generate async variant")
+> - The brainstorm/plan phase identified them as needed
+> - The user asks for "all variants" or "full set"
+>
+> Update `session.json` `variants` array to reflect which variants were actually generated.
 
 ### Template: `<model>_async.py`
 
@@ -421,7 +430,7 @@ if __name__ == "__main__":
     main()
 ```
 
-## Step 9: Create Sync C++ Postprocess Variant
+## Step 9: Create Sync C++ Postprocess Variant (OPTIONAL — only when user requests)
 
 ### Template: `<model>_sync_cpp_postprocess.py`
 
@@ -488,7 +497,7 @@ Common bindings include: `YOLOv5PostProcess`, `YOLOv8PostProcess`,
 `YOLOv10PostProcess`, `YOLOv11PostProcess`, `SSDPostProcess`, `NanoDetPostProcess`.
 Check `src/bindings/python/dx_postprocess/postprocess_pybinding.cpp` for the full list of available bindings.
 
-## Step 10: Create Async C++ Postprocess Variant
+## Step 10: Create Async C++ Postprocess Variant (OPTIONAL — only when user requests)
 
 ### Template: `<model>_async_cpp_postprocess.py`
 
@@ -981,15 +990,14 @@ source "$SCRIPT_DIR/setup.sh" 2>/dev/null || true
 # --- Default paths (relative from session dir) ---
 # Model: use precompiled model or dx-compiler output
 DEFAULT_MODEL="../../assets/models/<model>.dxnn"
-# Sample image: task-appropriate (see Task-Aware Sample Image table)
+# Sample input: task-appropriate (see Task-Aware Sample Image table)
 DEFAULT_IMAGE="../../sample/img/<TASK_SAMPLE_IMAGE>"
 
 MODEL="${1:-$DEFAULT_MODEL}"
-IMAGE="${2:-$DEFAULT_IMAGE}"
 
 if [ ! -f "$MODEL" ]; then
     echo "[ERROR] Model not found: $MODEL"
-    echo "Usage: bash run.sh [model_path] [image_path]"
+    echo "Usage: bash run.sh [model_path] [input_path]"
     echo ""
     echo "Model locations:"
     echo "  Precompiled: ../../assets/models/<model>.dxnn"
@@ -998,7 +1006,6 @@ if [ ! -f "$MODEL" ]; then
 fi
 
 echo "[INFO] Model: $MODEL"
-echo "[INFO] Image: $IMAGE"
 
 # --- Standalone PYTHONPATH (backup for dynamic walker) ---
 # The _sync.py uses a dynamic walker to find src/python_example, but set PYTHONPATH
@@ -1012,12 +1019,22 @@ while [ "$_v3_search" != "/" ]; do
     _v3_search="$(dirname "$_v3_search")"
 done
 
-python "$SCRIPT_DIR/<model>_sync.py" --model "$MODEL" --image "$IMAGE" --no-display
+# --- Run inference ---
+# Adjust the command below based on user's input source and output mode choices:
+#   Input:  --image <path> | --video <path> | --camera <id> | --rtsp <url>
+#   Output: (default: --display) | --no-display | --save --save-dir ./output
+python "$SCRIPT_DIR/<model>_sync.py" --model "$MODEL" --image "$DEFAULT_IMAGE" --no-display
 ```
 
-**Customization rules:**
+**Customization rules (MANDATORY — adapt to user's input/output decisions):**
+- **Image input** (default): `--image <path>` with task-appropriate sample
+- **Video input**: Change to `--video ../../assets/videos/<sample>.mp4` and consider using `_async.py`
+- **Camera input**: Change to `--camera 0` and use `_async.py`
+- **RTSP input**: Change to `--rtsp <url>` and use `_async.py`
+- **Display output**: Remove `--no-display` (display is the default)
+- **Save output**: Add `--save --save-dir ./output`
+- **Headless output**: Keep `--no-display`
 - Replace `<TASK_SAMPLE_IMAGE>` with the actual sample image from the Task-Aware table
-  (e.g., `sample_dog.jpg` for object_detection)
 - If the model exists in `assets/models/`, use that as `DEFAULT_MODEL`
 - If using a dx-compiler output, compute the relative path from the session directory
 
