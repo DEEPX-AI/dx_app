@@ -984,6 +984,18 @@ echo "[INFO] Setup complete. Run: bash run.sh"
 set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# --- Auto-detect suite root (for cross-project references) ---
+SUITE_ROOT="$SCRIPT_DIR"
+while [ "$SUITE_ROOT" != "/" ]; do
+    if [ -d "$SUITE_ROOT/dx-runtime" ] && [ -d "$SUITE_ROOT/dx-compiler" ]; then
+        break
+    fi
+    SUITE_ROOT="$(dirname "$SUITE_ROOT")"
+done
+if [ "$SUITE_ROOT" = "/" ]; then
+    echo "WARNING: Cannot find dx-all-suite root (expected dx-runtime/ and dx-compiler/ siblings)"
+fi
+
 # --- Activate venv ---
 source "$SCRIPT_DIR/setup.sh" 2>/dev/null || true
 
@@ -1001,7 +1013,7 @@ if [ ! -f "$MODEL" ]; then
     echo ""
     echo "Model locations:"
     echo "  Precompiled: ../../assets/models/<model>.dxnn"
-    echo "  dx-compiler: ../../../../dx-compiler/dx-agentic-dev/<session>/<model>.dxnn"
+    echo "  dx-compiler: $SUITE_ROOT/dx-compiler/dx-agentic-dev/<session>/<model>.dxnn"
     exit 1
 fi
 
@@ -1067,7 +1079,7 @@ When using templates, replace these placeholders:
 When generating run commands, resolve the model path in this priority order:
 
 1. **Precompiled model in assets**: `../../assets/models/<model>.dxnn` — check if it exists
-2. **dx-compiler session output**: `../../../../dx-compiler/dx-agentic-dev/<session>/<model>.dxnn`
+2. **dx-compiler session output**: `$SUITE_ROOT/dx-compiler/dx-agentic-dev/<session>/<model>.dxnn`
 3. **User-provided path**: If the user specified a model location, use that
 
 If the model file cannot be located, use the precompiled assets path as the default
@@ -1077,7 +1089,7 @@ and note in the README that the user may need to adjust the path.
 > The compiled `.dxnn` file belongs in `dx-compiler/dx-agentic-dev/<compiler_session>/`.
 > Reference it via a relative path from `run.sh` / `yolo26n_sync.py` — do NOT copy it
 > into `dx_app/dx-agentic-dev/<app_session>/`. Copying wastes 6–7 MB and blurs the
-> dual-session boundary. Use path #2 above (`../../../../dx-compiler/…/<model>.dxnn`)
+> dual-session boundary. Use path #2 above (`$SUITE_ROOT/dx-compiler/…/<model>.dxnn`)
 > or store the path in `config.json` and read it at runtime.
 
 ### Example Run Commands (with real paths)
