@@ -7,7 +7,7 @@ applyTo: "src/cpp_example/**"
 Working on dx_app C++ inference examples.
 
 ## Required Context
-- `.deepx/skills/dx-build-cpp-app.md`
+- `.deepx/skills/dx-agentic-app-build-cpp.md`
 - `.deepx/toolsets/dx-engine-api.md`
 - `.deepx/memory/common_pitfalls.md`
 

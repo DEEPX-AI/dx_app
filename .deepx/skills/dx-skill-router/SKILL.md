@@ -38,7 +38,7 @@ digraph skill_flow {
     "User message received" [shape=doublecircle];
     "About to EnterPlanMode?" [shape=doublecircle];
     "Already brainstormed?" [shape=diamond];
-    "Invoke dx-brainstorm-and-plan" [shape=box];
+    "Invoke dx-agentic-brainstorm" [shape=box];
     "Might any skill apply?" [shape=diamond];
     "Invoke skill tool" [shape=box];
     "Announce: 'Using [skill] to [purpose]'" [shape=box];
@@ -48,9 +48,9 @@ digraph skill_flow {
     "Respond (including clarifications)" [shape=doublecircle];
 
     "About to EnterPlanMode?" -> "Already brainstormed?";
-    "Already brainstormed?" -> "Invoke dx-brainstorm-and-plan" [label="no"];
+    "Already brainstormed?" -> "Invoke dx-agentic-brainstorm" [label="no"];
     "Already brainstormed?" -> "Might any skill apply?" [label="yes"];
-    "Invoke dx-brainstorm-and-plan" -> "Might any skill apply?";
+    "Invoke dx-agentic-brainstorm" -> "Might any skill apply?";
 
     "User message received" -> "Might any skill apply?";
     "Might any skill apply?" -> "Invoke skill tool" [label="yes, even 1%"];
@@ -67,17 +67,17 @@ digraph skill_flow {
 
 | Skill | When to use |
 |-------|-------------|
-| `dx-brainstorm-and-plan` | Before any creative work — creating features, building components, adding functionality |
-| `dx-systematic-debugging` | When encountering any bug, test failure, or unexpected behavior |
-| `dx-dispatching-parallel-agents` | When facing 2+ independent tasks that can run in parallel |
-| `dx-writing-plans` | When you have a spec or requirements for a multi-step task |
-| `dx-executing-plans` | When you have a written implementation plan to execute |
-| `dx-subagent-driven-development` | When executing implementation plans with independent tasks |
-| `dx-verify-completion` | Before claiming work is complete, fixed, or passing |
-| `dx-tdd` | When implementing any feature or bugfix |
-| `dx-receiving-code-review` | When receiving code review feedback |
-| `dx-requesting-code-review` | When completing tasks or before merging |
-| `dx-writing-skills` | When creating or editing skills |
+| `dx-agentic-brainstorm` | Before any creative work — creating features, building components, adding functionality |
+| `dx-swe-debugging` | When encountering any bug, test failure, or unexpected behavior |
+| `dx-swe-parallel-agents` | When facing 2+ independent tasks that can run in parallel |
+| `dx-swe-writing-plans` | When you have a spec or requirements for a multi-step task |
+| `dx-swe-executing-plans` | When you have a written implementation plan to execute |
+| `dx-swe-subagent-dev` | When executing implementation plans with independent tasks |
+| `dx-agentic-verify` | Before claiming work is complete, fixed, or passing |
+| `dx-agentic-tdd` | When implementing any feature or bugfix |
+| `dx-swe-receiving-review` | When receiving code review feedback |
+| `dx-swe-requesting-review` | When completing tasks or before merging |
+| `dx-harness-writing-skills` | When creating or editing skills |
 | `dx-skill-router` | This skill — how to discover and invoke skills |
 
 ## Red Flags
@@ -103,15 +103,15 @@ These thoughts mean STOP — you're rationalizing:
 
 When multiple skills could apply, use this order:
 
-1. **Process skills first** (dx-brainstorm-and-plan, dx-systematic-debugging) — these determine HOW to approach the task
+1. **Process skills first** (dx-agentic-brainstorm, dx-swe-debugging) — these determine HOW to approach the task
 2. **Implementation skills second** (domain-specific skills) — these guide execution
 
-"Let's build X" → dx-brainstorm-and-plan first, then implementation skills.
-"Fix this bug" → dx-systematic-debugging first, then domain-specific skills.
+"Let's build X" → dx-agentic-brainstorm first, then implementation skills.
+"Fix this bug" → dx-swe-debugging first, then domain-specific skills.
 
 ## Skill Types
 
-**Rigid** (dx-tdd, dx-systematic-debugging): Follow exactly. Don't adapt away discipline.
+**Rigid** (dx-agentic-tdd, dx-swe-debugging): Follow exactly. Don't adapt away discipline.
 
 **Flexible** (patterns): Adapt principles to context.
 

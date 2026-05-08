@@ -48,25 +48,31 @@ dx-app-builder  (classifies intent)
 
 Skills encapsulate reusable workflows that agents invoke during code generation.
 
+#### General SWE Process
+
 | Skill | Description |
-|---|---|
-| `dx-brainstorm-and-plan` | Brainstorm and plan before any code generation (process skill) |
-| `dx-build-async-app` | Build an async high-performance app with pipelined pre/infer/post stages |
-| `dx-build-cpp-app` | Build a C++ inference app with the `InferenceEngine` runtime API |
-| `dx-build-python-app` | Build a Python inference app in any of the 4 variants using the IFactory pattern |
-| `dx-dispatching-parallel-agents` | Dispatch 2+ independent tasks to parallel agents |
-| `dx-executing-plans` | Execute a written implementation plan with review checkpoints |
-| `dx-model-management` | Download `.dxnn` models from the registry and configure model paths |
-| `dx-receiving-code-review` | Receive and process code review feedback with technical rigor |
-| `dx-requesting-code-review` | Request code review to verify work meets requirements |
+|-------|-------------|
+| `dx-swe-brainstorm` | Brainstorm and plan before any code generation |
+| `dx-swe-tdd` | Test-driven development — validate each file immediately after creation |
+| `dx-swe-verify` | Verify before claiming completion — evidence before assertions |
+| `dx-swe-writing-plans` | Write structured implementation plans before touching code |
+| `dx-swe-executing-plans` | Execute a written implementation plan with review checkpoints |
+| `dx-swe-debugging` | Systematic debugging — diagnose before proposing fixes |
+| `dx-swe-parallel-agents` | Dispatch 2+ independent tasks to parallel agents |
+| `dx-swe-subagent-dev` | Execute implementation plans with independent sub-agents |
+| `dx-swe-receiving-review` | Receive and process code review feedback with technical rigor |
+| `dx-swe-requesting-review` | Request code review to verify work meets requirements |
 | `dx-skill-router` | Route tasks to the appropriate skill automatically |
-| `dx-subagent-driven-development` | Execute implementation plans with independent sub-agents |
-| `dx-systematic-debugging` | Systematic debugging — diagnose before proposing fixes |
-| `dx-tdd` | Test-driven development — validate each file immediately after creation (process skill) |
-| `dx-validate` | Run the 5-level validation pyramid against generated code |
-| `dx-verify-completion` | Verify before claiming completion — evidence before assertions (process skill) |
-| `dx-writing-plans` | Write structured implementation plans before touching code |
-| `dx-writing-skills` | Create or edit skill definitions |
+
+#### DEEPX Build
+
+| Skill | Description |
+|-------|-------------|
+| `dx-agentic-app-build-python` | Build a Python inference app in any of the 4 variants using the IFactory pattern |
+| `dx-agentic-app-build-cpp` | Build a C++ inference app with the `InferenceEngine` runtime API |
+| `dx-agentic-app-build-async` | Build an async high-performance app with pipelined pre/infer/post stages |
+| `dx-agentic-app-model-management` | Download `.dxnn` models from the registry and configure model paths |
+| `dx-agentic-app-validate` | Run the 5-level validation pyramid against generated code |
 
 ---
 
@@ -80,7 +86,7 @@ the knowledge base through its own configuration.
 | **Claude Code** | `CLAUDE.md` | All 6 agents via context routing |
 | **GitHub Copilot** | `.github/copilot-instructions.md`, 6 agents in `.github/agents/`, 17 skills in `.github/skills/`, 4 instructions in `.github/instructions/` | `@dx-app-builder`, `@dx-python-builder`, `@dx-cpp-builder`, `@dx-benchmark-builder`, `@dx-model-manager`, `@dx-validator` |
 | **Cursor** | `.cursor/rules/dx-app.mdc` (always), 6 agent rules, 17 skill rules, `python-example.mdc`, `cpp-example.mdc`, `tests.mdc` (27 total) | Free-form with auto-applied rules |
-| **OpenCode** | `AGENTS.md`, `opencode.json`, 6 agents in `.opencode/agents/`, 17 skills in `.deepx/skills/` | `@dx-app-builder` or `/dx-build-python-app` |
+| **OpenCode** | `AGENTS.md`, `opencode.json`, 6 agents in `.opencode/agents/`, 17 skills in `.deepx/skills/` | `@dx-app-builder` or `/dx-agentic-app-build-python` |
 
 ### Copilot File-Specific Instructions
 
@@ -96,25 +102,31 @@ context-specific instructions:
 
 ### OpenCode Skills (Slash Commands)
 
+**General SWE Process**
+
 | Slash Command | Description |
 |---|---|
-| `/dx-build-python-app` | Step-by-step Python app generation with IFactory |
-| `/dx-build-cpp-app` | C++ app with InferenceEngine |
-| `/dx-build-async-app` | Async high-performance app |
-| `/dx-model-management` | Model download and registry |
-| `/dx-validate` | Run the 5-level validation pyramid |
-| `/dx-brainstorm-and-plan` | Brainstorm and plan before code generation |
-| `/dx-dispatching-parallel-agents` | Dispatch independent tasks to parallel agents |
-| `/dx-executing-plans` | Execute implementation plans with review checkpoints |
-| `/dx-receiving-code-review` | Receive code review feedback with technical rigor |
-| `/dx-requesting-code-review` | Request code review to verify work |
+| `/dx-swe-brainstorm` | Brainstorm and plan before code generation |
+| `/dx-swe-tdd` | Test-driven development with incremental validation |
+| `/dx-swe-verify` | Verify completion with evidence before assertions |
+| `/dx-swe-writing-plans` | Write structured implementation plans |
+| `/dx-swe-executing-plans` | Execute implementation plans with review checkpoints |
+| `/dx-swe-debugging` | Systematic debugging — diagnose before fixing |
+| `/dx-swe-parallel-agents` | Dispatch independent tasks to parallel agents |
+| `/dx-swe-subagent-dev` | Execute plans with independent sub-agents |
+| `/dx-swe-receiving-review` | Receive code review feedback with technical rigor |
+| `/dx-swe-requesting-review` | Request code review to verify work |
 | `/dx-skill-router` | Route tasks to the appropriate skill |
-| `/dx-subagent-driven-development` | Execute plans with independent sub-agents |
-| `/dx-systematic-debugging` | Systematic debugging — diagnose before fixing |
-| `/dx-tdd` | Test-driven development with incremental validation |
-| `/dx-verify-completion` | Verify completion with evidence before assertions |
-| `/dx-writing-plans` | Write structured implementation plans |
-| `/dx-writing-skills` | Create or edit skill definitions |
+
+**DEEPX Build**
+
+| Slash Command | Description |
+|---|---|
+| `/dx-agentic-app-build-python` | Step-by-step Python app generation with IFactory |
+| `/dx-agentic-app-build-cpp` | C++ app with InferenceEngine |
+| `/dx-agentic-app-build-async` | Async high-performance app |
+| `/dx-agentic-app-model-management` | Model download and registry |
+| `/dx-agentic-app-validate` | Run the 5-level validation pyramid |
 
 ### Platform File Loading Reference
 
@@ -156,23 +168,22 @@ Each AI coding agent auto-loads different configuration files at the dx_app leve
 
 | Skill | File |
 |-------|------|
-| `/dx-brainstorm-and-plan` | `.deepx/skills/dx-brainstorm-and-plan/SKILL.md` |
-| `/dx-build-async-app` | `.deepx/skills/dx-build-async-app/SKILL.md` |
-| `/dx-build-cpp-app` | `.deepx/skills/dx-build-cpp-app/SKILL.md` |
-| `/dx-build-python-app` | `.deepx/skills/dx-build-python-app/SKILL.md` |
-| `/dx-dispatching-parallel-agents` | `.deepx/skills/dx-dispatching-parallel-agents/SKILL.md` |
-| `/dx-executing-plans` | `.deepx/skills/dx-executing-plans/SKILL.md` |
-| `/dx-model-management` | `.deepx/skills/dx-model-management/SKILL.md` |
-| `/dx-receiving-code-review` | `.deepx/skills/dx-receiving-code-review/SKILL.md` |
-| `/dx-requesting-code-review` | `.deepx/skills/dx-requesting-code-review/SKILL.md` |
+| `/dx-swe-brainstorm` | `.deepx/skills/dx-swe-brainstorm/SKILL.md` |
+| `/dx-agentic-app-build-async` | `.deepx/skills/dx-agentic-app-build-async/SKILL.md` |
+| `/dx-agentic-app-build-cpp` | `.deepx/skills/dx-agentic-app-build-cpp/SKILL.md` |
+| `/dx-agentic-app-build-python` | `.deepx/skills/dx-agentic-app-build-python/SKILL.md` |
+| `/dx-swe-parallel-agents` | `.deepx/skills/dx-swe-parallel-agents/SKILL.md` |
+| `/dx-swe-executing-plans` | `.deepx/skills/dx-swe-executing-plans/SKILL.md` |
+| `/dx-agentic-app-model-management` | `.deepx/skills/dx-agentic-app-model-management/SKILL.md` |
+| `/dx-swe-receiving-review` | `.deepx/skills/dx-swe-receiving-review/SKILL.md` |
+| `/dx-swe-requesting-review` | `.deepx/skills/dx-swe-requesting-review/SKILL.md` |
 | `/dx-skill-router` | `.deepx/skills/dx-skill-router/SKILL.md` |
-| `/dx-subagent-driven-development` | `.deepx/skills/dx-subagent-driven-development/SKILL.md` |
-| `/dx-systematic-debugging` | `.deepx/skills/dx-systematic-debugging/SKILL.md` |
-| `/dx-tdd` | `.deepx/skills/dx-tdd/SKILL.md` |
-| `/dx-validate` | `.deepx/skills/dx-validate/SKILL.md` |
-| `/dx-verify-completion` | `.deepx/skills/dx-verify-completion/SKILL.md` |
-| `/dx-writing-plans` | `.deepx/skills/dx-writing-plans/SKILL.md` |
-| `/dx-writing-skills` | `.deepx/skills/dx-writing-skills/SKILL.md` |
+| `/dx-swe-subagent-dev` | `.deepx/skills/dx-swe-subagent-dev/SKILL.md` |
+| `/dx-swe-debugging` | `.deepx/skills/dx-swe-debugging/SKILL.md` |
+| `/dx-swe-tdd` | `.deepx/skills/dx-swe-tdd/SKILL.md` |
+| `/dx-agentic-app-validate` | `.deepx/skills/dx-validate/SKILL.md` |
+| `/dx-swe-verify` | `.deepx/skills/dx-swe-verify/SKILL.md` |
+| `/dx-swe-writing-plans` | `.deepx/skills/dx-swe-writing-plans/SKILL.md` |
 
 #### Shared Knowledge Base (`.deepx/`)
 
@@ -207,10 +218,10 @@ execution.
 
 | Tool | How to Use |
 |---|---|
-| **Claude Code** | Type the prompt directly. `CLAUDE.md` routes to `dx-build-python-app` skill. Asks 2-3 questions (variant, task type, model), generates files in `dx-agentic-dev/<session_id>/` (or `src/...` if explicitly requested), and validates. |
+| **Claude Code** | Type the prompt directly. `CLAUDE.md` routes to `dx-agentic-app-build-python` skill. Asks 2-3 questions (variant, task type, model), generates files in `dx-agentic-dev/<session_id>/` (or `src/...` if explicitly requested), and validates. |
 | **GitHub Copilot** | `@dx-app-builder` followed by the prompt. Routes to `dx-python-builder`, generates all 4 variants, runs `dx-validator`. |
 | **Cursor** | Type the prompt directly. `dx-app.mdc` (always loaded) provides context. `python-example.mdc` activates for `src/python_example/` files. |
-| **OpenCode** | `@dx-app-builder` followed by the prompt, or `/dx-build-python-app` skill directly. |
+| **OpenCode** | `@dx-app-builder` followed by the prompt, or `/dx-agentic-app-build-python` skill directly. |
 
 ### Scenario 2: Build a C++ App
 
@@ -222,10 +233,10 @@ execution.
 
 | Tool | How to Use |
 |---|---|
-| **Claude Code** | Type the prompt directly. Routes to `dx-build-cpp-app` skill. |
+| **Claude Code** | Type the prompt directly. Routes to `dx-agentic-app-build-cpp` skill. |
 | **GitHub Copilot** | `@dx-cpp-builder` followed by the prompt. |
 | **Cursor** | Type the prompt directly. `cpp-example.mdc` activates for `src/cpp_example/` files, injecting C++14 and RAII conventions. |
-| **OpenCode** | `@dx-app-builder` followed by the prompt, or `/dx-build-cpp-app` skill directly. |
+| **OpenCode** | `@dx-app-builder` followed by the prompt, or `/dx-agentic-app-build-cpp` skill directly. |
 
 ### Scenario 3: Download and Register a Model
 
@@ -240,7 +251,7 @@ execution.
 | **Claude Code** | `@dx-model-manager` followed by the prompt. |
 | **GitHub Copilot** | `@dx-model-manager` followed by the prompt. |
 | **Cursor** | Type the prompt directly. |
-| **OpenCode** | `@dx-model-manager` followed by the prompt, or `/dx-model-management` skill. |
+| **OpenCode** | `@dx-model-manager` followed by the prompt, or `/dx-agentic-app-model-management` skill. |
 
 ### Scenario 4: Validate Generated Code
 
@@ -267,10 +278,10 @@ execution.
 
 | Tool | How to Use |
 |---|---|
-| **Claude Code** | Type the prompt directly. Routes to `dx-build-python-app` skill with `pose_estimation` task type. Generates keypoint visualization and skeleton drawing logic. |
+| **Claude Code** | Type the prompt directly. Routes to `dx-agentic-app-build-python` skill with `pose_estimation` task type. Generates keypoint visualization and skeleton drawing logic. |
 | **GitHub Copilot** | `@dx-app-builder` followed by the prompt. Routes to `dx-python-builder` with pose-specific postprocessing. |
 | **Cursor** | Type the prompt directly. `python-example.mdc` activates for generated files in `src/python_example/pose_estimation/`. |
-| **OpenCode** | `@dx-app-builder` followed by the prompt, or `/dx-build-python-app` skill directly. |
+| **OpenCode** | `@dx-app-builder` followed by the prompt, or `/dx-agentic-app-build-python` skill directly. |
 
 ### Scenario 6: Build an Instance Segmentation App
 
@@ -282,10 +293,10 @@ execution.
 
 | Tool | How to Use |
 |---|---|
-| **Claude Code** | Type the prompt directly. Routes to `dx-build-python-app` skill with `instance_segmentation` task type. Generates mask overlay visualization. |
+| **Claude Code** | Type the prompt directly. Routes to `dx-agentic-app-build-python` skill with `instance_segmentation` task type. Generates mask overlay visualization. |
 | **GitHub Copilot** | `@dx-app-builder` followed by the prompt. Routes to `dx-python-builder` with segmentation-specific postprocessing. |
 | **Cursor** | Type the prompt directly. `python-example.mdc` activates for generated files in `src/python_example/instance_segmentation/`. |
-| **OpenCode** | `@dx-app-builder` followed by the prompt, or `/dx-build-python-app` skill directly. |
+| **OpenCode** | `@dx-app-builder` followed by the prompt, or `/dx-agentic-app-build-python` skill directly. |
 
 ### Scenario 7: Build a Classification App
 
@@ -297,10 +308,10 @@ execution.
 
 | Tool | How to Use |
 |---|---|
-| **Claude Code** | Type the prompt directly. Routes to `dx-build-python-app` skill with `classification` task type. Generates top-K label prediction logic. |
+| **Claude Code** | Type the prompt directly. Routes to `dx-agentic-app-build-python` skill with `classification` task type. Generates top-K label prediction logic. |
 | **GitHub Copilot** | `@dx-app-builder` followed by the prompt. Routes to `dx-python-builder` with classification postprocessing (softmax + top-K). |
 | **Cursor** | Type the prompt directly. `python-example.mdc` activates for generated files in `src/python_example/classification/`. |
-| **OpenCode** | `@dx-app-builder` followed by the prompt, or `/dx-build-python-app` skill directly. |
+| **OpenCode** | `@dx-app-builder` followed by the prompt, or `/dx-agentic-app-build-python` skill directly. |
 
 ### Scenario 8: Build an Async High-Performance App
 
@@ -312,10 +323,10 @@ execution.
 
 | Tool | How to Use |
 |---|---|
-| **Claude Code** | Type the prompt directly. Routes to `dx-build-async-app` skill. Generates pipelined pre/infer/post stages with queue-based parallelism. |
+| **Claude Code** | Type the prompt directly. Routes to `dx-agentic-app-build-async` skill. Generates pipelined pre/infer/post stages with queue-based parallelism. |
 | **GitHub Copilot** | `@dx-app-builder` followed by the prompt. Routes to `dx-python-builder` with async variant focus. |
 | **Cursor** | Type the prompt directly. `python-example.mdc` activates for generated async files. |
-| **OpenCode** | `@dx-app-builder` followed by the prompt, or `/dx-build-async-app` skill directly. |
+| **OpenCode** | `@dx-app-builder` followed by the prompt, or `/dx-agentic-app-build-async` skill directly. |
 
 ---
 
@@ -324,7 +335,7 @@ execution.
 Request a person detection app in natural language:
 
 ```
-@dx-app-builder "yolo26n으로 사람 감지하는 Python 앱 만들어줘"
+@dx-app-builder "Build a Python person detection app using yolo26n"
 ```
 
 The agent will:

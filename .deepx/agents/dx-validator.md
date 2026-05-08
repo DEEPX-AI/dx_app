@@ -51,7 +51,7 @@ Automated checks:
 - `__init__.py` presence in every package directory
 - Factory imports resolve correctly
 
-Reference: `.deepx/skills/dx-validate.md` for the full check list.
+Reference: `.deepx/skills/dx-agentic-app-validate.md` for the full check list.
 
 ### Framework Validation
 
@@ -106,14 +106,14 @@ If findings exist and the user wants to feed them back into the knowledge base:
 
 ```
 1. .deepx/memory/common_pitfalls.md       (always)
-2. .deepx/skills/dx-validate.md           (validation reference)
+2. .deepx/skills/dx-agentic-app-validate.md           (validation reference)
 3. .deepx/scripts/validate_app.py         (app validator)
 4. .deepx/scripts/validate_framework.py   (framework validator)
 ```
 
 ## 5-Level Validation Pyramid
 
-Reference the pyramid from `dx-validate.md`:
+Reference the pyramid from `dx-agentic-app-validate.md`:
 
 | Level | Name        | NPU Required | Scope                                        |
 |-------|-------------|--------------|----------------------------------------------|

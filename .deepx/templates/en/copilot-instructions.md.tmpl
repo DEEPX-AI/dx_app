@@ -23,42 +23,42 @@ dx_app provides 133 compiled `.dxnn` models across 15 AI tasks with Python (4 va
 
 | If the task mentions... | Read these files |
 |---|---|
-| **Python app, detection, classification** | `.deepx/skills/dx-build-python-app.md`, `.deepx/toolsets/common-framework-api.md` |
-| **C++ app, native** | `.deepx/skills/dx-build-cpp-app.md`, `.deepx/toolsets/dx-engine-api.md` |
-| **Async, performance, throughput** | `.deepx/skills/dx-build-async-app.md`, `.deepx/memory/performance_patterns.md` |
-| **Model, download, registry** | `.deepx/skills/dx-model-management.md`, `.deepx/toolsets/model-registry.md` |
-| **Validation, testing** | `.deepx/skills/dx-validate.md`, `.deepx/instructions/testing-patterns.md` |
-| **Validation, feedback, fix** | `.deepx/skills/dx-validate.md`, parent `dx-runtime/.deepx/skills/dx-validate-and-fix.md` |
-| **Brainstorm, plan, design** | `.deepx/skills/dx-brainstorm-and-plan.md` |
-| **TDD, validation, incremental** | `.deepx/skills/dx-tdd.md` |
-| **Completion, verify, evidence** | `.deepx/skills/dx-verify-completion.md` |
-| **Debug, root cause, investigate** | `.deepx/skills/dx-systematic-debugging/SKILL.md` |
-| **Plan, execute, subagent** | `.deepx/skills/dx-writing-plans/SKILL.md`, `.deepx/skills/dx-executing-plans/SKILL.md` |
-| **Code review, feedback** | `.deepx/skills/dx-receiving-code-review/SKILL.md`, `.deepx/skills/dx-requesting-code-review/SKILL.md` |
+| **Python app, detection, classification** | `.deepx/skills/dx-agentic-app-build-python.md`, `.deepx/toolsets/common-framework-api.md` |
+| **C++ app, native** | `.deepx/skills/dx-agentic-app-build-cpp.md`, `.deepx/toolsets/dx-engine-api.md` |
+| **Async, performance, throughput** | `.deepx/skills/dx-agentic-app-build-async.md`, `.deepx/memory/performance_patterns.md` |
+| **Model, download, registry** | `.deepx/skills/dx-agentic-app-model-management.md`, `.deepx/toolsets/model-registry.md` |
+| **Validation, testing** | `.deepx/skills/dx-agentic-app-validate.md`, `.deepx/instructions/testing-patterns.md` |
+| **Validation, feedback, fix** | `.deepx/skills/dx-agentic-app-validate.md`, parent `dx-runtime/.deepx/skills/dx-agentic-runtime-validate.md` |
+| **Brainstorm, plan, design** | `.deepx/skills/dx-swe-brainstorm.md` |
+| **TDD, validation, incremental** | `.deepx/skills/dx-swe-tdd.md` |
+| **Completion, verify, evidence** | `.deepx/skills/dx-swe-verify.md` |
+| **Debug, root cause, investigate** | `.deepx/skills/dx-swe-debugging/SKILL.md` |
+| **Plan, execute, subagent** | `.deepx/skills/dx-swe-writing-plans/SKILL.md`, `.deepx/skills/dx-swe-executing-plans/SKILL.md` |
+| **Code review, feedback** | `.deepx/skills/dx-swe-receiving-review/SKILL.md`, `.deepx/skills/dx-swe-requesting-review/SKILL.md` |
 | **ALWAYS read (every task)** | `.deepx/memory/common_pitfalls.md`, `.deepx/instructions/coding-standards.md` |
 
 ## Skills
 
 | Skill | Description |
 |-------|-------------|
-| dx-build-python-app | Build Python inference app (sync, async, cpp_postprocess, async_cpp_postprocess) |
-| dx-build-cpp-app | Build C++ inference app with InferenceEngine |
-| dx-build-async-app | Build async high-performance inference app |
-| dx-model-management | Download, register, and configure .dxnn models |
-| dx-validate | Run validation checks at every phase gate |
-| dx-validate-and-fix | Full feedback loop: validate, collect, approve, apply, verify |
-| dx-brainstorm-and-plan | Brainstorm, propose 2-3 approaches, spec self-review, then plan |
-| dx-tdd | Validation-driven development with optional Red-Green-Refactor for unit tests |
-| dx-verify-completion | Process: verify before claiming completion — evidence before assertions |
-| dx-writing-plans | Write implementation plans with bite-sized tasks |
-| dx-executing-plans | Execute plans with review checkpoints |
-| dx-subagent-driven-development | Execute plans via fresh subagent per task with two-stage review |
-| dx-systematic-debugging | Systematic debugging — 4-phase root cause investigation before proposing fixes |
-| dx-receiving-code-review | Evaluate code review feedback with technical rigor |
-| dx-requesting-code-review | Request code review after completing features |
+| dx-agentic-app-build-python | Build Python inference app (sync, async, cpp_postprocess, async_cpp_postprocess) |
+| dx-agentic-app-build-cpp | Build C++ inference app with InferenceEngine |
+| dx-agentic-app-build-async | Build async high-performance inference app |
+| dx-agentic-app-model-management | Download, register, and configure .dxnn models |
+| dx-agentic-app-validate | Run validation checks at every phase gate |
+| dx-agentic-runtime-validate | Full feedback loop: validate, collect, approve, apply, verify |
+| dx-swe-brainstorm | Brainstorm, propose 2-3 approaches, spec self-review, then plan |
+| dx-swe-tdd | Validation-driven development with optional Red-Green-Refactor for unit tests |
+| dx-swe-verify | Process: verify before claiming completion — evidence before assertions |
+| dx-swe-writing-plans | Write implementation plans with bite-sized tasks |
+| dx-swe-executing-plans | Execute plans with review checkpoints |
+| dx-swe-subagent-dev | Execute plans via fresh subagent per task with two-stage review |
+| dx-swe-debugging | Systematic debugging — 4-phase root cause investigation before proposing fixes |
+| dx-swe-receiving-review | Evaluate code review feedback with technical rigor |
+| dx-swe-requesting-review | Request code review after completing features |
 | dx-skill-router | Skill discovery and invocation — check skills before any action |
-| dx-writing-skills | Create and edit skill files |
-| dx-dispatching-parallel-agents | Dispatch parallel subagents for independent tasks |
+| dx-harness-writing-skills | Create and edit skill files |
+| dx-swe-parallel-agents | Dispatch parallel subagents for independent tasks |
 
 ## Interactive Workflow (MUST FOLLOW)
 
@@ -126,7 +126,7 @@ See the common conflict patterns in the parent project's instructions.
 13. **PPU example generation is MANDATORY**: If the compiled .dxnn model is PPU, the agent MUST generate a working example — never skip example generation for PPU models.
 14. **Cross-validation with reference model**: When a precompiled DXNN exists in `assets/models/` or an existing verified example exists in `src/python_example/`, run the Level 5.5 differential diagnosis to isolate app code vs compilation issues. See `dx-validate.md` Level 5.5.
 15. **Mandatory output artifacts**: Every session MUST produce ALL 13 artifacts (factory, config, 4 variants, __init__.py, session.json, README.md, setup.sh, run.sh, session.log). See agent's MANDATORY OUTPUT REQUIREMENTS section. Run self-verification check before claiming completion.
-16. **Skeleton-first development** — Read `.deepx/skills/dx-build-python-app.md` skeleton
+16. **Skeleton-first development** — Read `.deepx/skills/dx-agentic-app-build-python.md` skeleton
     template BEFORE writing any code. Copy the closest existing example from
     `src/python_example/<task>/<model>/` and modify ONLY model-specific parts (factory,
     postprocessor). NEVER write demo scripts from scratch. NEVER propose standalone

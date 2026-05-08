@@ -297,7 +297,7 @@ For C++ bindings (`dx_postprocess`), yolo26 has its own `YOLOv26PostProcess` cla
 Only the Python postprocessor is shared with YOLOv8.
 
 **Validation:** After generating a factory, cross-check the postprocessor import against
-this mapping. See `dx-validate.md` Level 5 Check 5 for the automated cross-check script.
+this mapping. See `dx-agentic-app-validate.md` Level 5 Check 5 for the automated cross-check script.
 
 ---
 
@@ -336,7 +336,7 @@ output (detection count > 0, valid bbox coordinates, valid class IDs).
 4. Class IDs in valid range
 5. Postprocessor-model family cross-check
 
-See `dx-validate.md` Level 5 for the complete validation scripts.
+See `dx-agentic-app-validate.md` Level 5 for the complete validation scripts.
 
 ---
 
@@ -358,7 +358,7 @@ the Level 5.5 cross-validation differential diagnosis:
 2. **Test B**: Compare against existing verified example with `--verbose`
 3. **Test C**: Cross-model swap — run existing app with new model
 
-See `dx-validate.md` Level 5.5 for the full Differential Diagnosis Decision Matrix.
+See `dx-agentic-app-validate.md` Level 5.5 for the full Differential Diagnosis Decision Matrix.
 
 ---
 
@@ -410,7 +410,7 @@ Never use `/path/to/<model>.dxnn` or `input.jpg` placeholders. Always use:
 - **Image**: Task-appropriate sample from `../../sample/img/` (see Task-Aware Sample Image table)
 - **Video**: `../../assets/videos/dogs.mp4` or similar
 
-**Prevention**: Check the setup.sh/run.sh templates in `dx-build-python-app.md` and the
+**Prevention**: Check the setup.sh/run.sh templates in `dx-agentic-app-build-python.md` and the
 deliverables list before claiming completion.
 
 ---
