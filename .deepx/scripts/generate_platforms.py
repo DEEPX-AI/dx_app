@@ -206,15 +206,15 @@ def generate_routing_table(deepx_dir: Path) -> str:
     """Generate context routing table from .deepx/ contents."""
     rows = [
         ("Python app, detection, classification",
-         "skills/dx-build-python-app.md, toolsets/common-framework-api.md, "
+         "skills/dx-agentic-app-build-python.md, toolsets/common-framework-api.md, "
          "toolsets/model-registry.md"),
         ("C++ app, high performance",
-         "skills/dx-build-cpp-app.md, toolsets/dx-engine-api.md, "
+         "skills/dx-agentic-app-build-cpp.md, toolsets/dx-engine-api.md, "
          "toolsets/dx-postprocess-api.md"),
         ("Async, performance",
-         "skills/dx-build-async-app.md, memory/performance_patterns.md"),
+         "skills/dx-agentic-app-build-async.md, memory/performance_patterns.md"),
         ("Model, download, setup",
-         "skills/dx-model-management.md, toolsets/model-registry.md, "
+         "skills/dx-agentic-app-model-management.md, toolsets/model-registry.md, "
          "memory/model_zoo.md"),
         ("Postprocess, pybind11",
          "toolsets/dx-postprocess-api.md, contextual-rules/postprocess.md"),
@@ -261,11 +261,11 @@ def generate_copilot(deepx_dir: Path, output_dir: Path):
     skills_table = (
         "| Skill | Description |\n"
         "|---|---|\n"
-        "| dx-build-python-app | Build Python inference app |\n"
-        "| dx-build-cpp-app | Build C++ inference app |\n"
-        "| dx-build-async-app | Build async high-performance app |\n"
-        "| dx-model-management | Manage models and registry |\n"
-        "| dx-validate | Validate applications |\n"
+        "| dx-agentic-app-build-python | Build Python inference app |\n"
+        "| dx-agentic-app-build-cpp | Build C++ inference app |\n"
+        "| dx-agentic-app-build-async | Build async high-performance app |\n"
+        "| dx-agentic-app-model-management | Manage models and registry |\n"
+        "| dx-agentic-app-validate | Validate applications |\n"
     )
     content = content.replace("{SKILLS_TABLE}", skills_table)
 

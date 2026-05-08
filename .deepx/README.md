@@ -45,11 +45,11 @@ This directory works independently — no parent repository access required.
 │   ├── validate_framework.py          # .deepx/ integrity checker (8 categories)
 │   └── generate_platforms.py          # Platform config generator
 ├── skills/                            # Skill definitions (8 files)
-│   ├── dx-build-python-app.md         # Build Python inference app
-│   ├── dx-build-cpp-app.md            # Build C++ inference app
-│   ├── dx-build-async-app.md          # Build async high-performance app
-│   ├── dx-model-management.md         # Model download and registry
-│   ├── dx-validate.md                 # 5-level validation pyramid
+│   ├── dx-agentic-app-build-python.md         # Build Python inference app
+│   ├── dx-agentic-app-build-cpp.md            # Build C++ inference app
+│   ├── dx-agentic-app-build-async.md          # Build async high-performance app
+│   ├── dx-agentic-app-model-management.md         # Model download and registry
+│   ├── dx-agentic-app-validate.md                 # 5-level validation pyramid
 │   ├── dx-brainstorm-and-plan.md      # Process skill — brainstorm before code
 │   ├── dx-tdd.md                      # Process skill — test-driven development
 │   └── dx-verify-completion.md        # Process skill — verify before claiming done; mandatory artifacts enforcement

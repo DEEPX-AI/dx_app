@@ -345,10 +345,10 @@ Run validation checks:
    If `model_registry.json` says `"postprocessor": "yolov26"`, the factory MUST use
    `YOLOv8Postprocessor`, NOT `Yolo26Postprocessor`.
 5. **Output accuracy (if NPU available)**: After smoke test, verify detection count > 0
-   on a task-appropriate sample image. Zero detections = FAIL. See `dx-validate.md` Level 5.
+   on a task-appropriate sample image. Zero detections = FAIL. See `dx-agentic-app-validate.md` Level 5.
 6. **Cross-validation (if NPU available)**: If a precompiled reference DXNN exists in
    `assets/models/` or an existing verified example exists, run differential diagnosis.
-   See `dx-validate.md` Level 5.5.
+   See `dx-agentic-app-validate.md` Level 5.5.
 
 ### Phase 6: Report
 

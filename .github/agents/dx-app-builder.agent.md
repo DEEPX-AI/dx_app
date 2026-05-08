@@ -56,7 +56,7 @@ Before classifying or routing any task:
 
 1. Read `.github/copilot-instructions.md` for this level's global context (MANDATORY)
 2. Read `.github/memory/common_pitfalls.md` (always)
-3. Read `.github/skills/dx-build-python-app.md` (if Python app)
+3. Read `.github/skills/dx-agentic-app-build-python.md` (if Python app)
 
 ---
 
@@ -511,7 +511,7 @@ the mapping is correct using this critical subset:
 | `yolov10` | `YOLOv10Postprocessor` |
 
 **Rule**: If an existing working example exists, ALWAYS use its postprocessor. If no
-example exists, use the Registry Key → Python Class mapping table in `dx-build-python-app.md`.
+example exists, use the Registry Key → Python Class mapping table in `dx-agentic-app-build-python.md`.
 Never guess a class name from the registry key string.
 
 ## Step 3: Present Plan

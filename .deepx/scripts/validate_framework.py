@@ -29,7 +29,7 @@ from typing import Dict, List, Set, Tuple
 
 DEEPX_DIR_NAME = ".deepx"
 VALID_DOMAIN_TAGS = {"[UNIVERSAL]", "[DX_APP]", "[PPU]"}
-PROHIBITED_DOMAIN_TAGS = {"[DX_STREAM]", "[HAILO]", "[PIPELINE]"}
+PROHIBITED_DOMAIN_TAGS = {"[DX_STREAM]", "[PIPELINE]"}
 
 EXPECTED_DIRECTORIES = [
     "agents",
@@ -263,8 +263,6 @@ def check_deepx_leak(deepx_dir: Path, report: FrameworkReport):
 
     leak_patterns = [
         r'\.deepx/',
-        r'\.hailo/',
-        r'hailo_apps\.',
     ]
 
     leaks = []

@@ -14,7 +14,7 @@ description: Brainstorm and plan before implementation
 ## When to Invoke
 
 - User asks to build, create, or add any dx_app application
-- Before invoking `/dx-build-python-app`, `/dx-build-cpp-app`, or `/dx-build-async-app`
+- Before invoking `/dx-agentic-app-build-python`, `/dx-agentic-app-build-cpp`, or `/dx-agentic-app-build-async`
 
 ## HARD-GATE Rule
 
@@ -121,9 +121,9 @@ For C++ apps: `CMakeLists.txt`, `main.cpp`, `config.json`, `include/`, `src/`.
 
 | App type | Invoke |
 |----------|--------|
-| Python (any variant) | `/dx-build-python-app` |
-| C++ | `/dx-build-cpp-app` |
-| Async-focused | `/dx-build-async-app` |
+| Python (any variant) | `/dx-agentic-app-build-python` |
+| C++ | `/dx-agentic-app-build-cpp` |
+| Async-focused | `/dx-agentic-app-build-async` |
 
 ## Defaults (for "just build it")
 

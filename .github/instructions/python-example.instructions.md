@@ -7,7 +7,7 @@ applyTo: "src/python_example/**"
 Working on dx_app Python inference examples.
 
 ## Required Context
-- `.deepx/skills/dx-build-python-app.md`
+- `.deepx/skills/dx-agentic-app-build-python.md`
 - `.deepx/memory/common_pitfalls.md`
 - `.deepx/instructions/coding-standards.md`
 

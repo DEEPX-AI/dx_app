@@ -132,7 +132,7 @@ contract:
 - Manages model downloads via setup.sh
 - Validates .dxnn compatibility
 
-### 5. Validator (`dx-validate`)
+### 5. Validator (`dx-agentic-app-validate`)
 - Runs static checks (imports, factory interface)
 - Runs smoke tests (quick inference)
 - Runs integration tests (full pipeline)
