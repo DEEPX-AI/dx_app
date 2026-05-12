@@ -2,10 +2,11 @@
 
 ## Overview
 
-DX-APP supports AI-powered agentic development for building standalone inference
-applications on DEEPX NPU accelerators. Instead of manually writing boilerplate,
-you describe what you want in natural language and a network of specialized agents
-generates production-ready inference code, validates it, and reports results.
+DX-APP supports DEEPX agentic development (dx-agentic-dev) for building standalone
+inference applications on DEEPX NPU accelerators. Instead of manually writing
+boilerplate, you describe what you want in natural language and a network of
+specialized agents generates production-ready inference code, validates it, and
+reports results.
 
 This guide covers the agent architecture, available skills, the validation
 framework, and troubleshooting for dx_app standalone inference development.
@@ -362,7 +363,7 @@ the agent will confirm each decision explicitly before proceeding.
 
 ## What Gets Created
 
-By default, AI-generated code is placed in the `dx-agentic-dev/` isolation directory
+By default, agent-generated code is placed in the `dx-agentic-dev/` isolation directory
 to prevent conflicts with existing source code.
 
 ### Default Output (dx-agentic-dev/)
@@ -384,7 +385,7 @@ dx-agentic-dev/<session_id>/
     └── {model}_async_cpp_postprocess.py
 ```
 
-Session ID format: `YYYYMMDD-HHMMSS_model_task` (e.g., `20260403-143022_yolo26n_detection`).
+Session ID format: `YYYYMMDD-HHMMSS_<agent>_<model>_<task>` where `<agent>` is `claude`, `copilot`, `cursor`, or `opencode` (e.g., `20260403-143022_claude_yolo26n_detection`).
 
 ### Production Output (src/)
 
