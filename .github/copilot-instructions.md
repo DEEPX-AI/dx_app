@@ -181,7 +181,7 @@ Only write to `src/` when explicitly requested by the user.
 **system local timezone** (NOT UTC). Use `$(date +%Y%m%d-%H%M%S)` in Bash or
 `datetime.now().strftime('%Y%m%d-%H%M%S')` in Python. Do NOT use `date -u`,
 `datetime.utcnow()`, or `datetime.now(timezone.utc)`.
-`<agent>` identifies the coding tool: `claude` (Claude Code), `copilot` (Copilot CLI), `cursor` (Cursor), `opencode` (OpenCode).
+`<agent>` identifies the coding tool: `claude` (Claude Code), `codex` (Codex CLI), `copilot` (Copilot CLI), `cursor` (Cursor), `opencode` (OpenCode).
 
 ### Rule Conflict Resolution (HARD GATE)
 When a user's request conflicts with a HARD GATE rule (IFactory, skeleton-first,

@@ -55,7 +55,7 @@ dx-agentic-dev/<YYYYMMDD-HHMMSS>_<model>_<task>/
 ```
 
 > **REC-5 — session.json `agent` and `compiler_session` fields are REQUIRED (R47)**:
-> - `agent`: The tool identifier — use `copilot`, `cursor`, `claude`, or `opencode`.
+> - `agent`: The tool identifier — use `codex`, `copilot`, `cursor`, `claude`, or `opencode`.
 >   This field disambiguates sessions when multiple tools run concurrently.
 > - `compiler_session`: The relative path (from suite root) to the companion
 >   dx-compiler session dir. Required for cross-project (compile + app) sessions.
