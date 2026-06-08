@@ -98,6 +98,14 @@ Only write to `src/` when explicitly requested by the user.
 `<agent>` identifies the coding tool: `claude` (Claude Code), `codex` (Codex CLI), `copilot` (Copilot CLI), `cursor` (Cursor), `opencode` (OpenCode).
 `<coding_model>` is the shortened coding model name — e.g., `sonnet46`, `opus46`, `gpt53codex`, `gpt55`.
 
+### Previous Session Reuse — PROHIBITED (HARD GATE)
+NEVER reuse, copy, or reference artifacts from previous sessions in
+`dx-agentic-dev/`. Each build starts from scratch — do NOT check, list, browse,
+or read files from prior session directories, even if a previous session built
+the same model/task. Re-derive the implementation from the skeleton and the
+knowledge base every time. Reusing a prior session's calibrated code or config
+is a violation: it makes the build non-reproducible and hides drift.
+
 ### Rule Conflict Resolution (HARD GATE)
 When a user's request conflicts with a HARD GATE rule (IFactory, skeleton-first,
 SyncRunner/AsyncRunner, Output Isolation), the agent MUST:

@@ -94,6 +94,13 @@ Python에서 `datetime.now().strftime('%Y%m%d-%H%M%S')`를 사용하세요. `dat
 `datetime.utcnow()`, `datetime.now(timezone.utc)`는 사용하지 마세요.
 `<coding_model>`은 코딩 모델 축약명입니다 — 예: `sonnet46`, `opus46`, `gpt53codex`, `gpt55`.
 
+### 이전 세션 재사용 — 금지 (HARD GATE)
+`dx-agentic-dev/`의 이전 세션 산출물을 재사용·복사·참조하지 마세요. 모든 빌드는
+처음부터 시작합니다 — 이전 세션이 같은 model/task를 만들었더라도, 이전 세션
+디렉토리의 파일을 확인·나열·탐색·읽지 마세요. 매번 skeleton과 knowledge base에서
+구현을 다시 도출하세요. 이전 세션의 calibration된 코드나 config를 재사용하는 것은
+위반입니다: 빌드가 재현 불가능해지고 drift를 숨깁니다.
+
 ### 규칙 충돌 해결 (HARD GATE)
 사용자의 요청이 HARD GATE 규칙(IFactory, skeleton-first,
 SyncRunner/AsyncRunner, Output Isolation)과 충돌할 때, 에이전트는 반드시:
