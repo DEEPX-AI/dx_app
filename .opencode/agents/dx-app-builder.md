@@ -185,6 +185,13 @@ directory and run `./setup.sh` without manually activating any venv first. The s
    `../../sample/img/sample_dog.jpg` for object_detection (see Task-Aware Sample Image table)
 3. **Never use placeholders** like `/path/to/<model>.dxnn` or `input.jpg` — these are
    not runnable and require users to guess the correct paths
+4. **Relocatable (HARD GATE)**: run.sh MUST stay runnable when the app is moved out of
+   `dx-agentic-dev/` (e.g. into a showcase dir):
+   - **venv fallback** — local `venv`/`.venv` → shared `dx-runtime/venv-dx-runtime` →
+     warn. Do NOT `source setup.sh` to activate.
+   - **model-existence guard** — fail early with a download hint if the `.dxnn` is missing.
+   - **bundled-sample-first** — prefer a demo media file bundled under the app's `sample/`,
+     else fall back to `dx_app/sample/`.
 
 ### Session Log Saving (MANDATORY — HARD GATE)
 

@@ -1005,14 +1005,30 @@ if [ "$SUITE_ROOT" = "/" ]; then
     echo "WARNING: Cannot find dx-all-suite root (expected dx-runtime/ and dx-compiler/ siblings)"
 fi
 
-# --- Activate venv ---
-source "$SCRIPT_DIR/setup.sh" 2>/dev/null || true
+# --- Activate venv (relocatable; do NOT re-run setup.sh here) ---
+# Prefer a local session venv (from setup.sh), else the shared dx-runtime venv
+# (already has dx_engine + GUI opencv-python). This keeps the app runnable even
+# when moved out of dx-agentic-dev/ (e.g. into a showcase dir).
+RUNTIME_DIR="$SUITE_ROOT/dx-runtime"
+if [ -d "$SCRIPT_DIR/venv" ]; then
+    source "$SCRIPT_DIR/venv/bin/activate"
+elif [ -d "$SCRIPT_DIR/.venv" ]; then
+    source "$SCRIPT_DIR/.venv/bin/activate"
+elif [ -x "$RUNTIME_DIR/venv-dx-runtime/bin/python" ]; then
+    source "$RUNTIME_DIR/venv-dx-runtime/bin/activate"
+else
+    echo "[WARN] no venv found — run 'bash setup.sh' first if imports fail"
+fi
 
-# --- Default paths (relative from session dir) ---
-# Model: use precompiled model or dx-compiler output
-DEFAULT_MODEL="../../assets/models/<model>.dxnn"
-# Sample input: task-appropriate (see Task-Aware Sample Image table)
-DEFAULT_IMAGE="../../sample/img/<TASK_SAMPLE_IMAGE>"
+# --- Default paths ---
+DEFAULT_MODEL="$RUNTIME_DIR/dx_app/assets/models/<model>.dxnn"
+# Sample input: prefer media bundled WITH this app (sample/), else dx_app's sample.
+# Bundling the demo input under sample/ keeps the app self-contained when relocated.
+if [ -f "$SCRIPT_DIR/sample/<TASK_SAMPLE_IMAGE>" ]; then
+    DEFAULT_IMAGE="$SCRIPT_DIR/sample/<TASK_SAMPLE_IMAGE>"
+else
+    DEFAULT_IMAGE="$RUNTIME_DIR/dx_app/sample/img/<TASK_SAMPLE_IMAGE>"
+fi
 
 MODEL="${1:-$DEFAULT_MODEL}"
 
@@ -1055,6 +1071,17 @@ python "$SCRIPT_DIR/<model>_sync.py" --model "$MODEL" --image "$DEFAULT_IMAGE" -
 - **Display output**: Remove `--no-display` (display is the default)
 - **Save output**: Add `--save --save-dir ./output`
 - **Headless output**: Keep `--no-display`
+
+**Relocatable run.sh (HARD GATE):** every generated `run.sh` MUST be runnable even
+after the app is moved out of `dx-agentic-dev/` (e.g. into a showcase dir). Keep all
+three guarantees from the template above:
+1. **venv fallback** — local `venv`/`.venv` → shared `dx-runtime/venv-dx-runtime` →
+   warn. NEVER `source setup.sh` to activate (it re-runs install).
+2. **model-existence guard** — fail early with a clear download hint if the `.dxnn`
+   is missing, instead of a cryptic runtime error.
+3. **bundled-sample-first** — if a demo media file is bundled under `sample/`, prefer
+   it; otherwise fall back to `dx_app`'s sample. When the app ships its own demo input,
+   place it under the app's `sample/` so the demo is self-contained.
 - Replace `<TASK_SAMPLE_IMAGE>` with the actual sample image from the Task-Aware table
 - If the model exists in `assets/models/`, use that as `DEFAULT_MODEL`
 - If using a dx-compiler output, compute the relative path from the session directory
