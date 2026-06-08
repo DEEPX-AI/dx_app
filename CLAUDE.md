@@ -194,12 +194,13 @@ shared `dx-runtime/venv-dx-runtime` → warn (never `source setup.sh` to activat
 missing; (3) **bundled-sample-first** — prefer demo media under the app's `sample/`,
 else `dx_app/sample/`.
 
-The entry `<model>_sync.py` MUST also be **standalone** — its dynamic path walker
-resolves the shared `common` package with NO PYTHONPATH and includes a **suite-root
-fallback** (`<suite>/dx-runtime/dx_app/src/python_example`), so imports still resolve
-when the app is run directly AND when relocated outside `dx_app` (e.g. a showcase dir
-at the suite root). The build MUST TDD-verify this (run the entry from a path outside
-`dx_app` and confirm it imports).
+The generated app MUST be **self-contained & portable** — `setup.sh` vendors the
+shared framework into `./common`, and the entry `<model>_sync.py` walker prefers that
+vendored `./common` (NO PYTHONPATH), falling back to dx_app's `src/python_example`
+only for in-place dev. So the app folder runs even when copied **entirely outside
+dx-all-suite** (any machine with the DEEPX runtime; `dx_engine` is the one external
+prerequisite). The build MUST TDD-verify this (copy the app outside the suite and
+confirm it imports/runs).
 
 ### Rule Conflict Resolution (HARD GATE)
 When a user's request conflicts with a HARD GATE rule (IFactory, skeleton-first,

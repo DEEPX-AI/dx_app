@@ -252,28 +252,29 @@ PY
 Both checks must PASS. If they fail, fix `setup.sh`
 (`pip uninstall -y opencv-python-headless && pip install opencv-python`) and re-run.
 
-### Check: entry is standalone & relocatable (no NPU) — HARD GATE
+### Check: app is self-contained & portable OUTSIDE the suite (no NPU) — HARD GATE
 
-The entry `<model>_sync.py` must import the shared `common` package with NO
-PYTHONPATH **and** keep working when the app is moved out of `dx_app` (e.g. into a
-showcase dir at the suite root). Its dynamic path walker must include a suite-root
-fallback. Verify by copying the app to a temp dir OUTSIDE `dx_app` and importing:
+After `setup.sh` (which vendors `common` into `./common`), the app folder must run
+when copied **entirely outside dx-all-suite** — no suite tree on the path. Verify by
+copying the app to `/tmp` (a location with NO dx_app ancestor) and importing with no
+PYTHONPATH:
 
 ```bash
-SRC="$(pwd)"                         # the session dir
-SUITE_ROOT="$(cd "$SRC" && while [ ! -d dx-runtime -o ! -d dx-compiler ] && [ "$PWD" != / ]; do cd ..; done; pwd)"
-TMP="$(mktemp -d "$SUITE_ROOT/relocate-check.XXXX")"   # outside dx_app, under suite root
-cp -r "$SRC"/. "$TMP"/                                  # bring entry + local modules
-( cd "$TMP" && python *_sync.py --help >/dev/null 2>&1 ) \
-  && echo "PASS: entry resolves 'common' when relocated outside dx_app" \
-  || echo "FAIL: walker lacks a suite-root fallback (breaks on relocation)"
+SRC="$(pwd)"                          # the app/session dir (must contain ./common)
+[ -d "$SRC/common" ] || echo "WARN: ./common not vendored yet — run setup.sh first"
+TMP="$(mktemp -d /tmp/portable-check.XXXX)"   # OUTSIDE the suite entirely
+cp -r "$SRC"/. "$TMP"/                         # entry + local modules + vendored ./common
+( cd "$TMP" && env -u PYTHONPATH python *_sync.py --help >/dev/null 2>&1 ) \
+  && echo "PASS: app is portable (resolves 'common' outside the suite)" \
+  || echo "FAIL: app not self-contained (vendor common into ./common; walker must prefer it)"
 rm -rf "$TMP"
 ```
 
-Must print PASS. If it FAILs, the walker only searches ancestors for
-`src/python_example`; add the `<suite>/dx-runtime/dx_app/src/python_example`
-fallback (see the build-python skill's dynamic-root-finder skeleton). This is a
-RED→GREEN TDD gate: a naive walker FAILs here; the fallback makes it PASS.
+Must print PASS. If it FAILs: (1) `setup.sh` must vendor `common` → `./common`, and
+(2) the entry walker must prefer a local `./common` (see the build-python skill's
+dynamic-root-finder skeleton). RED→GREEN TDD gate: a suite-relative app FAILs here;
+a vendored self-contained app PASSes. (`dx_engine`/numpy/opencv are external deps the
+target machine provides — this gate checks framework self-containment, not those.)
 
 ## Level 4: Smoke Test (NPU Required)
 

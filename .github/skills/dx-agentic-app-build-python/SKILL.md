@@ -81,16 +81,22 @@ from pathlib import Path
 # Find dx_app root dynamically (standalone, no PYTHONPATH; also works when the
 # app is relocated outside dx_app, e.g. into a showcase dir at the suite root)
 _current = Path(__file__).resolve().parent
-_v3_dir = None
-for _a in [_current, *_current.parents]:
-    for _cand in (_a / 'src' / 'python_example',
-                  # relocated outside dx_app (e.g. a showcase dir at the suite root)
-                  _a / 'dx-runtime' / 'dx_app' / 'src' / 'python_example'):
-        if (_cand / 'common').exists():
-            _v3_dir = _cand
+# Portable: a vendored `common/` beside this app makes it fully self-contained — it
+# runs even when copied OUTSIDE dx-all-suite (on any machine with the DEEPX runtime).
+# Only if `common/` is not vendored do we fall back to dx_app's src/python_example
+# (in-place dev / not-yet-vendored), searching ancestors incl. a suite-root hop.
+if (_current / 'common').is_dir():
+    _v3_dir = _current
+else:
+    _v3_dir = None
+    for _a in [_current, *_current.parents]:
+        for _cand in (_a / 'src' / 'python_example',
+                      _a / 'dx-runtime' / 'dx_app' / 'src' / 'python_example'):
+            if (_cand / 'common').exists():
+                _v3_dir = _cand
+                break
+        if _v3_dir is not None:
             break
-    if _v3_dir is not None:
-        break
 _module_dir = Path(__file__).parent
 
 for _path in [str(_v3_dir), str(_module_dir)]:
@@ -353,16 +359,22 @@ from pathlib import Path
 # NEVER use static parent.parent — depth differs.
 _module_dir = Path(__file__).parent
 _current = Path(__file__).resolve().parent
-_v3_dir = None
-for _a in [_current, *_current.parents]:
-    for _cand in (_a / 'src' / 'python_example',
-                  # relocated outside dx_app (e.g. a showcase dir at the suite root)
-                  _a / 'dx-runtime' / 'dx_app' / 'src' / 'python_example'):
-        if (_cand / 'common').exists():
-            _v3_dir = _cand
+# Portable: a vendored `common/` beside this app makes it fully self-contained — it
+# runs even when copied OUTSIDE dx-all-suite (on any machine with the DEEPX runtime).
+# Only if `common/` is not vendored do we fall back to dx_app's src/python_example
+# (in-place dev / not-yet-vendored), searching ancestors incl. a suite-root hop.
+if (_current / 'common').is_dir():
+    _v3_dir = _current
+else:
+    _v3_dir = None
+    for _a in [_current, *_current.parents]:
+        for _cand in (_a / 'src' / 'python_example',
+                      _a / 'dx-runtime' / 'dx_app' / 'src' / 'python_example'):
+            if (_cand / 'common').exists():
+                _v3_dir = _cand
+                break
+        if _v3_dir is not None:
             break
-    if _v3_dir is not None:
-        break
 for _path in [str(_v3_dir), str(_module_dir)]:
     if _path not in sys.path:
         sys.path.insert(0, _path)
@@ -419,16 +431,22 @@ from pathlib import Path
 # NEVER use static parent.parent — depth differs.
 _module_dir = Path(__file__).parent
 _current = Path(__file__).resolve().parent
-_v3_dir = None
-for _a in [_current, *_current.parents]:
-    for _cand in (_a / 'src' / 'python_example',
-                  # relocated outside dx_app (e.g. a showcase dir at the suite root)
-                  _a / 'dx-runtime' / 'dx_app' / 'src' / 'python_example'):
-        if (_cand / 'common').exists():
-            _v3_dir = _cand
+# Portable: a vendored `common/` beside this app makes it fully self-contained — it
+# runs even when copied OUTSIDE dx-all-suite (on any machine with the DEEPX runtime).
+# Only if `common/` is not vendored do we fall back to dx_app's src/python_example
+# (in-place dev / not-yet-vendored), searching ancestors incl. a suite-root hop.
+if (_current / 'common').is_dir():
+    _v3_dir = _current
+else:
+    _v3_dir = None
+    for _a in [_current, *_current.parents]:
+        for _cand in (_a / 'src' / 'python_example',
+                      _a / 'dx-runtime' / 'dx_app' / 'src' / 'python_example'):
+            if (_cand / 'common').exists():
+                _v3_dir = _cand
+                break
+        if _v3_dir is not None:
             break
-    if _v3_dir is not None:
-        break
 for _path in [str(_v3_dir), str(_module_dir)]:
     if _path not in sys.path:
         sys.path.insert(0, _path)
@@ -476,16 +494,22 @@ from pathlib import Path
 # NEVER use static parent.parent — depth differs.
 _module_dir = Path(__file__).parent
 _current = Path(__file__).resolve().parent
-_v3_dir = None
-for _a in [_current, *_current.parents]:
-    for _cand in (_a / 'src' / 'python_example',
-                  # relocated outside dx_app (e.g. a showcase dir at the suite root)
-                  _a / 'dx-runtime' / 'dx_app' / 'src' / 'python_example'):
-        if (_cand / 'common').exists():
-            _v3_dir = _cand
+# Portable: a vendored `common/` beside this app makes it fully self-contained — it
+# runs even when copied OUTSIDE dx-all-suite (on any machine with the DEEPX runtime).
+# Only if `common/` is not vendored do we fall back to dx_app's src/python_example
+# (in-place dev / not-yet-vendored), searching ancestors incl. a suite-root hop.
+if (_current / 'common').is_dir():
+    _v3_dir = _current
+else:
+    _v3_dir = None
+    for _a in [_current, *_current.parents]:
+        for _cand in (_a / 'src' / 'python_example',
+                      _a / 'dx-runtime' / 'dx_app' / 'src' / 'python_example'):
+            if (_cand / 'common').exists():
+                _v3_dir = _cand
+                break
+        if _v3_dir is not None:
             break
-    if _v3_dir is not None:
-        break
 for _path in [str(_v3_dir), str(_module_dir)]:
     if _path not in sys.path:
         sys.path.insert(0, _path)
@@ -551,16 +575,22 @@ from pathlib import Path
 # NEVER use static parent.parent — depth differs.
 _module_dir = Path(__file__).parent
 _current = Path(__file__).resolve().parent
-_v3_dir = None
-for _a in [_current, *_current.parents]:
-    for _cand in (_a / 'src' / 'python_example',
-                  # relocated outside dx_app (e.g. a showcase dir at the suite root)
-                  _a / 'dx-runtime' / 'dx_app' / 'src' / 'python_example'):
-        if (_cand / 'common').exists():
-            _v3_dir = _cand
+# Portable: a vendored `common/` beside this app makes it fully self-contained — it
+# runs even when copied OUTSIDE dx-all-suite (on any machine with the DEEPX runtime).
+# Only if `common/` is not vendored do we fall back to dx_app's src/python_example
+# (in-place dev / not-yet-vendored), searching ancestors incl. a suite-root hop.
+if (_current / 'common').is_dir():
+    _v3_dir = _current
+else:
+    _v3_dir = None
+    for _a in [_current, *_current.parents]:
+        for _cand in (_a / 'src' / 'python_example',
+                      _a / 'dx-runtime' / 'dx_app' / 'src' / 'python_example'):
+            if (_cand / 'common').exists():
+                _v3_dir = _cand
+                break
+        if _v3_dir is not None:
             break
-    if _v3_dir is not None:
-        break
 for _path in [str(_v3_dir), str(_module_dir)]:
     if _path not in sys.path:
         sys.path.insert(0, _path)
@@ -992,6 +1022,28 @@ fi
 # build is already present, remove it first so the GUI build takes precedence.
 pip uninstall -y opencv-python-headless >/dev/null 2>&1 || true
 pip install opencv-python numpy
+
+# --- 2b. Vendor the shared framework so the app is PORTABLE (HARD GATE) ---
+# Copy dx_app's `common` package into ./common so the app folder is fully
+# self-contained and runs even when copied OUTSIDE dx-all-suite (the entry's
+# path walker prefers a vendored ./common). Done here (while the suite is
+# reachable) so distribution = copy the folder; on a foreign machine ./common
+# is already present and this step is skipped.
+if [ ! -d "$SCRIPT_DIR/common" ]; then
+    _vsrc=""; _vd="$SCRIPT_DIR"
+    while [ "$_vd" != / ]; do
+        if [ -d "$_vd/src/python_example/common" ]; then _vsrc="$_vd/src/python_example/common"; break; fi
+        if [ -d "$_vd/dx-runtime/dx_app/src/python_example/common" ]; then _vsrc="$_vd/dx-runtime/dx_app/src/python_example/common"; break; fi
+        _vd="$(dirname "$_vd")"
+    done
+    if [ -n "$_vsrc" ]; then
+        echo "[setup] vendoring framework: $_vsrc -> ./common"
+        cp -r "$_vsrc" "$SCRIPT_DIR/common"
+        find "$SCRIPT_DIR/common" -name __pycache__ -type d -exec rm -rf {} + 2>/dev/null || true
+    else
+        echo "[setup] WARN: ./common absent and dx_app framework not found — 'common' imports may fail."
+    fi
+fi
 
 # --- 3. Verify dx_engine ---
 if ! python -c "import dx_engine" 2>/dev/null; then
