@@ -164,7 +164,11 @@ directory and run `./setup.sh` without manually activating any venv first. The s
    (typically at `../../../venv-dx-runtime/` from `dx-agentic-dev/<session>/`)
 2. **Activate the shared venv if found** — this is the preferred path
 3. **Fall back to creating a local `.venv/`** if the shared venv is not found
-4. **Install Python dependencies** (`opencv-python`, `numpy`, etc.)
+4. **Install Python dependencies** (`opencv-python`, `numpy`, etc.). **OpenCV HARD GATE**:
+   always `opencv-python`, NEVER `opencv-python-headless` (headless has no highgui →
+   `--display` / live `--camera` windows break). First run
+   `pip uninstall -y opencv-python-headless` so any pre-existing headless build is
+   replaced. Applies to ALL generated apps, not just GUI demos.
 5. **Verify `dx_engine` is importable** — warn if not (user may need to rebuild)
 
 ### run.sh Requirements (MANDATORY)

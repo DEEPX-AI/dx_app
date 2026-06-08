@@ -944,6 +944,11 @@ else
 fi
 
 # --- 2. Install dependencies ---
+# OpenCV policy (HARD GATE): always install opencv-python (GUI-enabled).
+# NEVER install opencv-python-headless — it has no highgui, so imshow/namedWindow
+# (on-screen --display and live --camera windows) silently break. If a headless
+# build is already present, remove it first so the GUI build takes precedence.
+pip uninstall -y opencv-python-headless >/dev/null 2>&1 || true
 pip install opencv-python numpy
 
 # --- 3. Verify dx_engine ---
@@ -966,6 +971,10 @@ echo "[INFO] Setup complete. Run: bash run.sh"
 - NEVER remove or skip the venv detection/creation section (Section 1). This is non-negotiable.
 - NEVER use bare `pip install` outside the venv — PEP 668 will block it on Ubuntu 24.04+.
 - NEVER use `--break-system-packages` flag — it corrupts the system Python.
+- **OpenCV (HARD GATE)**: depend on `opencv-python`, NEVER `opencv-python-headless`.
+  Keep the `pip uninstall -y opencv-python-headless` line above — every generated
+  app must ship a GUI-capable OpenCV so `--display` and live `--camera` windows work.
+  This applies to ALL dx_app apps, not just GUI demos.
 
 ## run.sh Template (MANDATORY)
 

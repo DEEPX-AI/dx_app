@@ -222,6 +222,32 @@ assert hasattr(viz, 'visualize')
 print("PASS: All components created successfully")
 ```
 
+### Check: OpenCV is GUI-capable (non-headless) — HARD GATE
+
+Every dx_app app must ship `opencv-python` (GUI-enabled), never `opencv-python-headless`
+(no highgui → `--display` / live `--camera` windows break). Run in the app's venv:
+
+```bash
+# 1. opencv-python-headless must NOT be installed
+python -m pip list 2>/dev/null | grep -i '^opencv-python-headless ' \
+  && { echo "FAIL: opencv-python-headless is installed — use opencv-python"; exit 1; } \
+  || echo "PASS: no opencv-python-headless"
+
+# 2. cv2 build must have a real GUI backend (headless reports GUI: NONE)
+python - <<'PY'
+import sys, cv2
+gui = [l.strip() for l in cv2.getBuildInformation().splitlines()
+       if 'GUI' in l and ':' in l]
+print("cv2 GUI:", gui)
+if any('NONE' in l.upper() for l in gui):
+    print("FAIL: cv2 has no GUI backend (headless build)"); sys.exit(1)
+print("PASS: cv2 is GUI-capable")
+PY
+```
+
+Both checks must PASS. If they fail, fix `setup.sh`
+(`pip uninstall -y opencv-python-headless && pip install opencv-python`) and re-run.
+
 ## Level 4: Smoke Test (NPU Required)
 
 Quick single-frame inference to verify the full pipeline works:
