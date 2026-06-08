@@ -108,6 +108,12 @@ Python에서 `datetime.now().strftime('%Y%m%d-%H%M%S')`를 사용하세요. `dat
 (2) **모델 존재 가드** — `.dxnn`가 없으면 다운로드 안내와 함께 조기 실패;
 (3) **bundled-sample-first** — 앱의 `sample/` 데모 미디어 우선, 없으면 `dx_app/sample/`.
 
+entry `<model>_sync.py`도 **standalone**이어야 합니다 — dynamic path walker가 PYTHONPATH
+없이 공용 `common` 패키지를 해결하고, **suite-root fallback**
+(`<suite>/dx-runtime/dx_app/src/python_example`)을 포함해야 합니다. 그래야 직접 실행할 때는
+물론 `dx_app` 밖으로 옮겨도(예: suite 루트의 showcase 디렉토리) import가 해결됩니다.
+빌드는 이를 **TDD로 검증**해야 합니다(`dx_app` 밖 경로에서 entry를 실행해 import 성공 확인).
+
 ### 규칙 충돌 해결 (HARD GATE)
 사용자의 요청이 HARD GATE 규칙(IFactory, skeleton-first,
 SyncRunner/AsyncRunner, Output Isolation)과 충돌할 때, 에이전트는 반드시:

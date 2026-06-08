@@ -78,13 +78,19 @@ use this dynamic root-finding pattern instead of the standard `_v3_dir` pattern:
 import sys
 from pathlib import Path
 
-# Find dx_app root dynamically
+# Find dx_app root dynamically (standalone, no PYTHONPATH; also works when the
+# app is relocated outside dx_app, e.g. into a showcase dir at the suite root)
 _current = Path(__file__).resolve().parent
-while _current != _current.parent:
-    if (_current / 'src' / 'python_example' / 'common').exists():
+_v3_dir = None
+for _a in [_current, *_current.parents]:
+    for _cand in (_a / 'src' / 'python_example',
+                  # relocated outside dx_app (e.g. a showcase dir at the suite root)
+                  _a / 'dx-runtime' / 'dx_app' / 'src' / 'python_example'):
+        if (_cand / 'common').exists():
+            _v3_dir = _cand
+            break
+    if _v3_dir is not None:
         break
-    _current = _current.parent
-_v3_dir = _current / 'src' / 'python_example'
 _module_dir = Path(__file__).parent
 
 for _path in [str(_v3_dir), str(_module_dir)]:
@@ -340,15 +346,23 @@ Usage:
 import sys
 from pathlib import Path
 
-# Dynamic root finder — works for both src/python_example/<task>/<model>/ AND
-# dx-agentic-dev/<session>/ (NEVER use static parent.parent — depth differs)
+# Dynamic root finder (standalone, no PYTHONPATH). Resolves the shared `common`
+# package from ANY location: src/python_example/<task>/<model>/, dx-agentic-dev/
+# <session>/, AND when relocated outside dx_app (e.g. a showcase dir at the suite
+# root — then it falls back to <suite>/dx-runtime/dx_app/src/python_example).
+# NEVER use static parent.parent — depth differs.
 _module_dir = Path(__file__).parent
 _current = Path(__file__).resolve().parent
-while _current != _current.parent:
-    if (_current / 'src' / 'python_example' / 'common').exists():
+_v3_dir = None
+for _a in [_current, *_current.parents]:
+    for _cand in (_a / 'src' / 'python_example',
+                  # relocated outside dx_app (e.g. a showcase dir at the suite root)
+                  _a / 'dx-runtime' / 'dx_app' / 'src' / 'python_example'):
+        if (_cand / 'common').exists():
+            _v3_dir = _cand
+            break
+    if _v3_dir is not None:
         break
-    _current = _current.parent
-_v3_dir = _current / 'src' / 'python_example'
 for _path in [str(_v3_dir), str(_module_dir)]:
     if _path not in sys.path:
         sys.path.insert(0, _path)
@@ -398,15 +412,23 @@ Usage:
 import sys
 from pathlib import Path
 
-# Dynamic root finder — works for both src/python_example/<task>/<model>/ AND
-# dx-agentic-dev/<session>/ (NEVER use static parent.parent — depth differs)
+# Dynamic root finder (standalone, no PYTHONPATH). Resolves the shared `common`
+# package from ANY location: src/python_example/<task>/<model>/, dx-agentic-dev/
+# <session>/, AND when relocated outside dx_app (e.g. a showcase dir at the suite
+# root — then it falls back to <suite>/dx-runtime/dx_app/src/python_example).
+# NEVER use static parent.parent — depth differs.
 _module_dir = Path(__file__).parent
 _current = Path(__file__).resolve().parent
-while _current != _current.parent:
-    if (_current / 'src' / 'python_example' / 'common').exists():
+_v3_dir = None
+for _a in [_current, *_current.parents]:
+    for _cand in (_a / 'src' / 'python_example',
+                  # relocated outside dx_app (e.g. a showcase dir at the suite root)
+                  _a / 'dx-runtime' / 'dx_app' / 'src' / 'python_example'):
+        if (_cand / 'common').exists():
+            _v3_dir = _cand
+            break
+    if _v3_dir is not None:
         break
-    _current = _current.parent
-_v3_dir = _current / 'src' / 'python_example'
 for _path in [str(_v3_dir), str(_module_dir)]:
     if _path not in sys.path:
         sys.path.insert(0, _path)
@@ -447,15 +469,23 @@ Usage:
 import sys
 from pathlib import Path
 
-# Dynamic root finder — works for both src/python_example/<task>/<model>/ AND
-# dx-agentic-dev/<session>/ (NEVER use static parent.parent — depth differs)
+# Dynamic root finder (standalone, no PYTHONPATH). Resolves the shared `common`
+# package from ANY location: src/python_example/<task>/<model>/, dx-agentic-dev/
+# <session>/, AND when relocated outside dx_app (e.g. a showcase dir at the suite
+# root — then it falls back to <suite>/dx-runtime/dx_app/src/python_example).
+# NEVER use static parent.parent — depth differs.
 _module_dir = Path(__file__).parent
 _current = Path(__file__).resolve().parent
-while _current != _current.parent:
-    if (_current / 'src' / 'python_example' / 'common').exists():
+_v3_dir = None
+for _a in [_current, *_current.parents]:
+    for _cand in (_a / 'src' / 'python_example',
+                  # relocated outside dx_app (e.g. a showcase dir at the suite root)
+                  _a / 'dx-runtime' / 'dx_app' / 'src' / 'python_example'):
+        if (_cand / 'common').exists():
+            _v3_dir = _cand
+            break
+    if _v3_dir is not None:
         break
-    _current = _current.parent
-_v3_dir = _current / 'src' / 'python_example'
 for _path in [str(_v3_dir), str(_module_dir)]:
     if _path not in sys.path:
         sys.path.insert(0, _path)
@@ -514,15 +544,23 @@ Usage:
 import sys
 from pathlib import Path
 
-# Dynamic root finder — works for both src/python_example/<task>/<model>/ AND
-# dx-agentic-dev/<session>/ (NEVER use static parent.parent — depth differs)
+# Dynamic root finder (standalone, no PYTHONPATH). Resolves the shared `common`
+# package from ANY location: src/python_example/<task>/<model>/, dx-agentic-dev/
+# <session>/, AND when relocated outside dx_app (e.g. a showcase dir at the suite
+# root — then it falls back to <suite>/dx-runtime/dx_app/src/python_example).
+# NEVER use static parent.parent — depth differs.
 _module_dir = Path(__file__).parent
 _current = Path(__file__).resolve().parent
-while _current != _current.parent:
-    if (_current / 'src' / 'python_example' / 'common').exists():
+_v3_dir = None
+for _a in [_current, *_current.parents]:
+    for _cand in (_a / 'src' / 'python_example',
+                  # relocated outside dx_app (e.g. a showcase dir at the suite root)
+                  _a / 'dx-runtime' / 'dx_app' / 'src' / 'python_example'):
+        if (_cand / 'common').exists():
+            _v3_dir = _cand
+            break
+    if _v3_dir is not None:
         break
-    _current = _current.parent
-_v3_dir = _current / 'src' / 'python_example'
 for _path in [str(_v3_dir), str(_module_dir)]:
     if _path not in sys.path:
         sys.path.insert(0, _path)

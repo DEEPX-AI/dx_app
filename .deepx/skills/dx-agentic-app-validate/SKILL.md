@@ -248,6 +248,29 @@ PY
 Both checks must PASS. If they fail, fix `setup.sh`
 (`pip uninstall -y opencv-python-headless && pip install opencv-python`) and re-run.
 
+### Check: entry is standalone & relocatable (no NPU) — HARD GATE
+
+The entry `<model>_sync.py` must import the shared `common` package with NO
+PYTHONPATH **and** keep working when the app is moved out of `dx_app` (e.g. into a
+showcase dir at the suite root). Its dynamic path walker must include a suite-root
+fallback. Verify by copying the app to a temp dir OUTSIDE `dx_app` and importing:
+
+```bash
+SRC="$(pwd)"                         # the session dir
+SUITE_ROOT="$(cd "$SRC" && while [ ! -d dx-runtime -o ! -d dx-compiler ] && [ "$PWD" != / ]; do cd ..; done; pwd)"
+TMP="$(mktemp -d "$SUITE_ROOT/relocate-check.XXXX")"   # outside dx_app, under suite root
+cp -r "$SRC"/. "$TMP"/                                  # bring entry + local modules
+( cd "$TMP" && python *_sync.py --help >/dev/null 2>&1 ) \
+  && echo "PASS: entry resolves 'common' when relocated outside dx_app" \
+  || echo "FAIL: walker lacks a suite-root fallback (breaks on relocation)"
+rm -rf "$TMP"
+```
+
+Must print PASS. If it FAILs, the walker only searches ancestors for
+`src/python_example`; add the `<suite>/dx-runtime/dx_app/src/python_example`
+fallback (see the build-python skill's dynamic-root-finder skeleton). This is a
+RED→GREEN TDD gate: a naive walker FAILs here; the fallback makes it PASS.
+
 ## Level 4: Smoke Test (NPU Required)
 
 Quick single-frame inference to verify the full pipeline works:
