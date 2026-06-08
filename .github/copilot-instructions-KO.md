@@ -185,6 +185,13 @@ Python에서 `datetime.now().strftime('%Y%m%d-%H%M%S')`를 사용하세요. `dat
 구현을 다시 도출하세요. 이전 세션의 calibration된 코드나 config를 재사용하는 것은
 위반입니다: 빌드가 재현 불가능해지고 drift를 숨깁니다.
 
+### 재배치 가능한 run.sh (HARD GATE)
+생성된 `run.sh`는 앱이 `dx-agentic-dev/` 밖으로 옮겨져도(예: showcase 디렉토리) 그대로
+실행 가능해야 합니다. 항상: (1) **venv fallback** — 로컬 `venv`/`.venv` → 공유
+`dx-runtime/venv-dx-runtime` → 경고(activate에 `source setup.sh` 사용 금지);
+(2) **모델 존재 가드** — `.dxnn`가 없으면 다운로드 안내와 함께 조기 실패;
+(3) **bundled-sample-first** — 앱의 `sample/` 데모 미디어 우선, 없으면 `dx_app/sample/`.
+
 ### 규칙 충돌 해결 (HARD GATE)
 사용자의 요청이 HARD GATE 규칙(IFactory, skeleton-first,
 SyncRunner/AsyncRunner, Output Isolation)과 충돌할 때, 에이전트는 반드시:

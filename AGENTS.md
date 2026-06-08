@@ -186,6 +186,14 @@ the same model/task. Re-derive the implementation from the skeleton and the
 knowledge base every time. Reusing a prior session's calibrated code or config
 is a violation: it makes the build non-reproducible and hides drift.
 
+### Relocatable run.sh (HARD GATE)
+Generated `run.sh` MUST stay runnable after the app is moved out of `dx-agentic-dev/`
+(e.g. into a showcase dir). Always: (1) **venv fallback** — local `venv`/`.venv` →
+shared `dx-runtime/venv-dx-runtime` → warn (never `source setup.sh` to activate);
+(2) **model-existence guard** — fail early with a download hint if the `.dxnn` is
+missing; (3) **bundled-sample-first** — prefer demo media under the app's `sample/`,
+else `dx_app/sample/`.
+
 ### Rule Conflict Resolution (HARD GATE)
 When a user's request conflicts with a HARD GATE rule (IFactory, skeleton-first,
 SyncRunner/AsyncRunner, Output Isolation), the agent MUST:
