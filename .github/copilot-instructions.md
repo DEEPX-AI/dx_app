@@ -222,14 +222,14 @@ See the common conflict patterns in the parent project's instructions.
 
 ## Critical Conventions
 
-1. **Absolute imports**: `from dx_app.src.python_example.common.xyz import ...`
+1. **Imports** (relative-from-`common`): `from common.runner import SyncRunner, parse_common_args` — the entry script puts `src/python_example/` on `sys.path`, so `common` is a top-level package
 2. **Model resolution**: Query `config/model_registry.json` — never hardcode .dxnn paths
 3. **IFactory pattern**: All Python apps implement IFactory with 5 methods (`create_preprocessor`, `create_postprocessor`, `create_visualizer`, `get_model_name`, `get_task_type`)
 4. **CLI args**: Use `parse_common_args()` from `common/runner/args.py`
 5. **NPU check**: `dxrt-cli -s` before any inference operation
 6. **Logging**: `logging.getLogger(__name__)` — no bare `print()`
 7. **Skill doc is sufficient**: Do NOT read source code unless skill is insufficient
-8. **No relative imports**: Always use absolute imports from the package root
+8. **No dotted-relative imports**: never `from ..common import ...`; import `common` as a top-level package (`from common.base import ...`)
 9. **No hardcoded model paths**: All model paths from CLI args or model_registry.json
 10. **4 variants**: Python apps have sync, async, sync_cpp_postprocess, async_cpp_postprocess
 11. **PPU model auto-detection**: Auto-detect PPU models by checking model name `_ppu` suffix, `model_registry.json` `csv_task: "PPU"`, or compiler session context. PPU models go under `src/python_example/ppu/` with simplified postprocessing (no separate NMS needed).
@@ -261,9 +261,7 @@ pytest tests/                        # Run unit tests
 ## Python Imports
 
 ```python
-from dx_app.src.python_example.common.runner.args import parse_common_args
-from dx_app.src.python_example.common.runner.factory_runner import FactoryRunner
-from dx_app.src.python_example.common.utils.model_utils import load_model_config
+from common.runner import parse_common_args, SyncRunner, AsyncRunner
 import logging
 
 logger = logging.getLogger(__name__)

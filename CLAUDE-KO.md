@@ -210,7 +210,7 @@ SyncRunner/AsyncRunner, Output Isolation)과 충돌할 때, 에이전트는 반�
 
 ## 핵심 규칙
 
-1. **절대 임포트**: `from dx_app.src.python_example.common.xyz import ...`
+1. **임포트** (relative-from-`common`): `from common.runner import SyncRunner, parse_common_args` — entry 스크립트가 `src/python_example/`를 `sys.path`에 추가하므로 `common`은 top-level 패키지
 2. **모델 해석**: `config/model_registry.json` 조회 — .dxnn 경로를 하드코딩하지 말 것
 3. **IFactory 패턴**: 모든 앱은 5개 메서드로 IFactory를 구현 (`create_preprocessor`, `create_postprocessor`, `create_visualizer`, `get_model_name`, `get_task_type`)
 4. **CLI 인자**: `common/runner/args.py`의 `parse_common_args()` 사용
@@ -254,9 +254,7 @@ SyncRunner/AsyncRunner, Output Isolation)과 충돌할 때, 에이전트는 반�
 ## Python 임포트
 
 ```python
-from dx_app.src.python_example.common.runner.args import parse_common_args
-from dx_app.src.python_example.common.runner.factory_runner import FactoryRunner
-from dx_app.src.python_example.common.utils.model_utils import load_model_config
+from common.runner import parse_common_args, SyncRunner, AsyncRunner
 import logging
 
 logger = logging.getLogger(__name__)
