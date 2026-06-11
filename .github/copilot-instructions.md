@@ -611,14 +611,22 @@ Rules:
    is complete (rendering *before* DONE truncates the tail). Needs **no hook**:
 
    ```bash
-   # Locate the shared generator (walk up to the suite root), then render THIS
-   # session's transcript INTO the session output dir(s). Pass EVERY output dir you
-   # created (space-separated) — the transcript is copied into each (cross-project:
-   # both the compiler and app dirs). The session id is auto-resolved from this CLI's
-   # own env var (CLAUDE_CODE_SESSION_ID / COPILOT_AGENT_SESSION_ID).
-   GT="$(d="$PWD"; while [ "$d" != / ]; do [ -f "$d/.deepx/tools/src/dx_transcripts/generate_transcripts.py" ] && { echo "$d/.deepx/tools/src/dx_transcripts/generate_transcripts.py"; break; }; d="$(dirname "$d")"; done)"
-   python3 "$GT" --tool <CLI> --project "$PWD" \
-       --into-output-dirs <output-dir> [<output-dir-2> ...]
+   # Locate the shared generator by walking up to the suite root: GENROOT is the dir
+   # that contains .deepx/tools. Then render THIS session's transcript INTO the session
+   # output dir(s). Pass EVERY output dir you created (the transcript is copied into each
+   # — cross-project: both the compiler and app dirs). The session id is auto-resolved
+   # from this CLI's own env var (CLAUDE_CODE_SESSION_ID / COPILOT_AGENT_SESSION_ID).
+   #
+   # CRITICAL — use ABSOLUTE paths for --project AND --into-output-dirs. A RELATIVE
+   # output dir is resolved against the agent's CURRENT cwd, so it is SILENTLY SKIPPED
+   # ("no output dir produced — transcript generation skipped") whenever cwd is not the
+   # suite root — e.g. after you cd into the session dir to run setup.sh/run.sh. Prefix
+   # every output dir with "$GENROOT/" (or pass the same absolute SESSION_DIR you used
+   # to write artifacts).
+   GENROOT="$(d="$PWD"; while [ "$d" != / ]; do [ -f "$d/.deepx/tools/src/dx_transcripts/generate_transcripts.py" ] && { echo "$d"; break; }; d="$(dirname "$d")"; done)"
+   GT="$GENROOT/.deepx/tools/src/dx_transcripts/generate_transcripts.py"
+   python3 "$GT" --tool <CLI> --project "$GENROOT" \
+       --into-output-dirs "$GENROOT/<output-dir>" ["$GENROOT/<output-dir-2>" ...]
    ```
 
    `<CLI>` is `claude` or `copilot`. The generator reuses the **same renderers as the
@@ -627,6 +635,20 @@ Rules:
    NO output dir** (e.g. a pure question with no files), pass no dir and generation is
    **skipped** — expected, not an error. After it runs, state the path on the final
    line, e.g. `Session transcript (md/html/jsonl) saved to: <output-dir>/<CLI>-session.*`.
+
+   > **Known limitation — the in-session transcript is store-based and therefore
+   > incomplete.** Run from inside the live session, the generator reads the session
+   > **store**, which has NO synthetic `result` event — that event (carrying
+   > `duration_ms` → *Wall-clock* and `total_cost_usd` → *Cost*) exists only in the
+   > `claude -p --output-format stream-json` **stdout**, emitted at process exit. The
+   > render also happens *during* the transcript tool-call, so it truncates just before
+   > this very "saved to …" narration. Net effect: the in-session transcript **omits
+   > Wall-clock + Cost and the closing narration** — expected, not a bug. For a
+   > **complete** transcript (Wall-clock + Cost + tail, like the showcase ones),
+   > capture the run's stdout and render it externally **after** the process exits:
+   > `python3 "$GT" --tool <CLI> --session-id <uuid> --project "$GENROOT" --stream-json <captured-stdout.jsonl> --out-dir <output-dir>`
+   > (the test harness / build recorders do this). An in-session agent cannot — it has
+   > no handle on its own stdout stream.
 
    **`codex`, `opencode`, `cursor` are NOT auto-supported** — do NOT run the generator
    in-session for them (it cannot produce a complete/usable transcript: codex and
