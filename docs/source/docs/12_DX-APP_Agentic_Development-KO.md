@@ -3,7 +3,7 @@
 ## 개요
 
 DX-APP은 DEEPX NPU 가속기에서 독립형 추론 애플리케이션을 구축하기 위한
-DEEPX agentic development (dx-agentic-dev) 를 지원합니다. 보일러플레이트를 수동으로 작성하는 대신
+DEEPX agent-driven development (dx-agent-dev) 를 지원합니다. 보일러플레이트를 수동으로 작성하는 대신
 자연어로 원하는 것을 설명하면, 전문 에이전트 네트워크가 프로덕션 수준의
 추론 코드를 생성하고 검증하여 결과를 보고합니다.
 
@@ -68,11 +68,11 @@ dx-app-builder  (의도 분류)
 
 | 스킬 | 설명 |
 |------|------|
-| `dx-agentic-app-build-python` | IFactory 패턴을 사용하여 4가지 변형의 Python 추론 앱 빌드 |
-| `dx-agentic-app-build-cpp` | `InferenceEngine` 런타임 API를 사용한 C++ 추론 앱 빌드 |
-| `dx-agentic-app-build-async` | 파이프라인화된 전처리/추론/후처리 단계의 비동기 고성능 앱 빌드 |
-| `dx-agentic-app-model-management` | 레지스트리에서 `.dxnn` 모델 다운로드 및 모델 경로 설정 |
-| `dx-agentic-app-validate` | 생성된 코드에 대해 5단계 검증 피라미드 실행 |
+| `dx-agent-app-build-python` | IFactory 패턴을 사용하여 4가지 변형의 Python 추론 앱 빌드 |
+| `dx-agent-app-build-cpp` | `InferenceEngine` 런타임 API를 사용한 C++ 추론 앱 빌드 |
+| `dx-agent-app-build-async` | 파이프라인화된 전처리/추론/후처리 단계의 비동기 고성능 앱 빌드 |
+| `dx-agent-app-model-management` | 레지스트리에서 `.dxnn` 모델 다운로드 및 모델 경로 설정 |
+| `dx-agent-app-validate` | 생성된 코드에 대해 5단계 검증 피라미드 실행 |
 
 ---
 
@@ -86,7 +86,7 @@ dx_app 에이전틱 개발은 4가지 AI 코딩 도구에서 작동합니다. �
 | **Claude Code** | `CLAUDE.md` | 컨텍스트 라우팅을 통해 6개 에이전트 전체 |
 | **GitHub Copilot** | `.github/copilot-instructions.md`, `.github/agents/`의 6개 에이전트, `.github/skills/`의 17개 스킬, `.github/instructions/`의 4개 instruction | `@dx-app-builder`, `@dx-python-builder`, `@dx-cpp-builder`, `@dx-benchmark-builder`, `@dx-model-manager`, `@dx-validator` |
 | **Cursor** | `.cursor/rules/dx-app.mdc` (항상), 6개 에이전트 규칙, 17개 스킬 규칙, `python-example.mdc`, `cpp-example.mdc`, `tests.mdc` (총 27개) | 자동 적용 규칙과 함께 자유 형식 대화 |
-| **OpenCode** | `AGENTS.md`, `opencode.json`, `.opencode/agents/`의 6개 에이전트, `.deepx/skills/`의 17개 스킬 | `@dx-app-builder` 또는 `/dx-agentic-app-build-python` |
+| **OpenCode** | `AGENTS.md`, `opencode.json`, `.opencode/agents/`의 6개 에이전트, `.deepx/skills/`의 17개 스킬 | `@dx-app-builder` 또는 `/dx-agent-app-build-python` |
 
 ### Copilot 파일별 자동 Instruction
 
@@ -122,11 +122,11 @@ dx_app 에이전틱 개발은 4가지 AI 코딩 도구에서 작동합니다. �
 
 | 슬래시 명령 | 설명 |
 |---|---|
-| `/dx-agentic-app-build-python` | IFactory를 사용한 단계별 Python 앱 생성 |
-| `/dx-agentic-app-build-cpp` | InferenceEngine을 사용한 C++ 앱 |
-| `/dx-agentic-app-build-async` | 비동기 고성능 앱 |
-| `/dx-agentic-app-model-management` | 모델 다운로드 및 레지스트리 |
-| `/dx-agentic-app-validate` | 5단계 검증 피라미드 실행 |
+| `/dx-agent-app-build-python` | IFactory를 사용한 단계별 Python 앱 생성 |
+| `/dx-agent-app-build-cpp` | InferenceEngine을 사용한 C++ 앱 |
+| `/dx-agent-app-build-async` | 비동기 고성능 앱 |
+| `/dx-agent-app-model-management` | 모델 다운로드 및 레지스트리 |
+| `/dx-agent-app-validate` | 5단계 검증 피라미드 실행 |
 
 ### 플랫폼별 파일 참조
 
@@ -169,26 +169,26 @@ dx_app 에이전틱 개발은 4가지 AI 코딩 도구에서 작동합니다. �
 | 스킬 | 파일 |
 |-------|------|
 | `/dx-swe-brainstorm` | `.deepx/skills/dx-swe-brainstorm/SKILL.md` |
-| `/dx-agentic-app-build-async` | `.deepx/skills/dx-agentic-app-build-async/SKILL.md` |
-| `/dx-agentic-app-build-cpp` | `.deepx/skills/dx-agentic-app-build-cpp/SKILL.md` |
-| `/dx-agentic-app-build-python` | `.deepx/skills/dx-agentic-app-build-python/SKILL.md` |
+| `/dx-agent-app-build-async` | `.deepx/skills/dx-agent-app-build-async/SKILL.md` |
+| `/dx-agent-app-build-cpp` | `.deepx/skills/dx-agent-app-build-cpp/SKILL.md` |
+| `/dx-agent-app-build-python` | `.deepx/skills/dx-agent-app-build-python/SKILL.md` |
 | `/dx-swe-parallel-agents` | `.deepx/skills/dx-swe-parallel-agents/SKILL.md` |
 | `/dx-swe-executing-plans` | `.deepx/skills/dx-swe-executing-plans/SKILL.md` |
-| `/dx-agentic-app-model-management` | `.deepx/skills/dx-agentic-app-model-management/SKILL.md` |
+| `/dx-agent-app-model-management` | `.deepx/skills/dx-agent-app-model-management/SKILL.md` |
 | `/dx-swe-receiving-review` | `.deepx/skills/dx-swe-receiving-review/SKILL.md` |
 | `/dx-swe-requesting-review` | `.deepx/skills/dx-swe-requesting-review/SKILL.md` |
 | `/dx-skill-router` | `.deepx/skills/dx-skill-router/SKILL.md` |
 | `/dx-swe-subagent-dev` | `.deepx/skills/dx-swe-subagent-dev/SKILL.md` |
 | `/dx-swe-debugging` | `.deepx/skills/dx-swe-debugging/SKILL.md` |
 | `/dx-swe-tdd` | `.deepx/skills/dx-swe-tdd/SKILL.md` |
-| `/dx-agentic-app-validate` | `.deepx/skills/dx-validate/SKILL.md` |
+| `/dx-agent-app-validate` | `.deepx/skills/dx-validate/SKILL.md` |
 | `/dx-swe-verify` | `.deepx/skills/dx-swe-verify/SKILL.md` |
 | `/dx-swe-writing-plans` | `.deepx/skills/dx-swe-writing-plans/SKILL.md` |
 
 #### 공유 지식 베이스 (`.deepx/`)
 
 `.deepx/` 디렉토리는 모든 에이전트 지식의 정규 소스(canonical source)입니다.
-플랫폼별 파일(`.github/`, `.cursor/`, `.opencode/`)은 `dx-agentic-gen generate --repo dx-runtime/dx_app`에 의해 `.deepx/`에서 생성됩니다. 자동 로딩되지 않으며, 에이전트와 스킬이 작업 실행 중 필요한 파일을 참조합니다.
+플랫폼별 파일(`.github/`, `.cursor/`, `.opencode/`)은 `dx-agent-gen generate --repo dx-runtime/dx_app`에 의해 `.deepx/`에서 생성됩니다. 자동 로딩되지 않으며, 에이전트와 스킬이 작업 실행 중 필요한 파일을 참조합니다.
 
 | 디렉토리 | 파일 | 설명 |
 |-----------|-------|-------------|
@@ -215,10 +215,10 @@ dx_app 에이전틱 개발은 4가지 AI 코딩 도구에서 작동합니다. �
 
 | 도구 | 사용 방법 |
 |---|---|
-| **Claude Code** | 프롬프트를 직접 입력. `CLAUDE.md`가 `dx-agentic-app-build-python` 스킬로 라우팅. variant, 작업 유형, 모델에 대해 2-3개 질문 후 `dx-agentic-dev/<session_id>/`에 파일 생성 및 검증 (명시적 요청 시 `src/...`에 직접 생성). |
+| **Claude Code** | 프롬프트를 직접 입력. `CLAUDE.md`가 `dx-agent-app-build-python` 스킬로 라우팅. variant, 작업 유형, 모델에 대해 2-3개 질문 후 `dx-agent-dev/<session_id>/`에 파일 생성 및 검증 (명시적 요청 시 `src/...`에 직접 생성). |
 | **GitHub Copilot** | `@dx-app-builder` 뒤에 프롬프트 입력. `dx-python-builder`로 라우팅, 4가지 variant 생성, `dx-validator` 실행. |
 | **Cursor** | 프롬프트를 직접 입력. `dx-app.mdc`(항상 로드)가 컨텍스트 제공. `src/python_example/` 파일 편집 시 `python-example.mdc` 활성화. |
-| **OpenCode** | `@dx-app-builder` 뒤에 프롬프트 입력, 또는 `/dx-agentic-app-build-python` 스킬 직접 사용. |
+| **OpenCode** | `@dx-app-builder` 뒤에 프롬프트 입력, 또는 `/dx-agent-app-build-python` 스킬 직접 사용. |
 
 ### 시나리오 2: C++ 앱 빌드
 
@@ -230,10 +230,10 @@ dx_app 에이전틱 개발은 4가지 AI 코딩 도구에서 작동합니다. �
 
 | 도구 | 사용 방법 |
 |---|---|
-| **Claude Code** | 프롬프트를 직접 입력. `dx-agentic-app-build-cpp` 스킬로 라우팅. |
+| **Claude Code** | 프롬프트를 직접 입력. `dx-agent-app-build-cpp` 스킬로 라우팅. |
 | **GitHub Copilot** | `@dx-cpp-builder` 뒤에 프롬프트 입력. |
 | **Cursor** | 프롬프트를 직접 입력. `src/cpp_example/` 파일 편집 시 `cpp-example.mdc` 활성화, C++14 및 RAII 규칙 주입. |
-| **OpenCode** | `@dx-app-builder` 뒤에 프롬프트 입력, 또는 `/dx-agentic-app-build-cpp` 스킬 직접 사용. |
+| **OpenCode** | `@dx-app-builder` 뒤에 프롬프트 입력, 또는 `/dx-agent-app-build-cpp` 스킬 직접 사용. |
 
 ### 시나리오 3: 모델 다운로드 및 등록
 
@@ -248,7 +248,7 @@ dx_app 에이전틱 개발은 4가지 AI 코딩 도구에서 작동합니다. �
 | **Claude Code** | `@dx-model-manager` 뒤에 프롬프트 입력. |
 | **GitHub Copilot** | `@dx-model-manager` 뒤에 프롬프트 입력. |
 | **Cursor** | 프롬프트를 직접 입력. |
-| **OpenCode** | `@dx-model-manager` 뒤에 프롬프트 입력, 또는 `/dx-agentic-app-model-management` 스킬 사용. |
+| **OpenCode** | `@dx-model-manager` 뒤에 프롬프트 입력, 또는 `/dx-agent-app-model-management` 스킬 사용. |
 
 ### 시나리오 4: 생성된 코드 검증
 
@@ -275,10 +275,10 @@ dx_app 에이전틱 개발은 4가지 AI 코딩 도구에서 작동합니다. �
 
 | 도구 | 사용 방법 |
 |---|---|
-| **Claude Code** | 프롬프트를 직접 입력. `dx-agentic-app-build-python` 스킬이 `pose_estimation` 작업 유형으로 라우팅. 키포인트 시각화 및 스켈레톤 그리기 로직 생성. |
+| **Claude Code** | 프롬프트를 직접 입력. `dx-agent-app-build-python` 스킬이 `pose_estimation` 작업 유형으로 라우팅. 키포인트 시각화 및 스켈레톤 그리기 로직 생성. |
 | **GitHub Copilot** | `@dx-app-builder` 뒤에 프롬프트 입력. 포즈 전용 후처리와 함께 `dx-python-builder`로 라우팅. |
 | **Cursor** | 프롬프트를 직접 입력. `src/python_example/pose_estimation/` 파일 생성 시 `python-example.mdc` 활성화. |
-| **OpenCode** | `@dx-app-builder` 뒤에 프롬프트 입력, 또는 `/dx-agentic-app-build-python` 스킬 직접 사용. |
+| **OpenCode** | `@dx-app-builder` 뒤에 프롬프트 입력, 또는 `/dx-agent-app-build-python` 스킬 직접 사용. |
 
 ### 시나리오 6: 인스턴스 세그멘테이션 앱 빌드
 
@@ -290,10 +290,10 @@ dx_app 에이전틱 개발은 4가지 AI 코딩 도구에서 작동합니다. �
 
 | 도구 | 사용 방법 |
 |---|---|
-| **Claude Code** | 프롬프트를 직접 입력. `dx-agentic-app-build-python` 스킬이 `instance_segmentation` 작업 유형으로 라우팅. 마스크 오버레이 시각화 생성. |
+| **Claude Code** | 프롬프트를 직접 입력. `dx-agent-app-build-python` 스킬이 `instance_segmentation` 작업 유형으로 라우팅. 마스크 오버레이 시각화 생성. |
 | **GitHub Copilot** | `@dx-app-builder` 뒤에 프롬프트 입력. 세그멘테이션 전용 후처리와 함께 `dx-python-builder`로 라우팅. |
 | **Cursor** | 프롬프트를 직접 입력. `src/python_example/instance_segmentation/` 파일 생성 시 `python-example.mdc` 활성화. |
-| **OpenCode** | `@dx-app-builder` 뒤에 프롬프트 입력, 또는 `/dx-agentic-app-build-python` 스킬 직접 사용. |
+| **OpenCode** | `@dx-app-builder` 뒤에 프롬프트 입력, 또는 `/dx-agent-app-build-python` 스킬 직접 사용. |
 
 ### 시나리오 7: 분류 앱 빌드
 
@@ -305,10 +305,10 @@ dx_app 에이전틱 개발은 4가지 AI 코딩 도구에서 작동합니다. �
 
 | 도구 | 사용 방법 |
 |---|---|
-| **Claude Code** | 프롬프트를 직접 입력. `dx-agentic-app-build-python` 스킬이 `classification` 작업 유형으로 라우팅. Top-K 레이블 예측 로직 생성. |
+| **Claude Code** | 프롬프트를 직접 입력. `dx-agent-app-build-python` 스킬이 `classification` 작업 유형으로 라우팅. Top-K 레이블 예측 로직 생성. |
 | **GitHub Copilot** | `@dx-app-builder` 뒤에 프롬프트 입력. 분류 후처리(softmax + Top-K)와 함께 `dx-python-builder`로 라우팅. |
 | **Cursor** | 프롬프트를 직접 입력. `src/python_example/classification/` 파일 생성 시 `python-example.mdc` 활성화. |
-| **OpenCode** | `@dx-app-builder` 뒤에 프롬프트 입력, 또는 `/dx-agentic-app-build-python` 스킬 직접 사용. |
+| **OpenCode** | `@dx-app-builder` 뒤에 프롬프트 입력, 또는 `/dx-agent-app-build-python` 스킬 직접 사용. |
 
 ### 시나리오 8: 비동기 고성능 앱 빌드
 
@@ -320,10 +320,10 @@ dx_app 에이전틱 개발은 4가지 AI 코딩 도구에서 작동합니다. �
 
 | 도구 | 사용 방법 |
 |---|---|
-| **Claude Code** | 프롬프트를 직접 입력. `dx-agentic-app-build-async` 스킬로 라우팅. 큐 기반 병렬 처리로 파이프라인화된 전처리/추론/후처리 단계 생성. |
+| **Claude Code** | 프롬프트를 직접 입력. `dx-agent-app-build-async` 스킬로 라우팅. 큐 기반 병렬 처리로 파이프라인화된 전처리/추론/후처리 단계 생성. |
 | **GitHub Copilot** | `@dx-app-builder` 뒤에 프롬프트 입력. 비동기 variant 중심으로 `dx-python-builder`로 라우팅. |
 | **Cursor** | 프롬프트를 직접 입력. 비동기 파일 생성 시 `python-example.mdc` 활성화. |
-| **OpenCode** | `@dx-app-builder` 뒤에 프롬프트 입력, 또는 `/dx-agentic-app-build-async` 스킬 직접 사용. |
+| **OpenCode** | `@dx-app-builder` 뒤에 프롬프트 입력, 또는 `/dx-agent-app-build-async` 스킬 직접 사용. |
 
 ---
 
@@ -340,7 +340,7 @@ dx_app 에이전틱 개발은 4가지 AI 코딩 도구에서 작동합니다. �
 1. **명확화 질문** — 변형(`sync` / `async`), 모델 정밀도, 작업 유형(`detection`, `classification`, `segmentation` 등)
 2. **빌드 계획 제시** — 생성할 파일 목록, 다운로드할 모델, 작성할 설정
 3. **`dx-python-builder`에 라우팅** — 전문 에이전트가 인수인계
-4. **파일 생성** — `dx-agentic-dev/<session_id>/`에 생성 (명시적 요청 시 `src/`에 직접 생성)
+4. **파일 생성** — `dx-agent-dev/<session_id>/`에 생성 (명시적 요청 시 `src/`에 직접 생성)
 5. **검증 및 보고** — `dx-validator`가 검사를 실행하고 요약 출력
 
 ### 필수 질문 (HARD-GATE)
@@ -360,12 +360,12 @@ dx_app 에이전틱 개발은 4가지 AI 코딩 도구에서 작동합니다. �
 ## 생성 결과물
 
 기본적으로 에이전트가 생성한 코드는 기존 소스 코드와의 충돌을 방지하기 위해
-`dx-agentic-dev/` 격리 디렉토리에 배치됩니다.
+`dx-agent-dev/` 격리 디렉토리에 배치됩니다.
 
-### 기본 출력 (dx-agentic-dev/)
+### 기본 출력 (dx-agent-dev/)
 
 ```
-dx-agentic-dev/<session_id>/
+dx-agent-dev/<session_id>/
 ├── README.md              # 세션 메타데이터 및 실행 지침
 ├── session.json           # 기계 판독 가능한 세션 설정
 ├── setup.sh               # 환경 설정 스크립트 (필수)
@@ -462,8 +462,8 @@ python .deepx/scripts/validate_framework.py
 | `scripts/` | 2 | `validate_app.py`, `validate_framework.py` |
 
 > **참고:** 플랫폼 파일(`.github/`, `.cursor/`, `.opencode/`, `CLAUDE.md`, `AGENTS.md`)은
-> `dx-agentic-gen generate --repo dx-runtime/dx_app`에 의해 생성됩니다. 직접 편집하지 마세요 —
-> `.deepx/` 소스 파일을 편집한 후 생성기를 다시 실행하세요. pre-commit 훅이 `dx-agentic-gen`을
+> `dx-agent-gen generate --repo dx-runtime/dx_app`에 의해 생성됩니다. 직접 편집하지 마세요 —
+> `.deepx/` 소스 파일을 편집한 후 생성기를 다시 실행하세요. pre-commit 훅이 `dx-agent-gen`을
 > 자동으로 실행합니다.
 
 에이전트는 작업 시작 시 이 디렉토리들을 읽습니다. 메모리 파일은 개발 중

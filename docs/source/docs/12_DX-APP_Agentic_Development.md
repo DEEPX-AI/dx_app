@@ -1,8 +1,8 @@
-# DX-APP Agentic Development Guide
+# DX-APP Agent-Driven Development Guide
 
 ## Overview
 
-DX-APP supports DEEPX agentic development (dx-agentic-dev) for building standalone
+DX-APP supports DEEPX agent-driven development (dx-agent-dev) for building standalone
 inference applications on DEEPX NPU accelerators. Instead of manually writing
 boilerplate, you describe what you want in natural language and a network of
 specialized agents generates production-ready inference code, validates it, and
@@ -69,17 +69,17 @@ Skills encapsulate reusable workflows that agents invoke during code generation.
 
 | Skill | Description |
 |-------|-------------|
-| `dx-agentic-app-build-python` | Build a Python inference app in any of the 4 variants using the IFactory pattern |
-| `dx-agentic-app-build-cpp` | Build a C++ inference app with the `InferenceEngine` runtime API |
-| `dx-agentic-app-build-async` | Build an async high-performance app with pipelined pre/infer/post stages |
-| `dx-agentic-app-model-management` | Download `.dxnn` models from the registry and configure model paths |
-| `dx-agentic-app-validate` | Run the 5-level validation pyramid against generated code |
+| `dx-agent-app-build-python` | Build a Python inference app in any of the 4 variants using the IFactory pattern |
+| `dx-agent-app-build-cpp` | Build a C++ inference app with the `InferenceEngine` runtime API |
+| `dx-agent-app-build-async` | Build an async high-performance app with pipelined pre/infer/post stages |
+| `dx-agent-app-model-management` | Download `.dxnn` models from the registry and configure model paths |
+| `dx-agent-app-validate` | Run the 5-level validation pyramid against generated code |
 
 ---
 
 ## Supported AI Tools
 
-dx_app agentic development works with four AI coding tools. Each auto-loads
+dx_app agent-driven development works with four AI coding tools. Each auto-loads
 the knowledge base through its own configuration.
 
 | Tool | Config Files | Agents Available |
@@ -87,7 +87,7 @@ the knowledge base through its own configuration.
 | **Claude Code** | `CLAUDE.md` | All 6 agents via context routing |
 | **GitHub Copilot** | `.github/copilot-instructions.md`, 6 agents in `.github/agents/`, 17 skills in `.github/skills/`, 4 instructions in `.github/instructions/` | `@dx-app-builder`, `@dx-python-builder`, `@dx-cpp-builder`, `@dx-benchmark-builder`, `@dx-model-manager`, `@dx-validator` |
 | **Cursor** | `.cursor/rules/dx-app.mdc` (always), 6 agent rules, 17 skill rules, `python-example.mdc`, `cpp-example.mdc`, `tests.mdc` (27 total) | Free-form with auto-applied rules |
-| **OpenCode** | `AGENTS.md`, `opencode.json`, 6 agents in `.opencode/agents/`, 17 skills in `.deepx/skills/` | `@dx-app-builder` or `/dx-agentic-app-build-python` |
+| **OpenCode** | `AGENTS.md`, `opencode.json`, 6 agents in `.opencode/agents/`, 17 skills in `.deepx/skills/` | `@dx-app-builder` or `/dx-agent-app-build-python` |
 
 ### Copilot File-Specific Instructions
 
@@ -123,11 +123,11 @@ context-specific instructions:
 
 | Slash Command | Description |
 |---|---|
-| `/dx-agentic-app-build-python` | Step-by-step Python app generation with IFactory |
-| `/dx-agentic-app-build-cpp` | C++ app with InferenceEngine |
-| `/dx-agentic-app-build-async` | Async high-performance app |
-| `/dx-agentic-app-model-management` | Model download and registry |
-| `/dx-agentic-app-validate` | Run the 5-level validation pyramid |
+| `/dx-agent-app-build-python` | Step-by-step Python app generation with IFactory |
+| `/dx-agent-app-build-cpp` | C++ app with InferenceEngine |
+| `/dx-agent-app-build-async` | Async high-performance app |
+| `/dx-agent-app-model-management` | Model download and registry |
+| `/dx-agent-app-validate` | Run the 5-level validation pyramid |
 
 ### Platform File Loading Reference
 
@@ -170,19 +170,19 @@ Each AI coding agent auto-loads different configuration files at the dx_app leve
 | Skill | File |
 |-------|------|
 | `/dx-swe-brainstorm` | `.deepx/skills/dx-swe-brainstorm/SKILL.md` |
-| `/dx-agentic-app-build-async` | `.deepx/skills/dx-agentic-app-build-async/SKILL.md` |
-| `/dx-agentic-app-build-cpp` | `.deepx/skills/dx-agentic-app-build-cpp/SKILL.md` |
-| `/dx-agentic-app-build-python` | `.deepx/skills/dx-agentic-app-build-python/SKILL.md` |
+| `/dx-agent-app-build-async` | `.deepx/skills/dx-agent-app-build-async/SKILL.md` |
+| `/dx-agent-app-build-cpp` | `.deepx/skills/dx-agent-app-build-cpp/SKILL.md` |
+| `/dx-agent-app-build-python` | `.deepx/skills/dx-agent-app-build-python/SKILL.md` |
 | `/dx-swe-parallel-agents` | `.deepx/skills/dx-swe-parallel-agents/SKILL.md` |
 | `/dx-swe-executing-plans` | `.deepx/skills/dx-swe-executing-plans/SKILL.md` |
-| `/dx-agentic-app-model-management` | `.deepx/skills/dx-agentic-app-model-management/SKILL.md` |
+| `/dx-agent-app-model-management` | `.deepx/skills/dx-agent-app-model-management/SKILL.md` |
 | `/dx-swe-receiving-review` | `.deepx/skills/dx-swe-receiving-review/SKILL.md` |
 | `/dx-swe-requesting-review` | `.deepx/skills/dx-swe-requesting-review/SKILL.md` |
 | `/dx-skill-router` | `.deepx/skills/dx-skill-router/SKILL.md` |
 | `/dx-swe-subagent-dev` | `.deepx/skills/dx-swe-subagent-dev/SKILL.md` |
 | `/dx-swe-debugging` | `.deepx/skills/dx-swe-debugging/SKILL.md` |
 | `/dx-swe-tdd` | `.deepx/skills/dx-swe-tdd/SKILL.md` |
-| `/dx-agentic-app-validate` | `.deepx/skills/dx-validate/SKILL.md` |
+| `/dx-agent-app-validate` | `.deepx/skills/dx-validate/SKILL.md` |
 | `/dx-swe-verify` | `.deepx/skills/dx-swe-verify/SKILL.md` |
 | `/dx-swe-writing-plans` | `.deepx/skills/dx-swe-writing-plans/SKILL.md` |
 
@@ -190,7 +190,7 @@ Each AI coding agent auto-loads different configuration files at the dx_app leve
 
 The `.deepx/` directory is the canonical source of truth for all agent knowledge.
 Platform-specific files (`.github/`, `.cursor/`, `.opencode/`) are generated from
-`.deepx/` by `dx-agentic-gen generate --repo dx-runtime/dx_app`. It is NOT
+`.deepx/` by `dx-agent-gen generate --repo dx-runtime/dx_app`. It is NOT
 auto-loaded — agents and skills reference specific files as needed during task
 execution.
 
@@ -219,10 +219,10 @@ execution.
 
 | Tool | How to Use |
 |---|---|
-| **Claude Code** | Type the prompt directly. `CLAUDE.md` routes to `dx-agentic-app-build-python` skill. Asks 2-3 questions (variant, task type, model), generates files in `dx-agentic-dev/<session_id>/` (or `src/...` if explicitly requested), and validates. |
+| **Claude Code** | Type the prompt directly. `CLAUDE.md` routes to `dx-agent-app-build-python` skill. Asks 2-3 questions (variant, task type, model), generates files in `dx-agent-dev/<session_id>/` (or `src/...` if explicitly requested), and validates. |
 | **GitHub Copilot** | `@dx-app-builder` followed by the prompt. Routes to `dx-python-builder`, generates all 4 variants, runs `dx-validator`. |
 | **Cursor** | Type the prompt directly. `dx-app.mdc` (always loaded) provides context. `python-example.mdc` activates for `src/python_example/` files. |
-| **OpenCode** | `@dx-app-builder` followed by the prompt, or `/dx-agentic-app-build-python` skill directly. |
+| **OpenCode** | `@dx-app-builder` followed by the prompt, or `/dx-agent-app-build-python` skill directly. |
 
 ### Scenario 2: Build a C++ App
 
@@ -234,10 +234,10 @@ execution.
 
 | Tool | How to Use |
 |---|---|
-| **Claude Code** | Type the prompt directly. Routes to `dx-agentic-app-build-cpp` skill. |
+| **Claude Code** | Type the prompt directly. Routes to `dx-agent-app-build-cpp` skill. |
 | **GitHub Copilot** | `@dx-cpp-builder` followed by the prompt. |
 | **Cursor** | Type the prompt directly. `cpp-example.mdc` activates for `src/cpp_example/` files, injecting C++14 and RAII conventions. |
-| **OpenCode** | `@dx-app-builder` followed by the prompt, or `/dx-agentic-app-build-cpp` skill directly. |
+| **OpenCode** | `@dx-app-builder` followed by the prompt, or `/dx-agent-app-build-cpp` skill directly. |
 
 ### Scenario 3: Download and Register a Model
 
@@ -252,7 +252,7 @@ execution.
 | **Claude Code** | `@dx-model-manager` followed by the prompt. |
 | **GitHub Copilot** | `@dx-model-manager` followed by the prompt. |
 | **Cursor** | Type the prompt directly. |
-| **OpenCode** | `@dx-model-manager` followed by the prompt, or `/dx-agentic-app-model-management` skill. |
+| **OpenCode** | `@dx-model-manager` followed by the prompt, or `/dx-agent-app-model-management` skill. |
 
 ### Scenario 4: Validate Generated Code
 
@@ -279,10 +279,10 @@ execution.
 
 | Tool | How to Use |
 |---|---|
-| **Claude Code** | Type the prompt directly. Routes to `dx-agentic-app-build-python` skill with `pose_estimation` task type. Generates keypoint visualization and skeleton drawing logic. |
+| **Claude Code** | Type the prompt directly. Routes to `dx-agent-app-build-python` skill with `pose_estimation` task type. Generates keypoint visualization and skeleton drawing logic. |
 | **GitHub Copilot** | `@dx-app-builder` followed by the prompt. Routes to `dx-python-builder` with pose-specific postprocessing. |
 | **Cursor** | Type the prompt directly. `python-example.mdc` activates for generated files in `src/python_example/pose_estimation/`. |
-| **OpenCode** | `@dx-app-builder` followed by the prompt, or `/dx-agentic-app-build-python` skill directly. |
+| **OpenCode** | `@dx-app-builder` followed by the prompt, or `/dx-agent-app-build-python` skill directly. |
 
 ### Scenario 6: Build an Instance Segmentation App
 
@@ -294,10 +294,10 @@ execution.
 
 | Tool | How to Use |
 |---|---|
-| **Claude Code** | Type the prompt directly. Routes to `dx-agentic-app-build-python` skill with `instance_segmentation` task type. Generates mask overlay visualization. |
+| **Claude Code** | Type the prompt directly. Routes to `dx-agent-app-build-python` skill with `instance_segmentation` task type. Generates mask overlay visualization. |
 | **GitHub Copilot** | `@dx-app-builder` followed by the prompt. Routes to `dx-python-builder` with segmentation-specific postprocessing. |
 | **Cursor** | Type the prompt directly. `python-example.mdc` activates for generated files in `src/python_example/instance_segmentation/`. |
-| **OpenCode** | `@dx-app-builder` followed by the prompt, or `/dx-agentic-app-build-python` skill directly. |
+| **OpenCode** | `@dx-app-builder` followed by the prompt, or `/dx-agent-app-build-python` skill directly. |
 
 ### Scenario 7: Build a Classification App
 
@@ -309,10 +309,10 @@ execution.
 
 | Tool | How to Use |
 |---|---|
-| **Claude Code** | Type the prompt directly. Routes to `dx-agentic-app-build-python` skill with `classification` task type. Generates top-K label prediction logic. |
+| **Claude Code** | Type the prompt directly. Routes to `dx-agent-app-build-python` skill with `classification` task type. Generates top-K label prediction logic. |
 | **GitHub Copilot** | `@dx-app-builder` followed by the prompt. Routes to `dx-python-builder` with classification postprocessing (softmax + top-K). |
 | **Cursor** | Type the prompt directly. `python-example.mdc` activates for generated files in `src/python_example/classification/`. |
-| **OpenCode** | `@dx-app-builder` followed by the prompt, or `/dx-agentic-app-build-python` skill directly. |
+| **OpenCode** | `@dx-app-builder` followed by the prompt, or `/dx-agent-app-build-python` skill directly. |
 
 ### Scenario 8: Build an Async High-Performance App
 
@@ -324,10 +324,10 @@ execution.
 
 | Tool | How to Use |
 |---|---|
-| **Claude Code** | Type the prompt directly. Routes to `dx-agentic-app-build-async` skill. Generates pipelined pre/infer/post stages with queue-based parallelism. |
+| **Claude Code** | Type the prompt directly. Routes to `dx-agent-app-build-async` skill. Generates pipelined pre/infer/post stages with queue-based parallelism. |
 | **GitHub Copilot** | `@dx-app-builder` followed by the prompt. Routes to `dx-python-builder` with async variant focus. |
 | **Cursor** | Type the prompt directly. `python-example.mdc` activates for generated async files. |
-| **OpenCode** | `@dx-app-builder` followed by the prompt, or `/dx-agentic-app-build-async` skill directly. |
+| **OpenCode** | `@dx-app-builder` followed by the prompt, or `/dx-agent-app-build-async` skill directly. |
 
 ---
 
@@ -344,7 +344,7 @@ The agent will:
 1. **Ask clarifying questions** — variant (`sync` / `async`), model precision, task type (`detection`, `classification`, `segmentation`, etc.)
 2. **Present a build plan** — list of files to generate, model to download, config to write
 3. **Route to `dx-python-builder`** — the specialist agent takes over
-4. **Generate files** in `dx-agentic-dev/<session_id>/` (or `src/` if explicitly requested)
+4. **Generate files** in `dx-agent-dev/<session_id>/` (or `src/` if explicitly requested)
 5. **Validate and report** — `dx-validator` runs checks and prints a summary
 
 ### Mandatory Questions (HARD-GATE)
@@ -363,13 +363,13 @@ the agent will confirm each decision explicitly before proceeding.
 
 ## What Gets Created
 
-By default, agent-generated code is placed in the `dx-agentic-dev/` isolation directory
+By default, agent-generated code is placed in the `dx-agent-dev/` isolation directory
 to prevent conflicts with existing source code.
 
-### Default Output (dx-agentic-dev/)
+### Default Output (dx-agent-dev/)
 
 ```
-dx-agentic-dev/<session_id>/
+dx-agent-dev/<session_id>/
 ├── README.md              # Session metadata and run instructions
 ├── session.json           # Machine-readable session config
 ├── setup.sh               # Environment setup script (mandatory)
@@ -466,8 +466,8 @@ Agent knowledge lives in the `.deepx/` directory at the dx_app project root.
 | `scripts/` | 2 | `validate_app.py`, `validate_framework.py` |
 
 > **Note:** Platform files (`.github/`, `.cursor/`, `.opencode/`, `CLAUDE.md`, `AGENTS.md`) are
-> generated by `dx-agentic-gen generate --repo dx-runtime/dx_app`. Do not edit them directly —
-> edit `.deepx/` source files and re-run the generator. A pre-commit hook runs `dx-agentic-gen`
+> generated by `dx-agent-gen generate --repo dx-runtime/dx_app`. Do not edit them directly —
+> edit `.deepx/` source files and re-run the generator. A pre-commit hook runs `dx-agent-gen`
 > automatically.
 
 Agents read from these directories at task start. Memory files are updated when

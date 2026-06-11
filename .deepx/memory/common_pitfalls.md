@@ -297,7 +297,7 @@ For C++ bindings (`dx_postprocess`), yolo26 has its own `YOLOv26PostProcess` cla
 Only the Python postprocessor is shared with YOLOv8.
 
 **Validation:** After generating a factory, cross-check the postprocessor import against
-this mapping. See `dx-agentic-app-validate.md` Level 5 Check 5 for the automated cross-check script.
+this mapping. See `dx-agent-app-validate.md` Level 5 Check 5 for the automated cross-check script.
 
 ---
 
@@ -336,7 +336,7 @@ output (detection count > 0, valid bbox coordinates, valid class IDs).
 4. Class IDs in valid range
 5. Postprocessor-model family cross-check
 
-See `dx-agentic-app-validate.md` Level 5 for the complete validation scripts.
+See `dx-agent-app-validate.md` Level 5 for the complete validation scripts.
 
 ---
 
@@ -358,7 +358,7 @@ the Level 5.5 cross-validation differential diagnosis:
 2. **Test B**: Compare against existing verified example with `--verbose`
 3. **Test C**: Cross-model swap — run existing app with new model
 
-See `dx-agentic-app-validate.md` Level 5.5 for the full Differential Diagnosis Decision Matrix.
+See `dx-agent-app-validate.md` Level 5.5 for the full Differential Diagnosis Decision Matrix.
 
 ---
 
@@ -410,7 +410,7 @@ Never use `/path/to/<model>.dxnn` or `input.jpg` placeholders. Always use:
 - **Image**: Task-appropriate sample from `../../sample/img/` (see Task-Aware Sample Image table)
 - **Video**: `../../assets/videos/dogs.mp4` or similar
 
-**Prevention**: Check the setup.sh/run.sh templates in `dx-agentic-app-build-python.md` and the
+**Prevention**: Check the setup.sh/run.sh templates in `dx-agent-app-build-python.md` and the
 deliverables list before claiming completion.
 
 ---
@@ -554,7 +554,7 @@ ls src/python_example/semantic_segmentation/
 
 # Step 2: Copy bisenetv2 as skeleton (same task type)
 cp -r src/python_example/semantic_segmentation/bisenetv2/ \
-      dx-agentic-dev/<session>/
+      dx-agent-dev/<session>/
 
 # Step 3: Modify ONLY:
 # - factory class name: BisenetV2Factory → PlantSegFactory
@@ -718,16 +718,16 @@ option.buffer_count = 8    # same as set_buffer_count(8)
 
 ---
 
-## 24. [DX_APP] Static `parent.parent` Path in dx-agentic-dev Sessions
+## 24. [DX_APP] Static `parent.parent` Path in dx-agent-dev Sessions
 
 - **Symptom**: `ModuleNotFoundError: No module named 'common'` when running `./run.sh`
   after `setup.sh` succeeds. Works with `PYTHONPATH="../../src/python_example/"` manually.
 - **Root Cause**: Generated `_sync.py` uses `_v3_dir = _module_dir.parent.parent`.
   - For `src/python_example/<task>/<model>/`: `.parent.parent` = `src/python_example/` ✓
-  - For `dx-agentic-dev/<session>/`: `.parent.parent` = `dx-agentic-dev/` ✗ (not `src/python_example/`)
+  - For `dx-agent-dev/<session>/`: `.parent.parent` = `dx-agent-dev/` ✗ (not `src/python_example/`)
   The agent copied the static path template without noticing the "Import Boilerplate for
-  dx-agentic-dev/" override section which specifies the dynamic walker.
-- **Fix**: ALL generated `_sync.py` / `_async.py` in dx-agentic-dev MUST use the dynamic walker:
+  dx-agent-dev/" override section which specifies the dynamic walker.
+- **Fix**: ALL generated `_sync.py` / `_async.py` in dx-agent-dev MUST use the dynamic walker:
   ```python
   _current = Path(__file__).resolve().parent
   while _current != _current.parent:
@@ -736,7 +736,7 @@ option.buffer_count = 8    # same as set_buffer_count(8)
       _current = _current.parent
   _v3_dir = _current / 'src' / 'python_example'
   ```
-  The dynamic walker works for BOTH `src/python_example/` and `dx-agentic-dev/` paths.
+  The dynamic walker works for BOTH `src/python_example/` and `dx-agent-dev/` paths.
 - **Prevention**: The `<model>_sync.py` and `<model>_async.py` templates now use the dynamic
   walker directly. The Import Resolution Test now runs `python <model>_sync.py --help` (no
   external PYTHONPATH) to catch this failure at generation time.

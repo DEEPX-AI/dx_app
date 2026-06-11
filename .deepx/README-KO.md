@@ -1,4 +1,4 @@
-# .deepx/ — dx_app Agentic 지식 베이스
+# .deepx/ — dx_app Agent-Driven 지식 베이스
 
 DEEPX 독립 실행형 추론 애플리케이션 빌드를 위한 자체 완결형 지식 베이스.
 이 디렉터리는 독립적으로 동작합니다 — 상위 저장소 접근이 필요하지 않습니다.
@@ -44,15 +44,15 @@ DEEPX 독립 실행형 추론 애플리케이션 빌드를 위한 자체 완결�
 │   ├── validate_app.py                # 앱 디렉터리 검증기 (11개 체크 + 3개 smoke)
 │   └── validate_framework.py          # .deepx/ 무결성 체크 (8개 카테고리)
 ├── skills/                            # Skill 정의 (8개 파일)
-│   ├── dx-agentic-app-build-python.md         # Python 추론 앱 빌드
-│   ├── dx-agentic-app-build-cpp.md            # C++ 추론 앱 빌드
-│   ├── dx-agentic-app-build-async.md          # 비동기 고성능 앱 빌드
-│   ├── dx-agentic-app-model-management.md         # 모델 다운로드 및 레지스트리
-│   ├── dx-agentic-app-validate.md                 # 5단계 검증 피라미드
+│   ├── dx-agent-app-build-python.md         # Python 추론 앱 빌드
+│   ├── dx-agent-app-build-cpp.md            # C++ 추론 앱 빌드
+│   ├── dx-agent-app-build-async.md          # 비동기 고성능 앱 빌드
+│   ├── dx-agent-app-model-management.md         # 모델 다운로드 및 레지스트리
+│   ├── dx-agent-app-validate.md                 # 5단계 검증 피라미드
 │   ├── dx-brainstorm-and-plan.md      # 프로세스 skill — 코드 전 브레인스토밍
 │   ├── dx-tdd.md                      # 프로세스 skill — 테스트 주도 개발
 │   └── dx-verify-completion.md        # 프로세스 skill — 완료 선언 전 검증; 필수 산출물 시행
-├── templates/                         # 지침 템플릿 (dx-agentic-gen으로 처리)
+├── templates/                         # 지침 템플릿 (dx-agent-gen으로 처리)
 │   ├── en/                            # 영문 `.tmpl` 파일
 │   └── ko/                            # 한국어 `.tmpl` 파일
 └── toolsets/                          # API 레퍼런스 문서
@@ -125,7 +125,7 @@ DEEPX 독립 실행형 추론 애플리케이션 빌드를 위한 자체 완결�
 | `validate_app.py` | 앱 디렉터리에 대한 11개 정적 체크 + 3개 smoke 테스트 |
 | `validate_framework.py` | 8개 카테고리 .deepx/ 무결성 체크 |
 
-> 플랫폼 파일 생성은 suite 레벨의 **`dx-agentic-gen`** CLI가 처리합니다.
+> 플랫폼 파일 생성은 suite 레벨의 **`dx-agent-gen`** CLI가 처리합니다.
 > suite 루트의 [`.deepx/tools/README.md`](../../../.deepx/tools/README.md)를 참조하세요.
 
 ### validate_app.py
@@ -151,17 +151,17 @@ python .deepx/scripts/validate_framework.py
 python .deepx/scripts/validate_framework.py --verbose
 ```
 
-### 플랫폼 생성 (`dx-agentic-gen`)
+### 플랫폼 생성 (`dx-agent-gen`)
 
 ```bash
 # 모든 플랫폼 설정 생성 (단일 저장소)
-dx-agentic-gen generate
+dx-agent-gen generate
 
 # 동기화 상태 체크
-dx-agentic-gen check
+dx-agent-gen check
 
 # EN/KO fragment 패리티 검증
-dx-agentic-gen lint
+dx-agent-gen lint
 
 # Suite 전체 (5개 저장소 모두)
 bash .deepx/tools/scripts/run_all.sh generate
@@ -174,7 +174,7 @@ bash .deepx/tools/scripts/run_all.sh generate
 ## Templates (en/ + ko/)
 
 지침 템플릿은 `templates/en/` 및 `templates/ko/` 아래에 `.tmpl` 파일로 위치합니다.
-Fragment placeholder (`{{FRAGMENT:<name>}}`)는 `dx-agentic-gen`에 의해 suite 레벨
+Fragment placeholder (`{{FRAGMENT:<name>}}`)는 `dx-agent-gen`에 의해 suite 레벨
 fragment 라이브러리를 기준으로 해석됩니다.
 
 ## Context 라우팅 표
@@ -191,7 +191,7 @@ fragment 라이브러리를 기준으로 해석됩니다.
 
 ## 플랫폼 통합
 
-모든 플랫폼 파일은 `.deepx/` canonical source로부터 `dx-agentic-gen`에 의해 생성됩니다:
+모든 플랫폼 파일은 `.deepx/` canonical source로부터 `dx-agent-gen`에 의해 생성됩니다:
 
 | 플랫폼 | 대상 파일 |
 |---|---|
@@ -220,8 +220,8 @@ fragment 라이브러리를 기준으로 해석됩니다.
 ### 플랫폼으로 동기화
 
 1. `.deepx/`의 canonical 콘텐츠 편집
-2. `dx-agentic-gen check` 실행 (drift 리포트)
-3. `dx-agentic-gen generate` 실행
+2. `dx-agent-gen check` 실행 (drift 리포트)
+3. `dx-agent-gen generate` 실행
 4. Diff 검토 및 커밋 (pre-commit hook이 안전망으로 check + lint를 재실행)
 
 ## 핵심 정보

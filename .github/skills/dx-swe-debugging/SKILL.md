@@ -5,7 +5,7 @@ description: Use when encountering any bug, test failure, or unexpected behavior
 
 <!-- AUTO-GENERATED from .deepx/ — DO NOT EDIT DIRECTLY -->
 <!-- Source: .deepx/skills/dx-swe-debugging/SKILL.md -->
-<!-- Run: dx-agentic-gen generate -->
+<!-- Run: dx-agent-gen generate -->
 
 # Systematic Debugging
 
@@ -180,7 +180,7 @@ You MUST complete each phase before proceeding to the next.
    - Automated test if possible
    - One-off test script if no framework
    - MUST have before fixing
-   - Use the `dx-agentic-tdd` skill for writing proper failing tests
+   - Use the `dx-agent-tdd` skill for writing proper failing tests
 
 2. **Implement Single Fix**
    - Address the root cause identified
@@ -288,8 +288,8 @@ These techniques are part of systematic debugging and available in this director
 - **`condition-based-waiting.md`** - Replace arbitrary timeouts with condition polling
 
 **Related skills:**
-- **dx-agentic-tdd** - For creating failing test case (Phase 4, Step 1)
-- **dx-agentic-verify** - Verify fix worked before claiming success
+- **dx-agent-tdd** - For creating failing test case (Phase 4, Step 1)
+- **dx-agent-verify** - Verify fix worked before claiming success
 
 ## Real-World Impact
 

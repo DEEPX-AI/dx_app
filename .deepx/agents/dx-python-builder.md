@@ -72,10 +72,10 @@ If dx-app-builder determined an existing example exists and the user chose optio
 4. Place the new example in the correct directory under `src/python_example/`
 
 > **NEVER reuse previous session artifacts.** Do NOT check, list, browse, or
-> reference files from previous sessions in `dx-agentic-dev/`. Each build
+> reference files from previous sessions in `dx-agent-dev/`. Each build
 > session MUST create a new session directory with a fresh timestamp. Even if
 > a previous session built the same model, always start from scratch. Do NOT
-> run `ls dx-agentic-dev/` or check for existing files from past runs.
+> run `ls dx-agent-dev/` or check for existing files from past runs.
 
 ### Phase 2: Load Context
 
@@ -344,10 +344,10 @@ Run validation checks:
    If `model_registry.json` says `"postprocessor": "yolov26"`, the factory MUST use
    `YOLOv8Postprocessor`, NOT `Yolo26Postprocessor`.
 5. **Output accuracy (if NPU available)**: After smoke test, verify detection count > 0
-   on a task-appropriate sample image. Zero detections = FAIL. See `dx-agentic-app-validate.md` Level 5.
+   on a task-appropriate sample image. Zero detections = FAIL. See `dx-agent-app-validate.md` Level 5.
 6. **Cross-validation (if NPU available)**: If a precompiled reference DXNN exists in
    `assets/models/` or an existing verified example exists, run differential diagnosis.
-   See `dx-agentic-app-validate.md` Level 5.5.
+   See `dx-agent-app-validate.md` Level 5.5.
 
 ### Phase 6: Report
 

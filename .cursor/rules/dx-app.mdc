@@ -36,7 +36,7 @@ dx_app provides 133 models across 15 AI tasks with Python (4 variants) and C++ e
 - Ask 2-3 questions before building
 - Present plan, get approval
 - Validate after generation
-- Output to `dx-agentic-dev/<session_id>/` by default
+- Output to `dx-agent-dev/<session_id>/` by default
 
 ### Mandatory Questions for App Building (HARD-GATE)
 

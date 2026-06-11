@@ -5,7 +5,7 @@ alwaysApply: false
 
 <!-- AUTO-GENERATED from .deepx/ — DO NOT EDIT DIRECTLY -->
 <!-- Source: .deepx/agents/dx-app-builder.md -->
-<!-- Run: dx-agentic-gen generate -->
+<!-- Run: dx-agent-gen generate -->
 
 **Response Language**: Match your response language to the user's prompt language — when asking questions or responding, use the same language the user is using. When responding in Korean, keep English technical terms in English. Do NOT transliterate into Korean phonetics (한글 음차 표기 금지). <!-- KOREAN-OK: rule text references the Korean notation term agents must recognize -->
 
@@ -20,13 +20,13 @@ routes to the appropriate specialist agent.
 Each round MUST start with a **fresh** session-id from the system clock.
 Reading prior-round state markers (`.codex_*`, `.cursor_*`, `.current_*`,
 `.active_*`, `.tmp_dx_*`) or re-entering a pre-existing
-`dx-agentic-dev/<sid>/` directory is a HARD GATE violation (CLAUDE.md
+`dx-agent-dev/<sid>/` directory is a HARD GATE violation (CLAUDE.md
 "Previous session reference PROHIBITED").
 
 ```bash
 # ✓ Required pattern (per round):
 SESSION_ID="$(date +%Y%m%d-%H%M%S)_<agent>_<coding_model>_<target>_<task>"
-WORK_DIR="dx-agentic-dev/${SESSION_ID}"
+WORK_DIR="dx-agent-dev/${SESSION_ID}"
 mkdir -p "${WORK_DIR}"
 ```
 
@@ -41,7 +41,7 @@ Before classifying or routing any task:
 
 1. Read `.github/copilot-instructions.md` for this level's global context (MANDATORY)
 2. Read `.deepx/memory/common_pitfalls.md` (always)
-3. Read `.deepx/skills/dx-agentic-app-build-python.md` (if Python app)
+3. Read `.deepx/skills/dx-agent-app-build-python.md` (if Python app)
 
 ---
 
@@ -56,7 +56,7 @@ dx_app provides **standalone inference applications** only:
 ## MANDATORY OUTPUT REQUIREMENTS — READ FIRST
 
 > **BEFORE starting any work**, memorize these required artifacts. Every app
-> building session MUST produce ALL applicable files in `dx-agentic-dev/<session_id>/`.
+> building session MUST produce ALL applicable files in `dx-agent-dev/<session_id>/`.
 > If ANY required artifact is missing when you finish, the session is INCOMPLETE.
 
 ### Common Artifacts (ALL languages)
@@ -161,7 +161,7 @@ dx_app provides **standalone inference applications** only:
 directory and run `./setup.sh` without manually activating any venv first. The script MUST:
 
 1. **Detect the dx-runtime shared venv** by searching upward for `venv-dx-runtime/`
-   (typically at `../../../venv-dx-runtime/` from `dx-agentic-dev/<session>/`)
+   (typically at `../../../venv-dx-runtime/` from `dx-agent-dev/<session>/`)
 2. **Activate the shared venv if found** — this is the preferred path
 3. **Fall back to creating a local `.venv/`** if the shared venv is not found
 4. **Install Python dependencies** (`opencv-python`, `numpy`, etc.). **OpenCV HARD GATE**:
@@ -182,7 +182,7 @@ directory and run `./setup.sh` without manually activating any venv first. The s
 3. **Never use placeholders** like `/path/to/<model>.dxnn` or `input.jpg` — these are
    not runnable and require users to guess the correct paths
 4. **Relocatable (HARD GATE)**: run.sh MUST stay runnable when the app is moved out of
-   `dx-agentic-dev/` (e.g. into a showcase dir):
+   `dx-agent-dev/` (e.g. into a showcase dir):
    - **venv fallback** — local `venv`/`.venv` → shared `dx-runtime/venv-dx-runtime` →
      warn. Do NOT `source setup.sh` to activate.
    - **model-existence guard** — fail early with a download hint if the `.dxnn` is missing.
@@ -247,13 +247,13 @@ Generate artifacts in this order. Violating this order causes cascading errors
 | **5. Verification** | Run `setup.sh`, run sync demo, capture `session.log` | LAST — validates everything works end-to-end |
 
 > **NEVER reuse previous session artifacts.** Do NOT check, list, browse, or
-> reference files from previous sessions in `dx-agentic-dev/`. Each build
+> reference files from previous sessions in `dx-agent-dev/`. Each build
 > session MUST create a new session directory with a fresh timestamp. Even if
 > a previous session built the same model, always start from scratch. Do NOT
-> run `ls dx-agentic-dev/` or check for existing files from past runs.
+> run `ls dx-agent-dev/` or check for existing files from past runs.
 
 > **NEVER skip to Phase 3 without completing Phase 1.** This is the #1 cause of
-> `ModuleNotFoundError` in agentic sessions.
+> `ModuleNotFoundError` in agent-driven sessions.
 
 ### Autopilot Mode (applies when user is absent)
 
@@ -294,7 +294,7 @@ See `memory/common_pitfalls.md` Pitfall #19 for the complete auto-detect code pa
 ```
 ## Completion Report: <ModelDisplay> <TaskType> App
 
-**Status**: PASS  |  **Output dir**: dx-agentic-dev/<session_id>/
+**Status**: PASS  |  **Output dir**: dx-agent-dev/<session_id>/
 
 | File | Status |  | File | Status |
 |------|--------|--|------|--------|
@@ -507,7 +507,7 @@ the mapping is correct using this critical subset:
 | `yolov10` | `YOLOv10Postprocessor` |
 
 **Rule**: If an existing working example exists, ALWAYS use its postprocessor. If no
-example exists, use the Registry Key → Python Class mapping table in `dx-agentic-app-build-python.md`.
+example exists, use the Registry Key → Python Class mapping table in `dx-agent-app-build-python.md`.
 Never guess a class name from the registry key string.
 
 ## Step 3: Present Plan

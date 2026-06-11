@@ -3,7 +3,7 @@ bin/
 build_x86_64/
 download/
 docs/superpowers/
-dx-agentic-dev/
+dx-agent-dev/
 *.pyc
 *.pyo
 *.pyd

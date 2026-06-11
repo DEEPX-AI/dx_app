@@ -32,12 +32,12 @@ pytest tests/                       # Run unit tests
 
 | 명령 | 설명 |
 |---------|-------------|
-| /dx-agentic-app-build-python | Python 추론 앱 빌드 (sync, async, cpp_postprocess, async_cpp_postprocess) |
-| /dx-agentic-app-build-cpp | InferenceEngine을 사용한 C++ 추론 앱 빌드 |
-| /dx-agentic-app-build-async | 고성능 비동기 추론 앱 빌드 |
-| /dx-agentic-app-model-management | .dxnn 모델 다운로드, 등록, 설정 |
-| /dx-agentic-app-validate | 모든 단계 게이트에서 검증 체크 실행 |
-| /dx-agentic-runtime-validate | 전체 피드백 루프: 검증, 수집, 승인, 적용, 확인 |
+| /dx-agent-app-build-python | Python 추론 앱 빌드 (sync, async, cpp_postprocess, async_cpp_postprocess) |
+| /dx-agent-app-build-cpp | InferenceEngine을 사용한 C++ 추론 앱 빌드 |
+| /dx-agent-app-build-async | 고성능 비동기 추론 앱 빌드 |
+| /dx-agent-app-model-management | .dxnn 모델 다운로드, 등록, 설정 |
+| /dx-agent-app-validate | 모든 단계 게이트에서 검증 체크 실행 |
+| /dx-agent-runtime-validate | 전체 피드백 루프: 검증, 수집, 승인, 적용, 확인 |
 | /dx-swe-brainstorm | 브레인스토밍, 2-3가지 접근법 제안, 스펙 자체 검토 후 계획 |
 | /dx-swe-tdd | 검증 주도 개발, 선택적 Red-Green-Refactor 단위 테스트 |
 | /dx-swe-verify | 프로세스: 완료 선언 전 검증 — 주장보다 증거 우선 |
@@ -80,7 +80,7 @@ pytest tests/                       # Run unit tests
 Q2: AI 작업, Q3: 모델)을 강제합니다.
 
 ### 출력 격리 (HARD GATE)
-모든 AI 생성 코드는 기본적으로 `dx-agentic-dev/<session_id>/`에 저장됩니다.
+모든 AI 생성 코드는 기본적으로 `dx-agent-dev/<session_id>/`에 저장됩니다.
 기존 소스 디렉토리 (예: `src/`, `semseg_260323/` 또는 사용자의 기존 코드가 있는
 디렉토리)에 생성된 코드를 직접 작성하지 마세요.
 사용자가 명시적으로 요청할 때만 `src/`에 작성하세요.
@@ -92,14 +92,14 @@ Python에서 `datetime.now().strftime('%Y%m%d-%H%M%S')`를 사용하세요. `dat
 `<coding_model>`은 코딩 모델 축약명입니다 — 예: `sonnet46`, `opus46`, `gpt53codex`, `gpt55`.
 
 ### 이전 세션 재사용 — 금지 (HARD GATE)
-`dx-agentic-dev/`의 이전 세션 산출물을 재사용·복사·참조하지 마세요. 모든 빌드는
+`dx-agent-dev/`의 이전 세션 산출물을 재사용·복사·참조하지 마세요. 모든 빌드는
 처음부터 시작합니다 — 이전 세션이 같은 model/task를 만들었더라도, 이전 세션
 디렉토리의 파일을 확인·나열·탐색·읽지 마세요. 매번 skeleton과 knowledge base에서
 구현을 다시 도출하세요. 이전 세션의 calibration된 코드나 config를 재사용하는 것은
 위반입니다: 빌드가 재현 불가능해지고 drift를 숨깁니다.
 
 ### 재배치 가능한 run.sh (HARD GATE)
-생성된 `run.sh`는 앱이 `dx-agentic-dev/` 밖으로 옮겨져도(예: showcase 디렉토리) 그대로
+생성된 `run.sh`는 앱이 `dx-agent-dev/` 밖으로 옮겨져도(예: showcase 디렉토리) 그대로
 실행 가능해야 합니다. 항상: (1) **venv fallback** — 로컬 `venv`/`.venv` → 공유
 `dx-runtime/venv-dx-runtime` → 경고(activate에 `source setup.sh` 사용 금지);
 (2) **모델 존재 가드** — `.dxnn`가 없으면 다운로드 안내와 함께 조기 실패;
@@ -141,7 +141,7 @@ SyncRunner/AsyncRunner, Output Isolation)과 충돌할 때, 에이전트는 반�
 13. **PPU 예제 생성은 필수**: 컴파일된 .dxnn 모델이 PPU인 경우 에이전트는 반드시 동작하는 예제를 생성해야 함 — PPU 모델에 대해 예제 생성을 건너뛰지 말 것.
 14. **참조 모델과 교차 검증**: `assets/models/`에 사전 컴파일된 DXNN이 있거나 `src/python_example/`에 기존 검증된 예제가 있을 때, Level 5.5 감별 진단을 실행하여 앱 코드 vs 컴파일 문제를 분리. `dx-validate.md` Level 5.5 참조.
 15. **필수 출력 아티팩트**: 모든 세션은 반드시 13개 아티팩트 모두 생성 (factory, config, 4개 변형, __init__.py, session.json, README.md, setup.sh, run.sh, session.log). 에이전트의 MANDATORY OUTPUT REQUIREMENTS 섹션 참조. 완료 선언 전 자체 검증 체크 실행.
-16. **Skeleton 우선 개발** — 코드 작성 전 `.deepx/skills/dx-agentic-app-build-python.md` skeleton
+16. **Skeleton 우선 개발** — 코드 작성 전 `.deepx/skills/dx-agent-app-build-python.md` skeleton
     템플릿을 먼저 읽으세요. `src/python_example/<task>/<model>/`에서 가장 유사한 기존 예제를
     복사하고 모델별 부분만 수정(factory, postprocessor). 데모 스크립트를 처음부터 작성하지 마세요.
     프레임워크를 우회하는 독립형 스크립트를 제안하지 마세요 (예: factory/runner 패턴 없이 직접
@@ -156,12 +156,12 @@ SyncRunner/AsyncRunner, Output Isolation)과 충돌할 때, 에이전트는 반�
 
 | 작업에서 언급하는 내용... | 읽어야 할 파일 |
 |---|---|
-| **Python app, detection, classification** | `.deepx/skills/dx-agentic-app-build-python.md`, `.deepx/toolsets/common-framework-api.md` |
-| **C++ app, native** | `.deepx/skills/dx-agentic-app-build-cpp.md`, `.deepx/toolsets/dx-engine-api.md` |
-| **Async, performance, throughput** | `.deepx/skills/dx-agentic-app-build-async.md`, `.deepx/memory/performance_patterns.md` |
-| **Model, download, registry** | `.deepx/skills/dx-agentic-app-model-management.md`, `.deepx/toolsets/model-registry.md` |
-| **Validation, testing** | `.deepx/skills/dx-agentic-app-validate.md`, `.deepx/instructions/testing-patterns.md` |
-| **Validation, feedback, fix** | `.deepx/skills/dx-agentic-app-validate.md`, parent `dx-runtime/.deepx/skills/dx-agentic-runtime-validate.md` |
+| **Python app, detection, classification** | `.deepx/skills/dx-agent-app-build-python.md`, `.deepx/toolsets/common-framework-api.md` |
+| **C++ app, native** | `.deepx/skills/dx-agent-app-build-cpp.md`, `.deepx/toolsets/dx-engine-api.md` |
+| **Async, performance, throughput** | `.deepx/skills/dx-agent-app-build-async.md`, `.deepx/memory/performance_patterns.md` |
+| **Model, download, registry** | `.deepx/skills/dx-agent-app-model-management.md`, `.deepx/toolsets/model-registry.md` |
+| **Validation, testing** | `.deepx/skills/dx-agent-app-validate.md`, `.deepx/instructions/testing-patterns.md` |
+| **Validation, feedback, fix** | `.deepx/skills/dx-agent-app-validate.md`, parent `dx-runtime/.deepx/skills/dx-agent-runtime-validate.md` |
 | **Brainstorm, plan, design** | `.deepx/skills/dx-swe-brainstorm.md` |
 | **TDD, validation, incremental** | `.deepx/skills/dx-swe-tdd.md` |
 | **Completion, verify, evidence** | `.deepx/skills/dx-swe-verify.md` |

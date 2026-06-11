@@ -10,7 +10,7 @@ tools:
 
 <!-- AUTO-GENERATED from .deepx/ — DO NOT EDIT DIRECTLY -->
 <!-- Source: .deepx/agents/dx-validator.md -->
-<!-- Run: dx-agentic-gen generate -->
+<!-- Run: dx-agent-gen generate -->
 
 **Response Language**: Match your response language to the user's prompt language — when asking questions or responding, use the same language the user is using. When responding in Korean, keep English technical terms in English. Do NOT transliterate into Korean phonetics (한글 음차 표기 금지). <!-- KOREAN-OK: rule text references the Korean notation term agents must recognize -->
 
@@ -57,7 +57,7 @@ Automated checks:
 - `__init__.py` presence in every package directory
 - Factory imports resolve correctly
 
-Reference: `.deepx/skills/dx-agentic-app-validate.md` for the full check list.
+Reference: `.deepx/skills/dx-agent-app-validate.md` for the full check list.
 
 ### Framework Validation
 
@@ -112,14 +112,14 @@ If findings exist and the user wants to feed them back into the knowledge base:
 
 ```
 1. .deepx/memory/common_pitfalls.md       (always)
-2. .deepx/skills/dx-agentic-app-validate.md           (validation reference)
+2. .deepx/skills/dx-agent-app-validate.md           (validation reference)
 3. .deepx/scripts/validate_app.py         (app validator)
 4. .deepx/scripts/validate_framework.py   (framework validator)
 ```
 
 ## 5-Level Validation Pyramid
 
-Reference the pyramid from `dx-agentic-app-validate.md`:
+Reference the pyramid from `dx-agent-app-validate.md`:
 
 | Level | Name        | NPU Required | Scope                                        |
 |-------|-------------|--------------|----------------------------------------------|

@@ -142,22 +142,22 @@ without NPU, ensure all tests are properly decorated with `@requires_npu`.
 | 9 | Test Before Declaring Success | Verify before claim |
 | 10 | Preserve Existing Functionality | No regressions |
 | 11 | NPU Verification | `dxrt-cli -s` first |
-| 12 | Output Isolation | dx-agentic-dev/ by default |
+| 12 | Output Isolation | dx-agent-dev/ by default |
 
 ## Protocol 12: Output Isolation
 
-All AI-generated applications MUST be created under `dx-agentic-dev/`, not in the
+All AI-generated applications MUST be created under `dx-agent-dev/`, not in the
 production `src/` directory tree. This is a HARD GATE — no exceptions without
 explicit user approval.
 
 ### Rules
 
-1. **Default output**: `dx-agentic-dev/<YYYYMMDD-HHMMSS>_<agent>_<model>_<task>/`
+1. **Default output**: `dx-agent-dev/<YYYYMMDD-HHMMSS>_<agent>_<model>_<task>/`
 2. **Session metadata**: Every session directory includes `session.json` and `README.md`
 3. **Dynamic imports**: Use the root-finding boilerplate (see skill docs) instead of
    the standard `_v3_dir = _module_dir.parent.parent` pattern
 4. **Production write**: Only when user EXPLICITLY requests production placement
-5. **Validation**: `validate_app.py` works with any path — pass the `dx-agentic-dev/` path
+5. **Validation**: `validate_app.py` works with any path — pass the `dx-agent-dev/` path
 
 ### Why This Matters
 

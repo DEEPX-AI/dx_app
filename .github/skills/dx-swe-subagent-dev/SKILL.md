@@ -5,7 +5,7 @@ description: Use when executing implementation plans with independent tasks in t
 
 <!-- AUTO-GENERATED from .deepx/ — DO NOT EDIT DIRECTLY -->
 <!-- Source: .deepx/skills/dx-swe-subagent-dev/SKILL.md -->
-<!-- Run: dx-agentic-gen generate -->
+<!-- Run: dx-agent-gen generate -->
 
 # Subagent-Driven Development
 
@@ -275,7 +275,7 @@ Done!
 - **finishing-a-development-branch** - Complete development after all tasks
 
 **Subagents should use:**
-- **dx-agentic-tdd** - Subagents follow TDD for each task
+- **dx-agent-tdd** - Subagents follow TDD for each task
 
 **Alternative workflow:**
 - **dx-swe-executing-plans** - Use for parallel session instead of same-session execution

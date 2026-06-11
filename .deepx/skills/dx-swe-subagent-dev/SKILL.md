@@ -271,7 +271,7 @@ Done!
 - **finishing-a-development-branch** - Complete development after all tasks
 
 **Subagents should use:**
-- **dx-agentic-tdd** - Subagents follow TDD for each task
+- **dx-agent-tdd** - Subagents follow TDD for each task
 
 **Alternative workflow:**
 - **dx-swe-executing-plans** - Use for parallel session instead of same-session execution
