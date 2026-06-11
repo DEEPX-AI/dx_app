@@ -911,7 +911,7 @@ Before declaring the app complete, verify all files exist:
   > from datetime import datetime
   > from pathlib import Path
   >
-  > # ⛔ BLOCKING GATE — write session.json BEFORE emitting [DX-AGENTIC-DEV: DONE]
+  > # ⛔ BLOCKING GATE — write session.json BEFORE emitting [DX-AGENT-DEV: DONE]
   > session_json = {
   >     "session_id": SESSION_ID,   # e.g. "20260430-101324_opencode_yolo26n_inference"
   >     "created_at": datetime.now().strftime("%Y-%m-%dT%H:%M:%S+09:00"),

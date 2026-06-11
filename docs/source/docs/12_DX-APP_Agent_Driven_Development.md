@@ -481,14 +481,14 @@ Agents output fixed markers at the start and end of each task for automated test
 
 | Marker | When |
 |---|---|
-| `[DX-AGENTIC-DEV: START]` | First line of the agent's response |
-| `[DX-AGENTIC-DEV: DONE (output-dir: <relative_path>)]` | Last line after all work is complete. `<relative_path>` is the session output directory relative to the project root. If no files were generated, omit the `(output-dir: ...)` part. |
+| `[DX-AGENT-DEV: START]` | First line of the agent's response |
+| `[DX-AGENT-DEV: DONE (output-dir: <relative_path>)]` | Last line after all work is complete. `<relative_path>` is the session output directory relative to the project root. If no files were generated, omit the `(output-dir: ...)` part. |
 
 Sub-agents invoked via handoff do not output sentinels — only the top-level agent does.
 
 Rules:
-1. **CRITICAL** — Output `[DX-AGENTIC-DEV: START]` as the absolute first line of the first response, before any other text. This is non-negotiable even if the user says to proceed autonomously.
-2. Output `[DX-AGENTIC-DEV: DONE (output-dir: <path>)]` as the very last line after all work, validation, and file generation is complete.
+1. **CRITICAL** — Output `[DX-AGENT-DEV: START]` as the absolute first line of the first response, before any other text. This is non-negotiable even if the user says to proceed autonomously.
+2. Output `[DX-AGENT-DEV: DONE (output-dir: <path>)]` as the very last line after all work, validation, and file generation is complete.
 3. If you are a sub-agent invoked via handoff/routing, do NOT output sentinels — only the top-level agent outputs them.
 4. If the user sends multiple prompts in a session, output START/DONE for each prompt.
 5. The `output-dir` in DONE must be the relative path from the project root to the session output directory.
