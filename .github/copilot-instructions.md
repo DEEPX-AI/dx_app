@@ -113,6 +113,7 @@ dx_app provides 133 compiled `.dxnn` models across 15 AI tasks with Python (4 va
 | **C++ app, native** | `.deepx/skills/dx-agent-app-build-cpp.md`, `.deepx/toolsets/dx-engine-api.md` |
 | **Async, performance, throughput** | `.deepx/skills/dx-agent-app-build-async.md`, `.deepx/memory/performance_patterns.md` |
 | **Model, download, registry** | `.deepx/skills/dx-agent-app-model-management.md`, `.deepx/toolsets/model-registry.md` |
+| **PaddleOCR OCR app (video/webcam), RapidDoc PDF→Markdown, PaddlePaddle** | `.deepx/toolsets/paddleocr-rapiddoc-app.md` (+ `dx-compiler/.deepx/toolsets/paddlepaddle-deepx.md`) |
 | **Validation, testing** | `.deepx/skills/dx-agent-app-validate.md`, `.deepx/instructions/testing-patterns.md` |
 | **Validation, feedback, fix** | `.deepx/skills/dx-agent-app-validate.md`, parent `dx-runtime/.deepx/skills/dx-agent-runtime-validate.md` |
 | **Brainstorm, plan, design** | `.deepx/skills/dx-swe-brainstorm.md` |
