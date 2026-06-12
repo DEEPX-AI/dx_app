@@ -23,12 +23,18 @@ PaddleOCR/RapidDoc pipeline, not by a single `.dxnn` you call.)
 ## Setup (both apps; standard DEEPX-fork bring-up)
 
 ```bash
+# Clone into an ISOLATED working dir (e.g. the session dir) — NEVER reuse/modify/delete a
+# pre-existing user repo found elsewhere on disk.
 git clone -b deepx https://github.com/DEEPX-AI/PaddleOCR-deepx.git           # OCR app
 git clone -b rapid_doc_deepx https://github.com/DEEPX-AI/RapidDoc.git         # PDF→md app
+pip install -r requirements.deepx.txt && pip install -e .
+./setup.sh                                             # download prebuilt onnx+dxnn models (foreground; NOT a dxcom compile)
 source <fork>/deepx_scripts/set_env.sh 1 2 1 3 2 4    # DX-RT env (RapidDoc); PaddleOCR-deepx: see its deepx-branch setup
 export DXNN_DEVICES=0                                  # NPU device(s)
-pip install -r requirements.deepx.txt && pip install -e .
 ```
+- **Models come from `./setup.sh`** (RapidDoc: `setup_assets()` → `setup_sample_models.sh`
+  downloads `onnx_models/` + `dxnn_models/`). Do NOT hand-compile any `.dxnn`, and do NOT
+  run the download as a background task in a headless build — both have deadlocked the build.
 - Run the suite sanity check first (`dx-runtime/scripts/sanity_check.sh --dx_rt`) — NPU must PASS.
 - Generated app + scripts go to `dx-agent-dev/<session_id>/` (output isolation).
 
@@ -82,5 +88,9 @@ visual sample (`sample_detect.jpg` for OCR; `sample_output.md` for PDF→md). No
 - Wrapping PaddleOCR/RapidDoc in dx_app `IFactory` — inference is owned by the fork's pipeline.
 - Using upstream PaddleOCR/RapidDoc `main` (no DeepX NPU backend) — use the `deepx` /
   `rapid_doc_deepx` branches.
+- Hand-compiling models with `dxcom` instead of `./setup.sh` — the fork ships prebuilt
+  onnx+dxnn; manual compile is the known build-deadlock cause.
+- Reusing/deleting a pre-existing user repo found on disk — always clone fresh into the
+  session dir; deleting a user's repo is a destructive action.
 - Running without sourcing the DX-RT env (`deepx_scripts/set_env.sh`) → device init errors.
 - Webcam OCR that ignores NPU throughput (no frame-skip) → growing latency.
