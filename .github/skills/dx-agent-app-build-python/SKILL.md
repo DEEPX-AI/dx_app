@@ -1137,26 +1137,36 @@ else
     echo "[WARN] no venv found — run 'bash setup.sh' first if imports fail"
 fi
 
-# --- Default paths ---
-DEFAULT_MODEL="$RUNTIME_DIR/dx_app/assets/models/<model>.dxnn"
+# --- Model resolution (CANONICAL — copy this candidate list verbatim) ---
+# The .dxnn lives at $RUNTIME_DIR/dx_app/assets/models (a DESCENDANT of SUITE_ROOT, so
+# ALWAYS resolvable once SUITE_ROOT is found). Candidates in order: explicit DXNN_MODEL
+# env → bundled WITH this app → the suite dx_app assets (+ optional versioned subdirs).
+# >>> Do NOT compute a `DX_APP_ROOT` by walking UP for a dir containing `assets/models`:
+#     dx_app is NOT an ancestor of a relocated app/showcase dir, so that walk yields ""
+#     and `${DX_APP_ROOT:-}/assets/models/...` collapses to an unresolvable `/assets/...`.
+MODEL_NAME="<model>.dxnn"
+MODEL="${DXNN_MODEL:-}"
+if [ -z "$MODEL" ]; then
+    for _c in "$SCRIPT_DIR/$MODEL_NAME" \
+              "$RUNTIME_DIR/dx_app/assets/models/$MODEL_NAME" \
+              "$RUNTIME_DIR/dx_app/assets/models"/models-*/"$MODEL_NAME"; do
+        if [ -f "$_c" ]; then MODEL="$_c"; break; fi
+    done
+fi
+if [ -z "$MODEL" ] || [ ! -f "$MODEL" ]; then
+    echo "[ERROR] $MODEL_NAME not found." >&2
+    echo "  searched: ./ and \$SUITE_ROOT/dx-runtime/dx_app/assets/models[/models-*]" >&2
+    echo "  -> Set:      DXNN_MODEL=/path/to/$MODEL_NAME bash run.sh" >&2
+    echo "  -> Or fetch: (cd \"\$SUITE_ROOT/dx-runtime/dx_app\" && ./setup.sh)" >&2
+    exit 1
+fi
+
 # Sample input: prefer media bundled WITH this app (sample/), else dx_app's sample.
 # Bundling the demo input under sample/ keeps the app self-contained when relocated.
 if [ -f "$SCRIPT_DIR/sample/<TASK_SAMPLE_IMAGE>" ]; then
     DEFAULT_IMAGE="$SCRIPT_DIR/sample/<TASK_SAMPLE_IMAGE>"
 else
     DEFAULT_IMAGE="$RUNTIME_DIR/dx_app/sample/img/<TASK_SAMPLE_IMAGE>"
-fi
-
-MODEL="${1:-$DEFAULT_MODEL}"
-
-if [ ! -f "$MODEL" ]; then
-    echo "[ERROR] Model not found: $MODEL"
-    echo "Usage: bash run.sh [model_path] [input_path]"
-    echo ""
-    echo "Model locations:"
-    echo "  Precompiled: ../../assets/models/<model>.dxnn"
-    echo "  dx-compiler: $SUITE_ROOT/dx-compiler/dx-agent-dev/<session>/<model>.dxnn"
-    exit 1
 fi
 
 echo "[INFO] Model: $MODEL"
@@ -1209,7 +1219,23 @@ three guarantees from the template above:
   `assets/models`" loop FAILS for showcase dirs (dx_app is not on the parent chain) and
   `${DX_APP_ROOT:-}/assets/models/...` then collapses to an unresolvable
   `/assets/models/...`. This is the squat model-not-found regression — `verify` fails a
-  `run.sh` that uses an empty-default `${VAR:-}` in an `assets/models` path.
+  `run.sh` that uses an empty-default `${VAR:-}` in an `assets/models` path. Copy the
+  canonical "Model resolution" block from the run.sh template verbatim; do not invent a
+  richer multi-candidate search built on an ancestor-walked `DX_APP_ROOT`.
+
+  ```bash
+  # WRONG — ancestor-walk for DX_APP_ROOT (dx_app is NOT a parent of a showcase dir):
+  DX_APP_ROOT=""; d="$SCRIPT_DIR"
+  for _ in $(seq 1 8); do
+      [ -d "$d/assets/models" ] && { DX_APP_ROOT="$d"; break; }; d="$(dirname "$d")"
+  done
+  MODEL="${DX_APP_ROOT:-}/assets/models/$MODEL_NAME"   # → "/assets/models/..." when unset
+
+  # RIGHT — SUITE_ROOT-derived (always resolvable), bundled-first:
+  for _c in "$SCRIPT_DIR/$MODEL_NAME" "$RUNTIME_DIR/dx_app/assets/models/$MODEL_NAME"; do
+      [ -f "$_c" ] && { MODEL="$_c"; break; }
+  done
+  ```
 
 ## Substitution Reference
 
