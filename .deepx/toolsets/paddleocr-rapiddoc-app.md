@@ -57,6 +57,20 @@ cp    /tmp/_rapiddoc_src/requirements.deepx.txt "$APP"/ ; cp /tmp/_rapiddoc_src/
 - **Models come from `./setup_sample_models.sh`** (downloads `onnx_models/` + `dxnn_models/`).
   Do NOT hand-compile any `.dxnn`, and do NOT run the download as a background task in a
   headless build — both have deadlocked the build. Models are NOT committed to the showcase.
+- **Model downloads MUST be resilient (retry + resume).** The `sdk.deepx.ai` CDN
+  intermittently resets large transfers (PP-OCRv5 server ≈ 302 MB, RapidDoc onnx_models
+  ≈ 930 MB), so a plain `curl -fsSL` fails the whole pull on a single reset. Use:
+  ```bash
+  curl -fSL --retry 15 --retry-all-errors --retry-delay 4 -C - "$URL" -o "$DEST"
+  ```
+  (`-C -` resumes the partial file). This applies to the paddleocr `setup.sh` curl AND
+  the RapidDoc fork's `deepx_scripts/get_resource.sh` curl (patch it after vendoring).
+- **Skip the download ONLY when ALL required model dirs are present.** RapidDoc needs BOTH
+  `dxnn_models/` (NPU) AND `onnx_models/` (incl. the formula model
+  `onnx_models/pp_formulanet_plus_m.onnx`). A skip guard keyed on `dxnn_models/` alone
+  leaves `onnx_models/` empty after a partial download and `run.sh` then fails with a
+  missing-formula-model `FileNotFoundError`. Gate on every required dir (and re-run the
+  downloader with `--force` when re-downloading).
 - For the **OCR app**, `paddleocr` (DEEPX `deepx` branch) is pip-installable → install it in
   `setup.sh` (no vendoring); the entry imports `from paddleocr import PaddleOCR`.
 - Run the suite sanity check first (`dx-runtime/scripts/sanity_check.sh --dx_rt`) — NPU must PASS.
