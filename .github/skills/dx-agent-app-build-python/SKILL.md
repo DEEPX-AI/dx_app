@@ -989,14 +989,19 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # --- 1. Virtual environment detection & activation ---
-# Search upward for the dx-runtime shared venv (preferred)
+# Search upward for the dx-runtime shared venv (preferred). The venv may be a direct
+# child of an ancestor (dx-agent-dev layout) OR live under a dx-runtime/ sibling
+# (relocated-showcase layout: $ancestor/dx-runtime/venv-dx-runtime) — check BOTH so a
+# moved app still finds it instead of silently building a fresh, dx_engine-less venv.
 RUNTIME_VENV=""
 _search="$SCRIPT_DIR"
-for _i in 1 2 3 4 5; do
+for _i in 1 2 3 4 5 6; do
     _search="$(dirname "$_search")"
     if [ -d "$_search/venv-dx-runtime" ]; then
-        RUNTIME_VENV="$_search/venv-dx-runtime"
-        break
+        RUNTIME_VENV="$_search/venv-dx-runtime"; break
+    fi
+    if [ -d "$_search/dx-runtime/venv-dx-runtime" ]; then
+        RUNTIME_VENV="$_search/dx-runtime/venv-dx-runtime"; break
     fi
 done
 
@@ -1013,6 +1018,22 @@ else
     python3 -m venv "$LOCAL_VENV"
     source "$LOCAL_VENV/bin/activate"
     pip install --upgrade pip
+    # Bridge dx_engine from the shared dx-runtime venv into this local venv so
+    # `import dx_engine` works WITHOUT rebuilding it here (the relocated-showcase
+    # FATAL otherwise). Locate venv-dx-runtime under a dx-runtime/ ancestor.
+    _rtsp=""; _d="$SCRIPT_DIR"
+    while [ "$_d" != / ]; do
+        for _cand in "$_d/dx-runtime/venv-dx-runtime" "$_d/venv-dx-runtime"; do
+            _sp="$(ls -d "$_cand"/lib/python*/site-packages 2>/dev/null | head -1)"
+            if [ -n "$_sp" ] && [ -d "$_sp/dx_engine" ]; then _rtsp="$_sp"; break; fi
+        done
+        [ -n "$_rtsp" ] && break; _d="$(dirname "$_d")"
+    done
+    _venvsp="$(ls -d "$LOCAL_VENV"/lib/python*/site-packages | head -1)"
+    if [ -n "$_rtsp" ] && [ -n "$_venvsp" ]; then
+        echo "$_rtsp" > "$_venvsp/dx_runtime_bridge.pth"
+        echo "[INFO] bridged dx_engine: $_rtsp"
+    fi
 fi
 
 # --- 2. Install dependencies ---
@@ -1069,6 +1090,12 @@ echo "[INFO] Setup complete. Run: bash run.sh"
   Keep the `pip uninstall -y opencv-python-headless` line above — every generated
   app must ship a GUI-capable OpenCV so `--display` and live `--camera` windows work.
   This applies to ALL dx_app apps, not just GUI demos.
+- **dx_engine bridge (HARD GATE)**: when a LOCAL venv is created, the template writes
+  `dx_runtime_bridge.pth` into its site-packages pointing at the shared
+  `dx-runtime/venv-dx-runtime` site-packages, and the venv search also checks
+  `$ancestor/dx-runtime/venv-dx-runtime` (relocated-showcase layout). NEVER ship a
+  local-venv setup.sh that only FATALs on missing `dx_engine` — a relocated showcase
+  must self-bridge, not require a rebuild (the stretching `ModuleNotFoundError` regression).
 
 ## run.sh Template (MANDATORY)
 
@@ -1175,6 +1202,14 @@ three guarantees from the template above:
 - Replace `<TASK_SAMPLE_IMAGE>` with the actual sample image from the Task-Aware table
 - If the model exists in `assets/models/`, use that as `DEFAULT_MODEL`
 - If using a dx-compiler output, compute the relative path from the session directory
+- **Model path: derive from `SUITE_ROOT`, NEVER ancestor-walk for `DX_APP_ROOT`.** The
+  model lives at `$SUITE_ROOT/dx-runtime/dx_app/assets/models/<model>.dxnn`
+  (`$RUNTIME_DIR/dx_app/...`), which is a DESCENDANT of the suite root — NOT an ancestor
+  of a relocated app/showcase dir. A separate "walk up looking for a dir containing
+  `assets/models`" loop FAILS for showcase dirs (dx_app is not on the parent chain) and
+  `${DX_APP_ROOT:-}/assets/models/...` then collapses to an unresolvable
+  `/assets/models/...`. This is the squat model-not-found regression — `verify` fails a
+  `run.sh` that uses an empty-default `${VAR:-}` in an `assets/models` path.
 
 ## Substitution Reference
 
