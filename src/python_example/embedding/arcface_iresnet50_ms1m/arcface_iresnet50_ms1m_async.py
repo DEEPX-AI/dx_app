@@ -20,7 +20,7 @@ from factory import Arcface_iresnet50_ms1mFactory
 from common.runner import AsyncRunner, parse_common_args
 
 def parse_args():
-    return parse_common_args("ArcFace-MobileFaceNet Async Inference")
+    return parse_common_args("ArcFace-MobileFaceNet Async Inference", include_stream_inputs=False)
 def main():
     args = parse_args()
     factory = Arcface_iresnet50_ms1mFactory()

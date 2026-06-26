@@ -404,6 +404,40 @@ def convert_cpp_classification(predictions: np.ndarray) -> List:
     return results
 
 
+def convert_cpp_attribute(predictions: np.ndarray, labels=None) -> List:
+    """
+    Convert C++ AttributePostProcess output to ClassificationResult objects.
+
+    The C++ binding performs the sigmoid/softmax + threshold + sort; this
+    converter only attaches the human-readable attribute label for each
+    activated index, mirroring the Python AttributePostprocessor output.
+
+    Args:
+        predictions: numpy array [K, 2] where each row is [attr_index, prob].
+        labels: optional list of attribute names indexed by attr_index.
+
+    Returns:
+        List of ClassificationResult (already sorted by descending confidence).
+    """
+    from ..base import ClassificationResult
+
+    results = []
+    if predictions is None or len(predictions) == 0:
+        return results
+
+    for pred in predictions:
+        idx = int(pred[0])
+        name = labels[idx] if labels is not None and idx < len(labels) else f"attr_{idx}"
+        results.append(ClassificationResult(
+            class_id=idx,
+            confidence=float(pred[1]),
+            class_name=name,
+        ))
+
+    return results
+
+
+
 def convert_cpp_obb_detections(detections: np.ndarray) -> List:
     """
     Convert C++ OBB postprocessor output to OBBResult objects.
@@ -487,6 +521,97 @@ def convert_cpp_hand_landmark(result_tuple, ctx=None) -> list:
         handedness=str(handedness)
     )
     return [result]
+
+
+def convert_cpp_restoration(image: np.ndarray, ctx=None) -> list:
+    """
+    Convert C++ DnCNNPostProcess output to RestorationResult list.
+
+    The C++ binding returns the clipped restored image as [H, W] (grayscale)
+    or [C, H, W] (color, CHW). This replicates the Python DnCNNPostprocessor
+    finalization: CHW->HWC and range-based uint8 normalization.
+
+    Args:
+        image: numpy array [H, W] or [C, H, W] float, values in [0, 1].
+        ctx: Unused (kept for convert-fn signature compatibility).
+
+    Returns:
+        List containing a single RestorationResult.
+    """
+    from ..processors.restoration_postprocessor import RestorationResult
+
+    if image is None:
+        return []
+
+    raw = np.asarray(image)
+
+    # CHW -> HWC for color models; leave HWC/grayscale untouched.
+    if raw.ndim == 3:
+        if raw.shape[2] <= 4 and raw.shape[0] > 4:
+            pass  # already HWC
+        else:
+            raw = np.transpose(raw, (1, 2, 0))  # CHW -> HWC
+
+    dmin, dmax = float(raw.min()), float(raw.max())
+    if dmax - dmin < 1e-6:
+        out = np.zeros_like(raw, dtype=np.uint8)
+    elif dmin >= -0.1 and dmax <= 1.1:
+        out = (np.clip(raw, 0.0, 1.0) * 255.0).astype(np.uint8)
+    elif dmin >= -1.0 and dmax <= 256.0:
+        out = np.clip(raw, 0.0, 255.0).astype(np.uint8)
+    else:
+        out = ((raw - dmin) / (dmax - dmin) * 255.0).astype(np.uint8)
+
+    return [RestorationResult(output_image=out)]
+
+
+def convert_cpp_super_resolution(image: np.ndarray, ctx=None) -> list:
+    """
+    Convert C++ ESPCNPostProcess output to SuperResolutionResult list.
+
+    The C++ binding returns the clipped upscaled Y channel as [H, W]. This
+    replicates the Python ESPCNPostprocessor finalization, including YCbCr
+    color restoration from the original image when available.
+
+    Args:
+        image: numpy array [H, W] (single-channel Y) or [C, H, W], values in [0, 1].
+        ctx: Optional PreprocessContext with original_image and input_height.
+
+    Returns:
+        List containing a single SuperResolutionResult.
+    """
+    from ..base import SuperResolutionResult
+
+    if image is None:
+        return []
+
+    output = np.asarray(image)
+    if output.ndim == 3:
+        output = np.transpose(output, (1, 2, 0))  # CHW -> HWC
+
+    input_height = getattr(ctx, "input_height", None) or getattr(ctx, "model_height", 0)
+    if output.ndim >= 2 and input_height:
+        scale = max(1, round(output.shape[0] / input_height))
+    else:
+        scale = 2
+
+    output = np.clip(output, 0.0, 1.0)
+
+    original_image = getattr(ctx, "original_image", None) if ctx is not None else None
+    if output.ndim == 2 and original_image is not None:
+        sr_y = (output * 255.0).astype(np.uint8)
+        out_h, out_w = sr_y.shape
+        original_ycrcb = cv2.cvtColor(original_image, cv2.COLOR_BGR2YCrCb)
+        cr_up = cv2.resize(original_ycrcb[:, :, 1], (out_w, out_h),
+                           interpolation=cv2.INTER_CUBIC)
+        cb_up = cv2.resize(original_ycrcb[:, :, 2], (out_w, out_h),
+                           interpolation=cv2.INTER_CUBIC)
+        merged = np.stack([sr_y, cr_up, cb_up], axis=2)
+        out = cv2.cvtColor(merged, cv2.COLOR_YCrCb2BGR)
+    else:
+        out = (output * 255.0).astype(np.uint8)
+
+    return [SuperResolutionResult(output_image=out, scale_factor=scale)]
 
 
 def convert_cpp_zero_dce(image: np.ndarray, ctx=None) -> list:
@@ -596,6 +721,66 @@ def convert_cpp_face3d(params: np.ndarray, ctx=None) -> list:
     result.landmarks_2d = lmks
     result.landmarks_3d = np.column_stack([lmks, np.zeros(len(lmks))])
     return [result]
+
+
+def convert_cpp_semantic_seg(class_map: np.ndarray, ctx=None,
+                             resize_to_original: bool = True) -> list:
+    """
+    Convert C++ SemanticSegPostProcess output (a [H, W] class map) to a
+    SegmentationResult list.
+
+    The C++ binding performs the argmax / pre-argmax passthrough; this
+    converter applies the context-dependent resize back to the original
+    image size, mirroring SemanticSegmentationPostprocessor.
+
+    Args:
+        class_map: numpy array [H, W] of integer class indices.
+        ctx: Optional PreprocessContext with original image dimensions.
+        resize_to_original: When True, resize the class map to the original
+            image size (matches the pre-argmaxed path of the Python golden,
+            and SegFormer's resize_to_original=True). When False, the class
+            map is returned at model resolution (e.g. U-Net).
+
+    Returns:
+        List containing a single SegmentationResult.
+    """
+    from ..base import SegmentationResult
+
+    if class_map is None or class_map.size == 0:
+        return []
+
+    cm = np.asarray(class_map).astype(np.int32)
+    if cm.ndim != 2:
+        cm = cm.squeeze()
+
+    if resize_to_original and ctx is not None:
+        ow = getattr(ctx, 'original_width', 0)
+        oh = getattr(ctx, 'original_height', 0)
+        if ow > 0 and oh > 0:
+            pad_x = getattr(ctx, 'pad_x', 0)
+            pad_y = getattr(ctx, 'pad_y', 0)
+            if pad_x == 0 and pad_y == 0:
+                if cm.shape[1] != ow or cm.shape[0] != oh:
+                    cm = cv2.resize(cm.astype(np.float32), (ow, oh),
+                                    interpolation=cv2.INTER_NEAREST).astype(np.int32)
+            else:
+                gain = max(getattr(ctx, 'scale', 1.0), 1e-6)
+                unpad_h = int(round(oh * gain))
+                unpad_w = int(round(ow * gain))
+                top, left = int(pad_y), int(pad_x)
+                cropped = cm[top:top + unpad_h, left:left + unpad_w]
+                if cropped.size > 0:
+                    cm = cv2.resize(cropped.astype(np.float32), (ow, oh),
+                                    interpolation=cv2.INTER_NEAREST).astype(np.int32)
+
+    h, w = cm.shape
+    return [SegmentationResult(
+        mask=cm,
+        width=w,
+        height=h,
+        class_ids=np.unique(cm).tolist(),
+        class_names=[],
+    )]
 
 
 def _apply_le_curves_from_params(params: np.ndarray, ctx) -> list:

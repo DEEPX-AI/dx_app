@@ -59,6 +59,10 @@ class YOLOv8PPUPostProcess {
     float score_threshold_{0.4f};
     float nms_threshold_{0.5f};
 
+    // Box encoding: false = center (cx, cy, w, h) as in YOLOv8/11/12 PPU;
+    // true = corner (x1, y1, x2, y2) as in YOLOv10 PPU.
+    bool corner_format_{false};
+
     // Model configuration
     enum { num_classes_ = 80 };
 
@@ -72,6 +76,9 @@ class YOLOv8PPUPostProcess {
    public:
     YOLOv8PPUPostProcess(const int input_w, const int input_h, const float score_threshold,
                           const float nms_threshold);
+
+    YOLOv8PPUPostProcess(const int input_w, const int input_h, const float score_threshold,
+                          const float nms_threshold, const bool corner_format);
 
     YOLOv8PPUPostProcess();
 

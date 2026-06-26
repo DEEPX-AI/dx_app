@@ -67,11 +67,17 @@ YOLOv5PostProcess::YOLOv5PostProcess() {
 
 // Process model outputs
 std::vector<YOLOv5Result> YOLOv5PostProcess::postprocess(const dxrt::TensorPtrs& outputs) {
-    // First align the tensors based on model configuration
+    // First align the tensors based on the actual output layout
     auto aligned_outputs = align_tensors(outputs);
 
+    // Select the decode path by tensor rank rather than the global ORT flag:
+    //  - a single fused 3D [1, N, 5+C] tensor -> CPU/ORT decode
+    //  - multi-scale feature maps (4D [1, (5+C)*A, gh, gw] or
+    //    5D [1, A, gh, gw, 5+C])              -> NPU anchor-grid decode
     std::vector<YOLOv5Result> detections;
-    if (is_ort_configured_) {
+    const bool fused_layout =
+        !aligned_outputs.empty() && aligned_outputs.front()->shape().size() == 3;
+    if (fused_layout) {
         detections = decoding_cpu_outputs(aligned_outputs);
     } else {
         detections = decoding_npu_outputs(aligned_outputs);
@@ -83,29 +89,39 @@ std::vector<YOLOv5Result> YOLOv5PostProcess::postprocess(const dxrt::TensorPtrs&
     return detections;
 }
 
-// Align output tensors based on model configuration
+// Align output tensors based on the actual output layout.
+// Selection is driven by tensor rank/shape, not the global ORT flag, so the
+// same compiled binding handles both fused (ORT) and raw multi-scale (NPU)
+// outputs regardless of how InferenceOption().use_ort is set.
 dxrt::TensorPtrs YOLOv5PostProcess::align_tensors(const dxrt::TensorPtrs& outputs) const {
     dxrt::TensorPtrs aligned;
 
-    if (is_ort_configured_) {
+    // Prefer a fused 3D [1, N, 5+C] tensor if present (ORT/CPU-decoded output).
+    for (const auto& output : outputs) {
+        if (output->shape().size() == 3) {
+            aligned.push_back(output);
+            return aligned;  // fused output does not require reordering
+        }
+    }
+
+    // Otherwise align raw multi-scale NPU feature maps by stride. Accept both
+    // 4D NCHW [1, (5+C)*A, gh, gw] and 5D [1, A, gh, gw, 5+C] layouts.
+    for (const auto& as : anchors_by_strides_) {
+        const int64_t anchors = static_cast<int64_t>(as.second.size());
+        const int64_t gw = input_width_ / as.first;
+        const int64_t gh = input_height_ / as.first;
         for (const auto& output : outputs) {
-            if (output->shape().size() == 3) {
+            const auto& s = output->shape();
+            const bool match_4d = (s.size() == 4 && s[2] == gw && s[3] == gh &&
+                                   s[1] == (num_classes_ + 5) * anchors);
+            // 4D NHWC [1, gh, gw, (5+C)*A] (e.g. YOLOv3-Gluon feature maps).
+            const bool match_4d_nhwc = (s.size() == 4 && s[1] == gh && s[2] == gw &&
+                                        s[3] == (num_classes_ + 5) * anchors);
+            const bool match_5d = (s.size() == 5 && s[1] == anchors && s[2] == gh &&
+                                   s[3] == gw && s[4] == (num_classes_ + 5));
+            if (match_4d || match_4d_nhwc || match_5d) {
                 aligned.push_back(output);
                 break;
-            }
-        }
-        return aligned;  // ORT inference does not require reordering
-    } else {
-        // Align outputs based on anchors_by_strides
-        for (const auto& as : anchors_by_strides_) {
-            for (const auto& output : outputs) {
-                if (output->shape().size() == 4 && output->shape()[2] == input_width_ / as.first &&
-                    output->shape()[3] == input_height_ / as.first &&
-                    output->shape()[1] ==
-                        static_cast<int64_t>((num_classes_ + 5) * as.second.size())) {
-                    aligned.push_back(output);
-                    break;
-                }
             }
         }
     }
@@ -134,15 +150,38 @@ std::vector<YOLOv5Result> YOLOv5PostProcess::decoding_npu_outputs(
         const auto& anchors = anchors_by_strides_.at(stride);
         int grid_x_size = input_width_ / stride;
         int grid_y_size = input_height_ / stride;
+        const bool is_5d = (outputs[output_idx]->shape().size() == 5);
+        const int num_fields = num_classes_ + 5;
+        // 4D NHWC [1, gh, gw, A*F] has the channel (anchor*F + field) as the
+        // last axis; distinguish it from 4D NCHW [1, A*F, gh, gw].
+        const auto& out_shape = outputs[output_idx]->shape();
+        const bool is_nhwc =
+            (out_shape.size() == 4 &&
+             out_shape[3] == static_cast<int64_t>(num_fields) *
+                                 static_cast<int64_t>(anchors.size()));
+        // Layout-aware flat index for (anchor, field, grid_y, grid_x):
+        //  - 4D NCHW [1, A*F, gh, gw] : ((anchor*F + field)*gh + gy)*gw + gx
+        //  - 4D NHWC [1, gh, gw, A*F] : (gy*gw + gx)*A*F + anchor*F + field
+        //  - 5D      [1, A, gh, gw, F]: ((anchor*gh + gy)*gw + gx)*F + field
+        auto flat_index = [&](int anchor_i, int field, int gy, int gx) -> int {
+            if (is_5d) {
+                return ((anchor_i * grid_y_size + gy) * grid_x_size + gx) * num_fields + field;
+            }
+            if (is_nhwc) {
+                return (gy * grid_x_size + gx) * num_fields *
+                           static_cast<int>(anchors.size()) +
+                       anchor_i * num_fields + field;
+            }
+            return ((anchor_i * num_fields) + field) * grid_x_size * grid_y_size +
+                   gy * grid_x_size + gx;
+        };
         // Process each grid cell
         for (int anchor = 0; anchor < static_cast<int>(anchors.size()); ++anchor) {
             int anchor_width = anchors[anchor].first;
             int anchor_height = anchors[anchor].second;
             for (int grid_y = 0; grid_y < grid_y_size; ++grid_y) {
                 for (int grid_x = 0; grid_x < grid_x_size; ++grid_x) {
-                    int objectness_idx =
-                        ((anchor * (num_classes_ + 5)) + 4) * grid_x_size * grid_y_size +
-                        grid_y * grid_x_size + grid_x;
+                    int objectness_idx = flat_index(anchor, 4, grid_y, grid_x);
                     auto objectness_score = sigmoid(output[objectness_idx]);
                     if (objectness_score < object_threshold_) {
                         continue;
@@ -150,9 +189,7 @@ std::vector<YOLOv5Result> YOLOv5PostProcess::decoding_npu_outputs(
                     int max_cls = -1;
                     float max_cls_conf = score_threshold_;
                     for (int cls = 0; cls < num_classes_; ++cls) {
-                        auto cls_conf_idx =
-                            ((anchor * (num_classes_ + 5)) + 5 + cls) * grid_x_size * grid_y_size +
-                            grid_y * grid_x_size + grid_x;
+                        auto cls_conf_idx = flat_index(anchor, 5 + cls, grid_y, grid_x);
                         auto cls_conf = objectness_score * sigmoid(output[cls_conf_idx]);
                         if (cls_conf > max_cls_conf) {
                             max_cls_conf = cls_conf;
@@ -168,9 +205,7 @@ std::vector<YOLOv5Result> YOLOv5PostProcess::decoding_npu_outputs(
                     result.class_id = max_cls;
                     result.class_name = dxapp::common::get_coco_class_name(max_cls);
                     for (int i = 0; i < 4; i++) {
-                        int box_idx =
-                            ((anchor * (num_classes_ + 5)) + i) * grid_x_size * grid_y_size +
-                            grid_y * grid_x_size + grid_x;
+                        int box_idx = flat_index(anchor, i, grid_y, grid_x);
                         box_temp[i] = output[box_idx];
                     }
                     box_temp[0] = (sigmoid(box_temp[0]) * 2.0f - 0.5 + grid_x) * stride;
@@ -290,6 +325,14 @@ void YOLOv5PostProcess::set_thresholds(float obj_threshold, float score_threshol
     }
     if (nms_threshold >= 0.0f && nms_threshold <= 1.0f) {
         nms_threshold_ = nms_threshold;
+    }
+}
+
+// Override anchor configuration (e.g. YOLOv7-W6 4-head custom anchors)
+void YOLOv5PostProcess::set_anchors(
+    const std::map<int, std::vector<std::pair<int, int>>>& anchors_by_strides) {
+    if (!anchors_by_strides.empty()) {
+        anchors_by_strides_ = anchors_by_strides;
     }
 }
 

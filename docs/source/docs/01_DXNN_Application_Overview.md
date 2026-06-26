@@ -27,7 +27,7 @@ You can quickly evaluate inference capabilities without modifying the source cod
     Application performance may vary depending on host system specifications. Each demo includes pre-processing, post-processing, and graphics processing operations.
 
 !!! note "Related Guides"
-    For installation and build steps, refer to [DX-APP Installation and Build](02_DX-APP_Installation_and_Build.md). For C++ and Python example usage details, refer to [DX-APP C++ Usage Guide](03_DX-APP_CPP_Example_Usage_Guide.md) and [DX-APP Python Usage Guide](05_DX-APP_Python_Example_Usage_Guide.md).
+    For installation and build steps, refer to [DX-APP Installation and Build](02_DX-APP_Installation_and_Build.md). For agent workflows, refer to [DX-APP Agent-Driven Development Guide](13_DX-APP_Agent_Driven_Development.md). For C++ and Python example usage details, refer to [DX-APP C++ Usage Guide](03_DX-APP_CPP_Example_Usage_Guide.md) and [DX-APP Python Usage Guide](05_DX-APP_Python_Example_Usage_Guide.md).
 
 ### Example Catalog
 

@@ -11,14 +11,15 @@
  * Contains the denoised/restored image data
  */
 struct DnCNNResult {
-    std::vector<float> image{};  // Flattened restored image (H*W), values in [0, 1]
+    std::vector<float> image{};  // Flattened restored image (C*H*W), values in [0, 1]
     int height{0};               // Image height
     int width{0};                // Image width
+    int channels{1};             // Number of channels (1 = grayscale, 3 = color)
 
     DnCNNResult() = default;
 
-    DnCNNResult(std::vector<float> img, int h, int w)
-        : image(std::move(img)), height(h), width(w) {}
+    DnCNNResult(std::vector<float> img, int h, int w, int c = 1)
+        : image(std::move(img)), height(h), width(w), channels(c) {}
 
     ~DnCNNResult() = default;
     DnCNNResult(const DnCNNResult&) = default;

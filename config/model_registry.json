@@ -23,9 +23,7 @@
     "postprocessor": "arcface",
     "input_width": 224,
     "input_height": 224,
-    "config": {
-      "top_k": 5
-    },
+    "config": {},
     "source": "csv",
     "supported": true
   },
@@ -707,7 +705,6 @@
     "input_width": 640,
     "input_height": 640,
     "config": {
-      "obj_threshold": 0.3,
       "score_threshold": 0.3,
       "nms_threshold": 0.4
     },
@@ -724,7 +721,6 @@
     "input_width": 640,
     "input_height": 640,
     "config": {
-      "obj_threshold": 0.3,
       "score_threshold": 0.3,
       "nms_threshold": 0.4
     },
@@ -1239,7 +1235,6 @@
     "input_width": 640,
     "input_height": 640,
     "config": {
-      "obj_threshold": 0.25,
       "score_threshold": 0.25,
       "nms_threshold": 0.45
     },
@@ -1256,7 +1251,6 @@
     "input_width": 640,
     "input_height": 640,
     "config": {
-      "obj_threshold": 0.25,
       "score_threshold": 0.25,
       "nms_threshold": 0.45
     },
@@ -2077,6 +2071,19 @@
     "postprocessor": "zero_dce",
     "input_width": 224,
     "input_height": 224,
+    "config": {},
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "efficientnetv2s",
+    "dxnn_file": "EfficientNetV2S.dxnn",
+    "original_name": "EfficientNetV2S",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 224,
+    "input_height": 224,
     "config": {
       "top_k": 5
     },
@@ -2084,25 +2091,19 @@
     "supported": true
   },
   {
-    "model_name": "efficientnetv2s",
-    "dxnn_file": "EfficientNetV2S.dxnn",
-    "add_model_task": "classification",
-    "postprocessor": "efficientnet",
-    "config": {
-      "top_k": 5
-    },
-    "supported": true
-  },
-  {
     "model_name": "yolov8s_seg",
     "dxnn_file": "yolov8s_seg.dxnn",
+    "original_name": "yolov8s_seg",
+    "csv_task": "SEG",
     "add_model_task": "instance_segmentation",
     "postprocessor": "yolov8seg",
+    "input_width": 640,
+    "input_height": 640,
     "config": {
-      "obj_threshold": 0.25,
       "score_threshold": 0.25,
       "nms_threshold": 0.45
     },
+    "source": "csv",
     "supported": true
   },
   {
@@ -2127,9 +2128,7 @@
     "postprocessor": "arcface",
     "input_width": 224,
     "input_height": 224,
-    "config": {
-      "top_k": 5
-    },
+    "config": {},
     "source": "csv",
     "supported": true
   },
@@ -2181,9 +2180,7 @@
     "postprocessor": "arcface",
     "input_width": 0,
     "input_height": 0,
-    "config": {
-      "top_k": 5
-    },
+    "config": {},
     "source": "auto_classify",
     "supported": true
   },
@@ -2196,9 +2193,7 @@
     "postprocessor": "arcface",
     "input_width": 0,
     "input_height": 0,
-    "config": {
-      "top_k": 5
-    },
+    "config": {},
     "source": "auto_classify",
     "supported": true
   },
@@ -2211,9 +2206,7 @@
     "postprocessor": "arcface",
     "input_width": 0,
     "input_height": 0,
-    "config": {
-      "top_k": 5
-    },
+    "config": {},
     "source": "auto_classify",
     "supported": true
   },
@@ -2410,8 +2403,7 @@
     "config": {},
     "source": "auto_classify",
     "supported": false,
-    "failure_reason": "DMA write failure - device cannot handle 512x512x3 input buffer (errno=-70)",
-    "known_issue": "Device firmware DMA limit. Factory corrected to use color preprocessor. Awaiting firmware fix."
+    "failure_reason": "Not supported on the current device configuration"
   },
   {
     "model_name": "dncnn_gray_blind",
@@ -3357,8 +3349,7 @@
     "input_width": 0,
     "input_height": 0,
     "config": {
-      "score_threshold": 0.4,
-      "nms_threshold": 0.45
+      "score_threshold": 0.3
     },
     "source": "auto_classify",
     "supported": true
@@ -3420,8 +3411,7 @@
     "input_width": 0,
     "input_height": 0,
     "config": {
-      "score_threshold": 0.4,
-      "nms_threshold": 0.45
+      "score_threshold": 0.3
     },
     "source": "auto_classify",
     "supported": true
@@ -3530,8 +3520,7 @@
     "input_width": 0,
     "input_height": 0,
     "config": {
-      "score_threshold": 0.4,
-      "nms_threshold": 0.45
+      "score_threshold": 0.3
     },
     "source": "auto_classify",
     "supported": true
@@ -3593,8 +3582,7 @@
     "input_width": 0,
     "input_height": 0,
     "config": {
-      "score_threshold": 0.4,
-      "nms_threshold": 0.45
+      "score_threshold": 0.3
     },
     "source": "auto_classify",
     "supported": true

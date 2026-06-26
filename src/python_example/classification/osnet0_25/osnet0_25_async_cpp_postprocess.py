@@ -23,10 +23,7 @@ if os.name == 'nt':
     if _dxrt_dir:
         os.add_dll_directory(os.path.join(_dxrt_dir, 'bin'))
 
-try:
-    from dx_postprocess import ClassificationPostProcess
-except (ImportError, AttributeError):
-    from common.processors.cpp_compat import ClassificationPostProcess
+from dx_postprocess import ClassificationPostProcess
 from common.utility import convert_cpp_classification
 from factory import Osnet0_25Factory
 from common.runner import AsyncRunner, parse_common_args

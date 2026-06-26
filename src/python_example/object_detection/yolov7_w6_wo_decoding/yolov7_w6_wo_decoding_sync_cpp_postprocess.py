@@ -23,16 +23,33 @@ if os.name == 'nt':
     if _dxrt_dir:
         os.add_dll_directory(os.path.join(_dxrt_dir, 'bin'))
 
+from dx_postprocess import YOLOv5PostProcess
+from dx_engine import InferenceOption
+from common.utility import convert_cpp_detections
 from factory import Yolov7_w6_wo_decodingFactory
+from factory.yolov7_w6_wo_decoding_factory import YOLOV7_W6_ANCHORS
 from common.runner import SyncRunner, parse_common_args
 
 def parse_args():
-    return parse_common_args("YOLOv7 Sync Inference")
+    return parse_common_args("YOLOv7-W6 Sync Inference (C++ Postprocess)")
 def main():
     args = parse_args()
     factory = Yolov7_w6_wo_decodingFactory()
 
-    runner = SyncRunner(factory)
+    def on_engine_init(runner):
+        use_ort = InferenceOption().get_use_ort()
+        config = runner.factory.config
+        obj_thr = config.get("obj_threshold", 0.25)
+        conf_thr = config.get("conf_threshold", config.get("score_threshold", 0.3))
+        nms_thr = config.get("nms_threshold", 0.45)
+        post = YOLOv5PostProcess(
+            runner.input_width, runner.input_height, obj_thr, conf_thr, nms_thr, use_ort)
+        post.set_anchors({int(s): [(int(a[0]), int(a[1])) for a in al]
+                          for s, al in YOLOV7_W6_ANCHORS.items()})
+        runner._cpp_postprocessor = post
+        runner._cpp_convert_fn = convert_cpp_detections
+
+    runner = SyncRunner(factory, on_engine_init=on_engine_init)
     runner.run(args)
 
 if __name__ == "__main__":

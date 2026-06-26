@@ -206,7 +206,7 @@ def main():
                 detector_path = str(candidate)
                 break
     if detector_path is None:
-        print("[ERROR] No SCRFD detector model found. Use --detector to specify.")
+        print("[DXAPP] [ERROR] No SCRFD detector model found. Use --detector to specify.")
         sys.exit(1)
 
     print(f"\n{'='*55}")
@@ -236,12 +236,12 @@ def main():
     # Process image 1
     img1 = cv2.imread(args.image1)
     if img1 is None:
-        print(f"[ERROR] Cannot read image: {args.image1}")
+        print(f"[DXAPP] [ERROR] Cannot read image: {args.image1}")
         sys.exit(1)
 
     lmk1 = detect_face_landmarks(det_ie, scrfd_post, img1)
     if lmk1 is None:
-        print(f"[ERROR] No face detected in: {args.image1}")
+        print(f"[DXAPP] [ERROR] No face detected in: {args.image1}")
         sys.exit(1)
 
     aligned1 = align_face(img1, lmk1, output_size=112)
@@ -251,12 +251,12 @@ def main():
     # Process image 2
     img2 = cv2.imread(args.image2)
     if img2 is None:
-        print(f"[ERROR] Cannot read image: {args.image2}")
+        print(f"[DXAPP] [ERROR] Cannot read image: {args.image2}")
         sys.exit(1)
 
     lmk2 = detect_face_landmarks(det_ie, scrfd_post, img2)
     if lmk2 is None:
-        print(f"[ERROR] No face detected in: {args.image2}")
+        print(f"[DXAPP] [ERROR] No face detected in: {args.image2}")
         sys.exit(1)
 
     aligned2 = align_face(img2, lmk2, output_size=112)
@@ -280,7 +280,7 @@ def main():
             img1, img2, aligned1, aligned2, sim,
             Path(args.image1).stem, Path(args.image2).stem)
         cv2.imshow("Embedding Comparison", canvas)
-        print("[INFO] Press any key to close...")
+        print("[DXAPP] [INFO] Press any key to close...")
         cv2.waitKey(0)
         cv2.destroyAllWindows()
 

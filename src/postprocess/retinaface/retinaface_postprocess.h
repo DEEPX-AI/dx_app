@@ -4,6 +4,7 @@
 #include <dxrt/dxrt_api.h>
 
 #include <array>
+#include <cmath>
 #include <string>
 #include <vector>
 

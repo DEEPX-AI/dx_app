@@ -41,9 +41,9 @@ DEFAULT_INTERNAL_PATH = Path("/mnt/regression_storage/atd/models_v3.1.0")
 # ANSI colors
 _G = "\033[92m"; _Y = "\033[93m"; _R = "\033[91m"; _C = "\033[96m"; _RST = "\033[0m"
 
-def info(msg):  print(f"{_G}[INFO]{_RST}  {msg}", flush=True)
-def warn(msg):  print(f"{_Y}[WARN]{_RST}  {msg}", flush=True)
-def error(msg): print(f"{_R}[ERR ]{_RST}  {msg}", file=sys.stderr, flush=True)
+def info(msg):  print(f"{_G}[DXAPP] [INFO]{_RST}  {msg}", flush=True)
+def warn(msg):  print(f"{_Y}[DXAPP] [WARN]{_RST}  {msg}", flush=True)
+def error(msg): print(f"{_R}[DXAPP] [ERROR]{_RST} {msg}", file=sys.stderr, flush=True)
 def head(msg):  print(f"{_C}{msg}{_RST}", flush=True)
 
 
@@ -67,6 +67,17 @@ def load_manifest(manifest_path: Path) -> list[dict]:
     info(f"Loaded manifest: {manifest_path.name} ({len(data)} models)")
     return data
 
+
+def get_run_demo_model_filenames() -> set[str]:
+    """Return the .dxnn filenames required by run_demo.py."""
+    try:
+        from run_demo import DEMOS, D_MODEL
+    except Exception as exc:
+        error("Failed to load run_demo model registry.")
+        error(str(exc))
+        raise SystemExit(1) from exc
+
+    return {demo[D_MODEL] for demo in DEMOS}
 
 
 # ── Interactive Selection ─────────────────────────────────────────────────────────
@@ -407,6 +418,8 @@ examples:
     dl.add_argument("--models",   type=str, default=None, nargs="+", metavar="MODEL",
                     help="whitelist: download only the specified model name(s) "
                          "(e.g. --models YoloV8N ResNet50). Case-insensitive.")
+    dl.add_argument("--demo-models", action="store_true",
+                    help="download only models required by run_demo.py/run_demo.bat")
 
     misc = parser.add_argument_group("misc")
     misc.add_argument("--list",    action="store_true", help="list available models without downloading")
@@ -430,8 +443,8 @@ def _setup_session():
     try:
         import requests as _requests
     except ImportError as exc:
-        print("[ERR ] Missing dependency: requests", file=sys.stderr, flush=True)
-        print("[ERR ] Install it with: python3 -m pip install requests", file=sys.stderr, flush=True)
+        print("[DXAPP] [ERROR] Missing dependency: requests", file=sys.stderr, flush=True)
+        print("[DXAPP] [ERROR] Install it with: python3 -m pip install requests", file=sys.stderr, flush=True)
         raise SystemExit(1) from exc
     session = _requests.Session()
     session.headers.update({"User-Agent": "DEEPX-ModelZoo-Downloader/1.0"})
@@ -440,6 +453,10 @@ def _setup_session():
 
 def _apply_filters(models: list[dict], args) -> list[dict]:
     """Apply category and model whitelist filters from CLI args."""
+    if args.demo_models and (args.models or args.category or args.all):
+        error("Use only one of --demo-models, --models, --category, or --all.")
+        raise SystemExit(1)
+
     if args.category:
         models = [m for m in models if args.category.lower() in m["category"].lower()]
         info(f"Category filter '{args.category}': {len(models)} model(s)")
@@ -451,6 +468,17 @@ def _apply_filters(models: list[dict], args) -> list[dict]:
         if missing:
             warn(f"Model(s) not found in page: {', '.join(missing)}")
         info(f"Model whitelist: {len(models)} model(s) selected")
+    if args.demo_models:
+        demo_filenames = get_run_demo_model_filenames()
+        models = [
+            m for m in models
+            if Path(urlparse(m["dxnn_url"]).path).name in demo_filenames
+        ]
+        matched = {Path(urlparse(m["dxnn_url"]).path).name for m in models}
+        missing = sorted(demo_filenames - matched)
+        if missing:
+            warn(f"Run demo model file(s) not found in manifest: {', '.join(missing)}")
+        info(f"Run demo model filter: {len(models)} model(s) selected")
     return models
 
 
@@ -529,14 +557,21 @@ def main():
     models = load_manifest(manifest_path)
     models = _apply_filters(models, args)
 
-    if not args.all and not args.category and not args.models and not args.dry_run and not args.list:
+    if (
+        not args.all
+        and not args.category
+        and not args.models
+        and not args.demo_models
+        and not args.dry_run
+        and not args.list
+    ):
         models = interactive_select(models, output_dir)
 
     if args.save_manifest:
         Path(args.save_manifest).write_text(json.dumps(models, indent=2, ensure_ascii=False))
         info(f"Manifest saved: {args.save_manifest} ({len(models)} models)")
 
-    if args.category or args.models or args.dry_run or args.list:
+    if args.category or args.models or args.demo_models or args.dry_run or args.list:
         _print_filtered_model_list(models, output_dir)
 
     if args.dry_run or args.list:

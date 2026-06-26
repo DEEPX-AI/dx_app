@@ -77,6 +77,45 @@ def _pick_representative(cases: list, max_count: int = 3) -> list:
     return selected
 
 
+# ======================================================================
+# Task-specific save verification cases
+# ======================================================================
+# 각 태스크(depth, face, hand, obb, pose, seg, semantic_seg)별 대표 모델
+TASK_SAVE_CASES: List[tuple] = []
+
+_TASK_EXE_IMAGE_MAP = {
+    "detection":    ("yolov5s_sync",                "sample/img/sample_dog.jpg"),
+    "depth":        ("fastdepth_1_sync",            "sample/img/sample_kitchen.jpg"),
+    "face":         ("yolov7s_face_sync",           "sample/img/sample_face.jpg"),
+    "hand":         ("handlandmarklite_1_sync",     "sample/img/sample_hand.jpg"),
+    "obb":          ("yolo26s_obb_sync",            "sample/dota8_test/P0177.png"),
+    "pose":         ("yolov8m_pose_sync",           "sample/img/sample_people.jpg"),
+    "seg":          ("yolov5s_seg_sync",            "sample/img/sample_street.jpg"),
+    "semantic_seg": ("segformer_b0_512x1024_sync",  "sample/img/sample_street.jpg"),
+}
+
+for _task, (_exe_name, _img_rel) in _TASK_EXE_IMAGE_MAP.items():
+    _exe_path = BIN_DIR / _exe_name
+    _img_path = PROJECT_ROOT / _img_rel
+    if _exe_path.exists():
+        # model 파일 자동 매칭: exe_name에서 _sync 제거 후 models에서 탐색
+        _model_stem = _exe_name.replace("_sync", "")
+        _model_candidates = list(MODELS_DIR.glob("*.dxnn"))
+        _model_path = None
+        for _mp in _model_candidates:
+            if _mp.stem.lower().replace(".", "_").replace("-", "_") == _model_stem:
+                _model_path = _mp
+                break
+        if _model_path:
+            TASK_SAVE_CASES.append((_task, _exe_name, _model_path, _img_path))
+
+TASK_SAVE_PARAMS = [
+    pytest.param(task, exe, mp, img, id=f"{task}_{exe}",
+                 marks=pytest.mark.sync_exec)
+    for task, exe, mp, img in TASK_SAVE_CASES
+]
+
+
 SYNC_CASES = discover_sync_cases()
 REPRESENTATIVE_CASES = _pick_representative(SYNC_CASES)
 SAVE_PARAMS = [
@@ -232,6 +271,128 @@ class TestSaveMode:
         print(f"\n  Representative cases: {len(REPRESENTATIVE_CASES)}")
         for name, _ in REPRESENTATIVE_CASES:
             print(f"    - {name}")
+
+
+# ======================================================================
+# Task-specific output file verification tests
+# ======================================================================
+@pytest.mark.save_mode
+class TestSaveOutputFiles:
+    """Verify that --save actually produces image/video output files (jpg/png/mp4/avi)."""
+
+    @pytest.mark.parametrize("task,executable,model_path,image_path", TASK_SAVE_PARAMS)
+    def test_image_save_produces_output_file(
+        self, task, executable, model_path, image_path, tmp_path
+    ):
+        """Run with --save on image input, verify output image file (jpg/png) is produced."""
+        exe_path = BIN_DIR / executable
+        if not exe_path.exists():
+            pytest.skip(f"Binary not found: {executable}")
+        if not image_path.exists():
+            pytest.skip(f"Test image not found: {image_path}")
+
+        save_dir = tmp_path / f"save_{task}_img"
+        cmd = [
+            str(exe_path),
+            "-m", str(model_path),
+            "-i", str(image_path),
+            "--no-display",
+            "-l", "1",
+            "--save",
+            "--save-dir", str(save_dir),
+        ]
+
+        env = setup_environment()
+        result = subprocess.run(
+            cmd, capture_output=True, text=True, timeout=120,
+            env=env, cwd=str(PROJECT_ROOT),
+        )
+
+        assert result.returncode == 0, (
+            f"[{task}] {executable} failed (rc={result.returncode})\n"
+            f"STDERR: {result.stderr[-500:]}"
+        )
+
+        # save_dir가 생성되었는지
+        assert save_dir.exists(), f"[{task}] save_dir not created: {save_dir}"
+
+        # 실제 이미지 출력 파일 (jpg/png) 검증
+        image_outputs = (
+            list(save_dir.rglob("*.jpg"))
+            + list(save_dir.rglob("*.jpeg"))
+            + list(save_dir.rglob("*.png"))
+        )
+        assert len(image_outputs) >= 1, (
+            f"[{task}] No output image file (jpg/png) found under {save_dir}\n"
+            f"All files: {[str(f.relative_to(save_dir)) for f in save_dir.rglob('*') if f.is_file()]}"
+        )
+
+        # 파일 크기 > 0 확인
+        for img_file in image_outputs:
+            assert img_file.stat().st_size > 0, (
+                f"[{task}] Output image is empty (0 bytes): {img_file.name}"
+            )
+            print(f"  [{task}] saved: {img_file.name} ({img_file.stat().st_size} bytes)")
+
+    @pytest.mark.parametrize("task,executable,model_path,image_path", TASK_SAVE_PARAMS)
+    def test_video_save_produces_output_file(
+        self, task, executable, model_path, image_path, tmp_path
+    ):
+        """Run with --save on video input, verify output video file (mp4/avi) is produced."""
+        exe_path = BIN_DIR / executable
+        if not exe_path.exists():
+            pytest.skip(f"Binary not found: {executable}")
+        if not TEST_VIDEO.exists():
+            pytest.skip(f"Test video not found: {TEST_VIDEO}")
+
+        save_dir = tmp_path / f"save_{task}_video"
+        cmd = [
+            str(exe_path),
+            "-m", str(model_path),
+            "-v", str(TEST_VIDEO),
+            "--no-display",
+            "--save",
+            "--save-dir", str(save_dir),
+        ]
+
+        env = setup_environment()
+        result = subprocess.run(
+            cmd, capture_output=True, text=True, timeout=600,
+            env=env, cwd=str(PROJECT_ROOT),
+        )
+
+        assert result.returncode == 0, (
+            f"[{task}] {executable} video save failed (rc={result.returncode})\n"
+            f"STDERR: {result.stderr[-500:]}"
+        )
+
+        # 실제 비디오 출력 파일 (mp4/avi/mov) 검증
+        video_outputs = (
+            list(save_dir.rglob("*.mp4"))
+            + list(save_dir.rglob("*.avi"))
+            + list(save_dir.rglob("*.mov"))
+        )
+        assert len(video_outputs) >= 1, (
+            f"[{task}] No output video file (mp4/avi/mov) found under {save_dir}\n"
+            f"All files: {[str(f.relative_to(save_dir)) for f in save_dir.rglob('*') if f.is_file()]}"
+        )
+
+        # 파일 크기 > 0 확인
+        for vid_file in video_outputs:
+            assert vid_file.stat().st_size > 0, (
+                f"[{task}] Output video is empty (0 bytes): {vid_file.name}"
+            )
+            print(f"  [{task}] saved: {vid_file.name} ({vid_file.stat().st_size} bytes)")
+
+    def test_task_coverage(self):
+        """Sanity: verify which tasks are covered by save output tests."""
+        expected_tasks = {"detection", "depth", "face", "hand", "obb", "pose", "seg", "semantic_seg"}
+        covered_tasks = {task for task, _, _, _ in TASK_SAVE_CASES}
+        missing = expected_tasks - covered_tasks
+        if missing:
+            print(f"\n  WARNING: Missing task coverage (binary/model not found): {missing}")
+        print(f"\n  Covered tasks: {sorted(covered_tasks)}")
+        assert len(covered_tasks) >= 1, "No task-specific save tests could be configured"
 
 
 if __name__ == "__main__":

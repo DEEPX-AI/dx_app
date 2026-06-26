@@ -23,6 +23,8 @@ if os.name == 'nt':
     if _dxrt_dir:
         os.add_dll_directory(os.path.join(_dxrt_dir, 'bin'))
 
+from dx_postprocess import YOLOv8PPUPostProcess
+from common.utility import convert_cpp_detections
 from factory import Yolov12nPpuFactory
 from common.runner import SyncRunner, parse_common_args
 
@@ -32,7 +34,15 @@ def main():
     args = parse_args()
     factory = Yolov12nPpuFactory()
 
-    runner = SyncRunner(factory)
+    def on_engine_init(runner):
+        config = runner.factory.config
+        score_thr = config.get("conf_threshold", config.get("score_threshold", 0.4))
+        nms_thr = config.get("nms_threshold", 0.5)
+        runner._cpp_postprocessor = YOLOv8PPUPostProcess(
+            runner.input_width, runner.input_height, score_thr, nms_thr)
+        runner._cpp_convert_fn = convert_cpp_detections
+
+    runner = SyncRunner(factory, on_engine_init=on_engine_init)
     runner.run(args)
 
 if __name__ == "__main__":

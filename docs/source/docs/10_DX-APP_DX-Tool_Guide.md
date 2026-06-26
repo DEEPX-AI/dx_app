@@ -21,15 +21,14 @@ Related helper scripts:
 
 - `./scripts/add_model.sh`  
 - `./scripts/extract_model_package.sh`  
+- `./scripts/extract_sln_package.bat`  
 - `./scripts/validate_models.sh`  
-- `./scripts/verify_inference_output.py`  
 - `./scripts/run_examples.sh`  
 - `./scripts/bench_models.sh`  
 
 Key data files:  
 
 - `./config/model_registry.json` — model registry, single source of truth  
-- `./scripts/inference_verify_rules.json` — numerical verification thresholds per task  
 
 **When to Use `dx_tool.sh`**
 
@@ -163,26 +162,11 @@ In both cases, validate the result and then update the related test registration
 
 This runs code generation + NPU inference for all supported models.  
 
-**Numerical verification**  
-
-```bash
-./scripts/validate_models.sh --numerical --lang py
-```
-
-This additionally verifies that inference outputs are numerically correct:  
-
-- (1) **Inference** — runs each model through NPU  
-- (2) **Serialization** — `common/runner/verify_serialize.py` converts results to JSON  
-- (3) **Validation** — `scripts/verify_inference_output.py` checks results against `scripts/inference_verify_rules.json`  
-
-Verification covers 17 task types: bounding boxes, confidence ranges, class IDs, keypoints, segmentation masks, depth maps, embeddings, attributes, re-identification, face alignment, etc.
-
 **`validate_models.sh` options**
 
 | Option | Purpose |
 |--------|---------|
 | `--lang cpp\|py\|both` | Language filter |
-| `--numerical` | Enable output verification |
 | `--skip-verify` | Code generation only (no inference) |
 | `--no-video` | Image-only mode |
 | `--list` | Print commands without executing |
@@ -228,6 +212,8 @@ The add flow is intended for contributors creating a new example under the curre
 
 You can also invoke `add_model.sh` directly for non-interactive usage:  
 
+For YOLO-family model onboarding and postprocessor selection details, refer to [DX-APP YOLO Customizing Guide](12_DX-APP_YOLO_Customizing_Guide.md).
+
 ```bash
 # Create from a postprocessor template
 ./scripts/add_model.sh yolov30 detection --postprocessor yolov8
@@ -238,6 +224,18 @@ You can also invoke `add_model.sh` directly for non-interactive usage:
 # Generate, verify, and push in one step
 ./scripts/add_model.sh yolov30 detection --postprocessor yolov8 --verify --model assets/models/YoloV30.dxnn --git-push
 ```
+
+Common `--postprocessor` values include:
+
+| Task | Common values |
+|------|---------------|
+| Object detection | `yolov5`, `yolov7`, `yolov8`, `yolov9`, `yolov10`, `yolov11`, `yolov12`, `yolov26`, `yolox`, `damoyolo`, `nanodet`, `ssd` |
+| Semantic segmentation | `deeplabv3`, `bisenetv1`, `bisenetv2`, `segformer`, `fast_segmentation` |
+| Instance segmentation | `yolov5seg`, `yolov8seg`, `yolov26seg` |
+| Pose estimation | `yolov5pose`, `yolov8pose`, `yolov26pose` |
+| Face detection | `scrfd`, `yolov5face`, `yolov7face` |
+
+Use `fast_segmentation` for generic semantic-segmentation models that output low-resolution logits or class maps and should use the `FastSegmentationPostprocessor` fast path.
 
 Key `add_model.sh` options
 
@@ -278,6 +276,55 @@ After generation, verify that the new example is correctly integrated and runs w
 ```
 
 Use this when you need to convert an external model package into the repository layout used by DX-APP.  
+
+**2-1. Extract a Visual Studio solution package on Windows**
+
+Use `extract_sln_package.bat` when you want to extract a single C++ example into a Visual Studio/CMake package that can be opened or built outside the full DX-APP solution.
+
+```powershell
+.\scripts\extract_sln_package.bat classification/resnet50 --output-dir out_resnet50
+```
+
+The output is created under:
+
+```text
+out_resnet50\sln\classification\resnet50\
+```
+
+If CMake and the Visual Studio 2022 generator are available, the extractor also configures the package immediately and generates a solution file:
+
+```text
+out_resnet50\sln\classification\resnet50\build\dxapp_resnet50_sln_package.sln
+```
+
+The package includes the selected model sources, shared C++ example helpers, `CMakeLists.txt`, `build.bat`, and generated dependency defaults. To build it directly:
+
+```powershell
+cd .\out_resnet50\sln\classification\resnet50
+.\build.bat
+```
+
+OpenCV and DXRT paths are configured through CMake. The extractor writes the dependency defaults it can detect at extraction time to:
+
+```text
+cmake\dxapp_package_deps.cmake
+cmake\dxapp_package_deps.bat
+```
+
+In the usual local developer environment, users should not need to edit Visual Studio property pages manually. If the package is moved to another PC or dependency paths change, set one of these variables before running `build.bat`, or edit `cmake\dxapp_package_deps.cmake`:
+
+| Variable | Purpose |
+|---|---|
+| `DXRT_DIR` | DXRT SDK root |
+| `DXRT_INSTALLED_DIR` | DXRT install root used for `include`, `lib`, and `bin` |
+| `OpenCV_DIR` | OpenCV CMake package directory |
+| `VCPKG_INSTALLED_DIR` | vcpkg installed tree used for runtime DLL lookup |
+
+To create only the package skeleton without configuring CMake or generating `.sln` files:
+
+```powershell
+.\scripts\extract_sln_package.bat classification/resnet50 --output-dir out_resnet50 --no-generate-sln
+```
 
 
 ### Step 3. Repository Maintenance
@@ -386,8 +433,6 @@ scripts/run_examples.sh
 - `scripts/dx_tool.sh`
 - `scripts/add_model.sh`
 - `scripts/validate_models.sh`
-- `scripts/verify_inference_output.py`
-- `scripts/inference_verify_rules.json`
 - `scripts/run_examples.sh`
 - `scripts/bench_models.sh`
 - `config/model_registry.json`

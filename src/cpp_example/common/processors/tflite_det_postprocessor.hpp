@@ -27,10 +27,11 @@ class TFLiteDetPostprocessor : public IPostprocessor<DetectionResult> {
 public:
     TFLiteDetPostprocessor(int input_width = 300, int input_height = 300,
                            float score_threshold = 0.3f,
-                           bool one_based_class_ids = true)
+                           bool one_based_class_ids = true,
+                           const std::vector<std::string>& class_names = {})
         : input_width_(input_width), input_height_(input_height),
           score_threshold_(score_threshold),
-          one_based_class_ids_(one_based_class_ids) {}
+          one_based_class_ids_(one_based_class_ids), class_names_(class_names) {}
 
     std::vector<DetectionResult> process(const dxrt::TensorPtrs& outputs,
                                          const PreprocessContext& ctx) override {
@@ -114,7 +115,7 @@ public:
             det.confidence = score;
             int raw_cls = static_cast<int>(classes_data[i]);
             det.class_id = one_based_class_ids_ ? std::max(0, raw_cls - 1) : raw_cls;
-            det.class_name = dxapp::common::get_coco_class_name(det.class_id);
+            det.class_name = dxapp::common::resolve_class_name(det.class_id, class_names_);
             results.push_back(det);
         }
         return results;
@@ -127,6 +128,7 @@ private:
     int input_height_;
     float score_threshold_;
     bool one_based_class_ids_;
+    std::vector<std::string> class_names_;
 };
 
 }  // namespace dxapp

@@ -26,13 +26,26 @@ if os.name == 'nt':
 from factory import Yolov4_leaky_512_512Factory
 from common.runner import AsyncRunner, parse_common_args
 
+from dx_postprocess import YOLOv4PostProcess
+from common.utility import convert_cpp_detections
+from factory import Yolov4_leaky_512_512Factory
+from common.runner import AsyncRunner, parse_common_args
+
 def parse_args():
-    return parse_common_args("YOLOv5n Async Inference")
+    return parse_common_args("YOLOv4-Leaky Async Inference (C++ Postprocess)")
 def main():
     args = parse_args()
     factory = Yolov4_leaky_512_512Factory()
 
-    runner = AsyncRunner(factory)
+    def on_engine_init(runner):
+        config = runner.factory.config
+        conf_thr = config.get("conf_threshold", config.get("score_threshold", 0.3))
+        nms_thr = config.get("nms_threshold", 0.45)
+        runner._cpp_postprocessor = YOLOv4PostProcess(
+            runner.input_width, runner.input_height, conf_thr, nms_thr, 80, True)
+        runner._cpp_convert_fn = convert_cpp_detections
+
+    runner = AsyncRunner(factory, on_engine_init=on_engine_init)
     runner.run(args)
 
 if __name__ == "__main__":

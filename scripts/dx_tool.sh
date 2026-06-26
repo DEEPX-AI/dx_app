@@ -73,24 +73,6 @@ _ok()   { echo -e "${GREEN}${SYM_OK}${NC} $*" >&2; }
 _warn() { echo -e "${YELLOW}${SYM_WARN}${NC} $*" >&2; }
 _err()  { echo -e "${RED}${SYM_FAIL}${NC} $*" >&2; }
 
-# Developer-only password gate (options 1, 6, 7)
-_DEV_PASSWORD="02230301"
-_require_dev_password() {
-    local action="${1:-this action}"
-    local attempts=3
-    while (( attempts-- > 0 )); do
-        local input
-        read -rsp "$(echo -e "${YELLOW}[DEV]${NC} Password required for ${action}: ")" input
-        echo "" >&2
-        if [[ "$input" == "$_DEV_PASSWORD" ]]; then
-            return 0
-        fi
-        _err "Incorrect password. Attempts remaining: ${attempts}"
-    done
-    _err "Access denied."
-    return 1
-}
-
 print_header() {
     local cpp_count py_count
     cpp_count=$(_count_models_fast cpp)
@@ -431,7 +413,7 @@ task_to_postprocessors() {
     case "$1" in
         object_detection)        echo "yolov5 yolov7 yolov8 yolov9 yolov10 yolov11 yolov12 yolov26 yolox ssd nanodet damoyolo centernet" ;;
         classification)          echo "efficientnet" ;;
-        semantic_segmentation)   echo "bisenetv1 bisenetv2 deeplabv3 segformer" ;;
+        semantic_segmentation)   echo "bisenetv1 bisenetv2 deeplabv3 segformer fast_segmentation" ;;
         instance_segmentation)   echo "yolov5seg yolov8seg yolact" ;;
         pose_estimation)         echo "yolov5pose yolov8pose" ;;
         face_detection)          echo "scrfd retinaface yolov5face yolov7face" ;;
@@ -452,7 +434,6 @@ task_to_postprocessors() {
 # 1. Add Model (Interactive)
 # =============================================================================
 do_add_model() {
-    _require_dev_password "Add Model" || return 1
     print_divider "Add New Model"
 
     # Language selection
@@ -910,7 +891,6 @@ except Exception as e:
 # 6. Delete Model
 # =============================================================================
 do_delete_model() {
-    _require_dev_password "Delete Model" || return 1
     local model_query="${1:-}"
     if [[ -z "$model_query" ]]; then
         echo -e "${DIM}Examples: yolov8, object_detection/yolov8, yolov5_custom${NC}" >&2
@@ -1001,7 +981,6 @@ do_delete_model() {
 # 7. New Task Skeleton
 # =============================================================================
 do_new_task() {
-    _require_dev_password "New Task Skeleton" || return 1
     print_divider "Create New Task Skeleton"
     echo -e "${YELLOW}Note: Use this to add an entirely new task type that does not exist yet.${NC}"
     echo -e "      To add a new model to an existing task, use '1. Add Model'.\n"

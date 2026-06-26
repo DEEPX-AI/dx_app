@@ -39,6 +39,7 @@ find_package(pybind11 CONFIG REQUIRED)
 set(INCLUDE_DIRS
     ${INCLUDE_DIRS}
     ${CMAKE_CURRENT_SOURCE_DIR}
+    "${PROJECT_ROOT}/src/postprocess/attribute"
     "${PROJECT_ROOT}/src/postprocess/classification"
     "${PROJECT_ROOT}/src/postprocess/damoyolo"
     "${PROJECT_ROOT}/src/postprocess/deeplabv3"
@@ -56,6 +57,7 @@ set(INCLUDE_DIRS
     "${PROJECT_ROOT}/src/postprocess/scrfd_ppu"
     "${PROJECT_ROOT}/src/postprocess/semantic_seg"
     "${PROJECT_ROOT}/src/postprocess/ssd"
+    "${PROJECT_ROOT}/src/postprocess/yolov4"
     "${PROJECT_ROOT}/src/postprocess/yolov5"
     "${PROJECT_ROOT}/src/postprocess/yolov5_ppu"
     "${PROJECT_ROOT}/src/postprocess/yolov5face"

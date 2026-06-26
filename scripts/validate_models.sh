@@ -14,7 +14,6 @@
 #   ./validate_models.sh --clean --lang py      # Remove Python packages only
 #   ./validate_models.sh --no-video             # Image-only (no video input)
 #   ./validate_models.sh --skip-verify          # Code generation only (no NPU inference)
-#   ./validate_models.sh --numerical            # Run + numerical verification
 # ============================================================================
 set -e
 set -o pipefail
@@ -39,7 +38,6 @@ LIST_ONLY=false
 CLEAN_MODE=false
 NO_VIDEO=false
 SKIP_VERIFY=false
-NUMERICAL=false
 START_FROM=""
 
 while [ $# -gt 0 ]; do
@@ -51,7 +49,6 @@ while [ $# -gt 0 ]; do
         --no-video)     NO_VIDEO=true; shift ;;
         --image-only)   NO_VIDEO=true; shift ;;
         --skip-verify)  SKIP_VERIFY=true; shift ;;
-        --numerical)    NUMERICAL=true; shift ;;
         --help|-h)
             cat << 'HELPEOF'
 validate_models.sh (C++/Python) - Registry-driven model validator
@@ -67,7 +64,6 @@ Usage:
   ./scripts/validate_models.sh --clean --lang py      # Remove Python packages only
   ./scripts/validate_models.sh --no-video             # Image-only (no video input)
   ./scripts/validate_models.sh --skip-verify          # Code generation only (no NPU inference)
-  ./scripts/validate_models.sh --numerical            # Run + numerical verification
   ./scripts/validate_models.sh --start-from MODEL     # Resume from a specific model
   -h, --help                                          # Show this help
 
@@ -94,18 +90,16 @@ esac
 # Check dependencies
 # ============================================================================
 if ! command -v python3 &>/dev/null; then
-    echo -e "${RED}[ERROR] python3 not found${NC}"; exit 1
+    echo -e "${RED}[DXAPP] [ERROR] python3 not found${NC}"; exit 1
 fi
 if [ ! -f "$REGISTRY" ]; then
-    echo -e "${RED}[ERROR] Registry not found: $REGISTRY${NC}"; exit 1
+    echo -e "${RED}[DXAPP] [ERROR] Registry not found: $REGISTRY${NC}"; exit 1
 fi
 
 TOTAL=0; PASS=0; FAIL=0; SKIP=0
 CONFIG_WARN=0
-NUM_PASS=0; NUM_FAIL=0; NUM_WARN=0; NUM_SKIP=0
 FAILED_MODELS=()
 RMAP_FAILED_MODELS=()
-NUM_FAILED_MODELS=()
 CONFIG_WARNINGS=()
 
 # For cleanup
@@ -120,7 +114,6 @@ CURRENT_SRC_DIR=""
 TIMESTAMP=$(date '+%Y%m%d_%H%M%S')
 LANG_TAG=$(echo "$LANG_MODE" | tr '[:upper:]' '[:lower:]')
 VERIFY_TAG=$( [ "$SKIP_VERIFY" = true ] && echo "_noverify" || echo "" )
-if [ "$NUMERICAL" = true ]; then VERIFY_TAG="${VERIFY_TAG}_numerical"; fi
 LOG_DIR="$DX_APP_ROOT/logs/validate_${LANG_TAG}${VERIFY_TAG}_${TIMESTAMP}"
 SUMMARY_LOG="$LOG_DIR/summary.log"
 LIVE_LOG="$LOG_DIR/live_progress.log"
@@ -326,53 +319,13 @@ run_add_model() {
         verify_flags="--verify ${NO_VIDEO:+--no-video}"
     fi
 
-    # Set DXAPP_VERIFY=1 for numerical verification (Python only)
-    local _env_prefix=""
-    if [ "$NUMERICAL" = true ] && [ "$CURRENT_LANG" = "py" ] && [ "$SKIP_VERIFY" = false ]; then
-        local verify_dir="$LOG_DIR/verify"
-        mkdir -p "$verify_dir"
-        _env_prefix="DXAPP_VERIFY=1 DXAPP_VERIFY_DIR=$verify_dir"
-    fi
-
-    if env ${_env_prefix} "$SCRIPT_DIR/add_model.sh" "$name" "$task" --lang "$CURRENT_LANG" \
+    if "$SCRIPT_DIR/add_model.sh" "$name" "$task" --lang "$CURRENT_LANG" \
         --postprocessor "$pp" $verify_flags --model "$model_path" 2>&1 \
         | tee "$model_log"; then
         echo -e "${GREEN}[PASS]${NC} $name ($CURRENT_LANG)"
         log_live "[PASS] $name ($CURRENT_LANG)"
         echo "PASS" >> "$model_log"
         PASS=$((PASS + 1))
-
-        # --- Numerical verification ---
-        if [ "$NUMERICAL" = true ] && [ "$CURRENT_LANG" = "py" ] && [ "$SKIP_VERIFY" = false ]; then
-            local verify_json="$verify_dir/$(python3 -c "import os; print(os.path.splitext(os.path.basename('$model_path'))[0])").json"
-            if [ -f "$verify_json" ]; then
-                local num_result num_rc
-                set +e
-                num_result=$(python3 "$SCRIPT_DIR/verify_inference_output.py" "$verify_json" \
-                    --rules "$SCRIPT_DIR/inference_verify_rules.json" 2>&1)
-                num_rc=$?
-                set -e
-                echo "$num_result"
-                if [ $num_rc -eq 0 ]; then
-                    echo -e "  ${GREEN}[NUMERICAL PASS]${NC} $name"
-                    log_live "  [NUMERICAL PASS] $name"
-                    NUM_PASS=$((NUM_PASS + 1))
-                elif [ $num_rc -eq 2 ]; then
-                    echo -e "  ${YELLOW}[NUMERICAL WARN]${NC} $name"
-                    log_live "  [NUMERICAL WARN] $name"
-                    NUM_WARN=$((NUM_WARN + 1))
-                else
-                    echo -e "  ${RED}[NUMERICAL FAIL]${NC} $name"
-                    log_live "  [NUMERICAL FAIL] $name"
-                    NUM_FAIL=$((NUM_FAIL + 1))
-                    NUM_FAILED_MODELS+=("$name")
-                fi
-            else
-                echo -e "  ${YELLOW}[NUMERICAL SKIP]${NC} No verify JSON: $verify_json"
-                log_live "  [NUMERICAL SKIP] No verify JSON"
-                NUM_SKIP=$((NUM_SKIP + 1))
-            fi
-        fi
 
         validate_config "$name" "$category"
     else
@@ -662,9 +615,6 @@ if [ "$LIST_ONLY" = false ] && [ "$CLEAN_MODE" = false ]; then
     echo -e "${CYAN}═══════════════════════════════════════════════════════════${NC}"
     echo -e "  Registry: ${REGISTRY_TOTAL} models  |  Filter: ${FILTER}"
     echo -e "  Total: ${TOTAL}  ${GREEN}PASS: ${PASS}${NC}  ${RED}FAIL: ${FAIL}${NC}  ${YELLOW}SKIP: ${SKIP}${NC}  ${YELLOW}CONFIG_WARN: ${CONFIG_WARN}${NC}"
-    if [ "$NUMERICAL" = true ]; then
-        echo -e "  Numerical: ${GREEN}PASS: ${NUM_PASS}${NC}  ${RED}FAIL: ${NUM_FAIL}${NC}  ${YELLOW}WARN: ${NUM_WARN}${NC}  SKIP: ${NUM_SKIP}"
-    fi
     echo -e "  Finished: $(date '+%Y-%m-%d %H:%M:%S')"
     echo -e "  Log dir: $LOG_DIR"
     echo -e "${CYAN}═══════════════════════════════════════════════════════════${NC}"
@@ -672,12 +622,6 @@ if [ "$LIST_ONLY" = false ] && [ "$CLEAN_MODE" = false ]; then
         rmap_log="$LOG_DIR/rmap_failed_models.txt"
         echo -e "  ${YELLOW}NPU rmap failed models (${#RMAP_FAILED_MODELS[@]}): $rmap_log${NC}"
         printf '%s\n' "${RMAP_FAILED_MODELS[@]}" > "$rmap_log"
-    fi
-    if [ ${#NUM_FAILED_MODELS[@]} -gt 0 ]; then
-        echo -e "  ${RED}Numerical failed models:${NC}"
-        for m in "${NUM_FAILED_MODELS[@]}"; do
-            echo "    - $m"
-        done
     fi
     if [ ${#FAILED_MODELS[@]} -gt 0 ]; then
         echo -e "  ${RED}Failed models:${NC}"
@@ -702,15 +646,6 @@ if [ "$LIST_ONLY" = false ] && [ "$CLEAN_MODE" = false ]; then
         echo "  Filter:  $FILTER"
         echo "  Lang:    $LANG_MODE"
         echo "  Total:   $TOTAL  PASS: $PASS  FAIL: $FAIL  SKIP: $SKIP  CONFIG_WARN: $CONFIG_WARN"
-        if [ "$NUMERICAL" = true ]; then
-            echo "  Numerical: PASS: $NUM_PASS  FAIL: $NUM_FAIL  WARN: $NUM_WARN  SKIP: $NUM_SKIP"
-            if [ ${#NUM_FAILED_MODELS[@]} -gt 0 ]; then
-                echo "  Numerical failed models:"
-                for m in "${NUM_FAILED_MODELS[@]}"; do
-                    echo "    - $m"
-                done
-            fi
-        fi
         if [ ${#RMAP_FAILED_MODELS[@]} -gt 0 ]; then
             echo "  NPU rmap failed models (${#RMAP_FAILED_MODELS[@]}):"
             for m in "${RMAP_FAILED_MODELS[@]}"; do

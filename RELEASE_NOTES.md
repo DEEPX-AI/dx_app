@@ -1,4 +1,27 @@
 # RELEASE_NOTES
+## v3.2.0 / 2026-06-25
+
+### 1. Changed
+- Image-only examples (embedding/reid/attribute) now show an input hint and reject stream inputs instead of exposing unused `--video/--camera/--rtsp` options
+- Detection-family examples expose explicit `config.json` runtime knobs (score/nms/top_k/obj) with output-preserving defaults
+- Standardized DX-APP user-facing message level tags to `[DXAPP] [INFO]`, `[DXAPP] [WARN]`, and `[DXAPP] [ERROR]`.
+
+### 2. Fixed
+- Super-resolution now preserves input resolution by using dynamic tile padding instead of a fixed 20-tile downscale
+- `dx_postprocess` pybind build fixed by adding missing `<cmath>`/`<numeric>` includes
+- Invalid `--image` paths now print a sample-image hint and exit with code 1
+- Fixed `--save` option not producing output image files in C++ sync runners for face, obb, pose, instance segmentation tasks
+
+### 3. Added
+- DEEPX Agent-Driven Development (dx-agent-dev) — Beta.
+Generate standalone Python/C++ inference apps from plain language: an AI agent builds the IFactory-based app (preprocess → infer → postprocess → visualize) against the DEEPX model registry and runs it on the DX-M1 NPU.
+- Native C++ post-processing for the example model zoo (YOLO families, semantic seg, Face3D, embedding/classification/attribute, restoration, YOLO-PPU), replacing Python fallbacks
+- Opt-in `--fast-postprocess` path for object detection and instance segmentation
+- YOLO Customizing Guide documentation
+- Add Windows standalone Visual Studio solution package extraction workflow for DX-APP C++ examples, including automatic  OpenCV/DXRT CMake dependency configuration.
+ -  Add `--demo-models` setup/download option to download only models used by `run_demo.sh` / `run_demo.bat`
+- Add DX-APP build selection options for minimal and category-based builds, plus Windows build selection TUI(Text User Interface).
+
 ## v3.1.1 / 2026-04-21
 
 ### 1. Changed

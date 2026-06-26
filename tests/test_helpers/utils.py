@@ -30,7 +30,7 @@ def normalize_model_name(stem: str) -> str:
 
     ``YoloV5M_6.1`` → ``yolov5m_6_1``
     """
-    return stem.lower().replace(".", "_")
+    return stem.lower().replace(".", "_").replace("-", "_")
 
 
 # ======================================================================
@@ -102,7 +102,8 @@ _SKIP_DIRS = frozenset({"common", "__pycache__"})
 # ======================================================================
 
 def _find_dxnn_for_name(base_name: str) -> Optional[Path]:
-    """Find a .dxnn model matching *base_name* (exact, then prefix).
+    """Find a .dxnn model matching *base_name* (exact, then prefix, then
+    underscore-insensitive).
 
     Prefix match is skipped when a more specific binary exists for that model.
     e.g. yolov7_w6_face.dxnn won't match yolov7_w6 if yolov7_w6_face binary exists.
@@ -116,6 +117,12 @@ def _find_dxnn_for_name(base_name: str) -> Optional[Path]:
             # Skip if a dedicated binary exists for this model
             if (BIN_DIR / f"{mn}_sync").exists() or (BIN_DIR / f"{mn}_async").exists():
                 continue
+            return m
+    # Fallback: compare with underscores stripped (e.g. YoloV7W6 ↔ yolov7_w6)
+    stripped = base_name.replace("_", "")
+    for m in sorted(MODELS_DIR.glob(_DXNN_GLOB)):
+        mn = normalize_model_name(m.stem).replace("_", "")
+        if mn == stripped:
             return m
     return None
 
@@ -240,6 +247,13 @@ def _find_model_for_name(model_name: str) -> Optional[Path]:
 
     for m in sorted(MODELS_DIR.glob(_DXNN_GLOB)):
         if m.stem.lower().replace(".", "_") == norm:
+            return m
+
+    # Fallback: compare with underscores stripped (e.g. YoloV7W6 ↔ yolov7_w6)
+    stripped = norm.replace("_", "")
+    for m in sorted(MODELS_DIR.glob(_DXNN_GLOB)):
+        mn = normalize_model_name(m.stem).replace("_", "")
+        if mn == stripped:
             return m
 
     return None

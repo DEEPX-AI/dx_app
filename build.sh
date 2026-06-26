@@ -13,6 +13,7 @@ fi
 # color env settings
 source ${SCRIPT_DIR}/scripts/color_env.sh
 source ${SCRIPT_DIR}/scripts/common_util.sh
+source ${SCRIPT_DIR}/scripts/build_target_resolver.sh
 
 pushd ${DX_APP_PATH} >&2
 
@@ -28,6 +29,8 @@ help() {
     echo -e "  ${COLOR_GREEN}--arch <ARCH>${COLOR_RESET}  Specify the target CPU architecture. Valid options: [x86_64, aarch64]."
     echo -e "  ${COLOR_GREEN}--target <NAME> [NAME2 ...]${COLOR_RESET} Build only the specified target(s) (e.g., yolov5_sync yolov5_async)."
     echo -e "                            Use '--target list' to show all available targets."
+    echo -e "  ${COLOR_GREEN}--minimal${COLOR_RESET}     Build run_demo C++ sync/async targets only."
+    echo -e "  ${COLOR_GREEN}--category <NAME|list>${COLOR_RESET} Build C++ sync/async targets under a task category."
     echo -e "  ${COLOR_GREEN}--make_so${COLOR_RESET}    Build postprocess shared library for dynamic linking (default: disabled)."
     echo -e "  ${COLOR_GREEN}--coverage${COLOR_RESET}   Enable code coverage reporting (adds --coverage flags)."
     echo -e ""
@@ -41,6 +44,9 @@ help() {
     echo -e "  ${COLOR_YELLOW}$0 --clean --verbose${COLOR_RESET}"
     echo -e "  ${COLOR_YELLOW}$0 --target yolov5_sync --type debug${COLOR_RESET}  # Build only yolov5_sync"
     echo -e "  ${COLOR_YELLOW}$0 --target list${COLOR_RESET}                      # List available targets"
+    echo -e "  ${COLOR_YELLOW}$0 --minimal --type Release${COLOR_RESET}            # Build run_demo C++ targets only"
+    echo -e "  ${COLOR_YELLOW}$0 --category object_detection --type Release${COLOR_RESET}  # Build all C++ targets in a category"
+    echo -e "  ${COLOR_YELLOW}$0 --category list${COLOR_RESET}                     # List available categories"
     echo -e ""
     echo -e "  ${COLOR_YELLOW}$0 --python_exec /usr/local/bin/python3.8${COLOR_RESET}"
     echo -e "  ${COLOR_YELLOW}$0 --venv_path ./venv-dxnn${COLOR_RESET}"
@@ -68,6 +74,58 @@ uninstall_dx_postprocess() {
     fi
 }
 
+install_dx_postprocess_module() {
+    if [ ! -d "src/bindings/python/dx_postprocess" ]; then
+        return 0
+    fi
+
+    echo ""
+    echo -e "${COLOR_CYAN}${COLOR_BOLD}Installing dx_postprocess Python module...${COLOR_RESET}"
+    echo -e "${COLOR_CYAN}  → Python: ${python_exec}${COLOR_RESET}"
+    echo -e "${COLOR_CYAN}  → Build type: ${build_type}${COLOR_RESET}"
+
+    case "${build_type,,}" in
+        "debug")
+            cmake_build_type="Debug"
+            strip_option="false"
+            ;;
+        "release")
+            cmake_build_type="Release"
+            strip_option="true"
+            ;;
+        "relwithdebinfo")
+            cmake_build_type="RelWithDebInfo"
+            strip_option="false"
+            ;;
+        *)
+            cmake_build_type="Release"
+            strip_option="true"
+            ;;
+    esac
+
+    pushd "src/bindings/python/dx_postprocess" >/dev/null 2>&1
+
+    if SKBUILD_CMAKE_ARGS="-DCMAKE_BUILD_TYPE=${cmake_build_type}" \
+       SKBUILD_INSTALL_STRIP="${strip_option}" \
+       PROJECT_ROOT="${DX_APP_PATH}" \
+       ${python_exec} -m pip install . ; then
+        echo -e "${COLOR_GREEN}${COLOR_BOLD}dx_postprocess installation completed successfully!${COLOR_RESET}"
+
+        INSTALL_LOCATION=$(${python_exec} -c "import sys; print(sys.prefix)" 2>/dev/null)
+        if [ $? -eq 0 ]; then
+            echo -e "${COLOR_GREEN}  ✓ Installed to: ${INSTALL_LOCATION}${COLOR_RESET}"
+        fi
+    else
+        echo -e "${COLOR_RED}${COLOR_BOLD}dx_postprocess installation failed!${COLOR_RESET}"
+        echo -e "${TAG_ERROR} Python module installation is required for complete build"
+        popd >/dev/null 2>&1
+        exit 1
+    fi
+
+    popd >/dev/null 2>&1
+    echo ""
+}
+
 # cmake command
 cmd=()
 clean_build=false
@@ -80,6 +138,9 @@ build_with_sharedlib=false
 enable_coverage=false
 build_target=""
 build_targets=()
+build_minimal=false
+build_category=""
+build_selection_count=0
 
 # global variaibles
 python_exec=""
@@ -130,6 +191,17 @@ while (( $# )); do
             done
             build_target="${build_targets[*]}"
             ;;
+        --minimal)
+            build_minimal=true
+            shift;;
+        --category)
+            shift
+            if [[ -z "$1" || "$1" == --* ]]; then
+                echo -e "${TAG_ERROR} --category requires a category name or 'list'." >&2
+                exit 1
+            fi
+            build_category="$1"
+            shift;;
         --v3codec)
             build_with_codec=true;
             shift;;
@@ -138,6 +210,21 @@ while (( $# )); do
             exit 1;;
     esac
 done
+
+# Reject conflicting target selection modes
+[ ${#build_targets[@]} -gt 0 ] && build_selection_count=$((build_selection_count + 1))
+[ "${build_minimal}" = "true" ] && build_selection_count=$((build_selection_count + 1))
+[ -n "${build_category}" ] && build_selection_count=$((build_selection_count + 1))
+if [ "${build_selection_count}" -gt 1 ]; then
+    echo -e "${TAG_ERROR} Use only one of --target, --minimal, or --category." >&2
+    exit 1
+fi
+
+# Handle --category list early (before Python/toolchain/CMake setup)
+if [ "${build_category}" = "list" ]; then
+    dxapp_list_categories
+    exit 0
+fi
 
 # Check if venv_path
 if [ -n "${venv_path}" ]; then
@@ -213,6 +300,23 @@ fi
 
 cmd+=(-DCMAKE_GENERATOR=Ninja)
 
+# Resolve target candidates if --minimal or --category is used
+if [ "${build_minimal}" = "true" ]; then
+    resolved_targets=$(dxapp_resolve_minimal_targets) || exit 1
+    if [ -z "${resolved_targets}" ]; then
+        echo -e "${TAG_ERROR} No build targets resolved." >&2
+        exit 1
+    fi
+    mapfile -t build_targets <<< "${resolved_targets}"
+elif [ -n "${build_category}" ]; then
+    resolved_targets=$(dxapp_resolve_category_targets "${build_category}") || exit 1
+    if [ -z "${resolved_targets}" ]; then
+        echo -e "${TAG_ERROR} No build targets resolved." >&2
+        exit 1
+    fi
+    mapfile -t build_targets <<< "${resolved_targets}"
+fi
+
 build_dir=build_"$target_arch"
 out_dir=bin
 echo cmake args : ${cmd[@]}
@@ -241,12 +345,37 @@ cmake .. ${cmd[@]} || {
 }
 echo -e "${TAG_INFO} Using $BUILD_JOBS parallel jobs (of $NUM_CORES available cores)"
 
+# Filter resolved targets to only existing ones (for --minimal and --category)
+filter_existing_targets() {
+    local requested=("$@")
+    local available
+    local filtered=()
+    mapfile -t available < <(ninja -t targets | sed 's/:.*//' | sort -u)
+    for target in "${requested[@]}"; do
+        if printf '%s\n' "${available[@]}" | grep -Fxq "${target}"; then
+            filtered+=("${target}")
+        else
+            echo -e "${TAG_WARN} Build target not found, skipping: ${target}"
+        fi
+    done
+    if [ ${#filtered[@]} -eq 0 ]; then
+        echo -e "${TAG_ERROR} No build targets resolved." >&2
+        exit 1
+    fi
+    build_targets=("${filtered[@]}")
+}
+
 # Handle --target list option
 if [ "$build_target" == "list" ]; then
     echo -e "${COLOR_CYAN}${COLOR_BOLD}Available build targets:${COLOR_RESET}"
     ninja -t targets | grep -E "^[a-z].*: phony$" | grep -vE "(edit_cache|rebuild_cache|list_install_components|install)" | sed 's/: phony$//' | sort | column
     popd >/dev/null 2>&1
     exit 0
+fi
+
+# Filter targets if using --minimal or --category
+if [ "${build_minimal}" = "true" ] || [ -n "${build_category}" ]; then
+    filter_existing_targets "${build_targets[@]}"
 fi
 
 # Build specific target or all
@@ -277,62 +406,16 @@ fi
 
 # Skip dx_postprocess installation for target builds
 if [ ${#build_targets[@]} -gt 0 ]; then
+    if [ "${build_minimal}" = "true" ]; then
+        install_dx_postprocess_module
+    fi
     echo -e "${TAG_INFO} Target build completed: ${COLOR_GREEN}${build_targets[*]}${COLOR_RESET}"
     echo ""
-    popd >/dev/null 2>&1 2>/dev/null || true
     exit 0
 fi
 
 if [ -e $build_dir/release/bin ]; then
-    # Install dx_postprocess Python module if available
-    if [ -d "src/bindings/python/dx_postprocess" ]; then
-        echo ""
-        echo -e "${COLOR_CYAN}${COLOR_BOLD}Installing dx_postprocess Python module...${COLOR_RESET}"
-        echo -e "${COLOR_CYAN}  → Python: ${python_exec}${COLOR_RESET}"
-        echo -e "${COLOR_CYAN}  → Build type: ${build_type}${COLOR_RESET}"
-        
-        # Set build type for CMake (normalize to CMake format)
-        case "${build_type,,}" in
-            "debug")
-                cmake_build_type="Debug"
-                strip_option="false"
-                ;;
-            "release")
-                cmake_build_type="Release"
-                strip_option="true"
-                ;;
-            "relwithdebinfo")
-                cmake_build_type="RelWithDebInfo"
-                strip_option="false"
-                ;;
-            *)
-                cmake_build_type="Release"
-                strip_option="true"
-                ;;
-        esac
-        
-        pushd "src/bindings/python/dx_postprocess" >/dev/null 2>&1
-        
-        if SKBUILD_CMAKE_ARGS="-DCMAKE_BUILD_TYPE=${cmake_build_type}" \
-           SKBUILD_INSTALL_STRIP="${strip_option}" \
-           PROJECT_ROOT="${DX_APP_PATH}" \
-           ${python_exec} -m pip install . ; then
-            echo -e "${COLOR_GREEN}${COLOR_BOLD}dx_postprocess installation completed successfully!${COLOR_RESET}"
-            
-            INSTALL_LOCATION=$(${python_exec} -c "import sys; print(sys.prefix)" 2>/dev/null)
-            if [ $? -eq 0 ]; then
-                echo -e "${COLOR_GREEN}  ✓ Installed to: ${INSTALL_LOCATION}${COLOR_RESET}"
-            fi
-        else
-            echo -e "${COLOR_RED}${COLOR_BOLD}dx_postprocess installation failed!${COLOR_RESET}"
-            echo -e "${TAG_ERROR} Python module installation is required for complete build"
-            popd >/dev/null 2>&1
-            exit 1
-        fi
-        
-        popd >/dev/null 2>&1
-        echo ""
-    fi
+    install_dx_postprocess_module
 
     echo Build Done. "($build_type)"
     echo =================================================

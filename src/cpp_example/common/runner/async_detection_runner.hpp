@@ -199,7 +199,7 @@ public:
         // Apply default sample image if no input specified
         if (args.imageFilePath.empty() && args.videoFile.empty() && args.cameraIndex < 0 && args.rtspUrl.empty()) {
             args.imageFilePath = dxapp::getDefaultSampleImage(factory_->getTaskType());
-            std::cout << "[INFO] No input specified. Using default sample: " << args.imageFilePath << std::endl;
+            std::cout << "[DXAPP] [INFO] No input specified. Using default sample: " << args.imageFilePath << std::endl;
         }
         validateArguments(args);
 
@@ -229,9 +229,6 @@ public:
 
         // Version compatibility check (matching Legacy)
         if (!dxapp::minversionforRTandCompiler(&ie)) {
-            std::cerr << "[DXAPP] [ER] The version of the compiled model is not "
-                         "compatible with the version of the runtime. Please compile the model again."
-                      << std::endl;
             return -1;
         }
 
@@ -258,8 +255,9 @@ public:
             factory_->createPostprocessor(input_width, input_height, ie.IsOrtConfigured()));
         auto visualizer = factory_->createVisualizer();
 
-        std::cout << "[INFO] Model loaded: " << args.modelPath << std::endl;
-        std::cout << "[INFO] Model input size (WxH): " << input_width << "x" << input_height << std::endl;
+        std::cout << "[DXAPP] [INFO] Task: " << factory_->getTaskType() << std::endl;
+        std::cout << "[DXAPP] [INFO] Model loaded: " << args.modelPath << std::endl;
+        std::cout << "[DXAPP] [INFO] Model input size (WxH): " << input_width << "x" << input_height << std::endl;
         std::cout << std::endl;
 
         // Allocate pre-allocated input buffers (matching Legacy: ASYNC_BUFFER_SIZE buffers)
@@ -291,7 +289,7 @@ public:
         } else {
             // Open video capture
             if (!openVideoCapture(video, args)) {
-                std::cerr << "[ERROR] Failed to open input source." << std::endl;
+                std::cerr << "[DXAPP] [ERROR] Failed to open input source." << std::endl;
                 return -1;
             }
 
@@ -311,14 +309,14 @@ public:
             }
 
             if (args.verbose) {
-                std::cout << "[INFO] Loop count: " << loopTest << std::endl;
-                std::cout << "[INFO] " << source_info << std::endl;
-                std::cout << "[INFO] Input source resolution (WxH): " << frame_width << "x" << frame_height << std::endl;
-                std::cout << "[INFO] Input source FPS: " << std::fixed << std::setprecision(2) << fps << std::endl;
+                std::cout << "[DXAPP] [INFO] Loop count: " << loopTest << std::endl;
+                std::cout << "[DXAPP] [INFO] " << source_info << std::endl;
+                std::cout << "[DXAPP] [INFO] Input source resolution (WxH): " << frame_width << "x" << frame_height << std::endl;
+                std::cout << "[DXAPP] [INFO] Input source FPS: " << std::fixed << std::setprecision(2) << fps << std::endl;
             }
             if (!args.videoFile.empty()) {
                 if (args.verbose) {
-                    std::cout << "[INFO] Total frames: " << total_frames << std::endl;
+                    std::cout << "[DXAPP] [INFO] Total frames: " << total_frames << std::endl;
                 }
             }
             std::cout << std::endl;
@@ -343,13 +341,13 @@ public:
                     cv::Size(SHOW_WINDOW_SIZE_W, SHOW_WINDOW_SIZE_H),
                     video_save_path);
                 if (!writer.isOpened()) {
-                    std::cerr << "[ERROR] Failed to open video writer." << std::endl;
+                    std::cerr << "[DXAPP] [ERROR] Failed to open video writer." << std::endl;
                     return -1;
                 }
             }
         }
 
-        std::cout << "[INFO] Starting async inference..." << std::endl;
+        std::cout << "[DXAPP] [INFO] Starting async inference..." << std::endl;
         if (args.no_display) {
             std::cout << "Processing... Only FPS will be displayed." << std::endl;
         }
@@ -382,11 +380,11 @@ public:
                 // Loop banner
                 if (effective_loop_count > 1 && img_idx == 0 && args.verbose) {
                     std::cout << "\n=================================================" << std::endl;
-                    std::cout << "[INFO] Loop " << (loop_idx + 1) << "/" << effective_loop_count << std::endl;
+                    std::cout << "[DXAPP] [INFO] Loop " << (loop_idx + 1) << "/" << effective_loop_count << std::endl;
                     std::cout << "=================================================" << std::endl;
                 }
                 if (args.verbose) {
-                    std::cout << "\n[INFO] Image " << (img_idx + 1) << "/" << images_per_loop
+                    std::cout << "\n[DXAPP] [INFO] Image " << (img_idx + 1) << "/" << images_per_loop
                           << ": " << fs::path(currentImagePath).filename().string() << std::endl;
                 }
 
@@ -395,13 +393,13 @@ public:
                 auto t_read_end = std::chrono::high_resolution_clock::now();
 
                 if (img.empty()) {
-                    std::cerr << "[ERROR] Failed to read image: " << currentImagePath << std::endl;
+                    std::cerr << "[DXAPP] [ERROR] Failed to read image: " << currentImagePath << std::endl;
                     continue;
                 }
                 if (loop_idx == 0) {
                     if (args.verbose) {
-                        std::cout << "[INFO] Input image: " << currentImagePath << std::endl;
-                        std::cout << "[INFO] Image resolution (WxH): " << img.cols << "x" << img.rows << std::endl;
+                        std::cout << "[DXAPP] [INFO] Input image: " << currentImagePath << std::endl;
+                        std::cout << "[DXAPP] [INFO] Image resolution (WxH): " << img.cols << "x" << img.rows << std::endl;
                     }
                 }
 
@@ -446,7 +444,7 @@ public:
             for (int loop_idx = 0; loop_idx < loopTest && running_ && !g_interrupted(); ++loop_idx) {
                 if (loopTest > 1 && args.verbose) {
                     std::cout << "\n=================================================" << std::endl;
-                    std::cout << "[INFO] Loop " << (loop_idx + 1) << "/" << loopTest << std::endl;
+                    std::cout << "[DXAPP] [INFO] Loop " << (loop_idx + 1) << "/" << loopTest << std::endl;
                     std::cout << "=================================================" << std::endl;
                 }
 
@@ -491,7 +489,7 @@ public:
                 video.release();
                 video.open(args.videoFile);
                 if (!video.isOpened()) {
-                    std::cerr << "[ERROR] Failed to reopen video for loop " << (loop_idx + 2) << std::endl;
+                    std::cerr << "[DXAPP] [ERROR] Failed to reopen video for loop " << (loop_idx + 2) << std::endl;
                     break;
                 }
             }
@@ -529,14 +527,14 @@ public:
         double total_time = std::chrono::duration<double>(e_time - s_time).count();
 
         if (g_interrupted()) {
-            std::cout << "\n[INFO] Interrupted by user (Ctrl+C)" << std::endl;
+            std::cout << "\n[DXAPP] [INFO] Interrupted by user (Ctrl+C)" << std::endl;
         }
 
         if (writer.isOpened()) {
             writer.release();
             if (!video_save_path.empty()) {
                 if (args.verbose) {
-                    std::cout << "\n[INFO] Saved output video: " << fs::absolute(video_save_path).string() << std::endl;
+                    std::cout << "\n[DXAPP] [INFO] Saved output video: " << fs::absolute(video_save_path).string() << std::endl;
                 }
             }
         }
@@ -577,7 +575,7 @@ private:
         try {
             detections = postprocessor.process(outputs, ud->ctx);
         } catch (const std::exception& e) {
-            std::cerr << "[DXAPP] [ER] Postprocess error: " << e.what() << std::endl;
+            std::cerr << "[DXAPP] [ERROR] Postprocess error: " << e.what() << std::endl;
         }
 
         printDetectionResults(detections, ud->display_frame.cols, ud->display_frame.rows, verbose_);
@@ -731,7 +729,7 @@ private:
 
     void validateArguments(const CommandLineArgs& args) {
         if (args.modelPath.empty()) {
-            dxapp::fatal_error("[ERROR] Model path is required. Use -m or --model_path option.\n"
+            dxapp::fatal_error("[DXAPP] [ERROR] Model path is required. Use -m or --model_path option.\n"
                 "        -> Download:  ./setup.sh --models <model_name>\n"
                 "        -> Or use:    ./run_demo.sh  (auto-downloads demo models)\n"
                 "Use -h or --help for usage information.");
@@ -741,11 +739,11 @@ private:
         if (!dxapp::fileExists(args.modelPath)) {
             if (!dxapp::autoDownloadModel(args.modelPath)) {
                 std::string stem = fs::path(args.modelPath).stem().string();
-                dxapp::fatal_error("[ERROR] Model file not found: " + args.modelPath + "\n"
+                dxapp::fatal_error("[DXAPP] [ERROR] Model file not found: " + args.modelPath + "\n"
                     "        -> Download:  ./setup.sh --models " + stem + "\n"
                     "        -> Or use:    ./run_demo.sh  (auto-downloads demo models)");
             }
-            std::cout << "[INFO] Model downloaded successfully: " << args.modelPath << std::endl;
+            std::cout << "[DXAPP] [INFO] Model downloaded successfully: " << args.modelPath << std::endl;
         }
 
         int sourceCount = 0;
@@ -755,16 +753,16 @@ private:
         if (!args.rtspUrl.empty()) sourceCount++;
 
         if (sourceCount != 1) {
-            dxapp::fatal_error("[ERROR] Please specify exactly one input source: image (-i), video (-v), "
+            dxapp::fatal_error("[DXAPP] [ERROR] Please specify exactly one input source: image (-i), video (-v), "
                               "camera (-c), or RTSP (-r).\nUse -h or --help for usage information.");
         }
         // Auto-download video if not found
         if (!args.videoFile.empty() && !dxapp::fileExists(args.videoFile)) {
             if (!dxapp::autoDownloadVideos() || !dxapp::fileExists(args.videoFile)) {
-                dxapp::fatal_error("[ERROR] Video file not found: " + args.videoFile + "\n"
+                dxapp::fatal_error("[DXAPP] [ERROR] Video file not found: " + args.videoFile + "\n"
                     "        -> Download videos: ./setup_sample_videos.sh");
             }
-            std::cout << "[INFO] Video downloaded successfully: " << args.videoFile << std::endl;
+            std::cout << "[DXAPP] [INFO] Video downloaded successfully: " << args.videoFile << std::endl;
         }
 
         // Validate that --video is not given an image file
@@ -772,7 +770,7 @@ private:
             std::string ext = fs::path(args.videoFile).extension().string();
             std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
             if (ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".bmp" || ext == ".tiff") {
-                dxapp::fatal_error("[ERROR] Image file detected for --video (-v) option. "
+                dxapp::fatal_error("[DXAPP] [ERROR] Image file detected for --video (-v) option. "
                                   "Use --image (-i) for image files.\nUse -h or --help for usage information.");
             }
         }
@@ -793,7 +791,7 @@ private:
             }
             std::sort(imageFiles.begin(), imageFiles.end());
             if (imageFiles.empty()) {
-                dxapp::fatal_error("[ERROR] No image files found in directory: ");
+                dxapp::fatal_error("[DXAPP] [ERROR] No image files found in directory: " + imageFilePath);
             }
             if (loopTest == -1) {
                 loopTest = static_cast<int>(imageFiles.size());
@@ -802,7 +800,7 @@ private:
             imageFiles.push_back(imageFilePath);
             if (loopTest == -1) loopTest = 1;
         } else {
-            dxapp::fatal_error("[ERROR] Invalid image path: ");
+            dxapp::fatal_error("[DXAPP] [ERROR] Invalid image path: ");
         }
 
         return {imageFiles, loopTest};
@@ -846,7 +844,7 @@ private:
             if (!args.save_path.empty() && !result_frame.empty()) {
                 cv::imwrite(args.save_path, result_frame);
                 if (verbose_) {
-                    std::cout << "\n[INFO] Saved output image: " << fs::absolute(args.save_path).string() << std::endl;
+                    std::cout << "\n[DXAPP] [INFO] Saved output image: " << fs::absolute(args.save_path).string() << std::endl;
                 }
             }
             if (save_on && writer.isOpened() && !result_frame.empty()) {

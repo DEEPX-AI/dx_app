@@ -96,18 +96,16 @@
 
 #### Shared Runtime Layer (`common/`)
 - **C++ (`src/cpp_example/common/`)**: Base interfaces (`IFactory`, `IProcessor`, `IVisualizer`, `IInputSource`), 45 processors, 24 task-specific sync/async runner pairs, 12 visualizers, input source abstraction, config loader, utility
-- **Python (`src/python_example/common/`)**: Base interfaces (`IFactory`, `IProcessor`, `IVisualizer`, `IInputSource`), 35 processors, generic `SyncRunner`/`AsyncRunner`, 10 visualizers, input source abstraction, `ModelConfig` loader, utility
+- **Python (`src/python_example/common/`)**: Base interfaces (`IFactory`, `IProcessor`, `IVisualizer`, `IInputSource`), 41 processors, generic `SyncRunner`/`AsyncRunner`, 10 visualizers, input source abstraction, `ModelConfig` loader, utility
 - Both languages share the same 7-module architecture (`base/`, `config/`, `processors/`, `runner/`, `inputs/`, `visualizers/`, `utility/`) and factory-based delegation pattern
 
 #### Model Registry System
 - **`config/model_registry.json`**: centralized registry of 280 models with per-model metadata (task, postprocessor, input dimensions, thresholds)
 - **`scripts/add_model.sh`**: registry-driven auto-generation of factory files, config.json, and entry-point scripts (4 variants per model)
 
-#### Numerical Verification Framework
-- **`scripts/verify_inference_output.py`**: 14 task-specific validators for bounding boxes, confidence ranges, class IDs, keypoints, segmentation masks, depth maps, embeddings
-- **`scripts/inference_verify_rules.json`**: configurable thresholds per task type
-- **`common/runner/verify_serialize.py`**: result-to-JSON serialization for automated comparison
-- **`scripts/validate_models.sh --numerical`**: full-pipeline NPU verification for all supported models
+#### Numerical Verification (`DXAPP_VERIFY`)
+- **`DXAPP_VERIFY=1`**: serializes post-processing results to `logs/verify/{model}.json` for inspection
+- **`common/runner/verify_serialize.py`**: result-to-JSON serialization
 
 #### New Model Families
 - DAMOYOLO (5 variants), NanoDet (2), CenterNet, SSD MobileNet V1/V2, YOLOv3, YOLOv6

@@ -272,12 +272,12 @@ bool minversionforRTandCompiler(dxrt::InferenceEngine* ie) {
         if (isVersionGreaterOrEqual(compiler_version, "v7")) {
             return true;
         } else {
-            std::cerr << "[DXAPP] [ER] Compiler version is too low. (required: "
+            std::cerr << "[DXAPP] [ERROR] Compiler version is too low. (required: "
                          ">= 7, current: "
                       << compiler_version << ")" << std::endl;
         }
     } else {
-        std::cerr << "[DXAPP] [ER] DXRT library version is too low. (required: "
+        std::cerr << "[DXAPP] [ERROR] DXRT library version is too low. (required: "
                      ">= 3.0.0, current: "
                   << rt_version << ")" << std::endl;
     }

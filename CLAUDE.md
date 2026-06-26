@@ -1,0 +1,787 @@
+# dx_app — Claude Code Entry Point
+
+> Self-contained entry point for dx_app standalone inference development.
+
+## Overview
+
+dx_app provides 133 compiled `.dxnn` models across 15 AI tasks with Python (4 variants) and C++ examples.
+
+## Response Language
+
+Match your response language to the user's prompt language — when asking questions
+or responding, use the same language the user is using.
+
+**Technical term rule**: When responding in Korean, keep English technical terms in
+their original English form. Do NOT transliterate English terms into Korean phonetics
+(한글 음차 표기 금지). Established Korean loanwords (모델, 서버, 파일, 데이터) are acceptable. <!-- KOREAN-OK: rule text intentionally references Korean notation terms that agents must recognize -->
+
+
+## Recommended Model (Pre-Flight Check)
+
+DX Agent-Driven Development requires strong instruction following and knowledge base
+utilization. Before starting any task, check if you are running as one of the
+recommended models:
+
+- **Claude Sonnet 4.6** or later
+- **Claude Opus 4.6** or later
+
+If you are NOT one of these models (e.g., GPT-4.1, GPT-4o, Gemini, etc.),
+output the following notice at the beginning of your first response:
+
+```
+══════════════════════════════════════════════════════════════
+⚠  DX-AGENT-DEV: MODEL NOTICE
+
+DX Agent-Driven Development recommends Claude Sonnet 4.6+ or
+Opus 4.6+. Your current model may produce lower quality
+in instruction following, knowledge base utilization, and
+API accuracy. Please switch to a recommended model.
+══════════════════════════════════════════════════════════════
+```
+
+After the box notice, proceed with the task normally. This is an informational
+warning, not a blocking gate.
+
+### Model Notice Repeat (Non-Recommended Model Only)
+
+If you output the MODEL NOTICE box above (i.e., you are NOT a recommended model),
+you MUST also output this shortened reminder **immediately before the actual question
+line** that the user needs to answer — NOT at the beginning of the brainstorming flow.
+
+**Timing**: After all file reading, context analysis, and preamble text, right before
+the line that contains the `?` (the actual question), insert this reminder:
+
+```
+---
+⚠ **Non-recommended model** — output quality may be degraded. Recommended: Claude Sonnet 4.6+ / Opus 4.6+
+---
+```
+
+**Example — WRONG** (repeat scrolls past with the box):
+```
+[DX-AGENT-DEV: START]
+══ MODEL NOTICE ══
+---  ⚠ Non-recommended model ---     ← TOO EARLY, scrolls past
+... (reads files, analyzes context) ...
+First question: ...?
+```
+
+**Example — CORRECT** (repeat appears right before the question):
+```
+[DX-AGENT-DEV: START]
+══ MODEL NOTICE ══
+... (reads files, analyzes context) ...
+---  ⚠ Non-recommended model ---     ← RIGHT BEFORE the question
+First question: ...?
+```
+
+Only output this reminder ONCE (before the first question), not before every question.
+
+## Skill Router — Universal Pre-Flight (HARD GATE)
+
+`/dx-skill-router` MUST be invoked as the **absolute first action** for
+**every user message** — regardless of task type (development, analysis,
+reading, explanation, or clarification).
+
+This rule applies before:
+- Any file read or codebase exploration
+- Any response or clarifying question
+- Any SWE gate check or path classification
+- Any code generation or plan creation
+
+**No exceptions.** The following rationalizations are ALL prohibited:
+
+| Rationalization | Reality |
+|----------------|---------|
+| "This is just reading/analyzing files" | Reading IS a task. Invoke router first. |
+| "The user only asked a question" | Questions are tasks. Invoke router first. |
+| "This is not a development task" | Router applies to ALL tasks, not only dev. |
+| "I'll check for skills after I understand the request" | Check BEFORE understanding. |
+| "This doesn't trigger SWE gates" | SWE gates are separate. Router is universal. |
+
+
+## Shared Knowledge
+
+All skills, instructions, toolsets, and memory live in `.deepx/`.
+Read `.deepx/README.md` for the complete index.
+
+## Quick Reference
+
+```bash
+./install.sh && ./build.sh          # Build C++ and pybind11 bindings
+./setup.sh                          # Download models and test media
+dxrt-cli -s                         # Verify NPU availability
+pytest tests/                       # Run unit tests
+```
+
+## Skills
+
+| Command | Description |
+|---------|-------------|
+| /dx-agent-app-build-python | Build Python inference app (sync, async, cpp_postprocess, async_cpp_postprocess) |
+| /dx-agent-app-build-cpp | Build C++ inference app with InferenceEngine |
+| /dx-agent-app-build-async | Build async high-performance inference app |
+| /dx-agent-app-model-management | Download, register, and configure .dxnn models |
+| /dx-agent-app-validate | Run validation checks at every phase gate |
+| /dx-agent-runtime-validate | Full feedback loop: validate, collect, approve, apply, verify |
+| /dx-swe-brainstorm | Brainstorm, propose 2-3 approaches, spec self-review, then plan |
+| /dx-swe-tdd | Validation-driven development with optional Red-Green-Refactor for unit tests |
+| /dx-swe-verify | Process: verify before claiming completion — evidence before assertions |
+| /dx-swe-writing-plans | Write implementation plans with bite-sized tasks |
+| /dx-swe-executing-plans | Execute plans with review checkpoints |
+| /dx-swe-subagent-dev | Execute plans via fresh subagent per task with two-stage review |
+| /dx-swe-debugging | Systematic debugging — 4-phase root cause investigation before proposing fixes |
+| /dx-swe-receiving-review | Evaluate code review feedback with technical rigor |
+| /dx-swe-requesting-review | Request code review after completing features |
+| /dx-skill-router | Skill discovery and invocation — check skills before any action |
+| /dx-harness-writing-skills | Create and edit skill files |
+| /dx-swe-parallel-agents | Dispatch parallel subagents for independent tasks |
+
+## Interactive Workflow (MUST FOLLOW)
+
+**Always walk through key decisions with the user before building.** This is a HARD GATE.
+
+### Before ANY code generation:
+1. **Brainstorm**: Ask 2-3 clarifying questions — variant, task type, model. Present a build plan and get approval.
+2. **Build with TDD**: Validate each file immediately after creation.
+3. **Verify**: Evidence before claims — run validation scripts before declaring success.
+
+### Mandatory Questions for App Building (HARD-GATE)
+
+<HARD-GATE>
+Before ANY code generation, the agent MUST ask and receive explicit answers to ALL 3:
+1. **Language/variant**: Python (sync/async/cpp_postprocess/async_cpp_postprocess) or C++?
+2. **AI task**: detection, classification, segmentation, pose, face_detection, depth_estimation, etc.
+3. **Model**: Specific model name (e.g. 'yolo26n') or 'recommend' for auto-selection
+
+These questions MUST NOT be skipped even if the user's prompt seems to provide enough context.
+Even "build a yolo26n detection app" requires confirming: Python or C++? Which variant?
+</HARD-GATE>
+
+### Agent Routing (MANDATORY)
+
+**All app building requests MUST go through `@dx-app-builder`** (the master router).
+Do NOT invoke `@dx-python-builder`, `@dx-cpp-builder`, or other specialist agents directly.
+`@dx-app-builder` enforces mandatory brainstorming questions (Q1: language/variant,
+Q2: AI task, Q3: model) that specialist agents skip.
+
+### Output Isolation (HARD GATE)
+All AI-generated code goes to `dx-agent-dev/<session_id>/` by default.
+NEVER write generated code directly into existing source directories (e.g., `src/`,
+`semseg_260323/`, or any directory containing user's existing code).
+Only write to `src/` when explicitly requested by the user.
+
+**Session ID format**: `YYYYMMDD-HHMMSS_<agent>_<coding_model>_<target_model>_<task>` — the timestamp MUST use the
+**system local timezone** (NOT UTC). Use `$(date +%Y%m%d-%H%M%S)` in Bash or
+`datetime.now().strftime('%Y%m%d-%H%M%S')` in Python. Do NOT use `date -u`,
+`datetime.utcnow()`, or `datetime.now(timezone.utc)`.
+`<agent>` identifies the coding tool: `claude` (Claude Code), `codex` (Codex CLI), `copilot` (Copilot CLI), `cursor` (Cursor), `opencode` (OpenCode).
+`<coding_model>` is the shortened coding model name — e.g., `sonnet46`, `opus46`, `gpt53codex`, `gpt55`.
+
+### Previous Session Reuse — PROHIBITED (HARD GATE)
+NEVER reuse, copy, or reference artifacts from previous sessions in
+`dx-agent-dev/`. Each build starts from scratch — do NOT check, list, browse,
+or read files from prior session directories, even if a previous session built
+the same model/task. Re-derive the implementation from the skeleton and the
+knowledge base every time. Reusing a prior session's calibrated code or config
+is a violation: it makes the build non-reproducible and hides drift.
+
+### Relocatable run.sh (HARD GATE)
+Generated `run.sh` MUST stay runnable after the app is moved out of `dx-agent-dev/`
+(e.g. into a showcase dir). Always: (1) **venv fallback** — local `venv`/`.venv` →
+shared `dx-runtime/venv-dx-runtime` → warn (never `source setup.sh` to activate);
+(2) **model-existence guard** — fail early with a download hint if the `.dxnn` is
+missing; (3) **bundled-sample-first** — prefer demo media under the app's `sample/`,
+else `dx_app/sample/`.
+
+The generated app MUST be **self-contained & portable** — `setup.sh` vendors the
+shared framework into `./common`, and the entry `<model>_sync.py` walker prefers that
+vendored `./common` (NO PYTHONPATH), falling back to dx_app's `src/python_example`
+only for in-place dev. So the app folder runs even when copied **entirely outside
+dx-all-suite** (any machine with the DEEPX runtime; `dx_engine` is the one external
+prerequisite). The build MUST TDD-verify this (copy the app outside the suite and
+confirm it imports/runs).
+
+### Rule Conflict Resolution (HARD GATE)
+When a user's request conflicts with a HARD GATE rule (IFactory, skeleton-first,
+SyncRunner/AsyncRunner, Output Isolation), the agent MUST:
+1. Acknowledge the user's intent
+2. Explain the conflict and cite the specific rule
+3. Propose the correct alternative within the framework
+4. Proceed with the correct approach — do NOT silently comply
+
+**Even if the user explicitly names API methods** (e.g., "use `InferenceEngine.run()`",
+"use `run_async()`"), the agent MUST wrap those calls inside the IFactory pattern.
+See the common conflict patterns in the parent project's instructions.
+
+## Critical Conventions
+
+1. **Imports** (relative-from-`common`): `from common.runner import SyncRunner, parse_common_args` — the entry script puts `src/python_example/` on `sys.path`, so `common` is a top-level package
+2. **Model resolution**: Query `config/model_registry.json` — never hardcode .dxnn paths
+3. **IFactory pattern**: All apps implement IFactory with 5 methods (`create_preprocessor`, `create_postprocessor`, `create_visualizer`, `get_model_name`, `get_task_type`)
+4. **CLI args**: Use `parse_common_args()` from `common/runner/args.py`
+5. **NPU check**: `dxrt-cli -s` before any inference operation
+6. **Logging**: `logging.getLogger(__name__)` — no bare `print()`
+7. **Skill doc is sufficient**: Do NOT read source code unless skill is insufficient
+8. **No dotted-relative imports**: never `from ..common import ...`; import `common` as a top-level package (`from common.base import ...`)
+9. **No hardcoded model paths**: All model paths from CLI args or model_registry.json
+10. **4 variants**: Python apps have sync, async, sync_cpp_postprocess, async_cpp_postprocess
+11. **PPU model auto-detection**: Auto-detect PPU models by checking model name `_ppu` suffix, `model_registry.json` `csv_task: "PPU"`, or compiler session context. PPU models go under `src/python_example/ppu/` with simplified postprocessing (no separate NMS needed).
+12. **Existing example search**: Before generating code, search `src/python_example/<task>/<model>/` for existing examples. If found, ask user: (a) explain existing only, or (b) create new example based on existing. Never silently skip or overwrite.
+13. **PPU example generation is MANDATORY**: If the compiled .dxnn model is PPU, the agent MUST generate a working example — never skip example generation for PPU models.
+14. **Cross-validation with reference model**: When a precompiled DXNN exists in `assets/models/` or an existing verified example exists in `src/python_example/`, run the Level 5.5 differential diagnosis to isolate app code vs compilation issues. See `dx-validate.md` Level 5.5.
+15. **Mandatory output artifacts**: Every session MUST produce ALL 13 artifacts (factory, config, 4 variants, __init__.py, session.json, README.md, setup.sh, run.sh, session.log). See agent's MANDATORY OUTPUT REQUIREMENTS section. Run self-verification check before claiming completion.
+16. **Skeleton-first development** — Read `.deepx/skills/dx-agent-app-build-python.md` skeleton
+    template BEFORE writing any code. Copy the closest existing example from
+    `src/python_example/<task>/<model>/` and modify ONLY model-specific parts (factory,
+    postprocessor). NEVER write demo scripts from scratch. NEVER propose standalone
+    scripts that bypass the framework (e.g., direct `InferenceEngine` usage without
+    factory/runner pattern).
+17. **SyncRunner/AsyncRunner ONLY** — Use SyncRunner (single-model) or AsyncRunner
+    (multi-model) from the framework. NEVER propose alternative execution approaches
+    (standalone scripts, direct API calls, custom runners, manual `run_async()` loops).
+18. **C++14**: C++ examples use C++14 standard only
+19. **RAII**: C++ code uses `std::unique_ptr`, no raw `new`/`delete`
+
+## Context Routing Table
+
+| Task mentions... | Read these files |
+|---|---|
+| **Python app, detection, classification** | `.deepx/skills/dx-agent-app-build-python.md`, `.deepx/toolsets/common-framework-api.md` |
+| **C++ app, native** | `.deepx/skills/dx-agent-app-build-cpp.md`, `.deepx/toolsets/dx-engine-api.md` |
+| **Async, performance, throughput** | `.deepx/skills/dx-agent-app-build-async.md`, `.deepx/memory/performance_patterns.md` |
+| **Model, download, registry** | `.deepx/skills/dx-agent-app-model-management.md`, `.deepx/toolsets/model-registry.md` |
+| **PaddleOCR OCR app (video/webcam), RapidDoc PDF→Markdown, PaddlePaddle** | `.deepx/toolsets/paddleocr-rapiddoc-app.md` (+ `dx-compiler/.deepx/toolsets/paddlepaddle-deepx.md`) |
+| **Validation, testing** | `.deepx/skills/dx-agent-app-validate.md`, `.deepx/instructions/testing-patterns.md` |
+| **Validation, feedback, fix** | `.deepx/skills/dx-agent-app-validate.md`, parent `dx-runtime/.deepx/skills/dx-agent-runtime-validate.md` |
+| **ALWAYS read (every task)** | `.deepx/memory/common_pitfalls.md`, `.deepx/instructions/coding-standards.md` |
+| **Brainstorm, plan, design** | `.deepx/skills/dx-swe-brainstorm.md` |
+| **TDD, validation, incremental** | `.deepx/skills/dx-swe-tdd.md` |
+| **Completion, verify, evidence** | `.deepx/skills/dx-swe-verify.md` |
+| **Debug, root cause, investigate** | `.deepx/skills/dx-swe-debugging/SKILL.md` |
+| **Plan, execute, subagent** | `.deepx/skills/dx-swe-writing-plans/SKILL.md`, `.deepx/skills/dx-swe-executing-plans/SKILL.md` |
+| **Code review, feedback** | `.deepx/skills/dx-swe-receiving-review/SKILL.md`, `.deepx/skills/dx-swe-requesting-review/SKILL.md` |
+
+## Python Imports
+
+```python
+from common.runner import parse_common_args, SyncRunner, AsyncRunner
+import logging
+
+logger = logging.getLogger(__name__)
+```
+
+## File Structure
+
+```
+src/python_example/{task}/{model}/
+├── __init__.py
+├── config.json
+├── {model}_factory.py
+├── {model}_sync.py
+├── {model}_async.py
+├── {model}_sync_cpp_postprocess.py
+└── {model}_async_cpp_postprocess.py
+
+src/cpp_example/{task}/{model}/
+├── CMakeLists.txt
+├── main.cpp
+├── config.json
+├── include/
+└── src/
+```
+
+## No Placeholder Code (MANDATORY)
+
+NEVER generate stub/placeholder code. This includes:
+- Commented-out imports: `# from dxnn_sdk import InferenceEngine`
+- Fake results: `result = np.zeros(...)`
+- TODO markers: `# TODO: implement actual inference`
+- "Similar to sync version" without actual async implementation
+
+All generated code MUST be functional, using real APIs from the knowledge base.
+If the required SDK/API is unknown, read the relevant skill document first.
+
+
+## Experimental Features — Prohibited
+
+Do NOT offer, suggest, or implement experimental or non-existent features. This includes:
+- "웹 기반 비주얼 컴패니언" (web-based visual companion) <!-- KOREAN-OK: Korean feature name included so agents recognize this prohibited request in Korean -->
+- Local URL-based diagram viewers or dashboards
+- Any feature requiring the user to open a local URL for visualization
+- Any capability that does not exist in the current toolset
+
+**Superpowers brainstorming skill override**: The superpowers `brainstorming` skill
+includes a "Visual Companion" step (step 2 in its checklist). This step MUST be
+SKIPPED in the DEEPX project. The visual companion does not exist in our environment.
+When the brainstorming checklist says "Offer visual companion", skip it and proceed
+directly to "Ask clarifying questions" (step 3).
+
+If a feature does not exist, do not pretend it does. Stick to proven, documented
+capabilities only.
+
+**Autopilot / autonomous mode override**: When the user is absent (autopilot mode,
+auto-response "work autonomously", or `--yolo` flag), the brainstorming skill's
+"Ask clarifying questions" step MUST be replaced with "Make default decisions per
+knowledge base rules". Do NOT call `ask_user` — skip straight to producing the
+brainstorming spec using knowledge base defaults. All subsequent gates (spec review,
+plan, TDD, mandatory artifacts, execution verification) still apply without exception.
+
+
+## Brainstorming — Spec Before Plan (HARD GATE)
+
+When using the superpowers `brainstorming` skill or `/dx-swe-brainstorm`:
+
+1. **Spec document is MANDATORY** — Before transitioning to `writing-plans`, a spec
+   document MUST be written to `docs/superpowers/specs/YYYY-MM-DD-<topic>-design.md`.
+   Skipping the spec and going directly to plan writing is a violation.
+2. **User approval gate is MANDATORY** — After writing the spec, the user MUST review
+   and approve it before proceeding to plan writing. Do NOT treat unrelated user
+   responses (e.g., answering a different question) as spec approval.
+3. **Plan document MUST reference the spec** — The plan header must include a link
+   to the approved spec document.
+4. **Prefer `/dx-swe-brainstorm`** — Use the project-level brainstorming skill
+   instead of the generic superpowers `brainstorming` skill. The project-level skill
+    has domain-specific questions and pre-flight checks.
+5. **Rule conflict check is MANDATORY** — During brainstorming, the agent MUST check
+   whether any user requirement conflicts with HARD GATE rules (IFactory pattern,
+   skeleton-first, Output Isolation, SyncRunner/AsyncRunner). If a conflict is
+   detected, the agent MUST resolve it during brainstorming — not silently comply
+   with the violating request in the design spec. See the "Rule Conflict Resolution" section.
+## Mandatory Process Skill Sequence — All Code Generation (HARD GATE)
+
+This gate applies to ALL sessions that generate code artifacts in
+`dx-agent-dev/<session_id>/`. It is independent of the "Internal Development"
+SWE Process Gates — those apply to dx-agent-dev infrastructure work; THIS gate
+applies to user-facing code generation (inference apps, pipelines, compilation).
+
+### When This Gate Applies
+
+Any session that produces files in `dx-agent-dev/<session_id>/` MUST follow
+the complete process skill sequence below. This includes:
+- ONNX → DXNN compilation sessions
+- Python/C++ inference app generation (dx_app)
+- GStreamer pipeline creation (dx_stream)
+- Cross-project sessions (compile + deploy)
+
+### Mandatory Skill Sequence
+
+Every code generation session MUST flow through this sequence in order.
+**No code generation before this sequence completes.**
+
+**Autopilot mode does NOT waive this sequence.** "Work autonomously" means follow
+all rules without asking — NOT skip rules. In autopilot, make default decisions
+using the knowledge base instead of calling `ask_user`, but every step below
+still applies.
+
+| Step | Skill | Requirement |
+|------|-------|-------------|
+| 1 | `/dx-skill-router` | **Always** — invoke BEFORE any action. Already enforced by `skill-router-mandatory` fragment. |
+| 2 | `/dx-agent-brainstorm` | **All non-trivial code generation** — gather requirements, propose approaches, get approval before any file creation. |
+| 3 | `/dx-swe-writing-plans` | **Always** — produce a structured implementation plan for every code generation session, regardless of complexity. |
+| 4 | `/dx-agent-tdd` | **Always** — define acceptance criteria (Red), generate artifacts (Green), verify immediately (Verify). |
+| 5 | `/dx-agent-verify` | **Always** — before declaring DONE, provide evidence of working artifacts. Assertions without evidence are prohibited. |
+
+### Sequence Enforcement Rules
+
+1. **No skipping steps** — Each step MUST complete before the next begins.
+   Exception: Step 1 (skill-router) is already handled by a separate fragment.
+2. **No reordering** — brainstorm → plan → tdd → verify. Never generate code
+   before planning. Never declare done before verifying.
+3. **Plan MUST exist before any file creation** — Even a single-file session
+   requires a plan (can be brief, but must be explicit).
+4. **Verification MUST use actual execution** — `python file.py`, `bash -n script.sh`,
+   `import` checks. Never claim "it should work" without running it.
+
+### Trivial Change Exception
+
+Steps 2–3 (brainstorm/plan) may be skipped ONLY for:
+- Single config.json field change (e.g., threshold adjustment)
+- Single-line typo fix in existing generated code
+
+Steps 4–5 (tdd/verify-completion) are **NEVER** skipped, even for trivial changes.
+
+### Autopilot Mode Adaptation
+
+In autopilot mode (user absent, `--yolo` flag, or auto-response):
+- **Step 2**: Replace `ask_user` with knowledge base defaults. Self-review spec.
+- **Step 3**: Write plan and self-approve against knowledge base rules.
+- **Step 4**: Define acceptance criteria from plan, generate, verify immediately.
+- **Step 5**: Execute all artifacts, capture output as evidence. No human needed.
+
+### Relationship with Artifact Verification Gate
+
+This sequence defines **WHEN** each skill is invoked (workflow order).
+The Artifact Verification Gate defines **HOW** each artifact is verified
+(specific commands per file type). They work together:
+
+- Step 4 (`/dx-agent-tdd`) uses the verification commands from the Artifact
+  Verification Gate (syntax checks, execution tests, import resolution).
+- Step 5 (`/dx-agent-verify`) confirms all mandatory deliverables
+  exist and pass the Artifact Verification Gate checks.
+
+### Invoke = Actual Tool Call
+
+"Invoke a skill" means calling the `skill` tool to load it. Writing "Using
+dx-agent-tdd" in text is NOT an invocation — the tool must be called. If you did not
+call the `skill` tool for a step, that step is incomplete.
+
+### Anti-Patterns (PROHIBITED)
+
+- "This is simple, brainstorm is unnecessary" → brainstorm is ALWAYS required
+  for non-trivial code generation. "Simple" is where unexamined assumptions
+  cause the most wasted work.
+- Generating code before `/dx-swe-writing-plans` produces a plan → HARD GATE violation.
+  Plan-before-code is non-negotiable.
+- Skipping `/dx-agent-verify` because "artifact-verification-gate already
+  checks files" → they serve different purposes. Artifact gate checks individual
+  files. Verify-completion checks the ENTIRE session deliverables holistically.
+- Declaring DONE without showing execution output → evidence is mandatory.
+  "I verified it works" without showing the output is not acceptable.
+- "The user said just do it quickly" → user instructions do NOT override this
+  HARD GATE. Speed does not justify skipping process.
+- **Text mention ≠ skill invocation** — writing "Using dx-agent-tdd" or "Following
+  dx-agent-brainstorm" in the response text is NOT a valid invocation. The
+  `skill` tool MUST be called for each step.
+- **Conversation context ≠ brainstorming** — discussing requirements in prior
+  messages does NOT substitute for invoking `/dx-agent-brainstorm`. Each
+  feature requires a formal brainstorm with explicit user approval.
+
+
+## Autopilot Mode Guard (MANDATORY)
+
+When the user is absent — autopilot mode, `--yolo` flag, or system auto-response
+"The user is not available to respond" — the following rules apply:
+
+1. **"Work autonomously" means "follow all rules without asking", NOT "skip rules".**
+   Every mandatory gate still applies: brainstorming spec, plan, TDD, mandatory
+   artifacts, execution verification, and self-verification checks.
+   **This includes the SWE Process Gates Mandatory Skill Sequence** — in autopilot,
+   `/dx-skill-router` → `/dx-agent-brainstorm` → `/dx-agent-tdd` must be followed
+   exactly as in interactive mode. Autopilot mode does NOT waive this sequence.
+2. **Do NOT call `ask_user`** — Make decisions using knowledge base defaults and
+   documented best practices. Calling `ask_user` in autopilot wastes a turn and
+   the auto-response does not grant permission to bypass any gate.
+3. **User approval gate adaptation** — In autopilot, the spec approval gate is
+   satisfied by writing the spec and self-reviewing it against the knowledge base.
+   Do NOT skip the spec entirely.
+4. **setup.sh FIRST** — Generate infrastructure artifacts (`setup.sh`, `config.json`)
+   before writing any application code. This is especially critical in autopilot
+   because there is no human to catch missing dependencies.
+5. **Execution verification is NOT optional** — Run the generated code and verify it
+   works before declaring completion. In autopilot, there is no user to catch errors.
+6. **Time budget awareness** — Autopilot sessions may have time constraints.
+   Plan your actions efficiently:
+   - Compilation (ONNX → DXNN) may take 5+ minutes — start it early.
+   - If time is short, prioritize artifact GENERATION over execution
+     verification — a complete set of untested files is better than a partial
+     set of tested ones.
+   - Priority order: `setup.sh` > `run.sh` > app code > `verify.py` > session.log.
+   - **Compilation-parallel workflow (HARD GATE)** — After launching `dxcom` or
+     `dx_com.compile()` in a bash command, do NOT wait for it. Immediately
+     proceed to generate ALL mandatory artifacts: factory, app code, setup.sh,
+     run.sh, verify.py. Check `.dxnn` output only AFTER all other artifacts
+     are created. **Violation of this rule fails the session.**
+   - **NEVER sleep-poll for compilation** — Do NOT use `sleep` in a loop to
+     poll for `.dxnn` files. Prohibited patterns include:
+     `for i in ...; do sleep N; ls *.dxnn; done`,
+     `while ! ls *.dxnn; do sleep N; done`,
+     repeated `ls *.dxnn` / `test -f *.dxnn` checks with waits between them.
+     Instead: generate all other artifacts first, then check ONCE whether the
+     `.dxnn` file exists. If it does not exist yet, proceed to execution
+     verification with the assumption that compilation will complete.
+   - **NEVER use `pgrep -f` to monitor compile.pid process** — `pgrep -f
+     "path/to/compile.py"` matches the bash shell that is running the pgrep
+     command itself, causing an **infinite loop** that never exits even after
+     compilation finishes. Always use `kill -0 <PID>` to check if a specific
+     PID is still alive:
+     ```bash
+     # CORRECT — check by PID, not by name
+     COMPILE_PID=$(cat compile.pid)
+     while kill -0 "$COMPILE_PID" 2>/dev/null; do sleep 10; done
+     echo "Compilation PID=$COMPILE_PID has exited"
+     ```
+     **Prohibited patterns** (self-referential, cause infinite loops):
+     ```bash
+     while pgrep -f "compile.py" >/dev/null 2>&1; do sleep 20; done   # PROHIBITED
+     pgrep -f "session_dir/compile.py"                                 # PROHIBITED
+     ```
+   - **NEVER end your turn to wait for a background task (HARD GATE)** — a
+     headless `claude -p` run has NO resume: ending the turn terminates the
+     session, so a scheduled wakeup or a "wait for the completion notification"
+     never fires and the DONE sentinel is never emitted — the round is recorded
+     as *incomplete* (this is a real, recurring failure on the hardest scenarios,
+     e.g. `suite`). PROHIBITED: calling `ScheduleWakeup` (or any
+     wait-for-notification / "I'll continue once the background task notifies me"
+     pattern) and then ending the turn. If you genuinely must wait for a
+     backgrounded compile, block IN THE SAME TURN with
+     `while kill -0 "$COMPILE_PID" 2>/dev/null; do sleep 10; done` — or,
+     preferably, generate every other artifact first and check `.dxnn` ONCE.
+     Never yield the turn expecting to be re-invoked.
+   - **Mandatory artifacts are compilation-independent** — `setup.sh`, `run.sh`,
+     `verify.py`, factory, and app code do NOT require the `.dxnn` file to exist.
+     Generate them using the known model name (e.g., `yolo26n.dxnn`) as a
+     placeholder path. Only execution verification requires the actual `.dxnn`.
+7. **Minimize file-reading tool calls** — Do NOT re-read instruction files,
+   agent docs, or skill docs that are already loaded in your context. Each
+   unnecessary `cat` / `bash` read wastes 5-15 seconds. Use the knowledge
+   already in your system prompt and conversation history.
+
+
+## 15 Supported AI Tasks
+
+object_detection, classification, pose_estimation, instance_segmentation,
+semantic_segmentation, face_detection, depth_estimation, image_denoising,
+image_enhancement, super_resolution, embedding, obb_detection, hand_landmark, ppu
+
+## Hardware
+
+| Architecture | Value |
+|---|---|
+| DX-M1 | `dx_m1` |
+
+## Memory
+
+Persistent knowledge in `.deepx/memory/`. Read at task start, update when learning.
+
+## Git Operations — User Handles
+
+Do NOT ask about git branch operations (merge, PR, push, cleanup) at the end of
+work. The user will handle all git operations themselves. Never present options
+like "merge to main", "create PR", or "delete branch" — just finish the task.
+
+
+## Git Safety — Superpowers Artifacts
+
+**NEVER `git add` or `git commit` files under `docs/superpowers/`.** These are temporary
+planning artifacts generated by the superpowers skill system (specs, plans). They are
+`.gitignore`d, but some tools may bypass `.gitignore` with `git add -f`. Creating the
+files is fine — committing them is forbidden.
+
+
+## Session Sentinels (MANDATORY for Automated Testing)
+
+When processing a user prompt, output these exact markers for automated session
+boundary detection by the test harness:
+
+- **First line of your response**: `[DX-AGENT-DEV: START]`
+- **Last line after ALL work is complete**: `[DX-AGENT-DEV: DONE (output-dir: <relative_path>)]`
+  where `<relative_path>` is the session output directory (e.g., `dx-agent-dev/20260409-143022_yolo26n_detection/`)
+
+### DEEPX Banner (MANDATORY — print with the sentinels)
+
+Render the DEEPX logo banner **verbatim** at two points: **immediately after** the
+`[DX-AGENT-DEV: START]` line, and **immediately before** the
+`[DX-AGENT-DEV: DONE ...]` line. Print it exactly as below (a fenced block is fine):
+
+```
+ ███████████   █████████ ████████ ████████  ████      ████
+ ███     █████ ███░░░░░░░███░░░░░░███   ███  ░████   ████░░
+ ███        ██░███░      ██░░     ███   ███░   █████████░░
+ ███        ████████████ ████████ ████████░░    ░█████░░░
+ ███        ██░███░░░░░░░██░░░░░░░███░░░░░░  ██████████
+ ███     █████░███░      ██░      ███░   ████████░░░░████
+ ███████████░░░█████████ ████████ ██████████░░░░░░    ████
+  ░░░░░░░░░░░   ░░░░░░░░░ ░░░░░░░░ ░░░░░░░░░░          ░░░░
+        DX-AGENT-DEV · on-device NPU
+```
+
+The banner is decorative; it never replaces or moves the sentinel lines (START stays
+the absolute first line, DONE stays the very last line).
+
+Rules:
+1. **CRITICAL — Output `[DX-AGENT-DEV: START]` as the absolute first line of your
+   first response.** This must appear before ANY other text, tool calls, or reasoning.
+   Even if the user instructs you to "just proceed" or "use your own judgment",
+   the START sentinel is non-negotiable — automated tests WILL fail without it.
+   **Immediately after the START line, print the DEEPX banner** (see "DEEPX Banner" above).
+2. **Immediately before the DONE line, print the DEEPX banner again**, then output
+   `[DX-AGENT-DEV: DONE (output-dir: <path>)]` as the very last line after all work,
+   validation, and file generation is complete
+3. If you are a **sub-agent** invoked via handoff/routing from a higher-level agent,
+   do NOT output these sentinels — only the top-level agent outputs them
+4. If the user sends multiple prompts in a session, output START/DONE for each prompt
+5. The `output-dir` in DONE must be the relative path from the project root to the
+   session output directory. If no files were generated, omit the `(output-dir: ...)` part.
+   **For cross-project tasks** (e.g., compile + app generation), list ALL output directories
+   separated by ` + `:
+   ```
+   [DX-AGENT-DEV: DONE (output-dir: dx-compiler/dx-agent-dev/20260409-143022_copilot_yolo26n_compile/ + dx-runtime/dx_app/dx-agent-dev/20260409-143022_copilot_yolo26n_inference/)]
+   ```
+6. **NEVER output DONE after only producing planning artifacts** (specs, plans, design
+   documents). DONE means all deliverables are produced — implementation code, scripts,
+   configs, and validation results. If you completed a brainstorming or planning phase
+   but have not yet implemented the actual code, do NOT output DONE. Instead, proceed
+   to implementation or ask the user how to proceed.
+7. **Pre-DONE mandatory deliverable check**: Before outputting DONE, verify that all
+   mandatory deliverables exist in the session directory. If any mandatory file is
+   missing, create it before outputting DONE. Each sub-project defines its own mandatory
+   file list in its skill document (e.g., `dx-agent-stream-build-pipeline.md` File Creation Checklist).
+8. **Session transcript — generate it RIGHT AFTER the DONE line (claude / copilot)**:
+
+   **Auto-transcript is supported on `claude` and `copilot` only.** Emit the DONE
+   sentinel line FIRST, then — as the single final housekeeping step — render this
+   session's transcript with the shared generator **directly into the session output
+   dir(s)** (the same dir(s) you listed in DONE). Running it *after* DONE means the
+   CLI's session store has already committed the DONE turn, so the rendered transcript
+   is complete (rendering *before* DONE truncates the tail). Needs **no hook**:
+
+   ```bash
+   # Locate the shared generator by walking up to the suite root: GENROOT is the dir
+   # that contains .deepx/tools. Then render THIS session's transcript INTO the session
+   # output dir(s). Pass EVERY output dir you created (the transcript is copied into each
+   # — cross-project: both the compiler and app dirs). The session id is auto-resolved
+   # from this CLI's own env var (CLAUDE_CODE_SESSION_ID / COPILOT_AGENT_SESSION_ID).
+   #
+   # CRITICAL — use ABSOLUTE paths for --project AND --into-output-dirs. A RELATIVE
+   # output dir is resolved against the agent's CURRENT cwd, so it is SILENTLY SKIPPED
+   # ("no output dir produced — transcript generation skipped") whenever cwd is not the
+   # suite root — e.g. after you cd into the session dir to run setup.sh/run.sh. Prefix
+   # every output dir with "$GENROOT/" (or pass the same absolute SESSION_DIR you used
+   # to write artifacts).
+   GENROOT="$(d="$PWD"; while [ "$d" != / ]; do [ -f "$d/.deepx/tools/src/dx_transcripts/generate_transcripts.py" ] && { echo "$d"; break; }; d="$(dirname "$d")"; done)"
+   GT="$GENROOT/.deepx/tools/src/dx_transcripts/generate_transcripts.py"
+   python3 "$GT" --tool <CLI> --project "$GENROOT" \
+       --into-output-dirs "$GENROOT/<output-dir>" ["$GENROOT/<output-dir-2>" ...]
+   ```
+
+   `<CLI>` is `claude` or `copilot`. The generator reuses the **same renderers as the
+   test harness** (`parse_<tool>_session`) and writes `<CLI>-session.md` +
+   `<CLI>-session.html` + `<CLI>-stream.jsonl` into each output dir. **If you produced
+   NO output dir** (e.g. a pure question with no files), pass no dir and generation is
+   **skipped** — expected, not an error. After it runs, state the path on the final
+   line, e.g. `Session transcript (md/html/jsonl) saved to: <output-dir>/<CLI>-session.*`.
+
+   > **Known limitation — the in-session transcript is store-based and therefore
+   > incomplete.** Run from inside the live session, the generator reads the session
+   > **store**, which has NO synthetic `result` event — that event (carrying
+   > `duration_ms` → *Wall-clock* and `total_cost_usd` → *Cost*) exists only in the
+   > `claude -p --output-format stream-json` **stdout**, emitted at process exit. The
+   > render also happens *during* the transcript tool-call, so it truncates just before
+   > this very "saved to …" narration. Net effect: the in-session transcript **omits
+   > Wall-clock + Cost and the closing narration** — expected, not a bug. For a
+   > **complete** transcript (Wall-clock + Cost + tail, like the showcase ones),
+   > capture the run's stdout and render it externally **after** the process exits:
+   > `python3 "$GT" --tool <CLI> --session-id <uuid> --project "$GENROOT" --stream-json <captured-stdout.jsonl> --out-dir <output-dir>`
+   > (the test harness / build recorders do this). An in-session agent cannot — it has
+   > no handle on its own stdout stream.
+
+   **`codex`, `opencode`, `cursor` are NOT auto-supported** — do NOT run the generator
+   in-session for them (it cannot produce a complete/usable transcript: codex and
+   opencode commit their final turn only at process exit; cursor redacts the assistant
+   text in its store). Instead, tell the user how to generate it manually:
+   - **codex / opencode**: after the session ends, run
+     `python3 <generate_transcripts.py> --tool <codex|opencode> --project . --out-dir <DIR>`
+     — the finalized store then renders a complete transcript.
+   - **cursor**: capture the run with `agent -p --output-format stream-json > run.jsonl`
+     and render with `--tool cursor --stream-json run.jsonl`, or use IDE session history.
+   (If you invoke the generator with `--into-output-dirs` on these tools, it safely
+   skips and prints this same guidance — that is expected.)
+
+
+## Plan Output (MANDATORY)
+
+When generating a plan document (e.g., via writing-plans or brainstorming skills),
+**always print the full plan content in the conversation output** immediately after
+saving the file. Do NOT only mention the file path — the user should be able to
+review the plan directly in the prompt without opening a separate file.
+
+
+
+---
+
+## Instruction File Verification Loop (HARD GATE) — Internal Development Only
+
+When modifying the canonical source — files in `**/.deepx/**/*.md`
+(agents, skills, templates, fragments) — the following verify-fix loop is
+**MANDATORY** before claiming work is complete:
+
+1. **Generator execution** — Propagate `.deepx/` changes to all platforms:
+   ```bash
+   dx-agent-gen generate
+   # Suite-wide: bash .deepx/tools/scripts/run_all.sh generate
+   ```
+2. **Drift verification** — Confirm generated output matches committed state:
+   ```bash
+   dx-agent-gen check
+   ```
+   If drift is detected, return to step 1.
+3. **Automated test loop** — Tests verify generator output satisfies policies:
+   ```bash
+   python -m pytest .deepx/tests/conformance/ .deepx/tools/tests/ -v --tb=short
+   ```
+   Failure handling:
+   - Generator bug → fix generator → step 1
+   - `.deepx/` content gap → fix `.deepx/` → step 1
+   - Insufficient test rules → strengthen tests → step 1
+4. **Manual audit** — Independently (without relying on test results) read
+   generated files to verify cross-platform sync (CLAUDE vs AGENTS vs copilot)
+   and level-to-level sync (suite → sub-levels).
+5. **Gap analysis** — For issues found by manual audit:
+   - Generator missed a case → **fix generator rules** → step 1
+   - Tests missed a case → **strengthen tests** → step 1
+6. **Repeat** — Continue until steps 3–5 all pass.
+
+### Pre-flight Classification (MANDATORY)
+
+Before modifying ANY `.md` or `.mdc` file in the repository, classify it into
+one of three categories. **Never skip this step** — editing a generator-managed
+file directly is a silent corruption that will be overwritten on next generate.
+
+**Answer these three questions in order before every file edit:**
+
+> **Q1. Is the file path inside `**/.deepx/**`?**
+> - YES → **Canonical source.** Edit directly, then run `dx-agent-gen generate` + `check`.
+> - NO → go to Q2.
+>
+> **Q2. Does the file path or name match any of these?**
+> ```
+> .github/agents/    .github/skills/    .opencode/agents/
+> .claude/agents/    .claude/skills/    .cursor/rules/
+> CLAUDE.md          CLAUDE-KO.md       AGENTS.md    AGENTS-KO.md
+> copilot-instructions.md               copilot-instructions-KO.md
+> ```
+> - YES → **Generator output. DO NOT edit directly.**
+>   Find the `.deepx/` source (template, fragment, or agent/skill) and edit that instead,
+>   then run `dx-agent-gen generate`.
+> - NO → go to Q3.
+>
+> **Q3. Does the file begin with `<!-- AUTO-GENERATED`?**
+> - YES → **Generator output. DO NOT edit directly.** Same as Q2.
+> - NO → **Independent source.** Edit directly. Run `dx-agent-gen check` once afterward.
+
+1. **Canonical source** (`**/.deepx/**/*.md`) — Modify directly, then run the
+   Verification Loop above.
+2. **Generator output** — Files at known output paths:
+   `CLAUDE.md`, `CLAUDE-KO.md`, `AGENTS.md`, `AGENTS-KO.md`,
+   `copilot-instructions.md`, `.github/agents/`, `.github/skills/`,
+   `.claude/agents/`, `.claude/skills/`, `.opencode/agents/`, `.cursor/rules/`
+   → **Do NOT edit directly.** Find and modify the `.deepx/` source
+   (template, fragment, or agent/skill), then `dx-agent-gen generate`.
+3. **Independent source** — Everything else (`docs/source/`, `source/docs/`,
+   `tests/`, `README.md` in sub-projects, etc.)
+   → Edit directly. Run `dx-agent-gen check` once afterward to confirm no
+   unexpected drift.
+
+**Anti-pattern**: Modifying a file without first classifying it. If you are
+unsure whether a file is generator output, run `dx-agent-gen check` before
+AND after the edit — if the check overwrites your change, the file is managed
+by the generator and must be edited via `.deepx/` source instead.
+
+A pre-commit hook enforces generator output integrity: `git commit` will fail
+if generated files are out-of-date. Install hooks with:
+```bash
+.deepx/tools/scripts/install-hooks.sh
+```
+
+> **KO counterpart rule**: When editing any EN fragment, check whether the KO
+> counterpart also needs updating. If you added or removed ≥ 1 paragraph, update
+> `.deepx/templates/fragments/ko/<stem>.md` before committing. Run
+> `dx-agent-gen lint` to verify `[OK]` — lint will ERROR if EN exceeds KO by
+> ≥ 10 lines.
+
+This gate applies when `.deepx/` files are the *primary deliverable* (e.g., adding
+rules, syncing platforms, creating KO translations, modifying agents/skills). It
+does NOT apply when a feature implementation incidentally triggers a single-line
+change in `.deepx/`.
+

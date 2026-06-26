@@ -16,6 +16,7 @@
 #include "retinaface_postprocess.h"
 
 #include <algorithm>
+#include <numeric>
 #include <cmath>
 #include <numeric>
 

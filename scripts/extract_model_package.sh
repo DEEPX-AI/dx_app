@@ -92,7 +92,7 @@ if [ -n "$OUTPUT_DIR" ]; then
         OUTPUT_DIR="$(cd "$DX_APP_ROOT" && pwd)/$OUTPUT_DIR"
     fi
     if [ "$CLEAN_MODE" = true ]; then
-        echo -e "${YELLOW}[WARN]${NC} --clean is ignored with --output-dir"
+        echo -e "${YELLOW}[DXAPP] [WARN]${NC} --clean is ignored with --output-dir"
         CLEAN_MODE=false
     fi
 fi
@@ -112,7 +112,7 @@ clean_model_cpp() {
     local target_dir="$CPP_SRC_DIR/$model_dir"
 
     if [ ! -d "$target_dir" ]; then
-        echo -e "${RED}[ERROR]${NC} C++ directory not found: $model_dir"
+        echo -e "${RED}[DXAPP] [ERROR]${NC} C++ directory not found: $model_dir"
         return 1
     fi
 
@@ -259,7 +259,7 @@ prepare_model_cpp() {
     model_name=$(basename "$model_dir")
 
     if [ ! -d "$src_model_dir" ]; then
-        echo -e "${RED}[ERROR]${NC} C++ directory not found: $model_dir"
+        echo -e "${RED}[DXAPP] [ERROR]${NC} C++ directory not found: $model_dir"
         return 1
     fi
 
@@ -349,7 +349,7 @@ clean_model_py() {
     local target_dir="$PY_SRC_DIR/$model_dir"
 
     if [ ! -d "$target_dir" ]; then
-        echo -e "${RED}[ERROR]${NC} Python directory not found: $model_dir"
+        echo -e "${RED}[DXAPP] [ERROR]${NC} Python directory not found: $model_dir"
         return 1
     fi
 
@@ -366,7 +366,7 @@ prepare_model_py() {
     local target_dir
 
     if [ ! -d "$src_model_dir" ]; then
-        echo -e "${RED}[ERROR]${NC} Python directory not found: $model_dir"
+        echo -e "${RED}[DXAPP] [ERROR]${NC} Python directory not found: $model_dir"
         return 1
     fi
 

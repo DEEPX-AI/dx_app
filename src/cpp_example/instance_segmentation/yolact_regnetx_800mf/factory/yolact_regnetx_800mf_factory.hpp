@@ -38,7 +38,8 @@ public:
         return std::make_unique<YOLACTPostprocessor>(
             input_width, input_height,
             score_threshold_, nms_threshold_,
-            num_classes_, num_protos_, top_k_
+            num_classes_, num_protos_, top_k_,
+            class_names_
         );
     }
 
@@ -51,6 +52,7 @@ public:
         nms_threshold_ = config.get<float>("nms_threshold", nms_threshold_);
         num_classes_ = config.get<int>("num_classes", num_classes_);
         num_protos_ = config.get<int>("num_protos", num_protos_);
+        class_names_ = config.get_string_list("class_names");
         top_k_ = config.get<int>("top_k", top_k_);
     }
 
@@ -63,6 +65,7 @@ private:
     int num_classes_;
     int num_protos_;
     int top_k_;
+    std::vector<std::string> class_names_;
 };
 
 }  // namespace dxapp

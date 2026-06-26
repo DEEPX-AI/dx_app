@@ -46,7 +46,7 @@ std::vector<YOLOv5SegResult> YOLOv5SegPostProcess::postprocess(
     const dxrt::TensorPtrs& outputs) {
     if (outputs.empty()) {
         throw std::runtime_error(
-            "[DXAPP] [ER] YOLOv5SegPostProcess::postprocess - No output tensors.");
+            "[DXAPP] [ERROR] YOLOv5SegPostProcess::postprocess - No output tensors.");
     }
 
     auto detections = decoding_outputs(outputs);
@@ -86,7 +86,7 @@ std::vector<YOLOv5SegResult> YOLOv5SegPostProcess::decoding_outputs(
 
     if (!det_tensor) {
         std::ostringstream msg;
-        msg << "[DXAPP] [ER] YOLOv5SegPostProcess - Cannot find detection tensor.\n"
+        msg << "[DXAPP] [ERROR] YOLOv5SegPostProcess - Cannot find detection tensor.\n"
             << "  Expected shape [1, N, " << (5 + num_classes_ + num_mask_coefs_) << "]\n"
             << "  Available tensors:\n";
         msg << postprocess_utils::format_tensor_shapes(outputs);

@@ -37,6 +37,7 @@ class EfficientDetPostprocessor(IPostprocessor):
         self.nms_threshold = self.config.get('nms_threshold', 0.45)
         self.num_classes = self.config.get('num_classes', 90)
         self.has_background = self.config.get('has_background', True)
+        self.max_nms_candidates = int(self.config.get('max_nms_candidates', 1000))
         self._anchors = None
 
     def process(self, outputs: List[np.ndarray], ctx: PreprocessContext) -> List[DetectionResult]:
@@ -252,6 +253,8 @@ class EfficientDetPostprocessor(IPostprocessor):
         scores = scores[mask]
         class_ids = class_ids[mask]
         anchors = anchors[mask]
+        box_regs, scores, class_ids, anchors = self._limit_nms_candidates(
+            box_regs, scores, class_ids, anchors)
 
         # Decode: box_regs format is [dy, dx, dh, dw]
         a_cx, a_cy, a_w, a_h = anchors[:, 0], anchors[:, 1], anchors[:, 2], anchors[:, 3]
@@ -318,6 +321,7 @@ class EfficientDetPostprocessor(IPostprocessor):
         boxes = boxes[mask]
         scores = scores[mask]
         class_ids = class_ids[mask]
+        boxes, scores, class_ids, _ = self._limit_nms_candidates(boxes, scores, class_ids)
 
         # Determine if normalized (values mostly in [0, 2])
         is_normalized = np.percentile(np.abs(boxes), 95) < 2.0
@@ -371,6 +375,18 @@ class EfficientDetPostprocessor(IPostprocessor):
 
         return results
 
+    def _limit_nms_candidates(self, boxes: np.ndarray, scores: np.ndarray,
+                              class_ids: np.ndarray, anchors: np.ndarray = None):
+        """Keep highest-scoring candidates before expensive NMS."""
+        limit = self.max_nms_candidates
+        if limit <= 0 or len(scores) <= limit:
+            return boxes, scores, class_ids, anchors
+
+        keep = np.argpartition(scores, -limit)[-limit:]
+        keep = keep[np.argsort(scores[keep])[::-1]]
+        limited_anchors = anchors[keep] if anchors is not None else None
+        return boxes[keep], scores[keep], class_ids[keep], limited_anchors
+
     def _scale_box(self, box: np.ndarray, ctx, sx, sy) -> np.ndarray:
         """Scale a box from input space to original image coordinates."""
         if sx is not None:
@@ -388,3 +404,15 @@ class EfficientDetPostprocessor(IPostprocessor):
 
     def get_model_name(self) -> str:
         return "efficientdet"
+
+    def create_fast_variant(self):
+        """Return the opt-in fast variant for the BiFPN multi-output decode.
+
+        Only the exact ``EfficientDetPostprocessor`` type opts in: subclasses (and
+        the fast variant itself) return ``None``. Lazy import avoids a module-load
+        cycle with the fast subclass.
+        """
+        if type(self) is not EfficientDetPostprocessor:
+            return None
+        from .fast_efficientdet_postprocessor import FastEfficientDetPostprocessor
+        return FastEfficientDetPostprocessor(self.input_width, self.input_height, self.config)

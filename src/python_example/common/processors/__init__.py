@@ -11,8 +11,10 @@ from .yolo_postprocessor import (
     YOLOv8Postprocessor,
     YOLOXPostprocessor,
 )
+from .fast_yolo_postprocessor import FastYOLOv5Postprocessor
 from .classification_postprocessor import ClassificationPostprocessor
 from .segmentation_postprocessor import SemanticSegmentationPostprocessor
+from .fast_segmentation_postprocessor import FastSegmentationPostprocessor
 from .face_postprocessor import (
     FaceResult,
     SCRFDPostprocessor,
@@ -28,6 +30,7 @@ from .instance_seg_postprocessor import (
     YOLOv8InstanceSegPostprocessor,
     YOLOv5InstanceSegPostprocessor,
 )
+from .fast_instance_seg_postprocessor import FastInstanceSegPostprocessor
 from .damoyolo_postprocessor import DamoYoloPostprocessor
 from .ssd_postprocessor import SSDPostprocessor
 from .tflite_det_postprocessor import TFLiteDetectionPostprocessor
@@ -47,10 +50,12 @@ from .ppu_postprocessor import (
 )
 from .centernet_postprocessor import CenterNetPostprocessor
 from .efficientdet_postprocessor import EfficientDetPostprocessor
+from .fast_efficientdet_postprocessor import FastEfficientDetPostprocessor
 from .retinaface_postprocessor import RetinaFacePostprocessor
 from .ulfg_postprocessor import ULFGPostprocessor
 from .centerpose_postprocessor import CenterPosePostprocessor
 from .yolact_postprocessor import YOLACTPostprocessor
+from .fast_yolact_postprocessor import FastYOLACTPostprocessor
 from .espcn_postprocessor import ESPCNPostprocessor
 from .zero_dce_postprocessor import ZeroDCEPostprocessor
 from .clip_postprocessor import CLIPImagePostprocessor, CLIPTextPostprocessor
@@ -71,10 +76,13 @@ __all__ = [
     'YOLOv5Postprocessor',
     'YOLOv8Postprocessor', 
     'YOLOXPostprocessor',
+    'FastYOLOv5Postprocessor',
     # Classification Postprocessors
     'ClassificationPostprocessor',
     # Segmentation Postprocessors
     'SemanticSegmentationPostprocessor',
+    'FastSegmentationPostprocessor',
+    'FastInstanceSegPostprocessor',
     # Face Detection Postprocessors
     'FaceResult',
     'SCRFDPostprocessor',
@@ -116,6 +124,7 @@ __all__ = [
     'CenterNetPostprocessor',
     # EfficientDet Postprocessor
     'EfficientDetPostprocessor',
+    'FastEfficientDetPostprocessor',
     # RetinaFace Postprocessor
     'RetinaFacePostprocessor',
     # ULFG Postprocessor
@@ -124,6 +133,7 @@ __all__ = [
     'CenterPosePostprocessor',
     # YOLACT Postprocessor
     'YOLACTPostprocessor',
+    'FastYOLACTPostprocessor',
     # ESPCN Super-Resolution Postprocessor
     'ESPCNPostprocessor',
     # Zero-DCE Enhancement Postprocessor

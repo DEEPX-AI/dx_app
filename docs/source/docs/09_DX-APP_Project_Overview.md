@@ -201,7 +201,7 @@ dx_app/
 │   ├── cpp_example/            # C++ end-to-end examples (280 models across 17 tasks)
 │   │   └── common/             # ← Shared C++ runtime layer
 │   │       ├── base/           #   Abstract interfaces (IFactory, IProcessor, ...)
-│   │       ├── processors/     #   45 shared processors (42 post + 3 pre)
+│   │       ├── processors/     #   40 shared post-processors
 │   │       ├── runner/         #   24 task-specific sync/async runner pairs
 │   │       ├── inputs/         #   Image/Video/Camera/RTSP input sources
 │   │       ├── visualizers/    #   12 task-specific visualizers
@@ -356,7 +356,7 @@ For detailed usage examples and API references, please refer to the documentatio
 
 These templates utilize `dx_engine` (for inference) and `dx_postprocess` (for acceleration). Users can choose from four variants depending on their performance requirements.  
 
-The refactored Python tree is organized by **task → model family → variant**, with a shared `common/` layer providing base interfaces, 35 processors, generic sync/async runners, 10 visualizers, and input abstraction — the same factory-based architecture as the C++ side. For structure and contributor-facing rules, refer to [DX-APP Python Usage Guide](05_DX-APP_Python_Example_Usage_Guide.md) and [DX-APP Example Source Structure](11_DX-APP_Example_Source_Structure.md).  
+The refactored Python tree is organized by **task → model family → variant**, with a shared `common/` layer providing base interfaces, 41 processors, generic sync/async runners, 10 visualizers, and input abstraction — the same factory-based architecture as the C++ side. For structure and contributor-facing rules, refer to [DX-APP Python Usage Guide](05_DX-APP_Python_Example_Usage_Guide.md) and [DX-APP Example Source Structure](11_DX-APP_Example_Source_Structure.md).  
 
 **Task-Based Structure**    
 
@@ -412,12 +412,11 @@ artifacts/cpp_example/
 
 **Numerical Verification** (`DXAPP_VERIFY`)  
 
-A complete verification pipeline for validating inference correctness:  
+A complete pipeline for serializing inference results for inspection and debugging:  
 
 - (1) Set `DXAPP_VERIFY=1` before running any example  
 - (2) Post-processing results are serialized to `logs/verify/{model}.json`  
-- (3) Run `scripts/verify_inference_output.py` to validate against task-specific rules  
-- (4) Supports all 12 result types (Detection, Classification, Pose, Segmentation, etc.)  
+- (3) Supports all 12 result types (Detection, Classification, Pose, Segmentation, etc.)  
 
 **Tensor Dump** (`--dump-tensors`)  
 

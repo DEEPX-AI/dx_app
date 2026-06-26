@@ -65,7 +65,7 @@ std::vector<SCRFDPPUResult> SCRFDPPUPostProcess::postprocess(const dxrt::TensorP
     if (outputs.front()->type() != dxrt::DataType::FACE) {
         int i = 0;
         std::ostringstream msg;
-        msg << "[DXAPP] [ER] SCRFD PPU PostProcess - Tensor output type must be "
+        msg << "[DXAPP] [ERROR] SCRFD PPU PostProcess - Tensor output type must be "
                "dxrt::DataType::FACE.\n"
             << "  Unexpected Tensors\n";
         for (auto& o : outputs) {

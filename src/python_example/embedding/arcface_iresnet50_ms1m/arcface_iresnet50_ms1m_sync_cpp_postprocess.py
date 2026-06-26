@@ -23,16 +23,13 @@ if os.name == 'nt':
     if _dxrt_dir:
         os.add_dll_directory(os.path.join(_dxrt_dir, 'bin'))
 
-try:
-    from dx_postprocess import EmbeddingPostProcess
-except (ImportError, AttributeError):
-    from common.processors.cpp_compat import EmbeddingPostProcess
+from dx_postprocess import EmbeddingPostProcess
 from common.utility import convert_cpp_embedding
 from factory import Arcface_iresnet50_ms1mFactory
 from common.runner import SyncRunner, parse_common_args
 
 def parse_args():
-    return parse_common_args("ArcFace-MobileFaceNet Sync Inference")
+    return parse_common_args("ArcFace-MobileFaceNet Sync Inference", include_stream_inputs=False)
 def main():
     args = parse_args()
     factory = Arcface_iresnet50_ms1mFactory()

@@ -145,5 +145,16 @@ std::vector<std::string> split(const std::string &str, char delimiter);
 std::string get_coco_class_name(const int class_id);
 std::string get_voc_class_name(const int class_id);
 
+// Resolve class name: custom names take priority, then COCO fallback
+inline std::string resolve_class_name(int class_id,
+                                      const std::vector<std::string>& custom_names) {
+    if (!custom_names.empty()) {
+        if (class_id >= 0 && class_id < static_cast<int>(custom_names.size()))
+            return custom_names[class_id];
+        return "class_" + std::to_string(class_id);
+    }
+    return get_coco_class_name(class_id);
+}
+
 }  // namespace common
 }  // namespace dxapp

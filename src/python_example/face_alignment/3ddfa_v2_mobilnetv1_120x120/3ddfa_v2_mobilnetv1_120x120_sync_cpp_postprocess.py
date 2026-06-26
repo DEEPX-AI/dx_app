@@ -23,10 +23,7 @@ if os.name == 'nt':
     if _dxrt_dir:
         os.add_dll_directory(os.path.join(_dxrt_dir, 'bin'))
 
-try:
-    from dx_postprocess import Face3DPostProcess
-except (ImportError, AttributeError):
-    from common.processors.cpp_compat import Face3DPostProcess
+from dx_postprocess import Face3DPostProcess
 from common.utility import convert_cpp_face3d
 from factory import N3ddfa_v2_mobilnetv1_120x120Factory
 from common.runner import SyncRunner, parse_common_args

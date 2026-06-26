@@ -11,6 +11,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdlib>
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -34,9 +35,9 @@ static constexpr const char* DXAPP_GREEN  = "\033[1;32m";
 static constexpr const char* DXAPP_RESET  = "\033[0m";
 
 // Logging macros
-#define LOG_INFO(msg) std::cout << "[INFO] " << msg << std::endl
-#define LOG_WARN(msg) std::cout << DXAPP_YELLOW << "[WARN] " << msg << DXAPP_RESET << std::endl
-#define LOG_ERROR(msg) std::cerr << DXAPP_RED << "[ERROR] " << msg << DXAPP_RESET << std::endl
+#define LOG_INFO(msg) std::cout << "[DXAPP] [INFO] " << msg << std::endl
+#define LOG_WARN(msg) std::cout << DXAPP_YELLOW << "[DXAPP] [WARN] " << msg << DXAPP_RESET << std::endl
+#define LOG_ERROR(msg) std::cerr << DXAPP_RED << "[DXAPP] [ERROR] " << msg << DXAPP_RESET << std::endl
 
 #include <stdexcept>
 
@@ -185,14 +186,19 @@ inline bool minversionforRTandCompiler(dxrt::InferenceEngine* ie) {
         if (isVersionGreaterOrEqual(compiler_version, "v7")) {
             return true;
         } else {
-            std::cerr << "[DXAPP] [ER] Compiler version is too low. (required: "
+            std::cerr << "[DXAPP] [ERROR] Compiler version is too low. (required: "
                          ">= 7, current: "
                       << compiler_version << ")" << std::endl;
+            std::cerr << DXAPP_GREEN << "[HINT] Model/compiler version mismatch. "
+                         "Please download updated models: ./setup.sh --models <model_name>"
+                      << DXAPP_RESET << std::endl;
         }
     } else {
-        std::cerr << "[DXAPP] [ER] DXRT library version is too low. (required: "
+        std::cerr << "[DXAPP] [ERROR] DXRT library version is too low. (required: "
                      ">= 3.0.0, current: "
                   << rt_version << ")" << std::endl;
+        std::cerr << DXAPP_GREEN << "[HINT] Please update DXRT: ./install.sh --all"
+                  << DXAPP_RESET << std::endl;
     }
     return false;
 }
@@ -333,6 +339,7 @@ inline void showOutput(const cv::Mat& frame) {
     if (_displayClosed()) return;
 
     static bool window_ever_opened = false;
+    static bool headless_warned = false;
 
     // After the window has been opened at least once, process pending GUI
     // events (e.g. X-button close) and verify it is still alive BEFORE
@@ -376,7 +383,18 @@ inline void showOutput(const cv::Mat& frame) {
     }
 
     static bool window_sized = false;
-    cv::namedWindow("Output", cv::WINDOW_NORMAL);
+    try {
+        cv::namedWindow("Output", cv::WINDOW_NORMAL);
+    } catch (const cv::Exception& e ) {
+        if (!headless_warned) {
+            std::cerr << DXAPP_YELLOW
+                      << "[DXAPP] [WARN] Display not available. Use --no-display for headless mode."
+                      << DXAPP_RESET << std::endl;
+            headless_warned = true;
+        }
+        _displayClosed() = true;
+        return;
+    }
     window_ever_opened = true;
 
     if (!window_sized && !frame.empty()) {
@@ -401,11 +419,14 @@ inline void showOutput(const cv::Mat& frame) {
 /**
  * @brief Write frame to video, auto-resizing if frame size differs from writer.
  */
-inline void writeToVideo(cv::VideoWriter& writer, const cv::Mat& frame) {
+inline void writeToVideo(cv::VideoWriter& writer, const cv::Mat& frame,
+                         int expected_w = 0, int expected_h = 0) {
     if (!writer.isOpened() || frame.empty()) return;
     int w = static_cast<int>(writer.get(cv::CAP_PROP_FRAME_WIDTH));
     int h = static_cast<int>(writer.get(cv::CAP_PROP_FRAME_HEIGHT));
-    if (frame.cols == w && frame.rows == h) {
+    // CAP_PROP_FRAME_WIDTH/HEIGHT may return 0 on some OpenCV builds
+    if (w <= 0 || h <= 0) { w = expected_w; h = expected_h; }
+    if (w <= 0 || h <= 0 || (frame.cols == w && frame.rows == h)) {
         writer << frame;
     } else {
         cv::Mat resized;
@@ -496,7 +517,7 @@ inline bool autoDownloadModel(const std::string& modelPath) {
     std::string stem = fs::path(modelPath).stem().string();
     std::string modelsDir = fs::path(modelPath).parent_path().string();
     if (modelsDir.empty()) modelsDir = "./assets/models";
-    std::cout << "[INFO] Model not found: " << modelPath
+    std::cout << "[DXAPP] [INFO] Model not found: " << modelPath
               << " — attempting auto-download..." << std::endl;
     std::string cmd = "./setup_sample_models.sh --output=" + modelsDir
                     + " --models " + stem;
@@ -509,7 +530,7 @@ inline bool autoDownloadModel(const std::string& modelPath) {
  * @return true if download succeeded.
  */
 inline bool autoDownloadVideos() {
-    std::cout << "[INFO] Videos not found — attempting auto-download..." << std::endl;
+    std::cout << "[DXAPP] [INFO] Videos not found — attempting auto-download..." << std::endl;
     int ret = std::system("./setup_sample_videos.sh --output=./assets/videos");
     return ret == 0;
 }
@@ -651,7 +672,9 @@ constexpr const char* SETUP_FILE_PATH = "setup.sh --force";
         return -1;                                                                               \
     }                                                                                            \
     catch (const std::exception& e) {                                                            \
-        std::cerr << e.what() << std::endl;                                                      \
+        std::cerr << DXAPP_RED << e.what() << DXAPP_RESET << std::endl;                          \
+        std::cerr << DXAPP_GREEN << "[HINT] Use -h or --help for usage information."             \
+                  << DXAPP_RESET << std::endl;                                                   \
         return -1;                                                                               \
     }
 

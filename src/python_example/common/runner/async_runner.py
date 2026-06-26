@@ -36,12 +36,11 @@ import threading
 import traceback
 import logging
 from pathlib import Path
-from typing import Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 import cv2
 
-from dx_engine import InferenceEngine, InferenceOption
 from ..inputs import InputFactory
 from ..utility import print_async_performance_summary_legacy, SafeQueue
 from ..utility import print_image_processing_summary, print_sync_performance_summary
@@ -52,6 +51,8 @@ from .verify_serialize import is_verify_enabled, dump_verify_json
 from .sync_runner import (
     _check_dxrt_version, _validate_inputs, _apply_default_input, _has_display,
     _resolve_config_path, _parse_loop_value, _window_should_close,
+    _DEFAULT_SAMPLE_IMAGE, _IMG_STREET, _IMAGE_ONLY_TASKS,
+    _show_image_only_no_input_hint, _reject_image_only_stream_input,
 )
 
 logger = logging.getLogger(__name__)
@@ -83,7 +84,7 @@ class AsyncRunner:
         self._on_engine_init = on_engine_init
         self._display_size = display_size
 
-        self.ie: Optional[InferenceEngine] = None
+        self.ie: Optional[Any] = None
         self.preprocessor = None
         self.postprocessor = None
         self.visualizer = None
@@ -94,6 +95,7 @@ class AsyncRunner:
         self._cpp_postprocessor = None
         self._cpp_convert_fn = None
         self._cpp_visualize_fn = None
+        self._fast_postprocess = False
 
         # Runtime options
         self._save = False
@@ -128,6 +130,10 @@ class AsyncRunner:
             "sum_read": 0.0,
             "sum_preprocess": 0.0,
             "sum_inference": 0.0,
+            "sum_inference_turnaround": 0.0,
+            "sum_wait_block": 0.0,
+            "sum_reqid_queue_wait": 0.0,
+            "sum_reqid_enqueue_block": 0.0,
             "sum_postprocess": 0.0,
             "sum_render": 0.0,
             "sum_save": 0.0,
@@ -164,10 +170,14 @@ class AsyncRunner:
     def run(self, args) -> None:
         _check_dxrt_version()
         _apply_default_input(args, self.factory)
+        _reject_image_only_stream_input(args, self.factory)
         _validate_inputs(args)
 
         self._verbose = getattr(args, "show_log", False)
         self._model_path = args.model
+        self._fast_postprocess = getattr(args, "fast_postprocess", False)
+        if _show_image_only_no_input_hint(args, self.factory):
+            return
         self._init_engine(args.model, _resolve_config_path(args))
 
         self._save = getattr(args, "save", False)
@@ -178,19 +188,14 @@ class AsyncRunner:
         logger.info("\nStarting inference...")
         self._dispatch_input(args)
 
-    _IMAGE_ONLY_TASKS = {"embedding", "reid", "attribute_recognition"}
-
     def _dispatch_input(self, args) -> None:
         """Route to the correct inference method based on input args."""
         display = args.display
         task = self.factory.get_task_type() if hasattr(self.factory, "get_task_type") else ""
-        if task in self._IMAGE_ONLY_TASKS and not getattr(args, "image", None):
-            logger.error(
-                f"Task '{task}' supports image input only "
-                f"(--image). Video/camera input requires a "
-                f"detection crop pipeline and is not supported "
-                f"in single-model examples.")
-            sys.exit(1)
+        _reject_image_only_stream_input(args, self.factory)
+        if task in _IMAGE_ONLY_TASKS and not getattr(args, "image", None):
+            _show_image_only_no_input_hint(args, self.factory)
+            return
         if getattr(args, "image", None):
             self._is_image_input = True
             if os.path.isdir(args.image):
@@ -230,6 +235,8 @@ class AsyncRunner:
 
     def _init_engine(self, model_path: str,
                      config_path: Optional[str] = None) -> None:
+        from dx_engine import InferenceEngine, InferenceOption  # type: ignore[import-not-found]
+
         option = InferenceOption()
         if self._use_ort is False:
             option.set_use_ort(False)
@@ -268,8 +275,22 @@ class AsyncRunner:
         self.visualizer = self.factory.create_visualizer()
         self.input_width = input_w
         self.input_height = input_h
+        self._maybe_enable_fast_postprocess()
         if self._on_engine_init is not None:
             self._on_engine_init(self)
+
+    def _maybe_enable_fast_postprocess(self) -> None:
+        """Swap in the opt-in fast postprocessor when requested and available."""
+        if not getattr(self, "_fast_postprocess", False):
+            return
+        fast = self.factory.create_fast_postprocessor(self.input_width, self.input_height)
+        if fast is not None:
+            self.postprocessor = fast
+            logger.info("Fast postprocess ENABLED (opt-in, approximation path)")
+        else:
+            logger.warning(
+                "--fast-postprocess requested but no fast variant is available "
+                "for this model; using standard postprocessor")
 
     # ------------------------------------------------------------------
     # Stop / Drain helpers (graceful shutdown)
@@ -397,9 +418,13 @@ class AsyncRunner:
                     self._metrics["sum_preprocess"] += t1 - t0
                     self._track_inflight_submit(t_submit)
 
-                payload = (frame, input_tensor, req_id, ctx, t_submit)
+                t_queue_entry = time.perf_counter()
+                payload = (frame, input_tensor, req_id, ctx, t_submit, t_queue_entry)
                 if not self._enqueue(reqid_q, payload):
                     break
+                t_queue_done = time.perf_counter()
+                with self._metrics_lock:
+                    self._metrics["sum_reqid_enqueue_block"] += t_queue_done - t_queue_entry
         except Exception as exc:
             self._handle_worker_exception("preprocess_worker", exc, queues)
         finally:
@@ -414,13 +439,17 @@ class AsyncRunner:
                 item = self._dequeue(reqid_q)
                 if item is _SENTINEL:
                     break
-                frame, input_tensor, req_id, ctx, t_submit = item
+                t_wait_start = time.perf_counter()
+                frame, input_tensor, req_id, ctx, t_submit, t_queue_entry = item
 
                 outputs = self.ie.wait(req_id)
                 t_done = time.perf_counter()
 
                 with self._metrics_lock:
                     self._metrics["sum_inference"] += t_done - t_submit
+                    self._metrics["sum_inference_turnaround"] += t_done - t_submit
+                    self._metrics["sum_wait_block"] += t_done - t_wait_start
+                    self._metrics["sum_reqid_queue_wait"] += t_wait_start - t_queue_entry
                     self._track_inflight_complete(t_done)
 
                 # --dump-tensors (normal path)
@@ -724,15 +753,19 @@ class AsyncRunner:
         oth, otw = sr["oth"], sr["otw"]
 
         t0 = time.perf_counter()
-        lr_w = tile_w * 20
-        lr_h = round(lr_w * frame.shape[0] / frame.shape[1])
-        lr_h = max(tile_h, ((lr_h + tile_h - 1) // tile_h) * tile_h)
-        lr_bgr = cv2.resize(frame, (lr_w, lr_h))
+        # Pad original frame to tile boundaries without resizing/downscaling.
+        orig_h, orig_w = frame.shape[:2]
+        lr_w = ((orig_w + tile_w - 1) // tile_w) * tile_w
+        lr_h = ((orig_h + tile_h - 1) // tile_h) * tile_h
+        lr_bgr = cv2.copyMakeBorder(
+            frame, 0, lr_h - orig_h, 0, lr_w - orig_w,
+            cv2.BORDER_REPLICATE)
         lr_gray = cv2.cvtColor(lr_bgr, cv2.COLOR_BGR2GRAY)
         t1 = time.perf_counter()
 
-        out_w, out_h = lr_w * scale_x, lr_h * scale_y
-        sr_y = np.zeros((out_h, out_w), dtype=np.uint8)
+        padded_out_w, padded_out_h = lr_w * scale_x, lr_h * scale_y
+        out_w, out_h = orig_w * scale_x, orig_h * scale_y
+        sr_y = np.zeros((padded_out_h, padded_out_w), dtype=np.uint8)
         tiles_x, tiles_y = lr_w // tile_w, lr_h // tile_h
         tiles_done = 0
 
@@ -750,9 +783,10 @@ class AsyncRunner:
                 sr_y[dy:dy+oth, dx:dx+otw] = tile_u8
                 tiles_done += 1
         t2 = time.perf_counter()
+        sr_y = sr_y[:out_h, :out_w]
 
         # Merge with CrCb from LR
-        lr_ycrcb = cv2.cvtColor(lr_bgr, cv2.COLOR_BGR2YCrCb)
+        lr_ycrcb = cv2.cvtColor(frame, cv2.COLOR_BGR2YCrCb)
         cr_up = cv2.resize(lr_ycrcb[:, :, 1], (out_w, out_h),
                            interpolation=cv2.INTER_CUBIC)
         cb_up = cv2.resize(lr_ycrcb[:, :, 2], (out_w, out_h),
@@ -762,12 +796,12 @@ class AsyncRunner:
         t3 = time.perf_counter()
 
         # Side-by-side canvas
-        lr_up = cv2.resize(lr_bgr, (out_w, out_h),
+        lr_up = cv2.resize(frame, (out_w, out_h),
                            interpolation=cv2.INTER_CUBIC)
         canvas = np.zeros((out_h, out_w * 2 + 4, 3), dtype=np.uint8)
         canvas[:, :out_w] = lr_up
         canvas[:, out_w + 4:] = sr_bgr
-        cv2.putText(canvas, f"Bicubic ({lr_w}x{lr_h})",
+        cv2.putText(canvas, f"Bicubic ({orig_w}x{orig_h})",
                     (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 200, 255), 2)
         cv2.putText(canvas,
                     f"ESPCN x{scale_x} ({out_w}x{out_h}, {tiles_done} tiles)",

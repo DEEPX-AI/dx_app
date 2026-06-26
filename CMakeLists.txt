@@ -144,14 +144,23 @@ if(ENABLE_DEBUG_INFO OR CMAKE_BUILD_TYPE STREQUAL "Debug" OR CMAKE_BUILD_TYPE ST
 endif()
 
 if(MSVC)
-    execute_process(
-        COMMAND where python
-        OUTPUT_VARIABLE PYTHON_PATHS
-        OUTPUT_STRIP_TRAILING_WHITESPACE
-    )
-    string(REPLACE "\n" ";" PYTHON_PATH_LIST "${PYTHON_PATHS}")
-    list(GET PYTHON_PATH_LIST 0 Python_EXECUTABLE)
-    message(STATUS "Selected Python Executable : ${Python_EXECUTABLE}")
+    if(NOT Python_EXECUTABLE)
+        execute_process(
+            COMMAND where python
+            OUTPUT_VARIABLE PYTHON_PATHS
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+            RESULT_VARIABLE PYTHON_WHERE_RC
+        )
+        if(PYTHON_WHERE_RC EQUAL 0 AND PYTHON_PATHS)
+            string(REPLACE "\n" ";" PYTHON_PATH_LIST "${PYTHON_PATHS}")
+            list(GET PYTHON_PATH_LIST 0 Python_EXECUTABLE)
+        endif()
+    endif()
+    if(Python_EXECUTABLE)
+        message(STATUS "Selected Python Executable : ${Python_EXECUTABLE}")
+    else()
+        message(WARNING "Python not found. Python-dependent targets may fail.")
+    endif()
 endif()
 
 if(DXAPP_WITH_SHAREDLIB)

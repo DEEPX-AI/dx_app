@@ -20,6 +20,7 @@
 #include <iostream>
 #include <map>
 #include <string>
+#include <vector>
 
 namespace dxapp {
 
@@ -30,14 +31,14 @@ public:
     explicit ModelConfig(const std::string& path) {
         std::ifstream file(path);
         if (!file.is_open()) {
-            std::cerr << "[WARN] Config file not found: " << path << std::endl;
+            std::cerr << "[DXAPP] [WARN] Config file not found: " << path << std::endl;
             return;
         }
         loaded_ = true;
         std::string content((std::istreambuf_iterator<char>(file)),
                              std::istreambuf_iterator<char>());
         parse(content);
-        std::cout << "[INFO] Config loaded: " << path
+        std::cout << "[DXAPP] [INFO] Config loaded: " << path
                   << " (" << values_.size() << " keys)" << std::endl;
     }
 
@@ -50,10 +51,18 @@ public:
         try {
             return convert<T>(it->second);
         } catch (const std::exception&) {
-            std::cerr << "[WARN] Config: failed to convert key '"
+            std::cerr << "[DXAPP] [WARN] Config: failed to convert key '"
                       << key << "' value '" << it->second << "'" << std::endl;
             return default_value;
         }
+    }
+
+    /// Retrieve a list of strings from a JSON array value.
+    /// Returns empty vector when the key is absent.
+    std::vector<std::string> get_string_list(const std::string& key) const {
+        auto it = arrays_.find(key);
+        if (it == arrays_.end()) return {};
+        return parse_string_array_(it->second);
     }
 
     bool isLoaded() const { return loaded_; }
@@ -67,6 +76,7 @@ public:
 
 private:
     std::map<std::string, std::string> values_;
+    std::map<std::string, std::string> arrays_;  // raw JSON array content
     bool loaded_ = false;
 
     // ----------------------------------------------------------------
@@ -98,7 +108,7 @@ private:
             } else if (content[pos] == '{') {
                 skipBlock_(content, pos, '{', '}');
             } else if (content[pos] == '[') {
-                skipBlock_(content, pos, '[', ']');
+                arrays_[key] = readBlock_(content, pos, '[', ']');
             } else {
                 values_[key] = readScalarValue_(content, pos);
             }
@@ -116,6 +126,37 @@ private:
             else if (content[pos] == closer) --depth;
             ++pos;
         }
+    }
+
+    // Read a nested block and return its content (including delimiters).
+    std::string readBlock_(const std::string& content, size_t& pos,
+                           char opener, char closer) const {
+        size_t start = pos;
+        int depth = 1;
+        ++pos;
+        while (pos < content.size() && depth > 0) {
+            if      (content[pos] == opener) ++depth;
+            else if (content[pos] == closer) --depth;
+            ++pos;
+        }
+        return content.substr(start, pos - start);
+    }
+
+    // Parse a JSON string array like ["a", "b", "c"] into vector<string>.
+    // NOTE: Supports simple string-only arrays. Does not handle JSON escape
+    // sequences (e.g. \") or arrays of objects. Intended solely for class_names.
+    std::vector<std::string> parse_string_array_(const std::string& raw) const {
+        std::vector<std::string> result;
+        size_t pos = 0;
+        while (pos < raw.size()) {
+            auto q1 = raw.find('"', pos);
+            if (q1 == std::string::npos) break;
+            auto q2 = raw.find('"', q1 + 1);
+            if (q2 == std::string::npos) break;
+            result.push_back(raw.substr(q1 + 1, q2 - q1 - 1));
+            pos = q2 + 1;
+        }
+        return result;
     }
 
     // Read a JSON string value. pos must point at the opening '"'.

@@ -3,6 +3,7 @@
 
 #include <dxrt/dxrt_api.h>
 
+#include <array>
 #include <string>
 #include <vector>
 
@@ -34,9 +35,19 @@ class EfficientDetPostProcess {
     float nms_threshold_{0.45f};
     int num_classes_{90};
     bool has_background_{true};
+    int max_nms_candidates_{1000};
+
+    // Cached EfficientDet anchors (P3-P7): each entry is [cx, cy, w, h] in
+    // input-pixel space. Generated lazily to match the golden Python
+    // EfficientDetPostprocessor._generate_anchors ordering.
+    std::vector<std::array<float, 4>> anchors_{};
 
     std::vector<EfficientDetResult> processTFFormat(const dxrt::TensorPtrs& outputs);
     std::vector<EfficientDetResult> process2Tensor(const dxrt::TensorPtrs& outputs);
+    // Multi-output (BiFPN) format: anchor-regression box decode.
+    std::vector<EfficientDetResult> processMultiOutputAnchors(
+        const dxrt::TensorPtr& boxes_t, const dxrt::TensorPtr& scores_t);
+    void generate_anchors();
 
    public:
     EfficientDetPostProcess(int input_w, int input_h,

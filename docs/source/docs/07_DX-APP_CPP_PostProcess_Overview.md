@@ -34,6 +34,9 @@ The principles above are applied across various model families as follows
 - `deeplabv3_postprocess`: Converts segmentation logits into high-resolution per-pixel class labels or visual color maps.  
 - `*_ppu_postprocess`: Designed for models compiled with **PPU support**. These modules receive data that has already been partially processed by the NPU, adapting and finalizing the outputs for the host CPU.  
 
+!!! note "Example-layer fast segmentation"
+     The C++ example runtime also provides `FastSegmentationPostprocessor` in `src/cpp_example/common/processors/segmentation_postprocessor.hpp`. It is a generic low-resolution semantic-segmentation fast path that performs argmax before nearest-neighbor resize/crop. This class is used by generated examples through the `fast_segmentation` alias in `scripts/add_model.sh`; it is separate from the standalone `src/postprocess/` pybind library modules listed below.
+
 ### Directory Structure
 
 The libraries are organized by model architecture. Modules appended with `_ppu` are specialized for models where partial post-processing is offloaded to the **DEEPX PPU (Post-Processing Unit)**.  

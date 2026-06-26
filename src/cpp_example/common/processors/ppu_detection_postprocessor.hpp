@@ -59,17 +59,21 @@ public:
     PPUDetectionPostProcess(int input_w, int input_h,
                             float obj_threshold, float score_threshold,
                             float nms_threshold,
-                            const std::map<int, std::vector<std::pair<int,int>>>& anchors)
+                            const std::map<int, std::vector<std::pair<int,int>>>& anchors,
+                            int num_classes = 80,
+                            const std::vector<std::string>& class_names = {})
         : input_width_(input_w), input_height_(input_h),
           object_threshold_(obj_threshold), score_threshold_(score_threshold),
-          nms_threshold_(nms_threshold), anchors_by_strides_(anchors) {
+          nms_threshold_(nms_threshold), num_classes_(num_classes),
+          class_names_(class_names),
+          anchors_by_strides_(anchors) {
         ppu_output_names_ = {"BBOX"};
     }
 
     std::vector<PPUDetectionResult> postprocess(const dxrt::TensorPtrs& outputs) {
         if (outputs.front()->type() != dxrt::DataType::BBOX) {
             std::ostringstream msg;
-            msg << "[DXAPP] [ER] PPU Detection PostProcess - Tensor type must be BBOX.\n"
+            msg << "[DXAPP] [ERROR] PPU Detection PostProcess - Tensor type must be BBOX.\n"
                 << "  Unexpected Tensors\n";
             msg << postprocess_utils::format_tensor_shapes_with_type(outputs);
             msg << "Expected dxrt::DataType::BBOX.\n";
@@ -100,7 +104,7 @@ public:
     float get_object_threshold() const { return object_threshold_; }
     float get_score_threshold() const { return score_threshold_; }
     float get_nms_threshold() const { return nms_threshold_; }
-    static int get_num_classes() { return num_classes_; }
+    int get_num_classes() const { return num_classes_; }
     const std::map<int, std::vector<std::pair<int,int>>>& get_anchors_by_strides() const { return anchors_by_strides_; }
     const std::vector<std::string>& get_ppu_output_names() const { return ppu_output_names_; }
 
@@ -110,7 +114,8 @@ private:
     float object_threshold_;
     float score_threshold_;
     float nms_threshold_;
-    enum { num_classes_ = 80 };
+    int num_classes_;
+    std::vector<std::string> class_names_;
     std::vector<std::string> ppu_output_names_;
     std::map<int, std::vector<std::pair<int,int>>> anchors_by_strides_;
 
@@ -133,7 +138,7 @@ private:
             PPUDetectionResult r;
             r.confidence = bb.score;
             r.class_id = bb.label;
-            r.class_name = dxapp::common::get_coco_class_name(r.class_id);
+            r.class_name = dxapp::common::resolve_class_name(r.class_id, class_names_);
             r.box = {x - w/2, y - h/2, x + w/2, y + h/2};
             detections.push_back(std::move(r));
         }
@@ -152,21 +157,25 @@ private:
 class YOLOv5PPUPostProcess : public PPUDetectionPostProcess {
 public:
     YOLOv5PPUPostProcess(int w = 640, int h = 640,
-                         float obj = 0.25f, float score = 0.3f, float nms = 0.45f)
+                         float obj = 0.25f, float score = 0.3f, float nms = 0.45f,
+                         const std::vector<std::string>& class_names = {})
         : PPUDetectionPostProcess(w, h, obj, score, nms,
               {{8,  {{10,13},{16,30},{33,23}}},
                {16, {{30,61},{62,45},{59,119}}},
-               {32, {{116,90},{156,198},{373,326}}}}) {}
+               {32, {{116,90},{156,198},{373,326}}}},
+              80, class_names) {}
 };
 
 class YOLOv7PPUPostProcess : public PPUDetectionPostProcess {
 public:
     YOLOv7PPUPostProcess(int w = 640, int h = 640,
-                         float obj = 0.3f, float score = 0.4f, float nms = 0.5f)
+                         float obj = 0.3f, float score = 0.4f, float nms = 0.5f,
+                         const std::vector<std::string>& class_names = {})
         : PPUDetectionPostProcess(w, h, obj, score, nms,
               {{8,  {{12,16},{19,36},{40,28}}},
                {16, {{36,75},{76,55},{72,146}}},
-               {32, {{142,110},{192,243},{459,401}}}}) {}
+               {32, {{142,110},{192,243},{459,401}}}},
+              80, class_names) {}
 };
 
 /**
@@ -176,10 +185,12 @@ public:
 class YOLOv3TinyPPUPostProcess : public PPUDetectionPostProcess {
 public:
     YOLOv3TinyPPUPostProcess(int w = 416, int h = 416,
-                              float obj = 0.25f, float score = 0.25f, float nms = 0.45f)
+                              float obj = 0.25f, float score = 0.25f, float nms = 0.45f,
+                              const std::vector<std::string>& class_names = {})
         : PPUDetectionPostProcess(w, h, obj, score, nms,
               {{16, {{10,14},{23,27},{37,58}}},
-               {32, {{81,82},{135,169},{344,319}}}}) {}
+               {32, {{81,82},{135,169},{344,319}}}},
+              80, class_names) {}
 };
 
 #endif  // PPU_DETECTION_POSTPROCESSOR_HPP

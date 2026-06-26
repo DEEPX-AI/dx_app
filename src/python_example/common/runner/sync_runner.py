@@ -21,18 +21,18 @@ import time
 import traceback
 import logging
 from pathlib import Path
-from typing import Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Union
 
 import numpy as np
 import cv2
 
-from dx_engine import InferenceEngine, InferenceOption
 from ..config import load_config
 from ..utility import print_image_processing_summary, print_sync_performance_summary
 from .run_dir import create_run_dir, write_run_info, dump_tensors, dump_tensors_on_exception
 from .verify_serialize import is_verify_enabled, dump_verify_json
 
-logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s")
+logging.addLevelName(logging.WARNING, "WARN")
+logging.basicConfig(level=logging.INFO, format="[DXAPP] [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
 
 _MSG_HEADLESS_SKIP = "Headless environment - display skipped"
@@ -166,6 +166,9 @@ _VID_BLACKBOX = "assets/videos/blackbox-city-road.mp4"
 _VID_DOGS = "assets/videos/dogs.mp4"
 _VID_SNOWBOARD = "assets/videos/snowboard.mp4"
 
+# Tasks that accept image input only (no video/camera/rtsp stream).
+_IMAGE_ONLY_TASKS = {"embedding", "reid", "attribute_recognition"}
+
 _DEFAULT_SAMPLE_IMAGE = {
     "object_detection":       _IMG_STREET,
     "face_detection":         "sample/img/sample_face.jpg",
@@ -223,10 +226,50 @@ def _apply_default_input(args, factory=None) -> None:
         return
 
     task_type = factory.get_task_type() if factory else None
+    # Image-only tasks: do not auto-fill an input. Let the dispatcher show a
+    # hint so the user explicitly provides an image with --image.
+    if task_type in _IMAGE_ONLY_TASKS:
+        return
     default_image = _DEFAULT_SAMPLE_IMAGE.get(
         task_type, "sample/img/sample_street.jpg")
     args.image = default_image
     logger.info(f"No input specified. Using default sample: {default_image}")
+
+
+def _show_image_only_no_input_hint(args, factory=None) -> bool:
+    task_type = factory.get_task_type() if factory and hasattr(factory, "get_task_type") else ""
+    if task_type not in _IMAGE_ONLY_TASKS or getattr(args, "image", None):
+        return False
+
+    hint = _DEFAULT_SAMPLE_IMAGE.get(task_type, _IMG_STREET)
+    logger.info(
+        f"Task '{task_type}' takes image input only.\n"
+        f"        -> Provide an image with --image (-i), "
+        f"e.g. --image {hint}")
+    return True
+
+
+def _has_stream_input(args) -> bool:
+    return bool(
+        getattr(args, "video", None)
+        or getattr(args, "camera", None) is not None
+        or getattr(args, "rtsp", None)
+    )
+
+
+def _reject_image_only_stream_input(args, factory=None) -> None:
+    task_type = factory.get_task_type() if factory and hasattr(factory, "get_task_type") else ""
+    if task_type not in _IMAGE_ONLY_TASKS or not _has_stream_input(args):
+        return
+
+    logger.error(
+        "Task '%s' supports image input only (--image). "
+        "Video/camera input requires a detection crop pipeline "
+        "and is not supported in single-model examples. "
+        "Use --image (-i) to provide an image file or directory.",
+        task_type,
+    )
+    sys.exit(1)
 
 
 def _find_script(name: str) -> Optional[str]:
@@ -291,7 +334,9 @@ def _validate_media(args) -> None:
     if getattr(args, "image", None):
         p = Path(args.image)
         if not p.exists():
-            logger.error(f"Image path does not exist: {args.image}")
+            logger.error(
+                f"Image path does not exist: {args.image}\n"
+                f"        → Sample images: sample/img/  (e.g. sample/img/sample_street.jpg)")
             sys.exit(1)
         if not p.is_file() and not p.is_dir():
             logger.error(f"Image path must be a valid file or directory: {args.image}")
@@ -369,7 +414,7 @@ class SyncRunner:
         self._on_engine_init = on_engine_init
         self._display_size = display_size or _DEFAULT_DISPLAY_SIZE
 
-        self.ie: Optional[InferenceEngine] = None
+        self.ie: Optional[Any] = None
         self.input_width = 0
         self.input_height = 0
         self.preprocessor = None
@@ -382,6 +427,7 @@ class SyncRunner:
         self._dump_tensors = False
         self._model_path = ""
         self._verbose = False
+        self._fast_postprocess = False
         self._sr_cache: Optional[dict] = None  # cached SR probe info
 
     # ------------------------------------------------------------------
@@ -392,10 +438,14 @@ class SyncRunner:
         """Main entry point."""
         _check_dxrt_version()
         _apply_default_input(args, self.factory)
+        _reject_image_only_stream_input(args, self.factory)
         _validate_inputs(args)
 
         self._verbose = getattr(args, "show_log", False)
         self._model_path = args.model
+        self._fast_postprocess = getattr(args, "fast_postprocess", False)
+        if _show_image_only_no_input_hint(args, self.factory):
+            return
         self._init_engine(args.model, _resolve_config_path(args))
 
         self._save = getattr(args, "save", False)
@@ -406,19 +456,14 @@ class SyncRunner:
         logger.info("\nStarting inference...")
         self._dispatch_input(args)
 
-    _IMAGE_ONLY_TASKS = {"embedding", "reid", "attribute_recognition"}
-
     def _dispatch_input(self, args) -> None:
         """Route to the correct inference method based on input args."""
         display = args.display
         task = self.factory.get_task_type() if hasattr(self.factory, "get_task_type") else ""
-        if task in self._IMAGE_ONLY_TASKS and not getattr(args, "image", None):
-            logger.error(
-                f"Task '{task}' supports image input only "
-                f"(--image). Video/camera input requires a "
-                f"detection crop pipeline and is not supported "
-                f"in single-model examples.")
-            sys.exit(1)
+        _reject_image_only_stream_input(args, self.factory)
+        if task in _IMAGE_ONLY_TASKS and not getattr(args, "image", None):
+            _show_image_only_no_input_hint(args, self.factory)
+            return
         if getattr(args, "image", None):
             if os.path.isdir(args.image):
                 self._image_dir_inference(args.image, display)
@@ -436,6 +481,8 @@ class SyncRunner:
     # ------------------------------------------------------------------
 
     def _init_engine(self, model_path: str, config_path: Optional[str] = None) -> None:
+        from dx_engine import InferenceEngine, InferenceOption  # type: ignore[import-not-found]
+
         option = InferenceOption()
         if self._use_ort is None:
             if not option.get_use_ort():
@@ -468,6 +515,7 @@ class SyncRunner:
 
         self.preprocessor = self.factory.create_preprocessor(self.input_width, self.input_height)
         self.postprocessor = self.factory.create_postprocessor(self.input_width, self.input_height)
+        self._maybe_enable_fast_postprocess()
         self.visualizer = self.factory.create_visualizer()
         if self._on_engine_init is not None:
             self._on_engine_init(self)
@@ -483,6 +531,19 @@ class SyncRunner:
         if len(shape) == 2:
             return 1, shape[1]
         return 1, 1
+
+    def _maybe_enable_fast_postprocess(self) -> None:
+        """Swap in the opt-in fast postprocessor when requested and available."""
+        if not getattr(self, "_fast_postprocess", False):
+            return
+        fast = self.factory.create_fast_postprocessor(self.input_width, self.input_height)
+        if fast is not None:
+            self.postprocessor = fast
+            logger.info("Fast postprocess ENABLED (opt-in, approximation path)")
+        else:
+            logger.warning(
+                "--fast-postprocess requested but no fast variant is available "
+                "for this model; using standard postprocessor")
 
     # ------------------------------------------------------------------
     # Pipeline steps
@@ -897,15 +958,18 @@ class SyncRunner:
         oth, otw = sr["oth"], sr["otw"]
 
         t0 = time.perf_counter()
-        # Create LR image: 20 tiles wide, proportional height
-        lr_w = tile_w * 20
-        lr_h = round(lr_w * frame.shape[0] / frame.shape[1])
-        lr_h = max(tile_h, ((lr_h + tile_h - 1) // tile_h) * tile_h)
-        lr_bgr = cv2.resize(frame, (lr_w, lr_h))
+        # Pad original frame to tile boundaries without resizing/downscaling.
+        orig_h, orig_w = frame.shape[:2]
+        lr_w = ((orig_w + tile_w - 1) // tile_w) * tile_w
+        lr_h = ((orig_h + tile_h - 1) // tile_h) * tile_h
+        lr_bgr = cv2.copyMakeBorder(
+            frame, 0, lr_h - orig_h, 0, lr_w - orig_w,
+            cv2.BORDER_REPLICATE)
         lr_gray = cv2.cvtColor(lr_bgr, cv2.COLOR_BGR2GRAY)
         t1 = time.perf_counter()
 
-        out_w, out_h = lr_w * scale_x, lr_h * scale_y
+        padded_out_w, padded_out_h = lr_w * scale_x, lr_h * scale_y
+        out_w, out_h = orig_w * scale_x, orig_h * scale_y
 
         # Use cached probe for tile (0,0), infer the rest
         probe_out = sr["probe_out"] if frame_count == 1 else None
@@ -915,19 +979,21 @@ class SyncRunner:
             probe_out = self.infer(tile0[:, :, np.newaxis])
 
         sr_y, tiles_done = self._tile_sr_pass(
-            lr_gray, tile_h, tile_w, oth, otw, probe_out, out_h, out_w)
+            lr_gray, tile_h, tile_w, oth, otw, probe_out,
+            padded_out_h, padded_out_w)
+        sr_y = sr_y[:out_h, :out_w]
         t2 = time.perf_counter()
 
-        sr_bgr = self._merge_ycrcb(sr_y, lr_bgr, out_w, out_h)
+        sr_bgr = self._merge_ycrcb(sr_y, frame, out_w, out_h)
         t3 = time.perf_counter()
 
         # Side-by-side canvas
-        lr_up = cv2.resize(lr_bgr, (out_w, out_h),
+        lr_up = cv2.resize(frame, (out_w, out_h),
                            interpolation=cv2.INTER_CUBIC)
         canvas = np.zeros((out_h, out_w * 2 + 4, 3), dtype=np.uint8)
         canvas[:, :out_w] = lr_up
         canvas[:, out_w + 4:] = sr_bgr
-        cv2.putText(canvas, f"Bicubic ({lr_w}x{lr_h})",
+        cv2.putText(canvas, f"Bicubic ({orig_w}x{orig_h})",
                     (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 200, 255), 2)
         cv2.putText(canvas,
                     f"ESPCN x{scale_x} ({out_w}x{out_h}, {tiles_done} tiles)",
@@ -1201,31 +1267,38 @@ class SyncRunner:
                              image_path: str = "") -> None:
         t_start = time.perf_counter()
         tile_w, tile_h = self.input_width, self.input_height
-        lr_w = tile_w * 20
-        lr_h = round(lr_w * img.shape[0] / img.shape[1])
-        lr_h = max(tile_h, ((lr_h + tile_h - 1) // tile_h) * tile_h)
-        lr_bgr = cv2.resize(img, (lr_w, lr_h))
+        # Pad original image to tile boundaries without resizing/downscaling.
+        orig_h, orig_w = img.shape[:2]
+        lr_w = ((orig_w + tile_w - 1) // tile_w) * tile_w
+        lr_h = ((orig_h + tile_h - 1) // tile_h) * tile_h
+        lr_bgr = cv2.copyMakeBorder(
+            img, 0, lr_h - orig_h, 0, lr_w - orig_w,
+            cv2.BORDER_REPLICATE)
         lr_gray = cv2.cvtColor(lr_bgr, cv2.COLOR_BGR2GRAY)
 
         t0 = time.perf_counter()
         probe_out, oth, otw = self._probe_sr_output_size(lr_gray, tile_h, tile_w)
         scale_x = max(1, otw // tile_w)
-        out_w, out_h = lr_w * scale_x, lr_h * max(1, oth // tile_h)
+        scale_y = max(1, oth // tile_h)
+        padded_out_w, padded_out_h = lr_w * scale_x, lr_h * scale_y
+        out_w, out_h = orig_w * scale_x, orig_h * scale_y
 
         t_i0 = time.perf_counter()
         sr_y, tiles_done = self._tile_sr_pass(
-            lr_gray, tile_h, tile_w, oth, otw, probe_out, out_h, out_w)
+            lr_gray, tile_h, tile_w, oth, otw, probe_out,
+            padded_out_h, padded_out_w)
+        sr_y = sr_y[:out_h, :out_w]
         t_i1 = time.perf_counter()
 
-        sr_bgr = self._merge_ycrcb(sr_y, lr_bgr, out_w, out_h)
+        sr_bgr = self._merge_ycrcb(sr_y, img, out_w, out_h)
         t3 = time.perf_counter()
 
-        lr_up = cv2.resize(lr_bgr, (out_w, out_h),
+        lr_up = cv2.resize(img, (out_w, out_h),
                            interpolation=cv2.INTER_CUBIC)
         canvas = np.zeros((out_h, out_w * 2 + 4, 3), dtype=np.uint8)
         canvas[:, :out_w] = lr_up
         canvas[:, out_w+4:] = sr_bgr
-        cv2.putText(canvas, f"Bicubic ({lr_w}x{lr_h})",
+        cv2.putText(canvas, f"Bicubic ({orig_w}x{orig_h})",
                     (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 200, 255), 2)
         cv2.putText(canvas,
                     f"ESPCN x{scale_x} ({out_w}x{out_h}, {tiles_done} tiles)",

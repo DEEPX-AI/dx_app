@@ -178,7 +178,7 @@ inline void printAsyncPerformanceSummary(const AsyncProfilingMetrics& metrics,
                                          double total_time_sec,
                                          bool display_on = true) {
     if (metrics.infer_completed == 0) {
-        std::cout << "[WARNING] No frames were processed." << std::endl;
+        std::cout << "[DXAPP] [WARN] No frames were processed." << std::endl;
         return;
     }
 

@@ -69,7 +69,7 @@ std::vector<YOLOv8Result> YOLOv8PostProcess::postprocess(const dxrt::TensorPtrs&
     if (aligned_outputs.empty()) {
         int i = 0;
         std::ostringstream msg;
-        msg << "[DXAPP] [ER] YOLOv8PostProcess::postprocess - Aligned outputs are empty.\n"
+        msg << "[DXAPP] [ERROR] YOLOv8PostProcess::postprocess - Aligned outputs are empty.\n"
             << "  Unexpected shape\n";
         for (auto& o : outputs) {
             msg << "    Output shape [" << i++ << "]: (";

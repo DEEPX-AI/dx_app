@@ -3,8 +3,7 @@
 """
 BISENetV1 Synchronous Inference Example
 
-NOTE: uint16 output dtype — not supported by C++ binding.
-      Falls back to Python postprocessing instead of C++ PostProcess binding.
+C++ SemanticSegPostProcess passes through the NPU pre-argmaxed class map (uint16 is converted to float32 by the runner, then read back to int).
 
 Usage:
     python bisenetv1_sync_cpp_postprocess.py --model model.dxnn --image input.jpg
@@ -27,6 +26,8 @@ if os.name == 'nt':
         os.add_dll_directory(os.path.join(_dxrt_dir, 'bin'))
 
 from factory import Bisenetv1Factory
+from dx_postprocess import SemanticSegPostProcess
+from common.utility import convert_cpp_semantic_seg
 from common.runner import SyncRunner, parse_common_args
 
 def parse_args():
@@ -35,7 +36,11 @@ def main():
     args = parse_args()
     factory = Bisenetv1Factory()
 
-    runner = SyncRunner(factory)
+    def on_engine_init(runner):
+        runner._cpp_postprocessor = SemanticSegPostProcess(runner.input_width, runner.input_height)
+        runner._cpp_convert_fn = convert_cpp_semantic_seg
+
+    runner = SyncRunner(factory, on_engine_init=on_engine_init)
     runner.run(args)
 
 if __name__ == "__main__":

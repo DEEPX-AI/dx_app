@@ -52,6 +52,9 @@ The library wraps **41 C++ post-processing classes** with pybind11 bindings, ens
 - **Hand Landmark:** HandLandmark  
 - **PPU Variants:** YOLOv5-PPU, YOLOv7-PPU, YOLOv8-PPU, SCRFD-PPU, YOLOv5Pose-PPU, YOLOX-PPU, YOLOv3Tiny-PPU  
 
+!!! note "Generic fast segmentation in Python examples"
+    `FastSegmentationPostprocessor` is available from `common.processors` for Python example-layer semantic segmentation. It is intentionally generic and selected by the `fast_segmentation` generation alias. It is not a direct `dx_postprocess` pybind class; use it from `src/python_example/common/processors/fast_segmentation_postprocessor.py` when the model outputs low-resolution logits or class maps that should be argmaxed before resize.
+
 ---
 
 ## Installation & Setup

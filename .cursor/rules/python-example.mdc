@@ -1,0 +1,15 @@
+---
+description: Rules for Python inference examples in dx_app
+globs: ["src/python_example/**"]
+---
+
+**Response Language**: Match your response language to the user's prompt language — when asking questions or responding, use the same language the user is using.
+
+# Python Example Rules
+
+- IFactory is mandatory — implement all 5 methods
+- Use `parse_common_args()` — no custom argparse
+- 4 variants: `_sync.py`, `_async.py`, `_sync_cpp_postprocess.py`, `_async_cpp_postprocess.py`
+- sys.path insertion pattern for imports
+- Every model dir needs `config.json` and `__init__.py`
+- Read `.deepx/skills/dx-build-python-app.md` for full patterns

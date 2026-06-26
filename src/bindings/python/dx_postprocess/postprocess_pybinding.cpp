@@ -1,5 +1,6 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
+#include <pybind11/stl.h>
 #include <dxrt/dxrt_api.h>
 #include "yolov5_postprocess.h"
 #include "yolov5_ppu_postprocess.h"
@@ -29,6 +30,7 @@
 #include "ssd_postprocess.h"
 #include "nanodet_postprocess.h"
 #include "damoyolo_postprocess.h"
+#include "yolov4_postprocess.h"
 #include "obb_postprocess.h"
 #include "dncnn_postprocess.h"
 #include "yolov5seg_postprocess.h"
@@ -42,6 +44,7 @@
 #include "efficientdet_postprocess.h"
 #include "yolact_postprocess.h"
 #include "hand_landmark_postprocess.h"
+#include "attribute_postprocess.h"
 
 namespace py = pybind11;
 
@@ -622,6 +625,23 @@ py::array_t<float> classification_results_to_numpy(const std::vector<Classificat
     return preds;
 }
 
+py::array_t<float> attribute_results_to_numpy(const std::vector<AttributeResult>& results) {
+    const size_t num_results = results.size();
+    if (num_results == 0) {
+        return py::array_t<float>(std::vector<py::ssize_t>{0, 2});
+    }
+
+    py::array_t<float> preds(std::vector<py::ssize_t>{static_cast<py::ssize_t>(num_results), 2});
+    auto buf = preds.mutable_unchecked<2>();
+
+    for (size_t i = 0; i < num_results; ++i) {
+        buf(i, 0) = static_cast<float>(results[i].class_id);
+        buf(i, 1) = results[i].confidence;
+    }
+
+    return preds;
+}
+
 py::array_t<uint8_t> depth_result_to_numpy(const DepthResult& result) {
     py::array_t<uint8_t> depth_map({result.height, result.width});
     auto buf = depth_map.mutable_unchecked<2>();
@@ -727,6 +747,28 @@ py::array_t<float> damoyolo_results_to_numpy(const std::vector<DamoYOLOResult>& 
     return detections;
 }
 
+py::array_t<float> yolov4_results_to_numpy(const std::vector<YOLOv4Result>& results) {
+    const size_t num_results = results.size();
+    if (num_results == 0) {
+        return py::array_t<float>(std::vector<py::ssize_t>{0, 6});
+    }
+
+    py::array_t<float> detections(std::vector<py::ssize_t>{static_cast<py::ssize_t>(num_results), 6});
+    auto buf = detections.mutable_unchecked<2>();
+
+    for (size_t i = 0; i < num_results; ++i) {
+        const auto& result = results[i];
+        buf(i, 0) = result.box[0];
+        buf(i, 1) = result.box[1];
+        buf(i, 2) = result.box[2];
+        buf(i, 3) = result.box[3];
+        buf(i, 4) = result.confidence;
+        buf(i, 5) = static_cast<float>(result.class_id);
+    }
+
+    return detections;
+}
+
 py::array_t<float> obb_results_to_numpy(const std::vector<OBBResult>& results) {
     const size_t num_results = results.size();
     if (num_results == 0) {
@@ -752,15 +794,27 @@ py::array_t<float> obb_results_to_numpy(const std::vector<OBBResult>& results) {
 
 // --- DnCNN result converter ---
 py::array_t<float> dncnn_result_to_numpy(const DnCNNResult& result) {
-    py::array_t<float> image({result.height, result.width});
-    auto buf = image.mutable_unchecked<2>();
-
-    for (int h = 0; h < result.height; ++h) {
-        for (int w = 0; w < result.width; ++w) {
-            buf(h, w) = result.image[h * result.width + w];
+    if (result.channels <= 1) {
+        py::array_t<float> image({result.height, result.width});
+        auto buf = image.mutable_unchecked<2>();
+        for (int h = 0; h < result.height; ++h) {
+            for (int w = 0; w < result.width; ++w) {
+                buf(h, w) = result.image[h * result.width + w];
+            }
+        }
+        return image;
+    }
+    // Multi-channel (color) output returned in CHW order.
+    py::array_t<float> image({result.channels, result.height, result.width});
+    auto buf = image.mutable_unchecked<3>();
+    const int hw = result.height * result.width;
+    for (int c = 0; c < result.channels; ++c) {
+        for (int h = 0; h < result.height; ++h) {
+            for (int w = 0; w < result.width; ++w) {
+                buf(c, h, w) = result.image[c * hw + h * result.width + w];
+            }
         }
     }
-
     return image;
 }
 
@@ -979,6 +1033,7 @@ PYBIND11_MODULE(dx_postprocess, m)
             }
             return yolov5_results_to_numpy(results);
         }, py::arg("ie_output"))
+        .def("set_anchors", &YOLOv5PostProcess::set_anchors, py::arg("anchors_by_strides"))
         .def("get_input_width", &YOLOv5PostProcess::get_input_width)
         .def("get_input_height", &YOLOv5PostProcess::get_input_height);
 
@@ -1243,6 +1298,12 @@ PYBIND11_MODULE(dx_postprocess, m)
             py::arg("input_h"),
             py::arg("score_threshold"),
             py::arg("nms_threshold"))
+        .def(py::init<int, int, float, float, bool>(),
+            py::arg("input_w"),
+            py::arg("input_h"),
+            py::arg("score_threshold"),
+            py::arg("nms_threshold"),
+            py::arg("corner_format"))
         .def("postprocess", [](YOLOv8PPUPostProcess& self, py::list ie_output) {
             auto tensors = numpy_to_dxrt_tensors(ie_output, {dxrt::DataType::BBOX});
             std::vector<YOLOv8PPUResult> results;
@@ -1402,6 +1463,23 @@ PYBIND11_MODULE(dx_postprocess, m)
         }, py::arg("ie_output"))
         .def("get_top_k", &ClassificationPostProcess::get_top_k);
 
+    // --- Attribute recognition (multi-label) ---
+    py::class_<AttributePostProcess>(m, "AttributePostProcess")
+        .def(py::init<float, bool>(),
+            py::arg("threshold") = 0.5f,
+            py::arg("softmax_pairs") = false)
+        .def("postprocess", [](AttributePostProcess& self, py::list ie_output) {
+            auto tensors = numpy_to_dxrt_tensors(ie_output);
+            std::vector<AttributeResult> results;
+            {
+                py::gil_scoped_release release;
+                results = self.postprocess(tensors);
+            }
+            return attribute_results_to_numpy(results);
+        }, py::arg("ie_output"))
+        .def("get_threshold", &AttributePostProcess::get_threshold)
+        .def("get_softmax_pairs", &AttributePostProcess::get_softmax_pairs);
+
     // --- Depth ---
     py::class_<DepthPostProcess>(m, "DepthPostProcess")
         .def(py::init<int, int>(),
@@ -1500,6 +1578,27 @@ PYBIND11_MODULE(dx_postprocess, m)
         }, py::arg("ie_output"))
         .def("get_input_width", &DamoYOLOPostProcess::get_input_width)
         .def("get_input_height", &DamoYOLOPostProcess::get_input_height);
+
+    // --- YOLOv4 (DarkNet, decoded boxes + scores) ---
+    py::class_<YOLOv4PostProcess>(m, "YOLOv4PostProcess")
+        .def(py::init<int, int, float, float, int, bool>(),
+            py::arg("input_w"),
+            py::arg("input_h"),
+            py::arg("score_threshold"),
+            py::arg("nms_threshold"),
+            py::arg("num_classes") = 80,
+            py::arg("normalized") = true)
+        .def("postprocess", [](YOLOv4PostProcess& self, py::list ie_output) {
+            auto tensors = numpy_to_dxrt_tensors(ie_output);
+            std::vector<YOLOv4Result> results;
+            {
+                py::gil_scoped_release release;
+                results = self.postprocess(tensors);
+            }
+            return yolov4_results_to_numpy(results);
+        }, py::arg("ie_output"))
+        .def("get_input_width", &YOLOv4PostProcess::get_input_width)
+        .def("get_input_height", &YOLOv4PostProcess::get_input_height);
 
     // --- OBB ---
     py::class_<OBBPostProcess>(m, "OBBPostProcess")

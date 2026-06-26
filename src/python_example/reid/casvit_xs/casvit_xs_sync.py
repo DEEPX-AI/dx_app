@@ -20,7 +20,7 @@ from factory import Casvit_xsFactory
 from common.runner import SyncRunner, parse_common_args
 
 def parse_args():
-    return parse_common_args("ArcFace-MobileFaceNet Sync Inference")
+    return parse_common_args("ArcFace-MobileFaceNet Sync Inference", include_stream_inputs=False)
 def main():
     args = parse_args()
     factory = Casvit_xsFactory()

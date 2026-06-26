@@ -329,7 +329,7 @@ def test_image_inference_e2e(executable, model_path, bin_dir, loop_count):
                 f"Output: {output[:500]}"
             )
             if fps >= 10000:
-                print(f"\n[WARN] {executable} image inference: {fps:.2f} FPS (unusually high — likely no NPU or simulator mode)")
+                print(f"\n[DXAPP] [WARN] {executable} image inference: {fps:.2f} FPS (unusually high — likely no NPU or simulator mode)")
             else:
                 print(f"\n{executable} image inference: {fps:.2f} FPS")
         
@@ -424,7 +424,7 @@ def test_stream_inference_e2e(executable, model_path, bin_dir):
                 f"Output: {output[:500]}"
             )
             if fps >= 10000:
-                print(f"\n[WARN] {executable} video inference: {fps:.2f} FPS (unusually high — likely no NPU or simulator mode)")
+                print(f"\n[DXAPP] [WARN] {executable} video inference: {fps:.2f} FPS (unusually high — likely no NPU or simulator mode)")
             else:
                 print(f"\n{executable} video inference: {fps:.2f} FPS")
             

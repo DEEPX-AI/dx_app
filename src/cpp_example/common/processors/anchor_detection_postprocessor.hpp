@@ -64,12 +64,18 @@ public:
                           const std::vector<std::string>& cpu_output_names,
                           const std::vector<std::string>& npu_output_names,
                           const std::map<int, std::vector<std::pair<int,int>>>& anchors,
-                          bool npu_supported = true)
+                          bool npu_supported = true,
+                          int num_classes = 80,
+                          const std::vector<std::string>& class_names = {},
+                          int max_nms_candidates = 0)
         : input_width_(input_w), input_height_(input_h),
           object_threshold_(obj_threshold), score_threshold_(score_threshold),
-          nms_threshold_(nms_threshold), is_ort_configured_(is_ort_configured),
+          nms_threshold_(nms_threshold), num_classes_(num_classes),
+          class_names_(class_names),
+          is_ort_configured_(is_ort_configured),
           cpu_output_names_(cpu_output_names), npu_output_names_(npu_output_names),
-          anchors_by_strides_(anchors), npu_supported_(npu_supported) {
+          anchors_by_strides_(anchors), npu_supported_(npu_supported),
+          max_nms_candidates_(max_nms_candidates) {
         if (!is_ort_configured_ && !npu_supported_) {
             throw std::invalid_argument(
                 "ORT-OFF output postprocessing is not supported for this model.\n"
@@ -98,11 +104,19 @@ public:
         return apply_nms(dets);
     }
 
-    dxrt::TensorPtrs align_tensors(const dxrt::TensorPtrs& outputs) const {
+    dxrt::TensorPtrs align_tensors(const dxrt::TensorPtrs& outputs) {
         dxrt::TensorPtrs aligned;
         if (is_ort_configured_) {
             for (const auto& o : outputs) {
-                if (o->shape().size() == 3) { aligned.push_back(o); break; }
+                if (o->shape().size() == 3) {
+                    // Auto-detect num_classes from [1, N, 5+C]
+                    int actual_nc = static_cast<int>(o->shape()[2]) - 5;
+                    if (actual_nc > 0 && actual_nc != num_classes_) {
+                        num_classes_ = actual_nc;
+                    }
+                    aligned.push_back(o);
+                    break;
+                }
             }
             // If no 3D tensor found, check for 5D raw or NHWC 4D → fall through to NPU path
             if (!aligned.empty()) return aligned;
@@ -171,7 +185,7 @@ public:
     float get_score_threshold() const { return score_threshold_; }
     float get_nms_threshold() const { return nms_threshold_; }
     bool get_is_ort_configured() const { return is_ort_configured_; }
-    static int get_num_classes() { return num_classes_; }
+    int get_num_classes() const { return num_classes_; }
     const std::map<int, std::vector<std::pair<int,int>>>& get_anchors_by_strides() const { return anchors_by_strides_; }
     const std::vector<std::string>& get_cpu_output_names() const { return cpu_output_names_; }
     const std::vector<std::string>& get_npu_output_names() const { return npu_output_names_; }
@@ -182,7 +196,9 @@ private:
     float object_threshold_;
     float score_threshold_;
     float nms_threshold_;
-    enum { num_classes_ = 80 };
+    int max_nms_candidates_;
+    int num_classes_;
+    std::vector<std::string> class_names_;
     bool is_ort_configured_;
     bool npu_supported_;
     std::vector<std::string> cpu_output_names_;
@@ -232,7 +248,7 @@ private:
 
         out.confidence = max_conf;
         out.class_id   = max_cls;
-        out.class_name = dxapp::common::get_coco_class_name(max_cls);
+        out.class_name = dxapp::common::resolve_class_name(max_cls, class_names_);
         out.box = {cx - w/2, cy - h/2, cx + w/2, cy + h/2};
         return true;
     }
@@ -305,7 +321,7 @@ private:
         return detections;
     }
 
-    std::vector<AnchorYOLOResult> decoding_cpu_outputs(const dxrt::TensorPtrs& outputs) const {
+    std::vector<AnchorYOLOResult> decoding_cpu_outputs(const dxrt::TensorPtrs& outputs) {
         // Anchor-free models (e.g. YOLOX) need grid-based box decoding
         if (!npu_supported_) {
             return decoding_cpu_outputs_anchor_free(outputs);
@@ -326,8 +342,16 @@ private:
         for (size_t oi = 0; oi < outputs.size(); ++oi) {
             auto data = static_cast<const float*>(outputs[oi]->data());
             auto num_dets = outputs[oi]->shape()[1];
+            // Auto-detect num_classes from tensor: [1, N, 5+C]
+            if (outputs[oi]->shape().size() == 3) {
+                int actual_nc = static_cast<int>(outputs[oi]->shape()[2]) - 5;
+                if (actual_nc > 0 && actual_nc != num_classes_) {
+                    num_classes_ = actual_nc;
+                }
+            }
+            int row_stride = num_classes_ + 5;
             for (int i = 0; i < num_dets; ++i) {
-                const float* det = data + i * 85;
+                const float* det = data + i * row_stride;
                 float obj = det[4];
                 if (obj < object_threshold_) continue;
 
@@ -337,7 +361,7 @@ private:
                 AnchorYOLOResult r;
                 r.confidence = max_conf;
                 r.class_id = max_cls;
-                r.class_name = dxapp::common::get_coco_class_name(max_cls);
+                r.class_name = dxapp::common::resolve_class_name(max_cls, class_names_);
                 r.box = {det[0] - det[2]/2, det[1] - det[3]/2,
                          det[0] + det[2]/2, det[1] + det[3]/2};
                 detections.push_back(std::move(r));
@@ -356,7 +380,7 @@ private:
      * already sigmoid-applied.
      */
     std::vector<AnchorYOLOResult> decoding_cpu_outputs_anchor_free(
-            const dxrt::TensorPtrs& outputs) const {
+            const dxrt::TensorPtrs& outputs) {
         std::vector<AnchorYOLOResult> detections;
 
         // Build grid mapping: for each detection row, store (grid_x, grid_y, stride).
@@ -407,7 +431,7 @@ private:
                 AnchorYOLOResult r;
                 r.confidence = best_conf;
                 r.class_id   = best_cls;
-                r.class_name = dxapp::common::get_coco_class_name(best_cls);
+                r.class_name = dxapp::common::resolve_class_name(best_cls, class_names_);
                 r.box = {cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2};
                 detections.push_back(std::move(r));
             }
@@ -416,6 +440,13 @@ private:
     }
 
     std::vector<AnchorYOLOResult> apply_nms(const std::vector<AnchorYOLOResult>& dets) const {
+        if (max_nms_candidates_ > 0 && static_cast<int>(dets.size()) > max_nms_candidates_) {
+            std::vector<AnchorYOLOResult> top_k = dets;
+            std::partial_sort(top_k.begin(), top_k.begin() + max_nms_candidates_, top_k.end(),
+                [](const AnchorYOLOResult& a, const AnchorYOLOResult& b) { return a.confidence > b.confidence; });
+            top_k.resize(max_nms_candidates_);
+            return postprocess_utils::apply_nms(top_k, nms_threshold_);
+        }
         return postprocess_utils::apply_nms(dets, nms_threshold_);
     }
 };

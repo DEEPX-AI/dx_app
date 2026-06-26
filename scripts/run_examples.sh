@@ -27,13 +27,20 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$PROJECT_ROOT"
 
-# Auto-activate venv-dx-runtime if python is not available
+# Auto-activate a Python virtual environment if python is not already available.
+# Searches common locations so the script works both inside the dx-all-suite
+# monorepo layout and in a standalone dx_app checkout.
 if ! command -v python &>/dev/null; then
     VENV_CANDIDATES=(
-        "${PROJECT_ROOT}/../dx-all-suite/dx-runtime/venv-dx-runtime/bin/activate"
+        "${VIRTUAL_ENV:-}/bin/activate"
+        "${PROJECT_ROOT}/.venv/bin/activate"
+        "${PROJECT_ROOT}/venv/bin/activate"
+        "${PROJECT_ROOT}/../venv-dx-runtime/bin/activate"
+        "${PROJECT_ROOT}/../../venv-dx-runtime/bin/activate"
+        "${HOME}/dx-venv/bin/activate"
     )
     for venv_activate in "${VENV_CANDIDATES[@]}"; do
-        if [[ -f "$venv_activate" ]]; then
+        if [[ -n "$venv_activate" && -f "$venv_activate" ]]; then
             # shellcheck source=/dev/null
             source "$venv_activate"
             echo "Auto-activated venv: $venv_activate" >&2
@@ -858,12 +865,12 @@ for category in "${CATEGORY_ORDER[@]}"; do
     for model_name in "${cpp_cat_models[@]}"; do
         model_file="${MODEL_FILE[$model_name]}"
         if [ -z "$model_file" ]; then
-            echo -e "${YELLOW}[WARN]${NC} C++ ${model_name}: no model file in config — skipping" | tee -a "${SUMMARY_LOG}"
+            echo -e "${YELLOW}[DXAPP] [WARN]${NC} C++ ${model_name}: no model file in config — skipping" | tee -a "${SUMMARY_LOG}"
             SKIP_COUNT=$((SKIP_COUNT + 1))
             continue
         fi
         if [ ! -f "$model_file" ]; then
-            echo -e "${YELLOW}[WARN]${NC} C++ ${model_name}: model file not found (${model_file}) — skipping" | tee -a "${SUMMARY_LOG}"
+            echo -e "${YELLOW}[DXAPP] [WARN]${NC} C++ ${model_name}: model file not found (${model_file}) — skipping" | tee -a "${SUMMARY_LOG}"
             SKIP_COUNT=$((SKIP_COUNT + 1))
             continue
         fi
@@ -877,12 +884,12 @@ for category in "${CATEGORY_ORDER[@]}"; do
         IFS='|' read -r model_name py_cat _ <<< "$entry"
         model_file="${MODEL_FILE[$model_name]}"
         if [ -z "$model_file" ]; then
-            echo -e "${YELLOW}[WARN]${NC} Python ${model_name}: no model file in config — skipping" | tee -a "${SUMMARY_LOG}"
+            echo -e "${YELLOW}[DXAPP] [WARN]${NC} Python ${model_name}: no model file in config — skipping" | tee -a "${SUMMARY_LOG}"
             SKIP_COUNT=$((SKIP_COUNT + 1))
             continue
         fi
         if [ ! -f "$model_file" ]; then
-            echo -e "${YELLOW}[WARN]${NC} Python ${model_name}: model file not found (${model_file}) — skipping" | tee -a "${SUMMARY_LOG}"
+            echo -e "${YELLOW}[DXAPP] [WARN]${NC} Python ${model_name}: model file not found (${model_file}) — skipping" | tee -a "${SUMMARY_LOG}"
             SKIP_COUNT=$((SKIP_COUNT + 1))
             continue
         fi
@@ -909,7 +916,7 @@ show_uncat_header() {
 for model_name in "${CPP_MODELS[@]}"; do
     if [ -z "${MODEL_CATEGORY[$model_name]}" ]; then
         show_uncat_header
-        echo -e "${YELLOW}[WARN]${NC} C++ ${model_name} (cpp_${model_name}): built but not in test_models.conf" | tee -a "${SUMMARY_LOG}"
+        echo -e "${YELLOW}[DXAPP] [WARN]${NC} C++ ${model_name} (cpp_${model_name}): built but not in test_models.conf" | tee -a "${SUMMARY_LOG}"
         CPP_UNCATEGORIZED=$((CPP_UNCATEGORIZED + 1))
     fi
 done
@@ -918,7 +925,7 @@ for entry in "${PY_MODELS[@]}"; do
     IFS='|' read -r model_name py_cat _ <<< "$entry"
     if [ -z "${MODEL_FILE[$model_name]}" ] && [ -z "${MODEL_CATEGORY[$model_name]}" ]; then
         show_uncat_header
-        echo -e "${YELLOW}[WARN]${NC} Python ${model_name} (${py_cat}): not in test_models.conf" | tee -a "${SUMMARY_LOG}"
+        echo -e "${YELLOW}[DXAPP] [WARN]${NC} Python ${model_name} (${py_cat}): not in test_models.conf" | tee -a "${SUMMARY_LOG}"
         PY_UNCATEGORIZED=$((PY_UNCATEGORIZED + 1))
     fi
 done
