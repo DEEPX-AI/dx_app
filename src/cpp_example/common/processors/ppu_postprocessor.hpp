@@ -63,9 +63,10 @@ public:
                            float obj_threshold = 0.25f,
                            float score_threshold = 0.25f,
                            float nms_threshold = 0.45f,
-                           bool /*is_ort_configured*/ = false)
+                           bool /*is_ort_configured*/ = false,
+                           const std::vector<std::string>& class_names = {})
         : impl_(input_width, input_height, obj_threshold, score_threshold,
-                nms_threshold) {}
+                nms_threshold, class_names) {}
 
     std::vector<DetectionResult> process(const dxrt::TensorPtrs& outputs,
                                          const PreprocessContext& ctx) override {
@@ -90,9 +91,10 @@ public:
                            float obj_threshold = 0.25f,
                            float score_threshold = 0.25f,
                            float nms_threshold = 0.45f,
-                           bool /*is_ort_configured*/ = false)
+                           bool /*is_ort_configured*/ = false,
+                           const std::vector<std::string>& class_names = {})
         : impl_(input_width, input_height, obj_threshold, score_threshold,
-                nms_threshold) {}
+                nms_threshold, class_names) {}
 
     std::vector<DetectionResult> process(const dxrt::TensorPtrs& outputs,
                                          const PreprocessContext& ctx) override {
@@ -117,9 +119,10 @@ public:
                                float obj_threshold = 0.25f,
                                float score_threshold = 0.25f,
                                float nms_threshold = 0.45f,
-                               bool /*is_ort_configured*/ = false)
+                               bool /*is_ort_configured*/ = false,
+                               const std::vector<std::string>& class_names = {})
         : impl_(input_width, input_height, obj_threshold, score_threshold,
-                nms_threshold) {}
+                nms_threshold, class_names) {}
 
     std::vector<DetectionResult> process(const dxrt::TensorPtrs& outputs,
                                          const PreprocessContext& ctx) override {
@@ -144,8 +147,10 @@ public:
                            float /*obj_threshold*/ = 0.25f,
                            float score_threshold = 0.4f,
                            float nms_threshold = 0.5f,
-                           bool /*is_ort_configured*/ = false)
-        : impl_(input_width, input_height, score_threshold, nms_threshold) {}
+                           bool /*is_ort_configured*/ = false,
+                           const std::vector<std::string>& class_names = {})
+        : impl_(input_width, input_height, score_threshold, nms_threshold,
+                class_names) {}
 
     std::vector<DetectionResult> process(const dxrt::TensorPtrs& outputs,
                                          const PreprocessContext& ctx) override {
@@ -170,8 +175,10 @@ public:
                           float /*obj_threshold*/ = 0.25f,
                           float score_threshold = 0.25f,
                           float nms_threshold = 0.45f,
-                          bool /*is_ort_configured*/ = false)
-        : impl_(input_width, input_height, score_threshold, nms_threshold) {}
+                          bool /*is_ort_configured*/ = false,
+                          const std::vector<std::string>& class_names = {})
+        : impl_(input_width, input_height, score_threshold, nms_threshold,
+                class_names) {}
 
     std::vector<DetectionResult> process(const dxrt::TensorPtrs& outputs,
                                          const PreprocessContext& ctx) override {
@@ -254,8 +261,10 @@ public:
                             float /*obj_threshold*/ = 0.25f,
                             float score_threshold = 0.4f,
                             float nms_threshold = 0.5f,
-                            bool /*is_ort_configured*/ = false)
-        : score_threshold_(score_threshold), nms_threshold_(nms_threshold) {}
+                            bool /*is_ort_configured*/ = false,
+                            const std::vector<std::string>& class_names = {})
+        : score_threshold_(score_threshold), nms_threshold_(nms_threshold),
+          class_names_(class_names) {}
 
     std::vector<DetectionResult> process(const dxrt::TensorPtrs& outputs,
                                          const PreprocessContext& ctx) override {
@@ -277,7 +286,7 @@ public:
             det.box = {b.x, b.y, b.w, b.h};
             det.confidence = b.score;
             det.class_id = static_cast<int>(b.label);
-            det.class_name = dxapp::common::get_coco_class_name(det.class_id);
+            det.class_name = dxapp::common::resolve_class_name(det.class_id, class_names_);
             results.push_back(std::move(det));
         }
 
@@ -317,6 +326,7 @@ public:
 private:
     float score_threshold_;
     float nms_threshold_;
+    std::vector<std::string> class_names_;
 };
 
 }  // namespace dxapp

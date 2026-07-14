@@ -36,6 +36,68 @@ class _FactoryConfigMixin:
                     self.config[alias] = value
                 self.config[key] = value
 
+    def create_fast_postprocessor(self, input_width: int, input_height: int):
+        """Create an opt-in *fast* postprocessor variant, or ``None``.
+
+        Auto-detected from the model's standard postprocessor so that every
+        current and future model in a supported family gets the fast path with
+        no per-factory edits:
+
+        * Instance segmentation (``InstanceSegPostprocessor``) → ROI mask crop at
+          prototype resolution instead of full-resolution per-mask upsample
+          (measured ~2.3x faster).
+        * SegFormer-style semantic segmentation
+          (``SemanticSegmentationPostprocessor`` with ``upsample_to_input``) →
+          argmax-then-resize instead of upsampling every class logit
+          (measured ~4.9x faster).
+
+        Returns ``None`` for every other family (the standard Python path is
+        already early-gated / argmax-then-resize and shows no headroom).
+
+        The fast path is an *approximation* (path-B): its output differs from the
+        standard path at sub-pixel boundaries, so it is never the default and is
+        enabled only via ``--fast-postprocess``.
+        """
+        std = self.create_postprocessor(input_width, input_height)
+        # Use the STANDARD instance's *resolved* config so factory-level overrides
+        # are honored by the fast variant too. Some factories inject settings
+        # directly in create_postprocessor (e.g. FastSAM forces num_classes=1,
+        # score_threshold=0.5, nms_threshold=0.65). Falling back to self.config
+        # would drop those overrides and make the fast path decode / run NMS
+        # differently from standard (measured: FastSAM mask IoU collapses to
+        # ~0.37 with mismatched 171 vs 189 detections instead of >0.9).
+        cfg = getattr(std, "config", None) or getattr(self, "config", None)
+
+        # Lazy imports avoid a base→processors import cycle at module load.
+        from ..processors.instance_seg_postprocessor import InstanceSegPostprocessor
+        from ..processors.fast_instance_seg_postprocessor import FastInstanceSegPostprocessor
+        from ..processors.segmentation_postprocessor import SemanticSegmentationPostprocessor
+        from ..processors.fast_segmentation_postprocessor import FastSegmentationPostprocessor
+        from ..processors.yolact_postprocessor import YOLACTPostprocessor
+        from ..processors.fast_yolact_postprocessor import FastYOLACTPostprocessor
+
+        if isinstance(std, YOLACTPostprocessor):
+            # YOLACT extends IPostprocessor directly (not InstanceSegPostprocessor),
+            # so it needs its own fast variant. Same ROI idea: crop each prototype
+            # mask to its bbox and resize once to original instead of upsampling
+            # every mask to the model input first.
+            return FastYOLACTPostprocessor(input_width, input_height, cfg)
+        if isinstance(std, InstanceSegPostprocessor):
+            return FastInstanceSegPostprocessor(
+                input_width, input_height, cfg,
+                transposed=std.transposed, has_objectness=std.has_objectness,
+            )
+        if (isinstance(std, SemanticSegmentationPostprocessor)
+                and getattr(std, "_upsample_to_input", False)):
+            return FastSegmentationPostprocessor(input_width, input_height, cfg)
+        # Any other postprocessor may declare its own fast variant via
+        # ``create_fast_variant(self)`` (returning ``None`` when it has none),
+        # keeping this factory free of per-model branches.
+        maker = getattr(std, "create_fast_variant", None)
+        if callable(maker):
+            return maker()
+        return None
+
 
 class IDetectionFactory(_FactoryConfigMixin, ABC):
     """

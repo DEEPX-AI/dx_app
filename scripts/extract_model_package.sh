@@ -92,7 +92,7 @@ if [ -n "$OUTPUT_DIR" ]; then
         OUTPUT_DIR="$(cd "$DX_APP_ROOT" && pwd)/$OUTPUT_DIR"
     fi
     if [ "$CLEAN_MODE" = true ]; then
-        echo -e "${YELLOW}[WARN]${NC} --clean is ignored with --output-dir"
+        echo -e "${YELLOW}[DXAPP] [WARN]${NC} --clean is ignored with --output-dir"
         CLEAN_MODE=false
     fi
 fi
@@ -112,7 +112,7 @@ clean_model_cpp() {
     local target_dir="$CPP_SRC_DIR/$model_dir"
 
     if [ ! -d "$target_dir" ]; then
-        echo -e "${RED}[ERROR]${NC} C++ directory not found: $model_dir"
+        echo -e "${RED}[DXAPP] [ERROR]${NC} C++ directory not found: $model_dir"
         return 1
     fi
 
@@ -142,15 +142,7 @@ generate_cmake() {
         async_sources+=("$(basename "$f")")
     done < <(find "$target_dir" -maxdepth 1 -name "*_async.cpp" -print0 2>/dev/null)
 
-    # Check if any async target needs pthread
-    local needs_pthread=false
-    for src in "${async_sources[@]}"; do
-        if grep -q 'std::thread\|pthread' "$target_dir/$src" 2>/dev/null; then
-            needs_pthread=true
-            break
-        fi
-    done
-
+    # pthread 는 COMMON_LIBS 의 Threads::Threads 로 모든 타깃에 링크된다(개별 탐지 불필요).
     # Start generating CMakeLists.txt
     cat > "$target_dir/CMakeLists.txt" << 'CMAKEHEAD'
 # =============================================================================
@@ -172,11 +164,14 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # Find Required Packages
 # =============================================================================
 find_package(OpenCV REQUIRED)
+# async 러너(common/runner/async_*.hpp)가 std::thread 를 사용하므로 pthread 링크가 필요하다.
+# 엔트리 .cpp 만으로는 스레드 사용을 알 수 없어(스레드는 헤더에 있음) 표준 Threads 를 항상 링크한다.
+find_package(Threads REQUIRED)
 
 if(CROSS_COMPILE OR MSVC)
-    find_library(DXRT_LIB dxrt HINTS ${DXRT_INSTALLED_DIR}/lib REQUIRED)
+    find_library(DXRT_LIB dxrt HINTS ${DXRT_INSTALLED_DIR}/lib/x64 REQUIRED)
     include_directories(${DXRT_INSTALLED_DIR}/include)
-    link_directories(${DXRT_INSTALLED_DIR}/lib)
+    link_directories(${DXRT_INSTALLED_DIR}/lib/x64)
 else()
     find_package(dxrt REQUIRED HINTS ${DXRT_INSTALLED_DIR})
     set(DXRT_LIB dxrt)
@@ -194,7 +189,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/extern)
 # =============================================================================
 # Common Libraries & Flags
 # =============================================================================
-set(COMMON_LIBS ${OpenCV_LIBS} ${DXRT_LIB})
+set(COMMON_LIBS ${OpenCV_LIBS} ${DXRT_LIB} Threads::Threads)
 
 # Filesystem library for older compilers
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "9.0")
@@ -234,15 +229,11 @@ EOF
 
     for src in "${async_sources[@]}"; do
         local target_name="${src%.cpp}"
-        local extra_libs=""
-        if [ "$needs_pthread" = true ]; then
-            extra_libs=" pthread"
-        fi
         cat >> "$target_dir/CMakeLists.txt" << EOF
 # --- ${target_name} ---
 add_executable(${target_name} ${src} \${UTILITY_SOURCES} \${POSTPROCESS_SOURCES})
 target_compile_options(${target_name} PRIVATE \${COMMON_FLAGS})
-target_link_libraries(${target_name} \${COMMON_LIBS}${extra_libs})
+target_link_libraries(${target_name} \${COMMON_LIBS})
 
 EOF
     done
@@ -259,7 +250,7 @@ prepare_model_cpp() {
     model_name=$(basename "$model_dir")
 
     if [ ! -d "$src_model_dir" ]; then
-        echo -e "${RED}[ERROR]${NC} C++ directory not found: $model_dir"
+        echo -e "${RED}[DXAPP] [ERROR]${NC} C++ directory not found: $model_dir"
         return 1
     fi
 
@@ -349,7 +340,7 @@ clean_model_py() {
     local target_dir="$PY_SRC_DIR/$model_dir"
 
     if [ ! -d "$target_dir" ]; then
-        echo -e "${RED}[ERROR]${NC} Python directory not found: $model_dir"
+        echo -e "${RED}[DXAPP] [ERROR]${NC} Python directory not found: $model_dir"
         return 1
     fi
 
@@ -366,7 +357,7 @@ prepare_model_py() {
     local target_dir
 
     if [ ! -d "$src_model_dir" ]; then
-        echo -e "${RED}[ERROR]${NC} Python directory not found: $model_dir"
+        echo -e "${RED}[DXAPP] [ERROR]${NC} Python directory not found: $model_dir"
         return 1
     fi
 

@@ -334,8 +334,28 @@ struct OBBResult {
 };
 
 /**
+ * @brief 3D object detection result (SFA3D / KITTI-like)
+ */
+struct Detection3DResult {
+    int class_id{0};
+    std::string class_name;
+    float confidence{0.0f};
+    float bev_x{0.0f};
+    float bev_y{0.0f};
+    float bev_w{0.0f};
+    float bev_h{0.0f};
+    float x3d{0.0f};
+    float y3d{0.0f};
+    float z3d{0.0f};
+    float dim_h{0.0f};
+    float dim_w{0.0f};
+    float dim_l{0.0f};
+    float yaw{0.0f};
+};
+
+/**
  * @brief Abstract interface for postprocessors
- * 
+ *
  * Postprocessors transform model outputs into usable detection/segmentation results.
  * This is a template interface to support different result types.
  */
@@ -368,6 +388,7 @@ using FaceDetectionPostprocessor = IPostprocessor<FaceDetectionResult>;
 using PosePostprocessor = IPostprocessor<PoseResult>;
 using InstanceSegmentationPostprocessor = IPostprocessor<InstanceSegmentationResult>;
 using OBBPostprocessor = IPostprocessor<OBBResult>;
+using Detection3DPostprocessor = IPostprocessor<Detection3DResult>;
 using DepthPostprocessor = IPostprocessor<DepthResult>;
 using RestorationPostprocessor = IPostprocessor<RestorationResult>;
 using EmbeddingPostprocessorBase = IPostprocessor<EmbeddingResult>;

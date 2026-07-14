@@ -49,7 +49,7 @@ public:
         // Apply default sample image if no input specified
         if (args.imageFilePath.empty() && args.videoFile.empty() && args.cameraIndex < 0 && args.rtspUrl.empty()) {
             args.imageFilePath = dxapp::getDefaultSampleImage(factory_->getTaskType());
-            std::cout << "[INFO] No input specified. Using default sample: " << args.imageFilePath << std::endl;
+            std::cout << "[DXAPP] [INFO] No input specified. Using default sample: " << args.imageFilePath << std::endl;
         }
         validateArguments(args);
 
@@ -69,9 +69,6 @@ public:
         model_path_ = args.modelPath;
 
         if (!dxapp::minversionforRTandCompiler(&ie)) {
-            std::cerr << "[DXAPP] [ER] The version of the compiled model is not "
-                         "compatible with the version of the runtime. Please compile the model again."
-                      << std::endl;
             return -1;
         }
 
@@ -89,8 +86,9 @@ public:
         auto postprocessor = factory_->createPostprocessor(input_width, input_height, ie.IsOrtConfigured());
         auto visualizer = factory_->createVisualizer();
 
-        std::cout << "[INFO] Model loaded: " << args.modelPath << std::endl;
-        std::cout << "[INFO] Model input size (WxH): " << input_width << "x" << input_height << std::endl;
+        std::cout << "[DXAPP] [INFO] Task: " << factory_->getTaskType() << std::endl;
+        std::cout << "[DXAPP] [INFO] Model loaded: " << args.modelPath << std::endl;
+        std::cout << "[DXAPP] [INFO] Model input size (WxH): " << input_width << "x" << input_height << std::endl;
         std::cout << std::endl;
 
         SyncProfilingMetrics metrics;
@@ -101,7 +99,7 @@ public:
 
         if (!is_image) {
             if (!openVideoCapture(video, args)) {
-                std::cerr << "[ERROR] Failed to open input source." << std::endl;
+                std::cerr << "[DXAPP] [ERROR] Failed to open input source." << std::endl;
                 return -1;
             }
 
@@ -122,13 +120,13 @@ public:
             }
 
             if (args.verbose) {
-                std::cout << "[INFO] " << source_info << std::endl;
-                std::cout << "[INFO] Input source resolution (WxH): " << frame_width << "x" << frame_height << std::endl;
-                std::cout << "[INFO] Input source FPS: " << std::fixed << std::setprecision(2) << fps << std::endl;
+                std::cout << "[DXAPP] [INFO] " << source_info << std::endl;
+                std::cout << "[DXAPP] [INFO] Input source resolution (WxH): " << frame_width << "x" << frame_height << std::endl;
+                std::cout << "[DXAPP] [INFO] Input source FPS: " << std::fixed << std::setprecision(2) << fps << std::endl;
             }
             if (!args.videoFile.empty()) {
                 if (args.verbose) {
-                    std::cout << "[INFO] Total frames: " << total_frames << std::endl;
+                    std::cout << "[DXAPP] [INFO] Total frames: " << total_frames << std::endl;
                 }
             }
             std::cout << std::endl;
@@ -150,13 +148,13 @@ public:
                     cv::Size(SHOW_WINDOW_SIZE_W, SHOW_WINDOW_SIZE_H),
                     video_save_path);
                 if (!writer.isOpened()) {
-                    std::cerr << "[ERROR] Failed to open video writer." << std::endl;
+                    std::cerr << "[DXAPP] [ERROR] Failed to open video writer." << std::endl;
                     return -1;
                 }
             }
         }
 
-        std::cout << "[INFO] Starting inference..." << std::endl;
+        std::cout << "[DXAPP] [INFO] Starting inference..." << std::endl;
         if (args.no_display) {
             std::cout << "Processing... Only FPS will be displayed." << std::endl;
         }
@@ -180,7 +178,7 @@ public:
             dumpTensorsBaseDir = run_dir + "/dump_tensors";
             fs::create_directories(dumpTensorsBaseDir);
             if (args.verbose) {
-                std::cout << "[INFO] Dumping tensors to: " << dumpTensorsBaseDir << std::endl;
+                std::cout << "[DXAPP] [INFO] Dumping tensors to: " << dumpTensorsBaseDir << std::endl;
             }
         }
 
@@ -203,13 +201,13 @@ public:
         double total_time = std::chrono::duration<double>(e_time - s_time).count();
 
         if (g_interrupted().load()) {
-            std::cout << "\n[INFO] Interrupted by user (Ctrl+C)" << std::endl;
+            std::cout << "\n[DXAPP] [INFO] Interrupted by user (Ctrl+C)" << std::endl;
         }
         if (writer.isOpened()) {
             writer.release();
             if (!video_save_path.empty()) {
                 if (args.verbose) {
-                    std::cout << "\n[INFO] Saved output video: " << fs::absolute(video_save_path).string() << std::endl;
+                    std::cout << "\n[DXAPP] [INFO] Saved output video: " << fs::absolute(video_save_path).string() << std::endl;
                 }
             }
         }
@@ -265,7 +263,7 @@ private:
 
     void validateArguments(const CommandLineArgs& args) {
         if (args.modelPath.empty()) {
-            dxapp::fatal_error("[ERROR] Model path is required. Use -m or --model_path option.\n"
+            dxapp::fatal_error("[DXAPP] [ERROR] Model path is required. Use -m or --model_path option.\n"
                 "        -> Download:  ./setup.sh --models <model_name>\n"
                 "        -> Or use:    ./run_demo.sh  (auto-downloads demo models)");
         }
@@ -273,11 +271,11 @@ private:
         if (!dxapp::fileExists(args.modelPath)) {
             if (!dxapp::autoDownloadModel(args.modelPath)) {
                 std::string stem = fs::path(args.modelPath).stem().string();
-                dxapp::fatal_error("[ERROR] Model file not found: " + args.modelPath + "\n"
+                dxapp::fatal_error("[DXAPP] [ERROR] Model file not found: " + args.modelPath + "\n"
                     "        -> Download:  ./setup.sh --models " + stem + "\n"
                     "        -> Or use:    ./run_demo.sh  (auto-downloads demo models)");
             }
-            std::cout << "[INFO] Model downloaded successfully: " << args.modelPath << std::endl;
+            std::cout << "[DXAPP] [INFO] Model downloaded successfully: " << args.modelPath << std::endl;
         }
 
         int sourceCount = 0;
@@ -286,15 +284,15 @@ private:
         if (args.cameraIndex >= 0) sourceCount++;
         if (!args.rtspUrl.empty()) sourceCount++;
         if (sourceCount != 1) {
-            dxapp::fatal_error("[ERROR] Please specify exactly one input source.");
+            dxapp::fatal_error("[DXAPP] [ERROR] Please specify exactly one input source.");
         }
         // Auto-download video if not found
         if (!args.videoFile.empty() && !dxapp::fileExists(args.videoFile)) {
             if (!dxapp::autoDownloadVideos() || !dxapp::fileExists(args.videoFile)) {
-                dxapp::fatal_error("[ERROR] Video file not found: " + args.videoFile + "\n"
+                dxapp::fatal_error("[DXAPP] [ERROR] Video file not found: " + args.videoFile + "\n"
                     "        -> Download videos: ./setup_sample_videos.sh");
             }
-            std::cout << "[INFO] Video downloaded successfully: " << args.videoFile << std::endl;
+            std::cout << "[DXAPP] [INFO] Video downloaded successfully: " << args.videoFile << std::endl;
         }
 
         // Validate that --video is not given an image file
@@ -302,7 +300,7 @@ private:
             std::string ext = fs::path(args.videoFile).extension().string();
             std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
             if (ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".bmp" || ext == ".tiff") {
-                dxapp::fatal_error("[ERROR] Image file detected for --video (-v) option. "
+                dxapp::fatal_error("[DXAPP] [ERROR] Image file detected for --video (-v) option. "
                                   "Use --image (-i) for image files.\nUse -h or --help for usage information.");
             }
         }
@@ -322,14 +320,14 @@ private:
             }
             std::sort(imageFiles.begin(), imageFiles.end());
             if (imageFiles.empty()) {
-                dxapp::fatal_error("[ERROR] No image files found in directory: ");
+                dxapp::fatal_error("[DXAPP] [ERROR] No image files found in directory: " + imageFilePath);
             }
             if (loopTest == -1) loopTest = static_cast<int>(imageFiles.size());
         } else if (fs::is_regular_file(imageFilePath)) {
             imageFiles.push_back(imageFilePath);
             if (loopTest == -1) loopTest = 1;
         } else {
-            dxapp::fatal_error("[ERROR] Invalid image path: ");
+            dxapp::fatal_error("[DXAPP] [ERROR] Invalid image path: ");
         }
         return {imageFiles, loopTest};
     }
@@ -366,7 +364,8 @@ private:
         cv::VideoWriter& writer, bool no_display, bool saveMode, double t_read,
         int frameIdx = 0,
         const std::string& dumpTensorsDir = "",
-        bool dumpPerFrameDir = false) {
+        bool dumpPerFrameDir = false,
+        const std::string& saveImagePath = "") {
 
         if (input_frame.empty()) return false;
 
@@ -380,7 +379,7 @@ private:
         auto t1 = std::chrono::high_resolution_clock::now();
         double t_preprocess = std::chrono::duration<double, std::milli>(t1 - t0).count();
 
-        auto outputs = ie.Run(preprocessed.data, nullptr, nullptr);
+        auto outputs = runSyncInferenceTyped(ie, preprocessed);
         auto t2 = std::chrono::high_resolution_clock::now();
         double t_inference = std::chrono::duration<double, std::milli>(t2 - t1).count();
 
@@ -397,7 +396,7 @@ private:
             std::string actualDumpDir = frameDumpDir(dumpTensorsDir, frameIdx, dumpPerFrameDir);
             dumpTensorsToFiles(actualDumpDir, preprocessed, outputs);
             if (verbose_) {
-                std::cout << "\n[INFO] Saved input & output tensors: "
+                std::cout << "\n[DXAPP] [INFO] Saved input & output tensors: "
                           << fs::absolute(actualDumpDir).string() << std::endl;
             }
         }
@@ -407,13 +406,13 @@ private:
         try {
             results = postprocessor.process(outputs, ctx);
         } catch (const std::exception& e) {
-            std::cerr << "[DXAPP] [ER] Postprocess error: " << e.what() << std::endl;
+            std::cerr << "[DXAPP] [ERROR] Postprocess error: " << e.what() << std::endl;
             // Auto-dump tensors on exception for debugging
             if (dumpTensorsDir.empty()) {
                 static const std::string kErrorDumpDir = "error_tensors";
                 dumpTensorsToFiles(kErrorDumpDir, preprocessed, outputs);
                 if (verbose_) {
-                    std::cout << "[INFO] Auto-dumped tensors on exception to: "
+                    std::cout << "[DXAPP] [INFO] Auto-dumped tensors on exception to: "
                               << fs::absolute(kErrorDumpDir).string() << std::endl;
                 }
             }
@@ -442,11 +441,15 @@ private:
         if (!result_frame.empty()) {
             if (saveMode) {
                 auto save_start = std::chrono::high_resolution_clock::now();
-                dxapp::writeToVideo(writer, result_frame);
+                dxapp::writeToVideo(writer, result_frame, SHOW_WINDOW_SIZE_W, SHOW_WINDOW_SIZE_H);
                 auto save_end = std::chrono::high_resolution_clock::now();
                 t_save = std::chrono::duration<double, std::milli>(save_end - save_start).count();
             }
-            { const char* _sv=std::getenv("DXAPP_SAVE_IMAGE"); if(_sv&&*_sv)cv::imwrite(_sv,result_frame); }
+            if (!saveImagePath.empty()) {
+                cv::imwrite(saveImagePath, result_frame);
+            } else {
+                const char* _sv=std::getenv("DXAPP_SAVE_IMAGE"); if(_sv&&*_sv)cv::imwrite(_sv,result_frame);
+            }
             if (!no_display) {
                 auto display_start = std::chrono::high_resolution_clock::now();
                 dxapp::showOutput(result_frame);
@@ -477,12 +480,13 @@ private:
         const std::string& runDir = "", bool dumpEnabled = false) {
         for (int i = 0; i < loopTest; ++i) {
             std::string currentImagePath = imageFiles[i % imageFiles.size()];
-            if (!runDir.empty() && dumpEnabled) {
-                std::string savePath = dxapp::buildPerImageSavePath(runDir, factory_->getModelName() + "_sync", currentImagePath, i);
+            std::string saveImagePath;
+            if (!runDir.empty() && (saveMode || dumpEnabled)) {
+                saveImagePath = dxapp::buildPerImageSavePath(runDir, factory_->getModelName() + "_sync", currentImagePath, i);
                 #ifdef _WIN32
-                    _putenv_s("DXAPP_SAVE_IMAGE", savePath.c_str());
+                    _putenv_s("DXAPP_SAVE_IMAGE", saveImagePath.c_str());
                 #else
-                    setenv("DXAPP_SAVE_IMAGE", savePath.c_str(), 1);
+                    setenv("DXAPP_SAVE_IMAGE", saveImagePath.c_str(), 1);
                 #endif
             }
             auto tr0 = std::chrono::high_resolution_clock::now();
@@ -498,7 +502,7 @@ private:
             }
             if (!processSingleFrame(img, display_image, ie, preprocessor, postprocessor,
                                     visualizer, metrics, writer, no_display, saveMode, t_read,
-                                    i, frameDumpPath, false)) break;
+                                    i, frameDumpPath, false, saveImagePath)) break;
             processCount++;
             if (!no_display) {
                 while (!dxapp::windowShouldClose("Output")) {
@@ -519,7 +523,7 @@ private:
             if (loopTest > 1) {
                 if (verbose_) {
                     std::cout << "\n" << std::string(50, '=') << std::endl;
-                    std::cout << "[INFO] Loop " << (loop_idx + 1) << "/" << loopTest << std::endl;
+                    std::cout << "[DXAPP] [INFO] Loop " << (loop_idx + 1) << "/" << loopTest << std::endl;
                     std::cout << std::string(50, '=') << std::endl;
                 }
             }
@@ -543,7 +547,7 @@ private:
             video.release();
             video.open(videoFile);
             if (!video.isOpened()) {
-                std::cerr << "[ERROR] Failed to reopen video for loop " << (loop_idx + 2) << std::endl;
+                std::cerr << "[DXAPP] [ERROR] Failed to reopen video for loop " << (loop_idx + 2) << std::endl;
                 break;
             }
         }

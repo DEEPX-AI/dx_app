@@ -27,7 +27,7 @@ from typing import Dict, List, Optional, Tuple
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from test_helpers.constants import PROJECT_ROOT, TASK_IMAGE_MAP, MODEL_IMAGE_OVERRIDE, E2E_SHORT_MODELS  # noqa: E402
+from test_helpers.constants import PROJECT_ROOT, TASK_IMAGE_MAP, MODEL_IMAGE_OVERRIDE, E2E_SHORT_MODELS, IMAGE_ONLY_TASKS  # noqa: E402
 from test_helpers.utils import discover_python_scripts, setup_environment, resolve_image_for_model  # noqa: E402
 
 
@@ -204,7 +204,11 @@ _TEST_VIDEO = PROJECT_ROOT / "assets" / "videos" / "dance-group.mov"
 # Discovery
 # ---------------------------------------------------------------------------
 
-_IMAGE_ONLY_TASKS = {"embedding", "reid", "attribute_recognition"}
+# Image-only tasks (no video/stream) — sourced from test_helpers.constants so
+# python/cpp E2E and req_test all agree. Was previously missing
+# object_pose_estimation (dope), 3d_object_detection, hand_* → those stream
+# tests wrongly ran and failed on video input.
+_IMAGE_ONLY_TASKS = IMAGE_ONLY_TASKS
 
 
 def _build_params() -> Tuple[List, List]:

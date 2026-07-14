@@ -27,11 +27,12 @@ public:
                      float nms_threshold = 0.45f,
                      int num_classes = 20,
                      bool has_background = true,
-                     const std::string& label_set = "voc")
+                     const std::string& label_set = "voc",
+                     const std::vector<std::string>& class_names = {})
         : input_width_(input_width), input_height_(input_height),
           conf_threshold_(conf_threshold), nms_threshold_(nms_threshold),
           num_classes_(num_classes), has_background_(has_background),
-          label_set_(label_set) {}
+          label_set_(label_set), class_names_(class_names) {}
 
     std::vector<DetectionResult> process(const dxrt::TensorPtrs& outputs,
                                          const PreprocessContext& ctx) override {
@@ -173,9 +174,10 @@ public:
             det.box = {x1, y1, x2, y2};
             det.confidence = nms_scores[idx];
             det.class_id = nms_class_ids[idx];
-            // Auto-detect label set: use VOC only for exactly 20 fg classes,
-            // otherwise fall back to COCO (which covers 80/90-class models).
-            if (inferred_num_classes == 20) {
+            // Custom class names take priority, then auto-detect label set
+            if (!class_names_.empty()) {
+                det.class_name = dxapp::common::resolve_class_name(det.class_id, class_names_);
+            } else if (inferred_num_classes == 20) {
                 det.class_name = dxapp::common::get_voc_class_name(det.class_id);
             } else {
                 det.class_name = dxapp::common::get_coco_class_name(det.class_id);
@@ -210,6 +212,7 @@ private:
     int num_classes_;
     bool has_background_;
     std::string label_set_;
+    std::vector<std::string> class_names_;
 };
 
 }  // namespace dxapp

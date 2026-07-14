@@ -33,7 +33,10 @@ public:
         return std::make_unique<YOLOv5Postprocessor>(
             input_width, input_height,
             obj_threshold_, score_threshold_, nms_threshold_,
-            is_ort_configured
+            is_ort_configured,
+            num_classes_,
+            class_names_,
+            max_nms_candidates_
         );
     }
 
@@ -45,6 +48,9 @@ public:
         obj_threshold_ = config.get<float>("obj_threshold", obj_threshold_);
         score_threshold_ = config.get<float>("score_threshold", score_threshold_);
         nms_threshold_ = config.get<float>("nms_threshold", nms_threshold_);
+        max_nms_candidates_ = config.get<int>("max_nms_candidates", max_nms_candidates_);
+        class_names_ = config.get_string_list("class_names");
+        num_classes_ = config.get<int>("num_classes", num_classes_);
     }
 
     std::string getModelName() const override { return "YOLOv5s_wo_spp_640"; }
@@ -54,6 +60,9 @@ private:
     float obj_threshold_;
     float score_threshold_;
     float nms_threshold_;
+    int max_nms_candidates_{0};
+    int num_classes_{80};
+    std::vector<std::string> class_names_;
 };
 
 }  // namespace dxapp

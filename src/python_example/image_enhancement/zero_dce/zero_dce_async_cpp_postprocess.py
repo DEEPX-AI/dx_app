@@ -20,7 +20,7 @@ for _path in [str(_v3_dir), str(_module_dir)]:
 
 import os
 if os.name == 'nt':
-    _dxrt_dir = os.environ.get('DXRT_DIR')
+    _dxrt_dir = os.environ.get('DEEPX_SDK_DIR')
     if _dxrt_dir:
         os.add_dll_directory(os.path.join(_dxrt_dir, 'bin'))
 

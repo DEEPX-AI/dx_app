@@ -17,7 +17,8 @@ from typing import List
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from test_helpers.utils import setup_environment  # noqa: E402
+from test_helpers.utils import setup_environment, cpp_exe_task_map  # noqa: E402
+from test_helpers.constants import IMAGE_ONLY_TASKS  # noqa: E402
 
 from conftest import resolve_bin_dir
 
@@ -41,8 +42,12 @@ def _normalize_model_to_exe(stem: str) -> str:
     return stem.lower().replace(".", "_")
 
 
+# exe_name → task category, to exclude image-only tasks (they reject -v).
+_EXE_TASK_MAP = cpp_exe_task_map(suffixes=("_sync",))
+
+
 def discover_fast_sync_cases() -> List[tuple]:
-    """Discover fast sync executables (no face/tta/w6)."""
+    """Discover fast sync executables (no face/tta/w6, no image-only tasks)."""
     cases = []
     seen = set()
     skip_patterns = ["face", "tta", "w6"]
@@ -50,6 +55,11 @@ def discover_fast_sync_cases() -> List[tuple]:
         prefix = _normalize_model_to_exe(model_path.stem)
         exe_name = f"{prefix}_sync"
         if any(s in exe_name for s in skip_patterns):
+            continue
+        # Loop test runs VIDEO inference; image-only tasks (3d_object_detection,
+        # embedding, …) reject -v and exit non-zero (SDKREQ-517 excludes them
+        # from stream inference), so keep them out of the candidate pool.
+        if _EXE_TASK_MAP.get(exe_name) in IMAGE_ONLY_TASKS:
             continue
         if exe_name in seen:
             continue

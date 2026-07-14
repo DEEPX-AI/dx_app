@@ -21,16 +21,19 @@ class FaceVisualizer(IVisualizer):
     Draws bounding boxes and 5 facial landmarks (eyes, nose, mouth corners).
     """
     
-    def __init__(self, draw_keypoints: bool = True, keypoint_radius: int = 3):
+    def __init__(self, draw_keypoints: bool = True, keypoint_radius: int = 3,
+                 label: str = "face"):
         """
         Initialize face visualizer.
-        
+
         Args:
             draw_keypoints: Whether to draw facial keypoints
             keypoint_radius: Radius for keypoint circles
+            label: Box label prefix shown on each detection (e.g. "face", "Hand").
         """
         self.draw_keypoints = draw_keypoints
         self.keypoint_radius = keypoint_radius
+        self.label = label
         self.box_color = (0, 255, 0)  # Green for face boxes
     
     # ------------------------------------------------------------------
@@ -41,7 +44,7 @@ class FaceVisualizer(IVisualizer):
         """Draw bounding box and confidence label."""
         cv2.rectangle(output, (x1, y1), (x2, y2), self.box_color, 2)
 
-        label = f"face: {score:.2f}"
+        label = f"{self.label}: {score:.2f}"
         (label_width, label_height), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
         label_y = y1 - 10 if y1 - 10 > label_height else y1 + 10
 

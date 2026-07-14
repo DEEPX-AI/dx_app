@@ -34,7 +34,8 @@ public:
         return std::make_unique<YOLOv7PPUPostprocessor>(
             input_width, input_height,
             obj_threshold_, score_threshold_, nms_threshold_,
-            is_ort_configured
+            is_ort_configured,
+            class_names_
         );
     }
 
@@ -45,6 +46,7 @@ public:
     void loadConfig(const dxapp::ModelConfig& config) override {
         obj_threshold_ = config.get<float>("obj_threshold", obj_threshold_);
         score_threshold_ = config.get<float>("score_threshold", score_threshold_);
+        class_names_ = config.get_string_list("class_names");
         nms_threshold_ = config.get<float>("nms_threshold", nms_threshold_);
     }
 
@@ -55,6 +57,7 @@ private:
     float obj_threshold_;
     float score_threshold_;
     float nms_threshold_;
+    std::vector<std::string> class_names_;
 };
 
 }  // namespace dxapp

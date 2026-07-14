@@ -38,10 +38,12 @@ public:
                            float nms_threshold = 0.5f,
                            int num_classes = 80,
                            int stride = 4,
-                           int top_k = 100)
+                           int top_k = 100,
+                           const std::vector<std::string>& class_names = {})
         : input_width_(input_width), input_height_(input_height),
           score_threshold_(score_threshold), nms_threshold_(nms_threshold),
-          num_classes_(num_classes), stride_(stride), top_k_(top_k) {}
+          num_classes_(num_classes), stride_(stride), top_k_(top_k),
+          class_names_(class_names) {}
 
     std::vector<DetectionResult> process(const dxrt::TensorPtrs& outputs,
                                          const PreprocessContext& ctx) override {
@@ -108,7 +110,7 @@ public:
             det.box = {coords[0], coords[1], coords[2], coords[3]};
             det.confidence = nms_scores[idx];
             det.class_id = nms_class_ids[idx];
-            det.class_name = dxapp::common::get_coco_class_name(det.class_id);
+            det.class_name = dxapp::common::resolve_class_name(det.class_id, class_names_);
             results.push_back(det);
         }
 
@@ -125,6 +127,7 @@ private:
     int num_classes_;
     int stride_;
     int top_k_;
+    std::vector<std::string> class_names_;
 
     struct Peak_ { float score; int cls; int y; int x; };
 

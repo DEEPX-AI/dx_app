@@ -140,55 +140,6 @@ std::vector<std::string> loadFilesFromDir(const std::string& path) {
     return result;
 }
 
-bool checkOrtLinking() {
-#ifdef __linux__
-    std::ostringstream command;
-    command << "ldconfig -p | grep dxrt.so";
-
-    FILE* pipe = popen(command.str().c_str(), "r");
-    if (!pipe) {
-        std::cerr << "Failed to run ldconfig command." << std::endl;
-        return false;
-    }
-
-    char buffer[128];
-    std::string result;
-    while (fgets(buffer, sizeof(buffer), pipe) != nullptr) {
-        result += buffer;
-    }
-    pclose(pipe);
-
-    if (result.empty()) return false;
-
-    std::string file_path;
-    size_t pos = result.find("=>");
-    if (pos == std::string::npos) return false;
-
-    file_path = result.substr(pos + 3);
-    file_path.erase(file_path.find_last_not_of('\n') + 1);
-
-    if (!pathValidation(file_path)) return false;
-
-    command.str("");
-    command << "ldd " << file_path << " | grep libonnxruntime.so";
-
-    pipe = popen(command.str().c_str(), "r");
-    if (!pipe) {
-        std::cerr << "Failed to run ldd command" << std::endl;
-        return false;
-    }
-    result = "";
-    while (fgets(buffer, sizeof(buffer), pipe) != nullptr) {
-        result += buffer;
-    }
-    pclose(pipe);
-
-    return !result.empty();
-#elif _WIN32
-    return ORT_OPTION_DEFAULT;
-#endif
-}
-
 std::string getLocalTimeString() {
     std::time_t now = std::time(nullptr);
     std::tm local{};
@@ -201,49 +152,6 @@ std::string getLocalTimeString() {
     std::ostringstream oss;
     oss << std::put_time(&local, "%Y-%m-%d_%H-%M-%S");
     return oss.str();
-}
-
-void logThreadFunction(void* args) {
-    std::vector<std::string> log_messages;
-    StatusLog* sl = (StatusLog*)args;
-    std::mutex cliCommandLock;
-    {
-        std::unique_lock<std::mutex> _uniqueLock(cliCommandLock);
-        sl->statusCheckCV.wait(_uniqueLock,
-                               [&]() { return sl->threadStatus.load() > 0; });
-    }
-    if (sl->threadStatus.load() == 1) return;
-    std::string fileName =
-        std::string("device_status.") + getLocalTimeString() + ".log";
-    std::fstream logFile(fileName,
-                         std::ios::app | std::ios::in | std::ios::out);
-    while (sl->threadStatus.load() == 2) {
-        auto status = dxrt::DeviceStatus::GetCurrentStatus(0);
-        auto devices = status.GetDeviceCount();
-        {
-            std::unique_lock<std::mutex> _uniqueLock(cliCommandLock);
-            std::string log_message = std::to_string(sl->frameNumber) + ", " +
-                                      std::to_string(sl->runningTime) + ", ";
-            std::string log_result =
-                std::string("[Application Status] ") + getLocalTimeString() +
-                " Frame No. " + std::to_string(sl->frameNumber) +
-                ", running time " + std::to_string(sl->runningTime) + "ms, ";
-
-            for (int i = 0; i < devices * 3; i++) {
-                auto ret = status.Temperature(i);
-                log_result += std::to_string(ret) + "\'C,";
-                log_message += std::to_string(ret) + ", ";
-            }
-            std::cout << log_result << std::endl;
-            logFile << log_message << std::endl;
-            logFile.flush();
-            int fd = fileno(stdout);
-            if (fd != -1) fsync(fd);
-        }
-    }
-    logFile.close();
-    std::cout << "Logs saved to " << fileName << std::endl;
-    std::cout << "logging stopped" << std::endl;
 }
 
 bool isVersionGreaterOrEqual(const std::string& v1, const std::string& v2) {
@@ -272,12 +180,12 @@ bool minversionforRTandCompiler(dxrt::InferenceEngine* ie) {
         if (isVersionGreaterOrEqual(compiler_version, "v7")) {
             return true;
         } else {
-            std::cerr << "[DXAPP] [ER] Compiler version is too low. (required: "
+            std::cerr << "[DXAPP] [ERROR] Compiler version is too low. (required: "
                          ">= 7, current: "
                       << compiler_version << ")" << std::endl;
         }
     } else {
-        std::cerr << "[DXAPP] [ER] DXRT library version is too low. (required: "
+        std::cerr << "[DXAPP] [ERROR] DXRT library version is too low. (required: "
                      ">= 3.0.0, current: "
                   << rt_version << ")" << std::endl;
     }

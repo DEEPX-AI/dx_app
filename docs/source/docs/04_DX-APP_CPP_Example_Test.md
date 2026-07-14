@@ -310,6 +310,7 @@ Coverage Filtering Rules
 ### Continuous Integration (CI) Integration
 
 **SonarQube Integration**  
+
 XML reports generated via the `--coverage` flag are utilized by the CI server for static code analysis and test coverage tracking. This ensures long-term code quality and helps identify untested logic paths during the development lifecycle.  
 
 **Nightly Build**  

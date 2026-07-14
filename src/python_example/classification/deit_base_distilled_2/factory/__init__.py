@@ -1,0 +1,1 @@
+from .deit_base_distilled_2_factory import Deit_base_distilled_2Factory

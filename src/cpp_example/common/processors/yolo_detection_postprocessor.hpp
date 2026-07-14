@@ -61,14 +61,20 @@ public:
                             float obj_threshold,
                             float score_threshold,
                             float nms_threshold,
-                            bool is_ort_configured)
+                            bool is_ort_configured,
+                            int num_classes = 80,
+                            const std::vector<std::string>& class_names = {},
+                            int max_nms_candidates = 0)
         : impl_(input_width, input_height,
                 obj_threshold, score_threshold, nms_threshold,
                 is_ort_configured,
                 cpu_names_for(preset),
                 npu_names_for(preset),
                 anchors_for(preset),
-                npu_supported_for(preset)),
+                npu_supported_for(preset),
+                num_classes,
+                class_names,
+                max_nms_candidates),
           preset_(preset) {}
 
     std::vector<DetectionResult> process(const dxrt::TensorPtrs& outputs,
@@ -145,9 +151,11 @@ public:
     YOLOv8FamilyPostprocessor(int input_width = 640, int input_height = 640,
                               float score_threshold = 0.3f,
                               float nms_threshold = 0.45f,
-                              bool is_ort_configured = false)
+                              bool is_ort_configured = false,
+                              int num_classes = 80,
+                              const std::vector<std::string>& class_names = {})
         : impl_(input_width, input_height, score_threshold, nms_threshold,
-                is_ort_configured) {}
+                is_ort_configured, num_classes, class_names) {}
 
     std::vector<DetectionResult> process(const dxrt::TensorPtrs& outputs,
                                          const PreprocessContext& ctx) override {
@@ -176,24 +184,28 @@ class YOLOv5Postprocessor : public AnchorYOLOPostprocessor {
 public:
     YOLOv5Postprocessor(int w = 640, int h = 640,
                         float obj = 0.25f, float score = 0.3f, float nms = 0.45f,
-                        bool ort = false)
-        : AnchorYOLOPostprocessor(Preset::YOLOV5, w, h, obj, score, nms, ort) {}
+                        bool ort = false, int num_classes = 80,
+                        const std::vector<std::string>& class_names = {},
+                        int max_nms_candidates = 0)
+        : AnchorYOLOPostprocessor(Preset::YOLOV5, w, h, obj, score, nms, ort, num_classes, class_names, max_nms_candidates) {}
 };
 
 class YOLOv7Postprocessor : public AnchorYOLOPostprocessor {
 public:
     YOLOv7Postprocessor(int w = 640, int h = 640,
                         float obj = 0.3f, float score = 0.4f, float nms = 0.5f,
-                        bool ort = false)
-        : AnchorYOLOPostprocessor(Preset::YOLOV7, w, h, obj, score, nms, ort) {}
+                        bool ort = false, int num_classes = 80,
+                        const std::vector<std::string>& class_names = {})
+        : AnchorYOLOPostprocessor(Preset::YOLOV7, w, h, obj, score, nms, ort, num_classes, class_names) {}
 };
 
 class YOLOXPostprocessor : public AnchorYOLOPostprocessor {
 public:
     YOLOXPostprocessor(int w = 512, int h = 512,
                        float obj = 0.25f, float score = 0.3f, float nms = 0.45f,
-                       bool ort = true)
-        : AnchorYOLOPostprocessor(Preset::YOLOX, w, h, obj, score, nms, ort) {}
+                       bool ort = true, int num_classes = 80,
+                       const std::vector<std::string>& class_names = {})
+        : AnchorYOLOPostprocessor(Preset::YOLOX, w, h, obj, score, nms, ort, num_classes, class_names) {}
 };
 
 // YOLOv8 Family (5 args)

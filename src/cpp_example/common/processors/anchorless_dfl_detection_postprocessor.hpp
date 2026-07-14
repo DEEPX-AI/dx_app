@@ -75,9 +75,12 @@ public:
     AnchorlessYOLOPostProcess(int input_w, int input_h,
                               float score_threshold, float nms_threshold,
                               bool is_ort_configured,
-                              AnchorlessCpuDecodeMode cpu_mode = AnchorlessCpuDecodeMode::TRANSPOSED_XYWH)
+                              AnchorlessCpuDecodeMode cpu_mode = AnchorlessCpuDecodeMode::TRANSPOSED_XYWH,
+                              int num_classes = 80,
+                              const std::vector<std::string>& class_names = {})
         : input_width_(input_w), input_height_(input_h),
           score_threshold_(score_threshold), nms_threshold_(nms_threshold),
+          num_classes_(num_classes), class_names_(class_names),
           is_ort_configured_(is_ort_configured), cpu_mode_(cpu_mode) {
         cpu_output_names_ = {"output0"};
         npu_output_names_ = {"/model.22/dfl/conv/Conv_output_0",
@@ -89,7 +92,7 @@ public:
         auto aligned = align_tensors(outputs);
         if (aligned.empty()) {
             std::ostringstream msg;
-            msg << "[DXAPP] [ER] AnchorlessYOLOPostProcess - Aligned outputs are empty.\n"
+            msg << "[DXAPP] [ERROR] AnchorlessYOLOPostProcess - Aligned outputs are empty.\n"
                 << "  Unexpected shape\n";
             msg << postprocess_utils::format_tensor_shapes(outputs);
             msg << "Please re-compile the model with the correct output configuration.\n";
@@ -105,7 +108,7 @@ public:
         return apply_nms(dets);
     }
 
-    dxrt::TensorPtrs align_tensors(const dxrt::TensorPtrs& outputs) const {
+    dxrt::TensorPtrs align_tensors(const dxrt::TensorPtrs& outputs) {
         dxrt::TensorPtrs aligned;
         if (is_ort_configured_) {
             for (const auto& o : outputs) {
@@ -117,8 +120,22 @@ public:
             std::vector<dxrt::TensorPtr> cls_out, reg_out;
             for (const auto& o : outputs) {
                 if (o->shape().size() != 4) continue;
-                if (o->shape()[1] == num_classes_) cls_out.push_back(o);
-                else if (o->shape()[1] == 64) reg_out.push_back(o);
+                if (o->shape()[1] == 64) reg_out.push_back(o);
+                else cls_out.push_back(o);
+            }
+            // Guard: if num_classes_==64, channel count cannot distinguish
+            // DFL reg tensors (always 64ch) from cls tensors (64ch).
+            // All 6 tensors land in reg_out → cls_out.size()==3 guard fails silently.
+            // Detect and surface a clear warning instead.
+            if (cls_out.empty() && reg_out.size() == 6) {
+                std::cerr << "[DXAPP] [WARN] AnchorlessYOLO: all 6 DFL tensors have 64 channels; "
+                          << "reg/cls disambiguation ambiguous (num_classes=" << num_classes_ << "). "
+                          << "Use output-name-based config to resolve.\n";
+                return aligned;  // empty → caller throws descriptive error
+            }
+            // Auto-detect num_classes from cls tensor shape if not matching
+            if (cls_out.size() == 3 && cls_out[0]->shape()[1] != num_classes_) {
+                num_classes_ = static_cast<int>(cls_out[0]->shape()[1]);
             }
             if (cls_out.size() == 3 && reg_out.size() == 3) {
                 auto cmp = [](const dxrt::TensorPtr& a, const dxrt::TensorPtr& b) {
@@ -158,7 +175,7 @@ public:
     float get_score_threshold() const { return score_threshold_; }
     float get_nms_threshold() const { return nms_threshold_; }
     bool get_is_ort_configured() const { return is_ort_configured_; }
-    static int get_num_classes() { return num_classes_; }
+    int get_num_classes() const { return num_classes_; }
     const std::map<int, std::vector<std::pair<int,int>>>& get_anchors_by_strides() const { return anchors_by_strides_; }
     const std::vector<std::string>& get_cpu_output_names() const { return cpu_output_names_; }
     const std::vector<std::string>& get_npu_output_names() const { return npu_output_names_; }
@@ -168,7 +185,8 @@ private:
     int input_height_;
     float score_threshold_;
     float nms_threshold_;
-    enum { num_classes_ = 80 };
+    int num_classes_;
+    std::vector<std::string> class_names_;
     bool is_ort_configured_;
     AnchorlessCpuDecodeMode cpu_mode_;
     std::vector<std::string> cpu_output_names_;
@@ -226,7 +244,7 @@ private:
                 AnchorlessYOLOResult r;
                 r.confidence = max_conf;
                 r.class_id   = max_cls;
-                r.class_name = dxapp::common::get_coco_class_name(max_cls);
+                r.class_name = dxapp::common::resolve_class_name(max_cls, class_names_);
                 r.box = {(ax - dist[0]) * stride, (ay - dist[1]) * stride,
                          (ax + dist[2]) * stride, (ay + dist[3]) * stride};
                 detections.push_back(std::move(r));
@@ -255,30 +273,35 @@ private:
     }
 
     // ---- CPU decode (differs per family) ----
-    std::vector<AnchorlessYOLOResult> decoding_cpu_outputs(const dxrt::TensorPtrs& outputs) const {
+    std::vector<AnchorlessYOLOResult> decoding_cpu_outputs(const dxrt::TensorPtrs& outputs) {
         if (cpu_mode_ == AnchorlessCpuDecodeMode::END_TO_END)
             return decoding_cpu_e2e(outputs);
         return decoding_cpu_transposed(outputs);
     }
 
-    // v8/v9/v11/v12: [1, 84, 8400] transposed layout
-    std::vector<AnchorlessYOLOResult> decoding_cpu_transposed(const dxrt::TensorPtrs& outputs) const {
+    // v8/v9/v11/v12: [1, 4+C, N] transposed layout
+    std::vector<AnchorlessYOLOResult> decoding_cpu_transposed(const dxrt::TensorPtrs& outputs) {
         std::vector<AnchorlessYOLOResult> detections;
-
-        auto find_best_transposed_class = [&](const float* data, int num_dets, int i)
-            -> std::pair<int, float> {
-            int best_cls = -1;
-            float best_conf = score_threshold_;
-            for (int c = 0; c < num_classes_; ++c) {
-                float conf = data[(4 + c) * num_dets + i];
-                if (conf > best_conf) { best_conf = conf; best_cls = c; }
-            }
-            return {best_cls, best_conf};
-        };
 
         for (const auto& output : outputs) {
             auto data = static_cast<const float*>(output->data());
             auto num_dets = static_cast<int>(output->shape()[2]);
+            // Auto-detect num_classes from tensor shape: [1, 4+C, N]
+            int actual_nc = static_cast<int>(output->shape()[1]) - 4;
+            if (actual_nc > 0 && actual_nc != num_classes_) {
+                num_classes_ = actual_nc;
+            }
+
+            auto find_best_transposed_class = [&](const float* d, int nd, int i)
+                -> std::pair<int, float> {
+                int best_cls = -1;
+                float best_conf = score_threshold_;
+                for (int c = 0; c < num_classes_; ++c) {
+                    float conf = d[(4 + c) * nd + i];
+                    if (conf > best_conf) { best_conf = conf; best_cls = c; }
+                }
+                return {best_cls, best_conf};
+            };
             for (int i = 0; i < num_dets; ++i) {
                 auto [max_cls, max_conf] = find_best_transposed_class(data, num_dets, i);
                 if (max_cls == -1) continue;
@@ -289,7 +312,7 @@ private:
                 AnchorlessYOLOResult r;
                 r.confidence = max_conf;
                 r.class_id = max_cls;
-                r.class_name = dxapp::common::get_coco_class_name(max_cls);
+                r.class_name = dxapp::common::resolve_class_name(max_cls, class_names_);
                 r.box = {bx[0] - bx[2]/2, bx[1] - bx[3]/2,
                          bx[0] + bx[2]/2, bx[1] + bx[3]/2};
                 detections.push_back(std::move(r));
@@ -316,7 +339,7 @@ private:
             AnchorlessYOLOResult r;
             r.confidence = det[4];
             r.class_id = cls;
-            r.class_name = dxapp::common::get_coco_class_name(cls);
+            r.class_name = dxapp::common::resolve_class_name(cls, class_names_);
             r.box = {det[0], det[1], det[2], det[3]};
             detections.push_back(std::move(r));
         }
@@ -335,49 +358,61 @@ private:
 class YOLOv8PostProcess : public AnchorlessYOLOPostProcess {
 public:
     YOLOv8PostProcess(int w = 640, int h = 640,
-                      float score = 0.45f, float nms = 0.4f, bool ort = false)
+                      float score = 0.45f, float nms = 0.4f, bool ort = false,
+                      int num_classes = 80,
+                      const std::vector<std::string>& class_names = {})
         : AnchorlessYOLOPostProcess(w, h, score, nms, ort,
-              AnchorlessCpuDecodeMode::TRANSPOSED_XYWH) {}
+              AnchorlessCpuDecodeMode::TRANSPOSED_XYWH, num_classes, class_names) {}
 };
 
 class YOLOv9PostProcess : public AnchorlessYOLOPostProcess {
 public:
     YOLOv9PostProcess(int w = 640, int h = 640,
-                      float score = 0.45f, float nms = 0.4f, bool ort = false)
+                      float score = 0.45f, float nms = 0.4f, bool ort = false,
+                      int num_classes = 80,
+                      const std::vector<std::string>& class_names = {})
         : AnchorlessYOLOPostProcess(w, h, score, nms, ort,
-              AnchorlessCpuDecodeMode::TRANSPOSED_XYWH) {}
+              AnchorlessCpuDecodeMode::TRANSPOSED_XYWH, num_classes, class_names) {}
 };
 
 class YOLOv11PostProcess : public AnchorlessYOLOPostProcess {
 public:
     YOLOv11PostProcess(int w = 640, int h = 640,
-                       float score = 0.45f, float nms = 0.4f, bool ort = false)
+                       float score = 0.45f, float nms = 0.4f, bool ort = false,
+                       int num_classes = 80,
+                       const std::vector<std::string>& class_names = {})
         : AnchorlessYOLOPostProcess(w, h, score, nms, ort,
-              AnchorlessCpuDecodeMode::TRANSPOSED_XYWH) {}
+              AnchorlessCpuDecodeMode::TRANSPOSED_XYWH, num_classes, class_names) {}
 };
 
 class YOLOv12PostProcess : public AnchorlessYOLOPostProcess {
 public:
     YOLOv12PostProcess(int w = 640, int h = 640,
-                       float score = 0.45f, float nms = 0.4f, bool ort = false)
+                       float score = 0.45f, float nms = 0.4f, bool ort = false,
+                       int num_classes = 80,
+                       const std::vector<std::string>& class_names = {})
         : AnchorlessYOLOPostProcess(w, h, score, nms, ort,
-              AnchorlessCpuDecodeMode::TRANSPOSED_XYWH) {}
+              AnchorlessCpuDecodeMode::TRANSPOSED_XYWH, num_classes, class_names) {}
 };
 
 class YOLOv10PostProcess : public AnchorlessYOLOPostProcess {
 public:
     YOLOv10PostProcess(int w = 640, int h = 640,
-                       float score = 0.45f, float nms = 0.4f, bool ort = false)
+                       float score = 0.45f, float nms = 0.4f, bool ort = false,
+                       int num_classes = 80,
+                       const std::vector<std::string>& class_names = {})
         : AnchorlessYOLOPostProcess(w, h, score, nms, ort,
-              AnchorlessCpuDecodeMode::END_TO_END) {}
+              AnchorlessCpuDecodeMode::END_TO_END, num_classes, class_names) {}
 };
 
 class YOLOv26PostProcess : public AnchorlessYOLOPostProcess {
 public:
     YOLOv26PostProcess(int w = 640, int h = 640,
-                       float score = 0.45f, float nms = 0.4f, bool ort = false)
+                       float score = 0.45f, float nms = 0.4f, bool ort = false,
+                       int num_classes = 80,
+                       const std::vector<std::string>& class_names = {})
         : AnchorlessYOLOPostProcess(w, h, score, nms, ort,
-              AnchorlessCpuDecodeMode::END_TO_END) {}
+              AnchorlessCpuDecodeMode::END_TO_END, num_classes, class_names) {}
 };
 
 #endif  // ANCHORLESS_DFL_DETECTION_POSTPROCESSOR_HPP

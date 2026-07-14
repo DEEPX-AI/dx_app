@@ -75,3 +75,28 @@ class DnCNNPostprocessor(IPostprocessor):
 
     def get_model_name(self) -> str:
         return "dncnn"
+
+
+class RealESRGANPostprocessor(IPostprocessor):
+    """
+    Postprocessor for RealESRGAN color super-resolution model.
+
+    Output: [1, 3, H*scale, W*scale] NCHW float in [0, 1] range.
+    Converts to HWC uint8 for display.
+    """
+
+    def __init__(self, input_width: int, input_height: int, config: dict = None):
+        self.input_width = input_width
+        self.input_height = input_height
+        self.config = config or {}
+
+    def process(self, outputs: List[np.ndarray], ctx: PreprocessContext):
+        raw = outputs[0]
+        raw = np.squeeze(raw)
+        if raw.ndim == 3 and raw.shape[0] == 3:
+            raw = np.transpose(raw, (1, 2, 0))
+        out_uint8 = (np.clip(raw, 0.0, 1.0) * 255.0).astype(np.uint8)
+        return [RestorationResult(output_image=out_uint8)]
+
+    def get_model_name(self) -> str:
+        return "realesrgan"

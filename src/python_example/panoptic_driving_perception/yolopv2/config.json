@@ -1,0 +1,4 @@
+{
+    "conf_threshold": 0.25,
+    "nms_threshold": 0.45
+}

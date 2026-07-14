@@ -37,28 +37,28 @@ def read_version(ver_path: Path, override: str | None) -> str:
     if override:
         return override.strip()
     if not ver_path.is_file():
-        print(f"[ERR] models.ver not found: {ver_path}", file=sys.stderr)
+        print(f"[DXAPP] [ERROR] models.ver not found: {ver_path}", file=sys.stderr)
         sys.exit(1)
     ver = ver_path.read_text(encoding="utf-8").strip()
     if not ver:
-        print("[ERR] models.ver is empty", file=sys.stderr)
+        print("[DXAPP] [ERROR] models.ver is empty", file=sys.stderr)
         sys.exit(1)
     return ver
 
 
 def update_manifest(ver: str, manifest_path: Path, dry_run: bool = False) -> list[dict]:
     if not manifest_path.is_file():
-        print(f"[ERR] Manifest not found: {manifest_path}", file=sys.stderr)
+        print(f"[DXAPP] [ERROR] Manifest not found: {manifest_path}", file=sys.stderr)
         sys.exit(1)
 
     try:
         entries = json.loads(manifest_path.read_text(encoding="utf-8"))
     except Exception as exc:
-        print(f"[ERR] Failed to read manifest: {exc}", file=sys.stderr)
+        print(f"[DXAPP] [ERROR] Failed to read manifest: {exc}", file=sys.stderr)
         sys.exit(1)
 
     if not isinstance(entries, list):
-        print("[ERR] Manifest must be a JSON array", file=sys.stderr)
+        print("[DXAPP] [ERROR] Manifest must be a JSON array", file=sys.stderr)
         sys.exit(1)
 
     # Detect current version from first URL found
@@ -75,7 +75,7 @@ def update_manifest(ver: str, manifest_path: Path, dry_run: bool = False) -> lis
             break
 
     if old_ver == ver:
-        print(f"[INFO] Already at version {ver} — no changes needed.")
+        print(f"[DXAPP] [INFO] Already at version {ver} — no changes needed.")
         return entries
 
     updated = 0

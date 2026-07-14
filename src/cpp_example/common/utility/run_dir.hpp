@@ -201,37 +201,37 @@ inline cv::VideoWriter initVideoWriter(const std::string& saveDir,
                 useFps, frameSize);
     if (writer.isOpened()) {
         resolvedPath = fs::absolute(mp4Path).string();
-        std::cout << "[INFO] Saving output video: " << resolvedPath << std::endl;
+        std::cout << "[DXAPP] [INFO] Saving output video: " << resolvedPath << std::endl;
         return writer;
     }
     writer.release();
 
     // Fallback: mp4v (MPEG-4 Part 2) — requires codec pack on some systems
-    std::cerr << "[WARN] avc1 codec failed, retrying with mp4v..." << std::endl;
+    std::cerr << "[DXAPP] [WARN] avc1 codec failed, retrying with mp4v..." << std::endl;
     writer.open(mp4Path, cv::VideoWriter::fourcc('m', 'p', '4', 'v'),
                 useFps, frameSize);
     if (writer.isOpened()) {
         resolvedPath = fs::absolute(mp4Path).string();
-        std::cout << "[INFO] Saving output video: " << resolvedPath
+        std::cout << "[DXAPP] [INFO] Saving output video: " << resolvedPath
                   << " (mp4v fallback)" << std::endl;
         return writer;
     }
     writer.release();
 
     // Fallback: XVID/AVI
-    std::cerr << "[WARN] mp4v codec failed, retrying with XVID/AVI..." << std::endl;
+    std::cerr << "[DXAPP] [WARN] mp4v codec failed, retrying with XVID/AVI..." << std::endl;
     std::string aviPath = saveDir + "/output.avi";
     writer.open(aviPath, cv::VideoWriter::fourcc('X', 'V', 'I', 'D'),
                 useFps, frameSize);
     if (writer.isOpened()) {
         resolvedPath = fs::absolute(aviPath).string();
-        std::cout << "[INFO] Saving output video: " << resolvedPath
+        std::cout << "[DXAPP] [INFO] Saving output video: " << resolvedPath
                   << " (XVID fallback)" << std::endl;
         return writer;
     }
     writer.release();
 
-    std::cerr << "[ERROR] Failed to open VideoWriter for output." << std::endl;
+    std::cerr << "[DXAPP] [ERROR] Failed to open VideoWriter for output." << std::endl;
     resolvedPath.clear();
     return writer;
 }

@@ -19,6 +19,10 @@ from .embedding_enhancement_visualizer import (
     HandLandmarkVisualizer,
 )
 from .attribute_visualizer import AttributeVisualizer
+from .superpoint_visualizer import SuperPointVisualizer
+from .dope_visualizer import DOPEVisualizer
+from .yolopv2_visualizer import YOLOPv2Visualizer
+from .sfa3d_visualizer import SFA3DVisualizer
 
 __all__ = [
     'DetectionVisualizer',
@@ -36,4 +40,8 @@ __all__ = [
     'FaceAlignmentVisualizer',
     'HandLandmarkVisualizer',
     'AttributeVisualizer',
+    'SuperPointVisualizer',
+    'DOPEVisualizer',
+    'YOLOPv2Visualizer',
+    'SFA3DVisualizer',
 ]

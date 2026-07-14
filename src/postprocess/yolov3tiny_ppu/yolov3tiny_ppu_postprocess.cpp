@@ -61,7 +61,7 @@ std::vector<YOLOv3TinyPPUResult> YOLOv3TinyPPUPostProcess::postprocess(
     if (outputs.empty()) return {};
     if (outputs.front()->type() != dxrt::DataType::BBOX) {
         std::ostringstream msg;
-        msg << "[DXAPP] [ER] YOLOv3Tiny PPU PostProcess - Tensor type must be BBOX.\n"
+        msg << "[DXAPP] [ERROR] YOLOv3Tiny PPU PostProcess - Tensor type must be BBOX.\n"
             << "Expected dxrt::DataType::BBOX.\n";
         throw std::runtime_error(msg.str());
     }

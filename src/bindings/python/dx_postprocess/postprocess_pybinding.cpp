@@ -1,5 +1,6 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
+#include <pybind11/stl.h>
 #include <dxrt/dxrt_api.h>
 #include "yolov5_postprocess.h"
 #include "yolov5_ppu_postprocess.h"
@@ -29,11 +30,13 @@
 #include "ssd_postprocess.h"
 #include "nanodet_postprocess.h"
 #include "damoyolo_postprocess.h"
+#include "yolov4_postprocess.h"
 #include "obb_postprocess.h"
 #include "dncnn_postprocess.h"
 #include "yolov5seg_postprocess.h"
 #include "embedding_postprocess.h"
 #include "espcn_postprocess.h"
+#include "realesrgan_postprocess.h"
 #include "zero_dce_postprocess.h"
 #include "face3d_postprocess.h"
 #include "retinaface_postprocess.h"
@@ -42,6 +45,13 @@
 #include "efficientdet_postprocess.h"
 #include "yolact_postprocess.h"
 #include "hand_landmark_postprocess.h"
+#include "mediapipe_hand_postprocess.h"
+#include "vitpose_postprocess.h"
+#include "dope_postprocess.h"
+#include "superpoint_postprocess.h"
+#include "yolopv2_postprocess.h"
+#include "attribute_postprocess.h"
+#include "sfa3d_postprocess.h"
 
 namespace py = pybind11;
 
@@ -622,6 +632,23 @@ py::array_t<float> classification_results_to_numpy(const std::vector<Classificat
     return preds;
 }
 
+py::array_t<float> attribute_results_to_numpy(const std::vector<AttributeResult>& results) {
+    const size_t num_results = results.size();
+    if (num_results == 0) {
+        return py::array_t<float>(std::vector<py::ssize_t>{0, 2});
+    }
+
+    py::array_t<float> preds(std::vector<py::ssize_t>{static_cast<py::ssize_t>(num_results), 2});
+    auto buf = preds.mutable_unchecked<2>();
+
+    for (size_t i = 0; i < num_results; ++i) {
+        buf(i, 0) = static_cast<float>(results[i].class_id);
+        buf(i, 1) = results[i].confidence;
+    }
+
+    return preds;
+}
+
 py::array_t<uint8_t> depth_result_to_numpy(const DepthResult& result) {
     py::array_t<uint8_t> depth_map({result.height, result.width});
     auto buf = depth_map.mutable_unchecked<2>();
@@ -727,6 +754,28 @@ py::array_t<float> damoyolo_results_to_numpy(const std::vector<DamoYOLOResult>& 
     return detections;
 }
 
+py::array_t<float> yolov4_results_to_numpy(const std::vector<YOLOv4Result>& results) {
+    const size_t num_results = results.size();
+    if (num_results == 0) {
+        return py::array_t<float>(std::vector<py::ssize_t>{0, 6});
+    }
+
+    py::array_t<float> detections(std::vector<py::ssize_t>{static_cast<py::ssize_t>(num_results), 6});
+    auto buf = detections.mutable_unchecked<2>();
+
+    for (size_t i = 0; i < num_results; ++i) {
+        const auto& result = results[i];
+        buf(i, 0) = result.box[0];
+        buf(i, 1) = result.box[1];
+        buf(i, 2) = result.box[2];
+        buf(i, 3) = result.box[3];
+        buf(i, 4) = result.confidence;
+        buf(i, 5) = static_cast<float>(result.class_id);
+    }
+
+    return detections;
+}
+
 py::array_t<float> obb_results_to_numpy(const std::vector<OBBResult>& results) {
     const size_t num_results = results.size();
     if (num_results == 0) {
@@ -752,15 +801,27 @@ py::array_t<float> obb_results_to_numpy(const std::vector<OBBResult>& results) {
 
 // --- DnCNN result converter ---
 py::array_t<float> dncnn_result_to_numpy(const DnCNNResult& result) {
-    py::array_t<float> image({result.height, result.width});
-    auto buf = image.mutable_unchecked<2>();
-
-    for (int h = 0; h < result.height; ++h) {
-        for (int w = 0; w < result.width; ++w) {
-            buf(h, w) = result.image[h * result.width + w];
+    if (result.channels <= 1) {
+        py::array_t<float> image({result.height, result.width});
+        auto buf = image.mutable_unchecked<2>();
+        for (int h = 0; h < result.height; ++h) {
+            for (int w = 0; w < result.width; ++w) {
+                buf(h, w) = result.image[h * result.width + w];
+            }
+        }
+        return image;
+    }
+    // Multi-channel (color) output returned in CHW order.
+    py::array_t<float> image({result.channels, result.height, result.width});
+    auto buf = image.mutable_unchecked<3>();
+    const int hw = result.height * result.width;
+    for (int c = 0; c < result.channels; ++c) {
+        for (int h = 0; h < result.height; ++h) {
+            for (int w = 0; w < result.width; ++w) {
+                buf(c, h, w) = result.image[c * hw + h * result.width + w];
+            }
         }
     }
-
     return image;
 }
 
@@ -866,6 +927,24 @@ py::array_t<float> zero_dce_result_to_numpy(const ZeroDCEResult& result) {
     return image;
 }
 
+py::array_t<float> realesrgan_result_to_numpy(const RealESRGANResult& result) {
+    if (result.image.empty()) {
+        return py::array_t<float>(std::vector<py::ssize_t>{0, 0, 3});
+    }
+
+    py::array_t<float> image(
+        std::vector<py::ssize_t>{result.height, result.width, result.channels});
+    auto buf = image.mutable_unchecked<3>();
+    for (int h = 0; h < result.height; ++h) {
+        for (int w = 0; w < result.width; ++w) {
+            for (int c = 0; c < result.channels; ++c) {
+                buf(h, w, c) = result.image[(h * result.width + w) * result.channels + c];
+            }
+        }
+    }
+    return image;
+}
+
 // --- Face3D result converter ---
 py::array_t<float> face3d_result_to_numpy(const Face3DResult& result) {
     py::array_t<float> params(result.num_params);
@@ -888,6 +967,121 @@ py::tuple hand_landmark_result_to_python(const HandLandmarkResult& result) {
         buf(i, 2) = result.landmarks[i].z;
     }
     return py::make_tuple(landmarks, result.confidence, result.handedness);
+}
+
+py::array_t<float> vitpose_result_to_numpy(const VitPoseResult& result) {
+    const int n = static_cast<int>(result.keypoints.size());
+    py::array_t<float> out({n, 3});
+    auto buf = out.mutable_unchecked<2>();
+    for (int i = 0; i < n; ++i) {
+        buf(i, 0) = result.keypoints[i].x;
+        buf(i, 1) = result.keypoints[i].y;
+        buf(i, 2) = result.keypoints[i].confidence;
+    }
+    return out;
+}
+
+py::array_t<float> dope_result_to_numpy(const DopeResult& result) {
+    const int n = static_cast<int>(result.peaks.size());
+    py::array_t<float> out({n, 3});
+    auto buf = out.mutable_unchecked<2>();
+    for (int i = 0; i < n; ++i) {
+        buf(i, 0) = result.peaks[i].x;
+        buf(i, 1) = result.peaks[i].y;
+        buf(i, 2) = result.peaks[i].confidence;
+    }
+    return out;
+}
+
+py::tuple superpoint_result_to_python(const SuperPointResult& result) {
+    const int n = static_cast<int>(result.keypoints.size());
+    py::array_t<float> kps({n, 3});
+    py::array_t<float> descs({n, 256});
+    if (n > 0) {
+        auto kbuf = kps.mutable_unchecked<2>();
+        auto dbuf = descs.mutable_unchecked<2>();
+        for (int i = 0; i < n; ++i) {
+            kbuf(i, 0) = result.keypoints[i].x;
+            kbuf(i, 1) = result.keypoints[i].y;
+            kbuf(i, 2) = result.keypoints[i].score;
+            for (int d = 0; d < 256; ++d)
+                dbuf(i, d) = result.descriptors[i][d];
+        }
+    }
+    return py::make_tuple(kps, descs);
+}
+
+py::tuple yolopv2_result_to_python(const YOLOPv2Result& result) {
+    const int nd = static_cast<int>(result.detections.size());
+    py::array_t<float> dets({nd, 6});
+    if (nd > 0) {
+        auto dbuf = dets.mutable_unchecked<2>();
+        for (int i = 0; i < nd; ++i) {
+            dbuf(i, 0) = result.detections[i].x1;
+            dbuf(i, 1) = result.detections[i].y1;
+            dbuf(i, 2) = result.detections[i].x2;
+            dbuf(i, 3) = result.detections[i].y2;
+            dbuf(i, 4) = result.detections[i].confidence;
+            dbuf(i, 5) = static_cast<float>(result.detections[i].class_id);
+        }
+    }
+    py::array_t<int> driv({result.mask_height, result.mask_width});
+    py::array_t<int> lane({result.mask_height, result.mask_width});
+    {
+        auto drbuf = driv.mutable_unchecked<2>();
+        auto lbuf = lane.mutable_unchecked<2>();
+        for (int h = 0; h < result.mask_height; ++h) {
+            for (int w = 0; w < result.mask_width; ++w) {
+                int idx = h * result.mask_width + w;
+                drbuf(h, w) = result.drivable_mask[idx];
+                lbuf(h, w) = result.lane_mask[idx];
+            }
+        }
+    }
+    return py::make_tuple(dets, driv, lane);
+}
+
+py::array_t<float> sfa3d_results_to_numpy(const std::vector<SFA3DResult>& results) {
+    // Layout: [class_id, confidence, x, y, z, h, w, l, yaw, bev_x, bev_y, bev_w, bev_h]
+    const int n = static_cast<int>(results.size());
+    if (n == 0) {
+        return py::array_t<float>(std::vector<py::ssize_t>{0, 13});
+    }
+    py::array_t<float> out(std::vector<py::ssize_t>{static_cast<py::ssize_t>(n), 13});
+    auto buf = out.mutable_unchecked<2>();
+    for (int i = 0; i < n; ++i) {
+        buf(i, 0)  = static_cast<float>(results[i].class_id);
+        buf(i, 1)  = results[i].confidence;
+        buf(i, 2)  = results[i].x3d;
+        buf(i, 3)  = results[i].y3d;
+        buf(i, 4)  = results[i].z3d;
+        buf(i, 5)  = results[i].dim_h;
+        buf(i, 6)  = results[i].dim_w;
+        buf(i, 7)  = results[i].dim_l;
+        buf(i, 8)  = results[i].yaw;
+        buf(i, 9)  = results[i].bev_x;
+        buf(i, 10) = results[i].bev_y;
+        buf(i, 11) = results[i].bev_w;
+        buf(i, 12) = results[i].bev_h;
+    }
+    return out;
+}
+
+py::array_t<float> mediapipe_hand_results_to_numpy(
+    const std::vector<MediaPipeHandDetection>& results) {
+    const int n = static_cast<int>(results.size());
+    py::array_t<float> out({n, 5});
+    if (n > 0) {
+        auto buf = out.mutable_unchecked<2>();
+        for (int i = 0; i < n; ++i) {
+            buf(i, 0) = results[i].x1;
+            buf(i, 1) = results[i].y1;
+            buf(i, 2) = results[i].x2;
+            buf(i, 3) = results[i].y2;
+            buf(i, 4) = results[i].confidence;
+        }
+    }
+    return out;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -979,6 +1173,7 @@ PYBIND11_MODULE(dx_postprocess, m)
             }
             return yolov5_results_to_numpy(results);
         }, py::arg("ie_output"))
+        .def("set_anchors", &YOLOv5PostProcess::set_anchors, py::arg("anchors_by_strides"))
         .def("get_input_width", &YOLOv5PostProcess::get_input_width)
         .def("get_input_height", &YOLOv5PostProcess::get_input_height);
 
@@ -1243,6 +1438,12 @@ PYBIND11_MODULE(dx_postprocess, m)
             py::arg("input_h"),
             py::arg("score_threshold"),
             py::arg("nms_threshold"))
+        .def(py::init<int, int, float, float, bool>(),
+            py::arg("input_w"),
+            py::arg("input_h"),
+            py::arg("score_threshold"),
+            py::arg("nms_threshold"),
+            py::arg("corner_format"))
         .def("postprocess", [](YOLOv8PPUPostProcess& self, py::list ie_output) {
             auto tensors = numpy_to_dxrt_tensors(ie_output, {dxrt::DataType::BBOX});
             std::vector<YOLOv8PPUResult> results;
@@ -1402,6 +1603,23 @@ PYBIND11_MODULE(dx_postprocess, m)
         }, py::arg("ie_output"))
         .def("get_top_k", &ClassificationPostProcess::get_top_k);
 
+    // --- Attribute recognition (multi-label) ---
+    py::class_<AttributePostProcess>(m, "AttributePostProcess")
+        .def(py::init<float, bool>(),
+            py::arg("threshold") = 0.5f,
+            py::arg("softmax_pairs") = false)
+        .def("postprocess", [](AttributePostProcess& self, py::list ie_output) {
+            auto tensors = numpy_to_dxrt_tensors(ie_output);
+            std::vector<AttributeResult> results;
+            {
+                py::gil_scoped_release release;
+                results = self.postprocess(tensors);
+            }
+            return attribute_results_to_numpy(results);
+        }, py::arg("ie_output"))
+        .def("get_threshold", &AttributePostProcess::get_threshold)
+        .def("get_softmax_pairs", &AttributePostProcess::get_softmax_pairs);
+
     // --- Depth ---
     py::class_<DepthPostProcess>(m, "DepthPostProcess")
         .def(py::init<int, int>(),
@@ -1500,6 +1718,27 @@ PYBIND11_MODULE(dx_postprocess, m)
         }, py::arg("ie_output"))
         .def("get_input_width", &DamoYOLOPostProcess::get_input_width)
         .def("get_input_height", &DamoYOLOPostProcess::get_input_height);
+
+    // --- YOLOv4 (DarkNet, decoded boxes + scores) ---
+    py::class_<YOLOv4PostProcess>(m, "YOLOv4PostProcess")
+        .def(py::init<int, int, float, float, int, bool>(),
+            py::arg("input_w"),
+            py::arg("input_h"),
+            py::arg("score_threshold"),
+            py::arg("nms_threshold"),
+            py::arg("num_classes") = 80,
+            py::arg("normalized") = true)
+        .def("postprocess", [](YOLOv4PostProcess& self, py::list ie_output) {
+            auto tensors = numpy_to_dxrt_tensors(ie_output);
+            std::vector<YOLOv4Result> results;
+            {
+                py::gil_scoped_release release;
+                results = self.postprocess(tensors);
+            }
+            return yolov4_results_to_numpy(results);
+        }, py::arg("ie_output"))
+        .def("get_input_width", &YOLOv4PostProcess::get_input_width)
+        .def("get_input_height", &YOLOv4PostProcess::get_input_height);
 
     // --- OBB ---
     py::class_<OBBPostProcess>(m, "OBBPostProcess")
@@ -1610,6 +1849,25 @@ PYBIND11_MODULE(dx_postprocess, m)
         }, py::arg("ie_output"))
         .def("get_input_width", &ZeroDCEPostProcess::get_input_width)
         .def("get_input_height", &ZeroDCEPostProcess::get_input_height);
+
+    py::class_<RealESRGANPostProcess>(m, "RealESRGANPostProcess")
+        .def(py::init<>())
+        .def(py::init<int, int, int>(),
+            py::arg("input_w"),
+            py::arg("input_h"),
+            py::arg("scale_factor") = 4)
+        .def("postprocess", [](RealESRGANPostProcess& self, py::list ie_output) {
+            auto tensors = numpy_to_dxrt_tensors(ie_output);
+            RealESRGANResult result;
+            {
+                py::gil_scoped_release release;
+                result = self.postprocess(tensors);
+            }
+            return realesrgan_result_to_numpy(result);
+        }, py::arg("ie_output"))
+        .def("get_input_width", &RealESRGANPostProcess::get_input_width)
+        .def("get_input_height", &RealESRGANPostProcess::get_input_height)
+        .def("get_scale_factor", &RealESRGANPostProcess::get_scale_factor);
 
     // --- Face3D (3DDFA v2 Face Alignment) ---
     py::class_<Face3DPostProcess>(m, "Face3DPostProcess")
@@ -1797,4 +2055,129 @@ PYBIND11_MODULE(dx_postprocess, m)
         .def("get_input_height", &HandLandmarkPostProcess::get_input_height)
         .def("get_confidence_threshold", &HandLandmarkPostProcess::get_confidence_threshold)
         .def("set_confidence_threshold", &HandLandmarkPostProcess::set_confidence_threshold);
+
+    // --- VitPose ---
+    py::class_<VitPosePostProcess>(m, "VitPosePostProcess")
+        .def(py::init<>())
+        .def(py::init<int, int>(),
+            py::arg("input_w"),
+            py::arg("input_h"))
+        .def("postprocess", [](VitPosePostProcess& self, py::list ie_output) {
+            auto tensors = numpy_to_dxrt_tensors(ie_output);
+            VitPoseResult result;
+            {
+                py::gil_scoped_release release;
+                result = self.postprocess(tensors);
+            }
+            return vitpose_result_to_numpy(result);
+        }, py::arg("ie_output"))
+        .def("get_input_width",  &VitPosePostProcess::get_input_width)
+        .def("get_input_height", &VitPosePostProcess::get_input_height);
+
+    // --- DOPE ---
+    py::class_<DOPEPostProcess>(m, "DOPEPostProcess")
+        .def(py::init<>())
+        .def(py::init<int, int>(),
+            py::arg("input_w"),
+            py::arg("input_h"))
+        .def("postprocess", [](DOPEPostProcess& self, py::list ie_output) {
+            auto tensors = numpy_to_dxrt_tensors(ie_output);
+            DopeResult result;
+            {
+                py::gil_scoped_release release;
+                result = self.postprocess(tensors);
+            }
+            return dope_result_to_numpy(result);
+        }, py::arg("ie_output"))
+        .def("get_input_width",  &DOPEPostProcess::get_input_width)
+        .def("get_input_height", &DOPEPostProcess::get_input_height);
+
+    // --- SuperPoint ---
+    py::class_<SuperPointPostProcess>(m, "SuperPointPostProcess")
+        .def(py::init<>())
+        .def(py::init<int, int, float, int>(),
+            py::arg("input_w"),
+            py::arg("input_h"),
+            py::arg("conf_threshold") = 0.015f,
+            py::arg("top_k") = 500)
+        .def("postprocess", [](SuperPointPostProcess& self, py::list ie_output) {
+            auto tensors = numpy_to_dxrt_tensors(ie_output);
+            SuperPointResult result;
+            {
+                py::gil_scoped_release release;
+                result = self.postprocess(tensors);
+            }
+            return superpoint_result_to_python(result);
+        }, py::arg("ie_output"))
+        .def("get_input_width",    &SuperPointPostProcess::get_input_width)
+        .def("get_input_height",   &SuperPointPostProcess::get_input_height)
+        .def("get_conf_threshold", &SuperPointPostProcess::get_conf_threshold)
+        .def("get_top_k",          &SuperPointPostProcess::get_top_k)
+        .def("set_conf_threshold", &SuperPointPostProcess::set_conf_threshold)
+        .def("set_top_k",          &SuperPointPostProcess::set_top_k);
+
+    // --- YOLOPv2 ---
+    py::class_<YOLOPv2PostProcess>(m, "YOLOPv2PostProcess")
+        .def(py::init<>())
+        .def(py::init<int, int, float, float>(),
+             py::arg("input_w"),
+             py::arg("input_h"),
+             py::arg("conf_threshold") = 0.25f,
+             py::arg("nms_threshold") = 0.45f)
+        .def("postprocess",
+             [](YOLOPv2PostProcess& self, py::list ie_output) {
+                 auto tensors = numpy_to_dxrt_tensors(ie_output);
+                 YOLOPv2Result result;
+                 {
+                     py::gil_scoped_release release;
+                     result = self.postprocess(tensors);
+                 }
+                 return yolopv2_result_to_python(result);
+             },
+             py::arg("ie_output"))
+        .def("get_input_width", &YOLOPv2PostProcess::get_input_width)
+        .def("get_input_height", &YOLOPv2PostProcess::get_input_height)
+        .def("get_conf_threshold", &YOLOPv2PostProcess::get_conf_threshold)
+        .def("get_nms_threshold", &YOLOPv2PostProcess::get_nms_threshold);
+
+    // --- MediaPipeHand ---
+    py::class_<MediaPipeHandPostProcess>(m, "MediaPipeHandPostProcess")
+        .def(py::init<>())
+        .def(py::init<int, float, float>(),
+             py::arg("input_size") = 192,
+             py::arg("score_threshold") = 0.5f,
+             py::arg("nms_threshold") = 0.3f)
+        .def("postprocess", [](MediaPipeHandPostProcess& self, py::list ie_output) {
+            auto tensors = numpy_to_dxrt_tensors(ie_output);
+            std::vector<MediaPipeHandDetection> results;
+            {
+                py::gil_scoped_release release;
+                results = self.postprocess(tensors);
+            }
+            return mediapipe_hand_results_to_numpy(results);
+        }, py::arg("ie_output"))
+        .def("get_input_width", &MediaPipeHandPostProcess::get_input_width)
+        .def("get_input_height", &MediaPipeHandPostProcess::get_input_height)
+        .def("get_score_threshold", &MediaPipeHandPostProcess::get_score_threshold)
+        .def("get_nms_threshold", &MediaPipeHandPostProcess::get_nms_threshold);
+
+    // --- SFA3D ---
+    py::class_<SFA3DPostProcess>(m, "SFA3DPostProcess")
+        .def(py::init<>())
+        .def(py::init<int, int, float, float>(),
+             py::arg("input_w"),
+             py::arg("input_h"),
+             py::arg("score_threshold") = 0.3f,
+             py::arg("nms_threshold") = 0.2f)
+        .def("postprocess", [](SFA3DPostProcess& self, py::list ie_output) {
+            auto tensors = numpy_to_dxrt_tensors(ie_output);
+            std::vector<SFA3DResult> results;
+            {
+                py::gil_scoped_release release;
+                results = self.postprocess(tensors);
+            }
+            return sfa3d_results_to_numpy(results);
+        }, py::arg("ie_output"))
+        .def("get_input_width", &SFA3DPostProcess::get_input_width)
+        .def("get_input_height", &SFA3DPostProcess::get_input_height);
 }

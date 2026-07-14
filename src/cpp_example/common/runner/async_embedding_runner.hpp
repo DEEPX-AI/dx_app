@@ -64,45 +64,44 @@ public:
         verbose_ = args.verbose;
 
         if (verbose_) {
-            std::cout << "[INFO] --show-log: This task produces image-based output. "
+            std::cout << "[DXAPP] [INFO] --show-log: This task produces image-based output. "
                          "Use --save or display mode to view results." << std::endl;
         }
+        // Image-only tasks: if no input was given, show a hint and exit normally
+        // (do not auto-run inference on a default sample).
+        std::string task = factory_->getTaskType();
+        bool hasStreamInput = !args.videoFile.empty() || args.cameraIndex >= 0 || !args.rtspUrl.empty();
+        if ((task == "embedding" || task == "reid" || task == "attribute_recognition") && hasStreamInput) {
+            dxapp::fatal_error("[DXAPP] [ERROR] Task '" + task + "' supports image input only (-i / --image_path). "
+                "Video/camera input requires a detection crop pipeline and is not supported in single-model examples. "
+                "Use -i (--image_path) to provide an image file or directory.");
+        }
+        if ((task == "embedding" || task == "reid" || task == "attribute_recognition")
+            && args.imageFilePath.empty()) {
+            std::cout << "[DXAPP] [INFO] Task '" << task << "' takes image input only." << std::endl;
+            std::cout << "        -> Provide an image with -i (--image_path), e.g. -i "
+                      << dxapp::getDefaultSampleImage(task) << std::endl;
+            return 0;
+        }
         // Apply default sample image if no input specified
-        if (args.imageFilePath.empty() && args.videoFile.empty() && args.cameraIndex < 0 && args.rtspUrl.empty()) {
+        if (args.imageFilePath.empty()) {
             args.imageFilePath = dxapp::getDefaultSampleImage(factory_->getTaskType());
-            std::cout << "[INFO] No input specified. Using default sample: " << args.imageFilePath << std::endl;
+            std::cout << "[DXAPP] [INFO] No input specified. Using default sample: " << args.imageFilePath << std::endl;
         }
         validateArguments(args);
 
-        // Image-only tasks: reject video/camera/rtsp input
-        std::string task = factory_->getTaskType();
-        if ((task == "embedding" || task == "reid" || task == "attribute_recognition")
-            && args.imageFilePath.empty()) {
-            std::cerr << "[ERROR] Task '" << task << "' supports image input only (-i). "
-                         "Video/camera input requires a detection crop pipeline "
-                         "and is not supported in single-model examples." << std::endl;
-            return -1;
-        }
-
         std::vector<std::string> imageFiles;
-        bool is_image = !args.imageFilePath.empty();
-        is_image_mode_ = is_image;
+        is_image_mode_ = true;
         int loopTest = args.loopTest;
-        if (is_image) {
-            auto result = processImagePath(args.imageFilePath, loopTest);
-            imageFiles = result.first;
-            loopTest = result.second;
-        } else if (loopTest == -1) {
-            loopTest = 1;
-        }
+        auto imageResult = processImagePath(args.imageFilePath, loopTest);
+        imageFiles = imageResult.first;
+        loopTest = imageResult.second;
 
         dxrt::InferenceOption io;
         dxrt::InferenceEngine ie(args.modelPath, io);
         model_path_ = args.modelPath;
 
         if (!dxapp::minversionforRTandCompiler(&ie)) {
-            std::cerr << "[DXAPP] [ER] The version of the compiled model is not "
-                         "compatible with the version of the runtime. Please compile the model again." << std::endl;
             return -1;
         }
 
@@ -123,66 +122,23 @@ public:
         auto postprocessor = std::shared_ptr<typename decltype(postprocessor_uptr)::element_type>(std::move(postprocessor_uptr));
         auto visualizer = factory_->createVisualizer();
 
-        std::cout << "[INFO] Model loaded: " << args.modelPath << std::endl;
-        std::cout << "[INFO] Model input size (WxH): " << input_width << "x" << input_height << std::endl;
+        std::cout << "[DXAPP] [INFO] Task: " << factory_->getTaskType() << std::endl;
+        std::cout << "[DXAPP] [INFO] Model loaded: " << args.modelPath << std::endl;
+        std::cout << "[DXAPP] [INFO] Model input size (WxH): " << input_width << "x" << input_height << std::endl;
         std::cout << std::endl;
 
         size_t input_size = ie.GetInputSize();
         std::vector<std::vector<uint8_t>> input_buffers(ASYNC_BUFFER_SIZE, std::vector<uint8_t>(input_size));
 
-        cv::VideoCapture video;
-        cv::VideoWriter writer;
         std::string run_dir;
-        std::string video_save_path;
 
-        if (!is_image) {
-            if (!openVideoCapture(video, args)) {
-                std::cerr << "[ERROR] Failed to open input source." << std::endl;
-                return -1;
-            }
-            auto frame_width = static_cast<int>(video.get(cv::CAP_PROP_FRAME_WIDTH));
-            auto frame_height = static_cast<int>(video.get(cv::CAP_PROP_FRAME_HEIGHT));
-            double fps = video.get(cv::CAP_PROP_FPS);
-            std::string source_info;
-            if (args.cameraIndex >= 0) source_info = "Camera index: " + std::to_string(args.cameraIndex);
-            else if (!args.rtspUrl.empty()) source_info = "RTSP URL: " + args.rtspUrl;
-            else { source_info = "Video file: " + args.videoFile; }
-            if (args.verbose) {
-                std::cout << "[INFO] " << source_info << std::endl;
-                std::cout << "[INFO] Input source resolution (WxH): " << frame_width << "x" << frame_height << std::endl;
-                std::cout << "[INFO] Input source FPS: " << std::fixed << std::setprecision(2) << fps << std::endl;
-                std::cout << std::endl;
-            }
-            if (args.saveMode) {
-                std::string run_name;
-                if (args.cameraIndex >= 0) run_name = "camera" + std::to_string(args.cameraIndex);
-                else if (!args.rtspUrl.empty()) run_name = "rtsp";
-                else run_name = fs::path(args.videoFile).stem().string();
-                std::string input_src = buildInputSourceString(
-                    args.imageFilePath, args.videoFile, args.cameraIndex, args.rtspUrl);
-                run_dir = makeRunDir(args.saveDir, factory_->getModelName() + "_async",
-                                     "stream", run_name);
-                fs::create_directories(run_dir);
-                writeRunInfo(run_dir, argv[0], args.modelPath, input_src);
-
-                writer = initVideoWriter(
-                    run_dir, fps > 0 ? fps : 30.0,
-                    cv::Size(SHOW_WINDOW_SIZE_W, SHOW_WINDOW_SIZE_H),
-                    video_save_path);
-                if (!writer.isOpened()) {
-                    std::cerr << "[ERROR] Failed to open video writer." << std::endl;
-                    return -1;
-                }
-            }
-        }
-
-        std::cout << "[INFO] Starting async inference..." << std::endl;
+        std::cout << "[DXAPP] [INFO] Starting async inference..." << std::endl;
         if (args.no_display) std::cout << "Processing... Only FPS will be displayed." << std::endl;
 
         cv::Mat display_image;
 
-        std::thread displayThr([this, &visualizer, &args, &writer]() {
-            displayThread(*visualizer, args.no_display, args.saveMode, writer);
+        std::thread displayThr([this, &visualizer, &args]() {
+            displayThread(*visualizer, args.no_display);
         });
 
         int buffer_index = 0;
@@ -193,7 +149,7 @@ public:
 
             std::vector<EmbeddingResult> results;
             try { results = postprocessor->process(outputs, ud_ptr->ctx); }
-            catch (const std::exception& e) { std::cerr << "[DXAPP] [ER] Postprocess error: " << e.what() << std::endl; }
+            catch (const std::exception& e) { std::cerr << "[DXAPP] [ERROR] Postprocess error: " << e.what() << std::endl; }
 
             auto t_post_end = std::chrono::high_resolution_clock::now();
             double t_postprocess = std::chrono::duration<double, std::milli>(t_post_end - t_post_start).count();
@@ -234,55 +190,18 @@ public:
         auto s_time = std::chrono::high_resolution_clock::now();
         int last_job_id = -1;
 
-        auto processFrameAsync = [&](const cv::Mat& frame) {
-            auto t_pre_start = std::chrono::high_resolution_clock::now();
-            PreprocessContext ctx;
-            cv::Mat preprocessed;
-            preprocessor->process(frame, preprocessed, ctx);
-            dxapp::displayResize(frame, display_image, SHOW_WINDOW_SIZE_W, SHOW_WINDOW_SIZE_H);
-            auto t_pre_end = std::chrono::high_resolution_clock::now();
-            {
-                std::lock_guard<std::mutex> lock(metrics_.metrics_mutex);
-                metrics_.sum_preprocess += std::chrono::duration<double, std::milli>(t_pre_end - t_pre_start).count();
-            }
-            auto& buf = input_buffers[buffer_index % ASYNC_BUFFER_SIZE];
-            std::memcpy(buf.data(), preprocessed.data, preprocessed.total() * preprocessed.elemSize());
-            auto user_data_ptr = std::make_unique<AsyncUserData>(AsyncUserData{display_image.clone(), ctx, std::string(), {}});
-            void* user_data = user_data_ptr.release();
-            metrics_.waitForSlot();
-            {
-                std::lock_guard<std::mutex> lock(metrics_.metrics_mutex);
-                auto now = std::chrono::high_resolution_clock::now();
-                if (metrics_.first_inference) {
-                    metrics_.infer_first_ts = now; metrics_.inflight_last_ts = now; metrics_.first_inference = false;
-                } else {
-                    auto elapsed = std::chrono::duration<double>(now - metrics_.inflight_last_ts).count();
-                    metrics_.inflight_time_sum += metrics_.inflight_current * elapsed;
-                    metrics_.inflight_last_ts = now;
-                }
-                metrics_.inflight_current++;
-                if (metrics_.inflight_current > metrics_.inflight_max) metrics_.inflight_max = metrics_.inflight_current;
-            }
-            static_cast<AsyncUserData*>(user_data)->submit_ts = std::chrono::high_resolution_clock::now();
-            last_job_id = ie.RunAsync(buf.data(), user_data);
-            buffer_index++;
-            processCount++;
-            if (!args.no_display && !pollDisplay()) return;
-        };
+        if (args.saveMode) {
+            std::string run_kind = fs::is_directory(args.imageFilePath) ? "image-dir" : "image";
+            std::string run_name = fs::path(args.imageFilePath).filename().string();
+            std::string input_src = buildInputSourceString(
+                args.imageFilePath, args.videoFile, args.cameraIndex, args.rtspUrl);
+            run_dir = makeRunDir(args.saveDir, factory_->getModelName() + "_async",
+                                 run_kind, run_name);
+            fs::create_directories(run_dir);
+            writeRunInfo(run_dir, argv[0], args.modelPath, input_src);
+        }
 
-        if (is_image) {
-            if (args.saveMode) {
-                std::string run_kind = fs::is_directory(args.imageFilePath) ? "image-dir" : "image";
-                std::string run_name = fs::path(args.imageFilePath).filename().string();
-                std::string input_src = buildInputSourceString(
-                    args.imageFilePath, args.videoFile, args.cameraIndex, args.rtspUrl);
-                run_dir = makeRunDir(args.saveDir, factory_->getModelName() + "_async",
-                                     run_kind, run_name);
-                fs::create_directories(run_dir);
-                writeRunInfo(run_dir, argv[0], args.modelPath, input_src);
-            }
-
-            for (int i = 0; i < loopTest && running_ && !g_interrupted(); ++i) {
+        for (int i = 0; i < loopTest && running_ && !g_interrupted(); ++i) {
                 auto t_read_start = std::chrono::high_resolution_clock::now();
                 cv::Mat img = cv::imread(imageFiles[i % imageFiles.size()]);
                 auto t_read_end = std::chrono::high_resolution_clock::now();
@@ -299,7 +218,7 @@ public:
                     metrics_.sum_preprocess += std::chrono::duration<double, std::milli>(t_pre_end - t_pre_start).count();
                 }
                 auto& buf = input_buffers[buffer_index % ASYNC_BUFFER_SIZE];
-                std::memcpy(buf.data(), preprocessed.data, preprocessed.total() * preprocessed.elemSize());
+                fillModelInputBuffer(ie, buf, preprocessed);
                 std::string save_path;
                 if (!run_dir.empty()) {
                     save_path = dxapp::buildPerImageSavePath(run_dir, factory_->getModelName() + "_async", imageFiles[i % imageFiles.size()], i);
@@ -324,37 +243,6 @@ public:
                 buffer_index++;
                 processCount++;
                 if (!args.no_display && !pollDisplay()) break;
-            }
-        } else {
-            for (int loop_idx = 0; loop_idx < loopTest && running_ && !g_interrupted(); ++loop_idx) {
-                if (loopTest > 1) {
-                    if (args.verbose) {
-                        std::cout << "\n" << std::string(50, '=') << std::endl;
-                        std::cout << "[INFO] Loop " << (loop_idx + 1) << "/" << loopTest << std::endl;
-                        std::cout << std::string(50, '=') << std::endl;
-                    }
-                }
-                auto readFrame = [&video](cv::Mat& f) { video >> f; return !f.empty(); };
-                cv::Mat frame;
-                while (running_ && !g_interrupted()) {
-                    auto t_read_start = std::chrono::high_resolution_clock::now();
-                    if (!readFrame(frame)) break;
-                    auto t_read_end = std::chrono::high_resolution_clock::now();
-                    {
-                        std::lock_guard<std::mutex> lock(metrics_.metrics_mutex);
-                        metrics_.sum_read += std::chrono::duration<double, std::milli>(t_read_end - t_read_start).count();
-                    }
-                    processFrameAsync(frame);
-                }
-                // Reopen video for next loop
-                if (loop_idx + 1 >= loopTest || args.videoFile.empty()) continue;
-                video.release();
-                video.open(args.videoFile);
-                if (!video.isOpened()) {
-                    std::cerr << "[ERROR] Failed to reopen video for loop " << (loop_idx + 2) << std::endl;
-                    break;
-                }
-            }
         }
 
         // Wait for inference completion while keeping display responsive
@@ -379,7 +267,7 @@ public:
         // Give render thread time to push last frame to rendered_queue_
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
         // For images: show each rendered frame one by one, waiting for user input
-        if (is_image && !args.no_display) {
+        if (!args.no_display) {
             std::vector<cv::Mat> rendered_frames;
             for (int attempts = 0; attempts < 20; ++attempts) {
                 cv::Mat f;
@@ -424,15 +312,7 @@ public:
         auto e_time = std::chrono::high_resolution_clock::now();
         double total_time = std::chrono::duration<double>(e_time - s_time).count();
         if (g_interrupted()) {
-            std::cout << "\n[INFO] Interrupted by user (Ctrl+C)" << std::endl;
-        }
-        if (writer.isOpened()) {
-            writer.release();
-            if (!video_save_path.empty()) {
-                if (args.verbose) {
-                    std::cout << "\n[INFO] Saved output video: " << fs::absolute(video_save_path).string() << std::endl;
-                }
-            }
+            std::cout << "\n[DXAPP] [INFO] Interrupted by user (Ctrl+C)" << std::endl;
         }
 
         printPerformanceSummary(processCount, total_time, !args.no_display, args.saveMode);
@@ -458,10 +338,7 @@ private:
         cxxopts::Options options(app_name, app_name + " application usage ");
         options.add_options()
             ("m, model_path", "model file (.dxnn, required)", cxxopts::value<std::string>(args.modelPath))
-            ("i, image_path", "input image file path or directory", cxxopts::value<std::string>(args.imageFilePath))
-            ("v, video_path", "input video file path", cxxopts::value<std::string>(args.videoFile))
-            ("c, camera_index", "camera device index", cxxopts::value<int>(args.cameraIndex))
-            ("r, rtsp_url", "RTSP stream URL", cxxopts::value<std::string>(args.rtspUrl))
+            ("i, image_path", "input image file path or directory (image only)", cxxopts::value<std::string>(args.imageFilePath))
             ("s, save", "Save rendered output to disk", cxxopts::value<bool>(args.saveMode)->default_value("false"))
             ("save-dir", "Base directory for run outputs when using --save/--dump-tensors.", cxxopts::value<std::string>(args.saveDir)->default_value("artifacts/cpp_example"))
             ("dump-tensors", "(Debug) Always dump input/output tensors as .bin files.", cxxopts::value<bool>(args.dumpTensors)->default_value("false"))
@@ -478,44 +355,21 @@ private:
     }
 
     void validateArguments(const CommandLineArgs& args) {
-        if (args.modelPath.empty()) { dxapp::fatal_error("[ERROR] Model path is required. Use -m or --model_path option.\n"
+        if (args.modelPath.empty()) { dxapp::fatal_error("[DXAPP] [ERROR] Model path is required. Use -m or --model_path option.\n"
                 "        -> Download:  ./setup.sh --models <model_name>\n"
                 "        -> Or use:    ./run_demo.sh  (auto-downloads demo models)"); }
         // Auto-download model if not found
         if (!dxapp::fileExists(args.modelPath)) {
             if (!dxapp::autoDownloadModel(args.modelPath)) {
                 std::string stem = fs::path(args.modelPath).stem().string();
-                dxapp::fatal_error("[ERROR] Model file not found: " + args.modelPath + "\n"
+                dxapp::fatal_error("[DXAPP] [ERROR] Model file not found: " + args.modelPath + "\n"
                     "        -> Download:  ./setup.sh --models " + stem + "\n"
                     "        -> Or use:    ./run_demo.sh  (auto-downloads demo models)");
             }
-            std::cout << "[INFO] Model downloaded successfully: " << args.modelPath << std::endl;
+            std::cout << "[DXAPP] [INFO] Model downloaded successfully: " << args.modelPath << std::endl;
         }
 
-        int sourceCount = 0;
-        if (!args.imageFilePath.empty()) sourceCount++;
-        if (!args.videoFile.empty()) sourceCount++;
-        if (args.cameraIndex >= 0) sourceCount++;
-        if (!args.rtspUrl.empty()) sourceCount++;
-        if (sourceCount != 1) { dxapp::fatal_error("[ERROR] Please specify exactly one input source."); }
-        // Auto-download video if not found
-        if (!args.videoFile.empty() && !dxapp::fileExists(args.videoFile)) {
-            if (!dxapp::autoDownloadVideos() || !dxapp::fileExists(args.videoFile)) {
-                dxapp::fatal_error("[ERROR] Video file not found: " + args.videoFile + "\n"
-                    "        -> Download videos: ./setup_sample_videos.sh");
-            }
-            std::cout << "[INFO] Video downloaded successfully: " << args.videoFile << std::endl;
-        }
-
-        // Validate that --video is not given an image file
-        if (!args.videoFile.empty()) {
-            std::string ext = fs::path(args.videoFile).extension().string();
-            std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
-            if (ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".bmp" || ext == ".tiff") {
-                dxapp::fatal_error("[ERROR] Image file detected for --video (-v) option. "
-                                  "Use --image (-i) for image files.\nUse -h or --help for usage information.");
-            }
-        }
+        if (args.imageFilePath.empty()) { dxapp::fatal_error("[DXAPP] [ERROR] Please specify an image input source with -i or --image_path."); }
     }
 
     std::pair<std::vector<std::string>, int> processImagePath(const std::string& imageFilePath, int loopTest) {
@@ -529,24 +383,16 @@ private:
                     imageFiles.push_back(entry.path().string());
             }
             std::sort(imageFiles.begin(), imageFiles.end());
-            if (imageFiles.empty()) { dxapp::fatal_error("[ERROR] No image files found."); }
+            if (imageFiles.empty()) { dxapp::fatal_error("[DXAPP] [ERROR] No image files found."); }
             if (loopTest == -1) loopTest = static_cast<int>(imageFiles.size());
         } else if (fs::is_regular_file(imageFilePath)) {
             imageFiles.push_back(imageFilePath);
             if (loopTest == -1) loopTest = 1;
-        } else { dxapp::fatal_error("[ERROR] Invalid image path."); }
+        } else { dxapp::fatal_error("[DXAPP] [ERROR] Invalid image path."); }
         return {imageFiles, loopTest};
     }
 
-    bool openVideoCapture(cv::VideoCapture& video, const CommandLineArgs& args) {
-        if (args.cameraIndex >= 0) video.open(args.cameraIndex);
-        else if (!args.rtspUrl.empty()) video.open(args.rtspUrl);
-        else video.open(args.videoFile);
-        return video.isOpened();
-    }
-
-    void displayThread(IVisualizer<EmbeddingResult>& visualizer, bool no_display,
-                       bool save_on, cv::VideoWriter& writer) {
+    void displayThread(IVisualizer<EmbeddingResult>& visualizer, bool no_display) {
         while (running_) {
             AsyncEmbeddingDisplayArgs args;
             if (!display_queue_.try_pop(args, std::chrono::milliseconds(100))) continue;
@@ -559,7 +405,6 @@ private:
                 metrics_.sum_render += std::chrono::duration<double, std::milli>(t_render_end - t_render_start).count();
                 metrics_.render_completed++;
             }
-            if (save_on && writer.isOpened() && !result_frame.empty()) dxapp::writeToVideo(writer, result_frame);
             if (!result_frame.empty()) {
                 dxapp::saveDebugImage(result_frame);
             }
@@ -567,7 +412,7 @@ private:
                 auto t_save_start = std::chrono::high_resolution_clock::now();
                 cv::imwrite(args.save_path, result_frame);
                 if (verbose_) {
-                    std::cout << "\n[INFO] Saved output image: " << fs::absolute(args.save_path).string() << std::endl;
+                    std::cout << "\n[DXAPP] [INFO] Saved output image: " << fs::absolute(args.save_path).string() << std::endl;
                 }
                 auto t_save_end = std::chrono::high_resolution_clock::now();
                 std::lock_guard<std::mutex> lock(metrics_.metrics_mutex);

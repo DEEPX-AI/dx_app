@@ -218,6 +218,164 @@ private:
 };
 
 // ============================================================================
+// Fast Semantic Segmentation Postprocessor
+// ============================================================================
+class FastSegmentationPostprocessor : public IPostprocessor<SegmentationResult> {
+public:
+    FastSegmentationPostprocessor(int input_width = 2048, int input_height = 1024)
+        : input_width_(input_width), input_height_(input_height) {}
+
+    std::vector<SegmentationResult> process(const dxrt::TensorPtrs& outputs,
+                                            const PreprocessContext& ctx) override {
+        std::vector<SegmentationResult> results;
+        if (outputs.empty()) return results;
+
+        const auto& tensor = outputs[0];
+        cv::Mat class_map = toClassMap_(tensor->data(), tensor->shape(), tensor->elem_size());
+        if (class_map.empty()) return results;
+
+        class_map = resizeToOriginal_(class_map, ctx);
+
+        SegmentationResult seg;
+        seg.width = class_map.cols;
+        seg.height = class_map.rows;
+        seg.mask.resize(seg.width * seg.height);
+
+        std::set<int> unique_classes;
+        for (int y = 0; y < class_map.rows; ++y) {
+            const int* row = class_map.ptr<int>(y);
+            for (int x = 0; x < class_map.cols; ++x) {
+                int cls = row[x];
+                seg.mask[y * class_map.cols + x] = cls;
+                unique_classes.insert(cls);
+            }
+        }
+        seg.class_ids.assign(unique_classes.begin(), unique_classes.end());
+        results.push_back(std::move(seg));
+        return results;
+    }
+
+    std::string getModelName() const override { return "fast_segmentation"; }
+
+private:
+    static cv::Mat toClassMap_(const void* data, const std::vector<int64_t>& shape,
+                               size_t elem_size) {
+        if (shape.size() == 2) {
+            return copyClassMap_(data, static_cast<int>(shape[0]), static_cast<int>(shape[1]), elem_size);
+        }
+
+        int C = 0, H = 0, W = 0;
+        bool is_nhwc = false;
+        bool single_channel = false;
+        if (shape.size() == 4) {
+            if (shape[1] <= shape[3]) {
+                C = static_cast<int>(shape[1]);
+                H = static_cast<int>(shape[2]);
+                W = static_cast<int>(shape[3]);
+            } else {
+                H = static_cast<int>(shape[1]);
+                W = static_cast<int>(shape[2]);
+                C = static_cast<int>(shape[3]);
+                is_nhwc = true;
+            }
+            single_channel = C == 1;
+        } else if (shape.size() == 3) {
+            if (shape[0] == 1) {
+                C = 1;
+                H = static_cast<int>(shape[1]);
+                W = static_cast<int>(shape[2]);
+                single_channel = true;
+            } else if (shape[2] < shape[0] && shape[2] < shape[1]) {
+                H = static_cast<int>(shape[0]);
+                W = static_cast<int>(shape[1]);
+                C = static_cast<int>(shape[2]);
+                is_nhwc = true;
+            } else {
+                C = static_cast<int>(shape[0]);
+                H = static_cast<int>(shape[1]);
+                W = static_cast<int>(shape[2]);
+            }
+        } else {
+            return cv::Mat();
+        }
+
+        if (single_channel || elem_size != sizeof(float)) {
+            return copyClassMap_(data, H, W, elem_size);
+        }
+        return argmaxLogits_(static_cast<const float*>(data), C, H, W, is_nhwc);
+    }
+
+    static cv::Mat copyClassMap_(const void* data, int H, int W, size_t elem_size) {
+        cv::Mat class_map(H, W, CV_32SC1);
+        for (int y = 0; y < H; ++y) {
+            int* dst = class_map.ptr<int>(y);
+            for (int x = 0; x < W; ++x) {
+                int idx = y * W + x;
+                if (elem_size == sizeof(int64_t)) {
+                    dst[x] = static_cast<int>(static_cast<const int64_t*>(data)[idx]);
+                } else if (elem_size == sizeof(int16_t)) {
+                    dst[x] = static_cast<int>(static_cast<const int16_t*>(data)[idx]);
+                } else if (elem_size == sizeof(float)) {
+                    dst[x] = static_cast<int>(std::round(static_cast<const float*>(data)[idx]));
+                } else {
+                    return cv::Mat();
+                }
+            }
+        }
+        return class_map;
+    }
+
+    static cv::Mat argmaxLogits_(const float* data, int C, int H, int W, bool is_nhwc) {
+        cv::Mat class_map(H, W, CV_32SC1);
+        for (int y = 0; y < H; ++y) {
+            int* dst = class_map.ptr<int>(y);
+            for (int x = 0; x < W; ++x) {
+                float max_val = -1e9f;
+                int max_cls = 0;
+                for (int c = 0; c < C; ++c) {
+                    float val = is_nhwc ? data[y * W * C + x * C + c]
+                                        : data[c * H * W + y * W + x];
+                    if (val > max_val) {
+                        max_val = val;
+                        max_cls = c;
+                    }
+                }
+                dst[x] = max_cls;
+            }
+        }
+        return class_map;
+    }
+
+    static cv::Mat resizeToOriginal_(const cv::Mat& class_map, const PreprocessContext& ctx) {
+        if (ctx.original_width <= 0 || ctx.original_height <= 0) return class_map;
+        if (ctx.pad_x == 0 && ctx.pad_y == 0) {
+            if (class_map.cols == ctx.original_width && class_map.rows == ctx.original_height) {
+                return class_map;
+            }
+            cv::Mat resized;
+            cv::resize(class_map, resized, cv::Size(ctx.original_width, ctx.original_height),
+                       0, 0, cv::INTER_NEAREST);
+            return resized;
+        }
+
+        float gain = std::max(ctx.scale, 1e-6f);
+        int unpad_w = static_cast<int>(std::round(ctx.original_width * gain));
+        int unpad_h = static_cast<int>(std::round(ctx.original_height * gain));
+        cv::Rect crop(ctx.pad_x, ctx.pad_y,
+                      std::min(unpad_w, class_map.cols - ctx.pad_x),
+                      std::min(unpad_h, class_map.rows - ctx.pad_y));
+        if (crop.width <= 0 || crop.height <= 0) return class_map;
+        cv::Mat resized;
+        cv::resize(class_map(crop), resized, cv::Size(ctx.original_width, ctx.original_height),
+                   0, 0, cv::INTER_NEAREST);
+        return resized;
+    }
+
+    int input_width_;
+    int input_height_;
+};
+
+// ============================================================================
 // Instance Segmentation Base Template
 // ============================================================================
 namespace detail {
@@ -251,9 +409,10 @@ class YOLOv8SegPostprocessor : public IPostprocessor<InstanceSegmentationResult>
 public:
     YOLOv8SegPostprocessor(int input_width = 640, int input_height = 640,
                            float score_threshold = 0.45f, float nms_threshold = 0.4f,
-                           bool is_ort_configured = false, int num_classes = 80)
+                           bool is_ort_configured = false, int num_classes = 80,
+                           const std::vector<std::string>& class_names = {})
         : impl_(input_width, input_height, score_threshold, nms_threshold,
-                is_ort_configured, num_classes) {}
+                is_ort_configured, num_classes, class_names) {}
 
     std::vector<InstanceSegmentationResult> process(const dxrt::TensorPtrs& outputs,
                                                     const PreprocessContext& ctx) override {
@@ -283,11 +442,12 @@ public:
                            float nms_threshold = 0.45f,
                            int num_classes = 80,
                            int num_masks = 32,
-                           bool is_ort_configured = false)
+                           bool is_ort_configured = false,
+                           const std::vector<std::string>& class_names = {})
         : input_width_(input_width), input_height_(input_height),
           obj_threshold_(obj_threshold), score_threshold_(score_threshold),
           nms_threshold_(nms_threshold), num_classes_(num_classes),
-          num_masks_(num_masks) {}
+          num_masks_(num_masks), class_names_(class_names) {}
 
     std::vector<InstanceSegmentationResult> process(const dxrt::TensorPtrs& outputs,
                                                     const PreprocessContext& ctx) override {
@@ -418,7 +578,7 @@ public:
             seg.box = {fx1, fy1, fx2, fy2};
             seg.confidence = nms_scores[k];
             seg.class_id = nms_class_ids[k];
-            seg.class_name = dxapp::common::get_coco_class_name(seg.class_id);
+            seg.class_name = dxapp::common::resolve_class_name(seg.class_id, class_names_);
             seg.mask = binary_mask;
             results.push_back(std::move(seg));
         }
@@ -436,6 +596,7 @@ private:
     float nms_threshold_;
     int num_classes_;
     int num_masks_;
+    std::vector<std::string> class_names_;
 
     // Compute dot-product of a single pixel's prototype features with mask
     // coefficients, returning the raw (pre-sigmoid) mask value.

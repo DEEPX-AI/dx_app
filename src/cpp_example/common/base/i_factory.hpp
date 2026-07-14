@@ -9,6 +9,7 @@
 #ifndef DXAPP_I_FACTORY_HPP
 #define DXAPP_I_FACTORY_HPP
 
+#include <array>
 #include <memory>
 #include <string>
 
@@ -19,6 +20,21 @@ namespace dxapp {
 
 // Forward declaration for config loading
 class ModelConfig;
+
+/**
+ * @brief Input normalization parameters for float-input models.
+ *
+ * When @c apply_mean_std is true, the runner feeds the model
+ * (pixel/255 - mean) / std per channel. mean/std are in the preprocessor's
+ * output channel order (RGB when BGR->RGB conversion is applied).
+ * When false, float-input models receive plain /255 normalization and
+ * uint8-input models are unaffected.
+ */
+struct InputNormalizationParams {
+    bool apply_mean_std = false;
+    std::array<float, 3> mean{0.f, 0.f, 0.f};
+    std::array<float, 3> std{1.f, 1.f, 1.f};
+};
 
 /**
  * @brief Abstract Factory interface for object detection models
@@ -198,6 +214,26 @@ public:
 };
 
 /**
+ * @brief Abstract Factory interface for 3D LiDAR detection models (SFA3D)
+ */
+class I3DDetectionFactory {
+public:
+    virtual ~I3DDetectionFactory() = default;
+
+    virtual PreprocessorPtr createPreprocessor(int input_width, int input_height) = 0;
+
+    virtual PostprocessorPtr<Detection3DResult> createPostprocessor(
+        int input_width, int input_height, bool is_ort_configured = false) = 0;
+
+    virtual VisualizerPtr<Detection3DResult> createVisualizer() = 0;
+
+    virtual std::string getModelName() const = 0;
+    virtual std::string getTaskType() const = 0;
+
+    virtual void loadConfig(const ModelConfig& /*config*/) { /* No-op: subclasses override to apply runtime parameters */ }
+};
+
+/**
  * @brief Abstract Factory interface for depth estimation models
  */
 class IDepthEstimationFactory {
@@ -215,6 +251,15 @@ public:
     virtual std::string getTaskType() const = 0;
 
     virtual void loadConfig(const ModelConfig& /*config*/) { /* No-op: subclasses override to apply runtime parameters */ }
+
+    /**
+     * @brief Input normalization for float-input depth models.
+     *
+     * Default: no mean/std (runner uses plain /255 for float inputs, or raw
+     * uint8 for uint8 inputs). Override for models such as Depth Anything V2
+     * that require ImageNet mean/std normalization.
+     */
+    virtual InputNormalizationParams getInputNormalization() const { return {}; }
 };
 
 /**
@@ -303,6 +348,54 @@ public:
     virtual void loadConfig(const ModelConfig& /*config*/) { /* No-op: subclasses override to apply runtime parameters */ }
 };
 
+/**
+ * @brief Abstract Factory interface for object pose estimation models (e.g. DOPE).
+ */
+class IObjectPoseFactory {
+public:
+    virtual ~IObjectPoseFactory() = default;
+
+    virtual PreprocessorPtr createPreprocessor(int input_width, int input_height) = 0;
+    virtual PostprocessorPtr<PoseResult> createPostprocessor(
+        int input_width, int input_height) = 0;
+    virtual VisualizerPtr<PoseResult> createVisualizer() = 0;
+    virtual std::string getModelName() const = 0;
+    virtual std::string getTaskType() const = 0;
+    virtual void loadConfig(const ModelConfig& /*config*/) {}
+};
+
+/**
+ * @brief Abstract Factory interface for keypoint detection models (e.g. SuperPoint).
+ */
+class IKeypointDetectionFactory {
+public:
+    virtual ~IKeypointDetectionFactory() = default;
+
+    virtual PreprocessorPtr createPreprocessor(int input_width, int input_height) = 0;
+    virtual PostprocessorPtr<PoseResult> createPostprocessor(
+        int input_width, int input_height) = 0;
+    virtual VisualizerPtr<PoseResult> createVisualizer() = 0;
+    virtual std::string getModelName() const = 0;
+    virtual std::string getTaskType() const = 0;
+    virtual void loadConfig(const ModelConfig& /*config*/) {}
+};
+
+/**
+ * @brief Abstract Factory interface for panoptic driving perception models (e.g. YOLOPv2).
+ */
+class IPanopticDrivingFactory {
+public:
+    virtual ~IPanopticDrivingFactory() = default;
+
+    virtual PreprocessorPtr createPreprocessor(int input_width, int input_height) = 0;
+    virtual PostprocessorPtr<DetectionResult> createPostprocessor(
+        int input_width, int input_height, bool is_ort_configured = false) = 0;
+    virtual VisualizerPtr<DetectionResult> createVisualizer() = 0;
+    virtual std::string getModelName() const = 0;
+    virtual std::string getTaskType() const = 0;
+    virtual void loadConfig(const ModelConfig& /*config*/) {}
+};
+
 // Smart pointer aliases for factories
 using DetectionFactoryPtr = std::unique_ptr<IDetectionFactory>;
 using SegmentationFactoryPtr = std::unique_ptr<ISegmentationFactory>;
@@ -316,6 +409,9 @@ using RestorationFactoryPtr = std::unique_ptr<IRestorationFactory>;
 using EmbeddingFactoryPtr = std::unique_ptr<IEmbeddingFactory>;
 using FaceAlignmentFactoryPtr = std::unique_ptr<IFaceAlignmentFactory>;
 using HandLandmarkFactoryPtr = std::unique_ptr<IHandLandmarkFactory>;
+using ObjectPoseFactoryPtr = std::unique_ptr<IObjectPoseFactory>;
+using KeypointDetectionFactoryPtr = std::unique_ptr<IKeypointDetectionFactory>;
+using PanopticDrivingFactoryPtr = std::unique_ptr<IPanopticDrivingFactory>;
 
 }  // namespace dxapp
 

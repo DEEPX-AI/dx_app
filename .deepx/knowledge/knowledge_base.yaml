@@ -1,0 +1,180 @@
+# dx_app Knowledge Base
+# Filtered for dx_app domain only (DX_APP + UNIVERSAL). No DX_STREAM entries.
+
+bottleneck_patterns:
+  BP-001:
+    id: BP-001
+    domain: DX_APP
+    title: CPU Postprocess Bottleneck
+    description: >
+      Python postprocessing (NMS, coordinate decoding) dominates total frame time,
+      causing the NPU to idle between frames. This is the most common performance
+      bottleneck in dx_app Python applications.
+    symptoms:
+      - postprocess_time is 3-5x higher than inference_time in metrics
+      - NPU utilization (dxrt-cli -s) shows low utilization despite continuous inference
+      - FPS plateaus at 25-35 even with a fast model (e.g., yolov8n)
+    root_cause: >
+      Python NMS and bounding box decoding are CPU-bound operations. For YOLOv8n
+      with 8400 proposals, Python NMS takes 8-15ms while NPU inference takes only 5-8ms.
+    resolution:
+      - Switch to C++ postprocess variant (*_cpp_postprocess.py) for 5-10x speedup
+      - Combine with AsyncRunner to overlap CPU and NPU work
+      - For maximum throughput, use async_cpp_postprocess variant
+    references:
+      - toolsets/dx-postprocess-api.md
+      - memory/performance_patterns.md
+
+  BP-003:
+    id: BP-003
+    domain: DX_APP
+    title: Async Runner Segfault on Rapid Shutdown
+    description: >
+      Pressing Ctrl+C rapidly during AsyncRunner startup can cause a segmentation
+      fault if the SIGINT is received between engine creation and thread initialization.
+    symptoms:
+      - Segmentation fault during Ctrl+C
+      - Core dump generated with backtrace in async thread join
+      - Only occurs during the first 1-2 seconds of AsyncRunner startup
+    root_cause: >
+      The SIGINT handler sets _running=False before the inference thread has been
+      fully initialized. The thread destructor attempts to join a thread that was
+      never started, causing undefined behavior.
+    resolution:
+      - Ensure SIGINT handler is installed AFTER thread initialization completes
+      - Add a startup barrier/flag that blocks SIGINT handling until ready
+      - For custom async implementations, always check thread.joinable() before join()
+    references:
+      - toolsets/common-framework-api.md
+      - memory/common_pitfalls.md
+
+  BP-005:
+    id: BP-005
+    domain: DX_APP
+    title: Build Not Done — Missing dx_postprocess
+    description: >
+      Running a *_cpp_postprocess variant without first building dx_postprocess
+      results in ImportError. This is the most frequently reported setup issue.
+    symptoms:
+      - "ImportError: No module named 'dx_postprocess'"
+      - Only affects *_cpp_postprocess and *_async_cpp_postprocess variants
+      - Plain sync and async variants work fine
+    root_cause: >
+      dx_postprocess is a pybind11 C++ extension that must be compiled via build.sh.
+      It is NOT installed via pip — it requires CMake, a C++ compiler, and the dx_engine
+      development headers.
+    resolution:
+      - Run ./build.sh from dx_app root directory
+      - Ensure build prerequisites are installed (cmake, gcc/g++, dx_engine headers)
+      - Verify with: python -c "import dx_postprocess; print('OK')"
+    references:
+      - toolsets/dx-postprocess-api.md
+      - memory/common_pitfalls.md
+
+insights:
+  INS-001:
+    id: INS-001
+    domain: DX_APP
+    title: parse_common_args() Is the Only CLI Parser
+    description: >
+      All dx_app examples must use parse_common_args() from common.runner.args.
+      Never define custom argparse parsers in model-specific scripts. This ensures
+      consistent CLI behavior across all 133 models and enables framework-level
+      features (metrics, display control, config loading) to work correctly.
+    learned_from: >
+      Multiple instances of custom argparse breaking --no-display and --config
+      flags that SyncRunner/AsyncRunner expect to exist.
+    applies_to:
+      - src/python_example/**/*_sync.py
+      - src/python_example/**/*_async.py
+    references:
+      - toolsets/common-framework-api.md
+
+  INS-002:
+    id: INS-002
+    domain: DX_APP
+    title: async_cpp_postprocess Is the Recommended High-Performance Variant
+    description: >
+      For production Python deployments, the async_cpp_postprocess variant provides
+      the best throughput by combining AsyncRunner (2-3x from pipelining) with C++
+      postprocessing (5-10x faster NMS). This is the recommended variant for any
+      real-time application.
+    learned_from: >
+      Performance benchmarks consistently show async_cpp_postprocess achieving
+      80-120 FPS vs 25-35 FPS for plain sync, a 3-4x improvement.
+    applies_to:
+      - src/python_example/**/*_async_cpp_postprocess.py
+    references:
+      - memory/performance_patterns.md
+      - toolsets/dx-postprocess-api.md
+
+  INS-004:
+    id: INS-004
+    domain: UNIVERSAL
+    title: Filter by supported:false in model_registry.json
+    description: >
+      Models with "supported": false in model_registry.json are experimental,
+      deprecated, or not yet available for download. Always filter these out
+      when presenting model choices to users or when setup.sh runs.
+    learned_from: >
+      Users selecting unsupported models and getting confusing "model not found"
+      errors after setup.sh completes without downloading that model.
+    applies_to:
+      - config/model_registry.json
+    references:
+      - toolsets/model-registry.md
+
+  INS-006:
+    id: INS-006
+    domain: UNIVERSAL
+    title: DX-RT Version Check Should Be First Step
+    description: >
+      Always verify DX-RT version compatibility before attempting model load.
+      Version mismatches between DX-RT runtime and .dxnn model format can cause
+      silent failures (all-zero outputs) rather than clear error messages.
+    learned_from: >
+      Multiple support cases where users had DX-RT 2.x installed but were using
+      dx_app v3.0.0 models compiled as format v7. The runtime loaded the model
+      without error but produced garbage outputs.
+    applies_to:
+      - All dx_app applications
+    references:
+      - memory/common_pitfalls.md
+      - memory/platform_api.md
+
+  INS-007:
+    id: INS-007
+    domain: DX_APP
+    title: config.json Must Stay In Sync With Factory Defaults
+    description: >
+      Each model's config.json provides default thresholds that the factory
+      reads via _FactoryConfigMixin.load_config(). If config.json thresholds
+      differ from the factory's hardcoded defaults, behavior depends on which
+      loads last. Always treat config.json as the authoritative source and
+      ensure factory constructors defer to config values when present.
+    learned_from: >
+      Factory hardcoding score_threshold=0.5 while config.json had 0.25, causing
+      user confusion about which value was actually being used.
+    applies_to:
+      - src/python_example/**/config.json
+      - src/python_example/**/factory/*_factory.py
+    references:
+      - toolsets/common-framework-api.md
+
+recipes:
+  # Extensible section for reusable solution patterns.
+  # Add recipes as they are discovered during development.
+  #
+  # Template:
+  # REC-001:
+  #   id: REC-001
+  #   domain: DX_APP
+  #   title: Recipe Title
+  #   description: What this recipe accomplishes
+  #   steps:
+  #     - Step 1
+  #     - Step 2
+  #   code_snippet: |
+  #     # example code
+  #   references:
+  #     - relevant/file.md

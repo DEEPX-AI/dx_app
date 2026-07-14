@@ -20,6 +20,15 @@ def _nms(boxes, scores, class_ids, conf_threshold, nms_threshold):
     return _nms_impl(boxes, scores, class_ids, conf_threshold, nms_threshold)
 
 
+def _limit_nms_candidates(boxes: np.ndarray, scores: np.ndarray, class_ids: np.ndarray, limit: int):
+    """Keep highest-scoring candidates before expensive NMS."""
+    if limit <= 0 or len(scores) <= limit:
+        return boxes, scores, class_ids
+    keep = np.argpartition(scores, -limit)[-limit:]
+    keep = keep[np.argsort(scores[keep])[::-1]]
+    return boxes[keep], scores[keep], class_ids[keep]
+
+
 class YOLOv5Postprocessor(IPostprocessor):
     """
     Postprocessor for YOLOv5/YOLOv7/YOLOX style outputs.
@@ -49,6 +58,7 @@ class YOLOv5Postprocessor(IPostprocessor):
         self.conf_threshold = self.config.get('conf_threshold', 0.3)
         self.nms_threshold = self.config.get('nms_threshold', 0.45)
         self.num_classes = self.config.get('num_classes', 80)
+        self.max_nms_candidates = int(self.config.get('max_nms_candidates', 1000))
 
         # Allow per-model anchor/stride override via config
         custom_anchors = self.config.get('anchors', None)
@@ -255,6 +265,8 @@ class YOLOv5Postprocessor(IPostprocessor):
         
         # Box conversion (center to corner)
         boxes = _cxcywh_to_x1y1x2y2(filtered[:, :4])
+        boxes, confidences, cls_ids = _limit_nms_candidates(
+            boxes, confidences, cls_ids, self.max_nms_candidates)
         
         # NMS
         indices = _nms(boxes, confidences, cls_ids, self.conf_threshold, self.nms_threshold)
@@ -286,6 +298,18 @@ class YOLOv5Postprocessor(IPostprocessor):
     
     def get_model_name(self) -> str:
         return "yolov5"
+
+    def create_fast_variant(self):
+        """Return the opt-in fast variant for the plain YOLOv5/YOLOv7 decode.
+
+        Only the exact ``YOLOv5Postprocessor`` type opts in: subclasses (and the
+        fast variant itself) return ``None`` so they are never silently swapped.
+        Lazy import avoids a module-load cycle with the fast subclass.
+        """
+        if type(self) is not YOLOv5Postprocessor:
+            return None
+        from .fast_yolo_postprocessor import FastYOLOv5Postprocessor
+        return FastYOLOv5Postprocessor(self.input_width, self.input_height, self.config)
 
     def _process_separate_boxes_confs(
         self, outputs: List[np.ndarray], ctx: PreprocessContext
@@ -387,6 +411,7 @@ class YOLOv8Postprocessor(IPostprocessor):
         self.conf_threshold = self.config.get('conf_threshold', 0.3)
         self.nms_threshold = self.config.get('nms_threshold', 0.45)
         self.num_classes = self.config.get('num_classes', 80)
+        self.max_nms_candidates = int(self.config.get('max_nms_candidates', 1000))
     
     def _decode_multi_scale_outputs(self, outputs: List[np.ndarray]) -> np.ndarray:
         """
@@ -492,6 +517,8 @@ class YOLOv8Postprocessor(IPostprocessor):
         
         # Box conversion
         boxes = _cxcywh_to_x1y1x2y2(output[:, :4])
+        boxes, cls_max_scores, cls_ids = _limit_nms_candidates(
+            boxes, cls_max_scores, cls_ids, self.max_nms_candidates)
         
         # NMS
         indices = _nms(boxes, cls_max_scores, cls_ids, self.conf_threshold, self.nms_threshold)

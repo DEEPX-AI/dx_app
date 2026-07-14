@@ -1,0 +1,1 @@
+from .realesrgan_x2_factory import Realesrgan_x2Factory

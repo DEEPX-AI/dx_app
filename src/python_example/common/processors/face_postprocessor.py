@@ -182,7 +182,17 @@ class YOLOv5FacePostprocessor(IPostprocessor):
           - 16 cols: YOLOv5Face [cx,cy,w,h,obj, kp1x,kp1y,...,kp5x,kp5y, cls]
           - 21 cols: YOLOv7Face [cx,cy,w,h,obj, (kp_conf,kp_x,kp_y)*5, cls_logit]
         """
-        output = np.squeeze(outputs[0])
+        # Select the decoded detection tensor: [N, 16] (YOLOv5Face) or [N, 21]
+        # (YOLOv7Face). Some exports expose extra raw grid tensors
+        # ([1, 3, H, W, C]) alongside the decoded one, so don't assume outputs[0].
+        output = None
+        for o in outputs:
+            sq = np.squeeze(o)
+            if sq.ndim == 2 and sq.shape[1] >= 16:
+                output = sq
+                break
+        if output is None:
+            output = np.squeeze(outputs[0])
 
         if output.ndim == 2 and output.shape[1] >= 21:
             return self._process_v7face(output, ctx)

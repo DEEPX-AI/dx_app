@@ -23,10 +23,12 @@ for _path in [str(_v3_dir), str(_module_dir)]:
 
 import os
 if os.name == 'nt':
-    _dxrt_dir = os.environ.get('DXRT_DIR')
+    _dxrt_dir = os.environ.get('DEEPX_SDK_DIR')
     if _dxrt_dir:
         os.add_dll_directory(os.path.join(_dxrt_dir, 'bin'))
 
+from dx_postprocess import DnCNNPostProcess
+from common.utility import convert_cpp_restoration
 from factory import Dncnn_15Factory
 from common.runner import SyncRunner, parse_common_args
 
@@ -35,9 +37,13 @@ def parse_args():
 def main():
     args = parse_args()
     factory = Dncnn_15Factory()
-    # Python fallback: DnCNN postprocess needs ctx.normalized_input
-    # which is not accessible from C++ postprocess API
-    runner = SyncRunner(factory)
+
+    def on_engine_init(runner):
+        runner._cpp_postprocessor = DnCNNPostProcess(
+            runner.input_width, runner.input_height)
+        runner._cpp_convert_fn = convert_cpp_restoration
+
+    runner = SyncRunner(factory, on_engine_init=on_engine_init)
     runner.run(args)
 
 if __name__ == "__main__":

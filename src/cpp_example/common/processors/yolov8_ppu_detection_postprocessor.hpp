@@ -52,16 +52,18 @@ class YOLOv8PPUPostProcess {
 public:
     YOLOv8PPUPostProcess(int input_w = 640, int input_h = 640,
                           float score_threshold = 0.4f,
-                          float nms_threshold = 0.5f)
+                          float nms_threshold = 0.5f,
+                          const std::vector<std::string>& class_names = {})
         : input_width_(input_w), input_height_(input_h),
-          score_threshold_(score_threshold), nms_threshold_(nms_threshold) {
+          score_threshold_(score_threshold), nms_threshold_(nms_threshold),
+          class_names_(class_names) {
         ppu_output_names_ = {"BBOX"};
     }
 
     std::vector<YOLOv8PPUResult> postprocess(const dxrt::TensorPtrs& outputs) {
         if (outputs.front()->type() != dxrt::DataType::BBOX) {
             std::ostringstream msg;
-            msg << "[DXAPP] [ER] YOLOv8 PPU PostProcess - Tensor type must be BBOX.\n"
+            msg << "[DXAPP] [ERROR] YOLOv8 PPU PostProcess - Tensor type must be BBOX.\n"
                 << "  Unexpected Tensors\n";
             msg << postprocess_utils::format_tensor_shapes_with_type(outputs);
             msg << "Expected dxrt::DataType::BBOX.\n";
@@ -98,13 +100,14 @@ private:
     float score_threshold_;
     float nms_threshold_;
     enum { num_classes_ = 80 };
+    std::vector<std::string> class_names_;
     std::vector<std::string> ppu_output_names_;
 
     std::vector<YOLOv8PPUResult> decoding_ppu_outputs(const dxrt::TensorPtrs& outputs) const {
         std::vector<YOLOv8PPUResult> detections;
 
         if (outputs.empty() || outputs[0]->shape().size() < 2) {
-            throw std::runtime_error("[DXAPP] [ER] YOLOv8 PPU decoding - Invalid output shape");
+            throw std::runtime_error("[DXAPP] [ERROR] YOLOv8 PPU decoding - Invalid output shape");
         }
 
         auto num_elements = outputs[0]->shape()[1];
@@ -122,7 +125,7 @@ private:
             YOLOv8PPUResult r;
             r.confidence = bb.score;
             r.class_id = bb.label;
-            r.class_name = dxapp::common::get_coco_class_name(r.class_id);
+            r.class_name = dxapp::common::resolve_class_name(r.class_id, class_names_);
             r.box = {x - w / 2, y - h / 2, x + w / 2, y + h / 2};
             detections.push_back(std::move(r));
         }
@@ -145,14 +148,16 @@ class YOLOXPPUPostProcess {
 public:
     YOLOXPPUPostProcess(int input_w = 640, int input_h = 640,
                          float score_threshold = 0.25f,
-                         float nms_threshold = 0.45f)
+                         float nms_threshold = 0.45f,
+                         const std::vector<std::string>& class_names = {})
         : input_width_(input_w), input_height_(input_h),
-          score_threshold_(score_threshold), nms_threshold_(nms_threshold) {}
+          score_threshold_(score_threshold), nms_threshold_(nms_threshold),
+          class_names_(class_names) {}
 
     std::vector<YOLOv8PPUResult> postprocess(const dxrt::TensorPtrs& outputs) {
         if (outputs.front()->type() != dxrt::DataType::BBOX) {
             std::ostringstream msg;
-            msg << "[DXAPP] [ER] YOLOX PPU PostProcess - Tensor type must be BBOX.\n";
+            msg << "[DXAPP] [ERROR] YOLOX PPU PostProcess - Tensor type must be BBOX.\n";
             msg << postprocess_utils::format_tensor_shapes_with_type(outputs);
             throw std::runtime_error(msg.str());
         }
@@ -170,6 +175,7 @@ private:
     int input_height_;
     float score_threshold_;
     float nms_threshold_;
+    std::vector<std::string> class_names_;
     static constexpr int STRIDES[3] = {8, 16, 32};
 
     std::vector<YOLOv8PPUResult> decoding_ppu_outputs(const dxrt::TensorPtrs& outputs) const {
@@ -197,7 +203,7 @@ private:
             YOLOv8PPUResult r;
             r.confidence = bb.score;
             r.class_id = bb.label;
-            r.class_name = dxapp::common::get_coco_class_name(r.class_id);
+            r.class_name = dxapp::common::resolve_class_name(r.class_id, class_names_);
             r.box = {cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2};
             detections.push_back(std::move(r));
         }

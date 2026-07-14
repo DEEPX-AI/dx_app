@@ -1,0 +1,1 @@
+from .casvit_t_seg_fpn_resnet50_factory import Casvit_t_seg_fpn_resnet50Factory

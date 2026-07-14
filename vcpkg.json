@@ -8,17 +8,12 @@
       "name": "vcpkg-cmake-config",
       "host": true
     },
-    "opencv4",
-    "pybind11"
+    "opencv4"
   ],
   "overrides": [
     {
       "name": "opencv4",
       "version": "4.5.5"
-    },
-    {
-      "name": "pybind11",
-      "version": "2.13.6"
     }
   ]
 }

@@ -9,6 +9,7 @@ and videos via Python requests + tarfile -- no curl, tar, or symlinks required.
 
 Usage (directly):
     python scripts/setup_assets.py --all
+    python scripts/setup_assets.py --demo-models
     python scripts/setup_assets.py --list
     python scripts/setup_assets.py --models-only --all
     python scripts/setup_assets.py --videos-only
@@ -36,15 +37,16 @@ MODEL_OUTPUT = PROJECT_DIR / "assets" / "models"
 VIDEO_OUTPUT = PROJECT_DIR / "assets" / "videos"
 
 VIDEO_BASE_URL = "https://sdk.deepx.ai/"
+VIDEO_VERSION = "v3.1.0"
 MEDIA_EXTENSIONS = {".mp4", ".mov", ".avi", ".mkv"}
 
 # ── ANSI colors (matching download_models.py style) ──────────────────────────
 
 _G = "\033[92m"; _Y = "\033[93m"; _R = "\033[91m"; _C = "\033[96m"; _RST = "\033[0m"
 
-def info(msg):  print(f"{_G}[INFO]{_RST}  {msg}", flush=True)
-def warn(msg):  print(f"{_Y}[WARN]{_RST}  {msg}", flush=True)
-def error(msg): print(f"{_R}[ERR ]{_RST}  {msg}", file=sys.stderr, flush=True)
+def info(msg):  print(f"{_G}[DXAPP] [INFO]{_RST}  {msg}", flush=True)
+def warn(msg):  print(f"{_Y}[DXAPP] [WARN]{_RST}  {msg}", flush=True)
+def error(msg): print(f"{_R}[DXAPP] [ERROR]{_RST} {msg}", file=sys.stderr, flush=True)
 def head(msg):  print(f"{_C}{msg}{_RST}", flush=True)
 
 
@@ -56,15 +58,6 @@ def _enable_ansi():
         # (avoids UnicodeEncodeError from download_models.py's Unicode chars)
         if not os.environ.get("PYTHONIOENCODING"):
             os.environ["PYTHONIOENCODING"] = "utf-8"
-
-
-def _read_release_version() -> str:
-    """Read the release version from release.ver (e.g. 'v3.1.0')."""
-    ver_file = PROJECT_DIR / "release.ver"
-    if not ver_file.is_file():
-        error(f"release.ver not found: {ver_file}")
-        sys.exit(1)
-    return ver_file.read_text(encoding="utf-8").strip()
 
 
 # ── requests bootstrap ────────────────────────────────────────────────────────
@@ -103,6 +96,7 @@ def setup_models(args: argparse.Namespace) -> int:
     if args.no_json:        cmd.append("--no-json")
     if args.workers:        cmd.extend(["--workers", str(args.workers)])
     if args.category:       cmd.extend(["--category", args.category])
+    if args.demo_models:    cmd.append("--demo-models")
     if args.manifest:       cmd.extend(["--manifest", args.manifest])
     if args.models:         cmd.extend(["--models"] + args.models)
 
@@ -238,16 +232,13 @@ def download_and_extract_videos(url: str, dest_dir: Path, force: bool = False):
 
 def setup_videos(args: argparse.Namespace) -> int:
     """Download and extract sample videos."""
+    url = f"{VIDEO_BASE_URL}res/video/sample_videos_{VIDEO_VERSION}.tar.gz"
     if args.dry_run or args.list:
-        version = _read_release_version()
-        url = f"{VIDEO_BASE_URL}res/video/sample_videos_{version}.tar.gz"
         info(f"[dry-run] Would download videos from: {url}")
         info(f"[dry-run] Would extract to: {VIDEO_OUTPUT}")
         return 0
 
     force = args.force or args.force_remove_videos
-    version = _read_release_version()
-    url = f"{VIDEO_BASE_URL}res/video/sample_videos_{version}.tar.gz"
 
     download_and_extract_videos(url, VIDEO_OUTPUT, force=force)
     return 0
@@ -266,6 +257,9 @@ examples:
 
   # download everything non-interactively
   python scripts/setup_assets.py --all
+
+  # download only models used by run_demo.bat/run_demo.sh
+  python scripts/setup_assets.py --demo-models
 
   # list available models
   python scripts/setup_assets.py --list
@@ -308,6 +302,8 @@ examples:
                     help="skip JSON file downloads")
     dl.add_argument("--category", type=str, default=None,
                     help="download models of a specific category only")
+    dl.add_argument("--demo-models", action="store_true",
+                    help="download only models required by run_demo.py/run_demo.bat")
     dl.add_argument("--models",   type=str, default=None, nargs="+",
                     metavar="MODEL",
                     help="download specific models by name")

@@ -41,6 +41,20 @@ YOLOv8PPUPostProcess::YOLOv8PPUPostProcess(const int input_w, const int input_h,
     ppu_output_names_ = {"BBOX"};
 }
 
+// Constructor with explicit box encoding (corner_format=true for YOLOv10 PPU)
+YOLOv8PPUPostProcess::YOLOv8PPUPostProcess(const int input_w, const int input_h,
+                                             const float score_threshold,
+                                             const float nms_threshold,
+                                             const bool corner_format) {
+    input_width_ = input_w;
+    input_height_ = input_h;
+    score_threshold_ = score_threshold;
+    nms_threshold_ = nms_threshold;
+    corner_format_ = corner_format;
+
+    ppu_output_names_ = {"BBOX"};
+}
+
 // Default constructor
 YOLOv8PPUPostProcess::YOLOv8PPUPostProcess() {
     input_width_ = 640;
@@ -58,7 +72,7 @@ std::vector<YOLOv8PPUResult> YOLOv8PPUPostProcess::postprocess(const dxrt::Tenso
     if (outputs.front()->type() != dxrt::DataType::BBOX) {
         int i = 0;
         std::ostringstream msg;
-        msg << "[DXAPP] [ER] YOLOv8 PPU PostProcess - Tensor output type must be "
+        msg << "[DXAPP] [ERROR] YOLOv8 PPU PostProcess - Tensor output type must be "
                "dxrt::DataType::BBOX.\n"
             << "  Unexpected Tensors\n";
         for (auto& o : outputs) {
@@ -87,7 +101,7 @@ std::vector<YOLOv8PPUResult> YOLOv8PPUPostProcess::decoding_ppu_outputs(
     std::vector<YOLOv8PPUResult> detections;
 
     if (outputs.empty() || outputs[0]->shape().size() < 2) {
-        throw std::runtime_error("[DXAPP] [ER] YOLOv8 PPU decoding - Invalid output shape");
+        throw std::runtime_error("[DXAPP] [ERROR] YOLOv8 PPU decoding - Invalid output shape");
     }
 
     auto num_elements = outputs[0]->shape()[1];
@@ -106,7 +120,13 @@ std::vector<YOLOv8PPUResult> YOLOv8PPUPostProcess::decoding_ppu_outputs(
         result.confidence = bbox_data.score;
         result.class_id = bbox_data.label;
         result.class_name = dxapp::common::get_coco_class_name(result.class_id);
-        result.box = {x - w / 2, y - h / 2, x + w / 2, y + h / 2};
+        // Corner-format (YOLOv10 PPU): fields are x1, y1, x2, y2 directly.
+        // Center-format (YOLOv8/11/12 PPU): fields are cx, cy, w, h.
+        if (corner_format_) {
+            result.box = {x, y, w, h};
+        } else {
+            result.box = {x - w / 2, y - h / 2, x + w / 2, y + h / 2};
+        }
 
         detections.push_back(std::move(result));
     }

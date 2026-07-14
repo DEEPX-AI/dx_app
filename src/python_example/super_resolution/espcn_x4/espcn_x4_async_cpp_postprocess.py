@@ -26,10 +26,12 @@ for _path in [str(_v3_dir), str(_module_dir)]:
 
 import os
 if os.name == 'nt':
-    _dxrt_dir = os.environ.get('DXRT_DIR')
+    _dxrt_dir = os.environ.get('DEEPX_SDK_DIR')
     if _dxrt_dir:
         os.add_dll_directory(os.path.join(_dxrt_dir, 'bin'))
 
+from dx_postprocess import ESPCNPostProcess
+from common.utility import convert_cpp_super_resolution
 from factory import Espcn_x4Factory
 from common.runner import AsyncRunner, parse_common_args
 
@@ -38,9 +40,13 @@ def parse_args():
 def main():
     args = parse_args()
     factory = Espcn_x4Factory()
-    # Python fallback: DnCNN postprocess needs ctx.normalized_input
-    # which is not accessible from C++ postprocess API
-    runner = AsyncRunner(factory)
+
+    def on_engine_init(runner):
+        runner._cpp_postprocessor = ESPCNPostProcess(
+            runner.input_width, runner.input_height)
+        runner._cpp_convert_fn = convert_cpp_super_resolution
+
+    runner = AsyncRunner(factory, on_engine_init=on_engine_init)
     runner.run(args)
 
 if __name__ == "__main__":
