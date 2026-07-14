@@ -45,15 +45,28 @@ A JSON array containing metadata for every supported model. This file is the aut
 |---|---|---|
 | `model_name` | ✅ | Lowercase model identifier — must match the example directory name |
 | `original_name` | ✅ | Display name (e.g., `YoloV8N`) — used in UI/logs |
-| `csv_task` | ✅ | Short task code for CSV export (e.g., `OD`, `IC`, `SS`) |
-| `add_model_task` | ✅ | Task type passed to `add_model.sh` (e.g., `object_detection`, `classification`) |
+| `csv_task` | ✅ | Short task **label** for CSV export / model-zoo bookkeeping (e.g., `OD`, `IC`, `SEG`). **Metadata only** — not read by any example code or runtime script. See the [Task Code Reference](#task-code-reference-csv_task) below. |
+| `add_model_task` | ✅ | Task type passed to `add_model.sh` — this **is** used by tooling to pick the example category, default inputs, and postprocessor family (e.g., `object_detection`, `classification`). See [Categories](#categories-add_model_task). |
 | `postprocessor` | ✅ | `--postprocessor` value passed to `add_model.sh` |
 | `dxnn_file` | ✅ | Filename inside `assets/models/` — case must match exactly |
 | `input_width` | ✅ | Model input width in pixels |
 | `input_height` | ✅ | Model input height in pixels |
 | `config` | | Per-model runtime parameters (thresholds, `num_classes`, etc.) |
-| `source` | | Origin of the model entry (e.g., `csv`) |
-| `supported` | | Set to `false` to skip this model during validation |
+| `source` | | Origin of the model entry: `csv`, `inferred`, `manifest`, `auto_classify`, or `manual` |
+| `supported` | | Set to `false` to skip this model during validation (add `failure_reason` to note why) |
+
+### Categories (`add_model_task`)
+
+This is the field that actually drives tooling (example directory, default input
+media in `run_examples.sh`, and the postprocessor family in `add_model.sh`). Valid
+values:
+
+`object_detection`, `classification`, `pose_estimation`, `instance_segmentation`,
+`semantic_segmentation`, `face_detection`, `depth_estimation`, `image_denoising`,
+`image_enhancement`, `super_resolution`, `embedding`, `obb_detection`,
+`hand_landmark`, `hand_detection`, `face_alignment`, `attribute_recognition`,
+`reid`, `keypoint_detection`, `object_pose_estimation`,
+`panoptic_driving_perception`, `3d_object_detection`, `ppu`
 
 ---
 
@@ -112,3 +125,5 @@ model_registry.json
 - `dxnn_file` must match the actual filename inside `assets/models/` **exactly, including letter case**.
 - `model_name` must be **identical** between `model_registry.json` and `test_models.conf`.
 - When adding a new model, register it in the registry first, then add the corresponding entry to `test_models.conf`.
+- `input_width`/`input_height` should match the **compiled `.dxnn` input tensor** (as reported by `dxrt-cli` model parsing / the model-zoo "Input Resolution"), not the nominal paper resolution — e.g. `RegNetY16GF` compiles at `384×384`, `ulfgfd-RFB-640` at `640×480`. For non-square models the order is **W×H** (`input_width` first).
+- `csv_task` / `add_model_task` / (`category` in the Model Zoo manifest) should agree. If they disagree, trust the **example directory** + `test_models.conf` (what actually runs); the manifest can be wrong (e.g. a hand *detector* mislabeled as *hand landmark*).

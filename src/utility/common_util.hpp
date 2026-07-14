@@ -25,6 +25,8 @@ namespace fs = std::filesystem;
 namespace fs = std::experimental::filesystem;
 #endif
 
+#include <dxrt/dxrt_api.h>
+
 #if __linux__
 #include <dirent.h>
 #include <unistd.h>
@@ -36,9 +38,6 @@ namespace fs = std::experimental::filesystem;
 #define pclose _pclose
 #define fileno _fileno
 #endif
-
-#include <dxrt/device_info_status.h>
-#include <dxrt/dxrt_api.h>
 
 // Color codes for console output
 #define RED "\033[1;31m"
@@ -129,11 +128,7 @@ bool dirValidation(const std::string &path);
 
 std::vector<std::string> loadFilesFromDir(const std::string &path);
 
-bool checkOrtLinking();
-
 std::string getLocalTimeString();
-
-void logThreadFunction(void *args);
 
 bool isVersionGreaterOrEqual(const std::string &v1, const std::string &v2);
 
@@ -144,6 +139,17 @@ std::vector<std::string> split(const std::string &str, char delimiter);
 // Class name utilities for object detection models
 std::string get_coco_class_name(const int class_id);
 std::string get_voc_class_name(const int class_id);
+
+// Resolve class name: custom names take priority, then COCO fallback
+inline std::string resolve_class_name(int class_id,
+                                      const std::vector<std::string>& custom_names) {
+    if (!custom_names.empty()) {
+        if (class_id >= 0 && class_id < static_cast<int>(custom_names.size()))
+            return custom_names[class_id];
+        return "class_" + std::to_string(class_id);
+    }
+    return get_coco_class_name(class_id);
+}
 
 }  // namespace common
 }  // namespace dxapp

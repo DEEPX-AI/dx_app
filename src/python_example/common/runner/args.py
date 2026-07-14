@@ -21,10 +21,15 @@ Usage (from any model wrapper)::
 import argparse
 
 
+
+
+
 def parse_common_args(
     description: str = "DX-APP Inference",
     *,
     include_output: bool = False,
+    include_stream_inputs: bool = True,
+    include_kitti_paths: bool = False,
 ) -> argparse.Namespace:
     """Parse common inference arguments.
 
@@ -51,6 +56,8 @@ def parse_common_args(
         description: ``argparse`` description string.
         include_output: If ``True``, add ``--output`` argument
             (used by super-resolution / depth / denoising models).
+        include_stream_inputs: If ``False``, omit ``--video``, ``--camera``,
+            and ``--rtsp`` for image-only models such as embedding and ReID.
 
     Returns:
         Parsed :class:`argparse.Namespace`.
@@ -117,13 +124,35 @@ def parse_common_args(
     # ---- Verbosity ----
     parser.add_argument(
         "--show-log", action="store_true", default=False,
-        help="Show detailed per-frame/image [INFO] logs (default: quiet)",
+        help="Show detailed per-frame/image [DXAPP] [INFO] logs (default: quiet)",
+    )
+
+    # ---- Opt-in fast postprocess ----
+    parser.add_argument(
+        "--fast-postprocess", action="store_true", default=False,
+        help="Use the opt-in fast postprocessor variant when the model "
+             "provides one. Exact / byte-identical for detection models "
+             "(YOLOv5/v7, EfficientDet, verified by parity tests); approximate "
+             "(differs only at sub-pixel mask boundaries) for segmentation "
+             "models (instance-seg, YOLACT, SegFormer). The standard path is "
+             "always the default.",
     )
 
     # ---- Optional: output path (SR / depth / denoising) ----
     if include_output:
         parser.add_argument(
             "--output", "-o", type=str, help="Output file path"
+        )
+
+    # ---- Optional: KITTI companion directories (SFA3D 3D detection) ----
+    if include_kitti_paths:
+        parser.add_argument(
+            "--calib-dir", type=str, default=None,
+            help="Directory of {frame_id}.txt calib files paired with --image stems",
+        )
+        parser.add_argument(
+            "--image2-dir", type=str, default=None,
+            help="Directory of {frame_id}.png/.jpg camera images paired with --image stems",
         )
 
     return parser.parse_args()

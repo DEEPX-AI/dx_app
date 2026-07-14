@@ -1,4 +1,4 @@
 {
-    "score_threshold": 0.5,
-    "nms_threshold": 0.65
+    "score_threshold": 0.7,
+    "nms_threshold": 0.45
 }

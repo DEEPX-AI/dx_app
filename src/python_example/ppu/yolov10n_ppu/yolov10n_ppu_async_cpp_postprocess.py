@@ -3,9 +3,6 @@
 """
 YOLOv10N PPU Asynchronous Inference Example
 
-NOTE: C++ PostProcess binding is not yet implemented for this model.
-      Falls back to Python postprocessing.
-
 Usage:
     python yolov10n_ppu_async_cpp_postprocess.py --model model.dxnn --video input.mp4
 """
@@ -22,10 +19,12 @@ for _path in [str(_v3_dir), str(_module_dir)]:
 
 import os
 if os.name == 'nt':
-    _dxrt_dir = os.environ.get('DXRT_DIR')
+    _dxrt_dir = os.environ.get('DEEPX_SDK_DIR')
     if _dxrt_dir:
         os.add_dll_directory(os.path.join(_dxrt_dir, 'bin'))
 
+from dx_postprocess import YOLOv8PPUPostProcess
+from common.utility import convert_cpp_detections
 from factory import Yolov10nPpuFactory
 from common.runner import AsyncRunner, parse_common_args
 
@@ -34,7 +33,17 @@ def parse_args():
 def main():
     args = parse_args()
     factory = Yolov10nPpuFactory()
-    runner = AsyncRunner(factory)
+
+    def on_engine_init(runner):
+        config = runner.factory.config
+        score_thr = config.get("conf_threshold", config.get("score_threshold", 0.4))
+        nms_thr = config.get("nms_threshold", 0.5)
+        # YOLOv10 PPU emits corner-format (x1, y1, x2, y2) boxes.
+        runner._cpp_postprocessor = YOLOv8PPUPostProcess(
+            runner.input_width, runner.input_height, score_thr, nms_thr, True)
+        runner._cpp_convert_fn = convert_cpp_detections
+
+    runner = AsyncRunner(factory, on_engine_init=on_engine_init)
     runner.run(args)
 
 if __name__ == "__main__":

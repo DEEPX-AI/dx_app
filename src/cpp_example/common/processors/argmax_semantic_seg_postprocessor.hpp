@@ -72,7 +72,7 @@ class DeepLabv3PostProcess {
     int input_height_{640};  // Model input height (DeepLabV3PlusMobileNetV2_2.dxnn)
 
     // Model configuration - using const where appropriate
-    enum { num_classes_ = 19 };  // Number of classes (Cityscapes dataset: 19 urban scene classes)
+    mutable int num_classes_{19};  // Number of classes (default: Cityscapes 19, configurable)
 
     // Model-specific configuration parameters
     std::vector<std::string> cpu_output_names_;  // CPU output tensor names
@@ -92,7 +92,8 @@ class DeepLabv3PostProcess {
      * (Cityscapes) Expected model specs: Input[1,640,640,3], Output[1,19,640,640], and Trained on
      * Cityscapes urban scene segmentation dataset
      */
-    DeepLabv3PostProcess(const int input_w, const int input_h);
+    DeepLabv3PostProcess(const int input_w, const int input_h,
+                         int num_classes = 19);
 
     DeepLabv3PostProcess();
 
@@ -119,7 +120,7 @@ class DeepLabv3PostProcess {
     int get_input_height() const { return input_height_; }
 
     // Static configuration getters
-    static int get_num_classes() { return num_classes_; }
+    int get_num_classes() const { return num_classes_; }
 };
 
 // ============================================================================
@@ -176,9 +177,11 @@ inline float DeepLabv3Result::get_class_area_ratio(int class_id) const {
     return (total_pixels > 0) ? static_cast<float>(count) / static_cast<float>(total_pixels) : 0.0f;
 }
 
-inline DeepLabv3PostProcess::DeepLabv3PostProcess(const int input_w, const int input_h) {
+inline DeepLabv3PostProcess::DeepLabv3PostProcess(const int input_w, const int input_h,
+                                                   int num_classes) {
     input_width_ = input_w;
     input_height_ = input_h;
+    num_classes_ = num_classes;
 
     /**
      * @brief Initialize model-specific parameters for DeepLabV3PlusMobileNetV2_2.dxnn
@@ -229,14 +232,16 @@ inline DeepLabv3Result DeepLabv3PostProcess::decode_segmentation_output(
     const int height = static_cast<int>(shape[2]);
     const int width = static_cast<int>(shape[3]);
 
-    // Validate model compatibility with expected DeepLabV3PlusMobileNetV2_2.dxnn specs
-    if (num_classes != num_classes_ || height != input_height_ || width != input_width_) {
-        std::cerr << "Model output shape mismatch! Expected [1," << num_classes_ << ","
-                  << input_height_ << "," << input_width_ << "] but got [1," << num_classes << ","
-                  << height << "," << width
-                  << "]. This postprocessor is specifically designed for "
-                     "DeepLabV3PlusMobileNetV2_2.dxnn"
-                  << std::endl;
+    // Auto-detect num_classes from tensor shape and warn if different from configured
+    if (num_classes != num_classes_) {
+        std::cerr << "[DXAPP] [WARN] num_classes auto-detected from tensor: " << num_classes
+                  << " (configured: " << num_classes_ << "). Using tensor value." << std::endl;
+        num_classes_ = num_classes;
+    }
+    if (height != input_height_ || width != input_width_) {
+        std::cerr << "[DXAPP] [WARN] Output spatial dims mismatch! Expected "
+                  << input_height_ << "x" << input_width_ << " but got "
+                  << height << "x" << width << std::endl;
     }
 
     // Apply argmax to get class predictions

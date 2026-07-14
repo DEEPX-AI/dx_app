@@ -68,7 +68,7 @@ std::vector<YOLOv26Result> YOLOv26PostProcess::postprocess(const dxrt::TensorPtr
     auto aligned_outputs = align_tensors(outputs);
     if (aligned_outputs.empty()) {
         std::ostringstream msg;
-        msg << "[DXAPP] [ER] YOLOv26PostProcess::postprocess - Aligned outputs are empty.\n"
+        msg << "[DXAPP] [ERROR] YOLOv26PostProcess::postprocess - Aligned outputs are empty.\n"
             << "  Unexpected shape\n";
         msg << postprocess_utils::format_tensor_shapes(outputs);
         msg << "Please re-compile the model with the correct output configuration.\n";

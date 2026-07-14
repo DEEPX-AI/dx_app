@@ -1,0 +1,1 @@
+from .eigenplaces_resnet18_factory import Eigenplaces_resnet18Factory

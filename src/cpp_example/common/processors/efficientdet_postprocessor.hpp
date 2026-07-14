@@ -33,10 +33,11 @@ public:
     EfficientDetPostprocessor(int input_width = 512, int input_height = 512,
                               float score_threshold = 0.3f,
                               float nms_threshold = 0.45f,
-                              int num_classes = 90)
+                              int num_classes = 90,
+                              const std::vector<std::string>& class_names = {})
         : input_width_(input_width), input_height_(input_height),
           score_threshold_(score_threshold), nms_threshold_(nms_threshold),
-          num_classes_(num_classes) {}
+          num_classes_(num_classes), class_names_(class_names) {}
 
     std::vector<DetectionResult> process(const dxrt::TensorPtrs& outputs,
                                          const PreprocessContext& ctx) override {
@@ -153,7 +154,7 @@ private:
             det.box = {x1, y1, x2, y2};
             det.confidence = score;
             det.class_id = classes_data ? static_cast<int>(classes_data[i]) : 0;
-            det.class_name = dxapp::common::get_coco_class_name(det.class_id);
+            det.class_name = dxapp::common::resolve_class_name(det.class_id, class_names_);
             results.push_back(det);
         }
         return results;
@@ -286,7 +287,7 @@ private:
             det.box = {x1, y1, x2, y2};
             det.confidence = nms_scores[idx];
             det.class_id = nms_class_ids[idx];
-            det.class_name = dxapp::common::get_coco_class_name(det.class_id);
+            det.class_name = dxapp::common::resolve_class_name(det.class_id, class_names_);
             results.push_back(det);
         }
         return results;
@@ -374,6 +375,7 @@ private:
     float score_threshold_;
     float nms_threshold_;
     int num_classes_;
+    std::vector<std::string> class_names_;
 };
 
 }  // namespace dxapp

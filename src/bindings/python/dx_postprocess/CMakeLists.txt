@@ -2,6 +2,9 @@ cmake_minimum_required(VERSION 3.14)
 project(dx_postprocess_module)
 
 set(CMAKE_CXX_STANDARD 14)
+if(MSVC)
+    set(CMAKE_CXX_STANDARD 17)
+endif()
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(Python COMPONENTS Interpreter Development REQUIRED)
@@ -14,7 +17,7 @@ if(MSVC)
     message(STATUS "DXRT_INSTALLED_DIR: ${DXRT_INSTALLED_DIR}")
 
     # Locate DXRT headers and library
-    find_library(DXRT_LIB dxrt HINTS ${DXRT_INSTALLED_DIR}/lib REQUIRED)
+    find_library(DXRT_LIB dxrt HINTS ${DXRT_INSTALLED_DIR}/lib/x64 REQUIRED)
 else()
     find_library(DXRT_LIB dxrt REQUIRED)
 endif()
@@ -39,6 +42,7 @@ find_package(pybind11 CONFIG REQUIRED)
 set(INCLUDE_DIRS
     ${INCLUDE_DIRS}
     ${CMAKE_CURRENT_SOURCE_DIR}
+    "${PROJECT_ROOT}/src/postprocess/attribute"
     "${PROJECT_ROOT}/src/postprocess/classification"
     "${PROJECT_ROOT}/src/postprocess/damoyolo"
     "${PROJECT_ROOT}/src/postprocess/deeplabv3"
@@ -49,13 +53,19 @@ set(INCLUDE_DIRS
     "${PROJECT_ROOT}/src/postprocess/embedding"
     "${PROJECT_ROOT}/src/postprocess/espcn"
     "${PROJECT_ROOT}/src/postprocess/hand_landmark"
+    "${PROJECT_ROOT}/src/postprocess/mediapipe_hand"
+    "${PROJECT_ROOT}/src/postprocess/vitpose"
+    "${PROJECT_ROOT}/src/postprocess/dope"
     "${PROJECT_ROOT}/src/postprocess/face3d"
     "${PROJECT_ROOT}/src/postprocess/nanodet"
     "${PROJECT_ROOT}/src/postprocess/obb"
+    "${PROJECT_ROOT}/src/postprocess/realesrgan"
     "${PROJECT_ROOT}/src/postprocess/scrfd"
     "${PROJECT_ROOT}/src/postprocess/scrfd_ppu"
     "${PROJECT_ROOT}/src/postprocess/semantic_seg"
+    "${PROJECT_ROOT}/src/postprocess/superpoint"
     "${PROJECT_ROOT}/src/postprocess/ssd"
+    "${PROJECT_ROOT}/src/postprocess/yolov4"
     "${PROJECT_ROOT}/src/postprocess/yolov5"
     "${PROJECT_ROOT}/src/postprocess/yolov5_ppu"
     "${PROJECT_ROOT}/src/postprocess/yolov5face"
@@ -76,8 +86,10 @@ set(INCLUDE_DIRS
     "${PROJECT_ROOT}/src/postprocess/yolox"
     "${PROJECT_ROOT}/src/postprocess/yolox_ppu"
     "${PROJECT_ROOT}/src/postprocess/yolov3tiny_ppu"
+    "${PROJECT_ROOT}/src/postprocess/yolopv2"
     "${PROJECT_ROOT}/src/postprocess/zero_dce"
     "${PROJECT_ROOT}/src/postprocess/retinaface"
+    "${PROJECT_ROOT}/src/postprocess/sfa3d"
     "${PROJECT_ROOT}/src/postprocess/ulfgfd"
     "${PROJECT_ROOT}/src/postprocess/centerpose"
     "${PROJECT_ROOT}/src/utility"
@@ -94,6 +106,22 @@ set(SOURCES
 pybind11_add_module(dx_postprocess ${SOURCES})
 target_include_directories(dx_postprocess PRIVATE ${INCLUDE_DIRS})
 target_link_libraries(dx_postprocess PRIVATE ${DXRT_LIB})
+
+if(MSVC)
+    # This is a separate CMake project (built via pip), so it does NOT inherit the
+    # main app build's MSVC settings. Mirror them here so the shared postprocess
+    # sources compile identically:
+    #   NOMINMAX                - <Windows.h> min/max macros break std::min/std::max
+    #   _CRT_SECURE_NO_WARNINGS - silence fopen/etc. deprecation warnings
+    #   DXRT_LEGACY_HEADER_OK   - acknowledge <dxrt/dxrt_api.h> maintenance-mode notice
+    target_compile_definitions(dx_postprocess PRIVATE
+        NOMINMAX
+        _CRT_SECURE_NO_WARNINGS
+        DXRT_LEGACY_HEADER_OK
+    )
+    # Read UTF-8 sources as UTF-8 (avoid CP949 mis-decoding / garbled diagnostics)
+    target_compile_options(dx_postprocess PRIVATE /utf-8)
+endif()
 
 # Use the correct extension per platform so Python can import the module
 if(MSVC)

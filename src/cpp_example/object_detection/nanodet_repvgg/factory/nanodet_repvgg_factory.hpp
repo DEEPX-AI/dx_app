@@ -34,7 +34,8 @@ public:
         (void)is_ort_configured;
         return std::make_unique<NanoDetPostprocessor>(
             input_width, input_height,
-            score_threshold_, nms_threshold_, 80, reg_max_
+            score_threshold_, nms_threshold_, num_classes_, reg_max_,
+            false, class_names_
         );
     }
 
@@ -45,6 +46,8 @@ public:
     void loadConfig(const dxapp::ModelConfig& config) override {
         score_threshold_ = config.get<float>("score_threshold", score_threshold_);
         nms_threshold_ = config.get<float>("nms_threshold", nms_threshold_);
+        num_classes_ = config.get<int>("num_classes", num_classes_);
+        class_names_ = config.get_string_list("class_names");
         reg_max_ = config.get<int>("reg_max", reg_max_);
     }
 
@@ -54,7 +57,9 @@ public:
 private:
     float score_threshold_;
     float nms_threshold_;
+    int num_classes_{80};
     int reg_max_;
+    std::vector<std::string> class_names_;
 };
 
 }  // namespace dxapp

@@ -4,7 +4,7 @@ Common utility functions for neural network operations.
 
 import os
 import subprocess
-from typing import List, Tuple
+from typing import Any, List, Tuple
 import numpy as np
 import cv2
 
@@ -404,6 +404,40 @@ def convert_cpp_classification(predictions: np.ndarray) -> List:
     return results
 
 
+def convert_cpp_attribute(predictions: np.ndarray, labels=None) -> List:
+    """
+    Convert C++ AttributePostProcess output to ClassificationResult objects.
+
+    The C++ binding performs the sigmoid/softmax + threshold + sort; this
+    converter only attaches the human-readable attribute label for each
+    activated index, mirroring the Python AttributePostprocessor output.
+
+    Args:
+        predictions: numpy array [K, 2] where each row is [attr_index, prob].
+        labels: optional list of attribute names indexed by attr_index.
+
+    Returns:
+        List of ClassificationResult (already sorted by descending confidence).
+    """
+    from ..base import ClassificationResult
+
+    results = []
+    if predictions is None or len(predictions) == 0:
+        return results
+
+    for pred in predictions:
+        idx = int(pred[0])
+        name = labels[idx] if labels is not None and idx < len(labels) else f"attr_{idx}"
+        results.append(ClassificationResult(
+            class_id=idx,
+            confidence=float(pred[1]),
+            class_name=name,
+        ))
+
+    return results
+
+
+
 def convert_cpp_obb_detections(detections: np.ndarray) -> List:
     """
     Convert C++ OBB postprocessor output to OBBResult objects.
@@ -487,6 +521,97 @@ def convert_cpp_hand_landmark(result_tuple, ctx=None) -> list:
         handedness=str(handedness)
     )
     return [result]
+
+
+def convert_cpp_restoration(image: np.ndarray, ctx=None) -> list:
+    """
+    Convert C++ DnCNNPostProcess output to RestorationResult list.
+
+    The C++ binding returns the clipped restored image as [H, W] (grayscale)
+    or [C, H, W] (color, CHW). This replicates the Python DnCNNPostprocessor
+    finalization: CHW->HWC and range-based uint8 normalization.
+
+    Args:
+        image: numpy array [H, W] or [C, H, W] float, values in [0, 1].
+        ctx: Unused (kept for convert-fn signature compatibility).
+
+    Returns:
+        List containing a single RestorationResult.
+    """
+    from ..processors.restoration_postprocessor import RestorationResult
+
+    if image is None:
+        return []
+
+    raw = np.asarray(image)
+
+    # CHW -> HWC for color models; leave HWC/grayscale untouched.
+    if raw.ndim == 3:
+        if raw.shape[2] <= 4 and raw.shape[0] > 4:
+            pass  # already HWC
+        else:
+            raw = np.transpose(raw, (1, 2, 0))  # CHW -> HWC
+
+    dmin, dmax = float(raw.min()), float(raw.max())
+    if dmax - dmin < 1e-6:
+        out = np.zeros_like(raw, dtype=np.uint8)
+    elif dmin >= -0.1 and dmax <= 1.1:
+        out = (np.clip(raw, 0.0, 1.0) * 255.0).astype(np.uint8)
+    elif dmin >= -1.0 and dmax <= 256.0:
+        out = np.clip(raw, 0.0, 255.0).astype(np.uint8)
+    else:
+        out = ((raw - dmin) / (dmax - dmin) * 255.0).astype(np.uint8)
+
+    return [RestorationResult(output_image=out)]
+
+
+def convert_cpp_super_resolution(image: np.ndarray, ctx=None) -> list:
+    """
+    Convert C++ ESPCNPostProcess output to SuperResolutionResult list.
+
+    The C++ binding returns the clipped upscaled Y channel as [H, W]. This
+    replicates the Python ESPCNPostprocessor finalization, including YCbCr
+    color restoration from the original image when available.
+
+    Args:
+        image: numpy array [H, W] (single-channel Y) or [C, H, W], values in [0, 1].
+        ctx: Optional PreprocessContext with original_image and input_height.
+
+    Returns:
+        List containing a single SuperResolutionResult.
+    """
+    from ..base import SuperResolutionResult
+
+    if image is None:
+        return []
+
+    output = np.asarray(image)
+    if output.ndim == 3:
+        output = np.transpose(output, (1, 2, 0))  # CHW -> HWC
+
+    input_height = getattr(ctx, "input_height", None) or getattr(ctx, "model_height", 0)
+    if output.ndim >= 2 and input_height:
+        scale = max(1, round(output.shape[0] / input_height))
+    else:
+        scale = 2
+
+    output = np.clip(output, 0.0, 1.0)
+
+    original_image = getattr(ctx, "original_image", None) if ctx is not None else None
+    if output.ndim == 2 and original_image is not None:
+        sr_y = (output * 255.0).astype(np.uint8)
+        out_h, out_w = sr_y.shape
+        original_ycrcb = cv2.cvtColor(original_image, cv2.COLOR_BGR2YCrCb)
+        cr_up = cv2.resize(original_ycrcb[:, :, 1], (out_w, out_h),
+                           interpolation=cv2.INTER_CUBIC)
+        cb_up = cv2.resize(original_ycrcb[:, :, 2], (out_w, out_h),
+                           interpolation=cv2.INTER_CUBIC)
+        merged = np.stack([sr_y, cr_up, cb_up], axis=2)
+        out = cv2.cvtColor(merged, cv2.COLOR_YCrCb2BGR)
+    else:
+        out = (output * 255.0).astype(np.uint8)
+
+    return [SuperResolutionResult(output_image=out, scale_factor=scale)]
 
 
 def convert_cpp_zero_dce(image: np.ndarray, ctx=None) -> list:
@@ -598,6 +723,66 @@ def convert_cpp_face3d(params: np.ndarray, ctx=None) -> list:
     return [result]
 
 
+def convert_cpp_semantic_seg(class_map: np.ndarray, ctx=None,
+                             resize_to_original: bool = True) -> list:
+    """
+    Convert C++ SemanticSegPostProcess output (a [H, W] class map) to a
+    SegmentationResult list.
+
+    The C++ binding performs the argmax / pre-argmax passthrough; this
+    converter applies the context-dependent resize back to the original
+    image size, mirroring SemanticSegmentationPostprocessor.
+
+    Args:
+        class_map: numpy array [H, W] of integer class indices.
+        ctx: Optional PreprocessContext with original image dimensions.
+        resize_to_original: When True, resize the class map to the original
+            image size (matches the pre-argmaxed path of the Python golden,
+            and SegFormer's resize_to_original=True). When False, the class
+            map is returned at model resolution (e.g. U-Net).
+
+    Returns:
+        List containing a single SegmentationResult.
+    """
+    from ..base import SegmentationResult
+
+    if class_map is None or class_map.size == 0:
+        return []
+
+    cm = np.asarray(class_map).astype(np.int32)
+    if cm.ndim != 2:
+        cm = cm.squeeze()
+
+    if resize_to_original and ctx is not None:
+        ow = getattr(ctx, 'original_width', 0)
+        oh = getattr(ctx, 'original_height', 0)
+        if ow > 0 and oh > 0:
+            pad_x = getattr(ctx, 'pad_x', 0)
+            pad_y = getattr(ctx, 'pad_y', 0)
+            if pad_x == 0 and pad_y == 0:
+                if cm.shape[1] != ow or cm.shape[0] != oh:
+                    cm = cv2.resize(cm.astype(np.float32), (ow, oh),
+                                    interpolation=cv2.INTER_NEAREST).astype(np.int32)
+            else:
+                gain = max(getattr(ctx, 'scale', 1.0), 1e-6)
+                unpad_h = int(round(oh * gain))
+                unpad_w = int(round(ow * gain))
+                top, left = int(pad_y), int(pad_x)
+                cropped = cm[top:top + unpad_h, left:left + unpad_w]
+                if cropped.size > 0:
+                    cm = cv2.resize(cropped.astype(np.float32), (ow, oh),
+                                    interpolation=cv2.INTER_NEAREST).astype(np.int32)
+
+    h, w = cm.shape
+    return [SegmentationResult(
+        mask=cm,
+        width=w,
+        height=h,
+        class_ids=np.unique(cm).tolist(),
+        class_names=[],
+    )]
+
+
 def _apply_le_curves_from_params(params: np.ndarray, ctx) -> list:
     """Apply iterative LE curves from raw curve parameters [24, H, W]."""
     from ..base import EnhancedImageResult
@@ -630,3 +815,281 @@ def _apply_le_curves_from_params(params: np.ndarray, ctx) -> list:
                                  interpolation=cv2.INTER_LINEAR)
 
     return [EnhancedImageResult(output_image=(img_out * 255.0).astype(np.uint8))]
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# New C++ postprocess converters (VitPose, DOPE, SuperPoint, YOLOPv2, MediaPipe)
+# ──────────────────────────────────────────────────────────────────────────────
+
+def _scale_xy(x: float, y: float, ctx) -> tuple:
+    """Scale (x, y) from model-input space to original image space using ctx."""
+    if ctx is None:
+        return x, y
+    try:
+        from .preprocessing import scale_to_original
+        return scale_to_original(x, y, ctx)
+    except Exception:
+        return x, y
+
+
+def convert_cpp_vitpose(keypoints_arr: np.ndarray, ctx=None) -> list:
+    """Convert C++ VitPosePostProcess output [17, 3] to List[PoseResult].
+
+    The runner's _scale_cpp_results_to_original will handle coordinate
+    conversion via PoseResult.keypoints, so we return model-space pixels.
+    """
+    from ..base import PoseResult, Keypoint
+
+    arr = np.asarray(keypoints_arr)
+    if arr.size == 0:
+        return []
+
+    keypoints = [
+        Keypoint(x=float(arr[i, 0]), y=float(arr[i, 1]), confidence=float(arr[i, 2]))
+        for i in range(arr.shape[0])
+    ]
+    return [PoseResult(keypoints=keypoints, confidence=1.0)]
+
+
+def convert_cpp_dope(peaks_arr: np.ndarray, ctx=None) -> list:
+    """Convert C++ DOPEPostProcess output [9, 3] (heatmap-space peaks) to
+    List[DopeResult], matching the Python DOPEPostprocessor schema.
+
+    The C++ peaks are (x, y, conf) in heatmap pixels (already +0.5 centred).
+    DOPEVisualizer expects keypoints normalized to [0,1] (it multiplies by the
+    original image size), so divide by the heatmap dims (= model input / 8).
+    Pose is left None — the visualizer solves PnP from the 2D points itself.
+    """
+    from ..processors.dope_postprocessor import DopeResult
+
+    arr = np.asarray(peaks_arr, dtype=np.float64)
+    if arr.size == 0:
+        return []
+
+    iw = int(getattr(ctx, "input_width", 0) or 0)
+    ih = int(getattr(ctx, "input_height", 0) or 0)
+    hm_w = (iw // 8) or 80   # dope-hope-ketchup: 640/8 = 80
+    hm_h = (ih // 8) or 60   #                    480/8 = 60
+
+    n = arr.shape[0]
+    kps = np.zeros((n, 2), dtype=np.float64)
+    confs = np.zeros(n, dtype=np.float64)
+    for i in range(n):
+        kps[i, 0] = arr[i, 0] / hm_w
+        kps[i, 1] = arr[i, 1] / hm_h
+        confs[i] = arr[i, 2]
+
+    return [DopeResult(
+        keypoints=kps,
+        centroid=kps[8].copy() if n > 8 else np.zeros(2, dtype=np.float64),
+        confidence=float(confs[8]) if n > 8 else 0.0,
+        all_conf=confs,
+        pose=None,
+        image_width=int(getattr(ctx, "original_width", 0) or 0),
+        image_height=int(getattr(ctx, "original_height", 0) or 0),
+    )]
+
+
+def convert_cpp_superpoint(result_tuple, ctx=None) -> list:
+    """Convert C++ SuperPointPostProcess output (kps[N,3], descs[N,256]) to List[SuperPointResult].
+
+    Coordinate conversion is done here because SuperPointResult.keypoints is a
+    list of plain tuples (not Keypoint objects with .x/.y attributes).
+    """
+    from ..processors.superpoint_postprocessor import SuperPointResult
+
+    kps_arr, desc_arr = result_tuple
+    kps_arr = np.asarray(kps_arr)
+    desc_arr = np.asarray(desc_arr)
+
+    if kps_arr.shape[0] == 0:
+        return [SuperPointResult(keypoints=[], scores=[],
+                                 descriptors=np.zeros((0, 256), np.float32))]
+
+    keypoints = []
+    scores = []
+    for i in range(kps_arr.shape[0]):
+        x, y, score = float(kps_arr[i, 0]), float(kps_arr[i, 1]), float(kps_arr[i, 2])
+        x, y = _scale_xy(x, y, ctx)
+        keypoints.append((x, y))
+        scores.append(score)
+
+    return [SuperPointResult(keypoints=keypoints, scores=scores, descriptors=desc_arr)]
+
+
+def convert_cpp_yolopv2(result_tuple, ctx=None) -> list:
+    """Convert C++ YOLOPv2PostProcess output (dets[M,6], driv[H,W], lane[H,W])
+    to List[YOLOPv2Result].
+
+    Coordinate conversion is done here because YOLOPv2Result wraps DetectionResult
+    inside .detections rather than exposing .box directly on the result object.
+    """
+    from ..processors.yolopv2_postprocessor import YOLOPv2Result
+    from ..base import DetectionResult
+
+    dets_arr, driv_arr, lane_arr = result_tuple
+    dets_arr = np.asarray(dets_arr)
+
+    detections = []
+    for i in range(dets_arr.shape[0]):
+        x1, y1, x2, y2, conf, cls_id = (float(dets_arr[i, j]) for j in range(6))
+        x1, y1 = _scale_xy(x1, y1, ctx)
+        x2, y2 = _scale_xy(x2, y2, ctx)
+        detections.append(DetectionResult(
+            box=[x1, y1, x2, y2],
+            confidence=conf,
+            class_id=int(cls_id),
+            class_name="",
+        ))
+
+    return [YOLOPv2Result(
+        detections=detections,
+        drivable_mask=np.asarray(driv_arr),
+        lane_mask=np.asarray(lane_arr),
+    )]
+
+
+def convert_cpp_mediapipe_hand(detections_arr: np.ndarray, ctx=None) -> list:
+    """Convert C++ MediaPipeHandPostProcess output [K, 5] (normalized [0,1]) to
+    List[FaceResult].
+
+    Boxes are returned in normalized coordinates so the runner's
+    _scale_cpp_results_to_original can apply the full letterbox→original
+    transform via the standard .box path.
+    """
+    from ..processors.face_postprocessor import FaceResult
+
+    arr = np.asarray(detections_arr)
+    if arr.shape[0] == 0:
+        return []
+
+    return [
+        FaceResult(
+            box=[float(arr[i, 0]), float(arr[i, 1]),
+                 float(arr[i, 2]), float(arr[i, 3])],
+            confidence=float(arr[i, 4]),
+            class_id=0,
+            keypoints=[],
+        )
+        for i in range(arr.shape[0])
+    ]
+
+
+def convert_cpp_sfa3d(detections_arr: np.ndarray, ctx=None) -> list:
+    """Convert C++ SFA3DPostProcess output [N, 9] to DetectionResult list."""
+    from ..base import DetectionResult
+
+    arr = np.asarray(detections_arr, dtype=np.float32)
+    if arr.size == 0:
+        return []
+
+    class_names = ["Car", "Pedestrian", "Cyclist"]
+
+    results = []
+    for det in arr:
+        cx, cy, z, h3d, w3d, l3d, yaw, conf, cls_id = [float(v) for v in det[:9]]
+        box = [cx - l3d * 0.5, cy - w3d * 0.5, cx + l3d * 0.5, cy + w3d * 0.5]
+        cid = int(cls_id)
+        result = DetectionResult(
+            box=box,
+            confidence=float(conf),
+            class_id=cid,
+            class_name=class_names[cid] if 0 <= cid < len(class_names) else f"class_{cid}",
+        )
+        result.cx = cx
+        result.cy = cy
+        result.z = z
+        result.height_3d = h3d
+        result.width_3d = w3d
+        result.length_3d = l3d
+        result.yaw = yaw
+        results.append(result)
+    return results
+
+
+def convert_cpp_sfa3d_detections(detections: Any, ctx=None) -> List:
+    """Convert SFA3D C++ postprocess output to Detection3DResult list.
+
+    Supported input shapes:
+    - list[Detection3DResult-like objects] (returned as-is)
+    - ndarray/list with row layouts:
+      1) [cls, score, x, y, z, h, w, l, yaw, bev_x, bev_y, bev_w, bev_h]
+      2) [score, cls, x, y, z, h, w, l, yaw, bev_x, bev_y, bev_w, bev_h]
+      3) [cls, score, x, y, z, h, w, l, yaw]
+    """
+    from ..processors.sfa3d_postprocessor import Detection3DResult, SFA3D_CLASSES
+
+    def _cls_name(class_id: int) -> str:
+        if 0 <= class_id < len(SFA3D_CLASSES):
+            return SFA3D_CLASSES[class_id]
+        return f"cls_{class_id}"
+
+    if detections is None:
+        return []
+
+    if isinstance(detections, list) and detections:
+        first = detections[0]
+        if hasattr(first, "x3d") and hasattr(first, "yaw"):
+            return detections
+
+    arr = np.asarray(detections)
+    if arr.size == 0:
+        return []
+    if arr.ndim == 1:
+        arr = arr.reshape(1, -1)
+
+    results: List[Detection3DResult] = []
+    for row in arr:
+        vals = np.asarray(row).flatten()
+        if vals.size < 9:
+            continue
+
+        first_is_int = bool(np.isfinite(vals[0]) and abs(vals[0] - round(vals[0])) < 1e-3)
+        second_is_int = bool(np.isfinite(vals[1]) and abs(vals[1] - round(vals[1])) < 1e-3)
+        class_first = int(round(vals[0])) if np.isfinite(vals[0]) else -1
+        class_second = int(round(vals[1])) if np.isfinite(vals[1]) else -1
+        if first_is_int and 0 <= class_first < len(SFA3D_CLASSES):
+            class_id = class_first
+            score = float(vals[1])
+        elif second_is_int and 0 <= class_second < len(SFA3D_CLASSES):
+            class_id = class_second
+            score = float(vals[0])
+        else:
+            class_id = max(0, class_first)
+            score = float(vals[1]) if vals.size > 1 else 0.0
+
+        if not np.isfinite(score):
+            score = 0.0
+
+        x3d = float(vals[2]) if vals.size > 2 else 0.0
+        y3d = float(vals[3]) if vals.size > 3 else 0.0
+        z3d = float(vals[4]) if vals.size > 4 else 0.0
+        dim_h = float(vals[5]) if vals.size > 5 else 0.0
+        dim_w = float(vals[6]) if vals.size > 6 else 0.0
+        dim_l = float(vals[7]) if vals.size > 7 else 0.0
+        yaw = float(vals[8]) if vals.size > 8 else 0.0
+
+        bev_x = float(vals[9]) if vals.size > 9 else 0.0
+        bev_y = float(vals[10]) if vals.size > 10 else 0.0
+        bev_w = float(vals[11]) if vals.size > 11 else 0.0
+        bev_h = float(vals[12]) if vals.size > 12 else 0.0
+
+        results.append(
+            Detection3DResult(
+                class_id=class_id,
+                class_name=_cls_name(class_id),
+                confidence=score,
+                bev_x=bev_x,
+                bev_y=bev_y,
+                bev_w=bev_w,
+                bev_h=bev_h,
+                x3d=x3d,
+                y3d=y3d,
+                z3d=z3d,
+                dim_h=dim_h,
+                dim_w=dim_w,
+                dim_l=dim_l,
+                yaw=yaw,
+            )
+        )
+    return results

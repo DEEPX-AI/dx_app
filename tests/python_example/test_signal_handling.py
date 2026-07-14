@@ -22,6 +22,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from test_helpers.constants import (  # noqa: E402
     ASSETS_DIR,
+    IMAGE_ONLY_TASKS,
     MODELS_DIR,
     PROJECT_ROOT,
 )
@@ -37,10 +38,15 @@ TEST_VIDEO = ASSETS_DIR / "videos" / "dance-group.mov"
 def _discover_fast_sync() -> List[tuple]:
     skip = ["face", "tta", "w6"]
     raw = discover_python_scripts(suffixes=("_sync",))
-    for _task, model_name, sync_scripts, _async, model_path in raw:
+    for task, model_name, sync_scripts, _async, model_path in raw:
         if model_path is None or not sync_scripts:
             continue
         if any(s in model_name for s in skip):
+            continue
+        # Signal handling is exercised on a running VIDEO inference. Image-only
+        # tasks (embedding, 3d_object_detection, …) reject --video and exit
+        # immediately, giving zero real coverage — pick a stream-capable model.
+        if task in IMAGE_ONLY_TASKS:
             continue
         return [(sync_scripts[0], model_path)]
     return []

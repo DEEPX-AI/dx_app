@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <iostream>
 #include <stdexcept>
 
@@ -17,7 +18,7 @@ SemanticSegResult SemanticSegPostProcess::postprocess(const dxrt::TensorPtrs& ou
     }
 
     const auto& shape = outputs[0]->shape();
-    const float* data = static_cast<const float*>(outputs[0]->data());
+    const dxrt::TensorPtr& tensor = outputs[0];
 
     // Determine layout and dimensions
     // NCHW: [1, C, H, W] or [C, H, W]
@@ -74,15 +75,54 @@ SemanticSegResult SemanticSegPostProcess::postprocess(const dxrt::TensorPtrs& ou
     }
 
     std::vector<int> class_map;
-    if (is_nchw) {
+    if (C == 1) {
+        // Pre-argmaxed output (NPU already produced class indices). The single
+        // channel holds the class id per pixel — copy it directly, honoring the
+        // tensor's integer/float dtype instead of assuming float logits.
+        class_map = extract_pre_argmaxed(tensor, H * W);
+    } else if (is_nchw) {
+        const float* data = static_cast<const float*>(tensor->data());
         class_map = apply_argmax_nchw(data, C, H, W);
     } else {
+        const float* data = static_cast<const float*>(tensor->data());
         class_map = apply_argmax_nhwc(data, H, W, C);
     }
 
     SemanticSegResult result(class_map, W, H);
     result.num_classes = C;
     return result;
+}
+
+std::vector<int> SemanticSegPostProcess::extract_pre_argmaxed(
+    const dxrt::TensorPtr& tensor, int count) const {
+    std::vector<int> class_map(count);
+    const void* data = tensor->data();
+    switch (tensor->type()) {
+        case dxrt::DataType::INT64: {
+            const int64_t* p = static_cast<const int64_t*>(data);
+            for (int i = 0; i < count; ++i) class_map[i] = static_cast<int>(p[i]);
+            break;
+        }
+        case dxrt::DataType::INT32: {
+            const int32_t* p = static_cast<const int32_t*>(data);
+            for (int i = 0; i < count; ++i) class_map[i] = static_cast<int>(p[i]);
+            break;
+        }
+        case dxrt::DataType::UINT8: {
+            const uint8_t* p = static_cast<const uint8_t*>(data);
+            for (int i = 0; i < count; ++i) class_map[i] = static_cast<int>(p[i]);
+            break;
+        }
+        case dxrt::DataType::FLOAT:
+        default: {
+            const float* p = static_cast<const float*>(data);
+            for (int i = 0; i < count; ++i) {
+                class_map[i] = static_cast<int>(std::lround(p[i]));
+            }
+            break;
+        }
+    }
+    return class_map;
 }
 
 std::vector<int> SemanticSegPostProcess::apply_argmax_nchw(

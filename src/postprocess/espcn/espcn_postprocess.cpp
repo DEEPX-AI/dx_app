@@ -13,7 +13,7 @@ ESPCNPostProcess::ESPCNPostProcess()
 ESPCNResult ESPCNPostProcess::postprocess(const dxrt::TensorPtrs& outputs) {
     if (outputs.empty()) {
         throw std::runtime_error(
-            "[DXAPP] [ER] ESPCNPostProcess::postprocess - No output tensors provided.");
+            "[DXAPP] [ERROR] ESPCNPostProcess::postprocess - No output tensors provided.");
     }
 
     const auto& output = outputs[0];

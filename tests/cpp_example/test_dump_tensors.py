@@ -16,7 +16,15 @@ from typing import List
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from test_helpers.utils import setup_environment  # noqa: E402
+from test_helpers.utils import (  # noqa: E402
+    setup_environment,
+    cpp_exe_task_map,
+    stream_rejecting_cpp_cases,
+)
+from test_helpers.constants import (  # noqa: E402
+    IMAGE_ONLY_TASKS,
+    STREAM_REJECTING_TASKS_CPP,
+)
 
 from conftest import resolve_bin_dir
 
@@ -75,9 +83,29 @@ def _pick_representative(cases: list, max_count: int = 3) -> list:
 
 SYNC_CASES = discover_sync_cases()
 REPRESENTATIVE = _pick_representative(SYNC_CASES)
-DUMP_PARAMS = [
+
+# exe_name → task category, used to partition params by input-source capability.
+EXE_TASK_MAP = cpp_exe_task_map(suffixes=("_sync",))
+
+
+# Image dump runs on every representative model. Video dump runs only on
+# stream-capable ones: image-only tasks (SDKREQ-517) are filtered out up-front
+# (proactive) so the video test never even parametrizes a model that can't take
+# ``-v`` — no runtime skip, no false failure.
+IMAGE_DUMP_PARAMS = [
     pytest.param(name, mp, id=name, marks=pytest.mark.sync_exec)
     for name, mp in REPRESENTATIVE
+]
+VIDEO_DUMP_PARAMS = [
+    pytest.param(name, mp, id=name, marks=pytest.mark.sync_exec)
+    for name, mp in REPRESENTATIVE
+    if EXE_TASK_MAP.get(name) not in IMAGE_ONLY_TASKS
+]
+# Negative test: one model per task whose runner HARD-REJECTS stream input, to
+# assert the SDKREQ-517 exclusion is actually enforced (not merely skipped).
+IMAGE_ONLY_REJECT_PARAMS = [
+    pytest.param(name, mp, id=name, marks=pytest.mark.sync_exec)
+    for name, mp in stream_rejecting_cpp_cases(STREAM_REJECTING_TASKS_CPP, BIN_DIR)
 ]
 
 
@@ -88,7 +116,7 @@ DUMP_PARAMS = [
 class TestDumpTensors:
     """Test --dump-tensors tensor debugging feature."""
 
-    @pytest.mark.parametrize("executable,model_path", DUMP_PARAMS)
+    @pytest.mark.parametrize("executable,model_path", IMAGE_DUMP_PARAMS)
     def test_dump_tensors_image(self, executable, model_path, tmp_path):
         """Run with --dump-tensors on image, verify .bin files produced."""
         exe_path = BIN_DIR / executable
@@ -138,9 +166,14 @@ class TestDumpTensors:
         for bf in bin_files:
             assert bf.stat().st_size > 0, f"Tensor file is empty: {bf}"
 
-    @pytest.mark.parametrize("executable,model_path", DUMP_PARAMS)
+    @pytest.mark.parametrize("executable,model_path", VIDEO_DUMP_PARAMS)
     def test_dump_tensors_video(self, executable, model_path, tmp_path):
-        """Run with --dump-tensors on video, verify per-frame .bin files."""
+        """Run with --dump-tensors on video, verify per-frame .bin files.
+
+        Image-only tasks (SDKREQ-517) are excluded from ``VIDEO_DUMP_PARAMS``
+        up-front, so this only ever runs on stream-capable models. That they
+        reject ``-v`` is asserted separately by ``test_image_only_rejects_video``.
+        """
         exe_path = BIN_DIR / executable
         if not exe_path.exists():
             pytest.skip(f"Binary not found: {executable}")
@@ -178,6 +211,49 @@ class TestDumpTensors:
         assert len(bin_files) >= 2, (
             f"Expected multiple .bin files for video frames, got {len(bin_files)}\n"
             f"Contents: {[str(p) for p in save_dir.rglob('*')][:20]}"
+        )
+
+    @pytest.mark.parametrize("executable,model_path", IMAGE_ONLY_REJECT_PARAMS)
+    def test_image_only_rejects_video(self, executable, model_path):
+        """SDKREQ-517: image-only single-model examples must REJECT stream input.
+
+        Positive counterpart to the video tests: instead of skipping image-only
+        models, verify their runners refuse ``-v`` with a non-zero exit and the
+        documented "image input only" message. The guard fires before the
+        inference engine is constructed, so this needs no NPU (and the video
+        file need not exist — a non-empty ``-v`` path is enough to trip it).
+        """
+        exe_path = BIN_DIR / executable
+        if not exe_path.exists():
+            pytest.skip(f"Binary not found: {executable}")
+
+        cmd = [
+            str(exe_path),
+            "-m", str(model_path),
+            "-v", str(TEST_VIDEO),
+            "--no-display",
+        ]
+
+        env = setup_environment()
+        result = subprocess.run(
+            cmd, capture_output=True, text=True, timeout=60,
+            env=env, cwd=str(PROJECT_ROOT),
+        )
+
+        task = EXE_TASK_MAP.get(executable)
+        # Two valid rejection forms, both satisfying SDKREQ-517 (video refused):
+        #   (a) runtime guard — the example registers -v then refuses it with
+        #       "...supports image input only..." (sfa3d, dope, ...)
+        #   (b) the example never registers the -v option, so the CLI parser
+        #       fails with "Option 'v' does not exist" (embedding/reid examples).
+        # rc != 0 alone is too weak (a crash / missing model also exits non-zero),
+        # so require rc != 0 AND a recognised rejection signature.
+        stderr_low = result.stderr.lower()
+        rejected = ("image input only" in stderr_low) or ("does not exist" in stderr_low)
+        assert result.returncode != 0 and rejected, (
+            f"[{task}] {executable}: expected -v to be rejected (image-only task, "
+            f"SDKREQ-517) but got rc={result.returncode}\n"
+            f"STDERR: {result.stderr[-500:]}"
         )
 
     def test_dump_tensors_prerequisites(self):

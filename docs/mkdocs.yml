@@ -8,8 +8,8 @@ theme:
   font:
     text: Noto Sans Display
     code: Roboto Mono 
-  logo: ./img/deepx.png
-  favicon: ./img/favicon.png
+  logo: img/deepx.png
+  #favicon: img/favicon.png
   palette:
     - scheme: default
       primary: black
@@ -46,23 +46,24 @@ nav:
   - DX-APP Developer Guide:
     - DX Tool: docs/10_DX-APP_DX-Tool_Guide.md
     - Example Source Structure: docs/11_DX-APP_Example_Source_Structure.md
-  - Appendix: 
-    - docs/Appendix_Third_Party_License.md
+    - YOLO Customizing Guide: docs/12_DX-APP_YOLO_Customizing_Guide.md
+    - Agent-Driven Development: docs/13_DX-APP_Agent_Driven_Development.md
+  - Appendix:
+      - Third-Party License: docs/Appendix_Third_Party_License.md
   - Change Log: docs/Appendix_Change_Log.md
 
 plugins:
   - search
-  - include-markdown
   - to-pdf:
       author: DEEPX.ai
       copyright: ⓒ Copyright 2026 DEEPX All Rights Reserved.
       #
       #cover: false
       cover_title: DXNN Application (DX-APP) User Manual
-      cover_subtitle: 2026/03/31 (v3.1.0)
+      cover_subtitle: 2026/06/25 (v3.2.0)
       cover_logo: img/deepx.png
-      custom_template_path: docs/stylesheets
-      output_path: ../DEEPX_DX-APP_UM_v3.1.0_MAR_2026.pdf
+      custom_template_path: source/stylesheets
+      output_path: ../DEEPX_DX-APP_UM_v3.2.0_JUN_2026.pdf
 extra:
   homepage: https://developer.deepx.ai
   generator: false
@@ -89,13 +90,15 @@ markdown_extensions:
   - pymdownx.highlight:
       anchor_linenums: true
   - pymdownx.inlinehilite
-  - pymdownx.snippets
+  - pymdownx.snippets:
+      base_path:
+        - ..
+      check_paths: true
   - pymdownx.superfences
   - pymdownx.tabbed:
       alternate_style: true 
   - attr_list
   - md_in_html
-extra_javascript:
-  - javascripts/mathjax.js
-  - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
+#extra_javascript:
+#  - https://polyfill.io/v3/polyfill.min.js?features=es6
 copyright: ⓒ Copyright 2026 <a href="http://deepx.ai">DEEPX</a>. All Rights Reserved.

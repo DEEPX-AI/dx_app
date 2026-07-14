@@ -3,6 +3,7 @@
 
 #include <dxrt/dxrt_api.h>
 
+#include <cmath>
 #include <string>
 #include <vector>
 
@@ -126,6 +127,19 @@ class YOLOv5PostProcess {
      */
     void set_thresholds(const float obj_threshold, const float score_threshold,
                         const float nms_threshold);
+
+    /**
+     * @brief Override the anchor box configuration (anchors grouped by stride).
+     *
+     * Used by models with non-default anchors and/or a different number of
+     * detection heads, e.g. YOLOv7-W6 (4 heads: strides 8/16/32/64). The
+     * decoder iterates over the provided strides, so adding a 4th stride
+     * automatically enables a 4th detection head.
+     *
+     * @param anchors_by_strides Map of stride -> list of (width, height) anchors
+     */
+    void set_anchors(
+        const std::map<int, std::vector<std::pair<int, int>>>& anchors_by_strides);
 
     /**
      * @brief Get current configuration

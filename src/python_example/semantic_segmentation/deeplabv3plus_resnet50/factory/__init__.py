@@ -1,0 +1,1 @@
+from .deeplabv3plus_resnet50_factory import Deeplabv3plus_resnet50Factory

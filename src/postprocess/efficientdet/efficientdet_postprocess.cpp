@@ -55,8 +55,26 @@ static std::vector<int> nms(const std::vector<EfficientDetResult>& dets, float t
 
 std::vector<EfficientDetResult> EfficientDetPostProcess::postprocess(
     const dxrt::TensorPtrs& outputs) {
-    // Multi-output (BiFPN features + decoded tensors): filter to 2D tensors only
+    // Multi-output (BiFPN features + anchor regressions + class scores):
+    // locate the box-regression tensor (last dim == 4) and the class-score
+    // tensor (last dim == num_classes_) and run anchor-based decoding.
     if (outputs.size() > 4) {
+        const dxrt::TensorPtr* boxes_t = nullptr;
+        const dxrt::TensorPtr* scores_t = nullptr;
+        for (auto& t : outputs) {
+            const auto& shp = t->shape();
+            if (shp.empty()) continue;
+            const int64_t last = shp.back();
+            if (last == 4 && boxes_t == nullptr) {
+                boxes_t = &t;
+            } else if (last == num_classes_ && scores_t == nullptr) {
+                scores_t = &t;
+            }
+        }
+        if (boxes_t != nullptr && scores_t != nullptr) {
+            return processMultiOutputAnchors(*boxes_t, *scores_t);
+        }
+        // Fall back to 2D filtering for already-decoded multi-output models.
         dxrt::TensorPtrs filtered;
         for (auto& t : outputs) {
             if (t->shape().size() == 2) {
@@ -74,6 +92,118 @@ std::vector<EfficientDetResult> EfficientDetPostProcess::postprocess(
         return process2Tensor(outputs);
     }
     return {};
+}
+
+// Generate EfficientDet anchors for pyramid levels P3-P7. Ordering matches the
+// golden Python implementation: level -> y -> x -> scale -> ratio.
+void EfficientDetPostProcess::generate_anchors() {
+    if (!anchors_.empty()) return;
+
+    const int image_size = std::max(input_width_, input_height_);
+    const int strides[5] = {8, 16, 32, 64, 128};
+    const int anchor_sizes[5] = {32, 64, 128, 256, 512};
+    const float scales[3] = {1.0f,
+                             std::pow(2.0f, 1.0f / 3.0f),
+                             std::pow(2.0f, 2.0f / 3.0f)};
+    const float ratios[3][2] = {{1.0f, 1.0f}, {1.4f, 0.7f}, {0.7f, 1.4f}};
+
+    for (int level = 0; level < 5; ++level) {
+        const int stride = strides[level];
+        const int feat = image_size / stride;
+        const float base = static_cast<float>(anchor_sizes[level]);
+        for (int y = 0; y < feat; ++y) {
+            for (int x = 0; x < feat; ++x) {
+                const float cx = (x + 0.5f) * stride;
+                const float cy = (y + 0.5f) * stride;
+                for (int si = 0; si < 3; ++si) {
+                    for (int ri = 0; ri < 3; ++ri) {
+                        const float w = base * scales[si] * ratios[ri][0];
+                        const float h = base * scales[si] * ratios[ri][1];
+                        anchors_.push_back({cx, cy, w, h});
+                    }
+                }
+            }
+        }
+    }
+}
+
+std::vector<EfficientDetResult> EfficientDetPostProcess::processMultiOutputAnchors(
+    const dxrt::TensorPtr& boxes_t, const dxrt::TensorPtr& scores_t) {
+    generate_anchors();
+
+    const auto& box_shape = boxes_t->shape();
+    const auto& score_shape = scores_t->shape();
+    const int num_anchors = static_cast<int>(box_shape[box_shape.size() - 2]);
+    const int score_cols = static_cast<int>(score_shape.back());
+    const float* box_data = static_cast<const float*>(boxes_t->data());
+    const float* score_data = static_cast<const float*>(scores_t->data());
+
+    const int n = std::min(num_anchors, static_cast<int>(anchors_.size()));
+    // Foreground classes start at index 1 when a background class is present.
+    const int cls_start = (has_background_ && score_cols > 1) ? 1 : 0;
+
+    // Collect candidates above the score threshold (mirrors the golden order:
+    // score-extract -> threshold -> top-K limit -> decode -> NMS).
+    struct Cand {
+        int anchor_idx;
+        float score;
+        int class_id;
+    };
+    std::vector<Cand> cands;
+    for (int i = 0; i < n; ++i) {
+        const float* sc = score_data + static_cast<size_t>(i) * score_cols;
+        int best_cls = 0;
+        float best = sc[cls_start];
+        for (int c = cls_start + 1; c < score_cols; ++c) {
+            if (sc[c] > best) {
+                best = sc[c];
+                best_cls = c - cls_start;
+            }
+        }
+        if (best >= score_threshold_) {
+            cands.push_back({i, best, best_cls});
+        }
+    }
+
+    // Keep highest-scoring candidates (top max_nms_candidates_) before decode.
+    if (max_nms_candidates_ > 0 &&
+        static_cast<int>(cands.size()) > max_nms_candidates_) {
+        std::partial_sort(
+            cands.begin(), cands.begin() + max_nms_candidates_, cands.end(),
+            [](const Cand& a, const Cand& b) { return a.score > b.score; });
+        cands.resize(max_nms_candidates_);
+    }
+
+    const float image_size = static_cast<float>(std::max(input_width_, input_height_));
+    std::vector<EfficientDetResult> dets;
+    dets.reserve(cands.size());
+    for (const auto& cd : cands) {
+        const float* b = box_data + static_cast<size_t>(cd.anchor_idx) * 4;
+        const auto& a = anchors_[cd.anchor_idx];
+        // Regression format [dy, dx, dh, dw] relative to anchor [cx, cy, w, h].
+        const float dy = b[0];
+        const float dx = b[1];
+        const float dh = std::max(-10.0f, std::min(10.0f, b[2]));
+        const float dw = std::max(-10.0f, std::min(10.0f, b[3]));
+        const float pcx = a[0] + dx * a[2];
+        const float pcy = a[1] + dy * a[3];
+        const float pw = a[2] * std::exp(dw);
+        const float ph = a[3] * std::exp(dh);
+        float x1 = std::max(0.0f, std::min(image_size, pcx - pw / 2.0f));
+        float y1 = std::max(0.0f, std::min(image_size, pcy - ph / 2.0f));
+        float x2 = std::max(0.0f, std::min(image_size, pcx + pw / 2.0f));
+        float y2 = std::max(0.0f, std::min(image_size, pcy + ph / 2.0f));
+        dets.emplace_back(std::vector<float>{x1, y1, x2, y2}, cd.score, cd.class_id);
+    }
+
+    // Global NMS (matches cv2.dnn.NMSBoxes over all classes).
+    std::vector<int> keep = nms(dets, nms_threshold_);
+    std::vector<EfficientDetResult> results;
+    results.reserve(keep.size());
+    for (int idx : keep) {
+        results.push_back(dets[idx]);
+    }
+    return results;
 }
 
 std::vector<EfficientDetResult> EfficientDetPostProcess::processTFFormat(

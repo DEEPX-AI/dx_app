@@ -77,7 +77,7 @@ std::vector<YOLOv7PPUResult> YOLOv7PPUPostProcess::postprocess(const dxrt::Tenso
     if (outputs.front()->type() != dxrt::DataType::BBOX) {
         int i = 0;
         std::ostringstream msg;
-        msg << "[DXAPP] [ER] YOLOv7 PPU PostProcess - Tensor output type must be "
+        msg << "[DXAPP] [ERROR] YOLOv7 PPU PostProcess - Tensor output type must be "
                "dxrt::DataType::BBOX.\n"
             << "  Unexpected Tensors\n";
         for (auto& o : outputs) {

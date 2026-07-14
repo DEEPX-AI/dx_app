@@ -12,7 +12,7 @@ Pair 2 — different persons             : sample_person_a1 vs sample_person_b  
 
 Usage:
     python3 scripts/demo_reid_compare.py \
-        --model assets/models/casvit_t.dxnn \
+        --model assets/models/casvit-t_224x224.dxnn \
         --image1 sample/img/sample_person_a1.jpg \
         --image2 sample/img/sample_person_a2.jpg \
         --image3 sample/img/sample_person_b.jpg \
@@ -120,17 +120,17 @@ def compare_pair(embed_ie: InferenceEngine, input_w: int, input_h: int,
     """Load two images, extract embeddings, compare, and optionally display."""
     img1 = cv2.imread(path1)
     if img1 is None:
-        print(f"[ERROR] Cannot read image: {path1}")
+        print(f"[DXAPP] [ERROR] Cannot read image: {path1}")
         return
     img2 = cv2.imread(path2)
     if img2 is None:
-        print(f"[ERROR] Cannot read image: {path2}")
+        print(f"[DXAPP] [ERROR] Cannot read image: {path2}")
         return
 
     emb1 = extract_embedding(embed_ie, img1, input_w, input_h)
     emb2 = extract_embedding(embed_ie, img2, input_w, input_h)
     if emb1 is None or emb2 is None:
-        print("[ERROR] Embedding extraction failed.")
+        print("[DXAPP] [ERROR] Embedding extraction failed.")
         return
 
     sim = cosine_similarity(emb1, emb2)
@@ -151,7 +151,7 @@ def compare_pair(embed_ie: InferenceEngine, input_w: int, input_h: int,
             Path(path1).stem, Path(path2).stem)
         win_title = f"Re-ID: {Path(path1).stem} vs {Path(path2).stem}"
         cv2.imshow(win_title, canvas)
-        print("[INFO] Press any key to continue...")
+        print("[DXAPP] [INFO] Press any key to continue...")
         cv2.waitKey(0)
         cv2.destroyWindow(win_title)
 
@@ -190,7 +190,7 @@ def main():
     else:
         input_h, input_w = shape[-2], shape[-1]
 
-    print(f"[INFO] Model input size: {input_w}x{input_h}")
+    print(f"[DXAPP] [INFO] Model input size: {input_w}x{input_h}")
 
     compare_pair(embed_ie, input_w, input_h,
                  args.image1, args.image2,

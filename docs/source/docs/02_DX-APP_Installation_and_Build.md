@@ -101,7 +101,7 @@ set(onnxruntime_LIB_DIRS /usr/local/lib)
 To build `dx_app`, run the following command.  
 
 ```bash
-./build.sh ## Use --clean for a clean build
+./build.sh ## Defaults to minimal build (run_demo C++ targets). Use --clean for a clean build.
 ```
 
 To download required models and sample videos, run the following command.  
@@ -268,9 +268,9 @@ To build and run the `dx_app` application on Windows, follow the steps below usi
 
 **Step 1. Open Project Folder**  
 
-- **Step 1.** Launch Visual Studio Community 2022  
-- **Step 2.** From the start screen, select **Open a local folder**  
-- **Step 3.** Navigate to and select the `dx_app` project folder  
+- **Step 1-1.** Launch Visual Studio Community 2022  
+- **Step 1-2.** From the start screen, select **Open a local folder**  
+- **Step 1-3.** Navigate to and select the `dx_app` project folder  
 
 !!! warning "IMPORTANT" 
 
@@ -301,7 +301,7 @@ If needed, you can manually specify the following environment variables in `CMak
     "type": "STRING"
 },
 {
-    "name": "DXRT_DIR",
+    "name": "DEEPX_SDK_DIR",
     "value": "path/to/dx_rt/installed",
     "type": "STRING"
 },

@@ -19,7 +19,8 @@ from typing import List
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from test_helpers.utils import setup_environment  # noqa: E402
+from test_helpers.utils import setup_environment, cpp_exe_task_map  # noqa: E402
+from test_helpers.constants import IMAGE_ONLY_TASKS  # noqa: E402
 
 from conftest import resolve_bin_dir
 
@@ -43,13 +44,23 @@ def _normalize_model_to_exe(stem: str) -> str:
     return stem.lower().replace(".", "_")
 
 
+# exe_name → task category, to exclude image-only tasks (they reject -v).
+_EXE_TASK_MAP = cpp_exe_task_map(suffixes=("_sync",))
+
+
 def discover_fast_sync() -> List[tuple]:
-    """Discover one fast sync executable."""
+    """Discover one fast sync executable capable of video/stream input."""
     skip = ["face", "tta", "w6"]
     for model_path in sorted(MODELS_DIR.glob("*.dxnn")):
         prefix = _normalize_model_to_exe(model_path.stem)
         exe_name = f"{prefix}_sync"
         if any(s in exe_name for s in skip):
+            continue
+        # SIGINT is exercised against a running VIDEO inference. Image-only
+        # tasks (3d_object_detection, embedding, …) reject -v and exit
+        # immediately, giving zero real coverage — skip them so a
+        # stream-capable model is chosen.
+        if _EXE_TASK_MAP.get(exe_name) in IMAGE_ONLY_TASKS:
             continue
         if (BIN_DIR / exe_name).exists():
             return [(exe_name, model_path)]

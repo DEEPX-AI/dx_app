@@ -1,0 +1,7 @@
+{
+    "conf_threshold": 0.0,
+    "subpixel_refine": true,
+    "solve_pnp": true,
+    "object_size_cm": [14.860799789428711, 4.3368000984191895, 6.4513998031616211],
+    "focal_length": null
+}

@@ -27,10 +27,11 @@ public:
                          float nms_threshold = 0.45f,
                          int num_classes = 80,
                          int reg_max = 10,
-                         bool is_ort_configured = false)
+                         bool is_ort_configured = false,
+                         const std::vector<std::string>& class_names = {})
         : input_width_(input_width), input_height_(input_height),
           conf_threshold_(conf_threshold), nms_threshold_(nms_threshold),
-          num_classes_(num_classes), reg_max_(reg_max) {
+          num_classes_(num_classes), reg_max_(reg_max), class_names_(class_names) {
         // Pre-compute DFL weights [0, 1, ..., reg_max]
         dfl_weights_.resize(reg_max_ + 1);
         for (int i = 0; i <= reg_max_; ++i) {
@@ -131,7 +132,7 @@ public:
             det.box = {x1, y1, x2, y2};
             det.confidence = nms_scores[idx];
             det.class_id = nms_class_ids[idx];
-            det.class_name = dxapp::common::get_coco_class_name(det.class_id);
+            det.class_name = dxapp::common::resolve_class_name(det.class_id, class_names_);
             results.push_back(det);
         }
 
@@ -210,6 +211,7 @@ private:
     float nms_threshold_;
     int num_classes_;
     int reg_max_;
+    std::vector<std::string> class_names_;
     std::vector<float> dfl_weights_;
     std::vector<float> anchor_cx_;
     std::vector<float> anchor_cy_;

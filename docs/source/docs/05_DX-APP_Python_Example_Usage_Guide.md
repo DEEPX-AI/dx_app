@@ -136,12 +136,14 @@ All Python examples use `argparse` via `common/runner/args.py` and share a consi
 | `--no-display` | — | flag | Disable visualization window |
 | `--show-log` | — | flag | Enable verbose log output (default: quiet) |
 | `--config` | — | string | Model config JSON path (auto-detected if omitted) |
+| `--fast-postprocess` | — | flag | Opt-in faster postprocessing variant where available (standard path is the default) |
 | `--output` | `-o` | string | Output file path (restoration/depth/SR only) |
 | `--help` | `-h` | — | Show usage |
 
 - **Input source:** `--image`, `--video`, `--camera`, and `--rtsp` form a mutually exclusive group. If none is specified, a **default sample image** is automatically selected based on the task type.
 
 !!! note "NOTE"
+
     **Image-only tasks:** `embedding`, `reid`, and `attribute_recognition` tasks accept `--image` input only. `--video`, `--camera`, and `--rtsp` are not supported for these tasks because meaningful inference requires a crop of a pre-detected subject (face or person). Running a single embedding model on a raw video stream without a preceding detector would not produce valid results. Passing a video/camera source to these tasks exits with an error.
 
 ---
@@ -181,7 +183,7 @@ When a specified model file is not found locally, the runner automatically attem
 
 If no input source is provided, the runner automatically selects a default sample image appropriate for the task type (e.g., `sample/img/sample_street.jpg` for object detection). A log message indicates which default was applied:
 ```
-[INFO] No input specified. Using default sample: sample/img/sample_street.jpg
+[DXAPP] [INFO] No input specified. Using default sample: sample/img/sample_street.jpg
 ```
 
 **Signal Handling**  
@@ -200,11 +202,35 @@ When `DISPLAY`/`WAYLAND_DISPLAY` environment variables are absent, `cv2.imshow()
 
 Runtime parameters (thresholds, top-k, etc.) are loaded via `_FactoryConfigMixin` with alias normalization (`score_threshold` → `conf_threshold`). If omitted, `config.json` is auto-detected adjacent to the model or script.  
 
+**Fast Postprocessing** (`--fast-postprocess`)  
+
+An opt-in, performance-oriented postprocessing path. By default the runner always uses the standard postprocessor; passing `--fast-postprocess` selects a faster variant **only for the model families that provide one** — other models silently keep the standard path, so the flag is always safe to add. The optimization skips work the standard path performs *before* thresholding (e.g. running `sigmoid` over the full anchor grid, taking `argmax` over every anchor, or upsampling each mask to the full input resolution).
+
+There are two accuracy tiers:
+
+| Tier | Output vs. standard path | Model families |
+|------|--------------------------|----------------|
+| **Exact** | Byte-identical (verified by parity unit tests) | Object detection — YOLOv5 / YOLOv7, EfficientDet |
+| **Approximate** | Differs only at sub-pixel mask boundaries (binary masks agree at high IoU) | Instance segmentation (YOLOv8-seg), YOLACT, SegFormer semantic segmentation |
+
+- **Exact tier (detection):** the fast path gates anchors *before* the expensive decode. Because objectness/score gating is monotonic and the survivors are decoded with the same formulas, the detections are bit-for-bit identical to the standard path — it can be enabled with no accuracy cost.
+- **Approximate tier (segmentation):** the fast path crops and resizes masks at prototype (or output) resolution instead of upsampling each mask to the full input resolution first. This changes only sub-pixel boundary interpolation; on the profiled workloads the measured speedup is roughly 2.3x for instance segmentation and 4.9x for SegFormer-style semantic segmentation (the exact figure depends on the model, resolution, and host CPU).
+
+**When to enable.** The benefit is largest when postprocessing dominates end-to-end latency — typically high-resolution feature grids or large anchor×class counts (dense detection heads, many-class detectors, high-resolution segmentation). Profile your own workload rather than assuming a fixed factor.
+
+**When to keep the default.** The standard path is always the default and remains the accuracy reference. For the approximate (segmentation) tier, keep the standard path when exact mask boundaries matter.
+
+```bash
+# Object detection (exact tier) — identical results, faster decode
+python src/python_example/object_detection/yolov7/yolov7_sync.py \
+    --model assets/models/YoloV7.dxnn --image sample/img/sample_street.jpg --fast-postprocess
+```
+
 ### Verification & Diagnostics
 
 **Numerical Verification** (`DXAPP_VERIFY`)  
 
-Set `DXAPP_VERIFY=1` to serialize all post-processing results to `logs/verify/{model}.json`. Use `scripts/verify_inference_output.py` to validate correctness against task-specific rules.  
+Set `DXAPP_VERIFY=1` to serialize all post-processing results to `logs/verify/{model}.json` for inspection and debugging.  
 
 **Tensor Dump for Debugging** (`--dump-tensors`)  
 
@@ -213,8 +239,8 @@ Dumps raw input/output tensors as `.npy` files. On exception, tensors and a `rea
 **Model Validation** (optional)  
 
 ```bash
-# Run NPU inference + numerical verification for all supported models
-bash scripts/validate_models.sh --numerical --lang py
+# Run NPU inference for all supported models
+bash scripts/validate_models.sh --lang py
 ```
 
 ### Environment Variables Reference

@@ -1,0 +1,1 @@
+from .fcn8_resnet_v1_18_factory import Fcn8_resnet_v1_18Factory

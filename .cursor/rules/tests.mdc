@@ -1,0 +1,11 @@
+---
+description: Rules for dx_app test files
+globs: ["tests/**"]
+---
+
+**Response Language**: Match your response language to the user's prompt language — when asking questions or responding, use the same language the user is using.
+
+# Test Rules
+
+- pytest markers: `@pytest.mark.slow`, `@pytest.mark.smoke`
+- Read `.deepx/skills/dx-validate.md` for validation patterns

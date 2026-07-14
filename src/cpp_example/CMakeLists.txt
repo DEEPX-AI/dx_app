@@ -26,8 +26,12 @@ find_package(OpenCV REQUIRED HINTS ${OpenCV_DIR})
 find_package(PkgConfig REQUIRED)
 
 # Find dxrt library
-if(CROSS_COMPILE OR MSVC)
-    find_library(DXRT_LIB dxrt HINTS ${DXRT_INSTALLED_DIR}/lib REQUIRED)
+if(MSVC)
+    find_library(DXRT_LIB dxrt HINTS ${DXRT_INSTALLED_DIR}/lib/x64 REQUIRED)
+    include_directories(${DXRT_INSTALLED_DIR}/include)
+    link_directories(${DXRT_INSTALLED_DIR}/lib/x64)
+elseif(CROSS_COMPILE)
+    find_library(DXRT_LIB dxrt HINTS ${DXRT_INSTALLED_DIR}/lib)
     include_directories(${DXRT_INSTALLED_DIR}/include)
     link_directories(${DXRT_INSTALLED_DIR}/lib)
 else()
@@ -45,6 +49,8 @@ endif()
 include_directories(${OpenCV_INCLUDE_DIRS})
 include_directories(${PROJECT_ROOT}/extern/)
 include_directories(${PROJECT_ROOT}/src/utility/)
+include_directories(${PROJECT_ROOT}/src/postprocess/sfa3d)
+include_directories(${PROJECT_ROOT}/src/postprocess/superpoint)
 include_directories(${CPP_EXAMPLE_DIR})  # For common/ includes
 
 # Postprocess headers (header-only .hpp in common/processors/)
@@ -79,15 +85,24 @@ set(COMMON_COMPILE_DEFINITIONS PROJECT_ROOT_DIR="${PROJECT_ROOT}")
 # =============================================================================
 add_library(dxapp_common_obj OBJECT
     ${PROJECT_ROOT}/src/utility/common_util.cpp
+    ${PROJECT_ROOT}/src/postprocess/sfa3d/sfa3d_postprocess.cpp
+    ${PROJECT_ROOT}/src/postprocess/superpoint/superpoint_postprocess.cpp
+    ${PROJECT_ROOT}/src/postprocess/dope/dope_postprocess.cpp
+    ${PROJECT_ROOT}/src/postprocess/yolopv2/yolopv2_postprocess.cpp
 )
 target_compile_options(dxapp_common_obj PRIVATE ${COMMON_COMPILE_FLAGS})
 target_compile_definitions(dxapp_common_obj PRIVATE ${COMMON_COMPILE_DEFINITIONS})
-target_include_directories(dxapp_common_obj PRIVATE
-    ${OpenCV_INCLUDE_DIRS}
-    ${PROJECT_ROOT}/extern/
-    ${PROJECT_ROOT}/src/utility/
-    ${CPP_EXAMPLE_DIR}
-    ${CPP_EXAMPLE_DIR}/common/processors
+target_include_directories(dxapp_common_obj
+    PRIVATE
+        ${OpenCV_INCLUDE_DIRS}
+        ${PROJECT_ROOT}/extern/
+        ${PROJECT_ROOT}/src/utility/
+        ${CPP_EXAMPLE_DIR}
+        ${CPP_EXAMPLE_DIR}/common/processors
+    INTERFACE
+        ${PROJECT_ROOT}/src/postprocess/superpoint/
+        ${PROJECT_ROOT}/src/postprocess/dope/
+        ${PROJECT_ROOT}/src/postprocess/yolopv2/
 )
 
 # =============================================================================
@@ -133,8 +148,13 @@ set(CATEGORIES
     ppu
     face_alignment
     hand_landmark
+    hand_detection
     attribute_recognition
     reid
+    object_pose_estimation
+    3d_object_detection
+    keypoint_detection
+    panoptic_driving_perception
 )
 
 foreach(CATEGORY ${CATEGORIES})
@@ -188,9 +208,11 @@ foreach(MULTI_CAT ${_MULTI_CATEGORIES})
     endforeach()
 endforeach()
 
+# DOPE builds with core OpenCV only: the C++ visualizer draws the cuboid by
+# connecting the predicted 2-D vertices directly (no solvePnP/projectPoints).
+
 # =============================================================================
 # Installation (Optional)
 # =============================================================================
 get_property(ALL_TARGETS DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY BUILDSYSTEM_TARGETS)
 install(TARGETS ${ALL_TARGETS} RUNTIME DESTINATION bin)
-

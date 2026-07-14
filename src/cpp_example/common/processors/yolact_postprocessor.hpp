@@ -38,10 +38,12 @@ public:
                         float nms_threshold = 0.5f,
                         int num_classes = 81,
                         int num_protos = 32,
-                        int top_k = 200)
+                        int top_k = 200,
+                        const std::vector<std::string>& class_names = {})
         : input_width_(input_width), input_height_(input_height),
           score_threshold_(score_threshold), nms_threshold_(nms_threshold),
-          num_classes_(num_classes), num_protos_(num_protos), top_k_(top_k) {
+          num_classes_(num_classes), num_protos_(num_protos), top_k_(top_k),
+          class_names_(class_names) {
         generatePriors();
     }
 
@@ -112,7 +114,7 @@ public:
             seg.box = box;
             seg.confidence = d.score;
             seg.class_id = d.class_id;
-            seg.class_name = dxapp::common::get_coco_class_name(seg.class_id);
+            seg.class_name = dxapp::common::resolve_class_name(seg.class_id, class_names_);
             seg.mask = cropped_mask;
             results.push_back(seg);
         }
@@ -404,6 +406,7 @@ private:
     int num_classes_;
     int num_protos_;
     int top_k_;
+    std::vector<std::string> class_names_;
     std::vector<std::array<float, 4>> priors_;
 };
 

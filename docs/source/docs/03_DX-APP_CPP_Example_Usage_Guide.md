@@ -204,7 +204,7 @@ Runtime parameters (thresholds, top-k, etc.) can be customized per-model via `co
 
 **Numerical Verification (`DXAPP_VERIFY`)**  
 
-Set `DXAPP_VERIFY=1` to serialize all post-processing results to `logs/verify/{model}.json`. Use `scripts/verify_inference_output.py` to validate correctness.
+Set `DXAPP_VERIFY=1` to serialize all post-processing results to `logs/verify/{model}.json` for inspection and debugging.
 
 **Tensor Dump for Debugging (`--dump-tensors`)**  
 

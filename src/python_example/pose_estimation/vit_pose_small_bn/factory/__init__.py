@@ -1,0 +1,1 @@
+from .vit_pose_small_bn_factory import Vit_pose_small_bnFactory

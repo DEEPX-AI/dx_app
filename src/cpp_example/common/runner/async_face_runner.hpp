@@ -67,10 +67,14 @@ public:
 
         CommandLineArgs args = parseCommandLine(argc, argv);
         verbose_ = args.verbose;
+
+        // hand_detection (MediaPipe palm) shares this runner and now supports
+        // video/camera/RTSP: the palm detector runs per frame just like
+        // face_detection, so no special-casing is needed here.
         // Apply default sample image if no input specified
         if (args.imageFilePath.empty() && args.videoFile.empty() && args.cameraIndex < 0 && args.rtspUrl.empty()) {
             args.imageFilePath = dxapp::getDefaultSampleImage(factory_->getTaskType());
-            std::cout << "[INFO] No input specified. Using default sample: " << args.imageFilePath << std::endl;
+            std::cout << "[DXAPP] [INFO] No input specified. Using default sample: " << args.imageFilePath << std::endl;
         }
         validateArguments(args);
 
@@ -90,9 +94,6 @@ public:
         model_path_ = args.modelPath;
 
         if (!dxapp::minversionforRTandCompiler(&ie)) {
-            std::cerr << "[DXAPP] [ER] The version of the compiled model is not "
-                         "compatible with the version of the runtime. Please compile the model again."
-                      << std::endl;
             return -1;
         }
 
@@ -113,8 +114,9 @@ public:
         auto postprocessor = std::shared_ptr<typename decltype(postprocessor_uptr)::element_type>(std::move(postprocessor_uptr));
         auto visualizer = factory_->createVisualizer();
 
-        std::cout << "[INFO] Model loaded: " << args.modelPath << std::endl;
-        std::cout << "[INFO] Model input size (WxH): " << input_width << "x" << input_height << std::endl;
+        std::cout << "[DXAPP] [INFO] Task: " << factory_->getTaskType() << std::endl;
+        std::cout << "[DXAPP] [INFO] Model loaded: " << args.modelPath << std::endl;
+        std::cout << "[DXAPP] [INFO] Model input size (WxH): " << input_width << "x" << input_height << std::endl;
         std::cout << std::endl;
 
         size_t input_size = ie.GetInputSize();
@@ -127,7 +129,7 @@ public:
 
         if (!is_image) {
             if (!openVideoCapture(video, args)) {
-                std::cerr << "[ERROR] Failed to open input source." << std::endl;
+                std::cerr << "[DXAPP] [ERROR] Failed to open input source." << std::endl;
                 return -1;
             }
 
@@ -146,13 +148,13 @@ public:
             }
 
             if (args.verbose) {
-                std::cout << "[INFO] " << source_info << std::endl;
-                std::cout << "[INFO] Input source resolution (WxH): " << frame_width << "x" << frame_height << std::endl;
-                std::cout << "[INFO] Input source FPS: " << std::fixed << std::setprecision(2) << fps << std::endl;
+                std::cout << "[DXAPP] [INFO] " << source_info << std::endl;
+                std::cout << "[DXAPP] [INFO] Input source resolution (WxH): " << frame_width << "x" << frame_height << std::endl;
+                std::cout << "[DXAPP] [INFO] Input source FPS: " << std::fixed << std::setprecision(2) << fps << std::endl;
             }
             if (!args.videoFile.empty()) {
                 if (args.verbose) {
-                    std::cout << "[INFO] Total frames: " << total_frames << std::endl;
+                    std::cout << "[DXAPP] [INFO] Total frames: " << total_frames << std::endl;
                 }
             }
             std::cout << std::endl;
@@ -174,13 +176,13 @@ public:
                     cv::Size(SHOW_WINDOW_SIZE_W, SHOW_WINDOW_SIZE_H),
                     video_save_path);
                 if (!writer.isOpened()) {
-                    std::cerr << "[ERROR] Failed to open video writer." << std::endl;
+                    std::cerr << "[DXAPP] [ERROR] Failed to open video writer." << std::endl;
                     return -1;
                 }
             }
         }
 
-        std::cout << "[INFO] Starting async inference..." << std::endl;
+        std::cout << "[DXAPP] [INFO] Starting async inference..." << std::endl;
         if (args.no_display) {
             std::cout << "Processing... Only FPS will be displayed." << std::endl;
         }
@@ -218,7 +220,7 @@ public:
                 cv::Mat img = cv::imread(currentImagePath);
                 auto t_read_end = std::chrono::high_resolution_clock::now();
                 if (img.empty()) {
-                    std::cerr << "[ERROR] Failed to read image: " << currentImagePath << std::endl;
+                    std::cerr << "[DXAPP] [ERROR] Failed to read image: " << currentImagePath << std::endl;
                     continue;
                 }
                 dxapp::displayResize(img, display_image, SHOW_WINDOW_SIZE_W, SHOW_WINDOW_SIZE_H);
@@ -233,7 +235,7 @@ public:
                     metrics_.sum_preprocess += std::chrono::duration<double, std::milli>(t_pre_end - t_pre_start).count();
                 }
                 auto& buf = input_buffers[buffer_index % ASYNC_BUFFER_SIZE];
-                std::memcpy(buf.data(), preprocessed.data, preprocessed.total() * preprocessed.elemSize());
+                fillModelInputBuffer(ie, buf, preprocessed);
                 std::string save_path;
                 if (!run_dir.empty()) {
                     save_path = dxapp::buildPerImageSavePath(run_dir, factory_->getModelName() + "_async", currentImagePath, i);
@@ -252,7 +254,7 @@ public:
                 if (loopTest > 1) {
                     if (args.verbose) {
                         std::cout << "\n" << std::string(50, '=') << std::endl;
-                        std::cout << "[INFO] Loop " << (loop_idx + 1) << "/" << loopTest << std::endl;
+                        std::cout << "[DXAPP] [INFO] Loop " << (loop_idx + 1) << "/" << loopTest << std::endl;
                         std::cout << std::string(50, '=') << std::endl;
                     }
                 }
@@ -275,7 +277,7 @@ public:
                 video.release();
                 video.open(args.videoFile);
                 if (!video.isOpened()) {
-                    std::cerr << "[ERROR] Failed to reopen video: " << args.videoFile << std::endl;
+                    std::cerr << "[DXAPP] [ERROR] Failed to reopen video: " << args.videoFile << std::endl;
                     break;
                 }
             }
@@ -312,13 +314,13 @@ public:
         auto e_time = std::chrono::high_resolution_clock::now();
         double total_time = std::chrono::duration<double>(e_time - s_time).count();
         if (g_interrupted()) {
-            std::cout << "\n[INFO] Interrupted by user (Ctrl+C)" << std::endl;
+            std::cout << "\n[DXAPP] [INFO] Interrupted by user (Ctrl+C)" << std::endl;
         }
         if (writer.isOpened()) {
             writer.release();
             if (!video_save_path.empty()) {
                 if (args.verbose) {
-                    std::cout << "\n[INFO] Saved output video: " << fs::absolute(video_save_path).string() << std::endl;
+                    std::cout << "\n[DXAPP] [INFO] Saved output video: " << fs::absolute(video_save_path).string() << std::endl;
                 }
             }
         }
@@ -360,14 +362,14 @@ private:
         try {
             detections = postprocessor.process(outputs, ud_ptr->ctx);
         } catch (const std::exception& e) {
-            std::cerr << "[DXAPP] [ER] Postprocess error: " << e.what() << std::endl;
+            std::cerr << "[DXAPP] [ERROR] Postprocess error: " << e.what() << std::endl;
         }
 
         auto t_post_end = std::chrono::high_resolution_clock::now();
         double t_postprocess = std::chrono::duration<double, std::milli>(t_post_end - t_post_start).count();
             { std::lock_guard<std::mutex> lock(metrics_.metrics_mutex); metrics_.sum_postprocess += t_postprocess; }
 
-        printFaceDetectionResults(detections, verbose_);
+        printFaceDetectionResults(detections, verbose_, factory_->getTaskType());
         completeInflightMetrics();
 
         AsyncFaceDisplayArgs display_args;
@@ -385,10 +387,13 @@ private:
         return 0;
     }
 
-    /** Print face detection results for pipeline parsing. */
-    static void printFaceDetectionResults(const std::vector<FaceDetectionResult>& detections, bool verbose = false) {
+    /** Print face detection results for pipeline parsing.
+     *  hand_detection reuses this runner (MediaPipe palm) — tag it [HAND], not [FACE]. */
+    static void printFaceDetectionResults(const std::vector<FaceDetectionResult>& detections,
+                                          bool verbose = false, const std::string& task = "") {
         if (!verbose || detections.empty()) return;
-        std::cout << "[FACE] " << detections.size();
+        const char* det_tag = (task == "hand_detection") ? "[HAND]" : "[FACE]";
+        std::cout << det_tag << " " << detections.size();
         for (const auto& f : detections) {
             std::cout << " " << std::fixed << std::setprecision(4) << f.confidence;
         }
@@ -430,8 +435,7 @@ private:
             metrics_.sum_preprocess += std::chrono::duration<double, std::milli>(t_pre_end - t_pre_start).count();
         }
         auto& buf = input_buffers[buffer_index % ASYNC_BUFFER_SIZE];
-        std::memcpy(buf.data(), preprocessed.data,
-                    preprocessed.total() * preprocessed.elemSize());
+        fillModelInputBuffer(ie, buf, preprocessed);
         auto user_data_ptr = std::make_unique<AsyncUserData>(AsyncUserData{display_image.clone(), ctx, std::string(), {}});
         void* user_data = user_data_ptr.release();
         metrics_.waitForSlot();
@@ -484,18 +488,18 @@ private:
 
     void validateArguments(const CommandLineArgs& args) {
         if (args.modelPath.empty()) {
-            dxapp::fatal_error("[ERROR] Model path is required. Use -m or --model_path option.\n"
+            dxapp::fatal_error("[DXAPP] [ERROR] Model path is required. Use -m or --model_path option.\n"
                 "        -> Download:  ./setup.sh --models <model_name>\n"
                 "        -> Or use:    ./run_demo.sh  (auto-downloads demo models)"); }
         // Auto-download model if not found
         if (!dxapp::fileExists(args.modelPath)) {
             if (!dxapp::autoDownloadModel(args.modelPath)) {
                 std::string stem = fs::path(args.modelPath).stem().string();
-                dxapp::fatal_error("[ERROR] Model file not found: " + args.modelPath + "\n"
+                dxapp::fatal_error("[DXAPP] [ERROR] Model file not found: " + args.modelPath + "\n"
                     "        -> Download:  ./setup.sh --models " + stem + "\n"
                     "        -> Or use:    ./run_demo.sh  (auto-downloads demo models)");
             }
-            std::cout << "[INFO] Model downloaded successfully: " << args.modelPath << std::endl;
+            std::cout << "[DXAPP] [INFO] Model downloaded successfully: " << args.modelPath << std::endl;
         }
 
         int sourceCount = 0;
@@ -504,14 +508,14 @@ private:
         if (args.cameraIndex >= 0) sourceCount++;
         if (!args.rtspUrl.empty()) sourceCount++;
         if (sourceCount != 1) {
-            dxapp::fatal_error("[ERROR] Please specify exactly one input source."); }
+            dxapp::fatal_error("[DXAPP] [ERROR] Please specify exactly one input source."); }
         // Auto-download video if not found
         if (!args.videoFile.empty() && !dxapp::fileExists(args.videoFile)) {
             if (!dxapp::autoDownloadVideos() || !dxapp::fileExists(args.videoFile)) {
-                dxapp::fatal_error("[ERROR] Video file not found: " + args.videoFile + "\n"
+                dxapp::fatal_error("[DXAPP] [ERROR] Video file not found: " + args.videoFile + "\n"
                     "        -> Download videos: ./setup_sample_videos.sh");
             }
-            std::cout << "[INFO] Video downloaded successfully: " << args.videoFile << std::endl;
+            std::cout << "[DXAPP] [INFO] Video downloaded successfully: " << args.videoFile << std::endl;
         }
 
         // Validate that --video is not given an image file
@@ -519,7 +523,7 @@ private:
             std::string ext = fs::path(args.videoFile).extension().string();
             std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
             if (ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".bmp" || ext == ".tiff") {
-                dxapp::fatal_error("[ERROR] Image file detected for --video (-v) option. "
+                dxapp::fatal_error("[DXAPP] [ERROR] Image file detected for --video (-v) option. "
                                   "Use --image (-i) for image files.\nUse -h or --help for usage information.");
             }
         }
@@ -536,12 +540,12 @@ private:
                     imageFiles.push_back(entry.path().string());
             }
             std::sort(imageFiles.begin(), imageFiles.end());
-            if (imageFiles.empty()) { dxapp::fatal_error("[ERROR] No image files found."); }
+            if (imageFiles.empty()) { dxapp::fatal_error("[DXAPP] [ERROR] No image files found."); }
             if (loopTest == -1) loopTest = static_cast<int>(imageFiles.size());
         } else if (fs::is_regular_file(imageFilePath)) {
             imageFiles.push_back(imageFilePath);
             if (loopTest == -1) loopTest = 1;
-        } else { dxapp::fatal_error("[ERROR] Invalid image path."); }
+        } else { dxapp::fatal_error("[DXAPP] [ERROR] Invalid image path."); }
         return {imageFiles, loopTest};
     }
 
@@ -577,7 +581,7 @@ private:
                 auto t_save_start = std::chrono::high_resolution_clock::now();
                 cv::imwrite(args.save_path, result_frame);
                 if (verbose_) {
-                    std::cout << "\n[INFO] Saved output image: " << fs::absolute(args.save_path).string() << std::endl;
+                    std::cout << "\n[DXAPP] [INFO] Saved output image: " << fs::absolute(args.save_path).string() << std::endl;
                 }
                 dxapp::saveDebugImage(result_frame);
                 auto t_save_end = std::chrono::high_resolution_clock::now();

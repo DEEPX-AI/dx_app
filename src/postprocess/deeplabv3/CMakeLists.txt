@@ -11,10 +11,14 @@ find_package(PkgConfig REQUIRED)
 
 # Find dxrt library
 
-if(CROSS_COMPILE OR MSVC)
-find_library(DXRT_LIB dxrt HINTS ${DXRT_INSTALLED_DIR}/lib REQUIRED)
-include_directories(${DXRT_INSTALLED_DIR}/include)
-link_directories(${DXRT_INSTALLED_DIR}/lib)
+if(MSVC)
+    find_library(DXRT_LIB dxrt HINTS ${DXRT_INSTALLED_DIR}/lib/x64 REQUIRED)
+    include_directories(${DXRT_INSTALLED_DIR}/include)
+    link_directories(${DXRT_INSTALLED_DIR}/lib/x64)
+elseif(CROSS_COMPILE)
+    find_library(DXRT_LIB dxrt HINTS ${DXRT_INSTALLED_DIR}/lib)
+    include_directories(${DXRT_INSTALLED_DIR}/include)
+    link_directories(${DXRT_INSTALLED_DIR}/lib)
 else()
 find_package(dxrt REQUIRED HINTS ${DXRT_INSTALLED_DIR})
 set(DXRT_LIB dxrt)

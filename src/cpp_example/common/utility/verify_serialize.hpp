@@ -308,7 +308,7 @@ inline std::string writeVerifyJson(
 
     std::ofstream ofs(jsonPath);
     if (!ofs.is_open()) {
-        std::cerr << "[WARN] verify_serialize: cannot open " << jsonPath << std::endl;
+        std::cerr << "[DXAPP] [WARN] verify_serialize: cannot open " << jsonPath << std::endl;
         return "";
     }
     ofs << data.dump(2) << std::endl;
@@ -334,7 +334,7 @@ inline std::string dumpVerifyJson( \
     try { \
         return detail::writeVerifyJson(serializeFn(results, img_h, img_w), modelPath, task); \
     } catch (const std::exception& e) { \
-        std::cerr << "[WARN] verify_serialize failed: " << e.what() << std::endl; \
+        std::cerr << "[DXAPP] [WARN] verify_serialize failed: " << e.what() << std::endl; \
         return ""; \
     } \
 }

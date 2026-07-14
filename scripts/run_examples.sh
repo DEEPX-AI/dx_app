@@ -27,13 +27,20 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$PROJECT_ROOT"
 
-# Auto-activate venv-dx-runtime if python is not available
+# Auto-activate a Python virtual environment if python is not already available.
+# Searches common locations so the script works both inside the dx-all-suite
+# monorepo layout and in a standalone dx_app checkout.
 if ! command -v python &>/dev/null; then
     VENV_CANDIDATES=(
-        "${PROJECT_ROOT}/../dx-all-suite/dx-runtime/venv-dx-runtime/bin/activate"
+        "${VIRTUAL_ENV:-}/bin/activate"
+        "${PROJECT_ROOT}/.venv/bin/activate"
+        "${PROJECT_ROOT}/venv/bin/activate"
+        "${PROJECT_ROOT}/../venv-dx-runtime/bin/activate"
+        "${PROJECT_ROOT}/../../venv-dx-runtime/bin/activate"
+        "${HOME}/dx-venv/bin/activate"
     )
     for venv_activate in "${VENV_CANDIDATES[@]}"; do
-        if [[ -f "$venv_activate" ]]; then
+        if [[ -n "$venv_activate" && -f "$venv_activate" ]]; then
             # shellcheck source=/dev/null
             source "$venv_activate"
             echo "Auto-activated venv: $venv_activate" >&2
@@ -87,7 +94,7 @@ CATEGORY_IMAGE=(
     [object_detection]="sample/img/sample_street.jpg"
     [face_detection]="sample/img/sample_face.jpg"
     [pose_estimation]="sample/img/sample_people.jpg"
-    [obb_detection]="sample/dota8_test/P0284.png"
+    [obb_detection]="sample/img/sample_airport_satellite_view.png"
     [classification]="sample/img/sample_dog.jpg"
     [instance_segmentation]="sample/img/sample_street.jpg"
     [semantic_segmentation]="sample/img/sample_parking.jpg"
@@ -100,7 +107,12 @@ CATEGORY_IMAGE=(
     [reid]="sample/img/person_pair"
     [ppu]="sample/img/sample_street.jpg"
     [hand_landmark]="sample/img/sample_hand.jpg"
+    [hand_detection]="sample/img/sample_hand.jpg"
     [face_alignment]="sample/img/sample_face_a1.jpg"
+    [keypoint_detection]="sample/img/sample_street.jpg"
+    [object_pose_estimation]="sample/dope/000000.png"
+    [panoptic_driving_perception]="sample/img/sample_parking.jpg"
+    [3d_object_detection]="sample/kitti/velodyne/000049.bin"
 )
 CATEGORY_VIDEO=(
     [object_detection]="assets/videos/blackbox-city-road.mp4"
@@ -119,7 +131,12 @@ CATEGORY_VIDEO=(
     [reid]="assets/videos/person-pair-hallway.mp4"
     [ppu]="assets/videos/blackbox-city-road.mp4"
     [hand_landmark]="assets/videos/hand.mp4"
+    [hand_detection]="assets/videos/hand.mp4"
     [face_alignment]="assets/videos/face-alignment-closeup.mp4"
+    [keypoint_detection]="assets/videos/snowboard.mp4"
+    [object_pose_estimation]="assets/videos/snowboard.mp4"
+    [panoptic_driving_perception]="assets/videos/blackbox-city-road.mp4"
+    [3d_object_detection]="assets/videos/blackbox-city-road.mp4"
 )
 CATEGORY_DISPLAY=(
     [object_detection]="Object Detection"
@@ -138,7 +155,12 @@ CATEGORY_DISPLAY=(
     [reid]="Person Re-Identification"
     [ppu]="PPU (Post-Processing Unit)"
     [hand_landmark]="Hand Landmark"
+    [hand_detection]="Hand Detection"
     [face_alignment]="Face Alignment"
+    [keypoint_detection]="Keypoint Detection"
+    [object_pose_estimation]="Object Pose Estimation"
+    [panoptic_driving_perception]="Panoptic Driving Perception"
+    [3d_object_detection]="3D Object Detection"
 )
 
 CATEGORY_ORDER=(
@@ -146,7 +168,8 @@ CATEGORY_ORDER=(
     instance_segmentation semantic_segmentation depth_estimation
     image_denoising super_resolution image_enhancement
     embedding attribute_recognition reid ppu
-    hand_landmark face_alignment
+    hand_landmark hand_detection face_alignment
+    keypoint_detection object_pose_estimation panoptic_driving_perception 3d_object_detection
 )
 
 # Per-model input overrides (for PPU models whose actual task differs from category)
@@ -163,8 +186,15 @@ MODEL_VIDEO_OVERRIDE=(
     [handlandmarklite_1]="assets/videos/hand.mp4"
 )
 
-# Categories that only support image tests (no video/async)
-IMAGE_ONLY_CATEGORIES="embedding reid attribute_recognition"
+# Categories that only support single-frame input tests (no video).
+#   - embedding/reid/attribute_recognition: image-pair / single-image tasks
+#   - object_pose_estimation (DOPE): static-object pose; sample is sample/dope/*.png
+#   - 3d_object_detection (SFA3D): LiDAR .bin input (sample/kitti/velodyne/*.bin), no video
+#   - super_resolution: video/stream path exists but is exercised image-only here
+#     (upscaled stream output is large/slow and not meaningful for testing)
+# NOTE: hand_detection / hand_landmark are NOT image-only — the single model runs
+# per frame on video (e.g. assets/videos/hand.mp4), so they are video-capable.
+IMAGE_ONLY_CATEGORIES="embedding reid attribute_recognition object_pose_estimation 3d_object_detection super_resolution"
 
 # ============================================================
 # Interactive Mode (when no arguments provided)
@@ -858,12 +888,12 @@ for category in "${CATEGORY_ORDER[@]}"; do
     for model_name in "${cpp_cat_models[@]}"; do
         model_file="${MODEL_FILE[$model_name]}"
         if [ -z "$model_file" ]; then
-            echo -e "${YELLOW}[WARN]${NC} C++ ${model_name}: no model file in config — skipping" | tee -a "${SUMMARY_LOG}"
+            echo -e "${YELLOW}[DXAPP] [WARN]${NC} C++ ${model_name}: no model file in config — skipping" | tee -a "${SUMMARY_LOG}"
             SKIP_COUNT=$((SKIP_COUNT + 1))
             continue
         fi
         if [ ! -f "$model_file" ]; then
-            echo -e "${YELLOW}[WARN]${NC} C++ ${model_name}: model file not found (${model_file}) — skipping" | tee -a "${SUMMARY_LOG}"
+            echo -e "${YELLOW}[DXAPP] [WARN]${NC} C++ ${model_name}: model file not found (${model_file}) — skipping" | tee -a "${SUMMARY_LOG}"
             SKIP_COUNT=$((SKIP_COUNT + 1))
             continue
         fi
@@ -877,12 +907,12 @@ for category in "${CATEGORY_ORDER[@]}"; do
         IFS='|' read -r model_name py_cat _ <<< "$entry"
         model_file="${MODEL_FILE[$model_name]}"
         if [ -z "$model_file" ]; then
-            echo -e "${YELLOW}[WARN]${NC} Python ${model_name}: no model file in config — skipping" | tee -a "${SUMMARY_LOG}"
+            echo -e "${YELLOW}[DXAPP] [WARN]${NC} Python ${model_name}: no model file in config — skipping" | tee -a "${SUMMARY_LOG}"
             SKIP_COUNT=$((SKIP_COUNT + 1))
             continue
         fi
         if [ ! -f "$model_file" ]; then
-            echo -e "${YELLOW}[WARN]${NC} Python ${model_name}: model file not found (${model_file}) — skipping" | tee -a "${SUMMARY_LOG}"
+            echo -e "${YELLOW}[DXAPP] [WARN]${NC} Python ${model_name}: model file not found (${model_file}) — skipping" | tee -a "${SUMMARY_LOG}"
             SKIP_COUNT=$((SKIP_COUNT + 1))
             continue
         fi
@@ -909,7 +939,7 @@ show_uncat_header() {
 for model_name in "${CPP_MODELS[@]}"; do
     if [ -z "${MODEL_CATEGORY[$model_name]}" ]; then
         show_uncat_header
-        echo -e "${YELLOW}[WARN]${NC} C++ ${model_name} (cpp_${model_name}): built but not in test_models.conf" | tee -a "${SUMMARY_LOG}"
+        echo -e "${YELLOW}[DXAPP] [WARN]${NC} C++ ${model_name} (cpp_${model_name}): built but not in test_models.conf" | tee -a "${SUMMARY_LOG}"
         CPP_UNCATEGORIZED=$((CPP_UNCATEGORIZED + 1))
     fi
 done
@@ -918,7 +948,7 @@ for entry in "${PY_MODELS[@]}"; do
     IFS='|' read -r model_name py_cat _ <<< "$entry"
     if [ -z "${MODEL_FILE[$model_name]}" ] && [ -z "${MODEL_CATEGORY[$model_name]}" ]; then
         show_uncat_header
-        echo -e "${YELLOW}[WARN]${NC} Python ${model_name} (${py_cat}): not in test_models.conf" | tee -a "${SUMMARY_LOG}"
+        echo -e "${YELLOW}[DXAPP] [WARN]${NC} Python ${model_name} (${py_cat}): not in test_models.conf" | tee -a "${SUMMARY_LOG}"
         PY_UNCATEGORIZED=$((PY_UNCATEGORIZED + 1))
     fi
 done

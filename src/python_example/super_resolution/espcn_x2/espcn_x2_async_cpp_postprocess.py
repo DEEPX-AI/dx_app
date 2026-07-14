@@ -1,0 +1,48 @@
+#!/usr/bin/env python3
+# Copyright (C) 2018- DEEPX Ltd. All rights reserved.
+"""
+ESPCN x2 Async Inference Example
+
+Usage:
+    python espcn_x2_async_cpp_postprocess.py --model model.dxnn --image input.jpg
+"""
+
+import sys
+from pathlib import Path
+
+_module_dir = Path(__file__).parent
+_v3_dir = _module_dir.parent.parent
+for _path in [str(_v3_dir), str(_module_dir)]:
+    if _path not in sys.path:
+        sys.path.insert(0, _path)
+
+import os
+if os.name == 'nt':
+    _dxrt_dir = os.environ.get('DEEPX_SDK_DIR')
+    if _dxrt_dir:
+        os.add_dll_directory(os.path.join(_dxrt_dir, 'bin'))
+
+from dx_postprocess import ESPCNPostProcess
+from common.utility import convert_cpp_super_resolution
+from factory import Espcn_x2Factory
+from common.runner import AsyncRunner, parse_common_args
+
+
+def parse_args():
+    return parse_common_args("ESPCN x2 Async Inference")
+
+
+def main():
+    args = parse_args()
+    factory = Espcn_x2Factory()
+
+    def on_engine_init(runner):
+        runner._cpp_postprocessor = ESPCNPostProcess(runner.input_width, runner.input_height)
+        runner._cpp_convert_fn = convert_cpp_super_resolution
+
+    runner = AsyncRunner(factory, on_engine_init=on_engine_init)
+    runner.run(args)
+
+
+if __name__ == "__main__":
+    main()
