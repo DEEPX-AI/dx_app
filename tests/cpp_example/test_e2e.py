@@ -29,11 +29,13 @@ from test_helpers.constants import (  # noqa: E402
     MULTI_MODEL_EXECUTABLES,
     PROJECT_ROOT,
     SAMPLE_DIR,
+    TASK_IMAGE_MAP,
 )
 from test_helpers.utils import (  # noqa: E402
     find_dxnn_ignoring_variant,
     normalize_model_name as _normalize_model_to_exe,
     registry_dxnn_map,
+    resolve_image_for_model,
     setup_environment,
 )
 
@@ -260,6 +262,26 @@ def _build_exe_task_map() -> dict:
 _EXE_TASK_MAP = _build_exe_task_map()
 
 
+def _resolve_input_for_exe(executable: str) -> Path:
+    """Resolve the correct sample input for an executable's task.
+
+    Most tasks take an image, but some take a non-image input — 3D object
+    detection (SFA3D) needs a KITTI LiDAR ``.bin``, object-pose needs a DOPE
+    frame. Hardcoding a single image fed e.g. ``sfa3d_608x608`` the kitchen JPG
+    instead of the ``.bin``. Mirror the per-task resolution the Python E2E suite
+    already uses (``resolve_image_for_model`` → ``TASK_IMAGE_MAP``), falling back
+    to ``TEST_IMAGE`` when the task is unknown or its sample is missing.
+    """
+    base_name = executable.rsplit("_", 1)[0] if executable.endswith(("_sync", "_async")) else executable
+    task = _EXE_TASK_MAP.get(base_name, "")
+    rel = resolve_image_for_model(base_name, task) or TASK_IMAGE_MAP.get(task)
+    if rel:
+        candidate = PROJECT_ROOT / rel
+        if candidate.exists():
+            return candidate
+    return TEST_IMAGE
+
+
 @pytest.mark.e2e
 @pytest.mark.e2e_image
 @pytest.mark.parametrize("executable,model_path", EXECUTABLE_PARAMS)
@@ -277,8 +299,11 @@ def test_image_inference_e2e(executable, model_path, bin_dir, loop_count):
     if not executable_path.exists():
         pytest.skip(f"Executable not found: {executable_path}")
 
-    if not TEST_IMAGE.exists():
-        pytest.skip(f"Test image not found: {TEST_IMAGE}")
+    # Per-task input: 3D detection → KITTI .bin, object-pose → DOPE frame, etc.
+    # (NOT a hardcoded image — that fed non-image models the wrong input).
+    test_input = _resolve_input_for_exe(executable)
+    if not test_input.exists():
+        pytest.skip(f"Test input not found: {test_input}")
 
     if model_path is None:
         pytest.skip(f"Model .dxnn not found for {executable}: run setup_sample_models.sh first")
@@ -303,12 +328,12 @@ def test_image_inference_e2e(executable, model_path, bin_dir, loop_count):
         cmd = [str(executable_path)]
         for (flag, _fname), mpath in zip(flag_model_pairs, model_path):
             cmd += [flag, str(mpath)]
-        cmd += ["-i", str(TEST_IMAGE), "--no-display", "-l", str(effective_loop)]
+        cmd += ["-i", str(test_input), "--no-display", "-l", str(effective_loop)]
     else:
         cmd = [
             str(executable_path),
             "-m", str(model_path),
-            "-i", str(TEST_IMAGE),
+            "-i", str(test_input),
             "--no-display",
             "-l", str(effective_loop),
         ]

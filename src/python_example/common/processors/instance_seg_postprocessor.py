@@ -174,7 +174,7 @@ class InstanceSegPostprocessor(IPostprocessor):
             box[1] = np.clip((box[1] - pad_y) / gain, 0, ctx.original_height - 1)
             box[2] = np.clip((box[2] - pad_x) / gain, 0, ctx.original_width - 1)
             box[3] = np.clip((box[3] - pad_y) / gain, 0, ctx.original_height - 1)
-            orig_mask = self._crop_mask_to_original(scaled_masks[i], ctx)
+            orig_mask = self._crop_mask_to_original(scaled_masks[i], ctx, box)
             results.append(InstanceSegResult(
                 box=[float(box[0]), float(box[1]), float(box[2]), float(box[3])],
                 confidence=float(confidences[idx]),
@@ -233,8 +233,13 @@ class InstanceSegPostprocessor(IPostprocessor):
             scaled_masks[i, :, x2:] = 0
         return scaled_masks
 
-    def _crop_mask_to_original(self, mask_input, ctx) -> np.ndarray:
-        """Remove letterbox padding from mask and resize to original image dimensions."""
+    def _crop_mask_to_original(self, mask_input, ctx, box=None) -> np.ndarray:
+        """Remove letterbox padding from mask and resize to original image dimensions.
+
+        ``box`` (original-space [x1,y1,x2,y2]) is accepted for API symmetry with
+        the fast variant, which uses it to limit work to the bbox ROI. The
+        standard path ignores it and stays byte-identical.
+        """
         gain = max(ctx.scale, 1e-6)
         unpad_h = int(round(ctx.original_height * gain))
         unpad_w = int(round(ctx.original_width * gain))

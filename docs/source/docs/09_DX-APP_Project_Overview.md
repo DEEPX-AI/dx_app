@@ -202,7 +202,7 @@ The project is structured to separate core logic from language-specific implemen
 ```text
 dx_app/
 ├── src/
-│   ├── cpp_example/            # C++ end-to-end examples (349 models across 22 tasks)
+│   ├── cpp_example/            # C++ end-to-end examples (347 models across 22 tasks)
 │   │   └── common/             # ← Shared C++ runtime layer
 │   │       ├── base/           #   Abstract interfaces (IFactory, IProcessor, ...)
 │   │       ├── processors/     #   49 shared post-processors
@@ -212,7 +212,7 @@ dx_app/
 │   │       ├── config/         #   ModelConfig loader
 │   │       ├── utility/        #   Labels, preprocessing, profiling, run_dir, signal_handler, verify_serialize
 │   │       └── third_party/    #   Header-only third-party libraries (nlohmann_json)
-│   ├── python_example/         # Python end-to-end examples (349 models across 22 tasks)
+│   ├── python_example/         # Python end-to-end examples (347 models across 22 tasks)
 │   │   └── common/             # ← Shared Python runtime layer
 │   │       ├── base/           #   Abstract interfaces (IFactory, IProcessor, ...)
 │   │       ├── processors/     #   49 shared post-processors

@@ -68,6 +68,7 @@ public:
             args.imageFilePath = dxapp::getDefaultSampleImage(factory_->getTaskType());
             std::cout << "[DXAPP] [INFO] No input specified. Using default sample: " << args.imageFilePath << std::endl;
         }
+        dxapp::resolveAndValidateModel(args.modelPath, argv[0]);
         validateArguments(args);
 
         std::vector<std::string> imageFiles;
@@ -183,21 +184,7 @@ private:
     }
 
     void validateArguments(const CommandLineArgs& args) {
-        if (args.modelPath.empty()) {
-            dxapp::fatal_error("[DXAPP] [ERROR] Model path is required. Use -m or --model_path option.\n"
-                "        -> Download:  ./setup.sh --models <model_name>\n"
-                "        -> Or use:    ./run_demo.sh  (auto-downloads demo models)");
-        }
-        // Auto-download model if not found
-        if (!dxapp::fileExists(args.modelPath)) {
-            if (!dxapp::autoDownloadModel(args.modelPath)) {
-                std::string stem = fs::path(args.modelPath).stem().string();
-                dxapp::fatal_error("[DXAPP] [ERROR] Model file not found: " + args.modelPath + "\n"
-                    "        -> Download:  ./setup.sh --models " + stem + "\n"
-                    "        -> Or use:    ./run_demo.sh  (auto-downloads demo models)");
-            }
-            std::cout << "[DXAPP] [INFO] Model downloaded successfully: " << args.modelPath << std::endl;
-        }
+        // Model resolved/validated in Run() via dxapp::resolveAndValidateModel().
 
         if (args.imageFilePath.empty()) {
             dxapp::fatal_error("[DXAPP] [ERROR] Please specify an image input source with -i or --image_path.");
@@ -225,7 +212,7 @@ private:
             imageFiles.push_back(imageFilePath);
             if (loopTest == -1) loopTest = 1;
         } else {
-            dxapp::fatal_error("[DXAPP] [ERROR] Invalid image path: ");
+            dxapp::fatal_error("[DXAPP] [ERROR] Input file not found: " + imageFilePath);
         }
         return {imageFiles, loopTest};
     }

@@ -121,7 +121,7 @@ class PointTracker:
             found = np.argwhere(self.tracks[:, -2] == id1)
             if found.shape[0] > 0:
                 matched[int(match[1])] = True
-                row = int(found)
+                row = int(found[0, 0])
                 self.tracks[row, -1] = id2
                 if self.tracks[row, 1] == self.max_score:
                     self.tracks[row, 1] = match[2]

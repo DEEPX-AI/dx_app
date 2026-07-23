@@ -40,7 +40,7 @@ Generate standalone Python/C++ inference apps from plain language: an AI agent b
   (CLAUDE/AGENTS/copilot/cursor) via `dx-agent-gen`
 - Support for 69 net-new .dxnn models (86 added / 17 removed) and 5 new AI task categories
   
-  - **Model registry**: 280 → 349 models across 22 AI task categories
+  - **Model registry**: 280 → 347 models across 22 AI task categories
   - **New AI tasks (5)**: 3D Object Detection (SFA3D), Keypoint Detection (SuperPoint),
     Object Pose Estimation (DOPE), Panoptic Driving Perception (YOLOPv2), Hand Detection (MediaPipe Hand)
   - **Post-processors (7)** + pybind bindings (43 → 50 classes): DOPE, MediaPipe Hand, RealESRGAN, SFA3D, SuperPoint, VitPose, YOLOPv2

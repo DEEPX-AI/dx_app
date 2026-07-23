@@ -60,8 +60,13 @@ def test_python_image_only_wrappers_mark_stream_inputs_unsupported():
             assert "include_stream_inputs=False" in source, str(path.relative_to(ROOT))
 
 
-def test_python_image_only_help_exposes_stream_options_for_parser_compatibility():
-    """Embedding/ReID Python -h should parse stream flags and reject them at runtime."""
+def test_python_image_only_help_hides_stream_options():
+    """Embedding/ReID Python -h must NOT expose stream flags.
+
+    Image-only wrappers build their parser with ``include_stream_inputs=False``,
+    so ``--video`` / ``--camera`` / ``--rtsp`` are never registered: they are
+    absent from ``--help`` and ``--image`` remains available.
+    """
     scripts = [
         "src/python_example/embedding/arcface_mobilefacenet/arcface_mobilefacenet_sync.py",
         "src/python_example/reid/casvit_t/casvit_t_sync.py",
@@ -76,12 +81,18 @@ def test_python_image_only_help_exposes_stream_options_for_parser_compatibility(
             check=False,
         )
         assert result.returncode == 0, result.stderr
-        for expected in ["--video", "--camera", "--rtsp"]:
-            assert expected in result.stdout, f"{relpath} help does not expose {expected}"
+        assert "--image" in result.stdout, f"{relpath} help must expose --image"
+        for forbidden in ["--video", "--camera", "--rtsp"]:
+            assert forbidden not in result.stdout, f"{relpath} help still exposes {forbidden}"
 
 
-def test_python_image_only_stream_input_keeps_guidance_message():
-    """Image-only Python examples should reject stream input with actionable guidance."""
+def test_python_image_only_stream_input_rejected_by_argparse():
+    """Image-only Python examples must reject a ``--video`` flag at the CLI level.
+
+    Because the parser is built with ``include_stream_inputs=False``, ``--video``
+    is an unknown option: argparse exits with code 2 and reports
+    "unrecognized arguments" — inference is never reached.
+    """
     result = subprocess.run(
         [
             sys.executable,
@@ -98,9 +109,9 @@ def test_python_image_only_stream_input_keeps_guidance_message():
         check=False,
     )
 
-    assert result.returncode != 0
-    assert "Video/camera input requires a detection crop pipeline" in result.stderr
-    assert "--image" in result.stderr
+    assert result.returncode == 2, result.stderr
+    assert "unrecognized arguments" in result.stderr
+    assert "--video" in result.stderr
 
 
 class _ImageOnlyFactory:

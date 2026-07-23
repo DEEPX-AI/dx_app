@@ -16,6 +16,7 @@
 #include <iomanip>
 #include <cstdlib>
 #include <iostream>
+#include <map>
 #include <memory>
 #include <mutex>
 #include <opencv2/opencv.hpp>
@@ -31,6 +32,22 @@
 
 namespace dxapp {
 
+// Instance-segmentation frames carry a full set of per-instance masks, far
+// heavier than a detection/pose result. Cap the display/render queues much
+// tighter than the shared ASYNC_MAX_QUEUE_SIZE (100): if the renderer/display
+// lags, this bounds peak memory to ~= (queue depth) x (per-frame mask memory)
+// instead of letting up to 100 mask-laden frames accumulate (the runtime-
+// proportional peak growth observed with FastSAM). The producer (dxrt callback)
+// blocks on push() when full, applying natural backpressure onto inference.
+constexpr size_t SEG_ASYNC_MAX_QUEUE_SIZE = 8;
+
+// Pipeline depth for instance segmentation. Far shallower than the shared
+// ASYNC_BUFFER_SIZE (40): FastSAM runs ~10 FPS, so a 40-deep pipeline shows
+// frames ~4 s behind capture. A handful of in-flight inferences still keeps the
+// single NPU saturated (postprocess/render run on separate threads) while
+// keeping end-to-end latency low. Also shrinks the out-of-order window.
+constexpr size_t SEG_ASYNC_INFLIGHT = 4;
+
 struct AsyncInstanceSegDisplayArgs {
     std::shared_ptr<std::vector<InstanceSegmentationResult>> detections;
     std::shared_ptr<cv::Mat> original_frame;
@@ -40,6 +57,7 @@ struct AsyncInstanceSegDisplayArgs {
     double t_inference = 0.0;
     double t_postprocess = 0.0;
     PreprocessContext ctx;
+    uint64_t frame_index = 0;  // Monotonic submit order, for in-order display
     AsyncInstanceSegDisplayArgs() = default;
     AsyncInstanceSegDisplayArgs(const AsyncInstanceSegDisplayArgs&) = default;
     AsyncInstanceSegDisplayArgs& operator=(const AsyncInstanceSegDisplayArgs&) = default;
@@ -67,6 +85,7 @@ public:
             args.imageFilePath = dxapp::getDefaultSampleImage(factory_->getTaskType());
             std::cout << "[DXAPP] [INFO] No input specified. Using default sample: " << args.imageFilePath << std::endl;
         }
+        dxapp::resolveAndValidateModel(args.modelPath, argv[0]);
         validateArguments(args);
 
         std::vector<std::string> imageFiles;
@@ -112,6 +131,11 @@ public:
 
         size_t input_size = ie.GetInputSize();
         std::vector<std::vector<uint8_t>> input_buffers(ASYNC_BUFFER_SIZE, std::vector<uint8_t>(input_size));
+
+        // Shallow pipeline for heavy instance-seg: cut display latency (see
+        // SEG_ASYNC_INFLIGHT). input_buffers stays ASYNC_BUFFER_SIZE-wide; only
+        // SEG_ASYNC_INFLIGHT of them are ever live, so index reuse is safe.
+        metrics_.max_inflight = SEG_ASYNC_INFLIGHT;
 
         cv::VideoCapture video;
         cv::VideoWriter writer;
@@ -218,6 +242,7 @@ public:
             display_args.t_postprocess = t_postprocess;
             display_args.ctx = ud->ctx;
             display_args.save_path = std::move(ud->save_path);
+            display_args.frame_index = ud->frame_index;
             // --- Numerical verification dump (DXAPP_VERIFY=1) ---
             verify::dumpVerifyJson(*display_args.detections, model_path_,
                 "instance_segmentation", display_args.original_frame->rows, display_args.original_frame->cols);
@@ -260,6 +285,7 @@ public:
                 if (metrics_.inflight_current > metrics_.inflight_max) metrics_.inflight_max = metrics_.inflight_current;
             }
             static_cast<AsyncUserData*>(user_data)->submit_ts = std::chrono::high_resolution_clock::now();
+            static_cast<AsyncUserData*>(user_data)->frame_index = static_cast<uint64_t>(buffer_index);
             last_job_id = ie.RunAsync(buf.data(), user_data);
             buffer_index++;
             processCount++;
@@ -316,6 +342,7 @@ public:
                     if (metrics_.inflight_current > metrics_.inflight_max) metrics_.inflight_max = metrics_.inflight_current;
                 }
                 ud->submit_ts = std::chrono::high_resolution_clock::now();
+                ud->frame_index = static_cast<uint64_t>(buffer_index);
                 last_job_id = ie.RunAsync(buf.data(), static_cast<void*>(ud.release()));
                 buffer_index++;
                 processCount++;
@@ -407,8 +434,8 @@ private:
     std::atomic<bool> running_{true};
     bool window_shown_ = false;
     bool window_prop_supported_ = true;  // false if backend always returns -1
-    SafeQueue<AsyncInstanceSegDisplayArgs> display_queue_;
-    SafeQueue<cv::Mat> rendered_queue_;  // Rendered frames for main-thread display
+    SafeQueue<AsyncInstanceSegDisplayArgs> display_queue_{SEG_ASYNC_MAX_QUEUE_SIZE};
+    SafeQueue<cv::Mat> rendered_queue_{SEG_ASYNC_MAX_QUEUE_SIZE};  // Rendered frames for main-thread display
     AsyncProfilingMetrics metrics_;
 
     CommandLineArgs parseCommandLine(int argc, char* argv[]) {
@@ -437,19 +464,7 @@ private:
     }
 
     void validateArguments(const CommandLineArgs& args) {
-        if (args.modelPath.empty()) { dxapp::fatal_error("[DXAPP] [ERROR] Model path is required. Use -m or --model_path option.\n"
-                "        -> Download:  ./setup.sh --models <model_name>\n"
-                "        -> Or use:    ./run_demo.sh  (auto-downloads demo models)"); }
-        // Auto-download model if not found
-        if (!dxapp::fileExists(args.modelPath)) {
-            if (!dxapp::autoDownloadModel(args.modelPath)) {
-                std::string stem = fs::path(args.modelPath).stem().string();
-                dxapp::fatal_error("[DXAPP] [ERROR] Model file not found: " + args.modelPath + "\n"
-                    "        -> Download:  ./setup.sh --models " + stem + "\n"
-                    "        -> Or use:    ./run_demo.sh  (auto-downloads demo models)");
-            }
-            std::cout << "[DXAPP] [INFO] Model downloaded successfully: " << args.modelPath << std::endl;
-        }
+        // Model resolved/validated in Run() via dxapp::resolveAndValidateModel().
 
         int sourceCount = 0;
         if (!args.imageFilePath.empty()) sourceCount++;
@@ -457,14 +472,9 @@ private:
         if (args.cameraIndex >= 0) sourceCount++;
         if (!args.rtspUrl.empty()) sourceCount++;
         if (sourceCount != 1) { dxapp::fatal_error("[DXAPP] [ERROR] Please specify exactly one input source."); }
-        // Auto-download video if not found
-        if (!args.videoFile.empty() && !dxapp::fileExists(args.videoFile)) {
-            if (!dxapp::autoDownloadVideos() || !dxapp::fileExists(args.videoFile)) {
-                dxapp::fatal_error("[DXAPP] [ERROR] Video file not found: " + args.videoFile + "\n"
-                    "        -> Download videos: ./setup_sample_videos.sh");
-            }
-            std::cout << "[DXAPP] [INFO] Video downloaded successfully: " << args.videoFile << std::endl;
-        }
+        // Explicit input must exist (SDKREQ-529): wrong -v/-i errors out; no auto-download.
+        dxapp::requireInputExists(args.videoFile);
+        dxapp::requireInputExists(args.imageFilePath);
 
         // Validate that --video is not given an image file
         if (!args.videoFile.empty()) {
@@ -493,7 +503,7 @@ private:
         } else if (fs::is_regular_file(imageFilePath)) {
             imageFiles.push_back(imageFilePath);
             if (loopTest == -1) loopTest = 1;
-        } else { dxapp::fatal_error("[DXAPP] [ERROR] Invalid image path."); }
+        } else { dxapp::fatal_error("[DXAPP] [ERROR] Input file not found: " + imageFilePath); }
         return {imageFiles, loopTest};
     }
 
@@ -506,10 +516,10 @@ private:
 
     void displayThread(IVisualizer<InstanceSegmentationResult>& visualizer, bool no_display,
                        bool save_on, cv::VideoWriter& writer) {
-        while (running_) {
-            AsyncInstanceSegDisplayArgs args;
-            if (!display_queue_.try_pop(args, std::chrono::milliseconds(100))) continue;
-            if (!args.original_frame || args.original_frame->empty()) continue;
+        // Render + save + hand one frame to the main-thread display. Extracted so
+        // the reorder buffer below can emit frames strictly in submit order.
+        auto renderArgs = [&](AsyncInstanceSegDisplayArgs& args) {
+            if (!args.original_frame || args.original_frame->empty()) return;
             auto t_render_start = std::chrono::high_resolution_clock::now();
             cv::Mat result_frame = args.original_frame->clone();
             if (args.detections) result_frame = visualizer.draw(result_frame, *args.detections, args.ctx);
@@ -531,7 +541,41 @@ private:
             if (!no_display && !result_frame.empty()) {
                 rendered_queue_.push(result_frame.clone());
             }
+        };
+
+        // In-order display: async callbacks may complete out of submission order
+        // (postprocess runs in the dxrt callback thread, so a heavy frame can
+        // finish after a lighter successor). Buffer by frame_index and emit only
+        // the next expected index so the video never jumps back and forth. The
+        // size cap force-flushes the lowest buffered frame if some index never
+        // arrives (shutdown-timing edge), preventing a permanent stall. Every
+        // submitted frame yields exactly one display item, so in steady state the
+        // buffer holds fewer than SEG_ASYNC_INFLIGHT entries.
+        std::map<uint64_t, AsyncInstanceSegDisplayArgs> reorder;
+        uint64_t next_index = 0;
+        bool have_next = false;
+        const size_t reorder_cap = SEG_ASYNC_INFLIGHT * 2;
+
+        while (running_) {
+            AsyncInstanceSegDisplayArgs args;
+            if (!display_queue_.try_pop(args, std::chrono::milliseconds(100))) continue;
+            if (!have_next) { next_index = args.frame_index; have_next = true; }
+            reorder.emplace(args.frame_index, std::move(args));
+
+            while (!reorder.empty()) {
+                auto it = reorder.begin();
+                if (it->first == next_index || reorder.size() > reorder_cap) {
+                    renderArgs(it->second);
+                    next_index = it->first + 1;
+                    reorder.erase(it);
+                } else {
+                    break;
+                }
+            }
         }
+
+        // Drain any frames still buffered at shutdown, in submit order.
+        for (auto& kv : reorder) renderArgs(kv.second);
     }
 
     /** Poll rendered_queue_ and display on main thread. Returns false if user requested quit. */

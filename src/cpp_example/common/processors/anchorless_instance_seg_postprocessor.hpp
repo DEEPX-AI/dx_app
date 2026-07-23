@@ -157,6 +157,16 @@ class YOLOv8SegPostProcess {
     std::vector<YOLOv8SegResult> postprocess(const dxrt::TensorPtrs& outputs);
 
     /**
+     * @brief Decode detections (boxes, scores, classes, mask coefficients) from
+     *        already-aligned outputs WITHOUT materialising per-instance masks.
+     * @param aligned_outputs Aligned output tensors (see align_tensors()).
+     * @return Detections with seg_mask_coef populated but empty .mask.
+     * @note Used by the ROI-mask postprocessor path to avoid allocating a
+     *       full-frame float mask per instance (peak-memory hotspot).
+     */
+    std::vector<YOLOv8SegResult> decode_detections(const dxrt::TensorPtrs& aligned_outputs) const;
+
+    /**
      * @brief Align tensor data for processing
      * @param outputs Vector of output tensors from the model
      * @return Aligned tensor pointers
@@ -261,18 +271,14 @@ inline YOLOv8SegPostProcess::YOLOv8SegPostProcess() {
     anchors_by_strides_ = {{8, {}}, {16, {}}, {32, {}}};
 }
 
-// Process model outputs
-inline std::vector<YOLOv8SegResult> YOLOv8SegPostProcess::postprocess(const dxrt::TensorPtrs& outputs) {
-    dxrt::TensorPtrs aligned_outputs;
-    if (!is_ort_configured_)
-        aligned_outputs = align_tensors(outputs);
-    else
-        aligned_outputs = outputs;
+// Decode detections only (no mask materialisation)
+inline std::vector<YOLOv8SegResult> YOLOv8SegPostProcess::decode_detections(
+    const dxrt::TensorPtrs& aligned_outputs) const {
     if (aligned_outputs.empty()) {
         std::ostringstream msg;
-        msg << "[DXAPP] [ERROR] YOLOv8SegPostProcess::postprocess - Aligned outputs are empty.\n"
+        msg << "[DXAPP] [ERROR] YOLOv8SegPostProcess::decode_detections - Aligned outputs are empty.\n"
             << "  Unexpected shape\n";
-        msg << postprocess_utils::format_tensor_shapes(outputs);
+        msg << postprocess_utils::format_tensor_shapes(aligned_outputs);
         msg << ", Expected (1, " << (4 + num_classes_ + num_mask_coefs_) << ", N) and (1, "
             << num_mask_coefs_ << ", H, W).\n"
             << "Please re-compile the model with the correct output configuration.\n";
@@ -292,6 +298,18 @@ inline std::vector<YOLOv8SegResult> YOLOv8SegPostProcess::postprocess(const dxrt
         detections = decoding_cpu_outputs(aligned_outputs);
         detections = apply_nms(detections);
     }
+    return detections;
+}
+
+// Process model outputs
+inline std::vector<YOLOv8SegResult> YOLOv8SegPostProcess::postprocess(const dxrt::TensorPtrs& outputs) {
+    dxrt::TensorPtrs aligned_outputs;
+    if (!is_ort_configured_)
+        aligned_outputs = align_tensors(outputs);
+    else
+        aligned_outputs = outputs;
+
+    auto detections = decode_detections(aligned_outputs);
 
     // Process segmentation masks after detection filtering
     decoding_mask_cpu_outputs(aligned_outputs, detections);

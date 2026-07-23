@@ -4,6 +4,7 @@
 #include <dxrt/dxrt_api.h>
 
 #include <cmath>
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -20,7 +21,7 @@ struct YOLOv8SegResult {
 
     // Segmentation data
     std::vector<float> seg_mask_coef{};  // Segmentation mask coefficients (32 values)
-    std::vector<float> mask{};           // Binary segmentation mask (flattened H*W)
+    std::vector<uint8_t> mask{};         // Binary segmentation mask (flattened H*W), 0/255
     int mask_height{0};                  // Height of the segmentation mask
     int mask_width{0};                   // Width of the segmentation mask
 
@@ -84,7 +85,7 @@ class YOLOv8SegPostProcess {
                                    std::vector<YOLOv8SegResult>& detections);
 
     // Segmentation helper methods
-    std::vector<std::vector<float>> process_segmentation_masks(
+    std::vector<std::vector<uint8_t>> process_segmentation_masks(
         const float* mask_output, const std::vector<YOLOv8SegResult>& detections, int mask_height,
         int mask_width) const;
     

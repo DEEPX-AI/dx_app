@@ -1,7 +1,8 @@
 """
 Basic CLI tests for Python inference scripts.
 
-Tests invalid arguments, missing required args, and import-based argument
+Tests invalid arguments, explicit-missing-model handling (SDKREQ-529: --model is
+optional; omitting it uses the example default), and import-based argument
 parsing (--image, --video, --camera, --rtsp, --display / --no-display)
 without running actual inference.
 
@@ -65,15 +66,29 @@ def _run(cmd: List[str], timeout: int = 10) -> subprocess.CompletedProcess:
 
 @pytest.mark.cli
 @pytest.mark.parametrize("script", SCRIPT_PARAMS)
-def test_missing_required_args(script: Path):
-    """Running with no arguments should exit non-zero (--model is required)."""
+def test_explicit_missing_model_fails(script: Path):
+    """An explicit but nonexistent --model must exit non-zero (SDKREQ-529).
+
+    NOTE: --model is now OPTIONAL. Omitting it resolves this example's default
+    model from config/model_registry.json (and auto-downloads it), so "no
+    arguments" is a valid default run — it is no longer an error case. Instead we
+    verify the policy that matters: an explicitly-given path that does not exist
+    fails immediately and does NOT trigger the auto-downloader.
+    """
     try:
-        result = _run([sys.executable, str(script)])
+        result = _run([sys.executable, str(script),
+                       "--model", "__nonexistent__.dxnn",
+                       "--image", "sample/img/sample_street.jpg"])
     except subprocess.TimeoutExpired:
-        pytest.fail(f"{script.name} (no args) timed out")
+        pytest.fail(f"{script.name} (explicit bad --model) timed out")
 
     assert result.returncode != 0, (
-        f"{script.name} should fail with no arguments but returned {result.returncode}"
+        f"{script.name} should fail with an explicit nonexistent --model "
+        f"but returned {result.returncode}"
+    )
+    # An explicit -m path is a contract: no auto-download fallback.
+    assert "attempting auto-download" not in result.stderr, (
+        f"{script.name} ran the auto-downloader for an explicit --model path"
     )
 
 

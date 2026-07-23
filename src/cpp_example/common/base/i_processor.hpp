@@ -227,6 +227,7 @@ struct InstanceSegmentationResult {
     int class_id{0};
     std::string class_name;
     cv::Mat mask;  // Instance mask
+    int track_id{-1};  // stable multi-frame id assigned by a tracker (-1 = untracked)
 
     InstanceSegmentationResult() = default;
     ~InstanceSegmentationResult() = default;

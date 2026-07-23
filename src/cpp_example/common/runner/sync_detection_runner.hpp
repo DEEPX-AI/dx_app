@@ -180,6 +180,9 @@ public:
             args.imageFilePath = dxapp::getDefaultSampleImage(factory_->getTaskType());
             std::cout << "[DXAPP] [INFO] No input specified. Using default sample: " << args.imageFilePath << std::endl;
         }
+        // Resolve/validate model (SDKREQ-529): -m omitted → example default (auto-dl);
+        // -m given but missing → immediate error (no auto-download).
+        dxapp::resolveAndValidateModel(args.modelPath, argv[0]);
         validateArguments(args);
 
         // Handle image file or directory
@@ -462,24 +465,7 @@ private:
     }
 
     void validateArguments(const CommandLineArgs& args) {
-        if (args.modelPath.empty()) {
-            dxapp::fatal_error("[DXAPP] [ERROR] Model path is required. Use -m or --model_path option.\n"
-                "        -> Download:  ./setup.sh --models <model_name>\n"
-                "        -> Or use:    ./run_demo.sh  (auto-downloads demo models)\n"
-                "Use -h or --help for usage information.");
-        }
-
-        // Auto-download model if not found
-        if (!dxapp::fileExists(args.modelPath)) {
-            if (!dxapp::autoDownloadModel(args.modelPath)) {
-                std::string stem = fs::path(args.modelPath).stem().string();
-                dxapp::fatal_error("[DXAPP] [ERROR] Model file not found: " + args.modelPath + "\n"
-                    "        -> Download:  ./setup.sh --models " + stem + "\n"
-                    "        -> Or use:    ./run_demo.sh  (auto-downloads demo models)");
-            }
-            std::cout << "[DXAPP] [INFO] Model downloaded successfully: " << args.modelPath << std::endl;
-        }
-
+        // Model is resolved/validated in Run() via dxapp::resolveAndValidateModel().
         int sourceCount = 0;
         if (!args.imageFilePath.empty()) sourceCount++;
         if (!args.videoFile.empty()) sourceCount++;
@@ -490,14 +476,10 @@ private:
             dxapp::fatal_error("[DXAPP] [ERROR] Please specify exactly one input source: image (-i), video (-v), "
                               "camera (-c), or RTSP (-r).\nUse -h or --help for usage information.");
         }
-        // Auto-download video if not found
-        if (!args.videoFile.empty() && !dxapp::fileExists(args.videoFile)) {
-            if (!dxapp::autoDownloadVideos() || !dxapp::fileExists(args.videoFile)) {
-                dxapp::fatal_error("[DXAPP] [ERROR] Video file not found: " + args.videoFile + "\n"
-                    "        -> Download videos: ./setup_sample_videos.sh");
-            }
-            std::cout << "[DXAPP] [INFO] Video downloaded successfully: " << args.videoFile << std::endl;
-        }
+        // Explicit input must exist (SDKREQ-529): a wrong -v/-i path errors out
+        // immediately — no default fallback, no auto-download.
+        dxapp::requireInputExists(args.videoFile);
+        dxapp::requireInputExists(args.imageFilePath);
 
         // Validate that --video is not given an image file
         if (!args.videoFile.empty()) {
@@ -536,7 +518,7 @@ private:
             imageFiles.push_back(imageFilePath);
             if (loopTest == -1) loopTest = 1;
         } else {
-            dxapp::fatal_error("[DXAPP] [ERROR] Invalid image path: ");
+            dxapp::fatal_error("[DXAPP] [ERROR] Input file not found: " + imageFilePath);
         }
 
         return {imageFiles, loopTest};

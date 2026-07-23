@@ -66,25 +66,34 @@ def parse_common_args(
         description=description, allow_abbrev=False)
 
     # ---- Model path ----
+    # Optional (SDKREQ-529): when omitted, the runner resolves this example's
+    # default model from config/model_registry.json and auto-downloads it.
+    # An explicitly-given path that is missing errors out without auto-download.
     parser.add_argument(
-        "--model", "-m", type=str, required=True, help="Model path (.dxnn)"
+        "--model", "-m", type=str, default=None,
+        help="Model path (.dxnn). If omitted, use this example's default model."
     )
 
     # ---- Input source (mutually exclusive) ----
+    # Image-only tasks (embedding, ReID, …) pass ``include_stream_inputs=False``
+    # so ``--video`` / ``--camera`` / ``--rtsp`` are NOT registered at all: they
+    # are absent from ``--help`` and argparse rejects them with
+    # "unrecognized arguments" instead of accepting-then-refusing at runtime.
     input_group = parser.add_mutually_exclusive_group(required=False)
     input_group.add_argument(
         "--image", "-i", type=str, default=None,
         help="Input image path or directory (default: task-appropriate sample)"
     )
-    input_group.add_argument(
-        "--video", "-v", type=str, default=None, help="Input video path"
-    )
-    input_group.add_argument(
-        "--camera", "-c", type=int, default=None, help="Camera device ID (e.g. 0)"
-    )
-    input_group.add_argument(
-        "--rtsp", "-r", type=str, default=None, help="RTSP stream URL"
-    )
+    if include_stream_inputs:
+        input_group.add_argument(
+            "--video", "-v", type=str, default=None, help="Input video path"
+        )
+        input_group.add_argument(
+            "--camera", "-c", type=int, default=None, help="Camera device ID (e.g. 0)"
+        )
+        input_group.add_argument(
+            "--rtsp", "-r", type=str, default=None, help="RTSP stream URL"
+        )
 
     # ---- Display ----
     parser.add_argument(

@@ -197,13 +197,10 @@ py::tuple yolov8seg_results_to_numpy(const std::vector<YOLOv8SegResult>& results
 
         if (!result.mask.empty() && result.mask_height > 0 && result.mask_width > 0 &&
             static_cast<int>(result.mask.size()) == result.mask_height * result.mask_width) {
+            // mask is already 0/255 uint8 (binarized in process_segmentation_masks).
             for (int h = 0; h < result.mask_height; ++h) {
                 for (int w = 0; w < result.mask_width; ++w) {
-                    float v = result.mask[h * result.mask_width + w];
-                    if (v < 0.0f) v = 0.0f;
-                    else if (v > 1.0f) v = 1.0f;
-                    uint8_t mv = static_cast<uint8_t>(v * 255.0f);
-                    mask_buf(i, h, w) = mv;
+                    mask_buf(i, h, w) = result.mask[h * result.mask_width + w];
                 }
             }
         } else {

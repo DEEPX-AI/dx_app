@@ -2293,6 +2293,21 @@
     "supported": true
   },
   {
+    "model_name": "deit_base384_distilled",
+    "dxnn_file": "deit-b_384x384.dxnn",
+    "original_name": "DeiTBase384",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 384,
+    "input_height": 384,
+    "config": {
+      "top_k": 5
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
     "model_name": "densenet169",
     "dxnn_file": "densenet169_224x224.dxnn",
     "original_name": "DenseNet169",
@@ -2333,8 +2348,7 @@
     "input_height": 512,
     "config": {},
     "source": "auto_classify",
-    "supported": false,
-    "failure_reason": "Not supported on the current device configuration"
+    "supported": true
   },
   {
     "model_name": "dncnn_gray_blind",
@@ -3635,8 +3649,7 @@
       "nms_threshold": 0.45
     },
     "source": "auto_classify",
-    "supported": false,
-    "failure_reason": "Inference hang - device compatibility issue"
+    "supported": true
   },
   {
     "model_name": "yolov5l6",
@@ -4207,7 +4220,7 @@
     "supported": true
   },
   {
-    "model_name": "efficientnet_b7_1",
+    "model_name": "efficientnetb7",
     "dxnn_file": "efficientnet-b7_600x600.dxnn",
     "original_name": "EfficientNetB7-1",
     "csv_task": "IC",
@@ -4222,7 +4235,7 @@
     "supported": true
   },
   {
-    "model_name": "efficientnet_v2m_1",
+    "model_name": "efficientnetv2m",
     "dxnn_file": "efficientnetv2-m_480x480.dxnn",
     "original_name": "EfficientNetV2M-1",
     "csv_task": "IC",
@@ -4458,32 +4471,6 @@
     "config": {
       "top_k": 5
     },
-    "source": "manual",
-    "supported": true
-  },
-  {
-    "model_name": "casvit_m_1",
-    "dxnn_file": "casvit-m_224x224.dxnn",
-    "original_name": "casvit_m-1",
-    "csv_task": "REID",
-    "add_model_task": "reid",
-    "postprocessor": "arcface",
-    "input_width": 224,
-    "input_height": 224,
-    "config": {},
-    "source": "manual",
-    "supported": true
-  },
-  {
-    "model_name": "casvit_t_1",
-    "dxnn_file": "casvit-t_224x224.dxnn",
-    "original_name": "casvit_t-1",
-    "csv_task": "REID",
-    "add_model_task": "reid",
-    "postprocessor": "arcface",
-    "input_width": 224,
-    "input_height": 224,
-    "config": {},
     "source": "manual",
     "supported": true
   },
@@ -4827,7 +4814,7 @@
     "supported": true
   },
   {
-    "model_name": "yolov5pose_1",
+    "model_name": "yolov5_pose",
     "dxnn_file": "yolov5-s6-pose_640x640.dxnn",
     "original_name": "YOLOV5Pose-1",
     "csv_task": "POSE",
@@ -4857,7 +4844,7 @@
     "supported": true
   },
   {
-    "model_name": "yolo11_m_pose_1",
+    "model_name": "yolo11m_pose",
     "dxnn_file": "yolo11-m-pose_640x640.dxnn",
     "original_name": "yolo11-m-pose-1",
     "csv_task": "POSE",
@@ -4874,7 +4861,7 @@
     "supported": true
   },
   {
-    "model_name": "yolo11_n_pose_1",
+    "model_name": "yolo11n_pose",
     "dxnn_file": "yolo11-n-pose_640x640.dxnn",
     "original_name": "yolo11-n-pose-1",
     "csv_task": "POSE",
@@ -4891,7 +4878,7 @@
     "supported": true
   },
   {
-    "model_name": "yolo11_s_pose_1",
+    "model_name": "yolo11s_pose",
     "dxnn_file": "yolo11-s-pose_640x640.dxnn",
     "original_name": "yolo11-s-pose-1",
     "csv_task": "POSE",
@@ -4908,7 +4895,7 @@
     "supported": true
   },
   {
-    "model_name": "yolo11_x_pose_1",
+    "model_name": "yolo11x_pose",
     "dxnn_file": "yolo11-x-pose_640x640.dxnn",
     "original_name": "yolo11-x-pose-1",
     "csv_task": "POSE",
@@ -4925,7 +4912,7 @@
     "supported": true
   },
   {
-    "model_name": "yolov8_l_pose_1",
+    "model_name": "yolov8l_pose",
     "dxnn_file": "yolov8-l-pose_640x640.dxnn",
     "original_name": "yolov8-l-pose-1",
     "csv_task": "POSE",
@@ -4942,7 +4929,7 @@
     "supported": true
   },
   {
-    "model_name": "yolov8_n_pose_1",
+    "model_name": "yolov8n_pose",
     "dxnn_file": "yolov8-n-pose_640x640.dxnn",
     "original_name": "yolov8-n-pose-1",
     "csv_task": "POSE",
@@ -4959,7 +4946,7 @@
     "supported": true
   },
   {
-    "model_name": "yolov8_x_pose_1",
+    "model_name": "yolov8x_pose",
     "dxnn_file": "yolov8-x-pose_640x640.dxnn",
     "original_name": "yolov8-x-pose-1",
     "csv_task": "POSE",
@@ -4976,7 +4963,7 @@
     "supported": true
   },
   {
-    "model_name": "yolo11_l_seg_1",
+    "model_name": "yolo11l_seg",
     "dxnn_file": "yolo11-l-seg_640x640.dxnn",
     "original_name": "yolo11-l-seg-1",
     "csv_task": "ISEG",
@@ -4993,7 +4980,7 @@
     "supported": true
   },
   {
-    "model_name": "yolo11_m_seg_1",
+    "model_name": "yolo11m_seg",
     "dxnn_file": "yolo11-m-seg_640x640.dxnn",
     "original_name": "yolo11-m-seg-1",
     "csv_task": "ISEG",
@@ -5010,7 +4997,7 @@
     "supported": true
   },
   {
-    "model_name": "yolo11_n_seg_1",
+    "model_name": "yolo11n_seg",
     "dxnn_file": "yolo11-n-seg_640x640.dxnn",
     "original_name": "yolo11-n-seg-1",
     "csv_task": "ISEG",
@@ -5027,7 +5014,7 @@
     "supported": true
   },
   {
-    "model_name": "yolo11_s_seg_1",
+    "model_name": "yolo11s_seg",
     "dxnn_file": "yolo11-s-seg_640x640.dxnn",
     "original_name": "yolo11-s-seg-1",
     "csv_task": "ISEG",
@@ -5044,7 +5031,7 @@
     "supported": true
   },
   {
-    "model_name": "yolo11_x_seg_1",
+    "model_name": "yolo11x_seg",
     "dxnn_file": "yolo11-x-seg_640x640.dxnn",
     "original_name": "yolo11-x-seg-1",
     "csv_task": "ISEG",
@@ -5061,7 +5048,7 @@
     "supported": true
   },
   {
-    "model_name": "yolov5_x_seg_1",
+    "model_name": "yolov5x_seg",
     "dxnn_file": "yolov5-x-seg_640x640.dxnn",
     "original_name": "yolov5-x-seg-1",
     "csv_task": "ISEG",
@@ -5078,7 +5065,7 @@
     "supported": true
   },
   {
-    "model_name": "yolov8_l_seg_1",
+    "model_name": "yolov8l_seg",
     "dxnn_file": "yolov8-l-seg_640x640.dxnn",
     "original_name": "yolov8-l-seg-1",
     "csv_task": "ISEG",
@@ -5095,7 +5082,7 @@
     "supported": true
   },
   {
-    "model_name": "yolov8_x_seg_1",
+    "model_name": "yolov8x_seg",
     "dxnn_file": "yolov8-x-seg_640x640.dxnn",
     "original_name": "yolov8-x-seg-1",
     "csv_task": "ISEG",
@@ -5199,7 +5186,7 @@
     "supported": true
   },
   {
-    "model_name": "real_esrgan_x2_1",
+    "model_name": "realesrgan_x2",
     "dxnn_file": "realesrgan-x2_192x192.dxnn",
     "original_name": "RealESRGAN_x2-1",
     "csv_task": "SR",
@@ -5212,7 +5199,7 @@
     "supported": true
   },
   {
-    "model_name": "real_esrgan_x4_1",
+    "model_name": "realesrgan_x4",
     "dxnn_file": "realesrgan-x4_192x192.dxnn",
     "original_name": "RealESRGAN_x4-1",
     "csv_task": "SR",
@@ -5225,7 +5212,7 @@
     "supported": true
   },
   {
-    "model_name": "real_esrgan_x8_1",
+    "model_name": "realesrgan_x8",
     "dxnn_file": "realesrgan-x8_192x192.dxnn",
     "original_name": "RealESRGAN_x8-1",
     "csv_task": "SR",

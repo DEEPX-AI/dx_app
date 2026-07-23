@@ -72,31 +72,75 @@ class FastInstanceSegPostprocessor(InstanceSegPostprocessor):
             masks[i, :, x2:] = 0
         return masks
 
-    def _crop_mask_to_original(self, mask_proto, ctx):
-        """Map a prototype-resolution mask directly to the original image size."""
+    def _crop_mask_to_original(self, mask_proto, ctx, box=None):
+        """Map a prototype-resolution mask to the original image size.
+
+        When the original-space ``box`` is provided (the normal path from
+        ``process``), resize only the bbox ROI — crop the prototype mask to the
+        box, resize that small region **directly** to the box's original size at
+        its aligned origin, and paste into a zero canvas. This avoids the full
+        ``(original_h x original_w)`` resize per instance. Aligning the resized
+        crop to the box's true original span (rather than squishing an expanded
+        proto crop into the exact box) keeps the mask boundary faithful to the
+        standard path (measured mask IoU ~0.99 vs the full-resolution path).
+
+        Falls back to the whole-content-region resize when ``box`` is None.
+        """
         mh, mw = mask_proto.shape
-        ratio_w = mw / max(self.input_width, 1)
+        ratio_w = mw / max(self.input_width, 1)   # proto px per input px
         ratio_h = mh / max(self.input_height, 1)
-
         gain = max(ctx.scale, 1e-6)
-        unpad_w = int(round(ctx.original_width * gain))
-        unpad_h = int(round(ctx.original_height * gain))
+        pad_x, pad_y = ctx.pad_x, ctx.pad_y
+        ow, oh = ctx.original_width, ctx.original_height
 
-        # Letterbox-padded content region, expressed in prototype coordinates.
-        left = int(np.floor(ctx.pad_x * ratio_w))
-        top = int(np.floor(ctx.pad_y * ratio_h))
-        right = int(np.ceil((ctx.pad_x + unpad_w) * ratio_w))
-        bottom = int(np.ceil((ctx.pad_y + unpad_h) * ratio_h))
-        left, top = max(0, left), max(0, top)
-        right, bottom = min(mw, right), min(mh, bottom)
+        if box is None:
+            # Legacy path: resize the padded content region to the full image.
+            unpad_w = int(round(ow * gain))
+            unpad_h = int(round(oh * gain))
+            left = max(0, int(np.floor(pad_x * ratio_w)))
+            top = max(0, int(np.floor(pad_y * ratio_h)))
+            right = min(mw, int(np.ceil((pad_x + unpad_w) * ratio_w)))
+            bottom = min(mh, int(np.ceil((pad_y + unpad_h) * ratio_h)))
+            crop = mask_proto[top:bottom, left:right]
+            if crop.size == 0:
+                return np.zeros((oh, ow), dtype=np.float32)
+            return cv2.resize(crop, (ow, oh), interpolation=cv2.INTER_LINEAR)
 
-        crop = mask_proto[top:bottom, left:right]
-        if crop.size == 0:
-            return np.zeros((ctx.original_height, ctx.original_width), dtype=np.float32)
-        return cv2.resize(
-            crop, (ctx.original_width, ctx.original_height),
-            interpolation=cv2.INTER_LINEAR,
-        )
+        # --- box-ROI path -------------------------------------------------
+        out = np.zeros((oh, ow), dtype=np.float32)
+        ox1, oy1, ox2, oy2 = (int(box[0]), int(box[1]), int(box[2]), int(box[3]))
+        ox1 = max(0, min(ox1, ow)); ox2 = max(0, min(ox2, ow))
+        oy1 = max(0, min(oy1, oh)); oy2 = max(0, min(oy2, oh))
+        if ox2 <= ox1 or oy2 <= oy1:
+            return out
+
+        # original box -> input space -> prototype crop indices (expanded)
+        px1 = max(0, int(np.floor((ox1 * gain + pad_x) * ratio_w)))
+        py1 = max(0, int(np.floor((oy1 * gain + pad_y) * ratio_h)))
+        px2 = min(mw, int(np.ceil((ox2 * gain + pad_x) * ratio_w)))
+        py2 = min(mh, int(np.ceil((oy2 * gain + pad_y) * ratio_h)))
+        if px2 <= px1 or py2 <= py1:
+            return out
+        crop = mask_proto[py1:py2, px1:px2]
+
+        # Original-space span the crop covers, and its size (aligned resize).
+        cx0 = (px1 / ratio_w - pad_x) / gain
+        cy0 = (py1 / ratio_h - pad_y) / gain
+        dst_w = max(1, int(round((px2 - px1) / ratio_w / gain)))
+        dst_h = max(1, int(round((py2 - py1) / ratio_h / gain)))
+        resized = cv2.resize(crop, (dst_w, dst_h), interpolation=cv2.INTER_LINEAR)
+
+        # The resized crop lands at original origin (dx0, dy0) spanning
+        # dst_w x dst_h. Write directly into `out` only where that paste
+        # rectangle intersects the bbox — no full-frame scratch canvas.
+        dx0, dy0 = int(round(cx0)), int(round(cy0))
+        ix_a = max(dx0, ox1); ix_b = min(dx0 + dst_w, ox2)
+        iy_a = max(dy0, oy1); iy_b = min(dy0 + dst_h, oy2)
+        if ix_b <= ix_a or iy_b <= iy_a:
+            return out
+        out[iy_a:iy_b, ix_a:ix_b] = resized[iy_a - dy0:iy_b - dy0,
+                                             ix_a - dx0:ix_b - dx0]
+        return out
 
     def get_model_name(self) -> str:
         return "fast_instance_seg"
