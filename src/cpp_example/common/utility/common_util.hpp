@@ -540,6 +540,130 @@ inline bool autoDownloadVideos() {
     return ret == 0;
 }
 
+/**
+ * @brief Derive the example key from argv[0] by stripping the variant suffix.
+ *
+ * The build names each binary "<example>_sync" / "<example>_async"
+ * (optionally with a "_cpp_postprocess" tail), and the example directory name
+ * matches the "model_name" key in config/model_registry.json. So the basename
+ * with its variant suffix removed is the registry lookup key.
+ */
+inline std::string exampleKeyFromArgv0(const std::string& argv0) {
+    std::string name = fs::path(argv0).filename().string();
+    const char* suffixes[] = {"_async_cpp_postprocess", "_sync_cpp_postprocess",
+                              "_cpp_postprocess", "_async", "_sync"};
+    for (const char* suf : suffixes) {
+        size_t slen = std::strlen(suf);
+        if (name.size() > slen && name.compare(name.size() - slen, slen, suf) == 0) {
+            return name.substr(0, name.size() - slen);
+        }
+    }
+    return name;
+}
+
+/**
+ * @brief Resolve this example's default .dxnn path from model_registry.json.
+ *
+ * Looks up the example key (from argv[0]) against the "model_name" entries in
+ * config/model_registry.json and returns "assets/models/<dxnn_file>".
+ * Returns "" when the key is not found (caller then errors out).
+ * Uses a lightweight scan (consistent with ModelConfig) — no JSON dependency.
+ */
+inline std::string resolveDefaultModelPath(const std::string& argv0) {
+    std::string key = exampleKeyFromArgv0(argv0);
+    if (key.empty()) return "";
+    fs::path reg = fs::path(PROJECT_ROOT_DIR) / "config" / "model_registry.json";
+    std::ifstream f(reg);
+    if (!f.is_open()) return "";
+    std::string content((std::istreambuf_iterator<char>(f)),
+                        std::istreambuf_iterator<char>());
+    // Match "model_name": "<key>" (with or without a space after the colon).
+    size_t pos = content.find("\"model_name\": \"" + key + "\"");
+    if (pos == std::string::npos) pos = content.find("\"model_name\":\"" + key + "\"");
+    if (pos == std::string::npos) return "";
+    size_t dpos = content.find("\"dxnn_file\"", pos);
+    if (dpos == std::string::npos) return "";
+    size_t q1 = content.find('"', content.find(':', dpos) + 1);
+    if (q1 == std::string::npos) return "";
+    size_t q2 = content.find('"', q1 + 1);
+    if (q2 == std::string::npos) return "";
+    std::string dxnn = content.substr(q1 + 1, q2 - q1 - 1);
+    if (dxnn.empty()) return "";
+    return "assets/models/" + dxnn;
+}
+
+/**
+ * @brief Resolve and validate the model path (SDKREQ-529 policy).
+ *
+ * - `-m` omitted  : resolve this example's default model from the registry and
+ *                   auto-download it if missing (convenience path).
+ * - `-m <path>`   : an explicit path is a contract — if the file is missing we
+ *                   error out immediately and do NOT run the auto-downloader.
+ *
+ * @param modelPath in/out — filled with the resolved default when `-m` omitted.
+ * @param argv0     program path (argv[0]) used to resolve the default.
+ */
+inline void resolveAndValidateModel(std::string& modelPath, const std::string& argv0) {
+    if (modelPath.empty()) {
+        std::string def = resolveDefaultModelPath(argv0);
+        if (def.empty()) {
+            fatal_error("[DXAPP] [ERROR] Model path is required. Use -m or --model_path option.\n"
+                "        -> Download:  ./setup.sh --models <model_name>\n"
+                "        -> Or use:    ./run_demo.sh  (auto-downloads demo models)\n"
+                "Use -h or --help for usage information.");
+        }
+        modelPath = def;
+        std::cout << "[DXAPP] [INFO] No model specified (-m). Using example default: "
+                  << modelPath << std::endl;
+        if (!fileExists(modelPath)) {
+            if (!autoDownloadModel(modelPath)) {
+                std::string stem = fs::path(modelPath).stem().string();
+                fatal_error("[DXAPP] [ERROR] Model file not found: " + modelPath + "\n"
+                    "        -> Download:  ./setup.sh --models " + stem + "\n"
+                    "        -> Or use:    ./run_demo.sh  (auto-downloads demo models)");
+            }
+            std::cout << "[DXAPP] [INFO] Model downloaded successfully: " << modelPath << std::endl;
+        }
+        return;
+    }
+    // Explicit -m: no auto-download — a wrong path is a user error.
+    if (!fileExists(modelPath)) {
+        fatal_error("[DXAPP] [ERROR] Model file not found: " + modelPath + "\n"
+            "        -> Check the path, or omit -m to use this example's default model.\n"
+            "        -> Download:  ./setup.sh --models " + fs::path(modelPath).stem().string());
+    }
+}
+
+/**
+ * @brief Require an explicitly-given input file to exist (SDKREQ-529 policy).
+ *
+ * A wrong `-i`/`-v` path errors out immediately — we never silently fall back
+ * to a default sample. (An empty path means "no input given" and is handled by
+ * the default-sample logic before this call.)
+ */
+inline void requireInputExists(const std::string& path) {
+    if (!path.empty() && !fileExists(path) && !fs::is_directory(path)) {
+        fatal_error("[DXAPP] [ERROR] Input file not found: " + path);
+    }
+}
+
+/**
+ * @brief Require a LiDAR point-cloud input to be a .bin file (SDKREQ-529 policy).
+ *
+ * 3D-detection examples consume raw point clouds; an existing-but-wrong-format
+ * file (e.g. a .jpg) must error rather than be fed to the model. Accepts a
+ * directory (batch of .bin files) — per-file extensions are checked on read.
+ */
+inline void requireBinInput(const std::string& path) {
+    if (path.empty() || fs::is_directory(path)) return;
+    std::string ext = fs::path(path).extension().string();
+    std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+    if (ext != ".bin") {
+        fatal_error("[DXAPP] [ERROR] This example requires a LiDAR point-cloud .bin input "
+                    "(-i / --image_path). Got: " + path);
+    }
+}
+
 }  // namespace dxapp
 
 /**

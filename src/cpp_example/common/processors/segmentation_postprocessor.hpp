@@ -12,6 +12,7 @@
 
 #include "common/base/i_processor.hpp"
 #include "common/processors/result_converters.hpp"
+#include "common/processors/roi_instance_mask.hpp"
 #include "common_util.hpp"
 
 #include <set>
@@ -416,10 +417,60 @@ public:
 
     std::vector<InstanceSegmentationResult> process(const dxrt::TensorPtrs& outputs,
                                                     const PreprocessContext& ctx) override {
-        auto legacy_results = impl_.postprocess(outputs);
-        auto results = convertAllWith(legacy_results,
-            [](const YOLOv8SegResult& s) { return convertToInstanceSeg(s); });
-        detail::scaleInstanceSegResults(results, ctx);
+        std::vector<InstanceSegmentationResult> results;
+
+        // Align once, then decode detections WITHOUT materialising a full-frame
+        // float mask per instance. The old path built an input-resolution float
+        // mask in the impl AND resized every mask to the full original frame in
+        // scaleInstanceSegResults() — the multi-GB peak-memory hotspot for
+        // instance-heavy inputs (e.g. FastSAM 1024x1024).
+        dxrt::TensorPtrs aligned = impl_.get_is_ort_configured()
+                                       ? outputs : impl_.align_tensors(outputs);
+        if (aligned.size() < 2) return results;
+
+        auto detections = impl_.decode_detections(aligned);
+        if (detections.empty()) return results;
+
+        // Prototype masks: layout [1, C, H, W] (or [C, H, W]).
+        const auto& proto = aligned[1];
+        auto ps = proto->shape();
+        int proto_c = static_cast<int>(ps.size() == 4 ? ps[1] : ps[0]);
+        int proto_h = static_cast<int>(ps.size() == 4 ? ps[2] : ps[1]);
+        int proto_w = static_cast<int>(ps.size() == 4 ? ps[3] : ps[2]);
+        const float* proto_data = static_cast<const float*>(proto->data());
+
+        const int in_w = impl_.get_input_width();
+        const int in_h = impl_.get_input_height();
+
+        results.reserve(detections.size());
+        for (const auto& d : detections) {
+            if (d.box.size() < 4 || d.seg_mask_coef.size() != static_cast<size_t>(proto_c))
+                continue;
+
+            // Box is in model-input (letterboxed) coordinates.
+            const float x1 = d.box[0], y1 = d.box[1], x2 = d.box[2], y2 = d.box[3];
+
+            // Box-ROI mask: sigmoid(coefs . proto) + a single aligned resize over
+            // only the bbox region, directly to original resolution. Output is a
+            // CV_8UC1 mask zeroed outside the bbox — matching the YOLOv5-Seg path
+            // and what InstanceSegmentationVisualizer already expects.
+            cv::Mat binary_mask = roiInstanceMask(
+                d.seg_mask_coef, proto_data, proto_c, proto_h, proto_w,
+                x1, y1, x2, y2, in_w, in_h, ctx);
+
+            const float fx1 = std::max(0.0f, std::min((x1 - ctx.pad_x) / ctx.scale, static_cast<float>(ctx.original_width)));
+            const float fy1 = std::max(0.0f, std::min((y1 - ctx.pad_y) / ctx.scale, static_cast<float>(ctx.original_height)));
+            const float fx2 = std::max(0.0f, std::min((x2 - ctx.pad_x) / ctx.scale, static_cast<float>(ctx.original_width)));
+            const float fy2 = std::max(0.0f, std::min((y2 - ctx.pad_y) / ctx.scale, static_cast<float>(ctx.original_height)));
+
+            InstanceSegmentationResult seg;
+            seg.box = {fx1, fy1, fx2, fy2};
+            seg.confidence = d.confidence;
+            seg.class_id = d.class_id;
+            seg.class_name = d.class_name;
+            seg.mask = binary_mask;
+            results.push_back(std::move(seg));
+        }
         return results;
     }
 
@@ -531,42 +582,13 @@ public:
             float x2 = x1 + bw;
             float y2 = y1 + bh;
 
-            // Generate mask: coefs @ proto -> sigmoid
-            cv::Mat mask(proto_h, proto_w, CV_32FC1, cv::Scalar(0));
-            for (int ph = 0; ph < proto_h; ++ph) {
-                for (int pw = 0; pw < proto_w; ++pw) {
-                    float val = computeMaskDotProduct_(nms_mask_coefs[k], proto_data,
-                                                       proto_c, proto_h, proto_w, ph, pw);
-                    // Sigmoid activation
-                    mask.at<float>(ph, pw) = 1.0f / (1.0f + std::exp(-val));
-                }
-            }
-
-            // Resize mask to input size
-            cv::Mat scaled_mask;
-            cv::resize(mask, scaled_mask, cv::Size(input_width_, input_height_), 0, 0, cv::INTER_LINEAR);
-
-            // Crop to bbox
-            int bx1 = std::max(0, static_cast<int>(x1));
-            int by1 = std::max(0, static_cast<int>(y1));
-            int bx2 = std::min(input_width_, static_cast<int>(x2));
-            int by2 = std::min(input_height_, static_cast<int>(y2));
-            scaled_mask(cv::Rect(0, 0, scaled_mask.cols, by1)).setTo(0);
-            scaled_mask(cv::Rect(0, by2, scaled_mask.cols, scaled_mask.rows - by2)).setTo(0);
-            scaled_mask(cv::Rect(0, 0, bx1, scaled_mask.rows)).setTo(0);
-            scaled_mask(cv::Rect(bx2, 0, scaled_mask.cols - bx2, scaled_mask.rows)).setTo(0);
-
-            // Remove padding and resize to original
-            int unpad_h = static_cast<int>(std::round(ctx.original_height * ctx.scale));
-            int unpad_w = static_cast<int>(std::round(ctx.original_width * ctx.scale));
-            cv::Mat mask_crop = scaled_mask(cv::Rect(ctx.pad_x, ctx.pad_y, unpad_w, unpad_h)).clone();
-            cv::Mat orig_mask;
-            cv::resize(mask_crop, orig_mask, cv::Size(ctx.original_width, ctx.original_height), 0, 0, cv::INTER_LINEAR);
-
-            // Binarize mask to 0/255
-            cv::Mat binary_mask;
-            orig_mask.convertTo(binary_mask, CV_8UC1, 255.0);
-            cv::threshold(binary_mask, binary_mask, 127, 255, cv::THRESH_BINARY);
+            // Box-ROI mask: sigmoid(coefs . proto) + single aligned resize over
+            // only the bbox region, directly to original resolution (mirrors the
+            // YOLOv8-Seg path). Replaces the full-prototype sigmoid + two
+            // full-frame resizes; output matches at sub-pixel mask boundaries.
+            cv::Mat binary_mask = roiInstanceMask(
+                nms_mask_coefs[k], proto_data, proto_c, proto_h, proto_w,
+                x1, y1, x2, y2, input_width_, input_height_, ctx);
 
             // Scale box to original coords
             float fx1 = std::max(0.0f, std::min((x1 - ctx.pad_x) / ctx.scale, static_cast<float>(ctx.original_width)));
@@ -597,18 +619,6 @@ private:
     int num_classes_;
     int num_masks_;
     std::vector<std::string> class_names_;
-
-    // Compute dot-product of a single pixel's prototype features with mask
-    // coefficients, returning the raw (pre-sigmoid) mask value.
-    static float computeMaskDotProduct_(const std::vector<float>& coefs,
-                                        const float* proto_data,
-                                        int proto_c, int proto_h, int proto_w,
-                                        int ph, int pw) {
-        float val = 0.0f;
-        for (int c = 0; c < proto_c; ++c)
-            val += coefs[c] * proto_data[c * proto_h * proto_w + ph * proto_w + pw];
-        return val;
-    }
 };
 
 // ============================================================================

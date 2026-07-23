@@ -171,7 +171,7 @@ class AsyncRunner:
         _check_dxrt_version()
         _apply_default_input(args, self.factory)
         _reject_image_only_stream_input(args, self.factory)
-        _validate_inputs(args)
+        _validate_inputs(args, self.factory)
 
         self._verbose = getattr(args, "show_log", False)
         self._model_path = args.model

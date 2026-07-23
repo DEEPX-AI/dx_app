@@ -334,48 +334,127 @@ def _auto_download_videos() -> bool:
 # Input validation
 # ======================================================================
 
+def _example_key_from_argv0() -> str:
+    """Derive the example key from the entry script name (SDKREQ-529).
+
+    Entry scripts are named ``<example>_sync.py`` / ``<example>_async.py``
+    (optionally ``_cpp_postprocess``), and ``<example>`` matches the
+    ``model_name`` key in config/model_registry.json.
+    """
+    name = Path(sys.argv[0]).stem  # drops ".py"
+    for suf in ("_async_cpp_postprocess", "_sync_cpp_postprocess",
+                "_cpp_postprocess", "_async", "_sync"):
+        if name.endswith(suf):
+            return name[: -len(suf)]
+    return name
+
+
+def _resolve_default_model_path() -> Optional[str]:
+    """Resolve this example's default .dxnn from config/model_registry.json.
+
+    Returns ``assets/models/<dxnn_file>`` for the example key, or ``None`` when
+    the registry or entry is missing (caller then errors out).
+    """
+    key = _example_key_from_argv0()
+    if not key:
+        return None
+    reg_path = _find_script("config/model_registry.json") or \
+        (_find_project_root() / "config" / "model_registry.json"
+         if _find_project_root() else None)
+    if not reg_path or not Path(reg_path).is_file():
+        return None
+    try:
+        import json
+        with open(reg_path) as f:
+            entries = json.load(f)
+    except Exception:
+        return None
+    for e in entries:
+        if e.get("model_name") == key and e.get("dxnn_file"):
+            return f"assets/models/{e['dxnn_file']}"
+    return None
+
+
+def _find_project_root() -> Optional[Path]:
+    """Walk up from this file to the dx_app root (the dir containing setup.sh)."""
+    candidate = Path(__file__).resolve()
+    for _ in range(10):
+        candidate = candidate.parent
+        if (candidate / "setup.sh").is_file():
+            return candidate
+    return None
+
+
 def _validate_model(args) -> None:
-    """Validate model file exists, auto-download if needed."""
+    """Resolve/validate the model path (SDKREQ-529 policy).
+
+    - ``-m`` omitted  : resolve this example's default model from the registry
+      and auto-download it if missing (convenience path).
+    - ``-m <path>``   : an explicit path is a contract — a missing file errors
+      out immediately and does NOT trigger the auto-downloader.
+    """
+    if not getattr(args, "model", None):
+        default = _resolve_default_model_path()
+        if not default:
+            logger.error(
+                "Model path is required. Use --model (-m) option.\n"
+                "        → Download:  ./setup.sh --models <model_name>\n"
+                "        → Or use:    ./run_demo.sh  (auto-downloads demo models)")
+            sys.exit(1)
+        args.model = default
+        logger.info(f"No model specified (-m). Using example default: {default}")
+        model = Path(args.model)
+        if model.is_file():
+            return
+        if _auto_download_model(model):
+            logger.info(f"Model downloaded successfully: {args.model}")
+            return
+        logger.error(
+            f"Model file not found: {args.model}\n"
+            f"        → Download:  ./setup.sh --models {model.stem}\n"
+            f"        → Or use:    ./run_demo.sh  (auto-downloads demo models)")
+        sys.exit(1)
+
+    # Explicit -m: no auto-download — a wrong path is a user error.
     model = Path(args.model)
     if model.is_file():
         return
-    if _auto_download_model(model):
-        logger.info(f"Model downloaded successfully: {args.model}")
-        return
-    model_stem = model.stem
     logger.error(
         f"Model file not found: {args.model}\n"
-        f"        → Download:  ./setup.sh --models {model_stem}\n"
-        f"        → Or use:    ./run_demo.sh  (auto-downloads demo models)")
+        f"        → Check the path, or omit -m to use this example's default model.\n"
+        f"        → Download:  ./setup.sh --models {model.stem}")
     sys.exit(1)
 
 
-def _validate_media(args) -> None:
-    """Validate image/video paths exist, auto-download videos if needed."""
+def _validate_media(args, factory=None) -> None:
+    """Validate explicit image/video paths (SDKREQ-529 policy).
+
+    A wrong ``--image``/``--video`` path errors out immediately — we never fall
+    back to a default sample and never auto-download. ``.bin``-requiring 3D
+    examples reject a non-.bin input.
+    """
+    task_type = factory.get_task_type() if factory and hasattr(factory, "get_task_type") else ""
     if getattr(args, "image", None):
         p = Path(args.image)
         if not p.exists():
-            logger.error(
-                f"Image path does not exist: {args.image}\n"
-                f"        → Sample images: sample/img/  (e.g. sample/img/sample_street.jpg)")
+            logger.error(f"Input file not found: {args.image}")
             sys.exit(1)
         if not p.is_file() and not p.is_dir():
             logger.error(f"Image path must be a valid file or directory: {args.image}")
+            sys.exit(1)
+        # 3D LiDAR examples consume raw point clouds — reject a non-.bin file.
+        if task_type == "3d_detection" and p.is_file() and p.suffix.lower() != ".bin":
+            logger.error(
+                "This example requires a LiDAR point-cloud .bin input "
+                f"(--image / -i). Got: {args.image}")
             sys.exit(1)
 
     if not getattr(args, "video", None):
         return
     p = Path(args.video)
-    if p.is_file():
-        return
-    _auto_download_videos()
-    if p.is_file():
-        logger.info(f"Video downloaded successfully: {args.video}")
-        return
-    logger.error(
-        f"Video file not found: {args.video}\n"
-        f"        → Download videos: ./setup_sample_videos.sh")
-    sys.exit(1)
+    if not p.is_file():
+        logger.error(f"Input file not found: {args.video}")
+        sys.exit(1)
 
 
 def _validate_loop(args) -> None:
@@ -393,10 +472,10 @@ def _validate_loop(args) -> None:
         sys.exit(1)
 
 
-def _validate_inputs(args) -> None:
+def _validate_inputs(args, factory=None) -> None:
     """Pre-validate input paths before starting inference."""
     _validate_model(args)
-    _validate_media(args)
+    _validate_media(args, factory)
     _validate_loop(args)
 
 
@@ -460,7 +539,7 @@ class SyncRunner:
         _check_dxrt_version()
         _apply_default_input(args, self.factory)
         _reject_image_only_stream_input(args, self.factory)
-        _validate_inputs(args)
+        _validate_inputs(args, self.factory)
 
         self._verbose = getattr(args, "show_log", False)
         self._model_path = args.model

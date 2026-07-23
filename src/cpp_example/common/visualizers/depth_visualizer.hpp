@@ -56,7 +56,7 @@ public:
     }
 
 private:
-    float alpha_{0.6f};
+    float alpha_{1.0f};
 };
 
 }  // namespace dxapp

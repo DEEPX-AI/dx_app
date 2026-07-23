@@ -205,8 +205,15 @@ setup_assets() {
         SETUP_VIDEO_ARGS="--output=${VIDEO_PATH} --symlink_target_path=${DOCKER_VOLUME_PATH}/res/videos"
     else
         print_colored "(host mode detected)" "INFO"
-        SETUP_MODEL_ARGS="--output=${MODEL_PATH} --symlink_target_path=${DX_AS_PATH}/workspace/res/models"
-        SETUP_VIDEO_ARGS="--output=${VIDEO_PATH} --symlink_target_path=${DX_AS_PATH}/workspace/res/videos"
+        WORKSPACE_RES="${DX_AS_PATH}/workspace/res"
+        if mkdir -p "${WORKSPACE_RES}/models" "${WORKSPACE_RES}/videos" 2>/dev/null; then
+            SETUP_MODEL_ARGS="--output=${MODEL_PATH} --symlink_target_path=${WORKSPACE_RES}/models"
+            SETUP_VIDEO_ARGS="--output=${VIDEO_PATH} --symlink_target_path=${WORKSPACE_RES}/videos"
+        else
+            print_colored "shared workspace '${DX_AS_PATH}/workspace' is not writable; downloading into local ${MODEL_PATH} / ${VIDEO_PATH} instead" "WARNING"
+            SETUP_MODEL_ARGS="--output=${MODEL_PATH}"
+            SETUP_VIDEO_ARGS="--output=${VIDEO_PATH}"
+        fi
     fi
 
     if [ -n "$MANIFEST_OVERRIDE" ]; then

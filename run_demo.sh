@@ -37,7 +37,7 @@ DEMO_LABELS=(
     # ── Classification (1) ──
     "Classification           (ResNet50)"
     # ── Depth Estimation (1) ──
-    "Depth Estimation         (SCDepthV3)"
+    "Depth Estimation         (Depth-Anything-V2-ViT-B)"
     # ── Image Restoration (3) ──
     "Image Denoising          (DnCNN-50)"
     "Super Resolution         (ESPCN-X4)"
@@ -77,7 +77,7 @@ DEMO_CPP_BASE=(
     yolov8s_pose handlandmarklite_1 3ddfa_v2_mobilnetv1_120x120
     yolov8n_seg deeplabv3plusmobilenet
     resnet50
-    scdepthv3
+    depth_anything_v2_vitb
     dncnn_50 espcn_x4 zero_dce
     arcface_mobilefacenet deepmar_resnet50 casvit_t
     yolov7_ppu
@@ -97,7 +97,7 @@ DEMO_PY_DIR=(
     "instance_segmentation/yolov8n_seg"
     "semantic_segmentation/deeplabv3plusmobilenet"
     "classification/resnet50"
-    "depth_estimation/scdepthv3"
+    "depth_estimation/depth_anything_v2_vitb"
     "image_denoising/dncnn_50"
     "super_resolution/espcn_x4"
     "image_enhancement/zero_dce"
@@ -117,7 +117,7 @@ DEMO_PY_BASE=(
     yolov8s_pose handlandmarklite_1 3ddfa_v2_mobilnetv1_120x120
     yolov8n_seg deeplabv3plusmobilenet
     resnet50
-    scdepthv3
+    depth_anything_v2_vitb
     dncnn_50 espcn_x4 zero_dce
     arcface_mobilefacenet deepmar_resnet50 casvit_t
     yolov7_ppu
@@ -131,7 +131,7 @@ DEMO_MODEL=(
     yolov8-s-pose_640x640.dxnn mediapipe-hands-lite_224x224.dxnn 3ddfa-v2_mobilenetv1_120x120.dxnn
     yolov8-n-seg_640x640.dxnn deeplabv3plus_mobilenetv1_512x512.dxnn
     resnet50_224x224.dxnn
-    scdepthv3_256x320.dxnn
+    depthanythingv2-vitb_224x224.dxnn
     dncnn-50_512x512.dxnn espcn-x4_17x17.dxnn zerodce_400x600.dxnn
     arcface_mobilefacenet_112x112.dxnn deepmar_resnet50_224x224.dxnn casvit-t_224x224.dxnn
     yolov7_640x640_ppu.dxnn
@@ -159,7 +159,7 @@ DEMO_VIDEO=(
     "assets/videos/person-pair-hallway.mp4"
     "assets/videos/person-pair-hallway.mp4"
     "assets/videos/snowboard.mp4"
-    "assets/videos/blackbox-city-road2.mov"
+    "assets/videos/dance-solo.mov"
     "assets/videos/snowboard.mp4"
     "assets/videos/blackbox-city-road.mp4"
     "assets/videos/blackbox-city-road.mp4"
@@ -339,10 +339,10 @@ if [ ${#MISSING_DEMO_MODELS[@]} -gt 0 ]; then
     print_colored "Missing ${#MISSING_DEMO_MODELS[@]} of ${#DEMO_MODEL[@]} demo model(s)." "WARNING"
     print_colored "Missing: ${MISSING_DEMO_MODELS[*]}" "WARNING"
     print_colored "Automatically downloading missing demo models... (no manual setup.sh needed)" "INFO"
-    ./setup_sample_models.sh --output="${MODELS_REAL}" --models ${MISSING_DEMO_MODELS[*]}
+    ./setup_sample_models.sh --output="${MODELS_REAL}" --demo-models --no-force
     if [ $? -ne 0 ]; then
         print_colored "Failed to download demo models." "ERROR"
-        print_colored "You can also download manually: ./setup.sh --models ${MISSING_DEMO_MODELS[*]}" "INFO"
+        print_colored "You can also download manually: ./setup.sh --demo-models" "INFO"
         popd > /dev/null
         exit 1
     fi

@@ -78,10 +78,16 @@ struct AsyncProfilingMetrics {
     std::mutex metrics_mutex;
     std::condition_variable inflight_cv;  // back-pressure signaling
 
-    /** Block until inflight count drops below ASYNC_BUFFER_SIZE. */
+    // Max concurrent in-flight inferences (pipeline depth). Defaults to
+    // ASYNC_BUFFER_SIZE so existing runners are unchanged; a runner may lower it
+    // (e.g. heavy instance-seg) to cut end-to-end display latency, since a deep
+    // pipeline on a slow model shows frames seconds behind capture.
+    size_t max_inflight = ASYNC_BUFFER_SIZE;
+
+    /** Block until inflight count drops below max_inflight. */
     void waitForSlot() {
         std::unique_lock<std::mutex> lock(metrics_mutex);
-        inflight_cv.wait(lock, [this] { return inflight_current < static_cast<int>(ASYNC_BUFFER_SIZE); });
+        inflight_cv.wait(lock, [this] { return inflight_current < static_cast<int>(max_inflight); });
     }
 
     /** Notify producer that a slot is available. Call after decrementing inflight_current. */
@@ -151,6 +157,7 @@ struct AsyncUserData {
     std::string save_path;  // Empty means no save for this frame
     std::chrono::high_resolution_clock::time_point submit_ts;  // For inference time measurement
     std::string source_bin_path;  // Original velodyne .bin path for multi-view viz (SFA3D 3D detection)
+    uint64_t frame_index = 0;  // Monotonic submit order; used for in-order display reordering
 
     AsyncUserData() = default;
     AsyncUserData(const AsyncUserData&) = default;
@@ -202,6 +209,7 @@ public:
             args.imageFilePath = dxapp::getDefaultSampleImage(factory_->getTaskType());
             std::cout << "[DXAPP] [INFO] No input specified. Using default sample: " << args.imageFilePath << std::endl;
         }
+        dxapp::resolveAndValidateModel(args.modelPath, argv[0]);
         validateArguments(args);
 
         // Reconstruct command line for run_info.txt
@@ -729,23 +737,7 @@ private:
     }
 
     void validateArguments(const CommandLineArgs& args) {
-        if (args.modelPath.empty()) {
-            dxapp::fatal_error("[DXAPP] [ERROR] Model path is required. Use -m or --model_path option.\n"
-                "        -> Download:  ./setup.sh --models <model_name>\n"
-                "        -> Or use:    ./run_demo.sh  (auto-downloads demo models)\n"
-                "Use -h or --help for usage information.");
-        }
-
-        // Auto-download model if not found
-        if (!dxapp::fileExists(args.modelPath)) {
-            if (!dxapp::autoDownloadModel(args.modelPath)) {
-                std::string stem = fs::path(args.modelPath).stem().string();
-                dxapp::fatal_error("[DXAPP] [ERROR] Model file not found: " + args.modelPath + "\n"
-                    "        -> Download:  ./setup.sh --models " + stem + "\n"
-                    "        -> Or use:    ./run_demo.sh  (auto-downloads demo models)");
-            }
-            std::cout << "[DXAPP] [INFO] Model downloaded successfully: " << args.modelPath << std::endl;
-        }
+        // Model resolved/validated in Run() via dxapp::resolveAndValidateModel().
 
         int sourceCount = 0;
         if (!args.imageFilePath.empty()) sourceCount++;
@@ -757,14 +749,9 @@ private:
             dxapp::fatal_error("[DXAPP] [ERROR] Please specify exactly one input source: image (-i), video (-v), "
                               "camera (-c), or RTSP (-r).\nUse -h or --help for usage information.");
         }
-        // Auto-download video if not found
-        if (!args.videoFile.empty() && !dxapp::fileExists(args.videoFile)) {
-            if (!dxapp::autoDownloadVideos() || !dxapp::fileExists(args.videoFile)) {
-                dxapp::fatal_error("[DXAPP] [ERROR] Video file not found: " + args.videoFile + "\n"
-                    "        -> Download videos: ./setup_sample_videos.sh");
-            }
-            std::cout << "[DXAPP] [INFO] Video downloaded successfully: " << args.videoFile << std::endl;
-        }
+        // Explicit input must exist (SDKREQ-529): wrong -v/-i errors out; no auto-download.
+        dxapp::requireInputExists(args.videoFile);
+        dxapp::requireInputExists(args.imageFilePath);
 
         // Validate that --video is not given an image file
         if (!args.videoFile.empty()) {
@@ -801,7 +788,7 @@ private:
             imageFiles.push_back(imageFilePath);
             if (loopTest == -1) loopTest = 1;
         } else {
-            dxapp::fatal_error("[DXAPP] [ERROR] Invalid image path: ");
+            dxapp::fatal_error("[DXAPP] [ERROR] Input file not found: " + imageFilePath);
         }
 
         return {imageFiles, loopTest};

@@ -1806,18 +1806,6 @@
     "json_url": null
   },
   {
-    "name": "casvit_m-1",
-    "category": "Classification",
-    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_4_0/casvit-m_224x224.dxnn",
-    "json_url": null
-  },
-  {
-    "name": "casvit_t-1",
-    "category": "Classification",
-    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_4_0/casvit-t_224x224.dxnn",
-    "json_url": null
-  },
-  {
     "name": "casvit_t_seg_fpn_resnet50-1",
     "category": "Semantic Segmentation",
     "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_4_0/casvit-t-fpn-resnet50_512x512.dxnn",

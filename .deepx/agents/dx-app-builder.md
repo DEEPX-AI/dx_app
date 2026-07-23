@@ -327,7 +327,7 @@ dx_app v3.0.0 Architecture
 ===========================
 
 Layer 3 — Application Layer
-  src/python_example/<task>/<model>/       # 22 task dirs, 349 models
+  src/python_example/<task>/<model>/       # 22 task dirs, 347 models
   src/cpp_example/<task>/<model>/          # C++ counterparts
 
 Layer 2 — Framework Layer

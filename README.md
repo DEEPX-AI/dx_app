@@ -82,7 +82,7 @@ The project is structured to separate core logic from language-specific implemen
 ```text
 dx_app/
 ├── src/
-│   ├── cpp_example/            # C++ end-to-end examples (349 models across 22 tasks)
+│   ├── cpp_example/            # C++ end-to-end examples (347 models across 22 tasks)
 │   │   └── common/             # ← Shared C++ runtime layer
 │   │       ├── base/           #   Abstract interfaces (IFactory, IProcessor, ...)
 │   │       ├── processors/     #   40 shared post-processors
@@ -91,7 +91,7 @@ dx_app/
 │   │       ├── visualizers/    #   12 task-specific visualizers
 │   │       ├── config/         #   ModelConfig loader
 │   │       └── utility/        #   Labels, preprocessing, profiling, run_dir, signal_handler, verify_serialize
-│   ├── python_example/         # Python end-to-end examples (349 models across 22 tasks)
+│   ├── python_example/         # Python end-to-end examples (347 models across 22 tasks)
 │   │   └── common/             # ← Shared Python runtime layer
 │   │       ├── base/           #   Abstract interfaces (IFactory, IProcessor, ...)
 │   │       ├── processors/     #   35 shared post-processors
@@ -499,7 +499,7 @@ To download only specific demo models without running the demo:
 ```
 
 > **TIP — Running other models**  
-> `run_demo.sh` showcases 23 representative models. To run or benchmark **all 349 registered models**,
+> `run_demo.sh` showcases 23 representative models. To run or benchmark **all 347 registered models**,
 > use the **example runner** or the **DX Model Tool**:
 >
 > ```bash
@@ -569,7 +569,7 @@ When running on platforms with limited storage (e.g., Raspberry Pi 5, embedded b
 | Asset | Count | Size |
 |-------|------:|-----:|
 | Demo models (23 files) | 23 | ~500 MB |
-| All registered models | 349 | several GB |
+| All registered models | 347 | several GB |
 | Sample videos | 20 | ~1.1 GB |
 | Sample images (bundled) | — | ~5 MB |
 
