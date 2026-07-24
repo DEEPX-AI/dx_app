@@ -1,7 +1,7 @@
 [
   {
     "model_name": "alexnet",
-    "dxnn_file": "AlexNet.dxnn",
+    "dxnn_file": "alexnet_224x224.dxnn",
     "original_name": "AlexNet",
     "csv_task": "IC",
     "add_model_task": "classification",
@@ -16,48 +16,46 @@
   },
   {
     "model_name": "arcface_mobilefacenet",
-    "dxnn_file": "arcface_mobilefacenet.dxnn",
+    "dxnn_file": "arcface_mobilefacenet_112x112.dxnn",
     "original_name": "arcface_mobilefacenet",
     "csv_task": "FREC",
     "add_model_task": "embedding",
     "postprocessor": "arcface",
-    "input_width": 224,
-    "input_height": 224,
-    "config": {
-      "top_k": 5
-    },
+    "input_width": 112,
+    "input_height": 112,
+    "config": {},
     "source": "csv",
     "supported": true
   },
   {
     "model_name": "bisenetv1",
-    "dxnn_file": "BiSeNetV1.dxnn",
+    "dxnn_file": "bisenetv1_1024x2048.dxnn",
     "original_name": "BiSeNetV1",
     "csv_task": "SEG",
     "add_model_task": "semantic_segmentation",
     "postprocessor": "bisenetv1",
-    "input_width": 224,
-    "input_height": 224,
+    "input_width": 2048,
+    "input_height": 1024,
     "config": {},
     "source": "csv",
     "supported": true
   },
   {
     "model_name": "bisenetv2",
-    "dxnn_file": "BiSeNetV2.dxnn",
+    "dxnn_file": "bisenetv2_1024x2048.dxnn",
     "original_name": "BiSeNetV2",
     "csv_task": "SEG",
     "add_model_task": "semantic_segmentation",
     "postprocessor": "bisenetv2",
-    "input_width": 224,
-    "input_height": 224,
+    "input_width": 2048,
+    "input_height": 1024,
     "config": {},
     "source": "csv",
     "supported": true
   },
   {
     "model_name": "damoyolo_tinynasl20_t",
-    "dxnn_file": "DamoYolo_tinynasL20_T.dxnn",
+    "dxnn_file": "damoyolo-tinynas-l20t_640x640.dxnn",
     "original_name": "DamoYolo_tinynasL20_T",
     "csv_task": "OD",
     "add_model_task": "object_detection",
@@ -72,8 +70,24 @@
     "supported": true
   },
   {
+    "model_name": "damoyolo_tinynasl20_m",
+    "dxnn_file": "damoyolo-tinynas-l20m_640x640.dxnn",
+    "original_name": "DamoYolo_tinynasL20_M",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "damoyolo",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "score_threshold": 0.3,
+      "nms_threshold": 0.45
+    },
+    "source": "inferred",
+    "supported": true
+  },
+  {
     "model_name": "damoyolo_tinynasl25_s",
-    "dxnn_file": "DamoYolo_tinynasL25_S.dxnn",
+    "dxnn_file": "damoyolo-tinynas-l25s_640x640.dxnn",
     "original_name": "DamoYolo_tinynasL25_S",
     "csv_task": "OD",
     "add_model_task": "object_detection",
@@ -88,24 +102,8 @@
     "supported": true
   },
   {
-    "model_name": "damoyolo_tinynasl35_m",
-    "dxnn_file": "DamoYolo_tinynasL35_M.dxnn",
-    "original_name": "DamoYolo_tinynasL35_M",
-    "csv_task": "OD",
-    "add_model_task": "object_detection",
-    "postprocessor": "damoyolo",
-    "input_width": 640,
-    "input_height": 640,
-    "config": {
-      "score_threshold": 0.3,
-      "nms_threshold": 0.45
-    },
-    "source": "inferred",
-    "supported": true
-  },
-  {
     "model_name": "damoyolol",
-    "dxnn_file": "DamoYoloL.dxnn",
+    "dxnn_file": "damoyolo-l_640x640.dxnn",
     "original_name": "DamoYoloL",
     "csv_task": "OD",
     "add_model_task": "object_detection",
@@ -121,7 +119,7 @@
   },
   {
     "model_name": "damoyolom",
-    "dxnn_file": "DamoYoloM.dxnn",
+    "dxnn_file": "damoyolo-m_640x640.dxnn",
     "original_name": "DamoYoloM",
     "csv_task": "OD",
     "add_model_task": "object_detection",
@@ -137,7 +135,7 @@
   },
   {
     "model_name": "damoyolos",
-    "dxnn_file": "DamoYoloS.dxnn",
+    "dxnn_file": "damoyolo-s_640x640.dxnn",
     "original_name": "DamoYoloS",
     "csv_task": "OD",
     "add_model_task": "object_detection",
@@ -153,7 +151,7 @@
   },
   {
     "model_name": "damoyolot",
-    "dxnn_file": "DamoYoloT.dxnn",
+    "dxnn_file": "damoyolo-t_640x640.dxnn",
     "original_name": "DamoYoloT",
     "csv_task": "OD",
     "add_model_task": "object_detection",
@@ -169,20 +167,20 @@
   },
   {
     "model_name": "deeplabv3plusmobilenet",
-    "dxnn_file": "DeepLabV3PlusMobilenet.dxnn",
+    "dxnn_file": "deeplabv3plus_mobilenetv1_512x512.dxnn",
     "original_name": "DeepLabV3PlusMobilenet",
     "csv_task": "SEG",
     "add_model_task": "semantic_segmentation",
     "postprocessor": "deeplabv3",
-    "input_width": 224,
-    "input_height": 224,
+    "input_width": 512,
+    "input_height": 512,
     "config": {},
     "source": "csv",
     "supported": true
   },
   {
     "model_name": "densenet121",
-    "dxnn_file": "DenseNet121.dxnn",
+    "dxnn_file": "densenet121_224x224.dxnn",
     "original_name": "DenseNet121",
     "csv_task": "IC",
     "add_model_task": "classification",
@@ -197,7 +195,7 @@
   },
   {
     "model_name": "densenet161",
-    "dxnn_file": "DenseNet161.dxnn",
+    "dxnn_file": "densenet161_224x224.dxnn",
     "original_name": "DenseNet161",
     "csv_task": "IC",
     "add_model_task": "classification",
@@ -212,52 +210,52 @@
   },
   {
     "model_name": "dncnn_15",
-    "dxnn_file": "DnCNN_15.dxnn",
+    "dxnn_file": "dncnn-15_512x512.dxnn",
     "original_name": "DnCNN_15",
     "csv_task": "DN",
     "add_model_task": "image_denoising",
     "postprocessor": "dncnn",
-    "input_width": 50,
-    "input_height": 50,
+    "input_width": 512,
+    "input_height": 512,
     "config": {},
     "source": "csv",
     "supported": true
   },
   {
     "model_name": "dncnn_25",
-    "dxnn_file": "DnCNN_25.dxnn",
+    "dxnn_file": "dncnn-25_512x512.dxnn",
     "original_name": "DnCNN_25",
     "csv_task": "DN",
     "add_model_task": "image_denoising",
     "postprocessor": "dncnn",
-    "input_width": 50,
-    "input_height": 50,
+    "input_width": 512,
+    "input_height": 512,
     "config": {},
     "source": "csv",
     "supported": true
   },
   {
     "model_name": "dncnn_50",
-    "dxnn_file": "DnCNN_50.dxnn",
+    "dxnn_file": "dncnn-50_512x512.dxnn",
     "original_name": "DnCNN_50",
     "csv_task": "DN",
     "add_model_task": "image_denoising",
     "postprocessor": "dncnn",
-    "input_width": 50,
-    "input_height": 50,
+    "input_width": 512,
+    "input_height": 512,
     "config": {},
     "source": "csv",
     "supported": true
   },
   {
     "model_name": "efficientnet_lite0",
-    "dxnn_file": "EfficientNet_Lite0.dxnn",
+    "dxnn_file": "efficientnet-lite0_256x256.dxnn",
     "original_name": "EfficientNet_Lite0",
     "csv_task": "IC",
     "add_model_task": "classification",
     "postprocessor": "efficientnet",
-    "input_width": 224,
-    "input_height": 224,
+    "input_width": 256,
+    "input_height": 256,
     "config": {
       "top_k": 5
     },
@@ -266,13 +264,13 @@
   },
   {
     "model_name": "efficientnet_lite1",
-    "dxnn_file": "EfficientNet_Lite1.dxnn",
+    "dxnn_file": "efficientnet-lite1_240x240.dxnn",
     "original_name": "EfficientNet_Lite1",
     "csv_task": "IC",
     "add_model_task": "classification",
     "postprocessor": "efficientnet",
-    "input_width": 224,
-    "input_height": 224,
+    "input_width": 240,
+    "input_height": 240,
     "config": {
       "top_k": 5
     },
@@ -281,13 +279,13 @@
   },
   {
     "model_name": "efficientnet_lite2",
-    "dxnn_file": "EfficientNet_Lite2.dxnn",
+    "dxnn_file": "efficientnet-lite2_260x260.dxnn",
     "original_name": "EfficientNet_Lite2",
     "csv_task": "IC",
     "add_model_task": "classification",
     "postprocessor": "efficientnet",
-    "input_width": 224,
-    "input_height": 224,
+    "input_width": 260,
+    "input_height": 260,
     "config": {
       "top_k": 5
     },
@@ -296,13 +294,13 @@
   },
   {
     "model_name": "efficientnet_lite3",
-    "dxnn_file": "EfficientNet_Lite3.dxnn",
+    "dxnn_file": "efficientnet-lite3_300x300.dxnn",
     "original_name": "EfficientNet_Lite3",
     "csv_task": "IC",
     "add_model_task": "classification",
     "postprocessor": "efficientnet",
-    "input_width": 224,
-    "input_height": 224,
+    "input_width": 300,
+    "input_height": 300,
     "config": {
       "top_k": 5
     },
@@ -311,13 +309,13 @@
   },
   {
     "model_name": "efficientnet_lite4",
-    "dxnn_file": "EfficientNet_Lite4.dxnn",
+    "dxnn_file": "efficientnet-lite4_380x380.dxnn",
     "original_name": "EfficientNet_Lite4",
     "csv_task": "IC",
     "add_model_task": "classification",
     "postprocessor": "efficientnet",
-    "input_width": 224,
-    "input_height": 224,
+    "input_width": 380,
+    "input_height": 380,
     "config": {
       "top_k": 5
     },
@@ -326,13 +324,13 @@
   },
   {
     "model_name": "efficientnetb2",
-    "dxnn_file": "EfficientNetB2.dxnn",
+    "dxnn_file": "efficientnet-b2_288x288.dxnn",
     "original_name": "EfficientNetB2",
     "csv_task": "IC",
     "add_model_task": "classification",
     "postprocessor": "efficientnet",
-    "input_width": 224,
-    "input_height": 224,
+    "input_width": 288,
+    "input_height": 288,
     "config": {
       "top_k": 5
     },
@@ -341,20 +339,20 @@
   },
   {
     "model_name": "espcn_x4",
-    "dxnn_file": "ESPCN_X4.dxnn",
+    "dxnn_file": "espcn-x4_17x17.dxnn",
     "original_name": "ESPCN_X4",
     "csv_task": "SR",
     "add_model_task": "super_resolution",
     "postprocessor": "espcn",
-    "input_width": 224,
-    "input_height": 224,
+    "input_width": 17,
+    "input_height": 17,
     "config": {},
     "source": "inferred",
     "supported": true
   },
   {
     "model_name": "fastdepth_1",
-    "dxnn_file": "FastDepth_1.dxnn",
+    "dxnn_file": "fastdepth_224x224.dxnn",
     "original_name": "FastDepth_1",
     "csv_task": "DEPTH",
     "add_model_task": "depth_estimation",
@@ -367,7 +365,7 @@
   },
   {
     "model_name": "handlandmarklite_1",
-    "dxnn_file": "HandLandmarkLite_1.dxnn",
+    "dxnn_file": "mediapipe-hands-lite_224x224.dxnn",
     "original_name": "HandLandmarkLite_1",
     "csv_task": "HAND",
     "add_model_task": "hand_landmark",
@@ -382,7 +380,7 @@
   },
   {
     "model_name": "hardnet39ds",
-    "dxnn_file": "HarDNet39DS.dxnn",
+    "dxnn_file": "hardnet39ds_224x224.dxnn",
     "original_name": "HarDNet39DS",
     "csv_task": "IC",
     "add_model_task": "classification",
@@ -397,7 +395,7 @@
   },
   {
     "model_name": "hardnet68",
-    "dxnn_file": "HarDNet68.dxnn",
+    "dxnn_file": "hardnet68_224x224.dxnn",
     "original_name": "HarDNet68",
     "csv_task": "IC",
     "add_model_task": "classification",
@@ -412,7 +410,7 @@
   },
   {
     "model_name": "inceptionv1",
-    "dxnn_file": "InceptionV1.dxnn",
+    "dxnn_file": "inceptionv1_224x224.dxnn",
     "original_name": "InceptionV1",
     "csv_task": "IC",
     "add_model_task": "classification",
@@ -427,7 +425,7 @@
   },
   {
     "model_name": "mobilenetv1",
-    "dxnn_file": "MobileNetV1.dxnn",
+    "dxnn_file": "mobilenetv1_224x224.dxnn",
     "original_name": "MobileNetV1",
     "csv_task": "IC",
     "add_model_task": "classification",
@@ -442,7 +440,7 @@
   },
   {
     "model_name": "mobilenetv2",
-    "dxnn_file": "MobileNetV2.dxnn",
+    "dxnn_file": "mobilenetv2_224x224.dxnn",
     "original_name": "MobileNetV2",
     "csv_task": "IC",
     "add_model_task": "classification",
@@ -457,7 +455,7 @@
   },
   {
     "model_name": "mobilenetv3large",
-    "dxnn_file": "MobileNetV3Large.dxnn",
+    "dxnn_file": "mobilenetv3-large_224x224.dxnn",
     "original_name": "MobileNetV3Large",
     "csv_task": "IC",
     "add_model_task": "classification",
@@ -472,13 +470,13 @@
   },
   {
     "model_name": "nanodet_repvgg",
-    "dxnn_file": "NanoDet_RepVGG.dxnn",
+    "dxnn_file": "nanodet_224x224.dxnn",
     "original_name": "NanoDet_RepVGG",
     "csv_task": "OD",
     "add_model_task": "object_detection",
     "postprocessor": "nanodet",
-    "input_width": 640,
-    "input_height": 640,
+    "input_width": 224,
+    "input_height": 224,
     "config": {
       "score_threshold": 0.3,
       "nms_threshold": 0.45
@@ -488,13 +486,13 @@
   },
   {
     "model_name": "nanodet_repvgga1",
-    "dxnn_file": "NanoDet_RepVGGA1.dxnn",
+    "dxnn_file": "nanodet-repvgg-a_224x224.dxnn",
     "original_name": "NanoDet_RepVGGA1",
     "csv_task": "OD",
     "add_model_task": "object_detection",
     "postprocessor": "nanodet",
-    "input_width": 640,
-    "input_height": 640,
+    "input_width": 224,
+    "input_height": 224,
     "config": {
       "score_threshold": 0.3,
       "nms_threshold": 0.45
@@ -503,38 +501,8 @@
     "supported": true
   },
   {
-    "model_name": "osnet0_25",
-    "dxnn_file": "OSNet0_25.dxnn",
-    "original_name": "OSNet0_25",
-    "csv_task": "IC",
-    "add_model_task": "classification",
-    "postprocessor": "efficientnet",
-    "input_width": 224,
-    "input_height": 224,
-    "config": {
-      "top_k": 5
-    },
-    "source": "csv",
-    "supported": true
-  },
-  {
-    "model_name": "osnet0_5",
-    "dxnn_file": "OSNet0_5.dxnn",
-    "original_name": "OSNet0_5",
-    "csv_task": "IC",
-    "add_model_task": "classification",
-    "postprocessor": "efficientnet",
-    "input_width": 224,
-    "input_height": 224,
-    "config": {
-      "top_k": 5
-    },
-    "source": "csv",
-    "supported": true
-  },
-  {
     "model_name": "regnetx400mf",
-    "dxnn_file": "RegNetX400MF.dxnn",
+    "dxnn_file": "regnet-x400mf_224x224.dxnn",
     "original_name": "RegNetX400MF",
     "csv_task": "IC",
     "add_model_task": "classification",
@@ -549,7 +517,7 @@
   },
   {
     "model_name": "regnetx800mf",
-    "dxnn_file": "RegNetX800MF.dxnn",
+    "dxnn_file": "regnet-x800mf_224x224.dxnn",
     "original_name": "RegNetX800MF",
     "csv_task": "IC",
     "add_model_task": "classification",
@@ -564,7 +532,7 @@
   },
   {
     "model_name": "regnety200mf",
-    "dxnn_file": "RegNetY200MF.dxnn",
+    "dxnn_file": "regnet-y200mf_224x224.dxnn",
     "original_name": "RegNetY200MF",
     "csv_task": "IC",
     "add_model_task": "classification",
@@ -579,7 +547,7 @@
   },
   {
     "model_name": "regnety400mf",
-    "dxnn_file": "RegNetY400MF.dxnn",
+    "dxnn_file": "regnet-y400mf_224x224.dxnn",
     "original_name": "RegNetY400MF",
     "csv_task": "IC",
     "add_model_task": "classification",
@@ -594,7 +562,7 @@
   },
   {
     "model_name": "regnety800mf",
-    "dxnn_file": "RegNetY800MF.dxnn",
+    "dxnn_file": "regnet-y800mf_224x224.dxnn",
     "original_name": "RegNetY800MF",
     "csv_task": "IC",
     "add_model_task": "classification",
@@ -609,7 +577,7 @@
   },
   {
     "model_name": "resnet101",
-    "dxnn_file": "ResNet101.dxnn",
+    "dxnn_file": "resnet101_224x224.dxnn",
     "original_name": "ResNet101",
     "csv_task": "IC",
     "add_model_task": "classification",
@@ -624,7 +592,7 @@
   },
   {
     "model_name": "resnet18",
-    "dxnn_file": "ResNet18.dxnn",
+    "dxnn_file": "resnet18_224x224.dxnn",
     "original_name": "ResNet18",
     "csv_task": "IC",
     "add_model_task": "classification",
@@ -639,7 +607,7 @@
   },
   {
     "model_name": "resnet34",
-    "dxnn_file": "ResNet34.dxnn",
+    "dxnn_file": "resnet34_224x224.dxnn",
     "original_name": "ResNet34",
     "csv_task": "IC",
     "add_model_task": "classification",
@@ -654,7 +622,7 @@
   },
   {
     "model_name": "resnet50",
-    "dxnn_file": "ResNet50.dxnn",
+    "dxnn_file": "resnet50_224x224.dxnn",
     "original_name": "ResNet50",
     "csv_task": "IC",
     "add_model_task": "classification",
@@ -669,7 +637,7 @@
   },
   {
     "model_name": "resnext26_32x4d",
-    "dxnn_file": "ResNeXt26_32x4d.dxnn",
+    "dxnn_file": "resnext26-32x4d_224x224.dxnn",
     "original_name": "ResNeXt26_32x4d",
     "csv_task": "IC",
     "add_model_task": "classification",
@@ -684,7 +652,7 @@
   },
   {
     "model_name": "resnext50_32x4d",
-    "dxnn_file": "ResNeXt50_32x4d.dxnn",
+    "dxnn_file": "resnext50-32x4d_224x224.dxnn",
     "original_name": "ResNeXt50_32x4d",
     "csv_task": "IC",
     "add_model_task": "classification",
@@ -699,7 +667,7 @@
   },
   {
     "model_name": "retinaface_mobilenet0_25_640",
-    "dxnn_file": "retinaface_mobilenet0.25_640.dxnn",
+    "dxnn_file": "retinaface_mobilenet-0.25_640x640.dxnn",
     "original_name": "retinaface_mobilenet0.25_640",
     "csv_task": "FD",
     "add_model_task": "face_detection",
@@ -707,7 +675,6 @@
     "input_width": 640,
     "input_height": 640,
     "config": {
-      "obj_threshold": 0.3,
       "score_threshold": 0.3,
       "nms_threshold": 0.4
     },
@@ -716,7 +683,7 @@
   },
   {
     "model_name": "scrfd10g",
-    "dxnn_file": "SCRFD10G.dxnn",
+    "dxnn_file": "scrfd-10g_640x640.dxnn",
     "original_name": "SCRFD10G",
     "csv_task": "FD",
     "add_model_task": "face_detection",
@@ -724,7 +691,6 @@
     "input_width": 640,
     "input_height": 640,
     "config": {
-      "obj_threshold": 0.3,
       "score_threshold": 0.3,
       "nms_threshold": 0.4
     },
@@ -733,7 +699,7 @@
   },
   {
     "model_name": "scrfd2_5g",
-    "dxnn_file": "SCRFD2_5G.dxnn",
+    "dxnn_file": "scrfd-2.5g_640x640.dxnn",
     "original_name": "SCRFD2_5G",
     "csv_task": "FD",
     "add_model_task": "face_detection",
@@ -750,7 +716,7 @@
   },
   {
     "model_name": "scrfd500m",
-    "dxnn_file": "SCRFD500M.dxnn",
+    "dxnn_file": "scrfd-500m_640x640.dxnn",
     "original_name": "SCRFD500M",
     "csv_task": "FD",
     "add_model_task": "face_detection",
@@ -767,20 +733,20 @@
   },
   {
     "model_name": "segformer_b0_512x1024",
-    "dxnn_file": "segformer_b0_512x1024.dxnn",
+    "dxnn_file": "segformer_mit-b0_512x1024.dxnn",
     "original_name": "segformer_b0_512x1024",
     "csv_task": "SEG",
     "add_model_task": "semantic_segmentation",
     "postprocessor": "segformer",
-    "input_width": 512,
-    "input_height": 1024,
+    "input_width": 1024,
+    "input_height": 512,
     "config": {},
     "source": "csv",
     "supported": true
   },
   {
     "model_name": "squeezenet1_0",
-    "dxnn_file": "SqueezeNet1_0.dxnn",
+    "dxnn_file": "squeezenet-1.0_224x224.dxnn",
     "original_name": "SqueezeNet1_0",
     "csv_task": "IC",
     "add_model_task": "classification",
@@ -795,7 +761,7 @@
   },
   {
     "model_name": "squeezenet1_1",
-    "dxnn_file": "SqueezeNet1_1.dxnn",
+    "dxnn_file": "squeezenet-1.1_224x224.dxnn",
     "original_name": "SqueezeNet1_1",
     "csv_task": "IC",
     "add_model_task": "classification",
@@ -810,7 +776,7 @@
   },
   {
     "model_name": "ssdmv1",
-    "dxnn_file": "SSDMV1.dxnn",
+    "dxnn_file": "ssd-mobilenetv1_300x300.dxnn",
     "original_name": "SSDMV1",
     "csv_task": "OD",
     "add_model_task": "object_detection",
@@ -826,7 +792,7 @@
   },
   {
     "model_name": "ssdmv2lite",
-    "dxnn_file": "SSDMV2Lite.dxnn",
+    "dxnn_file": "ssd-mobilenetv2-lite_300x300.dxnn",
     "original_name": "SSDMV2Lite",
     "csv_task": "OD",
     "add_model_task": "object_detection",
@@ -842,7 +808,7 @@
   },
   {
     "model_name": "vgg11",
-    "dxnn_file": "VGG11.dxnn",
+    "dxnn_file": "vgg11_224x224.dxnn",
     "original_name": "VGG11",
     "csv_task": "IC",
     "add_model_task": "classification",
@@ -857,7 +823,7 @@
   },
   {
     "model_name": "vgg11bn",
-    "dxnn_file": "VGG11BN.dxnn",
+    "dxnn_file": "vgg11-bn_224x224.dxnn",
     "original_name": "VGG11BN",
     "csv_task": "IC",
     "add_model_task": "classification",
@@ -872,7 +838,7 @@
   },
   {
     "model_name": "vgg13",
-    "dxnn_file": "VGG13.dxnn",
+    "dxnn_file": "vgg13_224x224.dxnn",
     "original_name": "VGG13",
     "csv_task": "IC",
     "add_model_task": "classification",
@@ -887,7 +853,7 @@
   },
   {
     "model_name": "vgg13bn",
-    "dxnn_file": "VGG13BN.dxnn",
+    "dxnn_file": "vgg13-bn_224x224.dxnn",
     "original_name": "VGG13BN",
     "csv_task": "IC",
     "add_model_task": "classification",
@@ -902,7 +868,7 @@
   },
   {
     "model_name": "vgg19bn",
-    "dxnn_file": "VGG19BN.dxnn",
+    "dxnn_file": "vgg19-bn_224x224.dxnn",
     "original_name": "VGG19BN",
     "csv_task": "IC",
     "add_model_task": "classification",
@@ -917,7 +883,7 @@
   },
   {
     "model_name": "wideresnet101_2",
-    "dxnn_file": "WideResNet101_2.dxnn",
+    "dxnn_file": "wide-resnet101-2_224x224.dxnn",
     "original_name": "WideResNet101_2",
     "csv_task": "IC",
     "add_model_task": "classification",
@@ -932,7 +898,7 @@
   },
   {
     "model_name": "wideresnet50_2",
-    "dxnn_file": "WideResNet50_2.dxnn",
+    "dxnn_file": "wide-resnet50-2_224x224.dxnn",
     "original_name": "WideResNet50_2",
     "csv_task": "IC",
     "add_model_task": "classification",
@@ -947,20 +913,20 @@
   },
   {
     "model_name": "yolact_regnetx_800mf",
-    "dxnn_file": "yolact_regnetx_800mf.dxnn",
+    "dxnn_file": "yolact_regnet-x800mf_512x512.dxnn",
     "original_name": "yolact_regnetx_800mf",
     "csv_task": "SEG",
     "add_model_task": "instance_segmentation",
     "postprocessor": "yolact",
-    "input_width": 640,
-    "input_height": 640,
+    "input_width": 512,
+    "input_height": 512,
     "config": {},
     "source": "csv",
     "supported": true
   },
   {
     "model_name": "yolo26l",
-    "dxnn_file": "yolo26l.dxnn",
+    "dxnn_file": "yolo26-l_640x640.dxnn",
     "original_name": "yolo26l",
     "csv_task": "OD",
     "add_model_task": "object_detection",
@@ -976,7 +942,7 @@
   },
   {
     "model_name": "yolo26m",
-    "dxnn_file": "yolo26m.dxnn",
+    "dxnn_file": "yolo26-m_640x640.dxnn",
     "original_name": "yolo26m",
     "csv_task": "OD",
     "add_model_task": "object_detection",
@@ -992,7 +958,7 @@
   },
   {
     "model_name": "yolo26n",
-    "dxnn_file": "yolo26n.dxnn",
+    "dxnn_file": "yolo26-n_640x640.dxnn",
     "original_name": "yolo26n",
     "csv_task": "OD",
     "add_model_task": "object_detection",
@@ -1008,13 +974,13 @@
   },
   {
     "model_name": "yolo26n_obb",
-    "dxnn_file": "yolo26n-obb.dxnn",
+    "dxnn_file": "yolo26-n-obb_1024x1024.dxnn",
     "original_name": "yolo26n-obb",
     "csv_task": "OBB",
     "add_model_task": "obb_detection",
     "postprocessor": "obb",
-    "input_width": 640,
-    "input_height": 640,
+    "input_width": 1024,
+    "input_height": 1024,
     "config": {
       "score_threshold": 0.3
     },
@@ -1023,7 +989,7 @@
   },
   {
     "model_name": "yolo26s",
-    "dxnn_file": "yolo26s.dxnn",
+    "dxnn_file": "yolo26-s_640x640.dxnn",
     "original_name": "yolo26s",
     "csv_task": "OD",
     "add_model_task": "object_detection",
@@ -1039,7 +1005,7 @@
   },
   {
     "model_name": "yolo26x",
-    "dxnn_file": "yolo26x.dxnn",
+    "dxnn_file": "yolo26-x_640x640.dxnn",
     "original_name": "yolo26x",
     "csv_task": "OD",
     "add_model_task": "object_detection",
@@ -1055,7 +1021,7 @@
   },
   {
     "model_name": "yolov10b",
-    "dxnn_file": "YOLOV10B.dxnn",
+    "dxnn_file": "yolov10-b_640x640.dxnn",
     "original_name": "YOLOV10B",
     "csv_task": "OD",
     "add_model_task": "object_detection",
@@ -1071,7 +1037,7 @@
   },
   {
     "model_name": "yolov10l",
-    "dxnn_file": "YOLOV10L.dxnn",
+    "dxnn_file": "yolov10-l_640x640.dxnn",
     "original_name": "YOLOV10L",
     "csv_task": "OD",
     "add_model_task": "object_detection",
@@ -1087,7 +1053,7 @@
   },
   {
     "model_name": "yolov10m",
-    "dxnn_file": "YOLOV10M.dxnn",
+    "dxnn_file": "yolov10-m_640x640.dxnn",
     "original_name": "YOLOV10M",
     "csv_task": "OD",
     "add_model_task": "object_detection",
@@ -1103,7 +1069,7 @@
   },
   {
     "model_name": "yolov10n",
-    "dxnn_file": "YOLOV10N.dxnn",
+    "dxnn_file": "yolov10-n_640x640.dxnn",
     "original_name": "YOLOV10N",
     "csv_task": "OD",
     "add_model_task": "object_detection",
@@ -1119,7 +1085,7 @@
   },
   {
     "model_name": "yolov10s",
-    "dxnn_file": "YOLOV10S.dxnn",
+    "dxnn_file": "yolov10-s_640x640.dxnn",
     "original_name": "YOLOV10S",
     "csv_task": "OD",
     "add_model_task": "object_detection",
@@ -1135,7 +1101,7 @@
   },
   {
     "model_name": "yolov10x",
-    "dxnn_file": "YOLOV10X.dxnn",
+    "dxnn_file": "yolov10-x_640x640.dxnn",
     "original_name": "YOLOV10X",
     "csv_task": "OD",
     "add_model_task": "object_detection",
@@ -1151,7 +1117,7 @@
   },
   {
     "model_name": "yolov11l",
-    "dxnn_file": "YOLOV11L.dxnn",
+    "dxnn_file": "yolo11-l_640x640.dxnn",
     "original_name": "YOLOV11L",
     "csv_task": "OD",
     "add_model_task": "object_detection",
@@ -1167,7 +1133,7 @@
   },
   {
     "model_name": "yolov11m",
-    "dxnn_file": "YOLOV11M.dxnn",
+    "dxnn_file": "yolo11-m_640x640.dxnn",
     "original_name": "YOLOV11M",
     "csv_task": "OD",
     "add_model_task": "object_detection",
@@ -1183,7 +1149,7 @@
   },
   {
     "model_name": "yolov11n",
-    "dxnn_file": "YOLOV11N.dxnn",
+    "dxnn_file": "yolo11-n_640x640.dxnn",
     "original_name": "YOLOV11N",
     "csv_task": "OD",
     "add_model_task": "object_detection",
@@ -1199,7 +1165,7 @@
   },
   {
     "model_name": "yolov11s",
-    "dxnn_file": "YOLOV11S.dxnn",
+    "dxnn_file": "yolo11-s_640x640.dxnn",
     "original_name": "YOLOV11S",
     "csv_task": "OD",
     "add_model_task": "object_detection",
@@ -1215,7 +1181,7 @@
   },
   {
     "model_name": "yolov11x",
-    "dxnn_file": "YOLOV11X.dxnn",
+    "dxnn_file": "yolo11-x_640x640.dxnn",
     "original_name": "YOLOV11X",
     "csv_task": "OD",
     "add_model_task": "object_detection",
@@ -1231,7 +1197,7 @@
   },
   {
     "model_name": "yolov3",
-    "dxnn_file": "YoloV3.dxnn",
+    "dxnn_file": "yolov3_640x640.dxnn",
     "original_name": "YoloV3",
     "csv_task": "OD",
     "add_model_task": "object_detection",
@@ -1239,7 +1205,6 @@
     "input_width": 640,
     "input_height": 640,
     "config": {
-      "obj_threshold": 0.25,
       "score_threshold": 0.25,
       "nms_threshold": 0.45
     },
@@ -1248,7 +1213,7 @@
   },
   {
     "model_name": "yolov5l",
-    "dxnn_file": "YoloV5L.dxnn",
+    "dxnn_file": "yolov5-l_640x640.dxnn",
     "original_name": "YoloV5L",
     "csv_task": "OD",
     "add_model_task": "object_detection",
@@ -1256,7 +1221,6 @@
     "input_width": 640,
     "input_height": 640,
     "config": {
-      "obj_threshold": 0.25,
       "score_threshold": 0.25,
       "nms_threshold": 0.45
     },
@@ -1265,7 +1229,7 @@
   },
   {
     "model_name": "yolov5l_seg",
-    "dxnn_file": "yolov5l_seg.dxnn",
+    "dxnn_file": "yolov5-l-seg_640x640.dxnn",
     "original_name": "yolov5l_seg",
     "csv_task": "SEG",
     "add_model_task": "instance_segmentation",
@@ -1282,7 +1246,7 @@
   },
   {
     "model_name": "yolov5m",
-    "dxnn_file": "YoloV5M.dxnn",
+    "dxnn_file": "yolov5-m_640x640.dxnn",
     "original_name": "YoloV5M",
     "csv_task": "OD",
     "add_model_task": "object_detection",
@@ -1299,13 +1263,13 @@
   },
   {
     "model_name": "yolov5m_6_1",
-    "dxnn_file": "YoloV5M_6.1.dxnn",
+    "dxnn_file": "yolov5-m6_1280x1280_v6.1.dxnn",
     "original_name": "YoloV5M_6.1",
     "csv_task": "OD",
     "add_model_task": "object_detection",
     "postprocessor": "yolov5",
-    "input_width": 640,
-    "input_height": 640,
+    "input_width": 1280,
+    "input_height": 1280,
     "config": {
       "obj_threshold": 0.25,
       "score_threshold": 0.25,
@@ -1316,7 +1280,7 @@
   },
   {
     "model_name": "yolov5m_face",
-    "dxnn_file": "YOLOv5m_Face.dxnn",
+    "dxnn_file": "yolov5-m-face_640x640.dxnn",
     "original_name": "YOLOv5m_Face",
     "csv_task": "FD",
     "add_model_task": "face_detection",
@@ -1333,7 +1297,7 @@
   },
   {
     "model_name": "yolov5m_seg",
-    "dxnn_file": "yolov5m_seg.dxnn",
+    "dxnn_file": "yolov5-m-seg_640x640.dxnn",
     "original_name": "yolov5m_seg",
     "csv_task": "SEG",
     "add_model_task": "instance_segmentation",
@@ -1350,7 +1314,7 @@
   },
   {
     "model_name": "yolov5n",
-    "dxnn_file": "YoloV5N.dxnn",
+    "dxnn_file": "yolov5-n_640x640.dxnn",
     "original_name": "YoloV5N",
     "csv_task": "OD",
     "add_model_task": "object_detection",
@@ -1367,7 +1331,7 @@
   },
   {
     "model_name": "yolov5n_seg",
-    "dxnn_file": "yolov5n_seg.dxnn",
+    "dxnn_file": "yolov5-n-seg_640x640.dxnn",
     "original_name": "yolov5n_seg",
     "csv_task": "SEG",
     "add_model_task": "instance_segmentation",
@@ -1384,7 +1348,7 @@
   },
   {
     "model_name": "yolov5s",
-    "dxnn_file": "YoloV5S.dxnn",
+    "dxnn_file": "yolov5-s_640x640.dxnn",
     "original_name": "YoloV5S",
     "csv_task": "OD",
     "add_model_task": "object_detection",
@@ -1401,7 +1365,7 @@
   },
   {
     "model_name": "yolov5s_face",
-    "dxnn_file": "YOLOv5s_Face.dxnn",
+    "dxnn_file": "yolov5-s-face_640x640.dxnn",
     "original_name": "YOLOv5s_Face",
     "csv_task": "FD",
     "add_model_task": "face_detection",
@@ -1418,7 +1382,7 @@
   },
   {
     "model_name": "yolov5s_ppu",
-    "dxnn_file": "YoloV5S_PPU.dxnn",
+    "dxnn_file": "yolov5-s_640x640_ppu.dxnn",
     "original_name": "YoloV5S_PPU",
     "csv_task": "OD",
     "add_model_task": "ppu",
@@ -1434,7 +1398,7 @@
   },
   {
     "model_name": "yolov5s_seg",
-    "dxnn_file": "yolov5s_seg.dxnn",
+    "dxnn_file": "yolov5-s-seg_640x640.dxnn",
     "original_name": "yolov5s_seg",
     "csv_task": "SEG",
     "add_model_task": "instance_segmentation",
@@ -1451,7 +1415,7 @@
   },
   {
     "model_name": "yolov6n_0_1_0",
-    "dxnn_file": "YoloV6N_0.1.0.dxnn",
+    "dxnn_file": "yolov6-n0_640x640_v0.1.0.dxnn",
     "original_name": "YoloV6N_0.1.0",
     "csv_task": "OD",
     "add_model_task": "object_detection",
@@ -1468,7 +1432,7 @@
   },
   {
     "model_name": "yolov6n_0_2_1",
-    "dxnn_file": "YoloV6n_0.2.1.dxnn",
+    "dxnn_file": "yolov6-n0_640x640_v0.2.1.dxnn",
     "original_name": "YoloV6n_0.2.1",
     "csv_task": "OD",
     "add_model_task": "object_detection",
@@ -1485,7 +1449,7 @@
   },
   {
     "model_name": "yolov7",
-    "dxnn_file": "YoloV7.dxnn",
+    "dxnn_file": "yolov7_640x640.dxnn",
     "original_name": "YoloV7",
     "csv_task": "OD",
     "add_model_task": "object_detection",
@@ -1502,7 +1466,7 @@
   },
   {
     "model_name": "yolov7_face",
-    "dxnn_file": "YOLOv7_Face.dxnn",
+    "dxnn_file": "yolov7-face_640x640.dxnn",
     "original_name": "YOLOv7_Face",
     "csv_task": "FD",
     "add_model_task": "face_detection",
@@ -1519,7 +1483,7 @@
   },
   {
     "model_name": "yolov7_ppu",
-    "dxnn_file": "YoloV7_PPU.dxnn",
+    "dxnn_file": "yolov7_640x640_ppu.dxnn",
     "original_name": "YoloV7_PPU",
     "csv_task": "OD",
     "add_model_task": "ppu",
@@ -1535,13 +1499,13 @@
   },
   {
     "model_name": "yolov7_w6",
-    "dxnn_file": "YoloV7W6.dxnn",
+    "dxnn_file": "yolov7-w6_1280x1280.dxnn",
     "original_name": "YOLOV7_W6",
     "csv_task": "OD",
     "add_model_task": "object_detection",
     "postprocessor": "yolov5",
-    "input_width": 640,
-    "input_height": 640,
+    "input_width": 1280,
+    "input_height": 1280,
     "config": {
       "obj_threshold": 0.25,
       "score_threshold": 0.25,
@@ -1552,7 +1516,7 @@
   },
   {
     "model_name": "yolov7_w6_face",
-    "dxnn_file": "YOLOv7_W6_Face.dxnn",
+    "dxnn_file": "yolov7-w6-face_960x960.dxnn",
     "original_name": "YOLOv7_W6_Face",
     "csv_task": "FD",
     "add_model_task": "face_detection",
@@ -1569,7 +1533,7 @@
   },
   {
     "model_name": "yolov7_w6_tta_face",
-    "dxnn_file": "YOLOv7_W6_TTA_Face.dxnn",
+    "dxnn_file": "yolov7-w6-face_1280x1280_tta.dxnn",
     "original_name": "YOLOv7_W6_TTA_Face",
     "csv_task": "FD",
     "add_model_task": "face_detection",
@@ -1586,13 +1550,13 @@
   },
   {
     "model_name": "yolov7e6",
-    "dxnn_file": "YoloV7E6.dxnn",
+    "dxnn_file": "yolov7-e6_1280x1280.dxnn",
     "original_name": "YoloV7E6",
     "csv_task": "OD",
     "add_model_task": "object_detection",
     "postprocessor": "yolov5",
-    "input_width": 640,
-    "input_height": 640,
+    "input_width": 1280,
+    "input_height": 1280,
     "config": {
       "obj_threshold": 0.25,
       "score_threshold": 0.25,
@@ -1603,7 +1567,7 @@
   },
   {
     "model_name": "yolov7s_face",
-    "dxnn_file": "YOLOv7s_Face.dxnn",
+    "dxnn_file": "yolov7-s-face_640x640.dxnn",
     "original_name": "YOLOv7s_Face",
     "csv_task": "FD",
     "add_model_task": "face_detection",
@@ -1620,7 +1584,7 @@
   },
   {
     "model_name": "yolov7tiny",
-    "dxnn_file": "YoloV7Tiny.dxnn",
+    "dxnn_file": "yolov7-tiny_640x640.dxnn",
     "original_name": "YoloV7Tiny",
     "csv_task": "OD",
     "add_model_task": "object_detection",
@@ -1637,7 +1601,7 @@
   },
   {
     "model_name": "yolov8l",
-    "dxnn_file": "YoloV8L.dxnn",
+    "dxnn_file": "yolov8-l_640x640.dxnn",
     "original_name": "YoloV8L",
     "csv_task": "OD",
     "add_model_task": "object_detection",
@@ -1653,7 +1617,7 @@
   },
   {
     "model_name": "yolov8m",
-    "dxnn_file": "YoloV8M.dxnn",
+    "dxnn_file": "yolov8-m_640x640.dxnn",
     "original_name": "YoloV8M",
     "csv_task": "OD",
     "add_model_task": "object_detection",
@@ -1669,7 +1633,7 @@
   },
   {
     "model_name": "yolov8m_pose",
-    "dxnn_file": "yolov8m_pose.dxnn",
+    "dxnn_file": "yolov8-m-pose_640x640.dxnn",
     "original_name": "yolov8m_pose",
     "csv_task": "POSE",
     "add_model_task": "pose_estimation",
@@ -1686,7 +1650,7 @@
   },
   {
     "model_name": "yolov8m_seg",
-    "dxnn_file": "yolov8m_seg.dxnn",
+    "dxnn_file": "yolov8-m-seg_640x640.dxnn",
     "original_name": "yolov8m_seg",
     "csv_task": "SEG",
     "add_model_task": "instance_segmentation",
@@ -1703,7 +1667,7 @@
   },
   {
     "model_name": "yolov8n",
-    "dxnn_file": "YoloV8N.dxnn",
+    "dxnn_file": "yolov8-n_640x640.dxnn",
     "original_name": "YoloV8N",
     "csv_task": "OD",
     "add_model_task": "object_detection",
@@ -1719,7 +1683,7 @@
   },
   {
     "model_name": "yolov8n_seg",
-    "dxnn_file": "yolov8n_seg.dxnn",
+    "dxnn_file": "yolov8-n-seg_640x640.dxnn",
     "original_name": "yolov8n_seg",
     "csv_task": "SEG",
     "add_model_task": "instance_segmentation",
@@ -1736,7 +1700,7 @@
   },
   {
     "model_name": "yolov8s",
-    "dxnn_file": "YoloV8S.dxnn",
+    "dxnn_file": "yolov8-s_640x640.dxnn",
     "original_name": "YoloV8S",
     "csv_task": "OD",
     "add_model_task": "object_detection",
@@ -1752,7 +1716,7 @@
   },
   {
     "model_name": "yolov8s_pose",
-    "dxnn_file": "yolov8s_pose.dxnn",
+    "dxnn_file": "yolov8-s-pose_640x640.dxnn",
     "original_name": "yolov8s_pose",
     "csv_task": "POSE",
     "add_model_task": "pose_estimation",
@@ -1769,7 +1733,7 @@
   },
   {
     "model_name": "yolov8x",
-    "dxnn_file": "YoloV8X.dxnn",
+    "dxnn_file": "yolov8-x_640x640.dxnn",
     "original_name": "YoloV8X",
     "csv_task": "OD",
     "add_model_task": "object_detection",
@@ -1785,7 +1749,7 @@
   },
   {
     "model_name": "yolov8n_ppu",
-    "dxnn_file": "YoloV8N_PPU.dxnn",
+    "dxnn_file": "yolov8-n_640x640_ppu.dxnn",
     "original_name": "YoloV8N_PPU",
     "csv_task": "OD",
     "add_model_task": "ppu",
@@ -1802,7 +1766,7 @@
   },
   {
     "model_name": "yolov8s_ppu",
-    "dxnn_file": "YoloV8S_PPU.dxnn",
+    "dxnn_file": "yolov8-s_640x640_ppu.dxnn",
     "original_name": "YoloV8S_PPU",
     "csv_task": "OD",
     "add_model_task": "ppu",
@@ -1819,7 +1783,7 @@
   },
   {
     "model_name": "yolov9t_ppu",
-    "dxnn_file": "YoloV9T_PPU.dxnn",
+    "dxnn_file": "yolov9-t_640x640_ppu.dxnn",
     "original_name": "YoloV9T_PPU",
     "csv_task": "OD",
     "add_model_task": "ppu",
@@ -1836,7 +1800,7 @@
   },
   {
     "model_name": "yolov10n_ppu",
-    "dxnn_file": "YOLOV10N_PPU.dxnn",
+    "dxnn_file": "yolov10-n_640x640_ppu.dxnn",
     "original_name": "YOLOV10N_PPU",
     "csv_task": "OD",
     "add_model_task": "ppu",
@@ -1853,7 +1817,7 @@
   },
   {
     "model_name": "yolov11n_ppu",
-    "dxnn_file": "YOLOV11N_PPU.dxnn",
+    "dxnn_file": "yolo11-n_640x640_ppu.dxnn",
     "original_name": "YOLOV11N_PPU",
     "csv_task": "OD",
     "add_model_task": "ppu",
@@ -1870,7 +1834,7 @@
   },
   {
     "model_name": "yolov12n_ppu",
-    "dxnn_file": "YOLOV12N_PPU.dxnn",
+    "dxnn_file": "yolov12-n_640x640_ppu.dxnn",
     "original_name": "YOLOV12N_PPU",
     "csv_task": "OD",
     "add_model_task": "ppu",
@@ -1887,7 +1851,7 @@
   },
   {
     "model_name": "yolov7x_ppu",
-    "dxnn_file": "YOLOv7x_PPU.dxnn",
+    "dxnn_file": "yolov7-x_640x640_ppu.dxnn",
     "original_name": "YOLOv7x_PPU",
     "csv_task": "OD",
     "add_model_task": "ppu",
@@ -1937,7 +1901,7 @@
   },
   {
     "model_name": "yolov9c",
-    "dxnn_file": "YoloV9C.dxnn",
+    "dxnn_file": "yolov9-c_640x640.dxnn",
     "original_name": "YoloV9C",
     "csv_task": "OD",
     "add_model_task": "object_detection",
@@ -1953,7 +1917,7 @@
   },
   {
     "model_name": "yolov9s",
-    "dxnn_file": "YoloV9S.dxnn",
+    "dxnn_file": "yolov9-s_640x640.dxnn",
     "original_name": "YoloV9S",
     "csv_task": "OD",
     "add_model_task": "object_detection",
@@ -1969,7 +1933,7 @@
   },
   {
     "model_name": "yolov9t",
-    "dxnn_file": "YoloV9T.dxnn",
+    "dxnn_file": "yolov9-t_640x640.dxnn",
     "original_name": "YoloV9T",
     "csv_task": "OD",
     "add_model_task": "object_detection",
@@ -1985,7 +1949,7 @@
   },
   {
     "model_name": "yolox_l_leaky",
-    "dxnn_file": "YoloX_L_Leaky.dxnn",
+    "dxnn_file": "yolox-l-leaky_640x640.dxnn",
     "original_name": "YoloX_L_Leaky",
     "csv_task": "OD",
     "add_model_task": "object_detection",
@@ -2002,7 +1966,7 @@
   },
   {
     "model_name": "yolox_s_leaky",
-    "dxnn_file": "YoloX_S_Leaky.dxnn",
+    "dxnn_file": "yolox-s-leaky_640x640.dxnn",
     "original_name": "YoloX_S_Leaky",
     "csv_task": "OD",
     "add_model_task": "object_detection",
@@ -2019,7 +1983,7 @@
   },
   {
     "model_name": "yolox_s_wide_leaky",
-    "dxnn_file": "YoloX_S_Wide_Leaky.dxnn",
+    "dxnn_file": "yolox-s-wide-leaky_640x640.dxnn",
     "original_name": "YoloX_S_Wide_Leaky",
     "csv_task": "OD",
     "add_model_task": "object_detection",
@@ -2036,7 +2000,7 @@
   },
   {
     "model_name": "yoloxs",
-    "dxnn_file": "YoloXS.dxnn",
+    "dxnn_file": "yolox-s_640x640.dxnn",
     "original_name": "YoloXS",
     "csv_task": "OD",
     "add_model_task": "object_detection",
@@ -2053,13 +2017,13 @@
   },
   {
     "model_name": "yoloxtiny",
-    "dxnn_file": "YoloXTiny.dxnn",
+    "dxnn_file": "yolox-t_416x416.dxnn",
     "original_name": "YoloXTiny",
     "csv_task": "OD",
     "add_model_task": "object_detection",
     "postprocessor": "yolox",
-    "input_width": 640,
-    "input_height": 640,
+    "input_width": 416,
+    "input_height": 416,
     "config": {
       "obj_threshold": 0.25,
       "score_threshold": 0.25,
@@ -2070,13 +2034,26 @@
   },
   {
     "model_name": "zero_dce",
-    "dxnn_file": "zero_dce.dxnn",
+    "dxnn_file": "zerodce_400x600.dxnn",
     "original_name": "zero_dce",
     "csv_task": "LLIE",
     "add_model_task": "image_enhancement",
     "postprocessor": "zero_dce",
-    "input_width": 224,
-    "input_height": 224,
+    "input_width": 600,
+    "input_height": 400,
+    "config": {},
+    "source": "csv",
+    "supported": true
+  },
+  {
+    "model_name": "efficientnetv2s",
+    "dxnn_file": "efficientnetv2-s_384x384.dxnn",
+    "original_name": "EfficientNetV2S",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 384,
+    "input_height": 384,
     "config": {
       "top_k": 5
     },
@@ -2084,30 +2061,24 @@
     "supported": true
   },
   {
-    "model_name": "efficientnetv2s",
-    "dxnn_file": "EfficientNetV2S.dxnn",
-    "add_model_task": "classification",
-    "postprocessor": "efficientnet",
-    "config": {
-      "top_k": 5
-    },
-    "supported": true
-  },
-  {
     "model_name": "yolov8s_seg",
-    "dxnn_file": "yolov8s_seg.dxnn",
+    "dxnn_file": "yolov8-s-seg_640x640.dxnn",
+    "original_name": "yolov8s_seg",
+    "csv_task": "SEG",
     "add_model_task": "instance_segmentation",
     "postprocessor": "yolov8seg",
+    "input_width": 640,
+    "input_height": 640,
     "config": {
-      "obj_threshold": 0.25,
       "score_threshold": 0.25,
       "nms_threshold": 0.45
     },
+    "source": "csv",
     "supported": true
   },
   {
     "model_name": "deepmar_resnet50",
-    "dxnn_file": "deepmar_resnet50.dxnn",
+    "dxnn_file": "deepmar_resnet50_224x224.dxnn",
     "original_name": "deepmar_resnet50",
     "csv_task": "MCL",
     "add_model_task": "attribute_recognition",
@@ -2120,22 +2091,20 @@
   },
   {
     "model_name": "casvit_t",
-    "dxnn_file": "casvit_t.dxnn",
+    "dxnn_file": "casvit-t_224x224.dxnn",
     "original_name": "casvit_t",
-    "csv_task": "FREC",
+    "csv_task": "REID",
     "add_model_task": "reid",
     "postprocessor": "arcface",
     "input_width": 224,
     "input_height": 224,
-    "config": {
-      "top_k": 5
-    },
+    "config": {},
     "source": "csv",
     "supported": true
   },
   {
     "model_name": "scdepthv3",
-    "dxnn_file": "scdepthv3.dxnn",
+    "dxnn_file": "scdepthv3_256x320.dxnn",
     "original_name": "scdepthv3",
     "csv_task": "DEPTH",
     "add_model_task": "depth_estimation",
@@ -2148,123 +2117,91 @@
   },
   {
     "model_name": "3ddfa_v2_mobilnet0_5_120x120",
-    "dxnn_file": "3ddfa_v2_mobilnet0.5_120x120.dxnn",
+    "dxnn_file": "3ddfa-v2_mobilenet-0.5_120x120.dxnn",
     "original_name": "3ddfa_v2_mobilnet0.5_120x120",
     "csv_task": "F3D",
     "add_model_task": "face_alignment",
     "postprocessor": "tddfa",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 120,
+    "input_height": 120,
     "config": {},
     "source": "auto_classify",
     "supported": true
   },
   {
     "model_name": "3ddfa_v2_mobilnetv1_120x120",
-    "dxnn_file": "3ddfa_v2_mobilnetv1_120x120.dxnn",
+    "dxnn_file": "3ddfa-v2_mobilenetv1_120x120.dxnn",
     "original_name": "3ddfa_v2_mobilnetv1_120x120",
     "csv_task": "F3D",
     "add_model_task": "face_alignment",
     "postprocessor": "tddfa",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 120,
+    "input_height": 120,
     "config": {},
     "source": "auto_classify",
     "supported": true
   },
   {
     "model_name": "arcface_iresnet100_ms1m",
-    "dxnn_file": "arcface_iresnet100_ms1m.dxnn",
+    "dxnn_file": "arcface_iresnet100_112x112_ms1m.dxnn",
     "original_name": "arcface_iresnet100_ms1m",
     "csv_task": "FREC",
     "add_model_task": "embedding",
     "postprocessor": "arcface",
-    "input_width": 0,
-    "input_height": 0,
-    "config": {
-      "top_k": 5
-    },
+    "input_width": 112,
+    "input_height": 112,
+    "config": {},
     "source": "auto_classify",
     "supported": true
   },
   {
     "model_name": "arcface_iresnet50_ms1m",
-    "dxnn_file": "arcface_iresnet50_ms1m.dxnn",
+    "dxnn_file": "arcface_iresnet50_112x112_ms1m.dxnn",
     "original_name": "arcface_iresnet50_ms1m",
     "csv_task": "FREC",
     "add_model_task": "embedding",
     "postprocessor": "arcface",
-    "input_width": 0,
-    "input_height": 0,
-    "config": {
-      "top_k": 5
-    },
+    "input_width": 112,
+    "input_height": 112,
+    "config": {},
     "source": "auto_classify",
     "supported": true
   },
   {
     "model_name": "arcface_r50",
-    "dxnn_file": "arcface_r50.dxnn",
+    "dxnn_file": "arcface_resnet50_112x112.dxnn",
     "original_name": "arcface_r50",
     "csv_task": "FREC",
     "add_model_task": "embedding",
     "postprocessor": "arcface",
-    "input_width": 0,
-    "input_height": 0,
-    "config": {
-      "top_k": 5
-    },
+    "input_width": 112,
+    "input_height": 112,
+    "config": {},
     "source": "auto_classify",
     "supported": true
   },
   {
     "model_name": "casvit_m",
-    "dxnn_file": "casvit_m.dxnn",
+    "dxnn_file": "casvit-m_224x224.dxnn",
     "original_name": "casvit_m",
     "csv_task": "REID",
     "add_model_task": "reid",
-    "postprocessor": "casvit",
-    "input_width": 0,
-    "input_height": 0,
-    "config": {},
-    "source": "auto_classify",
-    "supported": true
-  },
-  {
-    "model_name": "casvit_s",
-    "dxnn_file": "casvit_s.dxnn",
-    "original_name": "casvit_s",
-    "csv_task": "REID",
-    "add_model_task": "reid",
-    "postprocessor": "casvit",
-    "input_width": 0,
-    "input_height": 0,
-    "config": {},
-    "source": "auto_classify",
-    "supported": true
-  },
-  {
-    "model_name": "casvit_xs",
-    "dxnn_file": "casvit_xs.dxnn",
-    "original_name": "casvit_xs",
-    "csv_task": "REID",
-    "add_model_task": "reid",
-    "postprocessor": "casvit",
-    "input_width": 0,
-    "input_height": 0,
+    "postprocessor": "arcface",
+    "input_width": 224,
+    "input_height": 224,
     "config": {},
     "source": "auto_classify",
     "supported": true
   },
   {
     "model_name": "centerpose_regnetx_1_6gf_fpn",
-    "dxnn_file": "centerpose_regnetx_1.6gf_fpn.dxnn",
+    "dxnn_file": "centerpose-fpn_regnet-x1.6gf_512x512.dxnn",
     "original_name": "centerpose_regnetx_1.6gf_fpn",
     "csv_task": "POSE",
     "add_model_task": "pose_estimation",
     "postprocessor": "centerpose",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 512,
+    "input_height": 512,
     "config": {
       "score_threshold": 0.3
     },
@@ -2273,13 +2210,13 @@
   },
   {
     "model_name": "centerpose_regnetx_800mf",
-    "dxnn_file": "centerpose_regnetx_800mf.dxnn",
+    "dxnn_file": "centerpose_regnet-x800mf_640x640.dxnn",
     "original_name": "centerpose_regnetx_800mf",
     "csv_task": "POSE",
     "add_model_task": "pose_estimation",
     "postprocessor": "centerpose",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 640,
+    "input_height": 640,
     "config": {
       "score_threshold": 0.3
     },
@@ -2288,13 +2225,13 @@
   },
   {
     "model_name": "centerpose_repvgg_a0",
-    "dxnn_file": "centerpose_repvgg_a0.dxnn",
+    "dxnn_file": "centerpose_repvgg-a0_416x416.dxnn",
     "original_name": "centerpose_repvgg_a0",
     "csv_task": "POSE",
     "add_model_task": "pose_estimation",
     "postprocessor": "centerpose",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 416,
+    "input_height": 416,
     "config": {
       "score_threshold": 0.3
     },
@@ -2303,52 +2240,67 @@
   },
   {
     "model_name": "deeplabv3mobilenetv2",
-    "dxnn_file": "DeepLabV3MobileNetV2.dxnn",
+    "dxnn_file": "deeplabv3_mobilenetv2_512x512.dxnn",
     "original_name": "DeepLabV3MobileNetV2",
     "csv_task": "SEG",
     "add_model_task": "semantic_segmentation",
     "postprocessor": "deeplabv3",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 512,
+    "input_height": 512,
     "config": {},
     "source": "auto_classify",
     "supported": true
   },
   {
     "model_name": "deeplabv3plusmobilenetv2",
-    "dxnn_file": "DeepLabV3PlusMobileNetV2.dxnn",
+    "dxnn_file": "deeplabv3plus_mobilenetv2_512x512.dxnn",
     "original_name": "DeepLabV3PlusMobileNetV2",
     "csv_task": "SEG",
     "add_model_task": "semantic_segmentation",
     "postprocessor": "deeplabv3",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 512,
+    "input_height": 512,
     "config": {},
     "source": "auto_classify",
     "supported": true
   },
   {
     "model_name": "deepmar_resnet18_person_attr_resnet_v1_18",
-    "dxnn_file": "deepmar_resnet18_person_attr_resnet_v1_18.dxnn",
+    "dxnn_file": "deepmar_resnet18_224x224.dxnn",
     "original_name": "deepmar_resnet18_person_attr_resnet_v1_18",
     "csv_task": "ATTR",
     "add_model_task": "attribute_recognition",
     "postprocessor": "deepmar",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 224,
+    "input_height": 224,
     "config": {},
     "source": "auto_classify",
     "supported": true
   },
   {
-    "model_name": "deitbase384_hug",
-    "dxnn_file": "DeiTBase384_hug.dxnn",
-    "original_name": "DeiTBase384_hug",
+    "model_name": "deitbase384",
+    "dxnn_file": "deit-b_384x384.dxnn",
+    "original_name": "DeiTBase384",
     "csv_task": "IC",
     "add_model_task": "classification",
     "postprocessor": "efficientnet",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 384,
+    "input_height": 384,
+    "config": {
+      "top_k": 5
+    },
+    "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "deit_base384_distilled",
+    "dxnn_file": "deit-b_384x384.dxnn",
+    "original_name": "DeiTBase384",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 384,
+    "input_height": 384,
     "config": {
       "top_k": 5
     },
@@ -2357,13 +2309,13 @@
   },
   {
     "model_name": "densenet169",
-    "dxnn_file": "DenseNet169.dxnn",
+    "dxnn_file": "densenet169_224x224.dxnn",
     "original_name": "DenseNet169",
     "csv_task": "IC",
     "add_model_task": "classification",
     "postprocessor": "efficientnet",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 224,
+    "input_height": 224,
     "config": {
       "top_k": 5
     },
@@ -2372,13 +2324,13 @@
   },
   {
     "model_name": "densenet201",
-    "dxnn_file": "DenseNet201.dxnn",
+    "dxnn_file": "densenet201_224x224.dxnn",
     "original_name": "DenseNet201",
     "csv_task": "IC",
     "add_model_task": "classification",
     "postprocessor": "efficientnet",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 224,
+    "input_height": 224,
     "config": {
       "top_k": 5
     },
@@ -2386,55 +2338,40 @@
     "supported": true
   },
   {
-    "model_name": "dncnn3",
-    "dxnn_file": "DnCNN3.dxnn",
-    "original_name": "DnCNN3",
+    "model_name": "dncnn_color_blind",
+    "dxnn_file": "dncnn-color_512x512.dxnn",
+    "original_name": "DnCNN_Color_Blind",
     "csv_task": "DN",
     "add_model_task": "image_denoising",
     "postprocessor": "dncnn",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 512,
+    "input_height": 512,
     "config": {},
     "source": "auto_classify",
     "supported": true
   },
   {
-    "model_name": "dncnn_color_blind",
-    "dxnn_file": "DnCNN_Color_Blind.dxnn",
-    "original_name": "DnCNN_Color_Blind",
-    "csv_task": "DN",
-    "add_model_task": "image_denoising",
-    "postprocessor": "dncnn",
-    "input_width": 0,
-    "input_height": 0,
-    "config": {},
-    "source": "auto_classify",
-    "supported": false,
-    "failure_reason": "DMA write failure - device cannot handle 512x512x3 input buffer (errno=-70)",
-    "known_issue": "Device firmware DMA limit. Factory corrected to use color preprocessor. Awaiting firmware fix."
-  },
-  {
     "model_name": "dncnn_gray_blind",
-    "dxnn_file": "DnCNN_Gray_Blind.dxnn",
+    "dxnn_file": "dncnn-gray_512x512.dxnn",
     "original_name": "DnCNN_Gray_Blind",
     "csv_task": "DN",
     "add_model_task": "image_denoising",
     "postprocessor": "dncnn",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 512,
+    "input_height": 512,
     "config": {},
     "source": "auto_classify",
     "supported": true
   },
   {
     "model_name": "efficientdetd1",
-    "dxnn_file": "EfficientDetD1.dxnn",
+    "dxnn_file": "efficientdet-d1_640x640.dxnn",
     "original_name": "EfficientDetD1",
     "csv_task": "OD",
     "add_model_task": "object_detection",
     "postprocessor": "efficientdet",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 640,
+    "input_height": 640,
     "config": {
       "score_threshold": 0.4,
       "nms_threshold": 0.45
@@ -2444,13 +2381,13 @@
   },
   {
     "model_name": "efficientdetd2",
-    "dxnn_file": "EfficientDetD2.dxnn",
+    "dxnn_file": "efficientdet-d2_768x768.dxnn",
     "original_name": "EfficientDetD2",
     "csv_task": "OD",
     "add_model_task": "object_detection",
     "postprocessor": "efficientdet",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 768,
+    "input_height": 768,
     "config": {
       "score_threshold": 0.4,
       "nms_threshold": 0.45
@@ -2460,13 +2397,13 @@
   },
   {
     "model_name": "efficientdetd4",
-    "dxnn_file": "EfficientDetD4.dxnn",
+    "dxnn_file": "efficientdet-d4_1024x1024.dxnn",
     "original_name": "EfficientDetD4",
     "csv_task": "OD",
     "add_model_task": "object_detection",
     "postprocessor": "efficientdet",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 1024,
+    "input_height": 1024,
     "config": {
       "score_threshold": 0.4,
       "nms_threshold": 0.45
@@ -2476,13 +2413,13 @@
   },
   {
     "model_name": "efficientformer_l3",
-    "dxnn_file": "efficientformer_l3.dxnn",
+    "dxnn_file": "efficientformer-l3_224x224.dxnn",
     "original_name": "efficientformer_l3",
     "csv_task": "IC",
     "add_model_task": "classification",
     "postprocessor": "efficientnet",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 224,
+    "input_height": 224,
     "config": {
       "top_k": 5
     },
@@ -2491,13 +2428,13 @@
   },
   {
     "model_name": "efficientformer_l7",
-    "dxnn_file": "efficientformer_l7.dxnn",
+    "dxnn_file": "efficientformer-l7_224x224.dxnn",
     "original_name": "efficientformer_l7",
     "csv_task": "IC",
     "add_model_task": "classification",
     "postprocessor": "efficientnet",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 224,
+    "input_height": 224,
     "config": {
       "top_k": 5
     },
@@ -2506,13 +2443,13 @@
   },
   {
     "model_name": "efficientformerv2_l",
-    "dxnn_file": "efficientformerv2_l.dxnn",
+    "dxnn_file": "efficientformerv2-l_224x224.dxnn",
     "original_name": "efficientformerv2_l",
     "csv_task": "IC",
     "add_model_task": "classification",
     "postprocessor": "efficientnet",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 224,
+    "input_height": 224,
     "config": {
       "top_k": 5
     },
@@ -2521,13 +2458,13 @@
   },
   {
     "model_name": "efficientnetb3",
-    "dxnn_file": "EfficientNetB3.dxnn",
+    "dxnn_file": "efficientnet-b3_300x300.dxnn",
     "original_name": "EfficientNetB3",
     "csv_task": "IC",
     "add_model_task": "classification",
     "postprocessor": "efficientnet",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 300,
+    "input_height": 300,
     "config": {
       "top_k": 5
     },
@@ -2536,13 +2473,13 @@
   },
   {
     "model_name": "efficientnetb4",
-    "dxnn_file": "EfficientNetB4.dxnn",
+    "dxnn_file": "efficientnet-b4_380x380.dxnn",
     "original_name": "EfficientNetB4",
     "csv_task": "IC",
     "add_model_task": "classification",
     "postprocessor": "efficientnet",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 380,
+    "input_height": 380,
     "config": {
       "top_k": 5
     },
@@ -2551,13 +2488,13 @@
   },
   {
     "model_name": "efficientnetb5",
-    "dxnn_file": "EfficientNetB5.dxnn",
+    "dxnn_file": "efficientnet-b5_456x456.dxnn",
     "original_name": "EfficientNetB5",
     "csv_task": "IC",
     "add_model_task": "classification",
     "postprocessor": "efficientnet",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 456,
+    "input_height": 456,
     "config": {
       "top_k": 5
     },
@@ -2566,13 +2503,13 @@
   },
   {
     "model_name": "efficientnetb6",
-    "dxnn_file": "EfficientNetB6.dxnn",
+    "dxnn_file": "efficientnet-b6_528x528.dxnn",
     "original_name": "EfficientNetB6",
     "csv_task": "IC",
     "add_model_task": "classification",
     "postprocessor": "efficientnet",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 528,
+    "input_height": 528,
     "config": {
       "top_k": 5
     },
@@ -2581,13 +2518,13 @@
   },
   {
     "model_name": "efficientnetv2l",
-    "dxnn_file": "EfficientNetV2L.dxnn",
+    "dxnn_file": "efficientnetv2-l_480x480.dxnn",
     "original_name": "EfficientNetV2L",
     "csv_task": "IC",
     "add_model_task": "classification",
     "postprocessor": "efficientnet",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 480,
+    "input_height": 480,
     "config": {
       "top_k": 5
     },
@@ -2596,39 +2533,39 @@
   },
   {
     "model_name": "espcn_x3",
-    "dxnn_file": "ESPCN_X3.dxnn",
+    "dxnn_file": "espcn-x3_17x17.dxnn",
     "original_name": "ESPCN_X3",
     "csv_task": "SR",
     "add_model_task": "super_resolution",
     "postprocessor": "espcn",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 17,
+    "input_height": 17,
     "config": {},
     "source": "auto_classify",
     "supported": true
   },
   {
     "model_name": "face_attr_resnet_v1_18",
-    "dxnn_file": "face_attr_resnet_v1_18.dxnn",
+    "dxnn_file": "faceattr_resnetv1-18_218x178.dxnn",
     "original_name": "face_attr_resnet_v1_18",
     "csv_task": "ATTR",
     "add_model_task": "attribute_recognition",
     "postprocessor": "deepmar",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 178,
+    "input_height": 218,
     "config": {},
     "source": "auto_classify",
     "supported": true
   },
   {
     "model_name": "fastsam_s",
-    "dxnn_file": "FastSAM-s.dxnn",
+    "dxnn_file": "fastsam-s_1024x1024.dxnn",
     "original_name": "FastSAM-s",
     "csv_task": "ISEG",
     "add_model_task": "instance_segmentation",
     "postprocessor": "yolov8seg",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 1024,
+    "input_height": 1024,
     "config": {
       "score_threshold": 0.4,
       "nms_threshold": 0.45
@@ -2637,14 +2574,14 @@
     "supported": true
   },
   {
-    "model_name": "levit128_hug",
-    "dxnn_file": "LeViT128_hug.dxnn",
-    "original_name": "LeViT128_hug",
+    "model_name": "levit128",
+    "dxnn_file": "levit-128_224x224.dxnn",
+    "original_name": "LeViT128",
     "csv_task": "IC",
     "add_model_task": "classification",
     "postprocessor": "efficientnet",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 224,
+    "input_height": 224,
     "config": {
       "top_k": 5
     },
@@ -2652,14 +2589,14 @@
     "supported": true
   },
   {
-    "model_name": "levit192_hug",
-    "dxnn_file": "LeViT192_hug.dxnn",
-    "original_name": "LeViT192_hug",
+    "model_name": "levit192",
+    "dxnn_file": "levit-192_224x224.dxnn",
+    "original_name": "LeViT192",
     "csv_task": "IC",
     "add_model_task": "classification",
     "postprocessor": "efficientnet",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 224,
+    "input_height": 224,
     "config": {
       "top_k": 5
     },
@@ -2667,14 +2604,14 @@
     "supported": true
   },
   {
-    "model_name": "levit256_hug",
-    "dxnn_file": "LeViT256_hug.dxnn",
-    "original_name": "LeViT256_hug",
+    "model_name": "levit256",
+    "dxnn_file": "levit-256_224x224.dxnn",
+    "original_name": "LeViT256",
     "csv_task": "IC",
     "add_model_task": "classification",
     "postprocessor": "efficientnet",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 224,
+    "input_height": 224,
     "config": {
       "top_k": 5
     },
@@ -2682,14 +2619,14 @@
     "supported": true
   },
   {
-    "model_name": "levit384_hug",
-    "dxnn_file": "LeViT384_hug.dxnn",
-    "original_name": "LeViT384_hug",
+    "model_name": "levit384",
+    "dxnn_file": "levit-384_224x224.dxnn",
+    "original_name": "LeViT384",
     "csv_task": "IC",
     "add_model_task": "classification",
     "postprocessor": "efficientnet",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 224,
+    "input_height": 224,
     "config": {
       "top_k": 5
     },
@@ -2698,13 +2635,13 @@
   },
   {
     "model_name": "mnasnet0_5",
-    "dxnn_file": "MNASNet0_5.dxnn",
+    "dxnn_file": "mnasnet-0.5_224x224.dxnn",
     "original_name": "MNASNet0_5",
     "csv_task": "IC",
     "add_model_task": "classification",
     "postprocessor": "efficientnet",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 224,
+    "input_height": 224,
     "config": {
       "top_k": 5
     },
@@ -2713,13 +2650,13 @@
   },
   {
     "model_name": "mnasnet0_75",
-    "dxnn_file": "MNASNet0_75.dxnn",
+    "dxnn_file": "mnasnet-0.75_224x224.dxnn",
     "original_name": "MNASNet0_75",
     "csv_task": "IC",
     "add_model_task": "classification",
     "postprocessor": "efficientnet",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 224,
+    "input_height": 224,
     "config": {
       "top_k": 5
     },
@@ -2728,13 +2665,13 @@
   },
   {
     "model_name": "mnasnet1_0",
-    "dxnn_file": "MNASNet1_0.dxnn",
+    "dxnn_file": "mnasnet-1.0_224x224.dxnn",
     "original_name": "MNASNet1_0",
     "csv_task": "IC",
     "add_model_task": "classification",
     "postprocessor": "efficientnet",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 224,
+    "input_height": 224,
     "config": {
       "top_k": 5
     },
@@ -2743,13 +2680,13 @@
   },
   {
     "model_name": "mnasnet1_3",
-    "dxnn_file": "MNASNet1_3.dxnn",
+    "dxnn_file": "mnasnet-1.3_224x224.dxnn",
     "original_name": "MNASNet1_3",
     "csv_task": "IC",
     "add_model_task": "classification",
     "postprocessor": "efficientnet",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 224,
+    "input_height": 224,
     "config": {
       "top_k": 5
     },
@@ -2758,13 +2695,13 @@
   },
   {
     "model_name": "nanodet_repvgga12",
-    "dxnn_file": "NanoDet_RepVGGA12.dxnn",
+    "dxnn_file": "nanodet-repvgg-a12_224x224.dxnn",
     "original_name": "NanoDet_RepVGGA12",
     "csv_task": "OD",
     "add_model_task": "object_detection",
     "postprocessor": "nanodet",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 224,
+    "input_height": 224,
     "config": {
       "score_threshold": 0.4,
       "nms_threshold": 0.45
@@ -2774,13 +2711,13 @@
   },
   {
     "model_name": "nanodetplusm",
-    "dxnn_file": "NanoDetPlusM.dxnn",
+    "dxnn_file": "nanodet-plus_416x416.dxnn",
     "original_name": "NanoDetPlusM",
     "csv_task": "OD",
     "add_model_task": "object_detection",
     "postprocessor": "nanodet",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 416,
+    "input_height": 416,
     "config": {
       "score_threshold": 0.4,
       "nms_threshold": 0.45
@@ -2790,13 +2727,13 @@
   },
   {
     "model_name": "nanodetplusm_15",
-    "dxnn_file": "NanoDetPlusM_15.dxnn",
+    "dxnn_file": "nanodet-plus-1.5x_224x224.dxnn",
     "original_name": "NanoDetPlusM_15",
     "csv_task": "OD",
     "add_model_task": "object_detection",
     "postprocessor": "nanodet",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 224,
+    "input_height": 224,
     "config": {
       "score_threshold": 0.4,
       "nms_threshold": 0.45
@@ -2806,13 +2743,13 @@
   },
   {
     "model_name": "regnetx16gf",
-    "dxnn_file": "RegNetX16GF.dxnn",
+    "dxnn_file": "regnet-x16gf_224x224.dxnn",
     "original_name": "RegNetX16GF",
     "csv_task": "IC",
     "add_model_task": "classification",
     "postprocessor": "efficientnet",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 224,
+    "input_height": 224,
     "config": {
       "top_k": 5
     },
@@ -2821,28 +2758,13 @@
   },
   {
     "model_name": "regnetx1_6gf",
-    "dxnn_file": "RegNetX1_6GF.dxnn",
+    "dxnn_file": "regnet-x1.6gf_224x224_v1.dxnn",
     "original_name": "RegNetX1_6GF",
     "csv_task": "IC",
     "add_model_task": "classification",
     "postprocessor": "efficientnet",
-    "input_width": 0,
-    "input_height": 0,
-    "config": {
-      "top_k": 5
-    },
-    "source": "auto_classify",
-    "supported": true
-  },
-  {
-    "model_name": "regnetx1_6gf_h",
-    "dxnn_file": "RegNetX1_6GF_h.dxnn",
-    "original_name": "RegNetX1_6GF_h",
-    "csv_task": "IC",
-    "add_model_task": "classification",
-    "postprocessor": "efficientnet",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 224,
+    "input_height": 224,
     "config": {
       "top_k": 5
     },
@@ -2851,13 +2773,13 @@
   },
   {
     "model_name": "regnetx32gf",
-    "dxnn_file": "RegNetX32GF.dxnn",
+    "dxnn_file": "regnet-x32gf_224x224.dxnn",
     "original_name": "RegNetX32GF",
     "csv_task": "IC",
     "add_model_task": "classification",
     "postprocessor": "efficientnet",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 224,
+    "input_height": 224,
     "config": {
       "top_k": 5
     },
@@ -2866,13 +2788,13 @@
   },
   {
     "model_name": "regnetx3_2gf",
-    "dxnn_file": "RegNetX3_2GF.dxnn",
+    "dxnn_file": "regnet-x3.2gf_224x224.dxnn",
     "original_name": "RegNetX3_2GF",
     "csv_task": "IC",
     "add_model_task": "classification",
     "postprocessor": "efficientnet",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 224,
+    "input_height": 224,
     "config": {
       "top_k": 5
     },
@@ -2881,13 +2803,13 @@
   },
   {
     "model_name": "regnetx8gf",
-    "dxnn_file": "RegNetX8GF.dxnn",
+    "dxnn_file": "regnet-x8gf_224x224.dxnn",
     "original_name": "RegNetX8GF",
     "csv_task": "IC",
     "add_model_task": "classification",
     "postprocessor": "efficientnet",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 224,
+    "input_height": 224,
     "config": {
       "top_k": 5
     },
@@ -2896,13 +2818,13 @@
   },
   {
     "model_name": "regnety16gf",
-    "dxnn_file": "RegNetY16GF.dxnn",
+    "dxnn_file": "regnet-y16gf_384x384.dxnn",
     "original_name": "RegNetY16GF",
     "csv_task": "IC",
     "add_model_task": "classification",
     "postprocessor": "efficientnet",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 384,
+    "input_height": 384,
     "config": {
       "top_k": 5
     },
@@ -2911,13 +2833,13 @@
   },
   {
     "model_name": "regnety1_6gf",
-    "dxnn_file": "RegNetY1_6GF.dxnn",
+    "dxnn_file": "regnet-y1.6gf_224x224.dxnn",
     "original_name": "RegNetY1_6GF",
     "csv_task": "IC",
     "add_model_task": "classification",
     "postprocessor": "efficientnet",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 224,
+    "input_height": 224,
     "config": {
       "top_k": 5
     },
@@ -2926,13 +2848,13 @@
   },
   {
     "model_name": "regnety32gf",
-    "dxnn_file": "RegNetY32GF.dxnn",
+    "dxnn_file": "regnet-y32gf_384x384.dxnn",
     "original_name": "RegNetY32GF",
     "csv_task": "IC",
     "add_model_task": "classification",
     "postprocessor": "efficientnet",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 384,
+    "input_height": 384,
     "config": {
       "top_k": 5
     },
@@ -2941,13 +2863,13 @@
   },
   {
     "model_name": "regnety3_2gf",
-    "dxnn_file": "RegNetY3_2GF.dxnn",
+    "dxnn_file": "regnet-y3.2gf_224x224.dxnn",
     "original_name": "RegNetY3_2GF",
     "csv_task": "IC",
     "add_model_task": "classification",
     "postprocessor": "efficientnet",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 224,
+    "input_height": 224,
     "config": {
       "top_k": 5
     },
@@ -2956,13 +2878,13 @@
   },
   {
     "model_name": "regnety8gf",
-    "dxnn_file": "RegNetY8GF.dxnn",
+    "dxnn_file": "regnet-y8gf_224x224.dxnn",
     "original_name": "RegNetY8GF",
     "csv_task": "IC",
     "add_model_task": "classification",
     "postprocessor": "efficientnet",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 224,
+    "input_height": 224,
     "config": {
       "top_k": 5
     },
@@ -2971,28 +2893,13 @@
   },
   {
     "model_name": "resnet152",
-    "dxnn_file": "ResNet152.dxnn",
+    "dxnn_file": "resnet152_224x224.dxnn",
     "original_name": "ResNet152",
     "csv_task": "IC",
     "add_model_task": "classification",
     "postprocessor": "efficientnet",
-    "input_width": 0,
-    "input_height": 0,
-    "config": {
-      "top_k": 5
-    },
-    "source": "auto_classify",
-    "supported": true
-  },
-  {
-    "model_name": "resnet18_h",
-    "dxnn_file": "ResNet18-H.dxnn",
-    "original_name": "ResNet18-H",
-    "csv_task": "IC",
-    "add_model_task": "classification",
-    "postprocessor": "efficientnet",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 224,
+    "input_height": 224,
     "config": {
       "top_k": 5
     },
@@ -3001,56 +2908,28 @@
   },
   {
     "model_name": "resnext101_64x4d",
-    "dxnn_file": "ResNeXt101_64x4d.dxnn",
+    "dxnn_file": "resnext101-64x4d_224x224.dxnn",
     "original_name": "ResNeXt101_64x4d",
     "csv_task": "IC",
     "add_model_task": "classification",
     "postprocessor": "efficientnet",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 224,
+    "input_height": 224,
     "config": {
       "top_k": 5
     },
-    "source": "auto_classify",
-    "supported": true
-  },
-  {
-    "model_name": "resnext50_32x4d_h",
-    "dxnn_file": "ResNeXt50_32x4d_h.dxnn",
-    "original_name": "ResNeXt50_32x4d_h",
-    "csv_task": "IC",
-    "add_model_task": "classification",
-    "postprocessor": "efficientnet",
-    "input_width": 0,
-    "input_height": 0,
-    "config": {
-      "top_k": 5
-    },
-    "source": "auto_classify",
-    "supported": true
-  },
-  {
-    "model_name": "segformer_b0_512x1024_h",
-    "dxnn_file": "segformer_b0_512x1024_h.dxnn",
-    "original_name": "segformer_b0_512x1024_h",
-    "csv_task": "SEG",
-    "add_model_task": "semantic_segmentation",
-    "postprocessor": "segformer",
-    "input_width": 0,
-    "input_height": 0,
-    "config": {},
     "source": "auto_classify",
     "supported": true
   },
   {
     "model_name": "shufflenetv1x1_0",
-    "dxnn_file": "ShuffleNetV1X1_0.dxnn",
+    "dxnn_file": "shufflenetv1-x1.0_224x224.dxnn",
     "original_name": "ShuffleNetV1X1_0",
     "csv_task": "IC",
     "add_model_task": "classification",
     "postprocessor": "efficientnet",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 224,
+    "input_height": 224,
     "config": {
       "top_k": 5
     },
@@ -3059,13 +2938,13 @@
   },
   {
     "model_name": "shufflenetv2x0_5",
-    "dxnn_file": "ShuffleNetV2X0_5.dxnn",
+    "dxnn_file": "shufflenetv2-x0.5_224x224.dxnn",
     "original_name": "ShuffleNetV2X0_5",
     "csv_task": "IC",
     "add_model_task": "classification",
     "postprocessor": "efficientnet",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 224,
+    "input_height": 224,
     "config": {
       "top_k": 5
     },
@@ -3074,13 +2953,13 @@
   },
   {
     "model_name": "shufflenetv2x1_0",
-    "dxnn_file": "ShuffleNetV2X1_0.dxnn",
+    "dxnn_file": "shufflenetv2-x1.0_224x224.dxnn",
     "original_name": "ShuffleNetV2X1_0",
     "csv_task": "IC",
     "add_model_task": "classification",
     "postprocessor": "efficientnet",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 224,
+    "input_height": 224,
     "config": {
       "top_k": 5
     },
@@ -3089,13 +2968,13 @@
   },
   {
     "model_name": "shufflenetv2x1_5",
-    "dxnn_file": "ShuffleNetV2X1_5.dxnn",
+    "dxnn_file": "shufflenetv2-x1.5_224x224.dxnn",
     "original_name": "ShuffleNetV2X1_5",
     "csv_task": "IC",
     "add_model_task": "classification",
     "postprocessor": "efficientnet",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 224,
+    "input_height": 224,
     "config": {
       "top_k": 5
     },
@@ -3104,28 +2983,13 @@
   },
   {
     "model_name": "shufflenetv2x2_0",
-    "dxnn_file": "ShuffleNetV2X2_0.dxnn",
+    "dxnn_file": "shufflenetv2-x2.0_224x224.dxnn",
     "original_name": "ShuffleNetV2X2_0",
     "csv_task": "IC",
     "add_model_task": "classification",
     "postprocessor": "efficientnet",
-    "input_width": 0,
-    "input_height": 0,
-    "config": {
-      "top_k": 5
-    },
-    "source": "auto_classify",
-    "supported": true
-  },
-  {
-    "model_name": "squeezenet1_1_h",
-    "dxnn_file": "SqueezeNet1_1_H.dxnn",
-    "original_name": "SqueezeNet1_1_H",
-    "csv_task": "IC",
-    "add_model_task": "classification",
-    "postprocessor": "efficientnet",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 224,
+    "input_height": 224,
     "config": {
       "top_k": 5
     },
@@ -3134,13 +2998,13 @@
   },
   {
     "model_name": "ssdvgg16",
-    "dxnn_file": "SSDVGG16.dxnn",
+    "dxnn_file": "ssd-vgg16_300x300.dxnn",
     "original_name": "SSDVGG16",
     "csv_task": "OD",
     "add_model_task": "object_detection",
     "postprocessor": "ssd",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 300,
+    "input_height": 300,
     "config": {
       "score_threshold": 0.4,
       "nms_threshold": 0.45
@@ -3150,13 +3014,13 @@
   },
   {
     "model_name": "ulfgfd_rfb_320",
-    "dxnn_file": "ulfgfd-RFB-320.dxnn",
+    "dxnn_file": "ulfgfd-rfb_240x320.dxnn",
     "original_name": "ulfgfd-RFB-320",
     "csv_task": "FD",
     "add_model_task": "face_detection",
     "postprocessor": "ulfgfd",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 320,
+    "input_height": 240,
     "config": {
       "score_threshold": 0.5,
       "nms_threshold": 0.3
@@ -3166,13 +3030,13 @@
   },
   {
     "model_name": "ulfgfd_rfb_320_without_postprocessing",
-    "dxnn_file": "ulfgfd-RFB-320_without_postprocessing.dxnn",
+    "dxnn_file": "ulfgfd-rfb_240x320_nopp.dxnn",
     "original_name": "ulfgfd-RFB-320_without_postprocessing",
     "csv_task": "FD",
     "add_model_task": "face_detection",
     "postprocessor": "ulfgfd",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 320,
+    "input_height": 240,
     "config": {
       "score_threshold": 0.5,
       "nms_threshold": 0.3
@@ -3182,13 +3046,13 @@
   },
   {
     "model_name": "ulfgfd_rfb_640",
-    "dxnn_file": "ulfgfd-RFB-640.dxnn",
+    "dxnn_file": "ulfgfd-rfb_480x640.dxnn",
     "original_name": "ulfgfd-RFB-640",
     "csv_task": "FD",
     "add_model_task": "face_detection",
     "postprocessor": "ulfgfd",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 640,
+    "input_height": 480,
     "config": {
       "score_threshold": 0.5,
       "nms_threshold": 0.3
@@ -3198,13 +3062,13 @@
   },
   {
     "model_name": "ulfgfd_slim_320",
-    "dxnn_file": "ulfgfd-slim-320.dxnn",
+    "dxnn_file": "ulfgfd-slim_240x320.dxnn",
     "original_name": "ulfgfd-slim-320",
     "csv_task": "FD",
     "add_model_task": "face_detection",
     "postprocessor": "ulfgfd",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 320,
+    "input_height": 240,
     "config": {
       "score_threshold": 0.5,
       "nms_threshold": 0.3
@@ -3214,13 +3078,13 @@
   },
   {
     "model_name": "ulfgfd_slim_320_without_postprocessing",
-    "dxnn_file": "ulfgfd-slim-320_without_postprocessing.dxnn",
+    "dxnn_file": "ulfgfd-slim_240x320_nopp.dxnn",
     "original_name": "ulfgfd-slim-320_without_postprocessing",
     "csv_task": "FD",
     "add_model_task": "face_detection",
     "postprocessor": "ulfgfd",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 320,
+    "input_height": 240,
     "config": {
       "score_threshold": 0.5,
       "nms_threshold": 0.3
@@ -3230,26 +3094,26 @@
   },
   {
     "model_name": "unet_mobilenet_v2",
-    "dxnn_file": "unet_mobilenet_v2.dxnn",
+    "dxnn_file": "unet_mobilenetv2_256x256.dxnn",
     "original_name": "unet_mobilenet_v2",
     "csv_task": "SEG",
     "add_model_task": "semantic_segmentation",
     "postprocessor": "deeplabv3",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 256,
+    "input_height": 256,
     "config": {},
     "source": "auto_classify",
     "supported": true
   },
   {
     "model_name": "vgg16",
-    "dxnn_file": "VGG16.dxnn",
+    "dxnn_file": "vgg16_224x224.dxnn",
     "original_name": "VGG16",
     "csv_task": "IC",
     "add_model_task": "classification",
     "postprocessor": "efficientnet",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 224,
+    "input_height": 224,
     "config": {
       "top_k": 5
     },
@@ -3258,13 +3122,13 @@
   },
   {
     "model_name": "vgg16bn",
-    "dxnn_file": "VGG16BN.dxnn",
+    "dxnn_file": "vgg16-bn_224x224.dxnn",
     "original_name": "VGG16BN",
     "csv_task": "IC",
     "add_model_task": "classification",
     "postprocessor": "efficientnet",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 224,
+    "input_height": 224,
     "config": {
       "top_k": 5
     },
@@ -3273,13 +3137,13 @@
   },
   {
     "model_name": "vgg19",
-    "dxnn_file": "VGG19.dxnn",
+    "dxnn_file": "vgg19_224x224.dxnn",
     "original_name": "VGG19",
     "csv_task": "IC",
     "add_model_task": "classification",
     "postprocessor": "efficientnet",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 224,
+    "input_height": 224,
     "config": {
       "top_k": 5
     },
@@ -3288,13 +3152,13 @@
   },
   {
     "model_name": "vitb32",
-    "dxnn_file": "ViTB32.dxnn",
+    "dxnn_file": "vit-b-p32_224x224.dxnn",
     "original_name": "ViTB32",
     "csv_task": "IC",
     "add_model_task": "classification",
     "postprocessor": "efficientnet",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 224,
+    "input_height": 224,
     "config": {
       "top_k": 5
     },
@@ -3303,13 +3167,13 @@
   },
   {
     "model_name": "vitl32",
-    "dxnn_file": "ViTL32.dxnn",
+    "dxnn_file": "vit-l-p32_224x224.dxnn",
     "original_name": "ViTL32",
     "csv_task": "IC",
     "add_model_task": "classification",
     "postprocessor": "efficientnet",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 224,
+    "input_height": 224,
     "config": {
       "top_k": 5
     },
@@ -3318,13 +3182,13 @@
   },
   {
     "model_name": "yolact_regnetx_1_6gf",
-    "dxnn_file": "yolact_regnetx_1.6gf.dxnn",
+    "dxnn_file": "yolact_regnet-x1.6gf_512x512.dxnn",
     "original_name": "yolact_regnetx_1.6gf",
     "csv_task": "ISEG",
     "add_model_task": "instance_segmentation",
     "postprocessor": "yolact",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 512,
+    "input_height": 512,
     "config": {
       "score_threshold": 0.4,
       "nms_threshold": 0.45
@@ -3334,13 +3198,13 @@
   },
   {
     "model_name": "yolo26l_cls",
-    "dxnn_file": "yolo26l-cls.dxnn",
+    "dxnn_file": "yolo26-l_224x224.dxnn",
     "original_name": "yolo26l-cls",
     "csv_task": "IC",
     "add_model_task": "classification",
     "postprocessor": "efficientnet",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 224,
+    "input_height": 224,
     "config": {
       "top_k": 5
     },
@@ -3349,29 +3213,28 @@
   },
   {
     "model_name": "yolo26l_obb",
-    "dxnn_file": "yolo26l-obb.dxnn",
+    "dxnn_file": "yolo26-l-obb_1024x1024.dxnn",
     "original_name": "yolo26l-obb",
     "csv_task": "OBB",
     "add_model_task": "obb_detection",
     "postprocessor": "yolov26obb",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 1024,
+    "input_height": 1024,
     "config": {
-      "score_threshold": 0.4,
-      "nms_threshold": 0.45
+      "score_threshold": 0.3
     },
     "source": "auto_classify",
     "supported": true
   },
   {
     "model_name": "yolo26l_pose",
-    "dxnn_file": "yolo26l-pose.dxnn",
+    "dxnn_file": "yolo26-l-pose_640x640.dxnn",
     "original_name": "yolo26l-pose",
     "csv_task": "POSE",
     "add_model_task": "pose_estimation",
     "postprocessor": "yolov26pose",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 640,
+    "input_height": 640,
     "config": {
       "score_threshold": 0.4,
       "nms_threshold": 0.45
@@ -3381,13 +3244,13 @@
   },
   {
     "model_name": "yolo26l_seg",
-    "dxnn_file": "yolo26l-seg.dxnn",
+    "dxnn_file": "yolo26-l-seg_640x640.dxnn",
     "original_name": "yolo26l-seg",
     "csv_task": "ISEG",
     "add_model_task": "instance_segmentation",
     "postprocessor": "yolov26seg",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 640,
+    "input_height": 640,
     "config": {
       "score_threshold": 0.4,
       "nms_threshold": 0.45
@@ -3397,13 +3260,13 @@
   },
   {
     "model_name": "yolo26m_cls",
-    "dxnn_file": "yolo26m-cls.dxnn",
+    "dxnn_file": "yolo26-m_224x224.dxnn",
     "original_name": "yolo26m-cls",
     "csv_task": "IC",
     "add_model_task": "classification",
     "postprocessor": "efficientnet",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 224,
+    "input_height": 224,
     "config": {
       "top_k": 5
     },
@@ -3412,29 +3275,28 @@
   },
   {
     "model_name": "yolo26m_obb",
-    "dxnn_file": "yolo26m-obb.dxnn",
+    "dxnn_file": "yolo26-m-obb_1024x1024.dxnn",
     "original_name": "yolo26m-obb",
     "csv_task": "OBB",
     "add_model_task": "obb_detection",
     "postprocessor": "yolov26obb",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 1024,
+    "input_height": 1024,
     "config": {
-      "score_threshold": 0.4,
-      "nms_threshold": 0.45
+      "score_threshold": 0.3
     },
     "source": "auto_classify",
     "supported": true
   },
   {
     "model_name": "yolo26m_pose",
-    "dxnn_file": "yolo26m-pose.dxnn",
+    "dxnn_file": "yolo26-m-pose_640x640.dxnn",
     "original_name": "yolo26m-pose",
     "csv_task": "POSE",
     "add_model_task": "pose_estimation",
     "postprocessor": "yolov26pose",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 640,
+    "input_height": 640,
     "config": {
       "score_threshold": 0.4,
       "nms_threshold": 0.45
@@ -3444,13 +3306,13 @@
   },
   {
     "model_name": "yolo26m_seg",
-    "dxnn_file": "yolo26m-seg.dxnn",
+    "dxnn_file": "yolo26-m-seg_640x640.dxnn",
     "original_name": "yolo26m-seg",
     "csv_task": "ISEG",
     "add_model_task": "instance_segmentation",
     "postprocessor": "yolov26seg",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 640,
+    "input_height": 640,
     "config": {
       "score_threshold": 0.4,
       "nms_threshold": 0.45
@@ -3460,13 +3322,13 @@
   },
   {
     "model_name": "yolo26n_cls",
-    "dxnn_file": "yolo26n-cls.dxnn",
+    "dxnn_file": "yolo26-n_224x224.dxnn",
     "original_name": "yolo26n-cls",
     "csv_task": "IC",
     "add_model_task": "classification",
     "postprocessor": "efficientnet",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 224,
+    "input_height": 224,
     "config": {
       "top_k": 5
     },
@@ -3475,13 +3337,13 @@
   },
   {
     "model_name": "yolo26n_pose",
-    "dxnn_file": "yolo26n-pose.dxnn",
+    "dxnn_file": "yolo26-n-pose_640x640.dxnn",
     "original_name": "yolo26n-pose",
     "csv_task": "POSE",
     "add_model_task": "pose_estimation",
     "postprocessor": "yolov26pose",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 640,
+    "input_height": 640,
     "config": {
       "score_threshold": 0.4,
       "nms_threshold": 0.45
@@ -3491,13 +3353,13 @@
   },
   {
     "model_name": "yolo26n_seg",
-    "dxnn_file": "yolo26n-seg.dxnn",
+    "dxnn_file": "yolo26-n-seg_640x640.dxnn",
     "original_name": "yolo26n-seg",
     "csv_task": "ISEG",
     "add_model_task": "instance_segmentation",
     "postprocessor": "yolov26seg",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 640,
+    "input_height": 640,
     "config": {
       "score_threshold": 0.4,
       "nms_threshold": 0.45
@@ -3507,13 +3369,13 @@
   },
   {
     "model_name": "yolo26s_cls",
-    "dxnn_file": "yolo26s-cls.dxnn",
+    "dxnn_file": "yolo26-s_224x224.dxnn",
     "original_name": "yolo26s-cls",
     "csv_task": "IC",
     "add_model_task": "classification",
     "postprocessor": "efficientnet",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 224,
+    "input_height": 224,
     "config": {
       "top_k": 5
     },
@@ -3522,29 +3384,28 @@
   },
   {
     "model_name": "yolo26s_obb",
-    "dxnn_file": "yolo26s-obb.dxnn",
+    "dxnn_file": "yolo26-s-obb_1024x1024.dxnn",
     "original_name": "yolo26s-obb",
     "csv_task": "OBB",
     "add_model_task": "obb_detection",
     "postprocessor": "yolov26obb",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 1024,
+    "input_height": 1024,
     "config": {
-      "score_threshold": 0.4,
-      "nms_threshold": 0.45
+      "score_threshold": 0.3
     },
     "source": "auto_classify",
     "supported": true
   },
   {
     "model_name": "yolo26s_pose",
-    "dxnn_file": "yolo26s-pose.dxnn",
+    "dxnn_file": "yolo26-s-pose_640x640.dxnn",
     "original_name": "yolo26s-pose",
     "csv_task": "POSE",
     "add_model_task": "pose_estimation",
     "postprocessor": "yolov26pose",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 640,
+    "input_height": 640,
     "config": {
       "score_threshold": 0.4,
       "nms_threshold": 0.45
@@ -3554,13 +3415,13 @@
   },
   {
     "model_name": "yolo26s_seg",
-    "dxnn_file": "yolo26s-seg.dxnn",
+    "dxnn_file": "yolo26-s-seg_640x640.dxnn",
     "original_name": "yolo26s-seg",
     "csv_task": "ISEG",
     "add_model_task": "instance_segmentation",
     "postprocessor": "yolov26seg",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 640,
+    "input_height": 640,
     "config": {
       "score_threshold": 0.4,
       "nms_threshold": 0.45
@@ -3570,13 +3431,13 @@
   },
   {
     "model_name": "yolo26x_cls",
-    "dxnn_file": "yolo26x-cls.dxnn",
+    "dxnn_file": "yolo26-x_224x224.dxnn",
     "original_name": "yolo26x-cls",
     "csv_task": "IC",
     "add_model_task": "classification",
     "postprocessor": "efficientnet",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 224,
+    "input_height": 224,
     "config": {
       "top_k": 5
     },
@@ -3585,29 +3446,28 @@
   },
   {
     "model_name": "yolo26x_obb",
-    "dxnn_file": "yolo26x-obb.dxnn",
+    "dxnn_file": "yolo26-x-obb_1024x1024.dxnn",
     "original_name": "yolo26x-obb",
     "csv_task": "OBB",
     "add_model_task": "obb_detection",
     "postprocessor": "yolov26obb",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 1024,
+    "input_height": 1024,
     "config": {
-      "score_threshold": 0.4,
-      "nms_threshold": 0.45
+      "score_threshold": 0.3
     },
     "source": "auto_classify",
     "supported": true
   },
   {
     "model_name": "yolo26x_pose",
-    "dxnn_file": "yolo26x-pose.dxnn",
+    "dxnn_file": "yolo26-x-pose_640x640.dxnn",
     "original_name": "yolo26x-pose",
     "csv_task": "POSE",
     "add_model_task": "pose_estimation",
     "postprocessor": "yolov26pose",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 640,
+    "input_height": 640,
     "config": {
       "score_threshold": 0.4,
       "nms_threshold": 0.45
@@ -3617,13 +3477,13 @@
   },
   {
     "model_name": "yolo26x_seg",
-    "dxnn_file": "yolo26x-seg.dxnn",
+    "dxnn_file": "yolo26-x-seg_640x640.dxnn",
     "original_name": "yolo26x-seg",
     "csv_task": "ISEG",
     "add_model_task": "instance_segmentation",
     "postprocessor": "yolov26seg",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 640,
+    "input_height": 640,
     "config": {
       "score_threshold": 0.4,
       "nms_threshold": 0.45
@@ -3633,13 +3493,13 @@
   },
   {
     "model_name": "yolov3_2",
-    "dxnn_file": "YOLOV3_2.dxnn",
+    "dxnn_file": "yolov3_416x416.dxnn",
     "original_name": "YOLOV3_2",
     "csv_task": "OD",
     "add_model_task": "object_detection",
     "postprocessor": "yolov5",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 416,
+    "input_height": 416,
     "config": {
       "score_threshold": 0.4,
       "nms_threshold": 0.45
@@ -3649,13 +3509,13 @@
   },
   {
     "model_name": "yolov3_2_ppu",
-    "dxnn_file": "YOLOV3_2_PPU.dxnn",
+    "dxnn_file": "yolov3_416x416_ppu.dxnn",
     "original_name": "YOLOV3_2_PPU",
     "csv_task": "PPU",
     "add_model_task": "ppu",
     "postprocessor": "yolov5_ppu",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 416,
+    "input_height": 416,
     "config": {
       "score_threshold": 0.4,
       "nms_threshold": 0.45
@@ -3665,13 +3525,13 @@
   },
   {
     "model_name": "yolov3_3_ppu",
-    "dxnn_file": "YOLOV3_3_PPU.dxnn",
+    "dxnn_file": "yolov3_608x608_ppu.dxnn",
     "original_name": "YOLOV3_3_PPU",
     "csv_task": "PPU",
     "add_model_task": "ppu",
     "postprocessor": "yolov5_ppu",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 608,
+    "input_height": 608,
     "config": {
       "score_threshold": 0.4,
       "nms_threshold": 0.45
@@ -3681,13 +3541,13 @@
   },
   {
     "model_name": "yolov3_gluon_416",
-    "dxnn_file": "yolov3_gluon_416.dxnn",
+    "dxnn_file": "yolov3-gluon_416x416.dxnn",
     "original_name": "yolov3_gluon_416",
     "csv_task": "OD",
     "add_model_task": "object_detection",
     "postprocessor": "yolov5",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 416,
+    "input_height": 416,
     "config": {
       "score_threshold": 0.4,
       "nms_threshold": 0.45
@@ -3697,13 +3557,13 @@
   },
   {
     "model_name": "yolov3_gluon_608",
-    "dxnn_file": "yolov3_gluon_608.dxnn",
+    "dxnn_file": "yolov3-gluon_608x608.dxnn",
     "original_name": "yolov3_gluon_608",
     "csv_task": "OD",
     "add_model_task": "object_detection",
     "postprocessor": "yolov5",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 608,
+    "input_height": 608,
     "config": {
       "score_threshold": 0.4,
       "nms_threshold": 0.45
@@ -3713,13 +3573,13 @@
   },
   {
     "model_name": "yolov3tiny_1",
-    "dxnn_file": "YOLOV3Tiny_1.dxnn",
+    "dxnn_file": "yolov3-tiny_416x416.dxnn",
     "original_name": "YOLOV3Tiny_1",
     "csv_task": "OD",
     "add_model_task": "object_detection",
     "postprocessor": "yolov5",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 416,
+    "input_height": 416,
     "config": {
       "score_threshold": 0.4,
       "nms_threshold": 0.45
@@ -3729,13 +3589,13 @@
   },
   {
     "model_name": "yolov3tiny_1_ppu",
-    "dxnn_file": "YOLOV3Tiny_1_PPU.dxnn",
+    "dxnn_file": "yolov3-tiny_416x416_ppu.dxnn",
     "original_name": "YOLOV3Tiny_1_PPU",
     "csv_task": "PPU",
     "add_model_task": "ppu",
     "postprocessor": "yolov5_ppu",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 416,
+    "input_height": 416,
     "config": {
       "score_threshold": 0.4,
       "nms_threshold": 0.45
@@ -3745,13 +3605,13 @@
   },
   {
     "model_name": "yolov4_2_ppu",
-    "dxnn_file": "YOLOV4_2_PPU.dxnn",
+    "dxnn_file": "yolov4_512x512_ppu.dxnn",
     "original_name": "YOLOV4_2_PPU",
     "csv_task": "PPU",
     "add_model_task": "ppu",
     "postprocessor": "yolov5_ppu",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 512,
+    "input_height": 512,
     "config": {
       "score_threshold": 0.4,
       "nms_threshold": 0.45
@@ -3761,13 +3621,13 @@
   },
   {
     "model_name": "yolov4_leaky_512_512",
-    "dxnn_file": "yolov4_leaky_512_512.dxnn",
+    "dxnn_file": "yolov4-leaky_512x512.dxnn",
     "original_name": "yolov4_leaky_512_512",
     "csv_task": "OD",
     "add_model_task": "object_detection",
     "postprocessor": "yolov5",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 512,
+    "input_height": 512,
     "config": {
       "score_threshold": 0.4,
       "nms_threshold": 0.45
@@ -3777,30 +3637,13 @@
   },
   {
     "model_name": "yolov4tiny_1",
-    "dxnn_file": "YOLOV4Tiny_1.dxnn",
+    "dxnn_file": "yolov4-t_416x416.dxnn",
     "original_name": "YOLOV4Tiny_1",
     "csv_task": "OD",
     "add_model_task": "object_detection",
     "postprocessor": "yolov5",
-    "input_width": 0,
-    "input_height": 0,
-    "config": {
-      "score_threshold": 0.4,
-      "nms_threshold": 0.45
-    },
-    "source": "auto_classify",
-    "supported": false,
-    "failure_reason": "Inference hang - device compatibility issue"
-  },
-  {
-    "model_name": "yolov5l6",
-    "dxnn_file": "YoloV5L6.dxnn",
-    "original_name": "YoloV5L6",
-    "csv_task": "OD",
-    "add_model_task": "object_detection",
-    "postprocessor": "yolov5",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 416,
+    "input_height": 416,
     "config": {
       "score_threshold": 0.4,
       "nms_threshold": 0.45
@@ -3809,14 +3652,14 @@
     "supported": true
   },
   {
-    "model_name": "yolov5l_h",
-    "dxnn_file": "YoloV5L_h.dxnn",
-    "original_name": "YoloV5L_h",
+    "model_name": "yolov5l6",
+    "dxnn_file": "yolov5-l6_1280x1280.dxnn",
+    "original_name": "YoloV5L6",
     "csv_task": "OD",
     "add_model_task": "object_detection",
     "postprocessor": "yolov5",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 1280,
+    "input_height": 1280,
     "config": {
       "score_threshold": 0.4,
       "nms_threshold": 0.45
@@ -3826,45 +3669,13 @@
   },
   {
     "model_name": "yolov5m6",
-    "dxnn_file": "YoloV5M6.dxnn",
+    "dxnn_file": "yolov5-m6_640x640.dxnn",
     "original_name": "YoloV5M6",
     "csv_task": "OD",
     "add_model_task": "object_detection",
     "postprocessor": "yolov5",
-    "input_width": 0,
-    "input_height": 0,
-    "config": {
-      "score_threshold": 0.4,
-      "nms_threshold": 0.45
-    },
-    "source": "auto_classify",
-    "supported": true
-  },
-  {
-    "model_name": "yolov5m6_61_h",
-    "dxnn_file": "YoloV5M6_61_h.dxnn",
-    "original_name": "YoloV5M6_61_h",
-    "csv_task": "OD",
-    "add_model_task": "object_detection",
-    "postprocessor": "yolov5",
-    "input_width": 0,
-    "input_height": 0,
-    "config": {
-      "score_threshold": 0.4,
-      "nms_threshold": 0.45
-    },
-    "source": "auto_classify",
-    "supported": true
-  },
-  {
-    "model_name": "yolov5m_h",
-    "dxnn_file": "YoloV5M_h.dxnn",
-    "original_name": "YoloV5M_h",
-    "csv_task": "OD",
-    "add_model_task": "object_detection",
-    "postprocessor": "yolov5",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 640,
+    "input_height": 640,
     "config": {
       "score_threshold": 0.4,
       "nms_threshold": 0.45
@@ -3874,13 +3685,13 @@
   },
   {
     "model_name": "yolov5m_wo_spp_640",
-    "dxnn_file": "yolov5m_wo_spp_640.dxnn",
+    "dxnn_file": "yolov5-m_640x640_nospp.dxnn",
     "original_name": "yolov5m_wo_spp_640",
     "csv_task": "OD",
     "add_model_task": "object_detection",
     "postprocessor": "yolov5",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 640,
+    "input_height": 640,
     "config": {
       "score_threshold": 0.4,
       "nms_threshold": 0.45
@@ -3890,29 +3701,13 @@
   },
   {
     "model_name": "yolov5n6",
-    "dxnn_file": "YoloV5N6.dxnn",
+    "dxnn_file": "yolov5-n6_1280x1280.dxnn",
     "original_name": "YoloV5N6",
     "csv_task": "OD",
     "add_model_task": "object_detection",
     "postprocessor": "yolov5",
-    "input_width": 0,
-    "input_height": 0,
-    "config": {
-      "score_threshold": 0.4,
-      "nms_threshold": 0.45
-    },
-    "source": "auto_classify",
-    "supported": true
-  },
-  {
-    "model_name": "yolov5n6_61_h",
-    "dxnn_file": "YoloV5N6_61_h.dxnn",
-    "original_name": "YoloV5N6_61_h",
-    "csv_task": "OD",
-    "add_model_task": "object_detection",
-    "postprocessor": "yolov5",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 1280,
+    "input_height": 1280,
     "config": {
       "score_threshold": 0.4,
       "nms_threshold": 0.45
@@ -3922,29 +3717,13 @@
   },
   {
     "model_name": "yolov5s6",
-    "dxnn_file": "YoloV5S6.dxnn",
+    "dxnn_file": "yolov5-s6_1280x1280.dxnn",
     "original_name": "YoloV5S6",
     "csv_task": "OD",
     "add_model_task": "object_detection",
     "postprocessor": "yolov5",
-    "input_width": 0,
-    "input_height": 0,
-    "config": {
-      "score_threshold": 0.4,
-      "nms_threshold": 0.45
-    },
-    "source": "auto_classify",
-    "supported": true
-  },
-  {
-    "model_name": "yolov5s6_61_h",
-    "dxnn_file": "YoloV5S6_61_h.dxnn",
-    "original_name": "YoloV5S6_61_h",
-    "csv_task": "OD",
-    "add_model_task": "object_detection",
-    "postprocessor": "yolov5",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 1280,
+    "input_height": 1280,
     "config": {
       "score_threshold": 0.4,
       "nms_threshold": 0.45
@@ -3954,13 +3733,13 @@
   },
   {
     "model_name": "yolov5s_4",
-    "dxnn_file": "YOLOV5S_4.dxnn",
+    "dxnn_file": "yolov5-s_320x320.dxnn",
     "original_name": "YOLOV5S_4",
     "csv_task": "OD",
     "add_model_task": "object_detection",
     "postprocessor": "yolov5",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 320,
+    "input_height": 320,
     "config": {
       "score_threshold": 0.4,
       "nms_threshold": 0.45
@@ -3970,13 +3749,13 @@
   },
   {
     "model_name": "yolov5s_bbox_decoding_only_640",
-    "dxnn_file": "yolov5s_bbox_decoding_only_640.dxnn",
+    "dxnn_file": "yolov5-s_640x640_decode.dxnn",
     "original_name": "yolov5s_bbox_decoding_only_640",
     "csv_task": "OD",
     "add_model_task": "object_detection",
     "postprocessor": "yolov5",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 640,
+    "input_height": 640,
     "config": {
       "score_threshold": 0.4,
       "nms_threshold": 0.45
@@ -3986,29 +3765,13 @@
   },
   {
     "model_name": "yolov5s_c3tr_640",
-    "dxnn_file": "yolov5s_c3tr_640.dxnn",
+    "dxnn_file": "yolov5-s_640x640_c3tr.dxnn",
     "original_name": "yolov5s_c3tr_640",
     "csv_task": "OD",
     "add_model_task": "object_detection",
     "postprocessor": "yolov5",
-    "input_width": 0,
-    "input_height": 0,
-    "config": {
-      "score_threshold": 0.4,
-      "nms_threshold": 0.45
-    },
-    "source": "auto_classify",
-    "supported": true
-  },
-  {
-    "model_name": "yolov5s_h",
-    "dxnn_file": "YoloV5S_h.dxnn",
-    "original_name": "YoloV5S_h",
-    "csv_task": "OD",
-    "add_model_task": "object_detection",
-    "postprocessor": "yolov5",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 640,
+    "input_height": 640,
     "config": {
       "score_threshold": 0.4,
       "nms_threshold": 0.45
@@ -4018,13 +3781,13 @@
   },
   {
     "model_name": "yolov5s_wo_spp_640",
-    "dxnn_file": "yolov5s_wo_spp_640.dxnn",
+    "dxnn_file": "yolov5-s_640x640_nospp.dxnn",
     "original_name": "yolov5s_wo_spp_640",
     "csv_task": "OD",
     "add_model_task": "object_detection",
     "postprocessor": "yolov5",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 640,
+    "input_height": 640,
     "config": {
       "score_threshold": 0.4,
       "nms_threshold": 0.45
@@ -4034,13 +3797,13 @@
   },
   {
     "model_name": "yolov5x",
-    "dxnn_file": "YoloV5X.dxnn",
+    "dxnn_file": "yolov5-x_640x640.dxnn",
     "original_name": "YoloV5X",
     "csv_task": "OD",
     "add_model_task": "object_detection",
     "postprocessor": "yolov5",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 640,
+    "input_height": 640,
     "config": {
       "score_threshold": 0.4,
       "nms_threshold": 0.45
@@ -4050,13 +3813,13 @@
   },
   {
     "model_name": "yolov5x6",
-    "dxnn_file": "YoloV5X6.dxnn",
+    "dxnn_file": "yolov5-x6_1280x1280.dxnn",
     "original_name": "YoloV5X6",
     "csv_task": "OD",
     "add_model_task": "object_detection",
     "postprocessor": "yolov5",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 1280,
+    "input_height": 1280,
     "config": {
       "score_threshold": 0.4,
       "nms_threshold": 0.45
@@ -4066,13 +3829,13 @@
   },
   {
     "model_name": "yolov5xs_wo_spp_512",
-    "dxnn_file": "yolov5xs_wo_spp_512.dxnn",
+    "dxnn_file": "yolov5-xs_512x512_nospp.dxnn",
     "original_name": "yolov5xs_wo_spp_512",
     "csv_task": "OD",
     "add_model_task": "object_detection",
     "postprocessor": "yolov5",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 512,
+    "input_height": 512,
     "config": {
       "score_threshold": 0.4,
       "nms_threshold": 0.45
@@ -4082,13 +3845,13 @@
   },
   {
     "model_name": "yolov6l",
-    "dxnn_file": "YoloV6L.dxnn",
+    "dxnn_file": "yolov6-l_640x640.dxnn",
     "original_name": "YoloV6L",
     "csv_task": "OD",
     "add_model_task": "object_detection",
     "postprocessor": "yolov5",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 640,
+    "input_height": 640,
     "config": {
       "score_threshold": 0.4,
       "nms_threshold": 0.45
@@ -4098,13 +3861,13 @@
   },
   {
     "model_name": "yolov6m",
-    "dxnn_file": "YoloV6M.dxnn",
+    "dxnn_file": "yolov6-m_640x640.dxnn",
     "original_name": "YoloV6M",
     "csv_task": "OD",
     "add_model_task": "object_detection",
     "postprocessor": "yolov5",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 640,
+    "input_height": 640,
     "config": {
       "score_threshold": 0.4,
       "nms_threshold": 0.45
@@ -4114,13 +3877,13 @@
   },
   {
     "model_name": "yolov6n",
-    "dxnn_file": "YoloV6N.dxnn",
+    "dxnn_file": "yolov6-n_640x640.dxnn",
     "original_name": "YoloV6N",
     "csv_task": "OD",
     "add_model_task": "object_detection",
     "postprocessor": "yolov5",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 640,
+    "input_height": 640,
     "config": {
       "score_threshold": 0.4,
       "nms_threshold": 0.45
@@ -4130,13 +3893,13 @@
   },
   {
     "model_name": "yolov6n_0_2_1_nms_core",
-    "dxnn_file": "yolov6n_0.2.1_nms_core.dxnn",
+    "dxnn_file": "yolov6-n_640x640_nmscore.dxnn",
     "original_name": "yolov6n_0.2.1_nms_core",
     "csv_task": "OD",
     "add_model_task": "object_detection",
     "postprocessor": "yolov5",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 640,
+    "input_height": 640,
     "config": {
       "score_threshold": 0.4,
       "nms_threshold": 0.45
@@ -4146,13 +3909,13 @@
   },
   {
     "model_name": "yolov7_w6_wo_decoding",
-    "dxnn_file": "yolov7_w6-wo_decoding.dxnn",
+    "dxnn_file": "yolov7-w6_1280x1280_nodecode.dxnn",
     "original_name": "yolov7_w6-wo_decoding",
     "csv_task": "OD",
     "add_model_task": "object_detection",
     "postprocessor": "yolov7",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 1280,
+    "input_height": 1280,
     "config": {
       "score_threshold": 0.4,
       "nms_threshold": 0.45
@@ -4162,13 +3925,13 @@
   },
   {
     "model_name": "yolov7_wo_decoding",
-    "dxnn_file": "yolov7-wo_decoding.dxnn",
+    "dxnn_file": "yolov7_640x640_nodecode.dxnn",
     "original_name": "yolov7-wo_decoding",
     "csv_task": "OD",
     "add_model_task": "object_detection",
     "postprocessor": "yolov7",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 640,
+    "input_height": 640,
     "config": {
       "score_threshold": 0.4,
       "nms_threshold": 0.45
@@ -4178,13 +3941,13 @@
   },
   {
     "model_name": "yolov7d6",
-    "dxnn_file": "YoloV7D6.dxnn",
+    "dxnn_file": "yolov7-d6_1280x1280.dxnn",
     "original_name": "YoloV7D6",
     "csv_task": "OD",
     "add_model_task": "object_detection",
     "postprocessor": "yolov7",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 1280,
+    "input_height": 1280,
     "config": {
       "score_threshold": 0.4,
       "nms_threshold": 0.45
@@ -4194,13 +3957,13 @@
   },
   {
     "model_name": "yolov7e6e",
-    "dxnn_file": "YoloV7E6E.dxnn",
+    "dxnn_file": "yolov7-e6e_1280x1280.dxnn",
     "original_name": "YoloV7E6E",
     "csv_task": "OD",
     "add_model_task": "object_detection",
     "postprocessor": "yolov7",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 1280,
+    "input_height": 1280,
     "config": {
       "score_threshold": 0.4,
       "nms_threshold": 0.45
@@ -4210,13 +3973,13 @@
   },
   {
     "model_name": "yolov7x",
-    "dxnn_file": "YOLOv7x.dxnn",
+    "dxnn_file": "yolov7-x_640x640.dxnn",
     "original_name": "YOLOv7x",
     "csv_task": "OD",
     "add_model_task": "object_detection",
     "postprocessor": "yolov7",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 640,
+    "input_height": 640,
     "config": {
       "score_threshold": 0.4,
       "nms_threshold": 0.45
@@ -4226,13 +3989,13 @@
   },
   {
     "model_name": "yolov8s_bbox_decoding_only_640",
-    "dxnn_file": "yolov8s_bbox_decoding_only_640.dxnn",
+    "dxnn_file": "yolov8-s_640x640_decode.dxnn",
     "original_name": "yolov8s_bbox_decoding_only_640",
     "csv_task": "OD",
     "add_model_task": "object_detection",
     "postprocessor": "yolov8",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 640,
+    "input_height": 640,
     "config": {
       "score_threshold": 0.4,
       "nms_threshold": 0.45
@@ -4242,13 +4005,13 @@
   },
   {
     "model_name": "yolov9_gelan_c",
-    "dxnn_file": "YoloV9_GELAN_C.dxnn",
+    "dxnn_file": "yolov9-gelan-c_640x640.dxnn",
     "original_name": "YoloV9_GELAN_C",
     "csv_task": "OD",
     "add_model_task": "object_detection",
     "postprocessor": "yolov9",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 640,
+    "input_height": 640,
     "config": {
       "score_threshold": 0.4,
       "nms_threshold": 0.45
@@ -4258,13 +4021,13 @@
   },
   {
     "model_name": "yolov9m",
-    "dxnn_file": "YoloV9M.dxnn",
+    "dxnn_file": "yolov9-m_640x640.dxnn",
     "original_name": "YoloV9M",
     "csv_task": "OD",
     "add_model_task": "object_detection",
     "postprocessor": "yolov9",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 640,
+    "input_height": 640,
     "config": {
       "score_threshold": 0.4,
       "nms_threshold": 0.45
@@ -4274,13 +4037,13 @@
   },
   {
     "model_name": "yolox_s_2_ppu",
-    "dxnn_file": "YOLOX-S_2_PPU.dxnn",
+    "dxnn_file": "yolox-s_640x640_ppu.dxnn",
     "original_name": "YOLOX-S_2_PPU",
     "csv_task": "PPU",
     "add_model_task": "ppu",
     "postprocessor": "yolov5_ppu",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 640,
+    "input_height": 640,
     "config": {
       "score_threshold": 0.4,
       "nms_threshold": 0.45
@@ -4290,13 +4053,13 @@
   },
   {
     "model_name": "yoloxl",
-    "dxnn_file": "YoloXL.dxnn",
+    "dxnn_file": "yolox-l_640x640.dxnn",
     "original_name": "YoloXL",
     "csv_task": "OD",
     "add_model_task": "object_detection",
     "postprocessor": "yolox",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 640,
+    "input_height": 640,
     "config": {
       "score_threshold": 0.4,
       "nms_threshold": 0.45
@@ -4306,13 +4069,13 @@
   },
   {
     "model_name": "yoloxm",
-    "dxnn_file": "YoloXM.dxnn",
+    "dxnn_file": "yolox-m_640x640.dxnn",
     "original_name": "YoloXM",
     "csv_task": "OD",
     "add_model_task": "object_detection",
     "postprocessor": "yolox",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 640,
+    "input_height": 640,
     "config": {
       "score_threshold": 0.4,
       "nms_threshold": 0.45
@@ -4322,18 +4085,1249 @@
   },
   {
     "model_name": "yoloxx",
-    "dxnn_file": "YoloXX.dxnn",
+    "dxnn_file": "yolox-x_640x640.dxnn",
     "original_name": "YoloXX",
     "csv_task": "OD",
     "add_model_task": "object_detection",
     "postprocessor": "yolox",
-    "input_width": 0,
-    "input_height": 0,
+    "input_width": 640,
+    "input_height": 640,
     "config": {
       "score_threshold": 0.4,
       "nms_threshold": 0.45
     },
     "source": "auto_classify",
+    "supported": true
+  },
+  {
+    "model_name": "beit_large_patch16_1",
+    "dxnn_file": "beit-l-p16_224x224.dxnn",
+    "original_name": "BeitLargePatch16-1",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 224,
+    "input_height": 224,
+    "config": {
+      "top_k": 5
+    },
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "deit_base_1",
+    "dxnn_file": "deit-b_224x224.dxnn",
+    "original_name": "DeiTBase-1",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 224,
+    "input_height": 224,
+    "config": {
+      "top_k": 5
+    },
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "deit_base_distilled_1",
+    "dxnn_file": "deit-b_224x224_distilled.dxnn",
+    "original_name": "DeiTBaseDistilled-1",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 224,
+    "input_height": 224,
+    "config": {
+      "top_k": 5
+    },
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "deit_base_distilled_2",
+    "dxnn_file": "deit-b_384x384_distilled.dxnn",
+    "original_name": "DeiTBaseDistilled-2",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 384,
+    "input_height": 384,
+    "config": {
+      "top_k": 5
+    },
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "deit_small_1",
+    "dxnn_file": "deit-s_224x224.dxnn",
+    "original_name": "DeiTSmall-1",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 224,
+    "input_height": 224,
+    "config": {
+      "top_k": 5
+    },
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "deit_small_distilled_1",
+    "dxnn_file": "deit-s_224x224_distilled.dxnn",
+    "original_name": "DeiTSmallDistilled-1",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 224,
+    "input_height": 224,
+    "config": {
+      "top_k": 5
+    },
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "deit_tiny_1",
+    "dxnn_file": "deit-t_224x224.dxnn",
+    "original_name": "DeiTTiny-1",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 224,
+    "input_height": 224,
+    "config": {
+      "top_k": 5
+    },
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "deit_tiny_distilled_1",
+    "dxnn_file": "deit-t_224x224_distilled.dxnn",
+    "original_name": "DeiTTinyDistilled-1",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 224,
+    "input_height": 224,
+    "config": {
+      "top_k": 5
+    },
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "efficientnetb7",
+    "dxnn_file": "efficientnet-b7_600x600.dxnn",
+    "original_name": "EfficientNetB7-1",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 600,
+    "input_height": 600,
+    "config": {
+      "top_k": 5
+    },
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "efficientnetv2m",
+    "dxnn_file": "efficientnetv2-m_480x480.dxnn",
+    "original_name": "EfficientNetV2M-1",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 480,
+    "input_height": 480,
+    "config": {
+      "top_k": 5
+    },
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "fastvit_ma36_1",
+    "dxnn_file": "fastvit-ma36_256x256.dxnn",
+    "original_name": "fastvit_ma36-1",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 256,
+    "input_height": 256,
+    "config": {
+      "top_k": 5
+    },
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "fastvit_sa24_1",
+    "dxnn_file": "fastvit-sa24_256x256.dxnn",
+    "original_name": "fastvit_sa24-1",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 256,
+    "input_height": 256,
+    "config": {
+      "top_k": 5
+    },
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "fastvit_sa36_1",
+    "dxnn_file": "fastvit-sa36_256x256.dxnn",
+    "original_name": "fastvit_sa36-1",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 256,
+    "input_height": 256,
+    "config": {
+      "top_k": 5
+    },
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "ghostnet_1",
+    "dxnn_file": "ghostnet_224x224.dxnn",
+    "original_name": "GhostNet-1",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 224,
+    "input_height": 224,
+    "config": {
+      "top_k": 5
+    },
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "repghost_2_0x_1",
+    "dxnn_file": "repghost-2.0x_224x224.dxnn",
+    "original_name": "RepGhost_2_0x-1",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 224,
+    "input_height": 224,
+    "config": {
+      "top_k": 5
+    },
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "repvgg_a0_1",
+    "dxnn_file": "repvgg-a0_320x320.dxnn",
+    "original_name": "RepVGGA0-1",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 320,
+    "input_height": 320,
+    "config": {
+      "top_k": 5
+    },
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "repvgg_a1_1",
+    "dxnn_file": "repvgg-a1_320x320.dxnn",
+    "original_name": "RepVGGA1-1",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 320,
+    "input_height": 320,
+    "config": {
+      "top_k": 5
+    },
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "repvgg_a2_1",
+    "dxnn_file": "repvgg-a2_320x320.dxnn",
+    "original_name": "RepVGGA2-1",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 320,
+    "input_height": 320,
+    "config": {
+      "top_k": 5
+    },
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "repvgg_b0_1",
+    "dxnn_file": "repvgg-b0_320x320.dxnn",
+    "original_name": "RepVGGB0-1",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 320,
+    "input_height": 320,
+    "config": {
+      "top_k": 5
+    },
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "repvgg_b1_1",
+    "dxnn_file": "repvgg-b1_320x320.dxnn",
+    "original_name": "RepVGGB1-1",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 320,
+    "input_height": 320,
+    "config": {
+      "top_k": 5
+    },
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "resmlp24_1",
+    "dxnn_file": "resmlp24_224x224.dxnn",
+    "original_name": "ResMLP24-1",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 224,
+    "input_height": 224,
+    "config": {
+      "top_k": 5
+    },
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "resnext101_32x8d_1",
+    "dxnn_file": "resnext101-32x8d_224x224.dxnn",
+    "original_name": "ResNeXt101_32x8d-1",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 224,
+    "input_height": 224,
+    "config": {
+      "top_k": 5
+    },
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "vit_base_bn_1",
+    "dxnn_file": "vit-b-p16_224x224_bn.dxnn",
+    "original_name": "vit_base_bn-1",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 224,
+    "input_height": 224,
+    "config": {
+      "top_k": 5
+    },
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "vit_base_p16_2",
+    "dxnn_file": "vit-b-p16_224x224.dxnn",
+    "original_name": "ViTBaseP16-2",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 224,
+    "input_height": 224,
+    "config": {
+      "top_k": 5
+    },
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "vit_small_p16_1",
+    "dxnn_file": "vit-s-p16_224x224.dxnn",
+    "original_name": "ViTSmallP16-1",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 224,
+    "input_height": 224,
+    "config": {
+      "top_k": 5
+    },
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "rn50x16_openai_1",
+    "dxnn_file": "clip-img_resnet50x16_384x384_openai-wit.dxnn",
+    "original_name": "RN50x16-openai-1",
+    "csv_task": "FREC",
+    "add_model_task": "embedding",
+    "postprocessor": "arcface",
+    "input_width": 384,
+    "input_height": 384,
+    "config": {},
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "vit_b_32_256_datacomp_s34b_b86k_1",
+    "dxnn_file": "clip-img_vit-b32_256x256_datacomp-s34b-b86k.dxnn",
+    "original_name": "ViT-B-32-256-datacomp_s34b_b86k-1",
+    "csv_task": "FREC",
+    "add_model_task": "embedding",
+    "postprocessor": "arcface",
+    "input_width": 256,
+    "input_height": 256,
+    "config": {},
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "vit_l_14_datacomp_xl_s13b_b90k_1",
+    "dxnn_file": "clip-img_vit-l14_224x224_datacomp-xl-s13b-b90k.dxnn",
+    "original_name": "ViT-L-14-datacomp_xl_s13b_b90k-1",
+    "csv_task": "FREC",
+    "add_model_task": "embedding",
+    "postprocessor": "arcface",
+    "input_width": 224,
+    "input_height": 224,
+    "config": {},
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "vit_l_14_quickgelu_dfn2b_1",
+    "dxnn_file": "clip-img_vit-l14-quickgelu_224x224_dfn2b.dxnn",
+    "original_name": "ViT-L-14-quickgelu-dfn2b-1",
+    "csv_task": "FREC",
+    "add_model_task": "embedding",
+    "postprocessor": "arcface",
+    "input_width": 224,
+    "input_height": 224,
+    "config": {},
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "eigenplaces_resnet18_1",
+    "dxnn_file": "eigenplaces-resnet18_512x512.dxnn",
+    "original_name": "eigenplaces-resnet18-1",
+    "csv_task": "FREC",
+    "add_model_task": "embedding",
+    "postprocessor": "arcface",
+    "input_width": 512,
+    "input_height": 512,
+    "config": {},
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "eigenplaces_resnet50_1",
+    "dxnn_file": "eigenplaces-resnet50_512x512.dxnn",
+    "original_name": "eigenplaces-resnet50-1",
+    "csv_task": "FREC",
+    "add_model_task": "embedding",
+    "postprocessor": "arcface",
+    "input_width": 512,
+    "input_height": 512,
+    "config": {},
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "superpoint_1",
+    "dxnn_file": "superpoint_480x640.dxnn",
+    "original_name": "superpoint-1",
+    "csv_task": "KD",
+    "add_model_task": "keypoint_detection",
+    "postprocessor": "superpoint",
+    "input_width": 640,
+    "input_height": 480,
+    "config": {},
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "casvit_t_seg_fpn_resnet50_1",
+    "dxnn_file": "casvit-t-fpn-resnet50_512x512.dxnn",
+    "original_name": "casvit_t_seg_fpn_resnet50-1",
+    "csv_task": "SEG",
+    "add_model_task": "semantic_segmentation",
+    "postprocessor": "deeplabv3",
+    "input_width": 512,
+    "input_height": 512,
+    "config": {},
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "deeplab_v3_mobilenet_v2_wo_dilation_sim_1",
+    "dxnn_file": "deeplabv3_mobilenetv2_513x513_nodilation.dxnn",
+    "original_name": "deeplab_v3_mobilenet_v2_wo_dilation_sim-1",
+    "csv_task": "SEG",
+    "add_model_task": "semantic_segmentation",
+    "postprocessor": "deeplabv3",
+    "input_width": 513,
+    "input_height": 513,
+    "config": {},
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "deeplabv3plus_drn_512x512_q_lite",
+    "dxnn_file": "deeplabv3plus-drn_512x512.dxnn",
+    "original_name": "deeplabv3plus-drn_512x512_q-lite",
+    "csv_task": "SEG",
+    "add_model_task": "semantic_segmentation",
+    "postprocessor": "deeplabv3",
+    "input_width": 512,
+    "input_height": 512,
+    "config": {},
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "deeplabv3plus_resnet101_1",
+    "dxnn_file": "deeplabv3plus-resnet101_512x512.dxnn",
+    "original_name": "DeepLabV3PlusResNet101-1",
+    "csv_task": "SEG",
+    "add_model_task": "semantic_segmentation",
+    "postprocessor": "deeplabv3",
+    "input_width": 512,
+    "input_height": 512,
+    "config": {},
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "deeplabv3plus_resnet50_1",
+    "dxnn_file": "deeplabv3plus-resnet50_512x512.dxnn",
+    "original_name": "DeepLabV3PlusResNet50-1",
+    "csv_task": "SEG",
+    "add_model_task": "semantic_segmentation",
+    "postprocessor": "deeplabv3",
+    "input_width": 512,
+    "input_height": 512,
+    "config": {},
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "deeplabv3_resnet101_1",
+    "dxnn_file": "deeplabv3-resnet101_512x512.dxnn",
+    "original_name": "DeepLabV3ResNet101-1",
+    "csv_task": "SEG",
+    "add_model_task": "semantic_segmentation",
+    "postprocessor": "deeplabv3",
+    "input_width": 512,
+    "input_height": 512,
+    "config": {},
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "deeplabv3_resnet50_1",
+    "dxnn_file": "deeplabv3-resnet50_512x512.dxnn",
+    "original_name": "DeepLabV3ResNet50-1",
+    "csv_task": "SEG",
+    "add_model_task": "semantic_segmentation",
+    "postprocessor": "deeplabv3",
+    "input_width": 512,
+    "input_height": 512,
+    "config": {},
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "fcn8_resnet50_1",
+    "dxnn_file": "fcn8_resnet50_512x512.dxnn",
+    "original_name": "fcn8_resnet50-1",
+    "csv_task": "SEG",
+    "add_model_task": "semantic_segmentation",
+    "postprocessor": "deeplabv3",
+    "input_width": 512,
+    "input_height": 512,
+    "config": {},
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "fcn8_resnet_v1_18_1",
+    "dxnn_file": "fcn8_resnet18_1024x1920.dxnn",
+    "original_name": "fcn8_resnet_v1_18-1",
+    "csv_task": "SEG",
+    "add_model_task": "semantic_segmentation",
+    "postprocessor": "deeplabv3",
+    "input_width": 1920,
+    "input_height": 1024,
+    "config": {},
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "pidnet_s_1",
+    "dxnn_file": "pidnet-s_1024x2048.dxnn",
+    "original_name": "pidnet-s-1",
+    "csv_task": "SEG",
+    "add_model_task": "semantic_segmentation",
+    "postprocessor": "deeplabv3",
+    "input_width": 2048,
+    "input_height": 1024,
+    "config": {},
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "stdc2_model_maxmiou50_1",
+    "dxnn_file": "stdc2-seg50_512x1024.dxnn",
+    "original_name": "stdc2-model_maxmIOU50-1",
+    "csv_task": "SEG",
+    "add_model_task": "semantic_segmentation",
+    "postprocessor": "deeplabv3",
+    "input_width": 1024,
+    "input_height": 512,
+    "config": {},
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "depth_anything_v2_vitb_1",
+    "dxnn_file": "depthanythingv2-vitb_224x224.dxnn",
+    "original_name": "depth_anything_v2_vitb-1",
+    "csv_task": "DEPTH",
+    "add_model_task": "depth_estimation",
+    "postprocessor": "depth",
+    "input_width": 224,
+    "input_height": 224,
+    "config": {},
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "depth_anything_v2_vitl_1",
+    "dxnn_file": "depthanythingv2-vitl_224x224.dxnn",
+    "original_name": "depth_anything_v2_vitl-1",
+    "csv_task": "DEPTH",
+    "add_model_task": "depth_estimation",
+    "postprocessor": "depth",
+    "input_width": 224,
+    "input_height": 224,
+    "config": {},
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "depth_anything_v2_vits_1",
+    "dxnn_file": "depthanythingv2-vits_224x224.dxnn",
+    "original_name": "depth_anything_v2_vits-1",
+    "csv_task": "DEPTH",
+    "add_model_task": "depth_estimation",
+    "postprocessor": "depth",
+    "input_width": 224,
+    "input_height": 224,
+    "config": {},
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "retinaface_mobilenet_v1_736x1280_1",
+    "dxnn_file": "retinaface_mobilenetv1_736x1280.dxnn",
+    "original_name": "retinaface_mobilenet_v1_736x1280-1",
+    "csv_task": "FD",
+    "add_model_task": "face_detection",
+    "postprocessor": "retinaface",
+    "input_width": 1280,
+    "input_height": 736,
+    "config": {
+      "score_threshold": 0.3,
+      "nms_threshold": 0.4
+    },
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "yolov5n_face_1",
+    "dxnn_file": "yolov5-n-face_640x640.dxnn",
+    "original_name": "YOLOV5N_Face-1",
+    "csv_task": "FD",
+    "add_model_task": "face_detection",
+    "postprocessor": "yolov5face",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "obj_threshold": 0.3,
+      "score_threshold": 0.3,
+      "nms_threshold": 0.4
+    },
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "yolov7_lite_t_face_1",
+    "dxnn_file": "yolov7-lite-t-face_640x640.dxnn",
+    "original_name": "YOLOV7_Lite_T_Face-1",
+    "csv_task": "FD",
+    "add_model_task": "face_detection",
+    "postprocessor": "yolov7face",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "obj_threshold": 0.3,
+      "score_threshold": 0.3,
+      "nms_threshold": 0.4
+    },
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "mediapipe_hand_detector_1",
+    "dxnn_file": "mediapipe-hand-detector_192x192.dxnn",
+    "original_name": "mediapipe-hand-detector-1",
+    "csv_task": "HD",
+    "add_model_task": "hand_detection",
+    "postprocessor": "mediapipe_palm",
+    "input_width": 192,
+    "input_height": 192,
+    "config": {
+      "score_threshold": 0.5,
+      "nms_threshold": 0.3
+    },
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "yolov5_pose",
+    "dxnn_file": "yolov5-s6-pose_640x640.dxnn",
+    "original_name": "YOLOV5Pose-1",
+    "csv_task": "POSE",
+    "add_model_task": "pose_estimation",
+    "postprocessor": "yolov5pose",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "obj_threshold": 0.25,
+      "score_threshold": 0.25,
+      "nms_threshold": 0.45
+    },
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "vit_pose_small_bn_1",
+    "dxnn_file": "vitpose-s_256x192.dxnn",
+    "original_name": "vit_pose_small_bn-1",
+    "csv_task": "POSE",
+    "add_model_task": "pose_estimation",
+    "postprocessor": "vitpose",
+    "input_width": 192,
+    "input_height": 256,
+    "config": {},
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "yolo11m_pose",
+    "dxnn_file": "yolo11-m-pose_640x640.dxnn",
+    "original_name": "yolo11-m-pose-1",
+    "csv_task": "POSE",
+    "add_model_task": "pose_estimation",
+    "postprocessor": "yolov8pose",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "obj_threshold": 0.25,
+      "score_threshold": 0.25,
+      "nms_threshold": 0.45
+    },
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "yolo11n_pose",
+    "dxnn_file": "yolo11-n-pose_640x640.dxnn",
+    "original_name": "yolo11-n-pose-1",
+    "csv_task": "POSE",
+    "add_model_task": "pose_estimation",
+    "postprocessor": "yolov8pose",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "obj_threshold": 0.25,
+      "score_threshold": 0.25,
+      "nms_threshold": 0.45
+    },
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "yolo11s_pose",
+    "dxnn_file": "yolo11-s-pose_640x640.dxnn",
+    "original_name": "yolo11-s-pose-1",
+    "csv_task": "POSE",
+    "add_model_task": "pose_estimation",
+    "postprocessor": "yolov8pose",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "obj_threshold": 0.25,
+      "score_threshold": 0.25,
+      "nms_threshold": 0.45
+    },
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "yolo11x_pose",
+    "dxnn_file": "yolo11-x-pose_640x640.dxnn",
+    "original_name": "yolo11-x-pose-1",
+    "csv_task": "POSE",
+    "add_model_task": "pose_estimation",
+    "postprocessor": "yolov8pose",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "obj_threshold": 0.25,
+      "score_threshold": 0.25,
+      "nms_threshold": 0.45
+    },
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "yolov8l_pose",
+    "dxnn_file": "yolov8-l-pose_640x640.dxnn",
+    "original_name": "yolov8-l-pose-1",
+    "csv_task": "POSE",
+    "add_model_task": "pose_estimation",
+    "postprocessor": "yolov8pose",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "obj_threshold": 0.25,
+      "score_threshold": 0.25,
+      "nms_threshold": 0.45
+    },
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "yolov8n_pose",
+    "dxnn_file": "yolov8-n-pose_640x640.dxnn",
+    "original_name": "yolov8-n-pose-1",
+    "csv_task": "POSE",
+    "add_model_task": "pose_estimation",
+    "postprocessor": "yolov8pose",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "obj_threshold": 0.25,
+      "score_threshold": 0.25,
+      "nms_threshold": 0.45
+    },
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "yolov8x_pose",
+    "dxnn_file": "yolov8-x-pose_640x640.dxnn",
+    "original_name": "yolov8-x-pose-1",
+    "csv_task": "POSE",
+    "add_model_task": "pose_estimation",
+    "postprocessor": "yolov8pose",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "obj_threshold": 0.25,
+      "score_threshold": 0.25,
+      "nms_threshold": 0.45
+    },
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "yolo11l_seg",
+    "dxnn_file": "yolo11-l-seg_640x640.dxnn",
+    "original_name": "yolo11-l-seg-1",
+    "csv_task": "ISEG",
+    "add_model_task": "instance_segmentation",
+    "postprocessor": "yolov8seg",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "obj_threshold": 0.25,
+      "score_threshold": 0.25,
+      "nms_threshold": 0.45
+    },
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "yolo11m_seg",
+    "dxnn_file": "yolo11-m-seg_640x640.dxnn",
+    "original_name": "yolo11-m-seg-1",
+    "csv_task": "ISEG",
+    "add_model_task": "instance_segmentation",
+    "postprocessor": "yolov8seg",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "obj_threshold": 0.25,
+      "score_threshold": 0.25,
+      "nms_threshold": 0.45
+    },
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "yolo11n_seg",
+    "dxnn_file": "yolo11-n-seg_640x640.dxnn",
+    "original_name": "yolo11-n-seg-1",
+    "csv_task": "ISEG",
+    "add_model_task": "instance_segmentation",
+    "postprocessor": "yolov8seg",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "obj_threshold": 0.25,
+      "score_threshold": 0.25,
+      "nms_threshold": 0.45
+    },
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "yolo11s_seg",
+    "dxnn_file": "yolo11-s-seg_640x640.dxnn",
+    "original_name": "yolo11-s-seg-1",
+    "csv_task": "ISEG",
+    "add_model_task": "instance_segmentation",
+    "postprocessor": "yolov8seg",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "obj_threshold": 0.25,
+      "score_threshold": 0.25,
+      "nms_threshold": 0.45
+    },
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "yolo11x_seg",
+    "dxnn_file": "yolo11-x-seg_640x640.dxnn",
+    "original_name": "yolo11-x-seg-1",
+    "csv_task": "ISEG",
+    "add_model_task": "instance_segmentation",
+    "postprocessor": "yolov8seg",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "obj_threshold": 0.25,
+      "score_threshold": 0.25,
+      "nms_threshold": 0.45
+    },
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "yolov5x_seg",
+    "dxnn_file": "yolov5-x-seg_640x640.dxnn",
+    "original_name": "yolov5-x-seg-1",
+    "csv_task": "ISEG",
+    "add_model_task": "instance_segmentation",
+    "postprocessor": "yolov5seg",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "obj_threshold": 0.25,
+      "score_threshold": 0.5,
+      "nms_threshold": 0.45
+    },
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "yolov8l_seg",
+    "dxnn_file": "yolov8-l-seg_640x640.dxnn",
+    "original_name": "yolov8-l-seg-1",
+    "csv_task": "ISEG",
+    "add_model_task": "instance_segmentation",
+    "postprocessor": "yolov8seg",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "obj_threshold": 0.25,
+      "score_threshold": 0.25,
+      "nms_threshold": 0.45
+    },
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "yolov8x_seg",
+    "dxnn_file": "yolov8-x-seg_640x640.dxnn",
+    "original_name": "yolov8-x-seg-1",
+    "csv_task": "ISEG",
+    "add_model_task": "instance_segmentation",
+    "postprocessor": "yolov8seg",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "obj_threshold": 0.25,
+      "score_threshold": 0.25,
+      "nms_threshold": 0.45
+    },
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "yolov6s_1",
+    "dxnn_file": "yolov6-s_640x640.dxnn",
+    "original_name": "YOLOV6S-1",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolov5",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {
+      "score_threshold": 0.25,
+      "nms_threshold": 0.45
+    },
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "yolov6l6_1",
+    "dxnn_file": "yolov6-l6_1280x1280.dxnn",
+    "original_name": "YOLOV6L6-1",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolov5",
+    "input_width": 1280,
+    "input_height": 1280,
+    "config": {
+      "score_threshold": 0.25,
+      "nms_threshold": 0.45
+    },
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "yolopv2_1",
+    "dxnn_file": "yolopv2_384x640.dxnn",
+    "original_name": "yolopv2-1",
+    "csv_task": "OD",
+    "add_model_task": "panoptic_driving_perception",
+    "postprocessor": "yolopv2",
+    "input_width": 640,
+    "input_height": 384,
+    "config": {
+      "score_threshold": 0.25,
+      "nms_threshold": 0.45
+    },
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "dope_hope_ketchup_1",
+    "dxnn_file": "dope-hope-ketchup_480x640.dxnn",
+    "original_name": "dope-hope-ketchup-1",
+    "csv_task": "OD",
+    "add_model_task": "object_pose_estimation",
+    "postprocessor": "dope",
+    "input_width": 640,
+    "input_height": 480,
+    "config": {},
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "sfa3d_608x608",
+    "dxnn_file": "sfa3d_608x608.dxnn",
+    "original_name": "sfa3d_608x608_q-lite",
+    "csv_task": "3DOD",
+    "add_model_task": "3d_object_detection",
+    "postprocessor": "sfa3d",
+    "input_width": 608,
+    "input_height": 608,
+    "config": {},
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "espcn_x2_1",
+    "dxnn_file": "espcn-x2_17x17.dxnn",
+    "original_name": "espcn_x2-1",
+    "csv_task": "SR",
+    "add_model_task": "super_resolution",
+    "postprocessor": "espcn",
+    "input_width": 17,
+    "input_height": 17,
+    "config": {},
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "realesrgan_x2",
+    "dxnn_file": "realesrgan-x2_192x192.dxnn",
+    "original_name": "RealESRGAN_x2-1",
+    "csv_task": "SR",
+    "add_model_task": "super_resolution",
+    "postprocessor": "espcn",
+    "input_width": 192,
+    "input_height": 192,
+    "config": {},
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "realesrgan_x4",
+    "dxnn_file": "realesrgan-x4_192x192.dxnn",
+    "original_name": "RealESRGAN_x4-1",
+    "csv_task": "SR",
+    "add_model_task": "super_resolution",
+    "postprocessor": "espcn",
+    "input_width": 192,
+    "input_height": 192,
+    "config": {},
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "realesrgan_x8",
+    "dxnn_file": "realesrgan-x8_192x192.dxnn",
+    "original_name": "RealESRGAN_x8-1",
+    "csv_task": "SR",
+    "add_model_task": "super_resolution",
+    "postprocessor": "espcn",
+    "input_width": 192,
+    "input_height": 192,
+    "config": {},
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "zero_dce_pp_1",
+    "dxnn_file": "zerodce-pp_400x600.dxnn",
+    "original_name": "zero_dce_pp-1",
+    "csv_task": "LLIE",
+    "add_model_task": "image_enhancement",
+    "postprocessor": "zero_dce",
+    "input_width": 600,
+    "input_height": 400,
+    "config": {},
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "regnetx1_6gf_v2",
+    "dxnn_file": "regnet-x1.6gf_224x224_v2.dxnn",
+    "original_name": "RegNetX1_6GF_v2",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 224,
+    "input_height": 224,
+    "config": {
+      "top_k": 5
+    },
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "resnet18_brecq",
+    "dxnn_file": "resnet18_224x224_brecq.dxnn",
+    "original_name": "ResNet18_brecq",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 224,
+    "input_height": 224,
+    "config": {
+      "top_k": 5
+    },
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "resnext50_32x4d_imgclsmob",
+    "dxnn_file": "resnext50-32x4d_224x224_imgclsmob.dxnn",
+    "original_name": "ResNeXt50_32x4d_imgclsmob",
+    "csv_task": "IC",
+    "add_model_task": "classification",
+    "postprocessor": "efficientnet",
+    "input_width": 224,
+    "input_height": 224,
+    "config": {
+      "top_k": 5
+    },
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "yolov5m6_1280",
+    "dxnn_file": "yolov5-m6_1280x1280.dxnn",
+    "original_name": "YoloV5M6",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolov5",
+    "input_width": 1280,
+    "input_height": 1280,
+    "config": {
+      "score_threshold": 0.4,
+      "nms_threshold": 0.45
+    },
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "yolov5n_6_1",
+    "dxnn_file": "yolov5-n6_1280x1280_v6.1.dxnn",
+    "original_name": "YoloV5N_6.1",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolov5",
+    "input_width": 1280,
+    "input_height": 1280,
+    "config": {
+      "score_threshold": 0.4,
+      "nms_threshold": 0.45
+    },
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "yolov5s_6_1",
+    "dxnn_file": "yolov5-s6_1280x1280_v6.1.dxnn",
+    "original_name": "YoloV5S_6.1",
+    "csv_task": "OD",
+    "add_model_task": "object_detection",
+    "postprocessor": "yolov5",
+    "input_width": 1280,
+    "input_height": 1280,
+    "config": {
+      "score_threshold": 0.4,
+      "nms_threshold": 0.45
+    },
+    "source": "manual",
     "supported": true
   }
 ]

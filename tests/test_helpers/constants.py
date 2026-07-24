@@ -35,7 +35,16 @@ _SAMPLE_HAND      = f"{_IMG}/sample_hand.jpg"
 _SAMPLE_DENOISING = f"{_IMG}/sample_denoising.jpg"
 _SAMPLE_LOWLIGHT  = f"{_IMG}/sample_lowlight.jpg"
 _SAMPLE_SUPERRES  = f"{_IMG}/sample_superresolution.png"
-_SAMPLE_DOTA      = "sample/dota8_test/P0177.png"
+_SAMPLE_DOTA      = f"{_IMG}/sample_airport_satellite_view.png"
+
+# Non-image sample inputs — these live directly under ``sample/``, NOT under
+# ``sample/img/``, so they must NOT carry the ``_IMG`` prefix. SFA3D takes a
+# KITTI LiDAR ``.bin``; DOPE takes a static-object frame under ``sample/dope/``.
+# (Source of truth: scripts/run_examples.sh CATEGORY_IMAGE.)
+_SAMPLE_LIDAR_KITTI = "sample/kitti/velodyne/000049.bin"
+_SAMPLE_DOPE        = "sample/dope/000000.png"
+_SAMPLE_FACE_PAIR_REF = f"{_IMG}/face_pair/1_reference.jpg"
+_SAMPLE_PERSON_A2     = f"{_IMG}/sample_person_a2.jpg"
 
 # ======================================================================
 # Task → sample image mapping  (relative to PROJECT_ROOT)
@@ -49,6 +58,7 @@ TASK_IMAGE_MAP: dict[str, str] = {
     "semantic_segmentation":  _SAMPLE_STREET,
     "depth_estimation":       _SAMPLE_KITCHEN,
     "hand_landmark":          _SAMPLE_HAND,
+    "hand_detection":         _SAMPLE_HAND,   # MediaPipe palm — needs a hand in frame
     "embedding":              _SAMPLE_FACE,
     "obb_detection":          _SAMPLE_DOTA,
     "image_denoising":        _SAMPLE_DENOISING,
@@ -56,9 +66,13 @@ TASK_IMAGE_MAP: dict[str, str] = {
     "super_resolution":       _SAMPLE_SUPERRES,
     "ppu":                    _SAMPLE_DOG,
     # aliases used in some model_registry entries
-    "face_alignment":         _SAMPLE_FACE,
+    "face_alignment":         _SAMPLE_FACE_PAIR_REF,
     "detection":              _SAMPLE_DOG,
     "pose":                   _SAMPLE_PEOPLE,
+    "keypoint_detection":     _SAMPLE_STREET,
+    "object_pose_estimation": _SAMPLE_DOPE,          # sample/dope/*.png (NOT sample/img)
+    "panoptic_driving_perception": _SAMPLE_STREET,
+    "3d_object_detection":    _SAMPLE_LIDAR_KITTI,   # sample/kitti/velodyne/*.bin (NOT sample/img)
 }
 
 # ======================================================================
@@ -71,6 +85,19 @@ MODEL_IMAGE_OVERRIDE: dict[str, str] = {
     "yolov8s_pose":               _SAMPLE_PEOPLE,
     "centerpose_regnetx_800mf":   _SAMPLE_PEOPLE,
     "unet_mobilenet_v2":          _SAMPLE_DOG,
+    "mediapipe_hand_detector":    _SAMPLE_PERSON_A2,
+    "scrfd500m_ppu":              _SAMPLE_PERSON_A2,
+}
+
+# ======================================================================
+# Explicit model-dir → .dxnn filename aliases.
+# Last-resort mapping for the rare cases where the example directory name
+# cannot be derived from the .dxnn filename by normalisation / suffix rules
+# (an arbitrary rename). Key: normalised model-dir name. Value: exact .dxnn
+# filename under assets/models/.
+# ======================================================================
+MODEL_DXNN_ALIAS: dict[str, str] = {
+    "deitbase384": "deit-b_384x384.dxnn",
 }
 
 # ======================================================================
@@ -87,6 +114,59 @@ MULTI_MODEL_EXECUTABLES: dict[str, list[tuple[str, str]]] = {
 SKIP_MODELS: set[str] = {
     "clip_resnet50_text_encoder_77x512",
 }
+
+# ======================================================================
+# Image-only task categories — examples take image input ONLY and do NOT
+# support video/camera/rtsp stream input. Stream (video) E2E tests must skip
+# these. Single source of truth; keep in sync with scripts/run_examples.sh
+# IMAGE_ONLY_CATEGORIES.
+# ======================================================================
+IMAGE_ONLY_TASKS: frozenset = frozenset({
+    "embedding",
+    "reid",
+    "attribute_recognition",
+    "object_pose_estimation",
+    "3d_object_detection",
+    # hand_detection / hand_landmark are NOT image-only: the single model runs
+    # per frame on video/camera/RTSP (no palm-detector crop stage), so they are
+    # exercised by the stream E2E tests like any other video-capable task.
+    # super_resolution: a video/stream path exists (see SR-stream regression
+    # tests), but the harness exercises it image-only — upscaled stream output
+    # is large/slow and not meaningful for E2E regression.
+    "super_resolution",
+})
+
+# ======================================================================
+# Tasks whose SINGLE-MODEL example runners HARD-REJECT stream input
+# (-v/--video, -c/--camera, -r/--rtsp) with a fatal "image input only" error.
+# Keyed by example DIRECTORY name (the C++/Python runners map the
+# 3d_object_detection directory to the internal task name "3d_detection").
+#
+# This is a *stricter* subset of IMAGE_ONLY_TASKS used by NEGATIVE tests that
+# verify the SDKREQ-517 exclusion is actually ENFORCED (not merely skipped).
+# It is NOT the same as IMAGE_ONLY_TASKS and it differs by language, because:
+#   - super_resolution is image-only in the harness, but BOTH runners still
+#     accept a video path — it is in NEITHER reject set.
+#   - hand_detection / hand_landmark now SUPPORT stream input in both the C++
+#     and Python runners (single model per frame), so they are in NEITHER reject
+#     set — they are exercised by the positive stream tests instead.
+# Source of truth: src/cpp_example/common/runner/*_runner.hpp guards and
+# src/python_example/common/runner/sync_runner.py::_IMAGE_ONLY_TASKS.
+# ======================================================================
+STREAM_REJECTING_TASKS_CPP: frozenset = frozenset({
+    "3d_object_detection",
+    "embedding",
+    "reid",
+    "attribute_recognition",
+    "object_pose_estimation",
+})
+STREAM_REJECTING_TASKS_PY: frozenset = frozenset({
+    "3d_object_detection",
+    "embedding",
+    "reid",
+    "attribute_recognition",
+    "object_pose_estimation",
+})
 
 # ======================================================================
 # E2E short-list models  (used by ``--e2e-short`` / ``-m e2e_short``)
@@ -116,7 +196,7 @@ SKIP_MODELS: set[str] = {
 #   ResNet50-1              → resnet50
 #   MobileNetV3L-1          → mobilenetv3large
 #   EfficientNetV2S-1       → efficientnetv2s
-#   ViTBaseP32-1            → vitbasep32_384_hug
+#   ViTBaseP32-1            → vitbasep32_384
 #   RegNetY800MF-1          → regnety800mf
 #   HarDNet39DS-1           → hardnet39ds
 # Face Detection
@@ -154,12 +234,12 @@ E2E_SHORT_MODELS: set[str] = {
     # PPU
     "yolov5s_ppu",
     "yolov7_ppu",
-    "yolov8_ppu",
+    "yolov8s_ppu",
     # Image Classification
     "resnet50",
     "mobilenetv3large",
     "efficientnetv2s",
-    "vitbasep32_384_hug",
+    "vitb32",
     "regnety800mf",
     "hardnet39ds",
     # Face Detection
@@ -179,4 +259,28 @@ E2E_SHORT_MODELS: set[str] = {
     "espcn_x4",
     # Depth Estimation
     "fastdepth_1",
+    # OBB Detection
+    "yolo26n_obb",
+    # 3D Object Detection
+    "sfa3d_608x608",
+    # Object Pose Estimation
+    "dope_hope_ketchup",
+    # Panoptic Driving Perception
+    "yolopv2",
+    # Keypoint Detection
+    "superpoint",
+    # Image Enhancement
+    "zero_dce",
+    # Face Alignment
+    "3ddfa_v2_mobilnetv1_120x120",
+    # Hand Detection
+    "mediapipe_hand_detector",
+    # Hand Landmark
+    "handlandmarklite_1",
+    # Embedding
+    "arcface_mobilefacenet",
+    # ReID
+    "casvit_t",
+    # Attribute Recognition
+    "deepmar_resnet50",
 }

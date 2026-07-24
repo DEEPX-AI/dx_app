@@ -15,7 +15,7 @@ class Dncnn_color_blindFactory(IRestorationFactory):
     
     def create_preprocessor(self, input_width: int, input_height: int):
         # Color model (3-channel) — use simple resize, not grayscale
-        return SimpleResizePreprocessor(input_width, input_height)
+        return SimpleResizePreprocessor(input_width, input_height, bgr=True)
     
     def create_postprocessor(self, input_width: int, input_height: int):
         return DnCNNPostprocessor(input_width, input_height, self.config)

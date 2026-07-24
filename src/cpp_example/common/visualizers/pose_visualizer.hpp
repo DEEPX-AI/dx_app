@@ -155,6 +155,55 @@ private:
     float kp_threshold_{0.3f};  // Matching original (0.3)
 };
 
+/**
+ * @brief Keypoint-only visualizer — draws dots without skeleton connections.
+ *
+ * Intended for models like SuperPoint that produce unstructured keypoints
+ * with no meaningful ordering or connectivity between them.
+ */
+class KeypointOnlyVisualizer : public IVisualizer<PoseResult> {
+public:
+    explicit KeypointOnlyVisualizer(int radius = 3,
+                                    cv::Scalar color = cv::Scalar(0, 255, 0),
+                                    float conf_threshold = 0.015f)
+        : radius_(radius), color_(color), conf_threshold_(conf_threshold) {}
+
+    cv::Mat draw(const cv::Mat& image,
+                 const std::vector<PoseResult>& results,
+                 const PreprocessContext& /*ctx*/) override {
+        cv::Mat output = image.clone();
+
+        int total = 0;
+        for (const auto& pose : results) {
+            for (const auto& kp : pose.keypoints) {
+                if (kp.confidence < conf_threshold_) continue;
+                int r = std::max(1, static_cast<int>(radius_ * kp.confidence * 3));
+                r = std::min(r, radius_ + 2);
+                cv::circle(output,
+                           cv::Point(static_cast<int>(kp.x), static_cast<int>(kp.y)),
+                           r, color_, -1, cv::LINE_AA);
+                ++total;
+            }
+        }
+
+        cv::putText(output,
+                    "Keypoints: " + std::to_string(total),
+                    cv::Point(10, 30),
+                    cv::FONT_HERSHEY_SIMPLEX, 1.0,
+                    cv::Scalar(0, 255, 0), 2);
+        return output;
+    }
+
+    void setParameters(int /*line_thickness*/ = 2,
+                       double /*font_scale*/ = 0.5,
+                       float /*alpha*/ = 0.6f) override {}
+
+private:
+    int radius_;
+    cv::Scalar color_;
+    float conf_threshold_;
+};
+
 }  // namespace dxapp
 
 #endif  // POSE_VISUALIZER_HPP

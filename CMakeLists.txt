@@ -3,16 +3,16 @@ get_filename_component(PROJECT_ROOT ${CMAKE_SOURCE_DIR} ABSOLUTE)
 project(dxapp DESCRIPTION "DEEPX Application Templates")
 
 if(MSVC)
-    if(NOT DEFINED DXRT_DIR OR NOT EXISTS ${DXRT_DIR})
-        message(FATAL_ERROR "The variable DXRT_DIR is not set. The build cannot proceed.")
+    if(NOT DEFINED DEEPX_SDK_DIR OR NOT EXISTS ${DEEPX_SDK_DIR})
+        message(FATAL_ERROR "The variable DEEPX_SDK_DIR is not set. The build cannot proceed.")
     endif()
 
-    # Normalize DXRT_DIR to forward slashes early to avoid CMake escape issues
-    string(REPLACE "\\" "/" DXRT_DIR ${DXRT_DIR})
-    message(STATUS "The variable DXRT_DIR is set: ${DXRT_DIR}")
+    # Normalize DEEPX_SDK_DIR to forward slashes early to avoid CMake escape issues
+    string(REPLACE "\\" "/" DEEPX_SDK_DIR ${DEEPX_SDK_DIR})
+    message(STATUS "The variable DEEPX_SDK_DIR is set: ${DEEPX_SDK_DIR}")
 
     if(NOT DEFINED DXRT_INSTALLED_DIR)
-        set(DXRT_INSTALLED_DIR "${DXRT_DIR}")
+        set(DXRT_INSTALLED_DIR "${DEEPX_SDK_DIR}")
         message(STATUS "DXRT_INSTALLED_DIR is set to ${DXRT_INSTALLED_DIR}")
     else()
         # If provided externally, normalize DXRT_INSTALLED_DIR as well
@@ -144,14 +144,23 @@ if(ENABLE_DEBUG_INFO OR CMAKE_BUILD_TYPE STREQUAL "Debug" OR CMAKE_BUILD_TYPE ST
 endif()
 
 if(MSVC)
-    execute_process(
-        COMMAND where python
-        OUTPUT_VARIABLE PYTHON_PATHS
-        OUTPUT_STRIP_TRAILING_WHITESPACE
-    )
-    string(REPLACE "\n" ";" PYTHON_PATH_LIST "${PYTHON_PATHS}")
-    list(GET PYTHON_PATH_LIST 0 Python_EXECUTABLE)
-    message(STATUS "Selected Python Executable : ${Python_EXECUTABLE}")
+    if(NOT Python_EXECUTABLE)
+        execute_process(
+            COMMAND where python
+            OUTPUT_VARIABLE PYTHON_PATHS
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+            RESULT_VARIABLE PYTHON_WHERE_RC
+        )
+        if(PYTHON_WHERE_RC EQUAL 0 AND PYTHON_PATHS)
+            string(REPLACE "\n" ";" PYTHON_PATH_LIST "${PYTHON_PATHS}")
+            list(GET PYTHON_PATH_LIST 0 Python_EXECUTABLE)
+        endif()
+    endif()
+    if(Python_EXECUTABLE)
+        message(STATUS "Selected Python Executable : ${Python_EXECUTABLE}")
+    else()
+        message(WARNING "Python not found. Python-dependent targets may fail.")
+    endif()
 endif()
 
 if(DXAPP_WITH_SHAREDLIB)
@@ -214,7 +223,7 @@ if(MSVC)
         endif()
     endif()
     
-    # Visual Studio Runtime DLL (���û��� - �ʿ�� �ּ� ����)
+    # Visual Studio Runtime DLL 
     # set(CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS_SKIP TRUE)
     # include(InstallRequiredSystemLibraries)
     # install(PROGRAMS ${CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS}

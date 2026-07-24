@@ -32,6 +32,17 @@ from ..base import IPostprocessor, PreprocessContext, DetectionResult, Keypoint,
 from .face_postprocessor import FaceResult
 
 
+def _reinterpret(tensor: np.ndarray, lo: int, hi: int, dtype) -> np.ndarray:
+    """Reinterpret byte columns ``[lo:hi)`` of a uint8 PPU tensor as ``dtype``.
+
+    A column slice of a 2-D array is not C-contiguous, and NumPy forbids a
+    dtype-size-changing ``.view()`` on non-contiguous memory (raising
+    ``ValueError: To change to a dtype of a different size, the array must be
+    C-contiguous``), so copy the byte range into a contiguous buffer first.
+    """
+    return np.ascontiguousarray(tensor[:, lo:hi]).view(dtype)
+
+
 class PPUPostprocessor(IPostprocessor):
     """
     Unified PPU postprocessor for YOLO-family models.
@@ -87,7 +98,7 @@ class PPUPostprocessor(IPostprocessor):
             return []
 
         # Parse PPU output format
-        boxes = output_tensor[:, :16].view(np.float32).reshape(-1, 4)
+        boxes = _reinterpret(output_tensor, 0, 16, np.float32).reshape(-1, 4)
 
         grid_info = output_tensor[:, 16:20].view(np.uint8)
         g_y = grid_info[:, 0].astype(np.float32)
@@ -95,8 +106,8 @@ class PPUPostprocessor(IPostprocessor):
         anchor_idx = grid_info[:, 2]
         layer_idx = grid_info[:, 3]
 
-        scores = output_tensor[:, 20:24].view(np.float32).flatten()
-        labels = output_tensor[:, 24:28].view(np.uint32).flatten()
+        scores = _reinterpret(output_tensor, 20, 24, np.float32).flatten()
+        labels = _reinterpret(output_tensor, 24, 28, np.uint32).flatten()
 
         # Get stride for each detection
         stride = self.STRIDES[layer_idx]
@@ -226,9 +237,9 @@ class YOLOv8PPUPostprocessor(IPostprocessor):
             return []
 
         # Parse DeviceBoundingBox_t fields
-        boxes_raw = output_tensor[:, :16].view(np.float32).reshape(-1, 4)  # x, y, w, h
-        scores = output_tensor[:, 20:24].view(np.float32).flatten()
-        labels = output_tensor[:, 24:28].view(np.uint32).flatten()
+        boxes_raw = _reinterpret(output_tensor, 0, 16, np.float32).reshape(-1, 4)  # x, y, w, h
+        scores = _reinterpret(output_tensor, 20, 24, np.float32).flatten()
+        labels = _reinterpret(output_tensor, 24, 28, np.uint32).flatten()
 
         # Score filter
         mask = scores >= self.score_threshold
@@ -340,13 +351,13 @@ class SCRFDPPUPostprocessor(IPostprocessor):
             return []
 
         # Parse DeviceFace_t fields
-        boxes_raw = output_tensor[:, :16].view(np.float32).reshape(-1, 4)  # x, y, w, h
+        boxes_raw = _reinterpret(output_tensor, 0, 16, np.float32).reshape(-1, 4)  # x, y, w, h
         grid_info = output_tensor[:, 16:20].view(np.uint8)
         g_y = grid_info[:, 0].astype(np.float32)
         g_x = grid_info[:, 1].astype(np.float32)
         layer_idx = grid_info[:, 3]
-        scores = output_tensor[:, 20:24].view(np.float32).flatten()
-        kpts_raw = output_tensor[:, 24:64].view(np.float32).reshape(-1, 5, 2)
+        scores = _reinterpret(output_tensor, 20, 24, np.float32).flatten()
+        kpts_raw = _reinterpret(output_tensor, 24, 64, np.float32).reshape(-1, 5, 2)
 
         # Score filter
         mask = scores >= self.score_threshold
@@ -471,16 +482,16 @@ class YOLOv5PosePPUPostprocessor(IPostprocessor):
             return []
 
         # Parse DevicePose_t fields
-        boxes_raw = output_tensor[:, :16].view(np.float32).reshape(-1, 4)  # x, y, w, h
+        boxes_raw = _reinterpret(output_tensor, 0, 16, np.float32).reshape(-1, 4)  # x, y, w, h
         grid_info = output_tensor[:, 16:20].view(np.uint8)
         g_y = grid_info[:, 0].astype(np.float32)
         g_x = grid_info[:, 1].astype(np.float32)
         box_idx = grid_info[:, 2]
         layer_idx = grid_info[:, 3]
-        scores = output_tensor[:, 20:24].view(np.float32).flatten()
+        scores = _reinterpret(output_tensor, 20, 24, np.float32).flatten()
         # bytes 24-27: label (uint32) — not used for pose
         # bytes 28-231: kpts[17][3] = 51 floats = 204 bytes
-        kpts_raw = output_tensor[:, 28:232].view(np.float32).reshape(-1, 17, 3)
+        kpts_raw = _reinterpret(output_tensor, 28, 232, np.float32).reshape(-1, 17, 3)
 
         # Score filter
         mask = scores >= self.score_threshold
@@ -612,9 +623,9 @@ class YOLOv10PPUPostprocessor(IPostprocessor):
             return []
 
         # Parse DeviceBoundingBox_t fields (corner format for YOLOv10)
-        boxes_raw = output_tensor[:, :16].view(np.float32).reshape(-1, 4)  # x1, y1, x2, y2
-        scores = output_tensor[:, 20:24].view(np.float32).flatten()
-        labels = output_tensor[:, 24:28].view(np.uint32).flatten()
+        boxes_raw = _reinterpret(output_tensor, 0, 16, np.float32).reshape(-1, 4)  # x1, y1, x2, y2
+        scores = _reinterpret(output_tensor, 20, 24, np.float32).flatten()
+        labels = _reinterpret(output_tensor, 24, 28, np.uint32).flatten()
 
         # Score filter
         mask = scores >= self.score_threshold
@@ -712,13 +723,13 @@ class YOLOXPPUPostprocessor(IPostprocessor):
             return []
 
         # Parse DeviceBoundingBox_t fields
-        boxes_raw = output_tensor[:, :16].view(np.float32).reshape(-1, 4)  # tx, ty, tw, th
+        boxes_raw = _reinterpret(output_tensor, 0, 16, np.float32).reshape(-1, 4)  # tx, ty, tw, th
         grid_info = output_tensor[:, 16:20].view(np.uint8)
         g_y = grid_info[:, 0].astype(np.float32)
         g_x = grid_info[:, 1].astype(np.float32)
         layer_idx = grid_info[:, 3]
-        scores = output_tensor[:, 20:24].view(np.float32).flatten()
-        labels = output_tensor[:, 24:28].view(np.uint32).flatten()
+        scores = _reinterpret(output_tensor, 20, 24, np.float32).flatten()
+        labels = _reinterpret(output_tensor, 24, 28, np.uint32).flatten()
 
         # Score filter
         mask = scores >= self.score_threshold

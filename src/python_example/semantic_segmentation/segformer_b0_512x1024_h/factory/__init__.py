@@ -1,1 +1,0 @@
-from .segformer_b0_512x1024_h_factory import Segformer_b0_512x1024_hFactory

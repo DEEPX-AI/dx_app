@@ -2,6 +2,7 @@
 Configuration and fixtures for bin CLI tests
 """
 import os
+import logging
 import subprocess
 import sys
 from datetime import datetime
@@ -10,6 +11,8 @@ from pathlib import Path
 import pytest
 
 from performance_collector import get_collector
+
+logger = logging.getLogger(__name__)
 
 # Add project root to path
 PROJECT_ROOT = Path(__file__).parent.parent.parent
@@ -84,11 +87,13 @@ def wait_for_temperature(request):
     if request.node.get_closest_marker("e2e"):
         check_temp_script = SCRIPTS_DIR / "check_temperature.sh"
         if check_temp_script.exists():
-            print("\nWaiting for temperature to cool down...")
-            subprocess.run(
+            result = subprocess.run(
                 ["bash", str(check_temp_script), "--wait_target_temp=70"],
-                check=False
+                check=False, capture_output=True, text=True
             )
+            if "Waiting" in result.stdout:
+                for line in result.stdout.strip().splitlines():
+                    logger.info(line.strip())
 
 
 @pytest.fixture(scope="session")

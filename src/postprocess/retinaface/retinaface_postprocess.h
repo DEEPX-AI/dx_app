@@ -4,6 +4,7 @@
 #include <dxrt/dxrt_api.h>
 
 #include <array>
+#include <cmath>
 #include <string>
 #include <vector>
 
@@ -81,6 +82,17 @@ private:
         dxrt::Tensor* landmark = nullptr;
     };
     IdentifiedTensors_ identifyTensors_(const dxrt::TensorPtrs& outputs) const;
+
+    // NHWC feature-map format support: [1,H,W,A*4] / [1,H,W,A*2] / [1,H,W,A*10]
+    // (some RetinaFace exports, e.g. mobilenet_v1_736x1280). Flattens the
+    // per-stride maps into bbox/score/landmark arrays ordered to match
+    // generate_priors() (stride → row → col → anchor), so the flat decode path
+    // below works unchanged.
+    static bool isNHWC_(const dxrt::TensorPtrs& outputs);
+    bool parseNHWC_(const dxrt::TensorPtrs& outputs,
+                    std::vector<float>& bbox_out,
+                    std::vector<float>& score_out,
+                    std::vector<float>& lmk_out) const;
 
     static float sigmoid(float x) { return 1.0f / (1.0f + std::exp(-x)); }
     static float softmax2_face(float bg, float fg);  // softmax on 2-class logit pair

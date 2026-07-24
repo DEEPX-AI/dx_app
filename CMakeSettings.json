@@ -17,8 +17,8 @@
           "type": "STRING"
         },
         {
-          "name": "DXRT_DIR",
-          "value": "${env.DXRT_DIR}",
+          "name": "DEEPX_SDK_DIR",
+          "value": "${env.DEEPX_SDK_DIR}",
           "type": "STRING"
         },
         {
@@ -80,8 +80,8 @@
           "type": "STRING"
         },
         {
-          "name": "DXRT_DIR",
-          "value": "${env.DXRT_DIR}",
+          "name": "DEEPX_SDK_DIR",
+          "value": "${env.DEEPX_SDK_DIR}",
           "type": "STRING"
         },
         {

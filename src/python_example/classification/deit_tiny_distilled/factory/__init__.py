@@ -1,0 +1,1 @@
+from .deit_tiny_distilled_factory import Deit_tiny_distilledFactory

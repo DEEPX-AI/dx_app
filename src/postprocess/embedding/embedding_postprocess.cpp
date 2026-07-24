@@ -10,7 +10,7 @@ EmbeddingPostProcess::EmbeddingPostProcess(bool l2_normalize)
 EmbeddingResult EmbeddingPostProcess::postprocess(const dxrt::TensorPtrs& outputs) {
     if (outputs.empty()) {
         throw std::runtime_error(
-            "[DXAPP] [ER] EmbeddingPostProcess::postprocess - No output tensors provided.");
+            "[DXAPP] [ERROR] EmbeddingPostProcess::postprocess - No output tensors provided.");
     }
 
     const auto& output = outputs[0];

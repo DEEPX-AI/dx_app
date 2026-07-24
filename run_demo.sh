@@ -19,7 +19,7 @@ source "${DX_APP_PATH}/scripts/color_env.sh"
 source "${DX_APP_PATH}/scripts/common_util.sh"
 
 # =============================================================================
-# Demo Registry (18 entries)
+# Demo Registry (23 entries)
 # =============================================================================
 DEMO_LABELS=(
     # ── Detection (4) ──
@@ -37,7 +37,7 @@ DEMO_LABELS=(
     # ── Classification (1) ──
     "Classification           (ResNet50)"
     # ── Depth Estimation (1) ──
-    "Depth Estimation         (SCDepthV3)"
+    "Depth Estimation         (Depth-Anything-V2-ViT-B)"
     # ── Image Restoration (3) ──
     "Image Denoising          (DnCNN-50)"
     "Super Resolution         (ESPCN-X4)"
@@ -48,6 +48,14 @@ DEMO_LABELS=(
     "Person Re-ID             (CasViT-T)"
     # ── PPU (1) ──
     "PPU Pipeline             (YOLOv7-PPU)"
+    # ── Keypoint & Pose (2) ──
+    "Keypoint Detection       (SuperPoint)"
+    "Object Pose Estimation   (DOPE)"
+    # ── Driving & 3D (2) ──
+    "Panoptic Driving         (YOLOPv2)"
+    "3D Object Detection      (SFA3D)"
+    # ── Hand (1) ──
+    "Hand Detection           (MediaPipe Palm)"
 )
 
 DEMO_GROUPS=(
@@ -59,6 +67,9 @@ DEMO_GROUPS=(
     "Image Restoration" "Image Restoration" "Image Restoration"
     "Recognition" "Recognition" "Recognition"
     "PPU"
+    "Keypoint & Pose" "Keypoint & Pose"
+    "Driving & 3D" "Driving & 3D"
+    "Hand Detection"
 )
 
 DEMO_CPP_BASE=(
@@ -66,10 +77,13 @@ DEMO_CPP_BASE=(
     yolov8s_pose handlandmarklite_1 3ddfa_v2_mobilnetv1_120x120
     yolov8n_seg deeplabv3plusmobilenet
     resnet50
-    scdepthv3
+    depth_anything_v2_vitb
     dncnn_50 espcn_x4 zero_dce
     arcface_mobilefacenet deepmar_resnet50 casvit_t
     yolov7_ppu
+    superpoint dope_hope_ketchup
+    yolopv2 sfa3d_608x608
+    mediapipe_hand_detector
 )
 
 DEMO_PY_DIR=(
@@ -83,7 +97,7 @@ DEMO_PY_DIR=(
     "instance_segmentation/yolov8n_seg"
     "semantic_segmentation/deeplabv3plusmobilenet"
     "classification/resnet50"
-    "depth_estimation/scdepthv3"
+    "depth_estimation/depth_anything_v2_vitb"
     "image_denoising/dncnn_50"
     "super_resolution/espcn_x4"
     "image_enhancement/zero_dce"
@@ -91,6 +105,11 @@ DEMO_PY_DIR=(
     "attribute_recognition/deepmar_resnet50"
     "reid/casvit_t"
     "ppu/yolov7_ppu"
+    "keypoint_detection/superpoint"
+    "object_pose_estimation/dope_hope_ketchup"
+    "panoptic_driving_perception/yolopv2"
+    "3d_object_detection/sfa3d_608x608"
+    "hand_detection/mediapipe_hand_detector"
 )
 
 DEMO_PY_BASE=(
@@ -98,21 +117,27 @@ DEMO_PY_BASE=(
     yolov8s_pose handlandmarklite_1 3ddfa_v2_mobilnetv1_120x120
     yolov8n_seg deeplabv3plusmobilenet
     resnet50
-    scdepthv3
+    depth_anything_v2_vitb
     dncnn_50 espcn_x4 zero_dce
     arcface_mobilefacenet deepmar_resnet50 casvit_t
     yolov7_ppu
+    superpoint dope_hope_ketchup
+    yolopv2 sfa3d_608x608
+    mediapipe_hand_detector
 )
 
 DEMO_MODEL=(
-    YoloV7.dxnn YOLOV11N.dxnn SCRFD500M.dxnn yolo26n-obb.dxnn
-    yolov8s_pose.dxnn HandLandmarkLite_1.dxnn 3ddfa_v2_mobilnetv1_120x120.dxnn
-    yolov8n_seg.dxnn DeepLabV3PlusMobilenet.dxnn
-    ResNet50.dxnn
-    scdepthv3.dxnn
-    DnCNN_50.dxnn ESPCN_X4.dxnn zero_dce.dxnn
-    arcface_mobilefacenet.dxnn deepmar_resnet50.dxnn casvit_t.dxnn
-    YoloV7_PPU.dxnn
+    yolov7_640x640.dxnn yolo11-n_640x640.dxnn scrfd-500m_640x640.dxnn yolo26-n-obb_1024x1024.dxnn
+    yolov8-s-pose_640x640.dxnn mediapipe-hands-lite_224x224.dxnn 3ddfa-v2_mobilenetv1_120x120.dxnn
+    yolov8-n-seg_640x640.dxnn deeplabv3plus_mobilenetv1_512x512.dxnn
+    resnet50_224x224.dxnn
+    depthanythingv2-vitb_224x224.dxnn
+    dncnn-50_512x512.dxnn espcn-x4_17x17.dxnn zerodce_400x600.dxnn
+    arcface_mobilefacenet_112x112.dxnn deepmar_resnet50_224x224.dxnn casvit-t_224x224.dxnn
+    yolov7_640x640_ppu.dxnn
+    superpoint_480x640.dxnn dope-hope-ketchup_480x640.dxnn
+    yolopv2_384x640.dxnn sfa3d_608x608.dxnn
+    mediapipe-hand-detector_192x192.dxnn
 )
 
 DEMO_VIDEO=(
@@ -134,13 +159,18 @@ DEMO_VIDEO=(
     "assets/videos/person-pair-hallway.mp4"
     "assets/videos/person-pair-hallway.mp4"
     "assets/videos/snowboard.mp4"
+    "assets/videos/dance-solo.mov"
+    "assets/videos/snowboard.mp4"
+    "assets/videos/blackbox-city-road.mp4"
+    "assets/videos/blackbox-city-road.mp4"
+    "assets/videos/hand.mp4"
 )
 
 DEMO_IMAGE=(
     "sample/img/sample_street.jpg"
     "sample/img/sample_street.jpg"
     "sample/img/sample_face.jpg"
-    "sample/dota8_test/P0284.png"
+    "sample/img/sample_airport_satellite_view.png"
     "sample/img/sample_people.jpg"
     "sample/img/sample_hand.jpg"
     "sample/img/sample_face_a1.jpg"
@@ -155,6 +185,11 @@ DEMO_IMAGE=(
     "sample/img/sample_person_a1.jpg"
     "sample/img/person_pair"
     "sample/img/sample_street.jpg"
+    "sample/img/sample_street.jpg"
+    "sample/dope/000000.png"
+    "sample/img/sample_parking.jpg"
+    "sample/kitti/velodyne/000049.bin"
+    "sample/img/sample_hand.jpg"
 )
 
 # "full" = all 6 modes, "no_py_async" = classification only (no async python)
@@ -167,6 +202,9 @@ DEMO_PY_ASYNC=(
     full full full
     full full full
     full
+    full full
+    full full
+    full
 )
 
 # 1 = image only (skip video selection), 0 = both image and video
@@ -178,6 +216,9 @@ DEMO_IMAGE_ONLY=(
     0
     0 0 0
     1 1 1
+    0
+    0 1
+    0 1
     0
 )
 
@@ -279,7 +320,7 @@ if ! check_valid_dir_or_symlink "./assets/videos"; then
     ./setup_sample_videos.sh --output=./assets/videos
 fi
 
-# Ensure all 18 demo models are present; download any missing ones
+# Ensure all 23 demo models are present; download any missing ones
 MODELS_DIR="./assets/models"
 if [ -L "$MODELS_DIR" ]; then
     MODELS_REAL=$(readlink -f "$MODELS_DIR")
@@ -298,10 +339,10 @@ if [ ${#MISSING_DEMO_MODELS[@]} -gt 0 ]; then
     print_colored "Missing ${#MISSING_DEMO_MODELS[@]} of ${#DEMO_MODEL[@]} demo model(s)." "WARNING"
     print_colored "Missing: ${MISSING_DEMO_MODELS[*]}" "WARNING"
     print_colored "Automatically downloading missing demo models... (no manual setup.sh needed)" "INFO"
-    ./setup_sample_models.sh --output="${MODELS_REAL}" --models ${MISSING_DEMO_MODELS[*]}
+    ./setup_sample_models.sh --output="${MODELS_REAL}" --demo-models --no-force
     if [ $? -ne 0 ]; then
         print_colored "Failed to download demo models." "ERROR"
-        print_colored "You can also download manually: ./setup.sh --models ${MISSING_DEMO_MODELS[*]}" "INFO"
+        print_colored "You can also download manually: ./setup.sh --demo-models" "INFO"
         popd > /dev/null
         exit 1
     fi

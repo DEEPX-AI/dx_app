@@ -1,8 +1,8 @@
 """
 Segmentation Postprocessors
 
-Unified postprocessor for all semantic segmentation models
-(DeepLabV3, FCN, PIDNet, BiseNet, SegFormer, etc.).
+Unified postprocessor for semantic segmentation models
+(DeepLabV3, FCN, BiseNet, SegFormer, and similar architectures).
 
 Features (controlled via constructor flags):
   - argmax on NCHW / CHW / HW logits
@@ -38,7 +38,7 @@ class SemanticSegmentationPostprocessor(IPostprocessor):
 
     Usage::
 
-        # Legacy behaviour  (DeepLabV3, FCN, PIDNet, …)
+        # Legacy behaviour  (DeepLabV3, FCN, and similar models)
         pp = SemanticSegmentationPostprocessor(w, h, config)
 
         # SegFormer-style  (reduced output + resize to original)

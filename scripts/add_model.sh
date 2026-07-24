@@ -26,7 +26,7 @@
 #   --lang <cpp|py|both>    Language (default: both)
 #   --category <name>       Parent folder (default: based on task type)
 #   --sync-only             Generate only sync (no async)
-#   --postprocessor <type>  yolov5, yolov8, yolox, scrfd, efficientnet, etc.
+#   --postprocessor <type>  yolov5, yolov8, yolox, scrfd, efficientnet, fast_segmentation, etc.
 #   --base-model <name>     Copy from a specific existing model directory
 #   --verify                Build and run inference verification after generation
 #   --model <path>          Model .dxnn file for --verify
@@ -59,10 +59,10 @@ BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 NC='\033[0m'
 
-print_info()    { echo -e "${BLUE}[INFO]${NC} $1"; }
+print_info()    { echo -e "${BLUE}[DXAPP] [INFO]${NC} $1"; }
 print_success() { echo -e "${GREEN}[SUCCESS]${NC} $1"; }
-print_warn()    { echo -e "${YELLOW}[WARN]${NC} $1"; }
-print_error()   { echo -e "${RED}[ERROR]${NC} $1"; }
+print_warn()    { echo -e "${YELLOW}[DXAPP] [WARN]${NC} $1"; }
+print_error()   { echo -e "${RED}[DXAPP] [ERROR]${NC} $1"; }
 print_file()    { echo -e "${CYAN}  → $1${NC}"; }
 
 usage() {
@@ -285,6 +285,10 @@ get_reference_info() {
             REF_DIR="semantic_segmentation/bisenetv1"; REF_MODEL="bisenetv1"
             CPP_FACTORY_CLASS="BiseNetV1Factory"; CPP_MODEL_CLASS="BiseNetV1"
             PY_FACTORY_CLASS="Bisenetv1Factory" ;;
+        fast_segmentation)
+            REF_DIR="semantic_segmentation/deeplabv3plusmobilenet"; REF_MODEL="deeplabv3plusmobilenet"
+            CPP_FACTORY_CLASS="DeepLabv3Factory"; CPP_MODEL_CLASS="DeepLabv3"
+            PY_FACTORY_CLASS="Deeplabv3Factory" ;;
 
         # Instance segmentation
         yolov8seg|yolov26seg)
@@ -301,6 +305,10 @@ get_reference_info() {
             REF_DIR="depth_estimation/fastdepth_1"; REF_MODEL="fastdepth_1"
             CPP_FACTORY_CLASS="FastDepth_1Factory"; CPP_MODEL_CLASS="FastDepth_1"
             PY_FACTORY_CLASS="Fastdepth_1Factory" ;;
+        depth)
+            REF_DIR="depth_estimation/scdepthv3"; REF_MODEL="scdepthv3"
+            CPP_FACTORY_CLASS="Scdepthv3Factory"; CPP_MODEL_CLASS="Scdepthv3"
+            PY_FACTORY_CLASS="Scdepthv3Factory" ;;
 
         # Image denoising
         dncnn)
@@ -317,6 +325,14 @@ get_reference_info() {
             REF_DIR="ppu/yolov7_ppu"; REF_MODEL="yolov7_ppu"
             CPP_FACTORY_CLASS="YOLOv7PPUFactory"; CPP_MODEL_CLASS="YOLOv7PPU"
             PY_FACTORY_CLASS="Yolov7PpuFactory" ;;
+        yolov8_ppu)
+            REF_DIR="ppu/yolov8n_ppu"; REF_MODEL="yolov8n_ppu"
+            CPP_FACTORY_CLASS="YOLOv8n_ppuFactory"; CPP_MODEL_CLASS="YOLOv8n_ppu"
+            PY_FACTORY_CLASS="Yolov8nPpuFactory" ;;
+        scrfd_ppu)
+            REF_DIR="ppu/scrfd500m_ppu"; REF_MODEL="scrfd500m_ppu"
+            CPP_FACTORY_CLASS="SCRFD500m_ppuFactory"; CPP_MODEL_CLASS="SCRFD500m_ppu"
+            PY_FACTORY_CLASS="Scrfd500mPpuFactory" ;;
         yolov5pose_ppu)
             REF_DIR="ppu/yolov5pose_ppu"; REF_MODEL="yolov5pose_ppu"
             CPP_FACTORY_CLASS="YOLOv5PosePPUFactory"; CPP_MODEL_CLASS="YOLOv5PosePPU"
@@ -411,9 +427,9 @@ get_reference_info() {
             print_error "Available: yolov5 yolov7 yolov8 yolov9 yolov10 yolov11 yolov12 yolov26"
             print_error "           yolox ssd nanodet damoyolo scrfd yolov5face yolov7face"
             print_error "           yolov5pose yolov8pose yolov26pose yolov26obb"
-            print_error "           efficientnet yolov26cls deeplabv3 bisenetv1 bisenetv2"
-            print_error "           yolov8seg yolov5seg fastdepth dncnn"
-            print_error "           yolov5_ppu yolov7_ppu yolov5pose_ppu"
+            print_error "           efficientnet yolov26cls deeplabv3 bisenetv1 bisenetv2 fast_segmentation"
+            print_error "           yolov8seg yolov5seg fastdepth depth dncnn"
+            print_error "           yolov5_ppu yolov7_ppu yolov8_ppu scrfd_ppu yolov5pose_ppu"
             print_error "           centernet retinaface"
             print_error "           yolact espcn segformer obb"
             print_error "           zero_dce clip_image clip_text arcface"
@@ -600,6 +616,9 @@ generate_cpp() {
         -e "s/@file ${REF_ACTUAL}_factory/@file ${MODEL_NAME}_factory/g" \
         -e "s/@brief ${CPP_MODEL_CLASS}/@brief ${CPP_NEW_MODEL_CLASS}/g" \
         "$REF_FACTORY_FILE" > "$FACTORY_FILE"
+    if [ "$POSTPROCESSOR" = "fast_segmentation" ]; then
+        sed -i 's/DeepLabv3Postprocessor/FastSegmentationPostprocessor/g' "$FACTORY_FILE"
+    fi
     print_file "$FACTORY_FILE (← ${REF_ACTUAL}_factory.hpp)"
 
     # --- sync.cpp ---
@@ -661,7 +680,7 @@ if reg and reg.get('config'):
         local_cfg[k] = v
     with open(cfg_path, 'w') as f:
         json.dump(local_cfg, f, indent=4)
-    print(f'  [INFO] Merged registry config: {list(reg[\"config\"].keys())}')
+    print(f'  [DXAPP] [INFO] Merged registry config: {list(reg[\"config\"].keys())}')
 " 2>/dev/null || true
     fi
 
@@ -757,6 +776,9 @@ PY
         -e "s/${REF_MODEL^} Factory/${MODEL_NAME^} Factory/g" \
         -e "s/creating ${REF_MODEL^}/creating ${MODEL_NAME^}/g" \
         "$REF_FACTORY_PY" > "$FACTORY_FILE"
+    if [ "$POSTPROCESSOR" = "fast_segmentation" ]; then
+        sed -i 's/SemanticSegmentationPostprocessor/FastSegmentationPostprocessor/g' "$FACTORY_FILE"
+    fi
     print_file "$FACTORY_FILE (← ${REF_MODEL}_factory.py)"
 
     # --- factory/__init__.py ---
@@ -861,7 +883,7 @@ if reg and reg.get('config'):
         local_cfg[k] = v
     with open(cfg_path, 'w') as f:
         json.dump(local_cfg, f, indent=4)
-    print(f'  [INFO] Merged registry config: {list(reg[\"config\"].keys())}')
+    print(f'  [DXAPP] [INFO] Merged registry config: {list(reg[\"config\"].keys())}')
 " 2>/dev/null || true
     fi
 
@@ -1300,7 +1322,7 @@ if [ "$VERIFY" = true ]; then
                 local fallback_path
                 fallback_path=$(find "$PY_MODEL_DIR" -maxdepth 1 -type f -name "*_${mode_suffix}.py" | sort | head -1)
                 if [ -n "$fallback_path" ]; then
-                    echo -e "${YELLOW}[WARN]${NC} Using fallback Python entry for ${MODEL_NAME}: $(basename "$fallback_path")" >&2
+                    echo -e "${YELLOW}[DXAPP] [WARN]${NC} Using fallback Python entry for ${MODEL_NAME}: $(basename "$fallback_path")" >&2
                     echo "$fallback_path"
                     return 0
                 fi
@@ -1322,7 +1344,7 @@ if [ "$VERIFY" = true ]; then
             echo -e "${BLUE}━━━ Python Inference ━━━${NC}"
 
             if [ -z "$PY_SYNC_SCRIPT" ]; then
-                echo -e "${RED}[ERROR]${NC} Python sync entry not found in ${PY_MODEL_DIR}"
+                echo -e "${RED}[DXAPP] [ERROR]${NC} Python sync entry not found in ${PY_MODEL_DIR}"
                 FAIL=$((FAIL + 1))
             else
                 run_test "py_sync_image" \

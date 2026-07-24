@@ -34,9 +34,9 @@ src/
 ```
 
 - **`src/cpp_example/`**: end-to-end C++ example applications — each model directory contains thin entry-point files that delegate to the shared `common/` layer  
-- **`src/cpp_example/common/`**: shared C++ runtime layer — base interfaces (4 hpp), processors (45 hpp), runners (24 hpp), visualizers (12 hpp), input sources (5 hpp), config (1 hpp), and utilities (8 hpp)  
+- **`src/cpp_example/common/`**: shared C++ runtime layer — base interfaces (4 hpp), processors (49 hpp), runners (32 hpp), visualizers (13 hpp), input sources (5 hpp), config (1 hpp), and utilities (11 hpp)  
 - **`src/python_example/`**: end-to-end Python example applications — same factory-based delegation pattern as C++  
-- **`src/python_example/common/`**: shared Python runtime layer — base interfaces (4 py), processors (35 py), runners (5 py), visualizers (10 py), input sources (5 py), config (1 py), and utilities (7 py)  
+- **`src/python_example/common/`**: shared Python runtime layer — base interfaces (4 py), processors (41 py), runners (5 py), visualizers (10 py), input sources (5 py), config (2 py), and utilities (7 py)  
 - **`src/postprocess/`**: C++ post-processing libraries consumed by the **pybind11 bindings** (`src/bindings/`). This enables `*_cpp_postprocess` variants to use C++ decode logic from Python  
 - **`src/bindings/`**: pybind11 bridge exposing `src/postprocess/` to Python as the `dx_postprocess` package  
 - **`src/utility/`**: common support code shared across the build flow  
@@ -113,14 +113,14 @@ src/cpp_example/common/
 │   └── i_input_source.hpp         #   IInputSource — image/video/camera/RTSP abstraction
 ├── config/
 │   └── model_config.hpp           # ModelConfig — loads config.json
-├── processors/                    # 45 shared processors
+├── processors/                    # 46 shared processors
 │   ├── yolov5_postprocessor.hpp
 │   ├── yolov8_postprocessor.hpp
 │   ├── scrfd_postprocessor.hpp
 │   ├── nanodet_postprocessor.hpp
 │   ├── damoyolo_postprocessor.hpp
 │   ├── ssd_postprocessor.hpp
-│   ├── segmentation_postprocessor.hpp
+│   ├── segmentation_postprocessor.hpp       # DeepLabV3 plus FastSegmentationPostprocessor
 │   ├── instance_seg_postprocessor.hpp
 │   ├── depth_postprocessor.hpp
 │   └── ...
@@ -170,16 +170,24 @@ src/python_example/common/
 │   ├── i_visualizer.py    #   IVisualizer — draw(frame, results) → frame
 │   └── i_input_source.py  #   IInputSource — image/video/camera/RTSP abstraction
 ├── config/
+│   ├── config_schema.py   # Config schema validation for config.json values
 │   └── model_config.py    # ModelConfig — loads config.json (input size, labels, thresholds)
-├── processors/            # 35 shared processors
+├── processors/            # 41 shared processors
 │   ├── yolo_postprocessor.py           # YOLOv5/v7/v8/v9/v10/v11/v12/YOLOX
+│   ├── fast_yolo_postprocessor.py      # opt-in exact fast path (YOLOv5/v7, byte-identical)
 │   ├── face_postprocessor.py           # SCRFD, YOLOv5Face, YOLOv7Face
 │   ├── segmentation_postprocessor.py   # BiSeNet, DeepLabV3+, SegFormer
+│   ├── fast_segmentation_postprocessor.py # opt-in fast path (SegFormer / low-res seg)
 │   ├── instance_seg_postprocessor.py   # YOLOv8Seg, YOLOv26Seg
+│   ├── fast_instance_seg_postprocessor.py # opt-in fast mask path (YOLOv8-seg)
+│   ├── yolact_postprocessor.py         # YOLACT instance segmentation
+│   ├── fast_yolact_postprocessor.py    # opt-in fast mask path (YOLACT)
 │   ├── obb_postprocessor.py            # YOLOv26OBB
 │   ├── pose_postprocessor.py           # YOLOv8-Pose
 │   ├── ppu_postprocessor.py            # PPU variants (YOLOv5/v7/SCRFD/Pose)
 │   ├── classification_postprocessor.py # EfficientNet, AlexNet, etc.
+│   ├── efficientdet_postprocessor.py   # EfficientDet
+│   ├── fast_efficientdet_postprocessor.py # opt-in exact fast path (EfficientDet, byte-identical)
 │   ├── depth_postprocessor.py          # FastDepth, MiDaS
 │   ├── nanodet_postprocessor.py        # NanoDet
 │   ├── ssd_postprocessor.py            # SSD MobileNet
@@ -357,7 +365,7 @@ Both `cpp_example/` and `python_example/` contain a `common/` directory with the
 |--------|-----|--------|------|
 | `base/` | 4 interfaces (.hpp) | 4 interfaces (.py) | `IFactory`, `IProcessor`,<br> `IVisualizer`, `IInputSource` |
 | `config/` | `model_config.hpp` | `model_config.py` | Loads `config.json`<br> (input size, labels, thresholds) |
-| `processors/` | 45 header files | 35 Python files | Shared processors for<br> all model families |
+| `processors/` | 46 header files | 41 Python files | Shared processors for<br> all model families |
 | `runner/` | 24 runner headers | 5 runner files | Sync/Async execution engines<br> with profiling |
 | `inputs/` | 5 source headers | 5 source files | Image, Video, Camera,<br> RTSP input abstraction |
 | `visualizers/` | 12 visualizer headers | 10 visualizer files | Task-specific result rendering |
@@ -377,16 +385,14 @@ This bridge enables the `*_cpp_postprocess.py` Python variants to use C++ decode
 | `*_sync.py` / `*_async.py` | `python_example/common/processors/` |
 | `*_sync_cpp_postprocess.py` / `*_async_cpp_postprocess.py` | `src/postprocess/` via pybind11 |
 
-### Numerical Verification Framework
+### Numerical Verification (`DXAPP_VERIFY`)
 
-DX-APP includes an automated verification pipeline that validates model outputs after inference:  
+DX-APP can serialize post-processing results to JSON for inspection and debugging:  
 
-- **`scripts/validate_models.sh --numerical`**: runs all supported models through NPU inference and checks output correctness  
-- **`scripts/verify_inference_output.py`**: task-specific validators (14 types) that check bounding boxes, class IDs, confidence ranges, segmentation masks, depth maps, etc.  
-- **`scripts/inference_verify_rules.json`**: configurable thresholds per task type  
+- **`DXAPP_VERIFY=1`**: serializes post-processing results to `logs/verify/{model}.json`  
 - **`common/runner/verify_serialize.py`**: serializes postprocess results to JSON for comparison  
 
-This framework catches regressions such as broken post-processing, incorrect model configurations, or NPU output changes.  
+This helps catch regressions such as broken post-processing, incorrect model configurations, or NPU output changes.  
 
 ---
 
@@ -498,7 +504,6 @@ Relevant files include:
 **Model validation**  
 
 - `scripts/validate_models.sh` runs registry-driven validation across all supported models  
-- `scripts/validate_models.sh --numerical` additionally performs numerical verification using `verify_inference_output.py`  
 - `config/model_registry.json` is the primary reference for which models are validated  
 
 This means source layout, test coverage, and registry entries must be updated together when onboarding new examples.  
@@ -521,7 +526,7 @@ Typical related commands:
 ./setup.sh
 ./build.sh --clean
 ./scripts/dx_tool.sh validate
-./scripts/validate_models.sh --numerical --lang py
+./scripts/validate_models.sh --lang py
 ./run_tc.sh --cpp --cli
 ./run_tc.sh --python
 ```
@@ -538,7 +543,6 @@ If the example is intended to be part of the standard repository workflow, also 
 - `src/bindings/python/dx_postprocess/`
 - `config/model_registry.json`
 - `scripts/validate_models.sh`
-- `scripts/verify_inference_output.py`
 - `tests/cpp_example/`
 - `tests/python_example/`
 - `docs/10_DX-APP_DX-Tool_Guide.md`

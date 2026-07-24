@@ -1,4 +1,55 @@
 # RELEASE_NOTES
+## v3.2.0 / 2026-06-25
+
+### 1. Changed
+- Image-only examples (embedding/reid/attribute) now show an input hint and reject stream inputs instead of exposing unused `--video/--camera/--rtsp` options
+- Detection-family examples expose explicit `config.json` runtime knobs (score/nms/top_k/obj) with output-preserving defaults
+- Standardized DX-APP user-facing message level tags to `[DXAPP] [INFO]`, `[DXAPP] [WARN]`, and `[DXAPP] [ERROR]`.
+- Replaced the OBB detection sample image (DOTA8 dataset → AI-generated satellite image) to remove licensing risk
+- Added an AI-generated sample data clause to the Third-Party License document
+- Migrated the model-zoo manifest to the `2_4_0` URL hierarchy (`models.ver`, `modelzoo_manifest.json`)
+- Generalized float-input preprocessing (FLOAT dtype → normalized float32 buffer) via `runSyncInferenceTyped` / `fillModelInputBuffer`
+- Default build mode changed to minimal in build.sh : automatically runs minimal build when no option is specified, with available options printed to console
+- build.bat interactive prompt default changed to 1) minimal
+
+### 2. Fixed
+- Super-resolution now preserves input resolution by using dynamic tile padding instead of a fixed 20-tile downscale
+- `dx_postprocess` pybind build fixed by adding missing `<cmath>`/`<numeric>` includes
+- Invalid `--image` paths now print a sample-image hint and exit with code 1
+- Fixed `--save` option not producing output image files in C++ sync runners for face, obb, pose, instance segmentation tasks
+- Fixed the `inflight_current` decrement order in the async runner's `completeInflightMetrics`
+- DOPE post-process: +0.5 pixel-center offset + normalized `[0,1]` output
+- YOLOPv2 post-process: vehicle-only filtering, class-agnostic NMS, letterbox inverse-transform
+- YOLOPv2 visualizer: driving-mask type mismatch (`int` → `CV_8UC1`)
+- RetinaFace post-process: NHWC feature-map decode support (e.g. `retinaface_mobilenet_v1_736x1280`)
+- Depth Anything V2 (vits/vitb/vitl): per-model ImageNet mean/std normalization via `getInputNormalization()`
+- Windows x64 DXRT library path (`lib` → `lib/x64`) across postprocess CMakeLists + generate_build_bat.py
+- Always link `Threads::Threads` for export C++ exported c++ example package
+- Underscore-stripped fallback in E2E test model matching (e.g. `YoloV7W6` ↔ `yolov7_w6`)
+
+### 3. Added
+- DEEPX Agent-Driven Development (dx-agent-dev) — Beta.
+Generate standalone Python/C++ inference apps from plain language: an AI agent builds the IFactory-based app (preprocess → infer → postprocess → visualize) against the DEEPX model registry and runs it on the DX-M1 NPU.
+- Native C++ post-processing for the example model zoo (YOLO families, semantic seg, Face3D, embedding/classification/attribute, restoration, YOLO-PPU), replacing Python fallbacks
+- Opt-in `--fast-postprocess` path for object detection and instance segmentation
+- YOLO Customizing Guide documentation
+- Add Windows standalone Visual Studio solution package extraction workflow for DX-APP C++ examples, including automatic  OpenCV/DXRT CMake dependency configuration.
+ -  Add `--demo-models` setup/download option to download only models used by `run_demo.sh` / `run_demo.bat`
+- Add DX-APP build selection options for minimal and category-based builds, plus Windows build selection TUI(Text User Interface).
+- Add knowledge base (`.deepx/`) : specialized agents, app-building/SWE skills, and multi-platform agent-instruction generation
+  (CLAUDE/AGENTS/copilot/cursor) via `dx-agent-gen`
+- Support for 69 net-new .dxnn models (86 added / 17 removed) and 5 new AI task categories
+  
+  - **Model registry**: 280 → 347 models across 22 AI task categories
+  - **New AI tasks (5)**: 3D Object Detection (SFA3D), Keypoint Detection (SuperPoint),
+    Object Pose Estimation (DOPE), Panoptic Driving Perception (YOLOPv2), Hand Detection (MediaPipe Hand)
+  - **Post-processors (7)** + pybind bindings (43 → 50 classes): DOPE, MediaPipe Hand, RealESRGAN, SFA3D, SuperPoint, VitPose, YOLOPv2
+  - **C++ factory interfaces (3)**: `IObjectPoseFactory`, `IKeypointDetectionFactory`, `IPanopticDrivingFactory`
+  - **Visualizers (3)**: DOPE (solvePnP 3D cuboid), SuperPoint (keypoint-only), YOLOPv2 (lane + drivable-area overlay)
+- Per-model Python examples (4 variants: sync / async / sync_cpp_postprocess / async_cpp_postprocess) and C++ examples (sync / async) for all new models
+- build.sh: Add --all flag to support full build and install in a single command
+- build.bat: Add CLI argument parsing (--minimal, --all, --category, -h/--help) for non-interactive builds
+
 ## v3.1.1 / 2026-04-21
 
 ### 1. Changed

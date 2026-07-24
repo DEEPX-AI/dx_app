@@ -7,6 +7,7 @@
 #define SEGMENTATION_VISUALIZER_HPP
 
 #include "common/base/i_visualizer.hpp"
+#include "common/trackers/iou_tracker.hpp"
 
 namespace dxapp {
 
@@ -105,12 +106,30 @@ private:
  */
 class InstanceSegmentationVisualizer : public IVisualizer<InstanceSegmentationResult> {
 public:
-    InstanceSegmentationVisualizer(bool show_boxes = true) : show_boxes_(show_boxes) {}
+    /**
+     * @param show_boxes draw boxes + labels (false -> mask-only, e.g. FastSAM).
+     * @param enable_tracking when true (default) bind color to a stable
+     *        per-object track_id from an IoU tracker so colors stay consistent
+     *        across frames; when false, color follows detection index.
+     */
+    InstanceSegmentationVisualizer(bool show_boxes = true,
+                                   bool enable_tracking = true)
+        : show_boxes_(show_boxes), enable_tracking_(enable_tracking) {}
 
     cv::Mat draw(const cv::Mat& frame,
                  const std::vector<InstanceSegmentationResult>& results,
                  const PreprocessContext& ctx) override {
         cv::Mat output = frame.clone();
+
+        // Assign stable track ids for this frame so an object's mask and box
+        // share one color, consistent across frames regardless of order.
+        std::vector<int> track_ids;
+        if (enable_tracking_) {
+            std::vector<std::vector<float>> boxes;
+            boxes.reserve(results.size());
+            for (const auto& r : results) boxes.push_back(r.box);
+            track_ids = tracker_.update(boxes);
+        }
 
         // Scale factor from original image space to display frame space.
         // ctx.original_width/height reflect the source image dimensions that the
@@ -130,20 +149,35 @@ public:
 
         for (size_t i = 0; i < results.size(); ++i) {
             const auto& inst = results[i];
-            
-            // Get color for this instance (use instance index for variety)
-            cv::Vec3b color = SEGMENTATION_COLORS[i % SEGMENTATION_COLORS.size()];
+
+            // Color key: stable track_id when tracking, else detection index.
+            // Binding color to identity keeps the same object the same color
+            // across frames for both its mask and its box.
+            size_t color_key = i;
+            int tid = -1;
+            if (enable_tracking_ && i < track_ids.size() && track_ids[i] >= 0) {
+                tid = track_ids[i];
+                color_key = static_cast<size_t>(tid);
+            }
+            cv::Vec3b color = SEGMENTATION_COLORS[color_key % SEGMENTATION_COLORS.size()];
             cv::Scalar box_color(color[0], color[1], color[2]);
             
-            // Draw mask overlay first (so boxes appear on top)
+            // Draw mask overlay first (so boxes appear on top). The postprocessor
+            // zeroes each mask outside its bbox, so blend only within the box ROI
+            // (frame space) instead of running full-frame color-mat / addWeighted /
+            // copyTo per instance. Output-identical, far cheaper for many objects.
             if (!inst.mask.empty()) {
                 cv::Mat binary_mask = convertToBinaryMask(inst.mask);
 
-                if (binary_mask.size() != frame.size()) {
-                    cv::resize(binary_mask, binary_mask, frame.size());
+                if (binary_mask.size() != output.size()) {
+                    cv::resize(binary_mask, binary_mask, output.size());
                 }
 
-                blendMaskRegion(binary_mask, color, alpha_, output);
+                cv::Rect roi = boxRoiInFrame(inst.box, disp_scale, x_off, y_off,
+                                             output.size(), /*margin=*/2);
+                if (roi.width > 0 && roi.height > 0) {
+                    blendMaskRegion(binary_mask(roi), color, alpha_, output, roi);
+                }
             }
 
             // Draw bounding box and label
@@ -152,7 +186,8 @@ public:
                 cv::Point pt2(static_cast<int>(inst.box[2] * disp_scale + x_off), static_cast<int>(inst.box[3] * disp_scale + y_off));
                 cv::rectangle(output, pt1, pt2, box_color, line_thickness_);
                 
-                std::string label = inst.class_name + ": " + 
+                std::string id_prefix = (tid >= 0) ? ("#" + std::to_string(tid) + " ") : "";
+                std::string label = id_prefix + inst.class_name + ": " +
                     std::to_string(static_cast<int>(inst.confidence * 100)) + "%";
                 int baseline;
                 cv::getTextSize(label, cv::FONT_HERSHEY_SIMPLEX, font_scale_, 1, &baseline);
@@ -177,6 +212,8 @@ private:
     double font_scale_{0.5};
     float alpha_{0.4f};
     bool show_boxes_{true};
+    bool enable_tracking_{true};
+    IouTracker tracker_;  // persists across frames for stable per-object colors
 
     /** Convert mask to binary uint8 format. */
     static cv::Mat convertToBinaryMask(const cv::Mat& mask) {
@@ -190,13 +227,31 @@ private:
         return binary_mask;
     }
 
-    /** Blend a color into target where mask > 0. */
-    static void blendMaskRegion(const cv::Mat& mask, const cv::Vec3b& color,
-                                float alpha, cv::Mat& target) {
-        cv::Mat color_mat(target.size(), CV_8UC3, cv::Scalar(color[0], color[1], color[2]));
+    /** Frame-space bbox rectangle (with margin), clamped to the frame. */
+    static cv::Rect boxRoiInFrame(const std::vector<float>& box, float scale,
+                                  float x_off, float y_off,
+                                  const cv::Size& sz, int margin) {
+        if (box.size() < 4) return cv::Rect();
+        int x1 = static_cast<int>(box[0] * scale + x_off) - margin;
+        int y1 = static_cast<int>(box[1] * scale + y_off) - margin;
+        int x2 = static_cast<int>(box[2] * scale + x_off) + margin;
+        int y2 = static_cast<int>(box[3] * scale + y_off) + margin;
+        x1 = std::max(0, x1);
+        y1 = std::max(0, y1);
+        x2 = std::min(sz.width, x2);
+        y2 = std::min(sz.height, y2);
+        if (x2 <= x1 || y2 <= y1) return cv::Rect();
+        return cv::Rect(x1, y1, x2 - x1, y2 - y1);
+    }
+
+    /** Blend a color into target(roi) where mask_roi > 0 (mask_roi covers roi). */
+    static void blendMaskRegion(const cv::Mat& mask_roi, const cv::Vec3b& color,
+                                float alpha, cv::Mat& target, const cv::Rect& roi) {
+        cv::Mat tgt = target(roi);
+        cv::Mat color_mat(tgt.size(), CV_8UC3, cv::Scalar(color[0], color[1], color[2]));
         cv::Mat blended;
-        cv::addWeighted(target, 1.0 - alpha, color_mat, alpha, 0, blended);
-        blended.copyTo(target, mask);
+        cv::addWeighted(tgt, 1.0 - alpha, color_mat, alpha, 0, blended);
+        blended.copyTo(tgt, mask_roi);
     }
 };
 

@@ -16,6 +16,8 @@
 #include "retinaface_postprocess.h"
 
 #include <algorithm>
+#include <map>
+#include <numeric>
 #include <cmath>
 #include <numeric>
 
@@ -95,32 +97,120 @@ RetinaFacePostProcess::identifyTensors_(const dxrt::TensorPtrs& outputs) const {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// NHWC feature-map parsing
+// ─────────────────────────────────────────────────────────────────────────────
+
+bool RetinaFacePostProcess::isNHWC_(const dxrt::TensorPtrs& outputs) {
+    // Flat outputs are 3D ([1, N, k]); NHWC feature maps are 4D ([1, H, W, C]).
+    for (const auto& t : outputs) {
+        if (t->shape().size() == 4) return true;
+    }
+    return false;
+}
+
+bool RetinaFacePostProcess::parseNHWC_(const dxrt::TensorPtrs& outputs,
+                                       std::vector<float>& bbox_out,
+                                       std::vector<float>& score_out,
+                                       std::vector<float>& lmk_out) const {
+    // Group 4D tensors by spatial size (H, W).
+    struct Entry { const float* data; int C; };
+    std::map<std::pair<int, int>, std::vector<Entry>> groups;
+    for (const auto& t : outputs) {
+        auto sh = t->shape();
+        if (sh.size() != 4) continue;
+        int H = static_cast<int>(sh[1]);
+        int W = static_cast<int>(sh[2]);
+        int C = static_cast<int>(sh[3]);
+        groups[{H, W}].push_back({static_cast<const float*>(t->data()), C});
+    }
+    if (groups.empty()) return false;
+
+    // Process from largest spatial (stride 8) to smallest, matching the stride
+    // order and (row, col, anchor) enumeration of generate_priors().
+    std::vector<std::pair<int, int>> keys;
+    for (const auto& kv : groups) keys.push_back(kv.first);
+    std::sort(keys.begin(), keys.end(),
+              [](const std::pair<int, int>& a, const std::pair<int, int>& b) {
+                  return a.first > b.first;
+              });
+
+    for (const auto& key : keys) {
+        const int H = key.first, W = key.second;
+        const auto& entries = groups[key];
+        // Channels are A*4 (bbox), A*2 (score), A*10 (landmark). The score map
+        // has the smallest channel count → A = minC / 2.
+        int minC = entries.front().C;
+        for (const auto& e : entries) minC = std::min(minC, e.C);
+        const int A = minC / 2;
+        if (A <= 0) continue;
+
+        const float* bbox_d = nullptr;
+        const float* score_d = nullptr;
+        const float* lmk_d = nullptr;
+        for (const auto& e : entries) {
+            if (e.C == 4 * A) bbox_d = e.data;
+            else if (e.C == 2 * A) score_d = e.data;
+            else if (e.C == 10 * A) lmk_d = e.data;
+        }
+        if (!bbox_d || !score_d) continue;
+
+        const int HW = H * W;
+        for (int cell = 0; cell < HW; ++cell) {
+            for (int a = 0; a < A; ++a) {
+                const int base = cell * A + a;  // anchor-major layout within C
+                for (int v = 0; v < 4; ++v)  bbox_out.push_back(bbox_d[base * 4 + v]);
+                for (int v = 0; v < 2; ++v)  score_out.push_back(score_d[base * 2 + v]);
+                if (lmk_d)
+                    for (int v = 0; v < 10; ++v) lmk_out.push_back(lmk_d[base * 10 + v]);
+            }
+        }
+    }
+    return !bbox_out.empty();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // postprocess
 // ─────────────────────────────────────────────────────────────────────────────
 
 std::vector<RetinaFaceResult> RetinaFacePostProcess::postprocess(
     const dxrt::TensorPtrs& outputs) {
 
-    if (outputs.size() < 2) return {};
+    if (outputs.empty()) return {};
 
     // Lazy-generate priors on first call
     if (priors_.empty()) generate_priors();
 
-    // Auto-detect tensors by last dimension: 4=bbox, 2=score, 10=landmark
-    auto tensors = identifyTensors_(outputs);
-    if (tensors.bbox == nullptr || tensors.score == nullptr) return {};
+    // Two output layouts are supported:
+    //   - flat: [1, N, 4] / [1, N, 2] / [1, N, 10]  (last-dim auto-detect)
+    //   - NHWC feature maps: [1, H, W, A*4] / [1, H, W, A*2] / [1, H, W, A*10]
+    // NHWC is flattened into the same per-prior order as the flat decode below.
+    std::vector<float> bbox_buf, score_buf, lmk_buf;
+    const float* bbox_data = nullptr;
+    const float* score_data = nullptr;
+    const float* lmk_data = nullptr;
+    int n = 0;
 
-    // Number of anchors
-    auto sh_score = tensors.score->shape();
-    int n = static_cast<int>(sh_score.size() >= 2 ? sh_score[sh_score.size() - 2] : 1);
+    if (isNHWC_(outputs)) {
+        if (!parseNHWC_(outputs, bbox_buf, score_buf, lmk_buf)) return {};
+        bbox_data  = bbox_buf.data();
+        score_data = score_buf.data();
+        lmk_data   = lmk_buf.empty() ? nullptr : lmk_buf.data();
+        n = static_cast<int>(score_buf.size() / 2);
+    } else {
+        if (outputs.size() < 2) return {};
+        auto tensors = identifyTensors_(outputs);
+        if (tensors.bbox == nullptr || tensors.score == nullptr) return {};
+        auto sh_score = tensors.score->shape();
+        n = static_cast<int>(sh_score.size() >= 2 ? sh_score[sh_score.size() - 2] : 1);
+        bbox_data  = static_cast<const float*>(tensors.bbox->data());
+        score_data = static_cast<const float*>(tensors.score->data());
+        lmk_data   = (tensors.landmark != nullptr)
+                         ? static_cast<const float*>(tensors.landmark->data())
+                         : nullptr;
+    }
+
     int n_priors = static_cast<int>(priors_.size());
     n = std::min(n, n_priors);
-
-    auto bbox_data  = static_cast<const float*>(tensors.bbox->data());
-    auto score_data = static_cast<const float*>(tensors.score->data());
-    const float* lmk_data   = (tensors.landmark != nullptr)
-                               ? static_cast<const float*>(tensors.landmark->data())
-                               : nullptr;
 
     const float W = static_cast<float>(input_width_);
     const float H = static_cast<float>(input_height_);

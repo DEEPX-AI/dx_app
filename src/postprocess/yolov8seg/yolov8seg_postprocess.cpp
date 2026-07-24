@@ -388,10 +388,10 @@ dxrt::TensorPtrs YOLOv8SegPostProcess::align_tensors(const dxrt::TensorPtrs& out
 }
 
 // Process segmentation masks using optimized ROI-based approach
-std::vector<std::vector<float>> YOLOv8SegPostProcess::process_segmentation_masks(
+std::vector<std::vector<uint8_t>> YOLOv8SegPostProcess::process_segmentation_masks(
     const float* mask_output, const std::vector<YOLOv8SegResult>& detections, int mask_height,
     int mask_width) const {
-    std::vector<std::vector<float>> result_masks;
+    std::vector<std::vector<uint8_t>> result_masks;
     result_masks.reserve(detections.size());
 
     if (!mask_output || detections.empty()) {
@@ -408,8 +408,11 @@ std::vector<std::vector<float>> YOLOv8SegPostProcess::process_segmentation_masks
     const float scale_w = static_cast<float>(mask_width) / input_w;
 
     for (const auto& detection : detections) {
-        // Initialize full mask with zeros
-        std::vector<float> final_mask(input_h * input_w, 0.0f);
+        // Initialize full mask with zeros. uint8 (0/255) instead of float: a
+        // full-frame float mask per instance (4 bytes/px) was the peak-memory
+        // driver for instance-heavy inputs (e.g. FastSAM 1024x1024). The Python
+        // numpy output is already uint8, so this is transparent to callers.
+        std::vector<uint8_t> final_mask(input_h * input_w, 0);
 
         if (detection.seg_mask_coef.size() != num_prototypes) {
             result_masks.emplace_back(std::move(final_mask));
@@ -482,7 +485,7 @@ std::vector<std::vector<float>> YOLOv8SegPostProcess::process_segmentation_masks
             y0 = std::max(0, std::min(y0, roi_h - 1));
 
             // Pointer to the row in final mask
-            float* row_ptr = &final_mask[y * input_w];
+            uint8_t* row_ptr = &final_mask[y * input_w];
 
             for (int x = x1; x < x2; ++x) {
                 float src_x = x * scale_w - mx1;
@@ -502,8 +505,8 @@ std::vector<std::vector<float>> YOLOv8SegPostProcess::process_segmentation_masks
                 float val = (v00 * (1.0f - dx) + v01 * dx) * (1.0f - dy) + 
                             (v10 * (1.0f - dx) + v11 * dx) * dy;
 
-                // Apply threshold (binarize)
-                row_ptr[x] = (val > 0.5f) ? 1.0f : 0.0f;
+                // Apply threshold (binarize) directly to 0/255 uint8
+                row_ptr[x] = (val > 0.5f) ? 255 : 0;
             }
         }
 

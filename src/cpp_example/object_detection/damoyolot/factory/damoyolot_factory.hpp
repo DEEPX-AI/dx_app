@@ -32,7 +32,9 @@ public:
         (void)is_ort_configured;
         return std::make_unique<DamoYOLOPostprocessor>(
             input_width, input_height,
-            score_threshold_, nms_threshold_
+            score_threshold_, nms_threshold_,
+            num_classes_,
+            false, class_names_
         );
     }
 
@@ -43,6 +45,8 @@ public:
     void loadConfig(const dxapp::ModelConfig& config) override {
         score_threshold_ = config.get<float>("score_threshold", score_threshold_);
         nms_threshold_ = config.get<float>("nms_threshold", nms_threshold_);
+        class_names_ = config.get_string_list("class_names");
+        num_classes_ = config.get<int>("num_classes", num_classes_);
     }
 
     std::string getModelName() const override { return "DAMO-YOLO-t"; }
@@ -51,6 +55,8 @@ public:
 private:
     float score_threshold_;
     float nms_threshold_;
+    int num_classes_{80};
+    std::vector<std::string> class_names_;
 };
 
 }  // namespace dxapp

@@ -47,24 +47,32 @@ cd "$PROJECT_ROOT"
 
 # BUILD_DIR can be provided from the environment (e.g. BUILD_DIR=bin ./scripts/bench_models.sh)
 if [ -z "${BUILD_DIR:-}" ]; then
+    # bin/ 이 build.sh 의 표준 설치 위치(문서의 bin/*_sync 도 여기 기준). build 트리보다 우선.
     CANDIDATE_DIRS=(
-        "src/cpp_example/build"
         "bin"
         "build_x86_64/release/bin"
         "build_x86_64/bin"
+        "build_aarch64/release/bin"
         "build/release/bin"
         "build/bin"
+        "src/cpp_example/build"
     )
     BUILD_DIR=""
+    # 1) *_sync 바이너리가 "실제로 들어있는" 첫 후보를 고른다
+    #    (비어있거나 일부만 있는 build 트리가 완비된 bin/ 을 가리지 않도록).
     for d in "${CANDIDATE_DIRS[@]}"; do
-        if [ -d "${PROJECT_ROOT}/${d}" ]; then
+        if [ -d "${PROJECT_ROOT}/${d}" ] && ls "${PROJECT_ROOT}/${d}"/*_sync >/dev/null 2>&1; then
             BUILD_DIR="${d}"
             break
         fi
     done
+    # 2) 그래도 없으면 존재하는 첫 후보(→ 이후 개별 SKIP 으로 안내)
     if [ -z "${BUILD_DIR}" ]; then
-        BUILD_DIR="src/cpp_example/build"
+        for d in "${CANDIDATE_DIRS[@]}"; do
+            [ -d "${PROJECT_ROOT}/${d}" ] && { BUILD_DIR="${d}"; break; }
+        done
     fi
+    [ -z "${BUILD_DIR}" ] && BUILD_DIR="bin"
 fi
 PY_BASE="src/python_example"
 CONFIG_FILE="${PROJECT_ROOT}/config/test_models.conf"
@@ -93,8 +101,8 @@ CATEGORY_IMAGE=(
     [embedding]="sample/img/sample_face_a1.jpg"
     [ppu]="sample/img/sample_street.jpg"
     [hand_landmark]="sample/img/sample_people.jpg"
-    [attribute_recognition]="sample/img/sample_person.jpg"
-    [reid]="sample/img/sample_person.jpg"
+    [attribute_recognition]="sample/img/sample_person_a1.jpg"
+    [reid]="sample/img/sample_person_a1.jpg"
 )
 CATEGORY_VIDEO=(
     [object_detection]="assets/videos/dance-group.mov"

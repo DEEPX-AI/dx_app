@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <iostream>
+#include <numeric>
 
 YOLOv8PosePostProcess::YOLOv8PosePostProcess(
     int input_w, int input_h, float score_threshold, float nms_threshold,

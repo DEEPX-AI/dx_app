@@ -68,7 +68,6 @@ FACTORY_TO_DXNN = {
     "classification/resnet50":             "ResNet50",
     "classification/resnext26_32x4d":      "ResNeXt26_32x4d",
     "classification/resnext50_32x4d":      "ResNeXt50_32x4d",
-    "classification/resnext50_32x4d_h":"ResNeXt50_32x4d_h",
     "classification/squeezenet1_0":        "SqueezeNet1_0",
     "classification/squeezenet1_1":        "SqueezeNet1_1",
     "classification/vgg11":                "VGG11",
@@ -80,9 +79,6 @@ FACTORY_TO_DXNN = {
     "classification/wideresnet50_2":       "WideResNet50_2",
     # ── depth_estimation (1) ────────────────────────────────────────
     "depth_estimation/fastdepth_1":        "FastDepth_1",
-    # ── classification (continued: osnet) ────────────────────────────
-    "classification/osnet0_25":                         "OSNet0_25",
-    "classification/osnet0_5":                          "OSNet0_5",
     # ── embedding (3) ───────────────────────────────────────────────
     "embedding/arcface_mobilefacenet":                  None,
     "embedding/clip_resnet50_image_encoder_224x224":    None,
@@ -125,7 +121,7 @@ FACTORY_TO_DXNN = {
     "object_detection/damoyolot":                   "DamoYoloT",
     "object_detection/damoyolo_tinynasl20_t":       "DamoYolo_tinynasL20_T",
     "object_detection/damoyolo_tinynasl25_s":       "DamoYolo_tinynasL25_S",
-    "object_detection/damoyolo_tinynasl35_m":       "DamoYolo_tinynasL35_M",
+    "object_detection/damoyolo_tinynasl20_m":       "DamoYolo_tinynasL20_M",
     "object_detection/nanodet_repvgg":              "NanoDet_RepVGG",
     "object_detection/nanodet_repvgga1":            "NanoDet_RepVGGA1",
     "object_detection/ssdmv1":                      "SSDMV1",
@@ -201,7 +197,7 @@ TASK_IMAGE_MAP = {
     "depth_estimation":       "sample/img/sample_kitchen.jpg",
     "hand_landmark":          "sample/img/sample_hand.jpg",
     "embedding":              "sample/img/sample_face.jpg",
-    "obb_detection":          "sample/dota8_test/P0177.png",
+    "obb_detection":          "sample/img/sample_airport_satellite_view.png",
     "image_denoising":        "sample/img/sample_denoising.jpg",
     "image_enhancement":      "sample/img/sample_lowlight.jpg",
     "super_resolution":       "sample/img/sample_superresolution.png",

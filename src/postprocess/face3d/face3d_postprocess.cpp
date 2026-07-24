@@ -13,7 +13,7 @@ Face3DPostProcess::Face3DPostProcess()
 Face3DResult Face3DPostProcess::postprocess(const dxrt::TensorPtrs& outputs) {
     if (outputs.empty()) {
         throw std::runtime_error(
-            "[DXAPP] [ER] Face3DPostProcess::postprocess - No output tensors provided.");
+            "[DXAPP] [ERROR] Face3DPostProcess::postprocess - No output tensors provided.");
     }
 
     const auto& output = outputs[0];

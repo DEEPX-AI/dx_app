@@ -3,6 +3,7 @@
 
 #include <dxrt/dxrt_api.h>
 
+#include <cmath>
 #include <string>
 #include <vector>
 

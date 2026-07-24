@@ -15,7 +15,7 @@ namespace dxapp {
  */
 class FaceVisualizer : public IVisualizer<FaceDetectionResult> {
 public:
-    FaceVisualizer() = default;
+    explicit FaceVisualizer(std::string label = "Face") : label_(label) {}
 
     cv::Mat draw(const cv::Mat& frame,
                  const std::vector<FaceDetectionResult>& results,
@@ -41,7 +41,7 @@ public:
             cv::rectangle(output, pt1, pt2, cv::Scalar(0, 255, 0), line_thickness_);
 
             // Draw confidence
-            std::string label = "Face: " + std::to_string(static_cast<int>(face.confidence * 100)) + "%";
+            std::string label = label_ + ": " + std::to_string(static_cast<int>(face.confidence * 100)) + "%";
             int baseline;
             cv::Size label_size = cv::getTextSize(label, cv::FONT_HERSHEY_SIMPLEX, 
                                                    font_scale_, 1, &baseline);
@@ -78,6 +78,7 @@ public:
     }
 
 private:
+    std::string label_{"Face"};
     int line_thickness_{2};
     double font_scale_{0.5};
     float alpha_{0.6f};

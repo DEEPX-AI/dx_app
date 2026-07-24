@@ -41,6 +41,7 @@ from test_helpers.constants import (  # noqa: E402
     PROJECT_ROOT,
 )
 from test_helpers.utils import (  # noqa: E402
+    find_dxnn_ignoring_variant,
     normalize_model_name as _normalize,
     setup_environment,
 )
@@ -80,7 +81,8 @@ def _find_dxnn(base_name: str) -> Optional[Path]:
             if (BIN_DIR / f"{mn}_sync").exists() or (BIN_DIR / f"{mn}_async").exists():
                 continue
             return m
-    return None
+    # Fallback: underscores stripped, ignoring trailing -1/-2/_q-lite suffixes.
+    return find_dxnn_ignoring_variant(MODELS_DIR, base_name)
 
 
 def _discover() -> list:

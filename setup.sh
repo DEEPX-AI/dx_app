@@ -21,6 +21,7 @@ LIST_ARG=""
 WORKERS_ARG=""
 NO_JSON_ARG=""
 CATEGORY_ARG=""
+DEMO_MODELS_ARG=""
 MODELS_ARG=""
 INTERNAL_ARG=""
 INTERNAL_PATH_ARG=""
@@ -48,6 +49,7 @@ show_help() {
     print_colored "  [--workers=<N>]                Parallel download threads (default: 4)" "GREEN"
     print_colored "  [--no-json]                    Skip JSON file downloads" "GREEN"
     print_colored "  [--category=<name>]            Download models of a specific category only" "GREEN"
+    print_colored "  [--demo-models]                Download only models used by run_demo.sh/run_demo.bat" "GREEN"
     print_colored "  [--models=<m1> [m2...]]        Download specific models by name" "GREEN"
     print_colored "  [--force]                      Force overwrite if the file already exists (default)" "GREEN"
     print_colored "  [--no-force]                   Skip download if the file already exists" "GREEN"
@@ -55,7 +57,7 @@ show_help() {
     print_colored "  [--force-remove-videos]        Force remove videos if they exist" "GREEN"
     print_colored "  [--internal]                   Use local mount instead of S3 (internal/air-gapped network)" "GREEN"
     print_colored "  [--internal-path=<path>]       Local model directory for --internal mode" "GREEN"
-    print_colored "                                 (default: /mnt/regression_storage/atd/models_v3.1.0)" "GREEN"
+    print_colored "                                 (default: /mnt/regression_storage/atd/models_v3.2.0)" "GREEN"
     print_colored "  [--verbose]                    Enable verbose (debug) logging." "GREEN"
     print_colored "  [--help]                       Show this help message" "GREEN"
 
@@ -126,6 +128,10 @@ while [ $# -gt 0 ]; do
         --category)
             CATEGORY_ARG="--category=$2"
             shift 2
+            ;;
+        --demo-models)
+            DEMO_MODELS_ARG="--demo-models"
+            shift
             ;;
         --models)
             shift
@@ -199,8 +205,15 @@ setup_assets() {
         SETUP_VIDEO_ARGS="--output=${VIDEO_PATH} --symlink_target_path=${DOCKER_VOLUME_PATH}/res/videos"
     else
         print_colored "(host mode detected)" "INFO"
-        SETUP_MODEL_ARGS="--output=${MODEL_PATH} --symlink_target_path=${DX_AS_PATH}/workspace/res/models"
-        SETUP_VIDEO_ARGS="--output=${VIDEO_PATH} --symlink_target_path=${DX_AS_PATH}/workspace/res/videos"
+        WORKSPACE_RES="${DX_AS_PATH}/workspace/res"
+        if mkdir -p "${WORKSPACE_RES}/models" "${WORKSPACE_RES}/videos" 2>/dev/null; then
+            SETUP_MODEL_ARGS="--output=${MODEL_PATH} --symlink_target_path=${WORKSPACE_RES}/models"
+            SETUP_VIDEO_ARGS="--output=${VIDEO_PATH} --symlink_target_path=${WORKSPACE_RES}/videos"
+        else
+            print_colored "shared workspace '${DX_AS_PATH}/workspace' is not writable; downloading into local ${MODEL_PATH} / ${VIDEO_PATH} instead" "WARNING"
+            SETUP_MODEL_ARGS="--output=${MODEL_PATH}"
+            SETUP_VIDEO_ARGS="--output=${VIDEO_PATH}"
+        fi
     fi
 
     if [ -n "$MANIFEST_OVERRIDE" ]; then
@@ -223,6 +236,9 @@ setup_assets() {
     fi
     if [ -n "$CATEGORY_ARG" ]; then
         SETUP_MODEL_ARGS="$SETUP_MODEL_ARGS $CATEGORY_ARG"
+    fi
+    if [ -n "$DEMO_MODELS_ARG" ]; then
+        SETUP_MODEL_ARGS="$SETUP_MODEL_ARGS $DEMO_MODELS_ARG"
     fi
     if [ -n "$MODELS_ARG" ]; then
         SETUP_MODEL_ARGS="$SETUP_MODEL_ARGS $MODELS_ARG"
@@ -255,17 +271,21 @@ setup_assets() {
         print_colored " models directory found. ($MODEL_REAL_PATH)" "INFO"
     fi
 
-    print_colored "VIDEO_PATH: ${VIDEO_PATH}" "INFO"
-    VIDEO_REAL_PATH=$(readlink -f "$VIDEO_PATH")
-    # Check and set up models
-    if [ ! -d "$VIDEO_REAL_PATH" ] || [ "$FORCE_ARGS" != "" ] || [ "${FORCE_REMOVE_VIDEOS:-0}" -eq 1 ]; then
-        if [ "${FORCE_REMOVE_VIDEOS:-0}" -eq 1 ]; then
-            FORCE_ARGS="--force"
-        fi
-        print_colored " Video directory not found. Running setup models script... ($VIDEO_REAL_PATH)" "INFO"
-        ./setup_sample_videos.sh $SETUP_VIDEO_ARGS $FORCE_ARGS || { print_colored "Setup videos script failed." "ERROR"; rm -rf $VIDEO_PATH; exit 1; }
+    if [ -n "$LIST_ARG" ] || [ -n "$DRY_RUN_ARG" ]; then
+        print_colored "Skipping video setup for list/dry-run mode." "INFO"
     else
-        print_colored " Video directory found. ($VIDEO_REAL_PATH)" "INFO"
+        print_colored "VIDEO_PATH: ${VIDEO_PATH}" "INFO"
+        VIDEO_REAL_PATH=$(readlink -f "$VIDEO_PATH")
+        # Check and set up videos
+        if [ ! -d "$VIDEO_REAL_PATH" ] || [ "$FORCE_ARGS" != "" ] || [ "${FORCE_REMOVE_VIDEOS:-0}" -eq 1 ]; then
+            if [ "${FORCE_REMOVE_VIDEOS:-0}" -eq 1 ]; then
+                FORCE_ARGS="--force"
+            fi
+            print_colored " Video directory not found. Running setup videos script... ($VIDEO_REAL_PATH)" "INFO"
+            ./setup_sample_videos.sh $SETUP_VIDEO_ARGS $FORCE_ARGS || { print_colored "Setup videos script failed." "ERROR"; rm -rf $VIDEO_PATH; exit 1; }
+        else
+            print_colored " Video directory found. ($VIDEO_REAL_PATH)" "INFO"
+        fi
     fi
 
     print_colored "[OK] Sample models and videos setup complete" "INFO"

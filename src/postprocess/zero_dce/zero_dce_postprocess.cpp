@@ -13,7 +13,7 @@ ZeroDCEPostProcess::ZeroDCEPostProcess()
 ZeroDCEResult ZeroDCEPostProcess::postprocess(const dxrt::TensorPtrs& outputs) {
     if (outputs.empty()) {
         throw std::runtime_error(
-            "[DXAPP] [ER] ZeroDCEPostProcess::postprocess - No output tensors provided.");
+            "[DXAPP] [ERROR] ZeroDCEPostProcess::postprocess - No output tensors provided.");
     }
 
     const auto& output = outputs[0];

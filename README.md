@@ -26,6 +26,8 @@ For deeper technical specifications, refer to the [`docs/source/docs/`](./docs/s
 | 09 | [Project Overview](./docs/source/docs/09_DX-APP_Project_Overview.md) | Repository layout, CLI reference, advanced features |
 | 10 | [DX Tool Guide](./docs/source/docs/10_DX-APP_DX-Tool_Guide.md) | Developer tooling (dx_tool.sh) |
 | 11 | [Example Source Structure](./docs/source/docs/11_DX-APP_Example_Source_Structure.md) | Source tree conventions & contributor guide |
+| 12 | [YOLO Customizing Guide](./docs/source/docs/12_DX-APP_YOLO_Customizing_Guide.md) | YOLO model onboarding and customization workflow |
+| 13 | [Agent-Driven Development Guide](./docs/source/docs/13_DX-APP_Agent_Driven_Development.md) | Agent architecture, skills, routing, validation, and troubleshooting |
 | — | [Appendix: Third-Party License](./docs/source/docs/Appendix_Third_Party_License.md) | License information for third-party models & datasets |
 | — | [Change Log](./docs/source/docs/Appendix_Change_Log.md) | Version history |
 
@@ -80,16 +82,16 @@ The project is structured to separate core logic from language-specific implemen
 ```text
 dx_app/
 ├── src/
-│   ├── cpp_example/            # C++ end-to-end examples (280 models across 17 tasks)
+│   ├── cpp_example/            # C++ end-to-end examples (347 models across 22 tasks)
 │   │   └── common/             # ← Shared C++ runtime layer
 │   │       ├── base/           #   Abstract interfaces (IFactory, IProcessor, ...)
-│   │       ├── processors/     #   45 shared processors (42 post + 3 pre)
+│   │       ├── processors/     #   40 shared post-processors
 │   │       ├── runner/         #   24 task-specific sync/async runner pairs
 │   │       ├── inputs/         #   Image/Video/Camera/RTSP input sources
 │   │       ├── visualizers/    #   12 task-specific visualizers
 │   │       ├── config/         #   ModelConfig loader
 │   │       └── utility/        #   Labels, preprocessing, profiling, run_dir, signal_handler, verify_serialize
-│   ├── python_example/         # Python end-to-end examples (280 models across 17 tasks)
+│   ├── python_example/         # Python end-to-end examples (347 models across 22 tasks)
 │   │   └── common/             # ← Shared Python runtime layer
 │   │       ├── base/           #   Abstract interfaces (IFactory, IProcessor, ...)
 │   │       ├── processors/     #   35 shared post-processors
@@ -217,11 +219,10 @@ artifacts/cpp_example/
 
 ## Numerical Verification (`DXAPP_VERIFY`)
 
-A complete verification pipeline for validating inference correctness:
+Serialize post-processing results to JSON for inspection and debugging:
 1. Set `DXAPP_VERIFY=1` before running any example
 2. Post-processing results are serialized to `logs/verify/{model}.json`
-3. Run `scripts/verify_inference_output.py` to validate against task-specific rules
-4. Supports all 12 result types (Detection, Classification, Pose, Segmentation, etc.)
+3. Supports all 12 result types (Detection, Classification, Pose, Segmentation, etc.)
 
 ## Tensor Dump (`--dump-tensors`)
 
@@ -247,7 +248,7 @@ When running any example (C++ or Python), if the specified model file is not fou
 
 If no input source (`--image`, `--video`, `--camera`, `--rtsp`) is provided, the runner automatically selects a **default sample image** appropriate for the task type. For example, object detection tasks default to `sample/img/sample_street.jpg`, face detection to `sample/img/sample_face.jpg`, and so on. A log message indicates which default was applied:
 ```
-[INFO] No input specified. Using default sample: sample/img/sample_street.jpg
+[DXAPP] [INFO] No input specified. Using default sample: sample/img/sample_street.jpg
 ```
 This allows the simplest possible execution — just specify the model:
 ```bash
@@ -338,7 +339,7 @@ For detailed usage examples and API references, please refer to the documentatio
 
 These templates utilize `dx_engine` (for inference) and `dx_postprocess` (for acceleration). Users can choose from four variants depending on their performance requirements.  
 
-The refactored Python tree is organized by **task → model family → variant**, with a shared `common/` layer providing base interfaces, 35 processors, generic sync/async runners, 10 visualizers, and input abstraction — the same factory-based architecture as the C++ side. For structure and contributor-facing rules, refer to [DX-APP Python Usage Guide](./docs/source/docs/05_DX-APP_Python_Example_Usage_Guide.md) and [DX-APP Example Source Structure](./docs/source/docs/11_DX-APP_Example_Source_Structure.md).
+The refactored Python tree is organized by **task → model family → variant**, with a shared `common/` layer providing base interfaces, 41 processors, generic sync/async runners, 10 visualizers, and input abstraction — the same factory-based architecture as the C++ side. For structure and contributor-facing rules, refer to [DX-APP Python Usage Guide](./docs/source/docs/05_DX-APP_Python_Example_Usage_Guide.md) and [DX-APP Example Source Structure](./docs/source/docs/11_DX-APP_Example_Source_Structure.md).
 
 **Task-Based Structure**  
 
@@ -446,7 +447,7 @@ Build the C++ binaries and the Python dx_postprocess bindings simultaneously.
 
 **Step 4. Execution Examples**  
 
-The quickest way to explore all 17 AI task categories (18 demos) is the unified interactive demo script:
+The quickest way to explore all 22 AI task categories (23 demos tasks) is the unified interactive demo script:
 
 ```bash
 # Interactive — select task, mode, and input type from menus
@@ -467,7 +468,7 @@ The quickest way to explore all 17 AI task categories (18 demos) is the unified 
 
 **Demo Task ↔ Model Reference**
 
-Each of the 18 demo tasks uses exactly one model. When you run `run_demo.sh`, any missing models and videos are **automatically downloaded** — no manual `setup.sh` required.
+Each of the 23 demo tasks uses exactly one model. When you run `run_demo.sh`, any missing models and videos are **automatically downloaded** — no manual `setup.sh` required.
 
 | # | Demo Task | Model File | Category | Size |
 |--:|-----------|-----------|----------|-----:|
@@ -498,7 +499,7 @@ To download only specific demo models without running the demo:
 ```
 
 > **TIP — Running other models**  
-> `run_demo.sh` showcases 18 representative models. To run or benchmark **all 280 registered models**,
+> `run_demo.sh` showcases 23 representative models. To run or benchmark **all 347 registered models**,
 > use the **example runner** or the **DX Model Tool**:
 >
 > ```bash
@@ -567,13 +568,13 @@ When running on platforms with limited storage (e.g., Raspberry Pi 5, embedded b
 
 | Asset | Count | Size |
 |-------|------:|-----:|
-| Demo models (18 files) | 18 | ~470 MB |
-| All registered models | 280 | several GB |
+| Demo models (23 files) | 23 | ~500 MB |
+| All registered models | 347 | several GB |
 | Sample videos | 20 | ~1.1 GB |
 | Sample images (bundled) | — | ~5 MB |
 
 **Strategy 1 — Let `run_demo.sh` handle it**  
-Just run `./run_demo.sh`. It automatically downloads **only the 18 demo models** (~470 MB) on first run. No need to run `setup.sh --all`.
+Just run `./run_demo.sh`. It automatically downloads **only the 23 demo models** on first run. No need to run `setup.sh --all`.
 
 **Strategy 2 — Download only what you need**  
 ```bash

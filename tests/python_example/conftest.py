@@ -1,4 +1,5 @@
 import importlib.util
+import logging
 import subprocess
 import sys
 from datetime import datetime
@@ -10,6 +11,7 @@ import numpy as np
 import pytest
 
 _rng = np.random.default_rng(42)
+logger = logging.getLogger(__name__)
 
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 PYTHON_EXAMPLE_PATH = PROJECT_ROOT / "src" / "python_example"
@@ -20,12 +22,19 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 
 def pytest_addoption(parser):
-    parser.addoption(
-        "--loop",
-        action="store",
-        default="1",
-        help="Number of inference iterations for E2E image tests (default: 1)",
-    )
+    try:
+        parser.addoption(
+            "--loop",
+            action="store",
+            default="1",
+            help="Number of inference iterations for E2E image tests (default: 1)",
+        )
+    except ValueError as e:
+        msg = str(e)
+        if "already added" in msg or "conflicting" in msg:
+            pass  # --loop already registered by another conftest (e.g. E2E suite)
+        else:
+            raise
     parser.addoption(
         "--camera-index",
         action="store",
@@ -207,11 +216,13 @@ def wait_for_temperature(request):
     if request.node.get_closest_marker("e2e"):
         check_temp_script = SCRIPTS_DIR / "check_temperature.sh"
         if check_temp_script.exists():
-            print("\nWaiting for temperature to cool down...")
-            subprocess.run(
+            result = subprocess.run(
                 ["bash", str(check_temp_script), "--wait_target_temp=70"],
-                check=False
+                check=False, capture_output=True, text=True
             )
+            if "Waiting" in result.stdout:
+                for line in result.stdout.strip().splitlines():
+                    logger.info(line.strip())
 
 
 @pytest.fixture(scope="function", autouse=True)

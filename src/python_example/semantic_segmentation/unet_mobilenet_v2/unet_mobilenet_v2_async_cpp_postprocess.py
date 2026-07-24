@@ -3,8 +3,7 @@
 """
 UNet-MobileNetV2 Asynchronous Inference Example
 
-NOTE: NHWC 3-class float logits — incompatible with C++ SemanticSegPostProcess input format (CHW).
-      Falls back to Python postprocessing instead of C++ PostProcess binding.
+C++ SemanticSegPostProcess handles NHWC float logits (argmax over channels).
 
 Usage:
     python unet_mobilenet_v2_async_cpp_postprocess.py --model model.dxnn --image input.jpg
@@ -22,11 +21,14 @@ for _path in [str(_v3_dir), str(_module_dir)]:
 
 import os
 if os.name == 'nt':
-    _dxrt_dir = os.environ.get('DXRT_DIR')
+    _dxrt_dir = os.environ.get('DEEPX_SDK_DIR')
     if _dxrt_dir:
         os.add_dll_directory(os.path.join(_dxrt_dir, 'bin'))
 
 from factory import Unet_mobilenet_v2Factory
+from dx_postprocess import SemanticSegPostProcess
+from common.utility import convert_cpp_semantic_seg
+from functools import partial
 from common.runner import AsyncRunner, parse_common_args
 
 def parse_args():
@@ -35,7 +37,11 @@ def main():
     args = parse_args()
     factory = Unet_mobilenet_v2Factory()
 
-    runner = AsyncRunner(factory)
+    def on_engine_init(runner):
+        runner._cpp_postprocessor = SemanticSegPostProcess(runner.input_width, runner.input_height)
+        runner._cpp_convert_fn = partial(convert_cpp_semantic_seg, resize_to_original=False)
+
+    runner = AsyncRunner(factory, on_engine_init=on_engine_init)
     runner.run(args)
 
 if __name__ == "__main__":

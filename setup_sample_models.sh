@@ -7,7 +7,7 @@ source ${SCRIPT_DIR}/scripts/common_util.sh || true
 DOWNLOADER="${SCRIPT_DIR}/scripts/download_models.py"
 
 if [ ! -f "$DOWNLOADER" ]; then
-    echo "[ERR ] ModelZoo downloader not found: $DOWNLOADER" >&2
+    echo "[DXAPP] [ERROR] ModelZoo downloader not found: $DOWNLOADER" >&2
     exit 1
 fi
 
@@ -124,7 +124,7 @@ if [ -n "$SYMLINK_TARGET" ] && [ "$_is_dry" -eq 0 ]; then
     fi
     mkdir -p "$(dirname "$OUTPUT")" || true
     ln -s "$(readlink -f "$SYMLINK_TARGET")" "$OUTPUT"
-    echo "[INFO] Created symbolic link: $OUTPUT -> $(readlink -f "$SYMLINK_TARGET")"
+    echo "[DXAPP] [INFO] Created symbolic link: $OUTPUT -> $(readlink -f "$SYMLINK_TARGET")"
 fi
 
 exit 0

@@ -244,8 +244,14 @@ inline std::vector<YOLOv5FaceResult> YOLOv5FacePostProcess::postprocess(const dx
 
     auto aligned_outputs = align_tensors(outputs);
 
+    // A 3D aligned tensor ([1, N, C]) is already decoded — use the flat decoder
+    // regardless of ORT mode. This covers models that export a decoded tensor
+    // even in NPU-direct mode (e.g. yolov7-lite-t-face → [1, 25200, 21]). Raw
+    // 4D grid tensors still go through the NPU grid decoder.
+    const bool decoded_flat =
+        !aligned_outputs.empty() && aligned_outputs[0]->shape().size() == 3;
     std::vector<YOLOv5FaceResult> detections;
-    if (is_ort_configured_) {
+    if (is_ort_configured_ || decoded_flat) {
         detections = decoding_cpu_outputs(aligned_outputs);
     } else {
         detections = decoding_npu_outputs(aligned_outputs);
@@ -292,6 +298,16 @@ inline dxrt::TensorPtrs YOLOv5FacePostProcess::align_tensors(const dxrt::TensorP
             if (output->shape()[1] != static_cast<int64_t>(as.second.size() * 16)) continue;
             aligned.push_back(output);
             break;
+        }
+    }
+    if (aligned.empty()) {
+        // Fallback: some exports provide a fully-decoded 3D tensor
+        // ([1, N, 16] or [1, N, 21]) alongside/instead of raw 4D grids — e.g.
+        // yolov7-lite-t-face emits [1, 25200, 21] plus 5D grid tensors
+        // ([1, 3, H, W, 21]) that don't match the anchors_by_strides 4D layout.
+        // Use the decoded tensor directly (handled by decoding_cpu_outputs).
+        for (const auto& output : outputs) {
+            if (output->shape().size() == 3) { aligned.push_back(output); break; }
         }
     }
     if (aligned.empty()) {

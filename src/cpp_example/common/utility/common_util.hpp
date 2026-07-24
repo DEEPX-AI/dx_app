@@ -11,6 +11,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdlib>
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -18,6 +19,8 @@
 #include <vector>
 #include <opencv2/opencv.hpp>
 #include <atomic>
+#include <array>
+#include <cstring>
 
 #if __cplusplus >= 201703L || (defined(_MSVC_LANG) && _MSVC_LANG >= 201703L)
 #include <filesystem>
@@ -34,9 +37,9 @@ static constexpr const char* DXAPP_GREEN  = "\033[1;32m";
 static constexpr const char* DXAPP_RESET  = "\033[0m";
 
 // Logging macros
-#define LOG_INFO(msg) std::cout << "[INFO] " << msg << std::endl
-#define LOG_WARN(msg) std::cout << DXAPP_YELLOW << "[WARN] " << msg << DXAPP_RESET << std::endl
-#define LOG_ERROR(msg) std::cerr << DXAPP_RED << "[ERROR] " << msg << DXAPP_RESET << std::endl
+#define LOG_INFO(msg) std::cout << "[DXAPP] [INFO] " << msg << std::endl
+#define LOG_WARN(msg) std::cout << DXAPP_YELLOW << "[DXAPP] [WARN] " << msg << DXAPP_RESET << std::endl
+#define LOG_ERROR(msg) std::cerr << DXAPP_RED << "[DXAPP] [ERROR] " << msg << DXAPP_RESET << std::endl
 
 #include <stdexcept>
 
@@ -185,14 +188,19 @@ inline bool minversionforRTandCompiler(dxrt::InferenceEngine* ie) {
         if (isVersionGreaterOrEqual(compiler_version, "v7")) {
             return true;
         } else {
-            std::cerr << "[DXAPP] [ER] Compiler version is too low. (required: "
+            std::cerr << "[DXAPP] [ERROR] Compiler version is too low. (required: "
                          ">= 7, current: "
                       << compiler_version << ")" << std::endl;
+            std::cerr << DXAPP_GREEN << "[HINT] Model/compiler version mismatch. "
+                         "Please download updated models: ./setup.sh --models <model_name>"
+                      << DXAPP_RESET << std::endl;
         }
     } else {
-        std::cerr << "[DXAPP] [ER] DXRT library version is too low. (required: "
+        std::cerr << "[DXAPP] [ERROR] DXRT library version is too low. (required: "
                      ">= 3.0.0, current: "
                   << rt_version << ")" << std::endl;
+        std::cerr << DXAPP_GREEN << "[HINT] Please update DXRT: ./install.sh --all"
+                  << DXAPP_RESET << std::endl;
     }
     return false;
 }
@@ -333,6 +341,7 @@ inline void showOutput(const cv::Mat& frame) {
     if (_displayClosed()) return;
 
     static bool window_ever_opened = false;
+    static bool headless_warned = false;
 
     // After the window has been opened at least once, process pending GUI
     // events (e.g. X-button close) and verify it is still alive BEFORE
@@ -376,7 +385,18 @@ inline void showOutput(const cv::Mat& frame) {
     }
 
     static bool window_sized = false;
-    cv::namedWindow("Output", cv::WINDOW_NORMAL);
+    try {
+        cv::namedWindow("Output", cv::WINDOW_NORMAL);
+    } catch (const cv::Exception& e ) {
+        if (!headless_warned) {
+            std::cerr << DXAPP_YELLOW
+                      << "[DXAPP] [WARN] Display not available. Use --no-display for headless mode."
+                      << DXAPP_RESET << std::endl;
+            headless_warned = true;
+        }
+        _displayClosed() = true;
+        return;
+    }
     window_ever_opened = true;
 
     if (!window_sized && !frame.empty()) {
@@ -401,11 +421,14 @@ inline void showOutput(const cv::Mat& frame) {
 /**
  * @brief Write frame to video, auto-resizing if frame size differs from writer.
  */
-inline void writeToVideo(cv::VideoWriter& writer, const cv::Mat& frame) {
+inline void writeToVideo(cv::VideoWriter& writer, const cv::Mat& frame,
+                         int expected_w = 0, int expected_h = 0) {
     if (!writer.isOpened() || frame.empty()) return;
     int w = static_cast<int>(writer.get(cv::CAP_PROP_FRAME_WIDTH));
     int h = static_cast<int>(writer.get(cv::CAP_PROP_FRAME_HEIGHT));
-    if (frame.cols == w && frame.rows == h) {
+    // CAP_PROP_FRAME_WIDTH/HEIGHT may return 0 on some OpenCV builds
+    if (w <= 0 || h <= 0) { w = expected_w; h = expected_h; }
+    if (w <= 0 || h <= 0 || (frame.cols == w && frame.rows == h)) {
         writer << frame;
     } else {
         cv::Mat resized;
@@ -447,9 +470,10 @@ inline std::string buildPerImageSavePath(const std::string& runDir,
 inline std::string getDefaultSampleImage(const std::string& taskType) {
     if (taskType == "object_detection")       return "sample/img/sample_street.jpg";
     if (taskType == "face_detection")         return "sample/img/sample_face.jpg";
-    if (taskType == "obb_detection")          return "sample/dota8_test/P0284.png";
+    if (taskType == "obb_detection")          return "sample/img/sample_airport_satellite_view.png";
     if (taskType == "pose_estimation")        return "sample/img/sample_people.jpg";
     if (taskType == "hand_landmark")          return "sample/img/sample_hand.jpg";
+    if (taskType == "hand_detection")         return "sample/img/sample_hand.jpg";
     if (taskType == "face_alignment")         return "sample/img/sample_face_a1.jpg";
     if (taskType == "instance_segmentation")  return "sample/img/sample_street.jpg";
     if (taskType == "semantic_segmentation")  return "sample/img/sample_parking.jpg";
@@ -462,6 +486,7 @@ inline std::string getDefaultSampleImage(const std::string& taskType) {
     if (taskType == "attribute_recognition")  return "sample/img/sample_person_a1.jpg";
     if (taskType == "reid")                   return "sample/img/person_pair";
     if (taskType == "ppu")                    return "sample/img/sample_street.jpg";
+    if (taskType == "3d_detection")           return "sample/kitti/velodyne/000049.bin";
     return "sample/img/sample_street.jpg";
 }
 
@@ -476,6 +501,7 @@ inline std::string getDefaultSampleVideo(const std::string& taskType) {
     if (taskType == "obb_detection")          return "assets/videos/obb.mp4";
     if (taskType == "pose_estimation")        return "assets/videos/dance-solo.mov";
     if (taskType == "hand_landmark")          return "assets/videos/hand.mp4";
+    if (taskType == "hand_detection")         return "assets/videos/hand.mp4";
     if (taskType == "face_alignment")         return "assets/videos/face-alignment-closeup.mp4";
     if (taskType == "instance_segmentation")  return "assets/videos/dogs.mp4";
     if (taskType == "semantic_segmentation")  return "assets/videos/blackbox-city-road.mp4";
@@ -496,7 +522,7 @@ inline bool autoDownloadModel(const std::string& modelPath) {
     std::string stem = fs::path(modelPath).stem().string();
     std::string modelsDir = fs::path(modelPath).parent_path().string();
     if (modelsDir.empty()) modelsDir = "./assets/models";
-    std::cout << "[INFO] Model not found: " << modelPath
+    std::cout << "[DXAPP] [INFO] Model not found: " << modelPath
               << " — attempting auto-download..." << std::endl;
     std::string cmd = "./setup_sample_models.sh --output=" + modelsDir
                     + " --models " + stem;
@@ -509,9 +535,133 @@ inline bool autoDownloadModel(const std::string& modelPath) {
  * @return true if download succeeded.
  */
 inline bool autoDownloadVideos() {
-    std::cout << "[INFO] Videos not found — attempting auto-download..." << std::endl;
+    std::cout << "[DXAPP] [INFO] Videos not found — attempting auto-download..." << std::endl;
     int ret = std::system("./setup_sample_videos.sh --output=./assets/videos");
     return ret == 0;
+}
+
+/**
+ * @brief Derive the example key from argv[0] by stripping the variant suffix.
+ *
+ * The build names each binary "<example>_sync" / "<example>_async"
+ * (optionally with a "_cpp_postprocess" tail), and the example directory name
+ * matches the "model_name" key in config/model_registry.json. So the basename
+ * with its variant suffix removed is the registry lookup key.
+ */
+inline std::string exampleKeyFromArgv0(const std::string& argv0) {
+    std::string name = fs::path(argv0).filename().string();
+    const char* suffixes[] = {"_async_cpp_postprocess", "_sync_cpp_postprocess",
+                              "_cpp_postprocess", "_async", "_sync"};
+    for (const char* suf : suffixes) {
+        size_t slen = std::strlen(suf);
+        if (name.size() > slen && name.compare(name.size() - slen, slen, suf) == 0) {
+            return name.substr(0, name.size() - slen);
+        }
+    }
+    return name;
+}
+
+/**
+ * @brief Resolve this example's default .dxnn path from model_registry.json.
+ *
+ * Looks up the example key (from argv[0]) against the "model_name" entries in
+ * config/model_registry.json and returns "assets/models/<dxnn_file>".
+ * Returns "" when the key is not found (caller then errors out).
+ * Uses a lightweight scan (consistent with ModelConfig) — no JSON dependency.
+ */
+inline std::string resolveDefaultModelPath(const std::string& argv0) {
+    std::string key = exampleKeyFromArgv0(argv0);
+    if (key.empty()) return "";
+    fs::path reg = fs::path(PROJECT_ROOT_DIR) / "config" / "model_registry.json";
+    std::ifstream f(reg);
+    if (!f.is_open()) return "";
+    std::string content((std::istreambuf_iterator<char>(f)),
+                        std::istreambuf_iterator<char>());
+    // Match "model_name": "<key>" (with or without a space after the colon).
+    size_t pos = content.find("\"model_name\": \"" + key + "\"");
+    if (pos == std::string::npos) pos = content.find("\"model_name\":\"" + key + "\"");
+    if (pos == std::string::npos) return "";
+    size_t dpos = content.find("\"dxnn_file\"", pos);
+    if (dpos == std::string::npos) return "";
+    size_t q1 = content.find('"', content.find(':', dpos) + 1);
+    if (q1 == std::string::npos) return "";
+    size_t q2 = content.find('"', q1 + 1);
+    if (q2 == std::string::npos) return "";
+    std::string dxnn = content.substr(q1 + 1, q2 - q1 - 1);
+    if (dxnn.empty()) return "";
+    return "assets/models/" + dxnn;
+}
+
+/**
+ * @brief Resolve and validate the model path (SDKREQ-529 policy).
+ *
+ * - `-m` omitted  : resolve this example's default model from the registry and
+ *                   auto-download it if missing (convenience path).
+ * - `-m <path>`   : an explicit path is a contract — if the file is missing we
+ *                   error out immediately and do NOT run the auto-downloader.
+ *
+ * @param modelPath in/out — filled with the resolved default when `-m` omitted.
+ * @param argv0     program path (argv[0]) used to resolve the default.
+ */
+inline void resolveAndValidateModel(std::string& modelPath, const std::string& argv0) {
+    if (modelPath.empty()) {
+        std::string def = resolveDefaultModelPath(argv0);
+        if (def.empty()) {
+            fatal_error("[DXAPP] [ERROR] Model path is required. Use -m or --model_path option.\n"
+                "        -> Download:  ./setup.sh --models <model_name>\n"
+                "        -> Or use:    ./run_demo.sh  (auto-downloads demo models)\n"
+                "Use -h or --help for usage information.");
+        }
+        modelPath = def;
+        std::cout << "[DXAPP] [INFO] No model specified (-m). Using example default: "
+                  << modelPath << std::endl;
+        if (!fileExists(modelPath)) {
+            if (!autoDownloadModel(modelPath)) {
+                std::string stem = fs::path(modelPath).stem().string();
+                fatal_error("[DXAPP] [ERROR] Model file not found: " + modelPath + "\n"
+                    "        -> Download:  ./setup.sh --models " + stem + "\n"
+                    "        -> Or use:    ./run_demo.sh  (auto-downloads demo models)");
+            }
+            std::cout << "[DXAPP] [INFO] Model downloaded successfully: " << modelPath << std::endl;
+        }
+        return;
+    }
+    // Explicit -m: no auto-download — a wrong path is a user error.
+    if (!fileExists(modelPath)) {
+        fatal_error("[DXAPP] [ERROR] Model file not found: " + modelPath + "\n"
+            "        -> Check the path, or omit -m to use this example's default model.\n"
+            "        -> Download:  ./setup.sh --models " + fs::path(modelPath).stem().string());
+    }
+}
+
+/**
+ * @brief Require an explicitly-given input file to exist (SDKREQ-529 policy).
+ *
+ * A wrong `-i`/`-v` path errors out immediately — we never silently fall back
+ * to a default sample. (An empty path means "no input given" and is handled by
+ * the default-sample logic before this call.)
+ */
+inline void requireInputExists(const std::string& path) {
+    if (!path.empty() && !fileExists(path) && !fs::is_directory(path)) {
+        fatal_error("[DXAPP] [ERROR] Input file not found: " + path);
+    }
+}
+
+/**
+ * @brief Require a LiDAR point-cloud input to be a .bin file (SDKREQ-529 policy).
+ *
+ * 3D-detection examples consume raw point clouds; an existing-but-wrong-format
+ * file (e.g. a .jpg) must error rather than be fed to the model. Accepts a
+ * directory (batch of .bin files) — per-file extensions are checked on read.
+ */
+inline void requireBinInput(const std::string& path) {
+    if (path.empty() || fs::is_directory(path)) return;
+    std::string ext = fs::path(path).extension().string();
+    std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+    if (ext != ".bin") {
+        fatal_error("[DXAPP] [ERROR] This example requires a LiDAR point-cloud .bin input "
+                    "(-i / --image_path). Got: " + path);
+    }
 }
 
 }  // namespace dxapp
@@ -611,6 +761,119 @@ inline std::vector<float> convertToFloatBuffer(const cv::Mat& img, bool nhwc) {
     return buf;
 }
 
+/**
+ * @brief Fill a flat float buffer from a 3-channel image in NHWC layout,
+ *        applying (pixel/255 - mean) / std per channel.
+ *
+ * @param mean Per-channel mean in the image's channel order (post /255 scale).
+ * @param stdv Per-channel std  in the image's channel order.
+ */
+inline void fillNHWCBufferNormalized(const cv::Mat& img, int h, int w, int c,
+                                     const std::array<float, 3>& mean,
+                                     const std::array<float, 3>& stdv,
+                                     std::vector<float>& buf) {
+    for (int y = 0; y < h; ++y)
+        for (int x = 0; x < w; ++x)
+            for (int ch = 0; ch < c; ++ch)
+                buf[y * w * c + x * c + ch] =
+                    (img.at<cv::Vec3b>(y, x)[ch] / 255.0f - mean[ch]) / stdv[ch];
+}
+
+/**
+ * @brief Fill a flat float buffer from a 3-channel image in NCHW layout,
+ *        applying (pixel/255 - mean) / std per channel.
+ */
+inline void fillNCHWBufferNormalized(const cv::Mat& img, int h, int w, int c,
+                                     const std::array<float, 3>& mean,
+                                     const std::array<float, 3>& stdv,
+                                     std::vector<float>& buf) {
+    for (int ch = 0; ch < c; ++ch)
+        for (int y = 0; y < h; ++y)
+            for (int x = 0; x < w; ++x)
+                buf[ch * h * w + y * w + x] =
+                    (img.at<cv::Vec3b>(y, x)[ch] / 255.0f - mean[ch]) / stdv[ch];
+}
+
+/**
+ * @brief Convert a uint8 image to a float32 buffer with mean/std normalization.
+ *
+ * Applies (pixel/255 - mean) / std per channel and lays the result out in
+ * either CHW (NCHW) or HWC (NHWC) order. mean/std must be in the same channel
+ * order as @p img (RGB if the preprocessor already applied BGR->RGB).
+ *
+ * @param img  Input image (CV_8UC3).
+ * @param nhwc If true, output is HWC layout; if false, CHW layout.
+ * @param mean Per-channel mean (post /255 scale).
+ * @param stdv Per-channel std.
+ * @return Normalized float buffer.
+ */
+inline std::vector<float> convertToFloatBufferNormalized(
+        const cv::Mat& img, bool nhwc,
+        const std::array<float, 3>& mean,
+        const std::array<float, 3>& stdv) {
+    int h = img.rows, w = img.cols, c = img.channels();
+    std::vector<float> buf(h * w * c);
+    if (c == 1) {
+        // Single channel: normalize with channel-0 mean/std.
+        for (int y = 0; y < h; ++y)
+            for (int x = 0; x < w; ++x)
+                buf[y * w + x] = (img.at<uint8_t>(y, x) / 255.0f - mean[0]) / stdv[0];
+    } else if (nhwc) {
+        fillNHWCBufferNormalized(img, h, w, c, mean, stdv, buf);
+    } else {
+        fillNCHWBufferNormalized(img, h, w, c, mean, stdv, buf);
+    }
+    return buf;
+}
+
+/**
+ * @brief Run synchronous inference, feeding a buffer that matches the model's
+ *        input dtype.
+ *
+ * If the model input is float32 and the preprocessed image is 8-bit, the image
+ * is converted to a float32 buffer (plain /255 normalization) in the model's
+ * channel layout before inference. Otherwise the preprocessed buffer is passed
+ * as-is (uint8 models, or preprocessors that already emit float, e.g. SFA3D).
+ *
+ * This prevents feeding a uint8 buffer to a float-input model (ViT/DeiT/CLIP,
+ * Depth Anything, ...), which reads 4x the bytes -> out-of-bounds read/garbage.
+ * Models that additionally need mean/std normalization not baked into the .dxnn
+ * should handle it explicitly (see depth runners + factory getInputNormalization).
+ */
+inline dxrt::TensorPtrs runSyncInferenceTyped(dxrt::InferenceEngine& ie,
+                                              const cv::Mat& preprocessed) {
+    const auto& input = ie.GetInputs().front();
+    if (input.type() == dxrt::DataType::FLOAT && !preprocessed.empty()
+            && preprocessed.depth() == CV_8U) {
+        std::vector<float> fb = convertToFloatBuffer(preprocessed, isInputNHWC(input.shape()));
+        return ie.Run(fb.data(), nullptr, nullptr);
+    }
+    return ie.Run(preprocessed.data, nullptr, nullptr);
+}
+
+/**
+ * @brief Fill a pre-allocated model-input byte buffer from a preprocessed image,
+ *        matching the model's input dtype (async path).
+ *
+ * Same dtype logic as runSyncInferenceTyped(): float32 models get a converted
+ * float buffer (from an 8-bit image), everything else is copied verbatim. The
+ * copy is size-clamped to the destination buffer.
+ */
+inline void fillModelInputBuffer(dxrt::InferenceEngine& ie,
+                                 std::vector<uint8_t>& buf,
+                                 const cv::Mat& preprocessed) {
+    const auto& input = ie.GetInputs().front();
+    if (input.type() == dxrt::DataType::FLOAT && !preprocessed.empty()
+            && preprocessed.depth() == CV_8U) {
+        std::vector<float> fb = convertToFloatBuffer(preprocessed, isInputNHWC(input.shape()));
+        size_t bytes = std::min(buf.size(), fb.size() * sizeof(float));
+        std::memcpy(buf.data(), fb.data(), bytes);
+    } else {
+        size_t bytes = std::min(buf.size(), preprocessed.total() * preprocessed.elemSize());
+        std::memcpy(buf.data(), preprocessed.data, bytes);
+    }
+}
+
 // Platform-specific setup file paths
 #ifndef SETUP_FILE_PATH
 #if _WIN32
@@ -651,7 +914,9 @@ constexpr const char* SETUP_FILE_PATH = "setup.sh --force";
         return -1;                                                                               \
     }                                                                                            \
     catch (const std::exception& e) {                                                            \
-        std::cerr << e.what() << std::endl;                                                      \
+        std::cerr << DXAPP_RED << e.what() << DXAPP_RESET << std::endl;                          \
+        std::cerr << DXAPP_GREEN << "[HINT] Use -h or --help for usage information."             \
+                  << DXAPP_RESET << std::endl;                                                   \
         return -1;                                                                               \
     }
 

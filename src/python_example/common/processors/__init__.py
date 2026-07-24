@@ -11,8 +11,10 @@ from .yolo_postprocessor import (
     YOLOv8Postprocessor,
     YOLOXPostprocessor,
 )
+from .fast_yolo_postprocessor import FastYOLOv5Postprocessor
 from .classification_postprocessor import ClassificationPostprocessor
 from .segmentation_postprocessor import SemanticSegmentationPostprocessor
+from .fast_segmentation_postprocessor import FastSegmentationPostprocessor
 from .face_postprocessor import (
     FaceResult,
     SCRFDPostprocessor,
@@ -28,12 +30,13 @@ from .instance_seg_postprocessor import (
     YOLOv8InstanceSegPostprocessor,
     YOLOv5InstanceSegPostprocessor,
 )
+from .fast_instance_seg_postprocessor import FastInstanceSegPostprocessor
 from .damoyolo_postprocessor import DamoYoloPostprocessor
 from .ssd_postprocessor import SSDPostprocessor
 from .tflite_det_postprocessor import TFLiteDetectionPostprocessor
 from .nanodet_postprocessor import NanoDetPostprocessor
 from .depth_postprocessor import DepthEstimationPostprocessor, DepthResult
-from .restoration_postprocessor import DnCNNPostprocessor, RestorationResult
+from .restoration_postprocessor import DnCNNPostprocessor, RestorationResult, RealESRGANPostprocessor
 from .obb_postprocessor import OBBPostprocessor
 from .ppu_postprocessor import (
     PPUPostprocessor,
@@ -47,10 +50,13 @@ from .ppu_postprocessor import (
 )
 from .centernet_postprocessor import CenterNetPostprocessor
 from .efficientdet_postprocessor import EfficientDetPostprocessor
+from .fast_efficientdet_postprocessor import FastEfficientDetPostprocessor
 from .retinaface_postprocessor import RetinaFacePostprocessor
+from .mediapipe_hand_postprocessor import MediaPipeHandPostprocessor
 from .ulfg_postprocessor import ULFGPostprocessor
 from .centerpose_postprocessor import CenterPosePostprocessor
 from .yolact_postprocessor import YOLACTPostprocessor
+from .fast_yolact_postprocessor import FastYOLACTPostprocessor
 from .espcn_postprocessor import ESPCNPostprocessor
 from .zero_dce_postprocessor import ZeroDCEPostprocessor
 from .clip_postprocessor import CLIPImagePostprocessor, CLIPTextPostprocessor
@@ -61,6 +67,12 @@ from .tddfa_postprocessor import TDDFAPostprocessor
 from .hand_landmark_postprocessor import HandLandmarkPostprocessor
 from .attribute_postprocessor import AttributePostprocessor
 from .cpp_compat import EmbeddingPostProcess, ZeroDCEPostProcess, PythonFallbackPostProcess
+from .vitpose_postprocessor import VitPosePostprocessor
+from .superpoint_postprocessor import SuperPointPostprocessor
+from .dope_postprocessor import DOPEPostprocessor
+from .yolopv2_postprocessor import YOLOPv2Postprocessor
+from .sfa3d_postprocessor import SFA3DPostprocessor, Detection3DResult, SFA3D_CLASSES
+from .sfa3d_bev_preprocessor import SFA3DBEVPreprocessor, load_kitti_pointcloud, pointcloud_to_bev
 
 __all__ = [
     # Preprocessors
@@ -71,10 +83,13 @@ __all__ = [
     'YOLOv5Postprocessor',
     'YOLOv8Postprocessor', 
     'YOLOXPostprocessor',
+    'FastYOLOv5Postprocessor',
     # Classification Postprocessors
     'ClassificationPostprocessor',
     # Segmentation Postprocessors
     'SemanticSegmentationPostprocessor',
+    'FastSegmentationPostprocessor',
+    'FastInstanceSegPostprocessor',
     # Face Detection Postprocessors
     'FaceResult',
     'SCRFDPostprocessor',
@@ -116,14 +131,17 @@ __all__ = [
     'CenterNetPostprocessor',
     # EfficientDet Postprocessor
     'EfficientDetPostprocessor',
+    'FastEfficientDetPostprocessor',
     # RetinaFace Postprocessor
     'RetinaFacePostprocessor',
+    'MediaPipeHandPostprocessor',
     # ULFG Postprocessor
     'ULFGPostprocessor',
     # CenterPose Postprocessor
     'CenterPosePostprocessor',
     # YOLACT Postprocessor
     'YOLACTPostprocessor',
+    'FastYOLACTPostprocessor',
     # ESPCN Super-Resolution Postprocessor
     'ESPCNPostprocessor',
     # Zero-DCE Enhancement Postprocessor
@@ -147,4 +165,10 @@ __all__ = [
     'EmbeddingPostProcess',
     'ZeroDCEPostProcess',
     'PythonFallbackPostProcess',
+    'SFA3DPostprocessor',
+    'Detection3DResult',
+    'SFA3D_CLASSES',
+    'SFA3DBEVPreprocessor',
+    'load_kitti_pointcloud',
+    'pointcloud_to_bev',
 ]

@@ -112,6 +112,7 @@ class InstanceSegResult:
     class_id: int = 0
     class_name: str = ""
     mask: np.ndarray = field(default_factory=lambda: np.array([]))  # H*W binary mask
+    track_id: int = -1  # stable multi-frame id assigned by a tracker (-1 = untracked)
 
 
 @dataclass

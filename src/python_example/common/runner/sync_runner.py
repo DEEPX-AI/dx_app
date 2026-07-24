@@ -21,18 +21,18 @@ import time
 import traceback
 import logging
 from pathlib import Path
-from typing import Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Union
 
 import numpy as np
 import cv2
 
-from dx_engine import InferenceEngine, InferenceOption
 from ..config import load_config
 from ..utility import print_image_processing_summary, print_sync_performance_summary
 from .run_dir import create_run_dir, write_run_info, dump_tensors, dump_tensors_on_exception
 from .verify_serialize import is_verify_enabled, dump_verify_json
 
-logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s")
+logging.addLevelName(logging.WARNING, "WARN")
+logging.basicConfig(level=logging.INFO, format="[DXAPP] [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
 
 _MSG_HEADLESS_SKIP = "Headless environment - display skipped"
@@ -166,11 +166,24 @@ _VID_BLACKBOX = "assets/videos/blackbox-city-road.mp4"
 _VID_DOGS = "assets/videos/dogs.mp4"
 _VID_SNOWBOARD = "assets/videos/snowboard.mp4"
 
+# Tasks that accept image input only (no video/camera/rtsp stream).
+#   - embedding/reid/attribute_recognition: image-pair / single-image tasks
+#   - object_pose_estimation (DOPE): static-object pose, sample is sample/dope/*.png
+#   - 3d_detection (SFA3D): LiDAR .bin input, no video
+# NOTE: hand_detection / hand_landmark are NOT image-only — they run the single
+# model per frame on video/camera/RTSP the same way they run on a whole image
+# (no palm-detector crop stage), so they use the normal stream pipeline.
+# NOTE: -v/-c/-r are still accepted as CLI options; stream input is rejected at
+# runtime by _reject_image_only_stream_input() with a clear message.
+_IMAGE_ONLY_TASKS = {"embedding", "reid", "attribute_recognition",
+                     "object_pose_estimation", "3d_detection"}
+
 _DEFAULT_SAMPLE_IMAGE = {
     "object_detection":       _IMG_STREET,
     "face_detection":         "sample/img/sample_face.jpg",
-    "obb_detection":          "sample/dota8_test/P0284.png",
+    "obb_detection":          "sample/img/sample_airport_satellite_view.png",
     "pose_estimation":        "sample/img/sample_people.jpg",
+    "hand_detection":         "sample/img/sample_person_a2.jpg",
     "hand_landmark":          "sample/img/sample_hand.jpg",
     "face_alignment":         "sample/img/sample_face_a1.jpg",
     "instance_segmentation":  _IMG_STREET,
@@ -184,6 +197,11 @@ _DEFAULT_SAMPLE_IMAGE = {
     "attribute_recognition":  "sample/img/sample_person_a1.jpg",
     "reid":                   "sample/img/person_pair",
     "ppu":                    _IMG_STREET,
+    "keypoint_detection":     _IMG_STREET,
+    "object_pose_estimation": _IMG_STREET,
+    "panoptic_driving_perception": _IMG_PARKING,
+    "3d_object_detection":    _IMG_PARKING,
+    "3d_detection":           "sample/kitti/velodyne/000049.bin",
 }
 
 # ======================================================================
@@ -195,6 +213,7 @@ _DEFAULT_SAMPLE_VIDEO = {
     "face_detection":         _VID_DANCE_GROUP,
     "obb_detection":          "assets/videos/obb.mp4",
     "pose_estimation":        "assets/videos/dance-solo.mov",
+    "hand_detection":         "assets/videos/hand.mp4",
     "hand_landmark":          "assets/videos/hand.mp4",
     "face_alignment":         "assets/videos/face-alignment-closeup.mp4",
     "instance_segmentation":  _VID_DOGS,
@@ -208,6 +227,11 @@ _DEFAULT_SAMPLE_VIDEO = {
     "attribute_recognition":  None,   # image-only task
     "reid":                   None,   # image-only task
     "ppu":                    _VID_SNOWBOARD,
+    "keypoint_detection":     _VID_SNOWBOARD,
+    "object_pose_estimation": _VID_SNOWBOARD,
+    "panoptic_driving_perception": _VID_BLACKBOX,
+    "3d_object_detection":    _VID_BLACKBOX,
+    "3d_detection":           None,   # LiDAR .bin input only; video unsupported
 }
 
 
@@ -223,10 +247,50 @@ def _apply_default_input(args, factory=None) -> None:
         return
 
     task_type = factory.get_task_type() if factory else None
+    # Image-only tasks: do not auto-fill an input. Let the dispatcher show a
+    # hint so the user explicitly provides an image with --image.
+    if task_type in _IMAGE_ONLY_TASKS:
+        return
     default_image = _DEFAULT_SAMPLE_IMAGE.get(
         task_type, "sample/img/sample_street.jpg")
     args.image = default_image
     logger.info(f"No input specified. Using default sample: {default_image}")
+
+
+def _show_image_only_no_input_hint(args, factory=None) -> bool:
+    task_type = factory.get_task_type() if factory and hasattr(factory, "get_task_type") else ""
+    if task_type not in _IMAGE_ONLY_TASKS or getattr(args, "image", None):
+        return False
+
+    hint = _DEFAULT_SAMPLE_IMAGE.get(task_type, _IMG_STREET)
+    logger.info(
+        f"Task '{task_type}' takes image input only.\n"
+        f"        -> Provide an image with --image (-i), "
+        f"e.g. --image {hint}")
+    return True
+
+
+def _has_stream_input(args) -> bool:
+    return bool(
+        getattr(args, "video", None)
+        or getattr(args, "camera", None) is not None
+        or getattr(args, "rtsp", None)
+    )
+
+
+def _reject_image_only_stream_input(args, factory=None) -> None:
+    task_type = factory.get_task_type() if factory and hasattr(factory, "get_task_type") else ""
+    if task_type not in _IMAGE_ONLY_TASKS or not _has_stream_input(args):
+        return
+
+    logger.error(
+        "Task '%s' supports image input only (--image). "
+        "Video/camera input requires a detection crop pipeline "
+        "and is not supported in single-model examples. "
+        "Use --image (-i) to provide an image file or directory.",
+        task_type,
+    )
+    sys.exit(1)
 
 
 def _find_script(name: str) -> Optional[str]:
@@ -270,46 +334,127 @@ def _auto_download_videos() -> bool:
 # Input validation
 # ======================================================================
 
+def _example_key_from_argv0() -> str:
+    """Derive the example key from the entry script name (SDKREQ-529).
+
+    Entry scripts are named ``<example>_sync.py`` / ``<example>_async.py``
+    (optionally ``_cpp_postprocess``), and ``<example>`` matches the
+    ``model_name`` key in config/model_registry.json.
+    """
+    name = Path(sys.argv[0]).stem  # drops ".py"
+    for suf in ("_async_cpp_postprocess", "_sync_cpp_postprocess",
+                "_cpp_postprocess", "_async", "_sync"):
+        if name.endswith(suf):
+            return name[: -len(suf)]
+    return name
+
+
+def _resolve_default_model_path() -> Optional[str]:
+    """Resolve this example's default .dxnn from config/model_registry.json.
+
+    Returns ``assets/models/<dxnn_file>`` for the example key, or ``None`` when
+    the registry or entry is missing (caller then errors out).
+    """
+    key = _example_key_from_argv0()
+    if not key:
+        return None
+    reg_path = _find_script("config/model_registry.json") or \
+        (_find_project_root() / "config" / "model_registry.json"
+         if _find_project_root() else None)
+    if not reg_path or not Path(reg_path).is_file():
+        return None
+    try:
+        import json
+        with open(reg_path) as f:
+            entries = json.load(f)
+    except Exception:
+        return None
+    for e in entries:
+        if e.get("model_name") == key and e.get("dxnn_file"):
+            return f"assets/models/{e['dxnn_file']}"
+    return None
+
+
+def _find_project_root() -> Optional[Path]:
+    """Walk up from this file to the dx_app root (the dir containing setup.sh)."""
+    candidate = Path(__file__).resolve()
+    for _ in range(10):
+        candidate = candidate.parent
+        if (candidate / "setup.sh").is_file():
+            return candidate
+    return None
+
+
 def _validate_model(args) -> None:
-    """Validate model file exists, auto-download if needed."""
+    """Resolve/validate the model path (SDKREQ-529 policy).
+
+    - ``-m`` omitted  : resolve this example's default model from the registry
+      and auto-download it if missing (convenience path).
+    - ``-m <path>``   : an explicit path is a contract — a missing file errors
+      out immediately and does NOT trigger the auto-downloader.
+    """
+    if not getattr(args, "model", None):
+        default = _resolve_default_model_path()
+        if not default:
+            logger.error(
+                "Model path is required. Use --model (-m) option.\n"
+                "        → Download:  ./setup.sh --models <model_name>\n"
+                "        → Or use:    ./run_demo.sh  (auto-downloads demo models)")
+            sys.exit(1)
+        args.model = default
+        logger.info(f"No model specified (-m). Using example default: {default}")
+        model = Path(args.model)
+        if model.is_file():
+            return
+        if _auto_download_model(model):
+            logger.info(f"Model downloaded successfully: {args.model}")
+            return
+        logger.error(
+            f"Model file not found: {args.model}\n"
+            f"        → Download:  ./setup.sh --models {model.stem}\n"
+            f"        → Or use:    ./run_demo.sh  (auto-downloads demo models)")
+        sys.exit(1)
+
+    # Explicit -m: no auto-download — a wrong path is a user error.
     model = Path(args.model)
     if model.is_file():
         return
-    if _auto_download_model(model):
-        logger.info(f"Model downloaded successfully: {args.model}")
-        return
-    model_stem = model.stem
     logger.error(
         f"Model file not found: {args.model}\n"
-        f"        → Download:  ./setup.sh --models {model_stem}\n"
-        f"        → Or use:    ./run_demo.sh  (auto-downloads demo models)")
+        f"        → Check the path, or omit -m to use this example's default model.\n"
+        f"        → Download:  ./setup.sh --models {model.stem}")
     sys.exit(1)
 
 
-def _validate_media(args) -> None:
-    """Validate image/video paths exist, auto-download videos if needed."""
+def _validate_media(args, factory=None) -> None:
+    """Validate explicit image/video paths (SDKREQ-529 policy).
+
+    A wrong ``--image``/``--video`` path errors out immediately — we never fall
+    back to a default sample and never auto-download. ``.bin``-requiring 3D
+    examples reject a non-.bin input.
+    """
+    task_type = factory.get_task_type() if factory and hasattr(factory, "get_task_type") else ""
     if getattr(args, "image", None):
         p = Path(args.image)
         if not p.exists():
-            logger.error(f"Image path does not exist: {args.image}")
+            logger.error(f"Input file not found: {args.image}")
             sys.exit(1)
         if not p.is_file() and not p.is_dir():
             logger.error(f"Image path must be a valid file or directory: {args.image}")
+            sys.exit(1)
+        # 3D LiDAR examples consume raw point clouds — reject a non-.bin file.
+        if task_type == "3d_detection" and p.is_file() and p.suffix.lower() != ".bin":
+            logger.error(
+                "This example requires a LiDAR point-cloud .bin input "
+                f"(--image / -i). Got: {args.image}")
             sys.exit(1)
 
     if not getattr(args, "video", None):
         return
     p = Path(args.video)
-    if p.is_file():
-        return
-    _auto_download_videos()
-    if p.is_file():
-        logger.info(f"Video downloaded successfully: {args.video}")
-        return
-    logger.error(
-        f"Video file not found: {args.video}\n"
-        f"        → Download videos: ./setup_sample_videos.sh")
-    sys.exit(1)
+    if not p.is_file():
+        logger.error(f"Input file not found: {args.video}")
+        sys.exit(1)
 
 
 def _validate_loop(args) -> None:
@@ -327,10 +472,10 @@ def _validate_loop(args) -> None:
         sys.exit(1)
 
 
-def _validate_inputs(args) -> None:
+def _validate_inputs(args, factory=None) -> None:
     """Pre-validate input paths before starting inference."""
     _validate_model(args)
-    _validate_media(args)
+    _validate_media(args, factory)
     _validate_loop(args)
 
 
@@ -369,7 +514,7 @@ class SyncRunner:
         self._on_engine_init = on_engine_init
         self._display_size = display_size or _DEFAULT_DISPLAY_SIZE
 
-        self.ie: Optional[InferenceEngine] = None
+        self.ie: Optional[Any] = None
         self.input_width = 0
         self.input_height = 0
         self.preprocessor = None
@@ -382,6 +527,7 @@ class SyncRunner:
         self._dump_tensors = False
         self._model_path = ""
         self._verbose = False
+        self._fast_postprocess = False
         self._sr_cache: Optional[dict] = None  # cached SR probe info
 
     # ------------------------------------------------------------------
@@ -392,10 +538,14 @@ class SyncRunner:
         """Main entry point."""
         _check_dxrt_version()
         _apply_default_input(args, self.factory)
-        _validate_inputs(args)
+        _reject_image_only_stream_input(args, self.factory)
+        _validate_inputs(args, self.factory)
 
         self._verbose = getattr(args, "show_log", False)
         self._model_path = args.model
+        self._fast_postprocess = getattr(args, "fast_postprocess", False)
+        if _show_image_only_no_input_hint(args, self.factory):
+            return
         self._init_engine(args.model, _resolve_config_path(args))
 
         self._save = getattr(args, "save", False)
@@ -406,19 +556,14 @@ class SyncRunner:
         logger.info("\nStarting inference...")
         self._dispatch_input(args)
 
-    _IMAGE_ONLY_TASKS = {"embedding", "reid", "attribute_recognition"}
-
     def _dispatch_input(self, args) -> None:
         """Route to the correct inference method based on input args."""
         display = args.display
         task = self.factory.get_task_type() if hasattr(self.factory, "get_task_type") else ""
-        if task in self._IMAGE_ONLY_TASKS and not getattr(args, "image", None):
-            logger.error(
-                f"Task '{task}' supports image input only "
-                f"(--image). Video/camera input requires a "
-                f"detection crop pipeline and is not supported "
-                f"in single-model examples.")
-            sys.exit(1)
+        _reject_image_only_stream_input(args, self.factory)
+        if task in _IMAGE_ONLY_TASKS and not getattr(args, "image", None):
+            _show_image_only_no_input_hint(args, self.factory)
+            return
         if getattr(args, "image", None):
             if os.path.isdir(args.image):
                 self._image_dir_inference(args.image, display)
@@ -436,6 +581,8 @@ class SyncRunner:
     # ------------------------------------------------------------------
 
     def _init_engine(self, model_path: str, config_path: Optional[str] = None) -> None:
+        from dx_engine import InferenceEngine, InferenceOption  # type: ignore[import-not-found]
+
         option = InferenceOption()
         if self._use_ort is None:
             if not option.get_use_ort():
@@ -468,6 +615,7 @@ class SyncRunner:
 
         self.preprocessor = self.factory.create_preprocessor(self.input_width, self.input_height)
         self.postprocessor = self.factory.create_postprocessor(self.input_width, self.input_height)
+        self._maybe_enable_fast_postprocess()
         self.visualizer = self.factory.create_visualizer()
         if self._on_engine_init is not None:
             self._on_engine_init(self)
@@ -483,6 +631,19 @@ class SyncRunner:
         if len(shape) == 2:
             return 1, shape[1]
         return 1, 1
+
+    def _maybe_enable_fast_postprocess(self) -> None:
+        """Swap in the opt-in fast postprocessor when requested and available."""
+        if not getattr(self, "_fast_postprocess", False):
+            return
+        fast = self.factory.create_fast_postprocessor(self.input_width, self.input_height)
+        if fast is not None:
+            self.postprocessor = fast
+            logger.info("Fast postprocess ENABLED (opt-in, approximation path)")
+        else:
+            logger.warning(
+                "--fast-postprocess requested but no fast variant is available "
+                "for this model; using standard postprocessor")
 
     # ------------------------------------------------------------------
     # Pipeline steps
@@ -567,7 +728,10 @@ class SyncRunner:
         except Exception:
             pass
 
-    def visualize(self, image: np.ndarray, results) -> np.ndarray:
+    def visualize(self, image: np.ndarray, results, *, source_path: str = None) -> np.ndarray:
+        # SFA3D visualizer uses the source path to locate KITTI calib/camera images.
+        if source_path and hasattr(self.visualizer, "set_source_path"):
+            self.visualizer.set_source_path(source_path)
         if self._cpp_visualize_fn is not None:
             ctx = getattr(self, '_preprocess_ctx', None)
             return self._cpp_visualize_fn(image, results, self.visualizer, ctx)
@@ -627,9 +791,13 @@ class SyncRunner:
         metrics = _create_sync_metrics()
         t_start = time.perf_counter()
 
-        img = cv2.imread(image_path)
-        if img is None:
-            raise FileNotFoundError(f"Failed to load image: {image_path}")
+        # LiDAR-aware load: .bin point cloud → BEV frame; otherwise cv2.imread.
+        from ..utility.lidar_input import load_display_frame
+        img = load_display_frame(
+            image_path,
+            input_height=self.input_height,
+            input_width=self.input_width,
+        )
         t_read = time.perf_counter()
 
         input_tensor: Optional[np.ndarray] = None
@@ -645,7 +813,7 @@ class SyncRunner:
 
             self._try_verify_dump(results, image_path, img)
 
-            output_img = self.visualize(img, results)
+            output_img = self.visualize(img, results, source_path=image_path)
             t4 = time.perf_counter()
 
             metrics["sum_read"] += t_read - t_start
@@ -770,7 +938,7 @@ class SyncRunner:
 
     def _image_dir_inference(self, dir_path: str, display: bool) -> None:
         extensions = ("*.jpg", "*.jpeg", "*.png", "*.bmp",
-                      "*.tiff", "*.tif", "*.webp")
+                      "*.tiff", "*.tif", "*.webp", "*.bin")  # .bin = KITTI velodyne LiDAR
         image_files: List[str] = []
         for ext in extensions:
             image_files.extend(glob.glob(os.path.join(dir_path, ext)))
@@ -897,15 +1065,18 @@ class SyncRunner:
         oth, otw = sr["oth"], sr["otw"]
 
         t0 = time.perf_counter()
-        # Create LR image: 20 tiles wide, proportional height
-        lr_w = tile_w * 20
-        lr_h = round(lr_w * frame.shape[0] / frame.shape[1])
-        lr_h = max(tile_h, ((lr_h + tile_h - 1) // tile_h) * tile_h)
-        lr_bgr = cv2.resize(frame, (lr_w, lr_h))
+        # Pad original frame to tile boundaries without resizing/downscaling.
+        orig_h, orig_w = frame.shape[:2]
+        lr_w = ((orig_w + tile_w - 1) // tile_w) * tile_w
+        lr_h = ((orig_h + tile_h - 1) // tile_h) * tile_h
+        lr_bgr = cv2.copyMakeBorder(
+            frame, 0, lr_h - orig_h, 0, lr_w - orig_w,
+            cv2.BORDER_REPLICATE)
         lr_gray = cv2.cvtColor(lr_bgr, cv2.COLOR_BGR2GRAY)
         t1 = time.perf_counter()
 
-        out_w, out_h = lr_w * scale_x, lr_h * scale_y
+        padded_out_w, padded_out_h = lr_w * scale_x, lr_h * scale_y
+        out_w, out_h = orig_w * scale_x, orig_h * scale_y
 
         # Use cached probe for tile (0,0), infer the rest
         probe_out = sr["probe_out"] if frame_count == 1 else None
@@ -915,19 +1086,21 @@ class SyncRunner:
             probe_out = self.infer(tile0[:, :, np.newaxis])
 
         sr_y, tiles_done = self._tile_sr_pass(
-            lr_gray, tile_h, tile_w, oth, otw, probe_out, out_h, out_w)
+            lr_gray, tile_h, tile_w, oth, otw, probe_out,
+            padded_out_h, padded_out_w)
+        sr_y = sr_y[:out_h, :out_w]
         t2 = time.perf_counter()
 
-        sr_bgr = self._merge_ycrcb(sr_y, lr_bgr, out_w, out_h)
+        sr_bgr = self._merge_ycrcb(sr_y, frame, out_w, out_h)
         t3 = time.perf_counter()
 
         # Side-by-side canvas
-        lr_up = cv2.resize(lr_bgr, (out_w, out_h),
+        lr_up = cv2.resize(frame, (out_w, out_h),
                            interpolation=cv2.INTER_CUBIC)
         canvas = np.zeros((out_h, out_w * 2 + 4, 3), dtype=np.uint8)
         canvas[:, :out_w] = lr_up
         canvas[:, out_w + 4:] = sr_bgr
-        cv2.putText(canvas, f"Bicubic ({lr_w}x{lr_h})",
+        cv2.putText(canvas, f"Bicubic ({orig_w}x{orig_h})",
                     (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 200, 255), 2)
         cv2.putText(canvas,
                     f"ESPCN x{scale_x} ({out_w}x{out_h}, {tiles_done} tiles)",
@@ -1201,31 +1374,38 @@ class SyncRunner:
                              image_path: str = "") -> None:
         t_start = time.perf_counter()
         tile_w, tile_h = self.input_width, self.input_height
-        lr_w = tile_w * 20
-        lr_h = round(lr_w * img.shape[0] / img.shape[1])
-        lr_h = max(tile_h, ((lr_h + tile_h - 1) // tile_h) * tile_h)
-        lr_bgr = cv2.resize(img, (lr_w, lr_h))
+        # Pad original image to tile boundaries without resizing/downscaling.
+        orig_h, orig_w = img.shape[:2]
+        lr_w = ((orig_w + tile_w - 1) // tile_w) * tile_w
+        lr_h = ((orig_h + tile_h - 1) // tile_h) * tile_h
+        lr_bgr = cv2.copyMakeBorder(
+            img, 0, lr_h - orig_h, 0, lr_w - orig_w,
+            cv2.BORDER_REPLICATE)
         lr_gray = cv2.cvtColor(lr_bgr, cv2.COLOR_BGR2GRAY)
 
         t0 = time.perf_counter()
         probe_out, oth, otw = self._probe_sr_output_size(lr_gray, tile_h, tile_w)
         scale_x = max(1, otw // tile_w)
-        out_w, out_h = lr_w * scale_x, lr_h * max(1, oth // tile_h)
+        scale_y = max(1, oth // tile_h)
+        padded_out_w, padded_out_h = lr_w * scale_x, lr_h * scale_y
+        out_w, out_h = orig_w * scale_x, orig_h * scale_y
 
         t_i0 = time.perf_counter()
         sr_y, tiles_done = self._tile_sr_pass(
-            lr_gray, tile_h, tile_w, oth, otw, probe_out, out_h, out_w)
+            lr_gray, tile_h, tile_w, oth, otw, probe_out,
+            padded_out_h, padded_out_w)
+        sr_y = sr_y[:out_h, :out_w]
         t_i1 = time.perf_counter()
 
-        sr_bgr = self._merge_ycrcb(sr_y, lr_bgr, out_w, out_h)
+        sr_bgr = self._merge_ycrcb(sr_y, img, out_w, out_h)
         t3 = time.perf_counter()
 
-        lr_up = cv2.resize(lr_bgr, (out_w, out_h),
+        lr_up = cv2.resize(img, (out_w, out_h),
                            interpolation=cv2.INTER_CUBIC)
         canvas = np.zeros((out_h, out_w * 2 + 4, 3), dtype=np.uint8)
         canvas[:, :out_w] = lr_up
         canvas[:, out_w+4:] = sr_bgr
-        cv2.putText(canvas, f"Bicubic ({lr_w}x{lr_h})",
+        cv2.putText(canvas, f"Bicubic ({orig_w}x{orig_h})",
                     (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 200, 255), 2)
         cv2.putText(canvas,
                     f"ESPCN x{scale_x} ({out_w}x{out_h}, {tiles_done} tiles)",

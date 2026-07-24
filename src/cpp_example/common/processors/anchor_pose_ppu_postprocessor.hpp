@@ -202,7 +202,7 @@ inline std::vector<YOLOv5PosePPUResult> YOLOv5PosePPUPostProcess::postprocess(
 
     if (outputs.front()->type() != dxrt::DataType::POSE) {
         std::ostringstream msg;
-        msg << "[DXAPP] [ER] YOLOv5Pose PPU PostProcess - Tensor output type must be "
+        msg << "[DXAPP] [ERROR] YOLOv5Pose PPU PostProcess - Tensor output type must be "
                "dxrt::DataType::POSE.\n"
             << "  Unexpected Tensors\n";
         msg << postprocess_utils::format_tensor_shapes_with_type(outputs);

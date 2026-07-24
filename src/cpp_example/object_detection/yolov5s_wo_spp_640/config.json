@@ -1,4 +1,5 @@
 {
     "score_threshold": 0.4,
-    "nms_threshold": 0.45
+    "nms_threshold": 0.45,
+    "max_nms_candidates": 300
 }

@@ -15,7 +15,7 @@ from typing import List
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from test_helpers.constants import PROJECT_ROOT  # noqa: E402
+from test_helpers.constants import IMAGE_ONLY_TASKS, PROJECT_ROOT  # noqa: E402
 from test_helpers.utils import discover_python_scripts, setup_environment  # noqa: E402
 
 
@@ -62,6 +62,14 @@ def test_multi_loop_video(script: Path, model: Path):
     """Run script with --loop N on video; should complete without error."""
     if not _TEST_VIDEO.exists():
         pytest.skip(f"Test video not found: {_TEST_VIDEO}")
+
+    # Image-only tasks (3d_object_detection/sfa3d, embedding, reid, …) reject
+    # --video: their runners sys.exit(1) (SDKREQ-517 excludes them from stream
+    # inference). Scripts live at src/python_example/<task>/<model>/<script>.py,
+    # so the task is the grandparent dir name.
+    task = script.parent.parent.name
+    if task in IMAGE_ONLY_TASKS:
+        pytest.skip(f"[{task}] {script.name}: image-only task; no video/stream path")
 
     cmd = [
         sys.executable, str(script),

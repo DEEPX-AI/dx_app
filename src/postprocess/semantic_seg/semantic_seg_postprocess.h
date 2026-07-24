@@ -39,6 +39,7 @@ class SemanticSegPostProcess {
 
     std::vector<int> apply_argmax_nchw(const float* data, int C, int H, int W) const;
     std::vector<int> apply_argmax_nhwc(const float* data, int H, int W, int C) const;
+    std::vector<int> extract_pre_argmaxed(const dxrt::TensorPtr& tensor, int count) const;
 
    public:
     /**

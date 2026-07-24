@@ -47,7 +47,7 @@ std::vector<YOLOXPPUResult> YOLOXPPUPostProcess::postprocess(const dxrt::TensorP
     if (outputs.empty()) return {};
     if (outputs.front()->type() != dxrt::DataType::BBOX) {
         std::ostringstream msg;
-        msg << "[DXAPP] [ER] YOLOX PPU PostProcess - Tensor type must be BBOX.\n"
+        msg << "[DXAPP] [ERROR] YOLOX PPU PostProcess - Tensor type must be BBOX.\n"
             << "Expected dxrt::DataType::BBOX.\n";
         throw std::runtime_error(msg.str());
     }

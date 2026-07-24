@@ -1,0 +1,1 @@
+from .mediapipe_hand_detector_factory import Mediapipe_hand_detectorFactory

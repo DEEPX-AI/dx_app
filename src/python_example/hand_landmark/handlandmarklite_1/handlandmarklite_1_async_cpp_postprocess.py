@@ -21,7 +21,7 @@ from common.runner import AsyncRunner, parse_common_args
 
 import os
 if os.name == 'nt':
-    _dxrt_dir = os.environ.get('DXRT_DIR')
+    _dxrt_dir = os.environ.get('DEEPX_SDK_DIR')
     if _dxrt_dir:
         os.add_dll_directory(os.path.join(_dxrt_dir, 'bin'))
 

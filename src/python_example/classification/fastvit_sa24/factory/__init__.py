@@ -1,0 +1,1 @@
+from .fastvit_sa24_factory import Fastvit_sa24Factory

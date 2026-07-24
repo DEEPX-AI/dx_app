@@ -293,5 +293,5 @@ def dump_verify_json(
         return str(json_path)
 
     except Exception as e:
-        print(f"[WARN] verify_serialize failed: {e}")
+        print(f"[DXAPP] [WARN] verify_serialize failed: {e}")
         return None

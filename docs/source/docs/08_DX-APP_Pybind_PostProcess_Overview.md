@@ -14,6 +14,7 @@ Integrating C++ post-processing into your Python pipeline offers two primary adv
     - **CPU Contention:** In CPU-constrained environments (e.g., embedded boards), reduced CPU usage in the post-processing stage helps other stages (Read, Preprocess) and NPU utilization function more efficiently.  
 
 !!! note "NOTE"  
+
     While the C++ library is faster, overall pipeline improvement depends on the bottleneck location. If NPU inference or data reading is the limiting factor, end-to-end FPS gains may be minimal, though CPU power consumption will still decrease.  
 
 For end-to-end Python example usage, refer to the DX-APP Python usage documentation in `docs/source/docs/05_DX-APP_Python_Example_Usage_Guide.md`.  
@@ -35,22 +36,30 @@ The SDK follows a **Single Source of Truth** strategy to ensure reliability acro
 
 ### Supported Models & Tasks
 
-The library wraps **41 C++ post-processing classes** with pybind11 bindings, ensuring consistent results between C++ and Python implementations.  
+The library wraps **48 C++ post-processing classes** with pybind11 bindings, ensuring consistent results between C++ and Python implementations.  
 
 - **Object Detection:** YOLOv5, YOLOv7, YOLOv8, YOLOv9, YOLOv10, YOLOv11, YOLOv12, YOLOv26, YOLOX, NanoDet, DAMOYOLO, SSD, CenterPose, EfficientDet, YOLACT  
 - **Face Detection:** SCRFD, YOLOv5Face, RetinaFace, ULFGFD, Face3D  
-- **Pose Estimation:** YOLOv5Pose, YOLOv8Pose  
+- **Pose Estimation:** YOLOv5Pose, YOLOv8Pose, VitPose  
+- **Keypoint Detection:** SuperPoint  
+- **Object Pose Estimation:** DOPE  
+- **3D Object Detection:** SFA3D  
+- **Panoptic Driving Perception:** YOLOPv2  
+- **Hand Detection:** MediaPipe Hand  
 - **Semantic Segmentation:** DeepLabV3, SemanticSeg (BiSeNet/SegFormer)  
 - **Instance Segmentation:** YOLOv5Seg, YOLOv8Seg  
 - **OBB Detection:** YOLOv26-OBB  
 - **Classification:** EfficientNet-family  
 - **Depth Estimation:** DepthPostProcess (FastDepth, SCDepth)  
 - **Image Denoising:** DnCNN  
-- **Super Resolution:** ESPCN  
+- **Super Resolution:** ESPCN, RealESRGAN  
 - **Image Enhancement:** Zero-DCE  
 - **Embedding:** ArcFace  
 - **Hand Landmark:** HandLandmark  
 - **PPU Variants:** YOLOv5-PPU, YOLOv7-PPU, YOLOv8-PPU, SCRFD-PPU, YOLOv5Pose-PPU, YOLOX-PPU, YOLOv3Tiny-PPU  
+
+!!! note "Generic fast segmentation in Python examples"
+    `FastSegmentationPostprocessor` is available from `common.processors` for Python example-layer semantic segmentation. It is intentionally generic and selected by the `fast_segmentation` generation alias. It is not a direct `dx_postprocess` pybind class; use it from `src/python_example/common/processors/fast_segmentation_postprocessor.py` when the model outputs low-resolution logits or class maps that should be argmaxed before resize.
 
 ---
 
@@ -68,11 +77,12 @@ During the installation, `pybind11` is automatically cloned from GitHub to `exte
 
 ### Installation Steps
 
-The module is automatically built during the full SDK setup, but it can also be installed independently from the binding directory.  
+The module is automatically built during the standard SDK build, but it can also be installed independently from the binding directory.  
 
 | **Method** | **Command** | **Recommended For** | 
 |----|----|----|
-| **Full Build** | `./build.sh` | Initial environment setup and full SDK deployment | 
+| **Default Build (minimal)** | `./build.sh` | Standard developer build; builds run_demo C++ targets and installs dx_postprocess | 
+| **Full Build** | `./build.sh --all` | Full SDK deployment (all targets) — requires explicit `--all` flag | 
 | **Standalone** | `cd ./src/bindings/python/dx_postprocess && python3 -m pip install .` | Focused updates to the post-processing logic | 
 
 **Standalone Installation Notes** 

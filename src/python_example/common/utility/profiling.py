@@ -361,13 +361,48 @@ def _print_async_optional_metrics(metrics: dict, infer_completed: int) -> None:
         _print_metric_line("Display", sum_disp, disp_cnt)
 
 
-def print_async_performance_summary_legacy(
+def _format_metric_line(label: str, avg_ms: float, throughput_fps: float) -> str:
+    return f" {label:<15} {avg_ms:8.2f} ms     {throughput_fps:6.1f} FPS"
+
+
+def _fps_from_avg_ms(avg_ms: float) -> float:
+    return 1000.0 / avg_ms if avg_ms > 0 else 0.0
+
+
+def _format_optional_metric_line(
+    label: str, total_sum: float, count: int
+) -> Optional[str]:
+    if count <= 0 or total_sum <= 0:
+        return None
+    avg_ms = total_sum / count * 1000.0
+    return _format_metric_line(label, avg_ms, _fps_from_avg_ms(avg_ms))
+
+
+def _format_async_optional_metric_lines(metrics: dict, infer_completed: int) -> List[str]:
+    optional_specs = [
+        ("Render", metrics.get("sum_render", 0.0), metrics.get("render_completed", infer_completed)),
+        ("Save", metrics.get("sum_save", 0.0), metrics.get("save_completed", 0)),
+        ("Display", metrics.get("sum_display", 0.0), metrics.get("display_completed", 0)),
+    ]
+    lines = []
+    for label, total_sum, count in optional_specs:
+        line = _format_optional_metric_line(label, total_sum, count)
+        if line is not None:
+            lines.append(line)
+    return lines
+
+
+def format_async_performance_summary_legacy(
     metrics: dict, cnt: int, elapsed: float, display: bool
-):
-    """Print legacy-format async performance metrics (matches C++ async format)."""
+) -> List[str]:
+    """Return legacy-format async performance summary lines.
+
+    The public row stays as ``Inference`` to match the C++ user-facing
+    summary. Split async timings may exist in ``metrics`` for diagnostics, but
+    they are intentionally hidden from the visible summary.
+    """
     if metrics.get("infer_completed", 0) == 0:
-        print("[WARNING] No frames were processed.")
-        return
+        return ["[DXAPP] [WARN] No frames were processed."]
 
     overall_fps = cnt / elapsed if elapsed > 0 else 0.0
     infer_completed = metrics["infer_completed"]
@@ -384,32 +419,44 @@ def print_async_performance_summary_legacy(
     inflight_avg = metrics["inflight_time_sum"] / inflight_time_window if inflight_time_window > 0 else 0.0
     inflight_max = metrics["inflight_max"]
 
-    read_fps = 1000.0 / avg_read if avg_read > 0 else 0.0
-    pre_fps = 1000.0 / avg_pre if avg_pre > 0 else 0.0
-    post_fps = 1000.0 / avg_post if avg_post > 0 else 0.0
+    read_fps = _fps_from_avg_ms(avg_read)
+    pre_fps = _fps_from_avg_ms(avg_pre)
+    post_fps = _fps_from_avg_ms(avg_post)
 
-    print("\n" + "=" * 50)
-    print(f"{'PERFORMANCE SUMMARY':^50}")
-    print("=" * 50)
-    print(f" {'Pipeline Step':<15} {'Avg Latency':<15} {'Throughput':<15}")
-    print("-" * 50)
-    print(f" {'Read':<15} {avg_read:8.2f} ms     {read_fps:6.1f} FPS")
-    print(f" {'Preprocess':<15} {avg_pre:8.2f} ms     {pre_fps:6.1f} FPS")
-    print(f" {'Inference':<15} {avg_inf:8.2f} ms     {infer_tp:6.1f} FPS*")
-    print(f" {'Postprocess':<15} {avg_post:8.2f} ms     {post_fps:6.1f} FPS")
+    lines = [
+        "\n" + "=" * 50,
+        f"{'PERFORMANCE SUMMARY':^50}",
+        "=" * 50,
+        f" {'Pipeline Step':<15} {'Avg Latency':<15} {'Throughput':<15}",
+        "-" * 50,
+        _format_metric_line("Read", avg_read, read_fps),
+        _format_metric_line("Preprocess", avg_pre, pre_fps),
+        f" {'Inference':<15} {avg_inf:8.2f} ms     {infer_tp:6.1f} FPS*",
+        _format_metric_line("Postprocess", avg_post, post_fps),
+    ]
 
-    # Render/Save/Display rows (conditional)
-    _print_async_optional_metrics(metrics, infer_completed)
+    lines.extend(_format_async_optional_metric_lines(metrics, infer_completed))
 
-    print("-" * 50)
-    print(" * Async: turnaround latency (submit to callback)")
-    print("   Throughput measured independently")
-    print("-" * 50)
-    print(f" {'Infer Completed':<19} :    {infer_completed}")
-    print(f" {'Infer Inflight Avg':<19} :    {inflight_avg:.1f}")
-    print(f" {'Infer Inflight Max':<19} :      {inflight_max}")
-    print("-" * 50)
-    print(f" {'Total Frames':<19} :    {cnt}")
-    print(f" {'Total Time':<19} :    {elapsed:.1f} s")
-    print(f" {'Overall FPS':<19} :   {overall_fps:.1f} FPS")
-    print("=" * 50)
+    lines.extend([
+        "-" * 50,
+        " * Async: turnaround latency (submit to callback)",
+        "   Throughput measured independently",
+        "-" * 50,
+        f" {'Infer Completed':<19} :    {infer_completed}",
+        f" {'Infer Inflight Avg':<19} :    {inflight_avg:.1f}",
+        f" {'Infer Inflight Max':<19} :      {inflight_max}",
+        "-" * 50,
+        f" {'Total Frames':<19} :    {cnt}",
+        f" {'Total Time':<19} :    {elapsed:.1f} s",
+        f" {'Overall FPS':<19} :   {overall_fps:.1f} FPS",
+        "=" * 50,
+    ])
+    return lines
+
+
+def print_async_performance_summary_legacy(
+    metrics: dict, cnt: int, elapsed: float, display: bool
+):
+    """Print legacy-format async performance metrics (matches C++ async format)."""
+    for line in format_async_performance_summary_legacy(metrics, cnt, elapsed, display):
+        print(line)

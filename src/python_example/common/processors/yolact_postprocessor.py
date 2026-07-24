@@ -42,6 +42,7 @@ class YOLACTPostprocessor(IPostprocessor):
         self.has_background = self.config.get('has_background', True)
         self.num_masks = self.config.get('num_masks', 32)
         self.top_k = self.config.get('top_k', 200)
+        self.max_detections = int(self.config.get('max_detections', 0))
 
         # Lazily generated — rebuilt on first process() to match model output N
         self._anchors = None
@@ -117,6 +118,12 @@ class YOLACTPostprocessor(IPostprocessor):
         masks = 1.0 / (1.0 + np.exp(-raw))
         return masks.reshape(-1, mask_h, mask_w), mask_h, mask_w
 
+    def _limit_kept_detections(self, keep: np.ndarray) -> np.ndarray:
+        """Limit final detections before expensive mask generation/resizing."""
+        if self.max_detections <= 0 or len(keep) <= self.max_detections:
+            return keep
+        return keep[:self.max_detections]
+
     def _fast_nms(self, boxes: np.ndarray, scores: np.ndarray,
                   iou_threshold: float) -> np.ndarray:
         """
@@ -179,8 +186,8 @@ class YOLACTPostprocessor(IPostprocessor):
             scaled[i, :, bx2:] = 0
         return scaled
 
-    def _to_original_coords(self, box, scaled_mask_i, ctx):
-        """Map a single box+mask from input space back to original image space."""
+    def _box_to_original(self, box, ctx):
+        """Map a single input-space box back to original image space."""
         box = box.copy()
         gain = max(ctx.scale, 1e-6)
         pad_x, pad_y = ctx.pad_x, ctx.pad_y
@@ -192,12 +199,27 @@ class YOLACTPostprocessor(IPostprocessor):
             box[1] = np.clip(box[1] * sy, 0, oh - 1)
             box[2] = np.clip(box[2] * sx, 0, ow - 1)
             box[3] = np.clip(box[3] * sy, 0, oh - 1)
-            orig_mask = cv2.resize(scaled_mask_i, (ow, oh), interpolation=cv2.INTER_LINEAR)
         else:
             box[0] = np.clip((box[0] - pad_x) / gain, 0, ow - 1)
             box[1] = np.clip((box[1] - pad_y) / gain, 0, oh - 1)
             box[2] = np.clip((box[2] - pad_x) / gain, 0, ow - 1)
             box[3] = np.clip((box[3] - pad_y) / gain, 0, oh - 1)
+        return box
+
+    def _to_original_coords(self, box, scaled_mask_i, ctx):
+        """Map a single box+mask from input space back to original image space.
+
+        ``scaled_mask_i`` is at *input* resolution here; :class:`FastYOLACTPostprocessor`
+        keeps it at prototype resolution and overrides this method accordingly.
+        """
+        box = self._box_to_original(box, ctx)
+        gain = max(ctx.scale, 1e-6)
+        pad_x, pad_y = ctx.pad_x, ctx.pad_y
+        ow, oh = ctx.original_width, ctx.original_height
+
+        if pad_x == 0 and pad_y == 0:
+            orig_mask = cv2.resize(scaled_mask_i, (ow, oh), interpolation=cv2.INTER_LINEAR)
+        else:
             unpad_h = int(round(oh * gain))
             unpad_w = int(round(ow * gain))
             m_crop = scaled_mask_i[int(pad_y):int(pad_y) + unpad_h,
@@ -257,6 +279,7 @@ class YOLACTPostprocessor(IPostprocessor):
         keep = self._fast_nms(boxes_pixel, scores_f, self.nms_threshold)
         if len(keep) == 0:
             return []
+        keep = self._limit_kept_detections(keep)
 
         masks, _, _ = self._compute_masks(coeff_f[keep], proto_t)
         scaled_masks = self._scale_masks_and_crop(masks, boxes_pixel[keep])

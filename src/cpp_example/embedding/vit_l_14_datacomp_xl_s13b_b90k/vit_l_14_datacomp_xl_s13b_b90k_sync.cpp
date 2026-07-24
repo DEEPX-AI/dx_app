@@ -1,0 +1,13 @@
+/**
+ * @file clip_vit_l14_sync.cpp
+ * @brief ClipVitL14Factory synchronous inference example
+ */
+
+#include "factory/vit_l_14_datacomp_xl_s13b_b90k_factory.hpp"
+#include "common/runner/sync_embedding_runner.hpp"
+
+int main(int argc, char* argv[]) {
+    auto factory = std::make_unique<dxapp::ClipVitL14Factory>();
+    dxapp::SyncEmbeddingRunner<dxapp::ClipVitL14Factory> runner(std::move(factory));
+    return runner.run(argc, argv);
+}

@@ -14,18 +14,37 @@
  * Variance = [0.1, 0.2] for decoding.
  */
 
+/**
+ * @file retinaface_postprocessor.hpp
+ * @brief RetinaFace face detection postprocessor with 5-point landmarks
+ * 
+ * Ported from Python retinaface_postprocessor.py.
+ * 
+ * Supports two output formats automatically:
+ *   1. NHWC feature-map format (9 tensors: 3 strides × bbox/cls/lmk):
+ *        [1, H, W, A*4], [1, H, W, A*2], [1, H, W, A*10]  × 3 strides
+ *   2. Flattened format (3 tensors):
+ *        [1, N, 4], [1, N, 2], [1, N, 10]
+ * 
+ * Anchors: 2 per location, strides [8, 16, 32], min_sizes [[16,32],[64,128],[256,512]].
+ * Variance = [0.1, 0.2] for decoding.
+ */
+
 #ifndef RETINAFACE_POSTPROCESSOR_HPP
 #define RETINAFACE_POSTPROCESSOR_HPP
 
 #include "common/base/i_processor.hpp"
 #include <algorithm>
 #include <cmath>
+#include <map>
 #include <numeric>
 
 namespace dxapp {
 
 class RetinaFacePostprocessor : public IPostprocessor<FaceDetectionResult> {
 public:
+    static constexpr int NUM_ANCHORS = 2;
+
     RetinaFacePostprocessor(int input_width = 640, int input_height = 640,
                             float score_threshold = 0.5f,
                             float nms_threshold = 0.4f)
@@ -37,33 +56,25 @@ public:
     std::vector<FaceDetectionResult> process(const dxrt::TensorPtrs& outputs,
                                               const PreprocessContext& ctx) override {
         std::vector<FaceDetectionResult> results;
-        if (outputs.size() < 3) return results;
+        if (outputs.empty()) return results;
 
-        // Sort tensors by last dimension: 2=scores, 4=boxes, 10=landmarks
-        const dxrt::TensorPtr* scores_t = nullptr;
-        const dxrt::TensorPtr* boxes_t = nullptr;
-        const dxrt::TensorPtr* lmks_t = nullptr;
-        for (auto& t : outputs) {
-            auto shape = t->shape();
-            int last_dim = static_cast<int>(shape.back());
-            if (last_dim == 2) scores_t = &t;
-            else if (last_dim == 4) boxes_t = &t;
-            else if (last_dim == 10) lmks_t = &t;
-        }
-        if (!scores_t || !boxes_t || !lmks_t) return results;
+        // Flatten outputs to [N, 4], [N, 2], [N, 10]
+        std::vector<float> boxes_flat, scores_flat, lmks_flat;
+        bool ok = isNHWCFormat(outputs)
+            ? parseNHWC(outputs, boxes_flat, scores_flat, lmks_flat)
+            : parseFlat(outputs, boxes_flat, scores_flat, lmks_flat);
+        if (!ok || scores_flat.empty()) return results;
 
-        auto scores_shape = (*scores_t)->shape();
-        int N = static_cast<int>(scores_shape.size() == 3 ? scores_shape[1] : scores_shape[0]);
+        int N = static_cast<int>(scores_flat.size() / 2);
         N = std::min(N, static_cast<int>(priors_.size()));
 
-        const float* scores_data = static_cast<const float*>((*scores_t)->data());
-        const float* boxes_data = static_cast<const float*>((*boxes_t)->data());
-        const float* lmks_data = static_cast<const float*>((*lmks_t)->data());
+        const float* boxes_data  = boxes_flat.data();
+        const float* scores_data = scores_flat.data();
+        const float* lmks_data   = lmks_flat.empty() ? nullptr : lmks_flat.data();
 
         std::vector<cv::Rect2d> nms_boxes;
         std::vector<float> nms_scores;
         std::vector<int> nms_indices;
-
         collectCandidates(N, scores_data, boxes_data, nms_boxes, nms_scores, nms_indices);
 
         if (nms_boxes.empty()) return results;
@@ -82,14 +93,15 @@ public:
             float x2 = (cx + bw * 0.5f) * input_width_;
             float y2 = (cy + bh * 0.5f) * input_height_;
 
-            // Decode 5 landmarks
             float pcx = priors_[i][0], pcy = priors_[i][1];
             float pw  = priors_[i][2], ph  = priors_[i][3];
             std::vector<Keypoint> landmarks(5);
-            for (int j = 0; j < 5; ++j) {
-                float lx = (pcx + lmks_data[i * 10 + j * 2]     * variance_[0] * pw) * input_width_;
-                float ly = (pcy + lmks_data[i * 10 + j * 2 + 1] * variance_[0] * ph) * input_height_;
-                landmarks[j] = Keypoint(lx, ly, 1.0f);
+            if (lmks_data) {
+                for (int j = 0; j < 5; ++j) {
+                    float lx = (pcx + lmks_data[i * 10 + j * 2]     * variance_[0] * pw) * input_width_;
+                    float ly = (pcy + lmks_data[i * 10 + j * 2 + 1] * variance_[0] * ph) * input_height_;
+                    landmarks[j] = Keypoint(lx, ly, 1.0f);
+                }
             }
 
             scaleResultCoords(ctx, x1, y1, x2, y2, landmarks);
@@ -111,7 +123,118 @@ public:
     std::string getModelName() const override { return "RetinaFace"; }
 
 private:
-    // Helper: decode center/size from prior box and regression data
+    // ── Format detection ─────────────────────────────────────────────────────
+
+    bool isNHWCFormat(const dxrt::TensorPtrs& outputs) const {
+        for (auto& t : outputs) {
+            if (t->shape().size() == 4) return true;
+        }
+        return false;
+    }
+
+    // ── NHWC parsing ──────────────────────────────────────────────────────────
+    // Groups 9 feature-map tensors by (H,W), identifies bbox/cls/lmk
+    // by last_dim / NUM_ANCHORS (4=bbox, 2=cls, 10=lmk).
+    // Reshapes [H,W,A*k] → [H*W*A, k] and concatenates across strides.
+
+    bool parseNHWC(const dxrt::TensorPtrs& outputs,
+                   std::vector<float>& boxes_out,
+                   std::vector<float>& scores_out,
+                   std::vector<float>& lmks_out) const {
+        // key=(H,W), value=list of (tensor_data, H, W, C)
+        using MapKey = std::pair<int,int>;
+        std::map<MapKey, std::vector<std::tuple<const float*, int, int, int>>> groups;
+
+        for (auto& t : outputs) {
+            auto sh = t->shape();
+            if (sh.size() != 4) continue;
+            int H = static_cast<int>(sh[1]);
+            int W = static_cast<int>(sh[2]);
+            int C = static_cast<int>(sh[3]);
+            const float* data = static_cast<const float*>(t->data());
+            groups[{H, W}].emplace_back(data, H, W, C);
+        }
+
+        if (groups.empty()) return false;
+
+        // Process strides from large spatial to small (stride 8 first)
+        std::vector<MapKey> keys;
+        for (auto& kv : groups) keys.push_back(kv.first);
+        std::sort(keys.begin(), keys.end(),
+                  [](const MapKey& a, const MapKey& b){ return a.first > b.first; });
+
+        for (auto& key : keys) {
+            const float* bbox_d = nullptr, *cls_d = nullptr, *lmk_d = nullptr;
+            int H = 0, W = 0;
+
+            for (auto& entry : groups[key]) {
+                const float* data = std::get<0>(entry);
+                int h = std::get<1>(entry);
+                int w = std::get<2>(entry);
+                int c = std::get<3>(entry);
+                H = h; W = w;
+                int per_anchor = c / NUM_ANCHORS;
+                if (per_anchor == 4)  bbox_d = data;
+                else if (per_anchor == 2)  cls_d  = data;
+                else if (per_anchor == 10) lmk_d  = data;
+            }
+            if (!bbox_d || !cls_d) continue;
+
+            int n = H * W * NUM_ANCHORS;
+
+            // Reshape [H, W, A*k] → [H*W*A, k]: for each spatial cell (y,x),
+            // then for each anchor: store k values contiguously.
+            auto flatten = [&](const float* src, int k, std::vector<float>& dst) {
+                dst.reserve(dst.size() + n * k);
+                for (int y = 0; y < H; ++y)
+                    for (int x = 0; x < W; ++x)
+                        for (int a = 0; a < NUM_ANCHORS; ++a)
+                            for (int v = 0; v < k; ++v)
+                                dst.push_back(src[(y * W + x) * NUM_ANCHORS * k + a * k + v]);
+            };
+
+            flatten(bbox_d, 4,  boxes_out);
+            flatten(cls_d,  2,  scores_out);
+            if (lmk_d) flatten(lmk_d, 10, lmks_out);
+        }
+        return !boxes_out.empty();
+    }
+
+    // ── Flat parsing ─────────────────────────────────────────────────────────
+    // Handles 3 tensors [1,N,4], [1,N,2], [1,N,10].
+
+    bool parseFlat(const dxrt::TensorPtrs& outputs,
+                   std::vector<float>& boxes_out,
+                   std::vector<float>& scores_out,
+                   std::vector<float>& lmks_out) const {
+        const dxrt::TensorPtr* scores_t = nullptr;
+        const dxrt::TensorPtr* boxes_t  = nullptr;
+        const dxrt::TensorPtr* lmks_t   = nullptr;
+        for (auto& t : outputs) {
+            int last = static_cast<int>(t->shape().back());
+            if (last == 2 && !scores_t) scores_t = &t;
+            else if (last == 4 && !boxes_t)  boxes_t  = &t;
+            else if (last == 10 && !lmks_t)  lmks_t   = &t;
+        }
+        if (!scores_t || !boxes_t) return false;
+
+        auto sh = (*boxes_t)->shape();
+        int N = static_cast<int>(sh.size() >= 2 ? sh[sh.size()-2] : sh[0]);
+
+        const float* bd = static_cast<const float*>((*boxes_t)->data());
+        const float* sd = static_cast<const float*>((*scores_t)->data());
+
+        boxes_out.assign(bd, bd + N * 4);
+        scores_out.assign(sd, sd + N * 2);
+        if (lmks_t) {
+            const float* ld = static_cast<const float*>((*lmks_t)->data());
+            lmks_out.assign(ld, ld + N * 10);
+        }
+        return true;
+    }
+
+    // ── Decoding helpers ─────────────────────────────────────────────────────
+
     void decodePriorBox(int i, const float* boxes_data,
                         float& cx, float& cy, float& bw, float& bh) const {
         float pcx = priors_[i][0], pcy = priors_[i][1];
@@ -122,13 +245,16 @@ private:
         bh = ph  * std::exp(boxes_data[i * 4 + 3] * variance_[1]);
     }
 
-    // Helper: filter candidates above threshold and convert to NMS input
     void collectCandidates(int N, const float* scores_data, const float* boxes_data,
                            std::vector<cv::Rect2d>& nms_boxes,
                            std::vector<float>& nms_scores,
                            std::vector<int>& nms_indices) const {
         for (int i = 0; i < N; ++i) {
-            float face_score = scores_data[i * 2 + 1];
+            // Softmax-like: face score is index 1 of [bg, face]
+            float bg   = scores_data[i * 2 + 0];
+            float face = scores_data[i * 2 + 1];
+            float denom = std::exp(bg - face) + 1.0f;
+            float face_score = 1.0f / denom;
             if (face_score < score_threshold_) continue;
 
             float cx, cy, bw, bh;
@@ -147,50 +273,48 @@ private:
         }
     }
 
-    // Helper: scale box corners and landmarks from input space to original image space
     void scaleResultCoords(const PreprocessContext& ctx,
                            float& x1, float& y1, float& x2, float& y2,
                            std::vector<Keypoint>& landmarks) const {
-        if (ctx.pad_x == 0 && ctx.pad_y == 0) {
-            float sx = static_cast<float>(ctx.original_width)  / input_width_;
-            float sy = static_cast<float>(ctx.original_height) / input_height_;
-            x1 *= sx; y1 *= sy; x2 *= sx; y2 *= sy;
-            for (auto& kp : landmarks) { kp.x *= sx; kp.y *= sy; }
-        } else {
-            x1 = (x1 - ctx.pad_x) / ctx.scale;
-            y1 = (y1 - ctx.pad_y) / ctx.scale;
-            x2 = (x2 - ctx.pad_x) / ctx.scale;
-            y2 = (y2 - ctx.pad_y) / ctx.scale;
-            for (auto& kp : landmarks) {
-                kp.x = (kp.x - ctx.pad_x) / ctx.scale;
-                kp.y = (kp.y - ctx.pad_y) / ctx.scale;
-            }
+        // Coordinates are in model-input (letterboxed) space. Remove padding,
+        // then divide by the resize scale. Letterbox uses a UNIFORM scale
+        // (ctx.scale) — using per-axis original/input ratios here breaks the
+        // padded axis (boxes misplaced, as if padding were ignored). Stretch
+        // resize (no padding) sets per-axis scale_x/scale_y instead.
+        float sx = (ctx.scale_x > 0.f) ? (1.0f / ctx.scale_x)
+                                       : (ctx.scale > 0.f ? 1.0f / ctx.scale : 1.0f);
+        float sy = (ctx.scale_y > 0.f) ? (1.0f / ctx.scale_y)
+                                       : (ctx.scale > 0.f ? 1.0f / ctx.scale : 1.0f);
+        float px = static_cast<float>(ctx.pad_x);
+        float py = static_cast<float>(ctx.pad_y);
+
+        x1 = (x1 - px) * sx; y1 = (y1 - py) * sy;
+        x2 = (x2 - px) * sx; y2 = (y2 - py) * sy;
+        for (auto& kp : landmarks) {
+            kp.x = (kp.x - px) * sx;
+            kp.y = (kp.y - py) * sy;
         }
     }
 
     void generatePriorBoxes() {
-        int feature_map_strides[] = {8, 16, 32};
+        int strides[]     = {8, 16, 32};
         int min_sizes[][2] = {{16, 32}, {64, 128}, {256, 512}};
 
-        auto generate_stride_priors = [&](int stride, const int* ms, int fh, int fw) {
+        for (int s = 0; s < 3; ++s) {
+            int stride = strides[s];
+            int fh = (input_height_ + stride - 1) / stride;
+            int fw = (input_width_  + stride - 1) / stride;
             for (int y = 0; y < fh; ++y) {
                 for (int x = 0; x < fw; ++x) {
                     for (int k = 0; k < 2; ++k) {
                         float cx = (x + 0.5f) * stride / input_width_;
                         float cy = (y + 0.5f) * stride / input_height_;
-                        float pw = static_cast<float>(ms[k]) / static_cast<float>(input_width_);
-                        float ph = static_cast<float>(ms[k]) / static_cast<float>(input_height_);
+                        float pw = static_cast<float>(min_sizes[s][k]) / input_width_;
+                        float ph = static_cast<float>(min_sizes[s][k]) / input_height_;
                         priors_.push_back({cx, cy, pw, ph});
                     }
                 }
             }
-        };
-
-        for (int s = 0; s < 3; ++s) {
-            int stride = feature_map_strides[s];
-            int fh = (input_height_ + stride - 1) / stride;
-            int fw = (input_width_ + stride - 1) / stride;
-            generate_stride_priors(stride, min_sizes[s], fh, fw);
         }
     }
 

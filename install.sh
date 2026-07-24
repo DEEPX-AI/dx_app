@@ -80,7 +80,7 @@ function compare_version() {
 }
 
 function install_dep() {
-    cmake_version_required=3.14
+    cmake_version_required=3.16
     install_cmake=false
     if [ "$install_dep" == true ]; then
         echo " Install dependence package tools "

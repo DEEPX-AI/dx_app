@@ -38,6 +38,7 @@ The framework employs a layered approach to isolate issues effectively
 - `conftest.py`: Contains shared fixtures, mock infrastructure, and setup/teardown utilities.  
 
 !!! note "Coverage Scope"
+
     The Python test framework uses centralized model registration under `tests/python_example/framework/`. Adding a new source directory under `src/python_example/` does not automatically guarantee full test coverage until the corresponding test registration and mappings are updated.
 
 ---
@@ -153,6 +154,7 @@ E2E_DISPLAY=1 pytest -m e2e
 ```
 
 !!! note "NOTE"  
+
     Display is only supported for `sync` variants due to thread-safety constraints.  
 
 - **Performance Reporting:** After E2E tests finish, a performance summary is printed to the console. Detailed logs, including FPS and Latency per model variant, are automatically saved to: `tests/python_example/performance_reports/performance_report.csv`  
