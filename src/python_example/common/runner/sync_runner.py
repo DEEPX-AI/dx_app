@@ -825,8 +825,14 @@ class SyncRunner:
             if self._dump_tensors and run_dir:
                 dump_tensors(input_tensor, outputs, run_dir / "tensors")
 
+            # Super-resolution: also save the upscaled output on its own.
+            sr_only = None
+            task_type = self.factory.get_task_type() \
+                if hasattr(self.factory, "get_task_type") else ""
+            if task_type == "super_resolution" and results:
+                sr_only = getattr(results[0], "output_image", None)
             metrics["sum_save"] += self._save_image_output(
-                output_img, image_path, save_enabled, run_dir)
+                output_img, image_path, save_enabled, run_dir, sr_only=sr_only)
             metrics["sum_display"] += self._display_image_output(
                 output_img, display)
 
@@ -870,8 +876,14 @@ class SyncRunner:
 
     def _save_image_output(self, output_img: np.ndarray, image_path: str,
                            save_enabled: bool,
-                           run_dir: Optional[Path]) -> float:
-        """Save output image to run_dir and/or DXAPP_SAVE_IMAGE. Returns time."""
+                           run_dir: Optional[Path],
+                           sr_only: Optional[np.ndarray] = None) -> float:
+        """Save output image to run_dir and/or DXAPP_SAVE_IMAGE. Returns time.
+
+        For super-resolution, ``sr_only`` (the upscaled output without the
+        side-by-side comparison panel) is saved alongside as ``*_output_only``,
+        matching the tiled SR path.
+        """
         env_save = os.environ.get("DXAPP_SAVE_IMAGE")
         if not save_enabled and not env_save:
             return 0.0
@@ -879,8 +891,13 @@ class SyncRunner:
         if save_enabled and run_dir and output_img is not None:
             base = os.path.splitext(os.path.basename(image_path))[0]
             cv2.imwrite(str(run_dir / f"{base}_result.jpg"), output_img)
+            if sr_only is not None:
+                cv2.imwrite(str(run_dir / f"{base}_output_only.jpg"), sr_only)
         if env_save and output_img is not None:
             cv2.imwrite(env_save, output_img)
+            if sr_only is not None:
+                _stem, _ext = os.path.splitext(env_save)
+                cv2.imwrite(f"{_stem}_output_only{_ext}", sr_only)
         return time.perf_counter() - t0
 
     def _display_image_output(self, output_img: np.ndarray,
@@ -1420,13 +1437,21 @@ class SyncRunner:
         env_save = os.environ.get("DXAPP_SAVE_IMAGE")
         if env_save:
             cv2.imwrite(env_save, canvas)
+            # Also save the upscaled output on its own (no Bicubic panel / labels),
+            # alongside the side-by-side image, so the raw x{scale} result at full
+            # resolution is available as its own file. Self-descriptive suffix so the
+            # user can tell the two apart: "<name>_output_only" next to the combined.
+            _stem, _ext = os.path.splitext(env_save)
+            cv2.imwrite(f"{_stem}_output_only{_ext}", sr_bgr)
 
         if self._save:
             run_dir = create_run_dir(
                 "image", os.path.basename(image_path) if image_path else "sr_output",
                 self._save_dir)
             write_run_info(run_dir, self._model_path, image_path or "unknown")
-            cv2.imwrite(str(run_dir / "sr_result.jpg"), canvas)
+            # Clear, self-descriptive names: one side-by-side comparison, one raw output.
+            cv2.imwrite(str(run_dir / "sr_input_output.jpg"), canvas)  # side-by-side: input | SR output
+            cv2.imwrite(str(run_dir / "sr_output_only.jpg"), sr_bgr)   # SR output only (full x{scale} res)
 
         t5 = None
         if display:
@@ -1449,6 +1474,17 @@ class SyncRunner:
             if hasattr(self.factory, "get_task_type") else ""
         if task_type != "super_resolution":
             return False
+        # The tiled path is a luminance-only (Y-channel) pipeline: it feeds
+        # 1-channel grayscale tiles and reconstructs chroma via bicubic YCrCb.
+        # It only applies to single-channel-input SR models (e.g. ESPCN
+        # [1,H,W,1]). Full-color SR models (e.g. RealESRGAN [1,H,W,3]) must use
+        # the standard 3-channel postprocess/visualize path — feeding them
+        # grayscale produces a wrong, discolored result that differs from C++.
+        shape = getattr(self, "_input_shape", None)
+        if shape is not None and len(shape) >= 4:
+            in_ch = shape[1] if self._nchw else shape[-1]
+            if in_ch != 1:
+                return False
         probe = np.zeros((self.input_height, self.input_width, 1),
                          dtype=np.uint8)
         try:

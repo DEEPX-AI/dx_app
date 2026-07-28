@@ -126,12 +126,12 @@ Test the NPU performance using the YOLOv9 object detection template.
 ```bash
 ## Static Image Inference (Synchronous)
 ./bin/yolov9s_sync \
--m assets/models/YoloV9S.dxnn \
+-m assets/models/yolov9-s_640x640.dxnn \
 -i sample/img/sample_kitchen.jpg
 
 ## Video Stream Inference (Asynchronous)
 ./bin/yolov9s_async \
--m assets/models/YoloV9S.dxnn \
+-m assets/models/yolov9-s_640x640.dxnn \
 -v assets/videos/dance-group.mov
 ```
 
@@ -140,12 +140,12 @@ Test the NPU performance using the YOLOv9 object detection template.
 ```bash
 ## Python Baseline (Synchronous)
 python src/python_example/object_detection/yolov9s/yolov9s_sync.py \
-   --model assets/models/YoloV9S.dxnn \
+   --model assets/models/yolov9-s_640x640.dxnn \
    --image sample/img/sample_kitchen.jpg
 
 ## Python Optimized (Asynchronous + C++ Post-processing)
 python src/python_example/object_detection/yolov9s/yolov9s_async_cpp_postprocess.py \
-  --model assets/models/YoloV9S.dxnn \
+  --model assets/models/yolov9-s_640x640.dxnn \
     --video assets/videos/dance-group.mov 
 ```
 

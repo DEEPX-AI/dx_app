@@ -215,13 +215,13 @@ For YOLO-family model onboarding and postprocessor selection details, refer to [
 
 ```bash
 # Create from a postprocessor template
-./scripts/add_model.sh yolov30 detection --postprocessor yolov8
+./scripts/add_model.sh yolo_custom detection --postprocessor yolov8
 
 # Copy from an existing model directory (useful for same-family variants)
 ./scripts/add_model.sh yolov7_w6 detection --base-model yolov7 --postprocessor yolov7
 
 # Generate, verify, and push in one step
-./scripts/add_model.sh yolov30 detection --postprocessor yolov8 --verify --model assets/models/YoloV30.dxnn --git-push
+./scripts/add_model.sh yolo_custom detection --postprocessor yolov8 --verify --model assets/models/yolo_custom.dxnn --git-push
 ```
 
 Common `--postprocessor` values include:

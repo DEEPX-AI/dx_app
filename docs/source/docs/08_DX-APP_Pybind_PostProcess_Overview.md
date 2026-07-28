@@ -110,10 +110,10 @@ The `dx_postprocess` classes expect a list of NumPy arrays directly from the `In
 # From dx_app/ directory
 
 # Sync (Image Inference)
-python src/python_example/object_detection/yolov9s/yolov9s_sync_cpp_postprocess.py --model assets/models/YoloV9S.dxnn --image sample/img/sample_kitchen.jpg
+python src/python_example/object_detection/yolov9s/yolov9s_sync_cpp_postprocess.py --model assets/models/yolov9-s_640x640.dxnn --image sample/img/sample_kitchen.jpg
 
 # Async (Stream Inference)
-python src/python_example/object_detection/yolov9s/yolov9s_async_cpp_postprocess.py --model assets/models/YoloV9S.dxnn --video assets/videos/dance-group.mov
+python src/python_example/object_detection/yolov9s/yolov9s_async_cpp_postprocess.py --model assets/models/yolov9-s_640x640.dxnn --video assets/videos/dance-group.mov
 ```
 
 ### Direct API Call  

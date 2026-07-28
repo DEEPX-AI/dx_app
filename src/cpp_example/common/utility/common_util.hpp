@@ -914,9 +914,30 @@ constexpr const char* SETUP_FILE_PATH = "setup.sh --force";
         return -1;                                                                               \
     }                                                                                            \
     catch (const std::exception& e) {                                                            \
-        std::cerr << DXAPP_RED << e.what() << DXAPP_RESET << std::endl;                          \
-        std::cerr << DXAPP_GREEN << "[HINT] Use -h or --help for usage information."             \
-                  << DXAPP_RESET << std::endl;                                                   \
+        const std::string _dxapp_msg(e.what());                                                  \
+        std::cerr << DXAPP_RED << _dxapp_msg << DXAPP_RESET << std::endl;                        \
+        /* Image-only examples (embedding, ReID, attribute recognition, …) do    */              \
+        /* not register the stream flags, so cxxopts throws "Option '<flag>' does */              \
+        /* not exist" for -v/-c/-r. Surface an explicit image-only note in that   */              \
+        /* case instead of the generic usage hint.                               */              \
+        const bool _dxapp_no_opt = _dxapp_msg.find("does not exist") != std::string::npos;       \
+        const bool _dxapp_stream_flag =                                                          \
+            _dxapp_msg.find("'video'") != std::string::npos ||                                   \
+            _dxapp_msg.find("'v'") != std::string::npos ||                                       \
+            _dxapp_msg.find("'camera'") != std::string::npos ||                                  \
+            _dxapp_msg.find("'c'") != std::string::npos ||                                       \
+            _dxapp_msg.find("'rtsp'") != std::string::npos ||                                    \
+            _dxapp_msg.find("'r'") != std::string::npos;                                         \
+        if (_dxapp_no_opt && _dxapp_stream_flag) {                                               \
+            std::cerr << DXAPP_GREEN                                                             \
+                      << "[HINT] This example is image-only: video/camera/RTSP input "          \
+                         "(-v/--video, -c/--camera, -r/--rtsp) is not supported. "              \
+                         "Use -i (--image_path) to provide an image file or directory."         \
+                      << DXAPP_RESET << std::endl;                                               \
+        } else {                                                                                 \
+            std::cerr << DXAPP_GREEN << "[HINT] Use -h or --help for usage information."         \
+                      << DXAPP_RESET << std::endl;                                               \
+        }                                                                                        \
         return -1;                                                                               \
     }
 

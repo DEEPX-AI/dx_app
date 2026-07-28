@@ -1,4 +1,15 @@
 # RELEASE_NOTES
+## v3.2.1 / 2026-07-28
+
+### 1. Changed
+- Updated all example commands in README and docs to the new model filename convention (e.g. YoloV9S.dxnn -> yolov9-s_640x640.dxnn)
+- Super-resolution now saves both a side-by-side comparison (sr_input_output.jpg) and the standalone upscaled output.
+
+### 2. Fixed
+- Fixed RealESRGAN discolored output vs. C++: corrected color rounding and RGB->BGR channel order, and stopped routing 3-channel SR models through the luminance-only tiled path
+
+### 3. Added
+
 ## v3.2.0 / 2026-06-25
 
 ### 1. Changed

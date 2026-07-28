@@ -19,8 +19,38 @@ Usage (from any model wrapper)::
 """
 
 import argparse
+import sys
 
 
+# Stream-input flags that image-only examples do NOT register. Kept here so the
+# custom parser below can recognise them in an "unrecognized arguments" error.
+_STREAM_FLAGS = ("--video", "-v", "--camera", "-c", "--rtsp", "-r")
+
+
+class _ImageOnlyArgumentParser(argparse.ArgumentParser):
+    """Parser for image-only examples (embedding, ReID, attribute recognition).
+
+    Stream flags (``--video`` / ``--camera`` / ``--rtsp``) are intentionally NOT
+    registered so they stay hidden from ``--help``. When a user
+    passes one anyway, argparse would report only a generic
+    "unrecognized arguments" error. We override :meth:`error` so that an
+    explicit, always-shown note explaining the example is image-only is emitted
+    as well — while preserving the standard message text and exit code 2.
+    """
+
+    def error(self, message):  # noqa: D401 - argparse hook
+        if "unrecognized arguments" in message and any(
+            flag in message.split() for flag in _STREAM_FLAGS
+        ):
+            self.print_usage(sys.stderr)
+            self.exit(
+                2,
+                f"{self.prog}: error: {message}\n"
+                f"{self.prog}: note: this example is image-only — video/camera/"
+                f"RTSP input (--video/--camera/--rtsp) is not supported. "
+                f"Use --image (-i) to provide an image file or directory.\n",
+            )
+        super().error(message)
 
 
 
@@ -62,8 +92,11 @@ def parse_common_args(
     Returns:
         Parsed :class:`argparse.Namespace`.
     """
-    parser = argparse.ArgumentParser(
-        description=description, allow_abbrev=False)
+    parser_cls = (
+        argparse.ArgumentParser if include_stream_inputs
+        else _ImageOnlyArgumentParser
+    )
+    parser = parser_cls(description=description, allow_abbrev=False)
 
     # ---- Model path ----
     # Optional (SDKREQ-529): when omitted, the runner resolves this example's

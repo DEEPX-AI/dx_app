@@ -94,8 +94,14 @@ class RealESRGANPostprocessor(IPostprocessor):
         raw = outputs[0]
         raw = np.squeeze(raw)
         if raw.ndim == 3 and raw.shape[0] == 3:
-            raw = np.transpose(raw, (1, 2, 0))
-        out_uint8 = (np.clip(raw, 0.0, 1.0) * 255.0).astype(np.uint8)
+            raw = np.transpose(raw, (1, 2, 0))  # CHW → HWC (RGB order)
+        # Match C++ DnCNNPostprocessor: round (not floor) and emit BGR so that
+        # downstream cv2.imwrite writes correct colors. The model output is RGB
+        # (preprocessor converts BGR→RGB), so swap R/B back to BGR here.
+        out_uint8 = np.clip(raw, 0.0, 1.0) * 255.0
+        out_uint8 = np.round(out_uint8).astype(np.uint8)
+        if out_uint8.ndim == 3 and out_uint8.shape[2] == 3:
+            out_uint8 = out_uint8[:, :, ::-1].copy()  # RGB → BGR
         return [RestorationResult(output_image=out_uint8)]
 
     def get_model_name(self) -> str:
