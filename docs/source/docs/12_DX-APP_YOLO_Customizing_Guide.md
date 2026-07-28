@@ -43,7 +43,7 @@ Use `scripts/add_model.sh` to create the C++ and Python example trees from the c
 
 ```bash
 # YOLOv8-style detection model
-./scripts/add_model.sh yolov30 object_detection --postprocessor yolov8 --lang both
+./scripts/add_model.sh yolo_custom object_detection --postprocessor yolov8 --lang both
 
 # YOLOv7-style anchor-based model
 ./scripts/add_model.sh yolov7_w6 object_detection --base-model yolov7 --postprocessor yolov7 --lang both

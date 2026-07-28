@@ -515,11 +515,23 @@ class AsyncRunner:
 
     def _save_render_output(self, output_img: Optional[np.ndarray],
                             save_enabled: bool, render_idx: int,
-                            image_save_paths: Optional[list]) -> None:
-        """Save a rendered frame (image or video) and env-var export."""
+                            image_save_paths: Optional[list],
+                            sr_only: Optional[np.ndarray] = None) -> None:
+        """Save a rendered frame (image or video) and env-var export.
+
+        For super-resolution, ``sr_only`` (the upscaled output without the
+        side-by-side panel) is saved alongside as ``*_output_only``, matching
+        the sync and tiled SR paths.
+        """
         if save_enabled and output_img is not None:
             if image_save_paths is not None and render_idx < len(image_save_paths):
-                cv2.imwrite(image_save_paths[render_idx], output_img)
+                path = image_save_paths[render_idx]
+                cv2.imwrite(path, output_img)
+                if sr_only is not None:
+                    _stem, _ext = os.path.splitext(path)
+                    if _stem.endswith("_result"):
+                        _stem = _stem[:-len("_result")]
+                    cv2.imwrite(f"{_stem}_output_only{_ext}", sr_only)
                 with self._metrics_lock:
                     self._metrics["save_completed"] += 1
             elif self._video_writer is not None:
@@ -529,6 +541,9 @@ class AsyncRunner:
         env_save = os.environ.get("DXAPP_SAVE_IMAGE")
         if env_save and output_img is not None and render_idx == 0:
             cv2.imwrite(env_save, output_img)
+            if sr_only is not None:
+                _stem, _ext = os.path.splitext(env_save)
+                cv2.imwrite(f"{_stem}_output_only{_ext}", sr_only)
 
     def _show_output(self, img: Optional[np.ndarray]) -> None:
         """Display image in a screen-aware resizable window."""
@@ -555,9 +570,16 @@ class AsyncRunner:
                     self._metrics["sum_render"] += t1 - t0
                     self._metrics["render_completed"] += 1
 
+                sr_only = None
+                task_type = self.factory.get_task_type() \
+                    if hasattr(self.factory, "get_task_type") else ""
+                if task_type == "super_resolution" and results:
+                    sr_only = getattr(results[0], "output_image", None)
+
                 t_s0 = time.perf_counter()
                 self._save_render_output(
-                    output_img, save_enabled, render_idx, image_save_paths)
+                    output_img, save_enabled, render_idx, image_save_paths,
+                    sr_only=sr_only)
                 with self._metrics_lock:
                     self._metrics["sum_save"] += time.perf_counter() - t_s0
 
@@ -714,6 +736,15 @@ class AsyncRunner:
                      if hasattr(self.factory, "get_task_type") else "")
         if task_type != "super_resolution":
             return False
+        # Tiled path is a luminance-only (Y-channel) pipeline for single-channel
+        # SR models (e.g. ESPCN [1,H,W,1]). Full-color models (RealESRGAN
+        # [1,H,W,3]) must use the standard 3-channel path — feeding them
+        # grayscale yields a wrong, discolored result that differs from C++.
+        shape = getattr(self, "_input_shape", None)
+        if shape is not None and len(shape) >= 4:
+            in_ch = shape[1] if getattr(self, "_nchw", False) else shape[-1]
+            if in_ch != 1:
+                return False
         probe = np.zeros((self.input_height, self.input_width, 1),
                          dtype=np.uint8)
         try:
@@ -812,7 +843,7 @@ class AsyncRunner:
                     0.6, (0, 255, 100), 2)
         t4 = time.perf_counter()
 
-        return {"output_frame": canvas,
+        return {"output_frame": canvas, "sr_output": sr_bgr,
                 "t_pre": t1 - t0, "t_infer": t2 - t1,
                 "t_post": t3 - t2, "t_render": t4 - t3}
 
@@ -924,6 +955,7 @@ class AsyncRunner:
 
         result = self._process_sr_frame(img)
         canvas = result["output_frame"]
+        sr_only = result.get("sr_output")
         # Map internal timings to image summary timestamps
         t_i0 = t0 + result["t_pre"]
         t_i1 = t_i0 + result["t_infer"]
@@ -933,6 +965,19 @@ class AsyncRunner:
         env_save = os.environ.get("DXAPP_SAVE_IMAGE")
         if env_save:
             cv2.imwrite(env_save, canvas)
+            # Standalone upscaled output alongside the side-by-side (same naming as
+            # the sync runner): <name>_output_only.<ext>.
+            if sr_only is not None:
+                _stem, _ext = os.path.splitext(env_save)
+                cv2.imwrite(f"{_stem}_output_only{_ext}", sr_only)
+        if self._save:
+            run_dir = create_run_dir(
+                "image", os.path.basename(image_path) if image_path else "sr_output",
+                self._save_dir)
+            write_run_info(run_dir, self._model_path, image_path or "unknown")
+            cv2.imwrite(str(run_dir / "sr_input_output.jpg"), canvas)  # side-by-side
+            if sr_only is not None:
+                cv2.imwrite(str(run_dir / "sr_output_only.jpg"), sr_only)  # upscaled only
 
         t5 = None
         if display and _has_display():

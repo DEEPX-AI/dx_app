@@ -481,6 +481,17 @@ private:
         cv::Mat sr_y = sr_y_padded(cv::Rect(0, 0, out_w, out_h)).clone();
         cv::Mat orig_bgr = lr_bgr(cv::Rect(0, 0, orig_w, orig_h));
         cv::Mat canvas = buildSRCanvas(orig_bgr, sr_y, out_w, out_h, orig_w, orig_h, tiles_done);
+        // Also save the upscaled output on its own (right panel = SR output, no Bicubic /
+        // labels), next to the side-by-side image — matches the sync / Python runners.
+        // Suffix: <name>_output_only.<ext>.
+        if (!save_path.empty()) {
+            cv::Mat sr_only = canvas(cv::Rect(out_w + 4, 0, out_w, out_h)).clone();
+            std::size_t dot = save_path.find_last_of('.');
+            std::string out = (dot == std::string::npos)
+                ? save_path + "_output_only"
+                : save_path.substr(0, dot) + "_output_only" + save_path.substr(dot);
+            cv::imwrite(out, sr_only);
+        }
         auto t_post_end = std::chrono::high_resolution_clock::now();
 
         AsyncRestorationDisplayArgs dargs;

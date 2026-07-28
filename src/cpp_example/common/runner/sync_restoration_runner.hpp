@@ -428,6 +428,20 @@ private:
         cv::putText(canvas,
                     cv::format("ESPCN x%d (%dx%d, %d tiles)", scale_x, target_out_w, target_out_h, tiles_done),
                     cv::Point(target_out_w + 14, 25), cv::FONT_HERSHEY_SIMPLEX, 0.6, cv::Scalar(0, 255, 100), 2);
+        // Also save the upscaled output on its own (no Bicubic panel / labels), next to
+        // the side-by-side image — matches the Python runner. DXAPP_SAVE_IMAGE is set by
+        // processImageFrames (per-image run_dir path) and by standalone/env runs.
+        {
+            const char* sv = std::getenv("DXAPP_SAVE_IMAGE");
+            if (sv && *sv) {
+                std::string p(sv);
+                std::size_t dot = p.find_last_of('.');
+                std::string out = (dot == std::string::npos)
+                    ? p + "_output_only"
+                    : p.substr(0, dot) + "_output_only" + p.substr(dot);
+                cv::imwrite(out, sr_bgr);
+            }
+        }
         return canvas;
     }
 
