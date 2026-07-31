@@ -5329,5 +5329,18 @@
     },
     "source": "manual",
     "supported": true
+  },
+  {
+    "model_name": "yolo26n_depth",
+    "dxnn_file": "yolo26n-depth_640x640.dxnn",
+    "original_name": "yolo26n-depth",
+    "csv_task": "DEPTH",
+    "add_model_task": "depth_estimation",
+    "postprocessor": "depth",
+    "input_width": 640,
+    "input_height": 640,
+    "config": {},
+    "source": "manual",
+    "supported": true
   }
 ]
