@@ -264,7 +264,7 @@ or running a super resolution model on a low-resolution JPEG (wrong format).
 | obb_detection | `sample/dota8_test/P0177.png`, `sample/dota8_test/P0284.png` |
 | segmentation | `sample/img/sample_street.jpg`, `sample/img/sample_parking.jpg` |
 | classification | `sample/ILSVRC2012/0.jpeg`, `sample/ILSVRC2012/1.jpeg` |
-| super_resolution | `sample/img/sample_superresolution.png` |
+| super_resolution | `sample/img/sample_lowres275x150.png` (espcn_x2/x3/x4), `sample/img/sample_lowres165x90.png` (realesrgan_x2/x4/x8) |
 | image_enhancement | `sample/img/sample_lowlight.jpg`, `sample/img/sample_dark_room.jpg` |
 | image_denoising | `sample/img/sample_denoising.jpg` |
 

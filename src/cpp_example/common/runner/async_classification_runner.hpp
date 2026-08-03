@@ -141,7 +141,21 @@ public:
         std::string run_dir;
         std::string video_save_path;
 
-        if (!is_image) {
+        if (is_image) {
+            // Image save setup — without this the per-image save path below stays
+            // empty and --save silently produces nothing for image input (the
+            // stream branch had its own run_dir, the image branch had none).
+            if (args.saveMode) {
+                std::string run_kind = fs::is_directory(args.imageFilePath) ? "image-dir" : "image";
+                std::string run_name = fs::path(args.imageFilePath).filename().string();
+                std::string input_src = buildInputSourceString(
+                    args.imageFilePath, args.videoFile, args.cameraIndex, args.rtspUrl);
+                run_dir = makeRunDir(args.saveDir, factory_->getModelName() + "_async",
+                                     run_kind, run_name);
+                fs::create_directories(run_dir);
+                writeRunInfo(run_dir, argv[0], args.modelPath, input_src);
+            }
+        } else {
             if (!openVideoCapture(video, args)) {
                 std::cerr << "[DXAPP] [ERROR] Failed to open input source." << std::endl;
                 return -1;
@@ -396,6 +410,38 @@ public:
                 std::this_thread::sleep_for(std::chrono::milliseconds(10));
             }
         }
+        // Frames can still be in flight when the reader hits EOF: a completion
+        // callback may not have queued its frame yet, and the display thread may
+        // hold buffered ones. Wait until every submitted frame has been rendered
+        // (and therefore written) before stopping the consumer — otherwise the
+        // tail of a --save video is silently lost. The live-display path never
+        // showed this because frames are rendered as they arrive. Bail out if no
+        // progress is made for 5 s, so a dropped frame cannot hang shutdown.
+        {
+            auto last_progress = std::chrono::steady_clock::now();
+            int last_rendered = -1;
+            while (running_ && !g_interrupted()) {
+                int rendered;
+                {
+                    std::lock_guard<std::mutex> lock(metrics_.metrics_mutex);
+                    rendered = metrics_.render_completed;
+                }
+                const bool pending = !display_queue_.empty() ||
+                                     (args.saveMode && rendered < processCount);
+                if (!pending) break;
+                if (rendered != last_rendered) {
+                    last_rendered = rendered;
+                    last_progress = std::chrono::steady_clock::now();
+                } else if (std::chrono::steady_clock::now() - last_progress >
+                           std::chrono::seconds(5)) {
+                    std::cerr << "[DXAPP] [WARN] Output frames stopped draining; "
+                                 "saved video may be truncated." << std::endl;
+                    break;
+                }
+                if (!args.no_display) pollDisplay();
+                else std::this_thread::sleep_for(std::chrono::milliseconds(2));
+            }
+        }
         running_ = false;
         display_queue_.shutdown();
         rendered_queue_.shutdown();
@@ -510,7 +556,7 @@ private:
 
     void displayThread(IVisualizer<ClassificationResult>& visualizer, bool no_display,
                        bool save_on, cv::VideoWriter& writer) {
-        while (running_) {
+        while (running_ || !display_queue_.empty()) {
             AsyncClassificationDisplayArgs args;
             if (!display_queue_.try_pop(args, std::chrono::milliseconds(100))) continue;
             if (!args.original_frame || args.original_frame->empty()) continue;
@@ -523,7 +569,7 @@ private:
                 metrics_.sum_render += std::chrono::duration<double, std::milli>(t_render_end - t_render_start).count();
                 metrics_.render_completed++;
             }
-            if (save_on && writer.isOpened() && !result_frame.empty()) dxapp::writeToVideo(writer, result_frame);
+            if (save_on && writer.isOpened() && !result_frame.empty()) dxapp::writeToVideo(writer, result_frame, SHOW_WINDOW_SIZE_W, SHOW_WINDOW_SIZE_H);
             if (!args.save_path.empty() && !result_frame.empty()) {
                 auto t_save_start = std::chrono::high_resolution_clock::now();
                 cv::imwrite(args.save_path, result_frame);

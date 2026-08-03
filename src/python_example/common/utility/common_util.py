@@ -533,12 +533,16 @@ def convert_cpp_restoration(image: np.ndarray, ctx=None) -> list:
 
     Args:
         image: numpy array [H, W] or [C, H, W] float, values in [0, 1].
-        ctx: Unused (kept for convert-fn signature compatibility).
+        ctx: Optional PreprocessContext. For upscaling models it carries the
+             source geometry used to undo the square-input stretch, so the
+             *_cpp_postprocess variants match the Python path.
 
     Returns:
         List containing a single RestorationResult.
     """
-    from ..processors.restoration_postprocessor import RestorationResult
+    from ..processors.restoration_postprocessor import (
+        RestorationResult, restore_source_geometry,
+    )
 
     if image is None:
         return []
@@ -562,6 +566,9 @@ def convert_cpp_restoration(image: np.ndarray, ctx=None) -> list:
     else:
         out = ((raw - dmin) / (dmax - dmin) * 255.0).astype(np.uint8)
 
+    out = restore_source_geometry(out, ctx,
+                                  int(getattr(ctx, "input_width", 0) or 0),
+                                  int(getattr(ctx, "input_height", 0) or 0))
     return [RestorationResult(output_image=out)]
 
 
@@ -599,15 +606,19 @@ def convert_cpp_super_resolution(image: np.ndarray, ctx=None) -> list:
 
     original_image = getattr(ctx, "original_image", None) if ctx is not None else None
     if output.ndim == 2 and original_image is not None:
+        from .colorspace import bgr_to_ycrcb_limited, ycrcb_limited_to_bgr
+
         sr_y = (output * 255.0).astype(np.uint8)
         out_h, out_w = sr_y.shape
-        original_ycrcb = cv2.cvtColor(original_image, cv2.COLOR_BGR2YCrCb)
+        # ESPCN's Y is limited range (MATLAB rgb2ycbcr) — keep the chroma
+        # planes and the inverse matrix on the same convention.
+        original_ycrcb = bgr_to_ycrcb_limited(original_image)
         cr_up = cv2.resize(original_ycrcb[:, :, 1], (out_w, out_h),
                            interpolation=cv2.INTER_CUBIC)
         cb_up = cv2.resize(original_ycrcb[:, :, 2], (out_w, out_h),
                            interpolation=cv2.INTER_CUBIC)
         merged = np.stack([sr_y, cr_up, cb_up], axis=2)
-        out = cv2.cvtColor(merged, cv2.COLOR_YCrCb2BGR)
+        out = ycrcb_limited_to_bgr(merged)
     else:
         out = (output * 255.0).astype(np.uint8)
 

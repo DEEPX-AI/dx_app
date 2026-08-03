@@ -80,6 +80,7 @@ def parse_common_args(
     --loop, -l       Inference loop count (default 1, bare --loop = 2)
     --dump-tensors   Dump raw inference tensors
     --config         Path to config.json (auto-detected)
+    --sr-tile-halo   Tile overlap (px) for tiled super-resolution
     ===============  ========================================
 
     Args:
@@ -178,6 +179,21 @@ def parse_common_args(
              "(differs only at sub-pixel mask boundaries) for segmentation "
              "models (instance-seg, YOLACT, SegFormer). The standard path is "
              "always the default.",
+    )
+
+    # ---- Tiled super-resolution ----
+    # Only the tiled SR path reads this (single-channel SR such as ESPCN, which is
+    # compiled at a small fixed input and therefore covers a larger image by
+    # tiling). Other models accept and ignore it, the same way --fast-postprocess
+    # is safe everywhere. Registered unconditionally because the SR entry points
+    # do not pass ``include_output`` consistently, and gating on it would drop the
+    # option from some of them.
+    parser.add_argument(
+        "--sr-tile-halo", type=int, default=None, metavar="PX",
+        help="Tile overlap in LR pixels for tiled super-resolution, 0..4 "
+             "(default: 4 = the ESPCN receptive-field radius, the most context an "
+             "output pixel can use; 0 = no overlap, fastest but seams appear). "
+             "Overrides config.json 'sr_tile_halo' and DXAPP_SR_TILE_HALO.",
     )
 
     # ---- Optional: output path (SR / depth / denoising) ----

@@ -44,7 +44,12 @@ import cv2
 from ..inputs import InputFactory
 from ..utility import print_async_performance_summary_legacy, SafeQueue
 from ..utility import print_image_processing_summary, print_sync_performance_summary
+from ..utility.video_io import write_video_frame
+from ..utility.colorspace import bgr_to_y_limited, bgr_to_ycrcb_limited, ycrcb_limited_to_bgr
 from .run_dir import create_run_dir, write_run_info, dump_tensors, dump_tensors_on_exception
+from .sr_tiling import (
+    assemble_tiles, plan_tiles, resolve_runner_halo, run_tiles_pipelined,
+)
 from .verify_serialize import is_verify_enabled, dump_verify_json
 
 # Import shared validation / version check / helpers from sync_runner
@@ -111,6 +116,10 @@ class AsyncRunner:
 
         # SR tiled fallback (ESPCN etc.)
         self._sr_cache: Optional[dict] = None
+        self._config: dict = {}                  # loaded config.json (may be empty)
+        self._sr_halo_cli: Optional[int] = None  # --sr-tile-halo (None = unset)
+        self._sr_halo: Optional[int] = None      # resolved once, then cached
+        self._sr_tiling_logged = False           # tiles-per-frame line: once per run
 
         # Pipeline state
         self._stop_event = threading.Event()
@@ -118,6 +127,7 @@ class AsyncRunner:
         self._metrics: Dict[str, object] = {}
         self._worker_error: Dict[str, object] = {"name": None, "exc": None}
         self._video_writer = None
+        self._video_writer_size = None  # (w, h) the writer was opened with
         self.frame_count = 0
 
     # ------------------------------------------------------------------
@@ -176,6 +186,7 @@ class AsyncRunner:
         self._verbose = getattr(args, "show_log", False)
         self._model_path = args.model
         self._fast_postprocess = getattr(args, "fast_postprocess", False)
+        self._sr_halo_cli = getattr(args, "sr_tile_halo", None)
         if _show_image_only_no_input_hint(args, self.factory):
             return
         self._init_engine(args.model, _resolve_config_path(args))
@@ -268,6 +279,7 @@ class AsyncRunner:
             from ..config import load_config
             config = load_config(config_path, verbose=self._verbose)
             if config:
+                self._config = config
                 self.factory.load_config(config)
 
         self.preprocessor = self.factory.create_preprocessor(input_w, input_h)
@@ -308,12 +320,25 @@ class AsyncRunner:
             # Push sentinel
             self._push_sentinel(q)
 
-    @staticmethod
-    def _push_sentinel(q: SafeQueue) -> None:
-        while True:
+    def _push_sentinel(self, q: SafeQueue, grace: float = 5.0) -> None:
+        """Append the end-of-stream sentinel without discarding queued items.
+
+        A full queue at end-of-stream means the consumer is still working, so
+        wait for room — evicting an item here silently dropped the tail frames
+        of a stream. Only if nothing drains the queue within `grace` seconds
+        (consumer already gone, e.g. quit requested) do we make room, so
+        shutdown can never deadlock.
+        """
+        deadline = time.monotonic() + grace
+        while time.monotonic() < deadline:
+            if q.put(_SENTINEL, timeout=0.1):
+                return
+        # Last resort: nobody is consuming — make room so shutdown can finish.
+        for _ in range(16):
+            q.try_get()
             if q.put(_SENTINEL, block=False):
                 return
-            q.try_get()  # make room
+        logger.warning("Could not post the end-of-stream sentinel (queue stopped).")
 
     def _enqueue(self, q: SafeQueue, item: object) -> bool:
         """Blocking put with stop_event check and 100ms timeout."""
@@ -398,18 +423,7 @@ class AsyncRunner:
                 t1 = time.perf_counter()
 
                 # Submit async inference
-                if self._input_dtype is not None and input_tensor.dtype != self._input_dtype:
-                    if self._input_dtype == np.float32 and input_tensor.dtype == np.uint8:
-                        input_tensor = input_tensor.astype(np.float32) / 255.0
-                    else:
-                        input_tensor = input_tensor.astype(self._input_dtype)
-                # HWC → CHW for NCHW models (e.g., ViT, DeiT)
-                # Skip if already CHW (channel dim first); detect HWC by last dim being small channel count
-                # and first two dims being spatial (both > 4)
-                if getattr(self, "_nchw", False) and input_tensor.ndim == 3:
-                    h, w, c = input_tensor.shape
-                    if c in (1, 3, 4) and h > 4 and w > 4:
-                        input_tensor = np.transpose(input_tensor, (2, 0, 1))
+                input_tensor = self._prep_input(input_tensor)
                 req_id = self.ie.run_async([input_tensor])
                 t_submit = time.perf_counter()
 
@@ -535,7 +549,8 @@ class AsyncRunner:
                 with self._metrics_lock:
                     self._metrics["save_completed"] += 1
             elif self._video_writer is not None:
-                self._video_writer.write(output_img)
+                write_video_frame(self._video_writer, output_img,
+                                  self._video_writer_size)
                 with self._metrics_lock:
                     self._metrics["save_completed"] += 1
         env_save = os.environ.get("DXAPP_SAVE_IMAGE")
@@ -756,6 +771,34 @@ class AsyncRunner:
         except Exception:
             return False
 
+    def _log_sr_tiling(self, orig_w, orig_h, tile_w, tile_h, halo, tiles) -> None:
+        """Report the tiling plan once per run.
+
+        At a fixed model input the per-frame cost is driven by how many tiles the
+        frame is cut into — that is how many inferences run per frame. Logged once
+        (the plan only changes with input size or halo) so a stream does not repeat
+        it every frame.
+        """
+        if self._sr_tiling_logged:
+            return
+        self._sr_tiling_logged = True
+        logger.info(
+            f"SR tiling: {orig_w}x{orig_h} -> {tiles} tiles of {tile_w}x{tile_h} "
+            f"(halo={halo} px), so {tiles} inferences per frame")
+
+    def _resolve_sr_halo(self) -> int:
+        """Tile halo for the tiled SR path.
+
+        ``--sr-tile-halo`` > config.json ``sr_tile_halo`` > ``DXAPP_SR_TILE_HALO``
+        > default. Resolved once per run against this model's tile size.
+        """
+        if self._sr_halo is None:
+            self._sr_halo = resolve_runner_halo(
+                cli=self._sr_halo_cli, config=self._config,
+                tile_h=self.input_height, tile_w=self.input_width,
+                verbose=self._verbose)
+        return self._sr_halo
+
     def _init_sr_cache(self) -> None:
         """Probe once to cache SR scale info."""
         if self._sr_cache is not None:
@@ -774,10 +817,30 @@ class AsyncRunner:
             self._sr_cache = {
                 "scale_x": max(1, otw // tile_w),
                 "scale_y": max(1, oth // tile_h),
-                "oth": oth, "otw": otw, "probe_out": out,
+                "oth": oth, "otw": otw,
             }
         except Exception:
             self._sr_cache = None
+
+    def _prep_input(self, input_tensor: np.ndarray) -> np.ndarray:
+        """Coerce dtype/layout to what the engine expects, without running it.
+
+        Mirrors ``SyncRunner._prep_input`` so both runners feed the engine
+        identically.
+        """
+        if self._input_dtype is not None and input_tensor.dtype != self._input_dtype:
+            if self._input_dtype == np.float32 and input_tensor.dtype == np.uint8:
+                input_tensor = input_tensor.astype(np.float32) / 255.0
+            else:
+                input_tensor = input_tensor.astype(self._input_dtype)
+        # HWC → CHW for NCHW models (e.g., ViT, DeiT)
+        # Skip if already CHW (channel dim first); detect HWC by last dim being small channel count
+        # and first two dims being spatial (both > 4)
+        if getattr(self, "_nchw", False) and input_tensor.ndim == 3:
+            h, w, c = input_tensor.shape
+            if c in (1, 3, 4) and h > 4 and w > 4:
+                input_tensor = np.transpose(input_tensor, (2, 0, 1))
+        return input_tensor
 
     def _process_sr_frame(self, frame: np.ndarray) -> dict:
         """Tiled super-resolution for one frame (sync). Returns dict with canvas and timings."""
@@ -787,46 +850,39 @@ class AsyncRunner:
         oth, otw = sr["oth"], sr["otw"]
 
         t0 = time.perf_counter()
-        # Pad original frame to tile boundaries without resizing/downscaling.
         orig_h, orig_w = frame.shape[:2]
-        lr_w = ((orig_w + tile_w - 1) // tile_w) * tile_w
-        lr_h = ((orig_h + tile_h - 1) // tile_h) * tile_h
+        out_w, out_h = orig_w * scale_x, orig_h * scale_y
+        halo = self._resolve_sr_halo()
+        padded_h, padded_w, plans = plan_tiles(orig_h, orig_w, tile_h, tile_w, halo)
+        self._log_sr_tiling(orig_w, orig_h, tile_w, tile_h, halo, len(plans))
+
         lr_bgr = cv2.copyMakeBorder(
-            frame, 0, lr_h - orig_h, 0, lr_w - orig_w,
+            frame, 0, padded_h - orig_h, 0, padded_w - orig_w,
             cv2.BORDER_REPLICATE)
-        lr_gray = cv2.cvtColor(lr_bgr, cv2.COLOR_BGR2GRAY)
+        # ESPCN-only path (see _is_sr_tiled): the model is trained on MATLAB
+        # rgb2ycbcr Y, so feed limited-range Y rather than full-range gray.
+        lr_gray = bgr_to_y_limited(lr_bgr)
         t1 = time.perf_counter()
 
-        padded_out_w, padded_out_h = lr_w * scale_x, lr_h * scale_y
-        out_w, out_h = orig_w * scale_x, orig_h * scale_y
-        sr_y = np.zeros((padded_out_h, padded_out_w), dtype=np.uint8)
-        tiles_x, tiles_y = lr_w // tile_w, lr_h // tile_h
-        tiles_done = 0
-
-        for ty in range(tiles_y):
-            for tx in range(tiles_x):
-                tile = lr_gray[ty*tile_h:(ty+1)*tile_h,
-                               tx*tile_w:(tx+1)*tile_w]
-                tile_out = self.ie.run([tile[:, :, np.newaxis]])
-                arr = np.squeeze(tile_out[0]) if tile_out else None
-                if arr is None:
-                    continue
-                arr2d = arr[0] if arr.ndim == 3 else arr
-                tile_u8 = (np.clip(arr2d, 0.0, 1.0) * 255.0).astype(np.uint8)
-                dy, dx = ty * oth, tx * otw
-                sr_y[dy:dy+oth, dx:dx+otw] = tile_u8
-                tiles_done += 1
+        # Only each tile's valid centre is stitched, so with halo >= the
+        # receptive-field radius (4 px for ESPCN) no tile seams remain. Tiles go
+        # through run_async so the per-call overhead is pipelined away.
+        outputs = run_tiles_pipelined(
+            self.ie, self._prep_input, lr_gray, plans, tile_h, tile_w)
+        sr_y, tiles_done = assemble_tiles(
+            plans, outputs, padded_h * scale_y, padded_w * scale_x,
+            scale_y, scale_x)
         t2 = time.perf_counter()
         sr_y = sr_y[:out_h, :out_w]
 
-        # Merge with CrCb from LR
-        lr_ycrcb = cv2.cvtColor(frame, cv2.COLOR_BGR2YCrCb)
+        # Merge with CrCb from LR — sr_y is limited-range, so stay on the
+        # limited-range convention for the chroma planes and the inverse.
+        lr_ycrcb = bgr_to_ycrcb_limited(frame)
         cr_up = cv2.resize(lr_ycrcb[:, :, 1], (out_w, out_h),
                            interpolation=cv2.INTER_CUBIC)
         cb_up = cv2.resize(lr_ycrcb[:, :, 2], (out_w, out_h),
                            interpolation=cv2.INTER_CUBIC)
-        sr_bgr = cv2.cvtColor(np.stack([sr_y, cr_up, cb_up], axis=2),
-                               cv2.COLOR_YCrCb2BGR)
+        sr_bgr = ycrcb_limited_to_bgr(np.stack([sr_y, cr_up, cb_up], axis=2))
         t3 = time.perf_counter()
 
         # Side-by-side canvas
@@ -906,13 +962,7 @@ class AsyncRunner:
 
                 if writer is not None:
                     t_s0 = time.perf_counter()
-                    ww = int(writer.get(cv2.CAP_PROP_FRAME_WIDTH))
-                    wh = int(writer.get(cv2.CAP_PROP_FRAME_HEIGHT))
-                    if ww > 0 and wh > 0 and (
-                            canvas.shape[1] != ww or canvas.shape[0] != wh):
-                        writer.write(cv2.resize(canvas, (ww, wh)))
-                    else:
-                        writer.write(canvas)
+                    write_video_frame(writer, canvas, self._video_writer_size)
                     metrics["sum_save"] += time.perf_counter() - t_s0
 
                 if display and _has_display():
@@ -996,8 +1046,7 @@ class AsyncRunner:
     # VideoWriter with mp4v → XVID fallback
     # ------------------------------------------------------------------
 
-    @staticmethod
-    def _init_video_writer(run_dir: Path, w: int, h: int,
+    def _init_video_writer(self, run_dir: Path, w: int, h: int,
                            fps: float) -> cv2.VideoWriter:
         if w <= 0 or h <= 0:
             raise RuntimeError(
@@ -1006,12 +1055,14 @@ class AsyncRunner:
         save_path = str(run_dir / "output.mp4")
         writer = cv2.VideoWriter(save_path, fourcc, fps, (w, h))
         if writer.isOpened():
+            self._video_writer_size = (w, h)
             return writer
         writer.release()
         fourcc = cv2.VideoWriter_fourcc(*"XVID")
         save_path = str(run_dir / "output.avi")
         writer = cv2.VideoWriter(save_path, fourcc, fps, (w, h))
         if writer.isOpened():
+            self._video_writer_size = (w, h)
             return writer
         writer.release()
         raise RuntimeError("Failed to open VideoWriter for output.")
@@ -1020,25 +1071,39 @@ class AsyncRunner:
     # Pipeline orchestration (stream source)
     # ------------------------------------------------------------------
 
+    @staticmethod
+    def _probe_source_geometry(input_source) -> tuple:
+        """(width, height, fps) of an input source. Zeros when undeterminable.
+
+        Uses the IInputSource accessors — the source has already opened the
+        stream, so re-opening it here is both slower and fragile (a previous
+        version reopened `str(input_source)`, i.e. the object repr, which always
+        probed as 0x0 and silently disabled video saving).
+        """
+        try:
+            w = int(input_source.get_width())
+            h = int(input_source.get_height())
+            fps = float(input_source.get_fps() or 0.0)
+        except Exception as exc:
+            logger.warning(f"Could not read input geometry: {exc}")
+            return 0, 0, 0.0
+        return w, h, fps if fps > 0 else 30.0
+
     def _setup_video_writer(self, input_source, save_enabled: bool,
                             run_dir: Optional[Path],
                             is_video: bool) -> None:
-        """Probe input source and create VideoWriter if applicable."""
-        if save_enabled and run_dir and is_video:
-            try:
-                source_str = (input_source._source
-                              if hasattr(input_source, '_source')
-                              else str(input_source))
-                probe_cap = cv2.VideoCapture(source_str)
-                w = int(probe_cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-                h = int(probe_cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-                fps = probe_cap.get(cv2.CAP_PROP_FPS) or 30.0
-                probe_cap.release()
-                if w > 0 and h > 0:
-                    self._video_writer = self._init_video_writer(
-                        run_dir, w, h, fps)
-            except Exception:
-                pass  # video writer probe failure is non-fatal
+        """Create the output VideoWriter for a video/stream input."""
+        if not (save_enabled and run_dir and is_video):
+            return
+        w, h, fps = self._probe_source_geometry(input_source)
+        if w <= 0 or h <= 0:
+            logger.warning(
+                "Input frame size is unknown — output video will NOT be saved.")
+            return
+        try:
+            self._video_writer = self._init_video_writer(run_dir, w, h, fps)
+        except Exception as exc:
+            logger.warning(f"Failed to open output video writer: {exc}")
 
     def _drain_display_queue(self, queues: dict) -> None:
         """Consume display_queue without showing (headless / no-display)."""
@@ -1073,6 +1138,7 @@ class AsyncRunner:
         self._metrics = self._create_async_metrics()
         self._worker_error = {"name": None, "exc": None}
         self._video_writer = None
+        self._video_writer_size = None  # (w, h) the writer was opened with
         self.frame_count = 0
         self._run_dir = run_dir
 
