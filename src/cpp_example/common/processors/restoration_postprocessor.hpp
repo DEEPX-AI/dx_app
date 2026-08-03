@@ -23,6 +23,38 @@ namespace dxapp {
  * Note: DnCNN outputs the denoised image directly.
  * Values are clamped to [0, 1] and converted to uint8.
  */
+/**
+ * @brief Map a model-space restoration output back onto the source geometry.
+ *
+ * Upscaling models (RealESRGAN) have a fixed square input and the preprocessor
+ * stretches the frame into it, so the raw output carries the *model input*
+ * aspect ratio (192x192 -> 768x768) instead of the source one. Undoing that
+ * per-axis stretch yields `original_size * upscale_factor`, matching what the
+ * tiled ESPCN path produces. Same-size restoration models (DnCNN denoising,
+ * upscale factor 1) are left untouched.
+ */
+inline cv::Mat restoreSourceGeometry(const cv::Mat& image,
+                                     const PreprocessContext& ctx,
+                                     int model_in_w, int model_in_h) {
+    if (image.empty() || ctx.original_width <= 0 || ctx.original_height <= 0 ||
+        model_in_w <= 0 || model_in_h <= 0) {
+        return image;
+    }
+    const double scale_x = static_cast<double>(image.cols) / model_in_w;
+    const double scale_y = static_cast<double>(image.rows) / model_in_h;
+    if (scale_x <= 1.0 && scale_y <= 1.0) return image;
+
+    const int target_w = std::max(1, static_cast<int>(std::lround(ctx.original_width * scale_x)));
+    const int target_h = std::max(1, static_cast<int>(std::lround(ctx.original_height * scale_y)));
+    if (target_w == image.cols && target_h == image.rows) return image;
+
+    cv::Mat resized;
+    const int interp = (target_w < image.cols && target_h < image.rows)
+        ? cv::INTER_AREA : cv::INTER_CUBIC;
+    cv::resize(image, resized, cv::Size(target_w, target_h), 0, 0, interp);
+    return resized;
+}
+
 class DnCNNPostprocessor : public IPostprocessor<RestorationResult> {
 public:
     DnCNNPostprocessor(int input_width, int input_height)
@@ -99,10 +131,14 @@ public:
             return {};
         }
 
+        // The preprocessor stretched the frame into the square model input;
+        // undo it here so the result keeps the source aspect ratio.
+        restored = restoreSourceGeometry(restored, ctx, input_width_, input_height_);
+
         RestorationResult result;
         result.restored_image = restored;
-        result.width = w;
-        result.height = h;
+        result.width = restored.cols;
+        result.height = restored.rows;
 
         return { result };
     }

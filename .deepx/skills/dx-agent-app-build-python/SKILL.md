@@ -784,7 +784,7 @@ Select the sample image based on the model's AI task:
 | obb_detection | `../../sample/dota8_test/P0177.png` |
 | instance_segmentation, semantic_segmentation | `../../sample/img/sample_street.jpg` |
 | classification | `../../sample/ILSVRC2012/0.jpeg` |
-| super_resolution | `../../sample/img/sample_superresolution.png` |
+| super_resolution | `../../sample/img/sample_lowres275x150.png` (espcn_x2/x3/x4), `../../sample/img/sample_lowres165x90.png` (realesrgan_x2/x4/x8) |
 | image_enhancement | `../../sample/img/sample_lowlight.jpg` |
 | image_denoising | `../../sample/img/sample_denoising.jpg` |
 | depth_estimation | `../../sample/img/sample_street.jpg` |

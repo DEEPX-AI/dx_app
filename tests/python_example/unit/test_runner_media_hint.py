@@ -1,7 +1,8 @@
-"""Unit test: missing-image error message includes a sample-image hint.
+"""Unit test: missing-image path is rejected with an actionable error.
 
-Mirrors the friendly guidance already provided for missing model/video
-paths in the runner's input validation.
+Per the SDKREQ-529 policy the runner never falls back to a bundled sample and
+never auto-downloads, so the error only has to abort and name the path that
+was not found.
 """
 import sys
 from pathlib import Path
@@ -25,10 +26,11 @@ def test_missing_image_path_exits():
     assert exc.value.code == 1
 
 
-def test_missing_image_path_includes_sample_hint(caplog):
-    """The error should point users to bundled sample images."""
+def test_missing_image_path_error_names_the_offending_path(caplog):
+    """The error must name the path that was not found, so users can fix the CLI arg."""
     args = SimpleNamespace(image="/nonexistent/does_not_exist.jpg", video=None)
     with caplog.at_level("ERROR"):
         with pytest.raises(SystemExit):
             _validate_media(args)
-    assert "sample/img" in caplog.text
+    assert "not found" in caplog.text
+    assert "/nonexistent/does_not_exist.jpg" in caplog.text

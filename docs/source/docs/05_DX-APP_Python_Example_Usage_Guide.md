@@ -165,8 +165,8 @@ All Python examples use `argparse` via `common/runner/args.py` and share a consi
 **Step 3. Run a Python example**  
 
 ```bash
-python src/python_example/object_detection/yolov9s/yolov9s_sync.py --model assets/models/YoloV9S.dxnn --image sample/img/sample_kitchen.jpg
-python src/python_example/object_detection/yolov9s/yolov9s_async_cpp_postprocess.py --model assets/models/YoloV9S.dxnn --video assets/videos/dance-group.mov
+python src/python_example/object_detection/yolov9s/yolov9s_sync.py --model assets/models/yolov9-s_640x640.dxnn --image sample/img/sample_kitchen.jpg
+python src/python_example/object_detection/yolov9s/yolov9s_async_cpp_postprocess.py --model assets/models/yolov9-s_640x640.dxnn --video assets/videos/dance-group.mov
 ```
 
 ---
@@ -223,7 +223,7 @@ There are two accuracy tiers:
 ```bash
 # Object detection (exact tier) — identical results, faster decode
 python src/python_example/object_detection/yolov7/yolov7_sync.py \
-    --model assets/models/YoloV7.dxnn --image sample/img/sample_street.jpg --fast-postprocess
+    --model assets/models/yolov7_640x640.dxnn --image sample/img/sample_street.jpg --fast-postprocess
 ```
 
 ### Verification & Diagnostics

@@ -93,6 +93,32 @@ class TestUnknownKeys:
         assert len(warnings) == 0
 
 
+class TestSrTileHalo:
+    """Tiled super-resolution overlap (ESPCN)."""
+
+    def test_sr_tile_halo_valid(self):
+        assert validate_config({"sr_tile_halo": 4}) == []
+
+    def test_sr_tile_halo_zero_valid(self):
+        assert validate_config({"sr_tile_halo": 0}) == []
+
+    def test_sr_tile_halo_negative_warns(self):
+        warnings = validate_config({"sr_tile_halo": -1})
+        assert len(warnings) == 1
+        assert "sr_tile_halo" in warnings[0]
+
+    def test_sr_tile_halo_float_warns(self):
+        warnings = validate_config({"sr_tile_halo": 4.5})
+        assert len(warnings) == 1
+        assert "sr_tile_halo" in warnings[0]
+
+    def test_sr_tile_halo_over_max_warns(self):
+        """Overlap beyond the receptive-field radius (4) is not supported."""
+        warnings = validate_config({"sr_tile_halo": 8})
+        assert len(warnings) == 1
+        assert "sr_tile_halo" in warnings[0]
+
+
 class TestSchemaCompleteness:
     """Ensure all expected config keys are in the schema."""
 
@@ -101,5 +127,6 @@ class TestSchemaCompleteness:
             "score_threshold", "nms_threshold", "obj_threshold",
             "confidence_threshold", "top_k", "num_classes",
             "reg_max", "num_protos", "has_background",
+            "sr_tile_halo",
         }
         assert set(CONFIG_SCHEMA.keys()) == expected_keys

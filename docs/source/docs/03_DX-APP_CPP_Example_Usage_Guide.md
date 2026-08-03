@@ -170,8 +170,8 @@ All C++ examples use `cxxopts` for argument parsing and share a consistent inter
 **Step 3. Run a C++ example**  
 
 ```bash
-./bin/yolov9s_sync -m assets/models/YoloV9S.dxnn -i sample/img/sample_kitchen.jpg
-./bin/yolov9s_async -m assets/models/YoloV9S.dxnn -v assets/videos/dance-group.mov
+./bin/yolov9s_sync -m assets/models/yolov9-s_640x640.dxnn -i sample/img/sample_kitchen.jpg
+./bin/yolov9s_async -m assets/models/yolov9-s_640x640.dxnn -v assets/videos/dance-group.mov
 ```
 
 ---

@@ -14,7 +14,11 @@ class Espcn_x3Factory(IRestorationFactory):
         self.config = config or {}
     
     def create_preprocessor(self, input_width: int, input_height: int):
-        return GrayscaleResizePreprocessor(input_width, input_height, store_original=True)
+        return GrayscaleResizePreprocessor(
+            input_width, input_height, store_original=True,
+            # ESPCN is trained on MATLAB rgb2ycbcr Y (limited range 16-235),
+            # not OpenCV full-range grayscale. See common/utility/colorspace.py.
+            y_mode="bt601_limited")
     
     def create_postprocessor(self, input_width: int, input_height: int):
         return ESPCNPostprocessor(input_width, input_height, self.config)

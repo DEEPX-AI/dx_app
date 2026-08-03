@@ -179,7 +179,7 @@ DEMO_IMAGE=(
     "sample/img/sample_dog.jpg"
     "sample/img/sample_parking.jpg"
     "sample/img/sample_denoising.jpg"
-    "sample/img/sample_superresolution.png"
+    "sample/img/sample_lowres275x150.png"
     "sample/img/sample_lowlight.jpg"
     "sample/img/face_pair"
     "sample/img/sample_person_a1.jpg"

@@ -438,7 +438,11 @@ private:
             "pose_estimation", display_image.rows, display_image.cols);
 
         auto render_start = std::chrono::high_resolution_clock::now();
-        const bool need_render = !no_display || saveMode || !saveImagePath.empty();
+        // DXAPP_SAVE_IMAGE consumers (CI, AI Studio) run headless with no --save,
+        // so the env hook must keep the frame alive too — otherwise the
+        // saveDebugImage() call below gets an empty frame and writes nothing.
+        const bool need_render = !no_display || saveMode || !saveImagePath.empty()
+                                 || std::getenv("DXAPP_SAVE_IMAGE") != nullptr;
         cv::Mat result_frame;
         if (need_render) {
             result_frame = display_image.clone();
@@ -461,9 +465,10 @@ private:
             }
             if (!saveImagePath.empty()) {
                 cv::imwrite(saveImagePath, result_frame);
-            } else {
-                dxapp::saveDebugImage(result_frame);
             }
+            // The caller's DXAPP_SAVE_IMAGE path is honoured independently of the
+            // run-dir save: --save must not swallow the path the caller asked for.
+            dxapp::saveDebugImage(result_frame);
             if (!no_display) {
                 auto display_start = std::chrono::high_resolution_clock::now();
                 dxapp::showOutput(result_frame);
@@ -495,11 +500,6 @@ private:
             std::string saveImagePath;
             if (!runDir.empty() && (ctx.saveMode || dumpEnabled)) {
                 saveImagePath = dxapp::buildPerImageSavePath(runDir, factory_->getModelName() + "_sync", currentImagePath, i);
-                #ifdef _WIN32
-                    _putenv_s("DXAPP_SAVE_IMAGE", saveImagePath.c_str());
-                #else
-                    setenv("DXAPP_SAVE_IMAGE", saveImagePath.c_str(), 1);
-                #endif
             }
             auto tr0 = std::chrono::high_resolution_clock::now();
             cv::Mat img = cv::imread(currentImagePath);

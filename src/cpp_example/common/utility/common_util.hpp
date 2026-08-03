@@ -10,6 +10,7 @@
 #include <dxrt/dxrt_api.h>
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <cstdlib>
 #include <fstream>
@@ -209,6 +210,34 @@ inline bool minversionforRTandCompiler(dxrt::InferenceEngine* ie) {
 inline void saveDebugImage(const cv::Mat& frame) {
     const char* path = std::getenv("DXAPP_SAVE_IMAGE");
     if (path && *path && !frame.empty()) cv::imwrite(path, frame);
+}
+
+/** "<stem>_output_only<ext>" sibling of `path` ("" in -> "" out). */
+inline std::string outputOnlyPath(const std::string& path) {
+    if (path.empty()) return "";
+    std::size_t dot = path.find_last_of('.');
+    return (dot == std::string::npos)
+        ? path + "_output_only"
+        : path.substr(0, dot) + "_output_only" + path.substr(dot);
+}
+
+/**
+ * @brief Save the panel-free output next to BOTH the run-dir image and the
+ *        caller's DXAPP_SAVE_IMAGE image.
+ *
+ * `runDirPath` is the runner's own per-image output path ("" when not saving).
+ * The env path belongs to the caller (CI, AI Studio) and is never overwritten
+ * by the runner, so both files are produced when both are requested.
+ */
+inline void saveOutputOnlyImage(const std::string& runDirPath, const cv::Mat& frame) {
+    if (frame.empty()) return;
+    const std::string run_out = outputOnlyPath(runDirPath);
+    if (!run_out.empty()) cv::imwrite(run_out, frame);
+    const char* env = std::getenv("DXAPP_SAVE_IMAGE");
+    if (env && *env) {
+        const std::string env_out = outputOnlyPath(env);
+        if (env_out != run_out) cv::imwrite(env_out, frame);
+    }
 }
 
 /**
@@ -419,16 +448,30 @@ inline void showOutput(const cv::Mat& frame) {
 }
 
 /**
- * @brief Write frame to video, auto-resizing if frame size differs from writer.
+ * @brief Write frame to video, resizing to the writer's frame size first.
+ *
+ * `expected_w`/`expected_h` MUST be the size the writer was opened with (they
+ * have no defaults on purpose). cv::VideoWriter SILENTLY discards any frame
+ * whose size differs from that, and `writer.get(CAP_PROP_FRAME_WIDTH/HEIGHT)`
+ * returns 0 on several OpenCV builds (e.g. the GStreamer backend), so a
+ * size-less call used to produce an empty video with no error at all.
  */
 inline void writeToVideo(cv::VideoWriter& writer, const cv::Mat& frame,
-                         int expected_w = 0, int expected_h = 0) {
+                         int expected_w, int expected_h) {
     if (!writer.isOpened() || frame.empty()) return;
     int w = static_cast<int>(writer.get(cv::CAP_PROP_FRAME_WIDTH));
     int h = static_cast<int>(writer.get(cv::CAP_PROP_FRAME_HEIGHT));
     // CAP_PROP_FRAME_WIDTH/HEIGHT may return 0 on some OpenCV builds
     if (w <= 0 || h <= 0) { w = expected_w; h = expected_h; }
-    if (w <= 0 || h <= 0 || (frame.cols == w && frame.rows == h)) {
+    if (w <= 0 || h <= 0) {
+        static bool warned = false;
+        if (!warned) {
+            warned = true;
+            std::cerr << "[DXAPP] [WARN] Output video frame size is unknown; "
+                         "frames may be dropped by OpenCV." << std::endl;
+        }
+        writer << frame;
+    } else if (frame.cols == w && frame.rows == h) {
         writer << frame;
     } else {
         cv::Mat resized;
@@ -462,12 +505,38 @@ inline std::string buildPerImageSavePath(const std::string& runDir,
 }
 
 /**
+ * @brief Normalise a model name to lowercase alphanumerics.
+ *
+ * Factories report model names in inconsistent casing ("ESPCN-x4", "Espcn_x3",
+ * "Realesrgan X4"), so per-model lookups match against this normalised form.
+ */
+inline std::string normalizeModelKey(const std::string& modelName) {
+    std::string key;
+    key.reserve(modelName.size());
+    for (char c : modelName) {
+        unsigned char uc = static_cast<unsigned char>(c);
+        if (std::isalnum(uc)) key += static_cast<char>(std::tolower(uc));
+    }
+    return key;
+}
+
+/**
  * @brief Get default sample image path for a given task type.
  *
  * When no input source is specified, returns a bundled sample image
- * appropriate for the task.
+ * appropriate for the task. `modelName` (optional) lets a model override the
+ * task default: super-resolution needs a genuinely low-resolution input, and
+ * the right size depends on the scale factor — ESPCN (x2/x3/x4) reads a
+ * 275x150 crop, Real-ESRGAN (x2/x4/x8) a smaller 165x90 one so the x8 output
+ * stays a sane size.
  */
-inline std::string getDefaultSampleImage(const std::string& taskType) {
+inline std::string getDefaultSampleImage(const std::string& taskType,
+                                         const std::string& modelName = "") {
+    if (taskType == "super_resolution") {
+        const std::string key = normalizeModelKey(modelName);
+        if (key.compare(0, 10, "realesrgan") == 0) return "sample/img/sample_lowres165x90.png";
+        return "sample/img/sample_lowres275x150.png";
+    }
     if (taskType == "object_detection")       return "sample/img/sample_street.jpg";
     if (taskType == "face_detection")         return "sample/img/sample_face.jpg";
     if (taskType == "obb_detection")          return "sample/img/sample_airport_satellite_view.png";
@@ -480,7 +549,6 @@ inline std::string getDefaultSampleImage(const std::string& taskType) {
     if (taskType == "classification")         return "sample/img/sample_dog.jpg";
     if (taskType == "depth_estimation")       return "sample/img/sample_parking.jpg";
     if (taskType == "image_denoising")        return "sample/img/sample_denoising.jpg";
-    if (taskType == "super_resolution")       return "sample/img/sample_superresolution.png";
     if (taskType == "image_enhancement")      return "sample/img/sample_lowlight.jpg";
     if (taskType == "embedding")              return "sample/img/face_pair";
     if (taskType == "attribute_recognition")  return "sample/img/sample_person_a1.jpg";
@@ -842,7 +910,11 @@ inline std::vector<float> convertToFloatBufferNormalized(
  */
 inline dxrt::TensorPtrs runSyncInferenceTyped(dxrt::InferenceEngine& ie,
                                               const cv::Mat& preprocessed) {
-    const auto& input = ie.GetInputs().front();
+    // GetInputs() returns Tensors by value: keep the vector alive in a local (binding
+    // a reference straight to .front() dangles), and keep it non-const so this builds
+    // against dxrt < v3.3.0, where Tensor::type() has no const overload.
+    auto inputs = ie.GetInputs();
+    auto& input = inputs.front();
     if (input.type() == dxrt::DataType::FLOAT && !preprocessed.empty()
             && preprocessed.depth() == CV_8U) {
         std::vector<float> fb = convertToFloatBuffer(preprocessed, isInputNHWC(input.shape()));
@@ -862,7 +934,9 @@ inline dxrt::TensorPtrs runSyncInferenceTyped(dxrt::InferenceEngine& ie,
 inline void fillModelInputBuffer(dxrt::InferenceEngine& ie,
                                  std::vector<uint8_t>& buf,
                                  const cv::Mat& preprocessed) {
-    const auto& input = ie.GetInputs().front();
+    // Same as runSyncInferenceTyped(): own the Tensors vector locally, non-const.
+    auto inputs = ie.GetInputs();
+    auto& input = inputs.front();
     if (input.type() == dxrt::DataType::FLOAT && !preprocessed.empty()
             && preprocessed.depth() == CV_8U) {
         std::vector<float> fb = convertToFloatBuffer(preprocessed, isInputNHWC(input.shape()));
@@ -914,9 +988,30 @@ constexpr const char* SETUP_FILE_PATH = "setup.sh --force";
         return -1;                                                                               \
     }                                                                                            \
     catch (const std::exception& e) {                                                            \
-        std::cerr << DXAPP_RED << e.what() << DXAPP_RESET << std::endl;                          \
-        std::cerr << DXAPP_GREEN << "[HINT] Use -h or --help for usage information."             \
-                  << DXAPP_RESET << std::endl;                                                   \
+        const std::string _dxapp_msg(e.what());                                                  \
+        std::cerr << DXAPP_RED << _dxapp_msg << DXAPP_RESET << std::endl;                        \
+        /* Image-only examples (embedding, ReID, attribute recognition, …) do    */              \
+        /* not register the stream flags, so cxxopts throws "Option '<flag>' does */              \
+        /* not exist" for -v/-c/-r. Surface an explicit image-only note in that   */              \
+        /* case instead of the generic usage hint.                               */              \
+        const bool _dxapp_no_opt = _dxapp_msg.find("does not exist") != std::string::npos;       \
+        const bool _dxapp_stream_flag =                                                          \
+            _dxapp_msg.find("'video'") != std::string::npos ||                                   \
+            _dxapp_msg.find("'v'") != std::string::npos ||                                       \
+            _dxapp_msg.find("'camera'") != std::string::npos ||                                  \
+            _dxapp_msg.find("'c'") != std::string::npos ||                                       \
+            _dxapp_msg.find("'rtsp'") != std::string::npos ||                                    \
+            _dxapp_msg.find("'r'") != std::string::npos;                                         \
+        if (_dxapp_no_opt && _dxapp_stream_flag) {                                               \
+            std::cerr << DXAPP_GREEN                                                             \
+                      << "[HINT] This example is image-only: video/camera/RTSP input "          \
+                         "(-v/--video, -c/--camera, -r/--rtsp) is not supported. "              \
+                         "Use -i (--image_path) to provide an image file or directory."         \
+                      << DXAPP_RESET << std::endl;                                               \
+        } else {                                                                                 \
+            std::cerr << DXAPP_GREEN << "[HINT] Use -h or --help for usage information."         \
+                      << DXAPP_RESET << std::endl;                                               \
+        }                                                                                        \
         return -1;                                                                               \
     }
 

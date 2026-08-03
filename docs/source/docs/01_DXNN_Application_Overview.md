@@ -39,8 +39,8 @@ You can quickly evaluate inference capabilities without modifying the source cod
 - Output: Top-1 class  
 - Example run  
 ```bash
-./bin/efficientnet_lite0_async -m ./assets/models/EfficientNet_Lite0.dxnn -i ./sample/ILSVRC2012/0.jpeg -l 1
-./bin/efficientnet_lite0_sync  -m ./assets/models/EfficientNet_Lite0.dxnn -i ./sample/ILSVRC2012/0.jpeg -l 1
+./bin/efficientnet_lite0_async -m ./assets/models/efficientnet-lite0_256x256.dxnn -i ./sample/ILSVRC2012/0.jpeg -l 1
+./bin/efficientnet_lite0_sync  -m ./assets/models/efficientnet-lite0_256x256.dxnn -i ./sample/ILSVRC2012/0.jpeg -l 1
 ```
 
 **Object Detection (YOLOv8N)**  
@@ -49,8 +49,8 @@ You can quickly evaluate inference capabilities without modifying the source cod
 - Output: boxes rendered and logged  
 - Example run  
 ```bash
-./bin/yolov8n_async -m ./assets/models/YoloV8N.dxnn -i ./sample/img/sample_kitchen.jpg --no-display -l 1
-./bin/yolov8n_sync  -m ./assets/models/YoloV8N.dxnn -i ./sample/img/sample_kitchen.jpg --no-display -l 1 -s
+./bin/yolov8n_async -m ./assets/models/yolov8-n_640x640.dxnn -i ./sample/img/sample_kitchen.jpg --no-display -l 1
+./bin/yolov8n_sync  -m ./assets/models/yolov8-n_640x640.dxnn -i ./sample/img/sample_kitchen.jpg --no-display -l 1 -s
 ```
 
 **Face Detection (SCRFD)**  
@@ -59,8 +59,8 @@ You can quickly evaluate inference capabilities without modifying the source cod
 - Output: face boxes, landmarks, log  
 - Example run  
 ```bash
-./bin/scrfd500m_async -m ./assets/models/SCRFD500M.dxnn -i ./sample/img/sample_face.jpg --no-display -l 1
-./bin/scrfd500m_sync  -m ./assets/models/SCRFD500M.dxnn -i ./sample/img/sample_face.jpg --no-display -l 1 -s
+./bin/scrfd500m_async -m ./assets/models/scrfd-500m_640x640.dxnn -i ./sample/img/sample_face.jpg --no-display -l 1
+./bin/scrfd500m_sync  -m ./assets/models/scrfd-500m_640x640.dxnn -i ./sample/img/sample_face.jpg --no-display -l 1 -s
 ```
 
 **Pose Estimation (YOLOv8s Pose)**  
@@ -69,8 +69,8 @@ You can quickly evaluate inference capabilities without modifying the source cod
 - Output: person boxes + keypoints  
 - Example run  
 ```bash
-./bin/yolov8s_pose_async -m ./assets/models/yolov8s_pose.dxnn -i ./sample/img/sample_kitchen.jpg --no-display -l 1
-./bin/yolov8s_pose_sync  -m ./assets/models/yolov8s_pose.dxnn -i ./sample/img/sample_kitchen.jpg --no-display -l 1 -s
+./bin/yolov8s_pose_async -m ./assets/models/yolov8-s-pose_640x640.dxnn -i ./sample/img/sample_kitchen.jpg --no-display -l 1
+./bin/yolov8s_pose_sync  -m ./assets/models/yolov8-s-pose_640x640.dxnn -i ./sample/img/sample_kitchen.jpg --no-display -l 1 -s
 ```
 
 **Segmentation (DeepLabV3+)**  
@@ -79,8 +79,8 @@ You can quickly evaluate inference capabilities without modifying the source cod
 - Output: boxes + masks rendered, results saved  
 - Example run  
 ```bash
-./bin/deeplabv3plusmobilenet_async -m ./assets/models/DeepLabV3PlusMobilenet.dxnn -i ./sample/img/sample_parking.jpg --no-display -l 1
-./bin/deeplabv3plusmobilenet_sync  -m ./assets/models/DeepLabV3PlusMobilenet.dxnn -i ./sample/img/sample_parking.jpg --no-display -l 1 -s
+./bin/deeplabv3plusmobilenet_async -m ./assets/models/deeplabv3plus_mobilenetv1_512x512.dxnn -i ./sample/img/sample_parking.jpg --no-display -l 1
+./bin/deeplabv3plusmobilenet_sync  -m ./assets/models/deeplabv3plus_mobilenetv1_512x512.dxnn -i ./sample/img/sample_parking.jpg --no-display -l 1 -s
 ```
 
 **Semantic Segmentation (BiSeNetV1)**  
@@ -89,8 +89,8 @@ You can quickly evaluate inference capabilities without modifying the source cod
 - Output: segmentation masks rendered  
 - Example run  
 ```bash
-./bin/bisenetv1_async -m ./assets/models/BiSeNetV1.dxnn -i ./sample/img/sample_parking.jpg --no-display -l 1
-./bin/bisenetv1_sync  -m ./assets/models/BiSeNetV1.dxnn -i ./sample/img/sample_parking.jpg --no-display -l 1 -s
+./bin/bisenetv1_async -m ./assets/models/bisenetv1_1024x2048.dxnn -i ./sample/img/sample_parking.jpg --no-display -l 1
+./bin/bisenetv1_sync  -m ./assets/models/bisenetv1_1024x2048.dxnn -i ./sample/img/sample_parking.jpg --no-display -l 1 -s
 ```
 
 ---

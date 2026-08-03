@@ -21,7 +21,9 @@
 #include <vector>
 
 #include "common/base/i_factory.hpp"
+#include "common/utility/colorspace.hpp"
 #include "common/utility/common_util.hpp"
+#include "common/utility/sr_tiling.hpp"
 #include "common/utility/run_dir.hpp"
 #include "common/utility/verify_serialize.hpp"
 #include "sync_detection_runner.hpp"
@@ -31,6 +33,14 @@ namespace dxapp {
 template <typename FactoryT>
 class SyncRestorationRunner {
     bool verbose_ = false;
+    /// Tile layout for the current frame, produced by srtiling::planTiles.
+    std::vector<dxapp::srtiling::TilePlan> tile_plans_;
+    /// Tile halo sources; -1 = not given. See srtiling::resolveHaloFrom.
+    int cli_halo_ = -1;   ///< --sr-tile-halo (bound directly by parseCommandLine)
+    int cfg_halo_ = -1;   ///< config.json "sr_tile_halo"
+    int sr_halo_ = 0;     ///< resolved halo (0 is a valid value, hence the flag)
+    bool sr_halo_resolved_ = false;
+    bool tiling_logged_ = false;  ///< tiles-per-frame line is printed once per run
 
 public:
     explicit SyncRestorationRunner(std::unique_ptr<FactoryT> factory)
@@ -50,7 +60,8 @@ public:
         }
         // Apply default sample image if no input specified
         if (args.imageFilePath.empty() && args.videoFile.empty() && args.cameraIndex < 0 && args.rtspUrl.empty()) {
-            args.imageFilePath = dxapp::getDefaultSampleImage(factory_->getTaskType());
+            args.imageFilePath = dxapp::getDefaultSampleImage(factory_->getTaskType(),
+                                                             factory_->getModelName());
             std::cout << "[DXAPP] [INFO] No input specified. Using default sample: " << args.imageFilePath << std::endl;
         }
         dxapp::resolveAndValidateModel(args.modelPath, argv[0]);
@@ -92,6 +103,7 @@ public:
         // Load model configuration if provided
         if (!args.configPath.empty()) {
             dxapp::ModelConfig config(args.configPath);
+            cfg_halo_ = config.get<int>("sr_tile_halo", -1);
             factory_->loadConfig(config);
         }
 
@@ -240,6 +252,7 @@ public:
 private:
     std::unique_ptr<FactoryT> factory_;
     std::string model_path_;  // Stored for DXAPP_VERIFY
+    std::string save_image_path_;  ///< per-image run-dir output path ("" = not saving)
 
     /** Dump input image on postprocessing exception for debugging. */
     static void dumpInputOnError(const cv::Mat& image) {
@@ -279,6 +292,15 @@ private:
              cxxopts::value<std::string>(args.configPath))
             ("show-log", "Enable verbose log output (default: quiet)",
              cxxopts::value<bool>(args.verbose)->default_value("false"))
+            // Bound straight to this runner's own member: the halo is specific to
+            // tiled super-resolution, so it stays out of the CommandLineArgs
+            // struct that every runner (detection included) shares.
+            ("sr-tile-halo", "Tile overlap in LR pixels for tiled super-resolution, "
+                             "0..4 (default: 4 = the ESPCN receptive-field radius, the "
+                             "most context an output pixel can use; 0 = no overlap, "
+                             "fastest but seams appear). Overrides config.json "
+                             "'sr_tile_halo' and DXAPP_SR_TILE_HALO.",
+             cxxopts::value<int>(cli_halo_)->default_value("-1"))
             ("h, help", "print usage");
 
         auto cmd = options.parse(argc, argv);
@@ -348,11 +370,34 @@ private:
         return video.isOpened();
     }
 
-    /** Compute output scale factors by probing the first tile. */
+    /** Tile halo for the tiled SR path, resolved once per run.
+     *
+     *  --sr-tile-halo > config.json "sr_tile_halo" > DXAPP_SR_TILE_HALO > default.
+     *  A halo the model cannot use is a configuration mistake, so it ends the run
+     *  with one actionable line rather than throwing from inside planTiles(). */
+    int resolveTileHalo(int tile_h, int tile_w) {
+        if (sr_halo_resolved_) return sr_halo_;
+        std::string source, error;
+        const int halo = dxapp::srtiling::resolveHaloFrom(
+            cli_halo_, cfg_halo_, tile_h, tile_w, source, error);
+        if (!error.empty()) {
+            dxapp::fatal_error("[DXAPP] [ERROR] " + error);
+        }
+        if (verbose_) {
+            std::cout << "[DXAPP] [INFO] SR tile halo: " << halo
+                      << " px (from " << source << ")" << std::endl;
+        }
+        sr_halo_ = halo;
+        sr_halo_resolved_ = true;
+        return sr_halo_;
+    }
+
+    /** Compute output scale factors by probing once.
+     *  Only the output *shape* matters, so a zero tile is enough. */
     std::pair<int,int> probeOutputScale(
-        dxrt::InferenceEngine& ie, const cv::Mat& lr_gray, int tile_w, int tile_h,
+        dxrt::InferenceEngine& ie, int tile_w, int tile_h,
         dxrt::TensorPtrs& probe_out) {
-        cv::Mat probe_tile = lr_gray(cv::Rect(0, 0, tile_w, tile_h)).clone();
+        cv::Mat probe_tile = cv::Mat::zeros(tile_h, tile_w, CV_8UC1);
         probe_out = ie.Run(probe_tile.data, nullptr, nullptr);
         int out_tile_h = tile_h, out_tile_w = tile_w;
         if (!probe_out.empty()) {
@@ -369,52 +414,39 @@ private:
         dxrt::InferenceEngine& ie, const cv::Mat& lr_bgr, const cv::Mat& lr_gray,
         int tile_w, int tile_h, int out_tile_w, int out_tile_h,
         int target_out_w, int target_out_h, int orig_w, int orig_h,
-        dxrt::TensorPtrs& probe_out,
         double& t_inference_total, double& t_postprocess_total) {
         int scale_x = out_tile_w / tile_w, scale_y = out_tile_h / tile_h;
         int lr_w = lr_bgr.cols, lr_h = lr_bgr.rows;
         int padded_out_w = lr_w * scale_x, padded_out_h = lr_h * scale_y;
-        cv::Mat sr_y_padded(padded_out_h, padded_out_w, CV_8UC1, cv::Scalar(0));
-        int tiles_done = 0, tiles_x = lr_w / tile_w, tiles_y = lr_h / tile_h;
+        cv::Mat sr_y_padded;
+        int tiles_done = 0;
 
-        auto copy_tile_pixels = [&](const float* data, int dst_x, int dst_y) {
-            for (int py = 0; py < out_tile_h; ++py)
-                for (int px = 0; px < out_tile_w; ++px) {
-                    float v = std::max(0.0f, std::min(1.0f, data[py * out_tile_w + px]));
-                    sr_y_padded.at<uchar>(dst_y + py, dst_x + px) = static_cast<uchar>(v * 255.0f + 0.5f);
-                }
-        };
-
+        // Tiles are cut with a halo and only their valid centres are stitched, so
+        // with halo >= the receptive-field radius (4 px for ESPCN) no tile seams
+        // remain. Tiles go through RunAsync so the per-call overhead — which
+        // dominates a 17x17 forward pass — is pipelined away.
         auto ti0 = std::chrono::high_resolution_clock::now();
-        for (int ty = 0; ty < tiles_y; ++ty) {
-            for (int tx = 0; tx < tiles_x; ++tx) {
-                dxrt::TensorPtrs tile_out;
-                if (ty == 0 && tx == 0) { tile_out = probe_out; }
-                else {
-                    cv::Mat tile = lr_gray(cv::Rect(tx*tile_w, ty*tile_h, tile_w, tile_h)).clone();
-                    tile_out = ie.Run(tile.data, nullptr, nullptr);
-                }
-                if (tile_out.empty()) continue;
-                const float* data = static_cast<const float*>(tile_out[0]->data());
-                if (!data) continue;
-                int dst_x = tx * out_tile_w, dst_y = ty * out_tile_h;
-                copy_tile_pixels(data, dst_x, dst_y);
-                ++tiles_done;
-            }
-        }
+        std::vector<dxrt::TensorPtrs> tile_outputs;
+        dxapp::srtiling::runTilesPipelined(
+            ie, lr_gray, tile_plans_, tile_w, tile_h, tile_outputs);
+        tiles_done = dxapp::srtiling::assembleTiles(
+            tile_plans_, tile_outputs, padded_out_h, padded_out_w,
+            scale_y, scale_x, out_tile_w, sr_y_padded);
         t_inference_total = std::chrono::duration<double, std::milli>(
             std::chrono::high_resolution_clock::now() - ti0).count();
 
         auto tp0 = std::chrono::high_resolution_clock::now();
         cv::Mat sr_y = sr_y_padded(cv::Rect(0, 0, target_out_w, target_out_h)).clone();
         cv::Mat orig_bgr = lr_bgr(cv::Rect(0, 0, orig_w, orig_h));
-        cv::Mat lr_ycrcb; cv::cvtColor(orig_bgr, lr_ycrcb, cv::COLOR_BGR2YCrCb);
+        // sr_y is a limited-range Y (ESPCN is trained on MATLAB rgb2ycbcr), so
+        // the chroma planes and the inverse matrix stay on that convention.
+        cv::Mat lr_ycrcb; dxapp::colorspace::bgrToYCrCbLimited(orig_bgr, lr_ycrcb);
         std::vector<cv::Mat> ch; cv::split(lr_ycrcb, ch);
         cv::Mat cr_up, cb_up;
         cv::resize(ch[1], cr_up, cv::Size(target_out_w, target_out_h), 0, 0, cv::INTER_CUBIC);
         cv::resize(ch[2], cb_up, cv::Size(target_out_w, target_out_h), 0, 0, cv::INTER_CUBIC);
         cv::Mat ycrcb_merged; cv::merge(std::vector<cv::Mat>{sr_y, cr_up, cb_up}, ycrcb_merged);
-        cv::Mat sr_bgr; cv::cvtColor(ycrcb_merged, sr_bgr, cv::COLOR_YCrCb2BGR);
+        cv::Mat sr_bgr; dxapp::colorspace::ycrcbLimitedToBgr(ycrcb_merged, sr_bgr);
         t_postprocess_total = std::chrono::duration<double, std::milli>(
             std::chrono::high_resolution_clock::now() - tp0).count();
 
@@ -428,6 +460,10 @@ private:
         cv::putText(canvas,
                     cv::format("ESPCN x%d (%dx%d, %d tiles)", scale_x, target_out_w, target_out_h, tiles_done),
                     cv::Point(target_out_w + 14, 25), cv::FONT_HERSHEY_SIMPLEX, 0.6, cv::Scalar(0, 255, 100), 2);
+        // Also save the upscaled output on its own (no Bicubic panel / labels), next to
+        // the side-by-side image — matches the Python runner. Written next to the
+        // run-dir image (save_image_path_) and next to the caller's DXAPP_SAVE_IMAGE.
+        dxapp::saveOutputOnlyImage(save_image_path_, sr_bgr);
         return canvas;
     }
 
@@ -483,6 +519,16 @@ private:
         }
         t_postprocess_total = std::chrono::duration<double, std::milli>(
             std::chrono::high_resolution_clock::now() - tpp0).count();
+
+        // Super-resolution: also save the upscaled output on its own (no
+        // side-by-side panel / labels), next to the DXAPP_SAVE_IMAGE canvas.
+        // Full-color SR models (e.g. RealESRGAN) take this standard 3-channel
+        // path instead of the tiled ESPCN path, so mirror its _output_only save.
+        // Suffix: <name>_output_only.<ext>.
+        if (!results.empty() && !results[0].restored_image.empty() &&
+            factory_->getTaskType() == "super_resolution") {
+            dxapp::saveOutputOnlyImage(save_image_path_, results[0].restored_image);
+        }
         return {true, visualizer.draw(display_image, results, ctx)};
     }
 
@@ -510,39 +556,63 @@ private:
         bool is_sr = false;
         if (input_channels <= 1) {
             auto t0 = std::chrono::high_resolution_clock::now();
-            // Pad original image to tile boundaries without resizing/downscaling.
             int orig_w = input_frame.cols;
             int orig_h = input_frame.rows;
-            int lr_w = ((orig_w + tile_w - 1) / tile_w) * tile_w;
-            int lr_h = ((orig_h + tile_h - 1) / tile_h) * tile_h;
 
-            int tiles_count = (lr_w / tile_w) * (lr_h / tile_h);
-            if (tiles_count > 400) {
-                std::cerr << "[DXAPP] [WARN] SR: large input (" << orig_w << "x" << orig_h
-                          << ") produces " << tiles_count << " tiles; processing may be slow.\n";
-            }
-
-            cv::Mat lr_bgr;
-            cv::copyMakeBorder(input_frame, lr_bgr, 0, lr_h - orig_h, 0, lr_w - orig_w,
-                               cv::BORDER_REPLICATE);
-            cv::Mat lr_gray; cv::cvtColor(lr_bgr, lr_gray, cv::COLOR_BGR2GRAY);
-
+            // Probe with a zero tile: only the output shape decides whether this
+            // is an upscaling model. Non-SR 1-channel models (e.g. DnCNN) fall
+            // straight through to runSingleInference below, untouched.
             dxrt::TensorPtrs probe_out;
-            std::pair<int,int> scale_xy = probeOutputScale(ie, lr_gray, tile_w, tile_h, probe_out);
+            std::pair<int,int> scale_xy = probeOutputScale(ie, tile_w, tile_h, probe_out);
             int scale_x = scale_xy.first;
             int scale_y = scale_xy.second;
-            t_preprocess = std::chrono::duration<double, std::milli>(
-                std::chrono::high_resolution_clock::now() - t0).count();
             is_sr = (scale_x > 1 || scale_y > 1);
 
             if (is_sr) {
+                // Halo-aware tiling: windows overlap by `halo`, only valid centres
+                // are stitched. See common/utility/sr_tiling.hpp.
+                // --sr-tile-halo > config.json "sr_tile_halo" > env > default.
+                const int halo = resolveTileHalo(tile_h, tile_w);
+                int padded_h = 0, padded_w = 0;
+                dxapp::srtiling::planTiles(orig_h, orig_w, tile_h, tile_w, halo,
+                                           padded_h, padded_w, tile_plans_);
+                // Report the tiling plan once: at a fixed 17x17 input the per-frame
+                // cost is driven by how many tiles the frame is cut into, i.e. how
+                // many inferences run per frame. Printed once (the plan only changes
+                // with input size/halo), so a stream does not repeat it every frame.
+                if (!tiling_logged_) {
+                    tiling_logged_ = true;
+                    std::cout << "[DXAPP] [INFO] SR tiling: " << orig_w << "x" << orig_h
+                              << " -> " << tile_plans_.size() << " tiles of " << tile_w
+                              << "x" << tile_h << " (halo=" << halo << " px), so "
+                              << tile_plans_.size() << " inferences per frame"
+                              << std::endl;
+                }
+                if (tile_plans_.size() > 400) {
+                    std::cerr << "[DXAPP] [WARN] SR: large input (" << orig_w << "x" << orig_h
+                              << ") produces " << tile_plans_.size()
+                              << " tiles; processing may be slow.\n";
+                }
+
+                cv::Mat lr_bgr;
+                cv::copyMakeBorder(input_frame, lr_bgr, 0, padded_h - orig_h,
+                                   0, padded_w - orig_w, cv::BORDER_REPLICATE);
+                // ESPCN is trained on MATLAB rgb2ycbcr Y, so feed limited-range Y
+                // rather than OpenCV's full-range grayscale.
+                cv::Mat lr_gray; dxapp::colorspace::bgrToYLimited(lr_bgr, lr_gray);
+                t_preprocess = std::chrono::duration<double, std::milli>(
+                    std::chrono::high_resolution_clock::now() - t0).count();
+
                 int out_tile_w = tile_w * scale_x, out_tile_h = tile_h * scale_y;
                 int target_out_w = orig_w * scale_x;
                 int target_out_h = orig_h * scale_y;
                 result_frame = runSuperResolution(ie, lr_bgr, lr_gray, tile_w, tile_h,
-                    out_tile_w, out_tile_h, target_out_w, target_out_h, orig_w, orig_h, probe_out,
+                    out_tile_w, out_tile_h, target_out_w, target_out_h, orig_w, orig_h,
                     t_inference_total, t_postprocess_total);
                 display_image = result_frame;
+            } else {
+                t_preprocess = std::chrono::duration<double, std::milli>(
+                    std::chrono::high_resolution_clock::now() - t0).count();
             }
         }
 
@@ -618,14 +688,15 @@ private:
                 cv::Mat write_frame;
                 cv::resize(result_frame, write_frame,
                            cv::Size(SHOW_WINDOW_SIZE_W, SHOW_WINDOW_SIZE_H));
-                dxapp::writeToVideo(writer, write_frame);
+                dxapp::writeToVideo(writer, write_frame, SHOW_WINDOW_SIZE_W, SHOW_WINDOW_SIZE_H);
             } else {
-                dxapp::writeToVideo(writer, result_frame);
+                dxapp::writeToVideo(writer, result_frame, SHOW_WINDOW_SIZE_W, SHOW_WINDOW_SIZE_H);
             }
             auto save_end = std::chrono::high_resolution_clock::now();
             t_save = std::chrono::duration<double, std::milli>(save_end - save_start).count();
         }
-        dxapp::saveDebugImage(result_frame);
+        if (!save_image_path_.empty()) cv::imwrite(save_image_path_, result_frame);
+        dxapp::saveDebugImage(result_frame);  // caller's path, independent of --save
 
             if (!no_display) {
                 auto display_start = std::chrono::high_resolution_clock::now();
@@ -650,11 +721,9 @@ private:
             // Set per-image save path for this frame when saveMode is enabled
             if (!runDir.empty() && saveMode) {
                 std::string savePath = dxapp::buildPerImageSavePath(runDir, factory_->getModelName() + "_sync", currentImagePath, i);
-                #ifdef _WIN32
-                    _putenv_s("DXAPP_SAVE_IMAGE", savePath.c_str());
-                #else
-                    setenv("DXAPP_SAVE_IMAGE", savePath.c_str(), 1);
-                #endif
+                // Run-dir path travels as state, NOT via DXAPP_SAVE_IMAGE:
+                // that env var belongs to the caller and must stay intact.
+                save_image_path_ = savePath;
             }
             auto tr0 = std::chrono::high_resolution_clock::now();
             cv::Mat img = cv::imread(currentImagePath);

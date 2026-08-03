@@ -252,7 +252,7 @@ If no input source (`--image`, `--video`, `--camera`, `--rtsp`) is provided, the
 ```
 This allows the simplest possible execution — just specify the model:
 ```bash
-python src/python_example/object_detection/yolov7/yolov7_sync.py --model assets/models/YoloV7.dxnn
+python src/python_example/object_detection/yolov7/yolov7_sync.py --model assets/models/yolov7_640x640.dxnn
 ```
 
 ## Headless Mode
@@ -523,7 +523,7 @@ Alternatively, run individual binaries or scripts directly:
 **Simplest Execution (auto-download model + default sample image)**
 ```bash
 # Just specify the model — everything else is automatic
-python src/python_example/object_detection/yolov7/yolov7_sync.py --model assets/models/YoloV7.dxnn
+python src/python_example/object_detection/yolov7/yolov7_sync.py --model assets/models/yolov7_640x640.dxnn
 # → Model auto-downloaded if missing
 # → Default sample image auto-selected for the task
 ```
@@ -532,12 +532,12 @@ C++ Implementation (High Performance)
 ```bash
 # Static Image Inference (Synchronous)
 ./bin/yolov9s_sync \
--m assets/models/YoloV9S.dxnn \
+-m assets/models/yolov9-s_640x640.dxnn \
 -i sample/img/sample_kitchen.jpg
 
 # Video Stream Inference (Asynchronous)
 ./bin/yolov9s_async \
--m assets/models/YoloV9S.dxnn \
+-m assets/models/yolov9-s_640x640.dxnn \
 -v assets/videos/dance-group.mov
 ```
 
@@ -545,12 +545,12 @@ Python Implementation (Rapid Prototyping)
 ```bash
 # Python Baseline (Synchronous)
 python src/python_example/object_detection/yolov9s/yolov9s_sync.py \
-   --model assets/models/YoloV9S.dxnn \
+   --model assets/models/yolov9-s_640x640.dxnn \
    --image sample/img/sample_kitchen.jpg
 
 # Python Optimized (Asynchronous + C++ Post-processing)
 python src/python_example/object_detection/yolov9s/yolov9s_async_cpp_postprocess.py \
-  --model assets/models/YoloV9S.dxnn \
+  --model assets/models/yolov9-s_640x640.dxnn \
     --video assets/videos/dance-group.mov 
 ```
 

@@ -242,6 +242,7 @@ public:
 private:
     std::unique_ptr<FactoryT> factory_;
     std::string model_path_;
+    std::string save_image_path_;  ///< per-image run-dir output path ("" = not saving)
 
     CommandLineArgs parseCommandLine(int argc, char* argv[]) {
         CommandLineArgs args;
@@ -447,11 +448,12 @@ private:
         if (!result_frame.empty()) {
             if (saveMode) {
                 auto save_start = std::chrono::high_resolution_clock::now();
-                dxapp::writeToVideo(writer, result_frame);
+                dxapp::writeToVideo(writer, result_frame, SHOW_WINDOW_SIZE_W, SHOW_WINDOW_SIZE_H);
                 auto save_end = std::chrono::high_resolution_clock::now();
                 t_save = std::chrono::duration<double, std::milli>(save_end - save_start).count();
             }
-            { const char* _sv=std::getenv("DXAPP_SAVE_IMAGE"); if(_sv&&*_sv)cv::imwrite(_sv,result_frame); }
+            if (!save_image_path_.empty()) cv::imwrite(save_image_path_, result_frame);
+            dxapp::saveDebugImage(result_frame);  // caller's path, independent of --save
             if (!no_display) {
                 auto display_start = std::chrono::high_resolution_clock::now();
                 dxapp::showOutput(result_frame);
@@ -484,11 +486,9 @@ private:
             std::string currentImagePath = imageFiles[i % imageFiles.size()];
             if (!runDir.empty() && saveMode) {
                 std::string savePath = dxapp::buildPerImageSavePath(runDir, factory_->getModelName() + "_sync", currentImagePath, i);
-                #ifdef _WIN32
-                    _putenv_s("DXAPP_SAVE_IMAGE", savePath.c_str());
-                #else
-                    setenv("DXAPP_SAVE_IMAGE", savePath.c_str(), 1);
-                #endif
+                // Run-dir path travels as state, NOT via DXAPP_SAVE_IMAGE:
+                // that env var belongs to the caller and must stay intact.
+                save_image_path_ = savePath;
             }
             auto tr0 = std::chrono::high_resolution_clock::now();
             cv::Mat img = dxapp::loadDisplayFrame(

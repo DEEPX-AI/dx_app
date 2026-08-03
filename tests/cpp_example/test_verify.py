@@ -16,7 +16,7 @@ from typing import List
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from test_helpers.utils import setup_environment  # noqa: E402
+from test_helpers.utils import setup_environment, resolve_cpp_exe_input  # noqa: E402
 
 from conftest import resolve_bin_dir
 
@@ -33,6 +33,15 @@ _JSON_GLOB = "*.json"
 SAMPLE_DIR = PROJECT_ROOT / "sample"
 
 TEST_IMAGE = SAMPLE_DIR / "img" / "sample_kitchen.jpg"
+
+
+def _test_input_for(executable: str) -> Path:
+    """Per-task ``-i`` input: 3D detection needs the KITTI LiDAR ``.bin``, etc.
+
+    ``TEST_IMAGE`` is only the fallback for tasks without a dedicated sample —
+    hardcoding it fed ``sfa3d_608x608`` a JPG, which its runner rejects (rc=255).
+    """
+    return resolve_cpp_exe_input(executable, default=TEST_IMAGE)
 
 
 # ======================================================================
@@ -116,13 +125,14 @@ class TestDxappVerify:
         exe_path = BIN_DIR / executable
         if not exe_path.exists():
             pytest.skip(f"Binary not found: {executable}")
-        if not TEST_IMAGE.exists():
-            pytest.skip(f"Test image not found: {TEST_IMAGE}")
+        test_input = _test_input_for(executable)
+        if not test_input.exists():
+            pytest.skip(f"Test input not found: {test_input}")
 
         cmd = [
             str(exe_path),
             "-m", str(model_path),
-            "-i", str(TEST_IMAGE),
+            "-i", str(test_input),
             "--no-display",
             "-l", "1",
         ]
@@ -176,13 +186,14 @@ class TestDxappVerify:
         exe_path = BIN_DIR / executable
         if not exe_path.exists():
             pytest.skip(f"Binary not found: {executable}")
-        if not TEST_IMAGE.exists():
-            pytest.skip(f"Test image not found: {TEST_IMAGE}")
+        test_input = _test_input_for(executable)
+        if not test_input.exists():
+            pytest.skip(f"Test input not found: {test_input}")
 
         cmd = [
             str(exe_path),
             "-m", str(model_path),
-            "-i", str(TEST_IMAGE),
+            "-i", str(test_input),
             "--no-display",
             "-l", "1",
         ]
@@ -220,13 +231,14 @@ class TestDxappVerify:
         exe_path = BIN_DIR / executable
         if not exe_path.exists():
             pytest.skip(f"Binary not found: {executable}")
-        if not TEST_IMAGE.exists():
-            pytest.skip(f"Test image not found: {TEST_IMAGE}")
+        test_input = _test_input_for(executable)
+        if not test_input.exists():
+            pytest.skip(f"Test input not found: {test_input}")
 
         cmd = [
             str(exe_path),
             "-m", str(model_path),
-            "-i", str(TEST_IMAGE),
+            "-i", str(test_input),
             "--no-display",
             "-l", "1",
         ]
