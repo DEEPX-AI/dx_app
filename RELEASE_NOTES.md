@@ -5,13 +5,17 @@
 ### 1. Changed
 - Updated all example commands in README and docs to the new model filename convention (e.g. YoloV9S.dxnn -> yolov9-s_640x640.dxnn)
 - Super-resolution now saves both a side-by-side comparison (sr_input_output.jpg) and the standalone upscaled output.
+- Replace the super-resolution sample image with genuinely low-resolution inputs (`sample_superresolution.png` removed)
+- Add `--sr-tile-halo` CLI option (0..4, default 4) to control tile overlap for tiled super-resolution examples
 
 ### 2. Fixed
 - Fixed RealESRGAN discolored output vs. C++: corrected color rounding and RGB->BGR channel order, and stopped routing 3-channel SR models through the luminance-only tiled path
+- Drain the output queue and wait for all submitted frames before stopping the display thread in the C++ async runners, fixing the lost tail of a saved video
+- Include `DXAPP_SAVE_IMAGE` in the render gate of the sync/async pose runners, fixing headless runs that wrote no image when only the env variable was set
+- Feed ESPCN the BT.601 limited-range Y
+- Remove tile seams in tiled super-resolution by cutting tiles with a halo of the model's receptive-field radius
 
 ### 3. Added
-
----
 
 ## DX-APP v3.2.0 / 2026-06-25
 

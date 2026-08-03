@@ -8,6 +8,7 @@ or multi-channel image in NCHW format:
 DnCNN outputs the denoised image directly (values in [0, 1] range).
 """
 
+import cv2
 import numpy as np
 from typing import List
 from dataclasses import dataclass
@@ -19,6 +20,42 @@ from ..base import IPostprocessor, PreprocessContext
 class RestorationResult:
     """Result from image restoration model."""
     output_image: np.ndarray  # restored image in HWC uint8 format
+
+
+def restore_source_geometry(image: np.ndarray, ctx, model_in_w: int,
+                            model_in_h: int) -> np.ndarray:
+    """Map a model-space restoration output back onto the source geometry.
+
+    Upscaling models (RealESRGAN) have a fixed square input, and the
+    preprocessor stretches the frame into it, so the raw output carries the
+    *model input* aspect ratio (192x192 -> 768x768) instead of the source one.
+    Undoing that per-axis stretch gives ``original_size * upscale_factor``,
+    which is what the tiled ESPCN path produces for the same task.
+
+    Same-size restoration models (DnCNN denoising, upscale factor 1) are left
+    untouched — there is no upscale to express and their callers expect the
+    model-space image.
+    """
+    if image is None or ctx is None or image.size == 0:
+        return image
+    orig_w = int(getattr(ctx, "original_width", 0) or 0)
+    orig_h = int(getattr(ctx, "original_height", 0) or 0)
+    if orig_w <= 0 or orig_h <= 0 or model_in_w <= 0 or model_in_h <= 0:
+        return image
+
+    out_h, out_w = image.shape[:2]
+    scale_x = out_w / float(model_in_w)
+    scale_y = out_h / float(model_in_h)
+    if scale_x <= 1.0 and scale_y <= 1.0:
+        return image
+
+    target_w = max(1, int(round(orig_w * scale_x)))
+    target_h = max(1, int(round(orig_h * scale_y)))
+    if (target_w, target_h) == (out_w, out_h):
+        return image
+    interp = cv2.INTER_AREA if (target_w < out_w and target_h < out_h) \
+        else cv2.INTER_CUBIC
+    return cv2.resize(image, (target_w, target_h), interpolation=interp)
 
 
 class DnCNNPostprocessor(IPostprocessor):
@@ -102,6 +139,10 @@ class RealESRGANPostprocessor(IPostprocessor):
         out_uint8 = np.round(out_uint8).astype(np.uint8)
         if out_uint8.ndim == 3 and out_uint8.shape[2] == 3:
             out_uint8 = out_uint8[:, :, ::-1].copy()  # RGB → BGR
+        # The preprocessor stretched the frame into the square model input, so
+        # undo that here — otherwise the result carries the model's 1:1 ratio.
+        out_uint8 = restore_source_geometry(out_uint8, ctx, self.input_width,
+                                            self.input_height)
         return [RestorationResult(output_image=out_uint8)]
 
     def get_model_name(self) -> str:

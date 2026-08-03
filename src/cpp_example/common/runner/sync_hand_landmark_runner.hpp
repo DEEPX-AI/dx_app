@@ -425,9 +425,10 @@ private:
             }
             if (!saveImagePath.empty()) {
                 cv::imwrite(saveImagePath, result_frame);
-            } else {
-                const char* _sv=std::getenv("DXAPP_SAVE_IMAGE"); if(_sv&&*_sv)cv::imwrite(_sv,result_frame);
             }
+            // The caller's DXAPP_SAVE_IMAGE path is honoured independently of the
+            // run-dir save: --save must not swallow the path the caller asked for.
+            dxapp::saveDebugImage(result_frame);
             if (!no_display) {
                 auto display_start = std::chrono::high_resolution_clock::now();
                 dxapp::showOutput(result_frame);
@@ -461,11 +462,6 @@ private:
             std::string saveImagePath;
             if (!runDir.empty() && (saveMode || dumpEnabled)) {
                 saveImagePath = dxapp::buildPerImageSavePath(runDir, factory_->getModelName() + "_sync", currentImagePath, i);
-                #ifdef _WIN32
-                    _putenv_s("DXAPP_SAVE_IMAGE", saveImagePath.c_str());
-                #else
-                    setenv("DXAPP_SAVE_IMAGE", saveImagePath.c_str(), 1);
-                #endif
             }
             auto tr0 = std::chrono::high_resolution_clock::now();
             cv::Mat img = cv::imread(currentImagePath);

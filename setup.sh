@@ -155,7 +155,9 @@ while [ $# -gt 0 ]; do
             shift
             ;;
         --no-force)
-            FORCE_ARGS=""
+            # Forward the negative flag explicitly: both child layers default to
+            # force-on, so omitting the flag would silently mean "--force".
+            FORCE_ARGS="--no-force"
             shift
             ;;
         --force-remove-models)
@@ -258,34 +260,35 @@ setup_assets() {
 
     print_colored " MODEL_PATH: ${MODEL_PATH}" "INFO"
     MODEL_REAL_PATH=$(readlink -f "$MODEL_PATH")
-    # Check and set up models
-    # Interactive mode always runs (user selects models; downloader skips already-existing files)
-    # Non-interactive (--all) mode skips if directory already exists unless forced
-    if [ ! -d "$MODEL_REAL_PATH" ] || [ "$FORCE_ARGS" != "" ] || [ $FORCE_REMOVE_MODELS -eq 1 ] || [ -z "$DOWNLOAD_ALL_ARGS" ]; then
-        if [ $FORCE_REMOVE_MODELS -eq 1 ]; then
-            FORCE_ARGS="--force"
-        fi
-        print_colored " Running setup models script... ($MODEL_REAL_PATH)" "INFO"
-        ./setup_sample_models.sh $SETUP_MODEL_ARGS $FORCE_ARGS || { print_colored "Setup models script failed." "ERROR"; rm -rf $MODEL_PATH; exit 1; }
-    else
-        print_colored " models directory found. ($MODEL_REAL_PATH)" "INFO"
+    # Resolve force per asset kind so --force-remove-models cannot turn force
+    # back on for videos.
+    MODEL_FORCE_ARGS="$FORCE_ARGS"
+    if [ $FORCE_REMOVE_MODELS -eq 1 ]; then
+        MODEL_FORCE_ARGS="--force"
     fi
+    # Always delegate to the downloader: it applies --force / --no-force per
+    # file, so --no-force keeps existing models and fetches only what is
+    # missing. Skipping the whole step here would leave partial asset trees
+    # unrepaired.
+    print_colored " Running setup models script... ($MODEL_REAL_PATH)" "INFO"
+    ./setup_sample_models.sh $SETUP_MODEL_ARGS $MODEL_FORCE_ARGS || { print_colored "Setup models script failed." "ERROR"; rm -rf $MODEL_PATH; exit 1; }
 
     if [ -n "$LIST_ARG" ] || [ -n "$DRY_RUN_ARG" ]; then
         print_colored "Skipping video setup for list/dry-run mode." "INFO"
     else
         print_colored "VIDEO_PATH: ${VIDEO_PATH}" "INFO"
         VIDEO_REAL_PATH=$(readlink -f "$VIDEO_PATH")
-        # Check and set up videos
-        if [ ! -d "$VIDEO_REAL_PATH" ] || [ "$FORCE_ARGS" != "" ] || [ "${FORCE_REMOVE_VIDEOS:-0}" -eq 1 ]; then
-            if [ "${FORCE_REMOVE_VIDEOS:-0}" -eq 1 ]; then
-                FORCE_ARGS="--force"
-            fi
-            print_colored " Video directory not found. Running setup videos script... ($VIDEO_REAL_PATH)" "INFO"
-            ./setup_sample_videos.sh $SETUP_VIDEO_ARGS $FORCE_ARGS || { print_colored "Setup videos script failed." "ERROR"; rm -rf $VIDEO_PATH; exit 1; }
-        else
-            print_colored " Video directory found. ($VIDEO_REAL_PATH)" "INFO"
+        # Resolve force per asset kind so --force-remove-videos cannot turn
+        # force back on for models.
+        VIDEO_FORCE_ARGS="$FORCE_ARGS"
+        if [ "${FORCE_REMOVE_VIDEOS:-0}" -eq 1 ]; then
+            VIDEO_FORCE_ARGS="--force"
         fi
+        # Always delegate: under --no-force setup_sample_videos.sh skips an
+        # existing extracted directory (internal mode) and get_resource.sh
+        # keeps the cached archive (S3 mode), so nothing is re-downloaded.
+        print_colored " Running setup videos script... ($VIDEO_REAL_PATH)" "INFO"
+        ./setup_sample_videos.sh $SETUP_VIDEO_ARGS $VIDEO_FORCE_ARGS || { print_colored "Setup videos script failed." "ERROR"; rm -rf $VIDEO_PATH; exit 1; }
     fi
 
     print_colored "[OK] Sample models and videos setup complete" "INFO"

@@ -28,7 +28,12 @@ import cv2
 
 from ..config import load_config
 from ..utility import print_image_processing_summary, print_sync_performance_summary
+from ..utility.video_io import write_video_frame
+from ..utility.colorspace import bgr_to_y_limited, bgr_to_ycrcb_limited, ycrcb_limited_to_bgr
 from .run_dir import create_run_dir, write_run_info, dump_tensors, dump_tensors_on_exception
+from .sr_tiling import (
+    assemble_tiles, plan_tiles, resolve_runner_halo, run_tiles_pipelined,
+)
 from .verify_serialize import is_verify_enabled, dump_verify_json
 
 logging.addLevelName(logging.WARNING, "WARN")
@@ -161,6 +166,12 @@ def _parse_loop_value(args) -> int:
 
 _IMG_STREET = "sample/img/sample_street.jpg"
 _IMG_PARKING = "sample/img/sample_parking.jpg"
+# Super-resolution needs a genuinely low-resolution input, otherwise the upscaled
+# output is indistinguishable from the source. The right size depends on the
+# model's scale factor: ESPCN (x2/x3/x4) reads a 275x150 crop, Real-ESRGAN
+# (x2/x4/x8) a smaller 165x90 one so the x8 output stays a sane size.
+_IMG_LOWRES_275x150 = "sample/img/sample_lowres275x150.png"
+_IMG_LOWRES_165x90 = "sample/img/sample_lowres165x90.png"
 _VID_DANCE_GROUP = "assets/videos/dance-group.mov"
 _VID_BLACKBOX = "assets/videos/blackbox-city-road.mp4"
 _VID_DOGS = "assets/videos/dogs.mp4"
@@ -191,7 +202,7 @@ _DEFAULT_SAMPLE_IMAGE = {
     "classification":         "sample/img/sample_dog.jpg",
     "depth_estimation":       _IMG_PARKING,
     "image_denoising":        "sample/img/sample_denoising.jpg",
-    "super_resolution":       "sample/img/sample_superresolution.png",
+    "super_resolution":       _IMG_LOWRES_275x150,
     "image_enhancement":      "sample/img/sample_lowlight.jpg",
     "embedding":              "sample/img/face_pair",
     "attribute_recognition":  "sample/img/sample_person_a1.jpg",
@@ -202,6 +213,15 @@ _DEFAULT_SAMPLE_IMAGE = {
     "panoptic_driving_perception": _IMG_PARKING,
     "3d_object_detection":    _IMG_PARKING,
     "3d_detection":           "sample/kitti/velodyne/000049.bin",
+}
+
+# Per-model sample image overrides, applied ahead of the task default.
+# Keys are matched as prefixes against the factory's model name normalised to
+# lowercase alphanumerics — factories report names in inconsistent casing
+# ("espcn_x4", "Espcn_x3", "Realesrgan X4"), so an exact-match table is brittle.
+_MODEL_SAMPLE_IMAGE_OVERRIDE = {
+    "realesrgan": _IMG_LOWRES_165x90,
+    "espcn":      _IMG_LOWRES_275x150,
 }
 
 # ======================================================================
@@ -235,6 +255,22 @@ _DEFAULT_SAMPLE_VIDEO = {
 }
 
 
+def _resolve_default_sample_image(task_type: Optional[str],
+                                  model_name: Optional[str] = None) -> str:
+    """Default sample image for a task, with per-model overrides applied."""
+    key = "".join(c for c in (model_name or "").lower() if c.isalnum())
+    for prefix, image in _MODEL_SAMPLE_IMAGE_OVERRIDE.items():
+        if key.startswith(prefix):
+            return image
+    return _DEFAULT_SAMPLE_IMAGE.get(task_type, _IMG_STREET)
+
+
+def _factory_model_name(factory=None) -> Optional[str]:
+    if factory and hasattr(factory, "get_model_name"):
+        return factory.get_model_name()
+    return None
+
+
 def _apply_default_input(args, factory=None) -> None:
     """If no input source was specified, fall back to a bundled sample image."""
     has_input = any([
@@ -251,8 +287,8 @@ def _apply_default_input(args, factory=None) -> None:
     # hint so the user explicitly provides an image with --image.
     if task_type in _IMAGE_ONLY_TASKS:
         return
-    default_image = _DEFAULT_SAMPLE_IMAGE.get(
-        task_type, "sample/img/sample_street.jpg")
+    default_image = _resolve_default_sample_image(
+        task_type, _factory_model_name(factory))
     args.image = default_image
     logger.info(f"No input specified. Using default sample: {default_image}")
 
@@ -262,7 +298,7 @@ def _show_image_only_no_input_hint(args, factory=None) -> bool:
     if task_type not in _IMAGE_ONLY_TASKS or getattr(args, "image", None):
         return False
 
-    hint = _DEFAULT_SAMPLE_IMAGE.get(task_type, _IMG_STREET)
+    hint = _resolve_default_sample_image(task_type, _factory_model_name(factory))
     logger.info(
         f"Task '{task_type}' takes image input only.\n"
         f"        -> Provide an image with --image (-i), "
@@ -529,6 +565,11 @@ class SyncRunner:
         self._verbose = False
         self._fast_postprocess = False
         self._sr_cache: Optional[dict] = None  # cached SR probe info
+        self._config: dict = {}                # loaded config.json (may be empty)
+        self._sr_halo_cli: Optional[int] = None  # --sr-tile-halo (None = unset)
+        self._sr_halo: Optional[int] = None      # resolved once, then cached
+        self._sr_tiling_logged = False           # tiles-per-frame line: once per run
+        self._video_writer_size = None  # (w, h) the writer was opened with
 
     # ------------------------------------------------------------------
     # Public API
@@ -544,6 +585,7 @@ class SyncRunner:
         self._verbose = getattr(args, "show_log", False)
         self._model_path = args.model
         self._fast_postprocess = getattr(args, "fast_postprocess", False)
+        self._sr_halo_cli = getattr(args, "sr_tile_halo", None)
         if _show_image_only_no_input_hint(args, self.factory):
             return
         self._init_engine(args.model, _resolve_config_path(args))
@@ -611,6 +653,7 @@ class SyncRunner:
         if config_path:
             config = load_config(config_path, verbose=self._verbose)
             if config:
+                self._config = config
                 self.factory.load_config(config)
 
         self.preprocessor = self.factory.create_preprocessor(self.input_width, self.input_height)
@@ -652,7 +695,12 @@ class SyncRunner:
     def preprocess(self, image: np.ndarray):
         return self.preprocessor.process(image)
 
-    def infer(self, input_tensor: np.ndarray) -> List[np.ndarray]:
+    def _prep_input(self, input_tensor: np.ndarray) -> np.ndarray:
+        """Coerce dtype/layout to what the engine expects, without running it.
+
+        Split out of :meth:`infer` so the tiled SR path can prepare many tiles
+        and submit them through ``run_async`` itself.
+        """
         expected = getattr(self, "_input_dtype", None)
         if expected is not None and input_tensor.dtype != expected:
             if expected == np.float32 and input_tensor.dtype == np.uint8:
@@ -666,7 +714,10 @@ class SyncRunner:
             h, w, c = input_tensor.shape
             if c in (1, 3, 4) and h > 4 and w > 4:
                 input_tensor = np.transpose(input_tensor, (2, 0, 1))
-        return self.ie.run([input_tensor])
+        return input_tensor
+
+    def infer(self, input_tensor: np.ndarray) -> List[np.ndarray]:
+        return self.ie.run([self._prep_input(input_tensor)])
 
     def postprocess(self, outputs: List[np.ndarray], ctx):
         if self._cpp_postprocessor is not None:
@@ -1068,7 +1119,6 @@ class SyncRunner:
             self._sr_cache = {
                 "scale_x": scale_x, "scale_y": scale_y,
                 "oth": oth, "otw": otw,
-                "probe_out": out,
             }
         except Exception:
             self._sr_cache = None
@@ -1082,30 +1132,12 @@ class SyncRunner:
         oth, otw = sr["oth"], sr["otw"]
 
         t0 = time.perf_counter()
-        # Pad original frame to tile boundaries without resizing/downscaling.
         orig_h, orig_w = frame.shape[:2]
-        lr_w = ((orig_w + tile_w - 1) // tile_w) * tile_w
-        lr_h = ((orig_h + tile_h - 1) // tile_h) * tile_h
-        lr_bgr = cv2.copyMakeBorder(
-            frame, 0, lr_h - orig_h, 0, lr_w - orig_w,
-            cv2.BORDER_REPLICATE)
-        lr_gray = cv2.cvtColor(lr_bgr, cv2.COLOR_BGR2GRAY)
+        out_w, out_h = orig_w * scale_x, orig_h * scale_y
         t1 = time.perf_counter()
 
-        padded_out_w, padded_out_h = lr_w * scale_x, lr_h * scale_y
-        out_w, out_h = orig_w * scale_x, orig_h * scale_y
-
-        # Use cached probe for tile (0,0), infer the rest
-        probe_out = sr["probe_out"] if frame_count == 1 else None
-        if probe_out is None:
-            # Re-probe with actual frame data for tile (0,0)
-            tile0 = lr_gray[0:tile_h, 0:tile_w]
-            probe_out = self.infer(tile0[:, :, np.newaxis])
-
-        sr_y, tiles_done = self._tile_sr_pass(
-            lr_gray, tile_h, tile_w, oth, otw, probe_out,
-            padded_out_h, padded_out_w)
-        sr_y = sr_y[:out_h, :out_w]
+        sr_y, tiles_done, tiles_planned = self._sr_tiled_luma(
+            frame, tile_h, tile_w, scale_y, scale_x)
         t2 = time.perf_counter()
 
         sr_bgr = self._merge_ycrcb(sr_y, frame, out_w, out_h)
@@ -1135,13 +1167,8 @@ class SyncRunner:
         if writer is None or output_frame is None:
             return 0.0
         t0 = time.perf_counter()
-        # Resize to match writer dimensions if needed
-        ww = int(writer.get(cv2.CAP_PROP_FRAME_WIDTH))
-        wh = int(writer.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        if ww > 0 and wh > 0 and (
-                output_frame.shape[1] != ww or output_frame.shape[0] != wh):
-            output_frame = cv2.resize(output_frame, (ww, wh))
-        writer.write(output_frame)
+        # Resize to the writer's frame size — cv2 drops mismatched frames silently
+        write_video_frame(writer, output_frame, self._video_writer_size)
         return time.perf_counter() - t0
 
     def _display_stream_frame(self, output_frame: np.ndarray,
@@ -1318,6 +1345,8 @@ class SyncRunner:
         if w <= 0 or h <= 0:
             raise RuntimeError(
                 f"Cannot determine video dimensions (w={w}, h={h}).")
+        # Remembered because writer.get(CAP_PROP_FRAME_*) returns 0 on some builds
+        self._video_writer_size = (w, h)
 
         fourcc = cv2.VideoWriter_fourcc(*"mp4v")
         save_path = str(run_dir / "output.mp4")
@@ -1342,76 +1371,102 @@ class SyncRunner:
     # Super-resolution helpers
     # ------------------------------------------------------------------
 
-    def _probe_sr_output_size(self, lr_gray, tile_h, tile_w):
-        probe_tile = lr_gray[0:tile_h, 0:tile_w]
-        probe_out = self.infer(probe_tile[:, :, np.newaxis])
+    def _log_sr_tiling(self, orig_w, orig_h, tile_w, tile_h, halo, tiles) -> None:
+        """Report the tiling plan once per run.
+
+        At a fixed model input the per-frame cost is driven by how many tiles the
+        frame is cut into — that is how many inferences run per frame. Logged once
+        (the plan only changes with input size or halo) so a stream does not repeat
+        it every frame.
+        """
+        if self._sr_tiling_logged:
+            return
+        self._sr_tiling_logged = True
+        logger.info(
+            f"SR tiling: {orig_w}x{orig_h} -> {tiles} tiles of {tile_w}x{tile_h} "
+            f"(halo={halo} px), so {tiles} inferences per frame")
+
+    def _resolve_sr_halo(self) -> int:
+        """Tile halo for the tiled SR path.
+
+        ``--sr-tile-halo`` > config.json ``sr_tile_halo`` > ``DXAPP_SR_TILE_HALO``
+        > default. Resolved once per run against this model's tile size.
+        """
+        if self._sr_halo is None:
+            self._sr_halo = resolve_runner_halo(
+                cli=self._sr_halo_cli, config=self._config,
+                tile_h=self.input_height, tile_w=self.input_width,
+                verbose=self._verbose)
+        return self._sr_halo
+
+    def _probe_sr_output_size(self, tile_h, tile_w):
+        """Learn the model's output tile size. Only the shape matters, so a zero
+        tile is enough — no need for real image data."""
+        probe = np.zeros((tile_h, tile_w, 1), dtype=np.uint8)
+        probe_out = self.infer(probe)
         arr = np.squeeze(probe_out[0]) if probe_out else np.array([])
         if arr.ndim == 3:
-            return probe_out, arr.shape[1], arr.shape[2]
+            return arr.shape[1], arr.shape[2]
         if arr.ndim == 2:
-            return probe_out, arr.shape[0], arr.shape[1]
-        return probe_out, tile_h * 2, tile_w * 2
+            return arr.shape[0], arr.shape[1]
+        return tile_h * 2, tile_w * 2
 
-    def _tile_sr_pass(self, lr_gray, tile_h, tile_w, out_tile_h, out_tile_w,
-                      probe_out, out_h, out_w):
-        sr_y = np.zeros((out_h, out_w), dtype=np.uint8)
-        tiles_x = lr_gray.shape[1] // tile_w
-        tiles_y = lr_gray.shape[0] // tile_h
-        tiles_done = 0
-        for ty in range(tiles_y):
-            for tx in range(tiles_x):
-                if ty == 0 and tx == 0:
-                    tile_out = probe_out
-                else:
-                    tile = lr_gray[ty*tile_h:(ty+1)*tile_h,
-                                   tx*tile_w:(tx+1)*tile_w]
-                    tile_out = self.infer(tile[:, :, np.newaxis])
-                arr = np.squeeze(tile_out[0]) if tile_out else None
-                if arr is None:
-                    continue
-                arr2d = arr[0] if arr.ndim == 3 else arr
-                tile_uint8 = (np.clip(arr2d, 0.0, 1.0) * 255.0).astype(np.uint8)
-                dst_y = ty * out_tile_h
-                dst_x = tx * out_tile_w
-                sr_y[dst_y:dst_y+out_tile_h, dst_x:dst_x+out_tile_w] = tile_uint8
-                tiles_done += 1
-        return sr_y, tiles_done
+    def _sr_tiled_luma(self, bgr, tile_h, tile_w, scale_y, scale_x):
+        """Tiled super-resolution of one BGR frame -> SR luminance plane.
+
+        Tiles are cut with a halo (see ``sr_tiling``) and only their valid centres
+        are stitched, so no tile seams appear in the result. The tiles are
+        submitted through ``run_async`` so the per-call overhead — which dominates
+        a 17x17 forward pass — is pipelined away.
+
+        Returns ``(sr_y, tiles_done, tiles_planned)`` with ``sr_y`` cropped to
+        ``orig * scale``.
+        """
+        orig_h, orig_w = bgr.shape[:2]
+        halo = self._resolve_sr_halo()
+        padded_h, padded_w, plans = plan_tiles(orig_h, orig_w, tile_h, tile_w, halo)
+        self._log_sr_tiling(orig_w, orig_h, tile_w, tile_h, halo, len(plans))
+
+        lr_bgr = cv2.copyMakeBorder(
+            bgr, 0, padded_h - orig_h, 0, padded_w - orig_w, cv2.BORDER_REPLICATE)
+        # ESPCN is trained on MATLAB rgb2ycbcr Y, so feed limited-range Y rather
+        # than full-range gray.
+        lr_gray = bgr_to_y_limited(lr_bgr)
+
+        outputs = run_tiles_pipelined(
+            self.ie, self._prep_input, lr_gray, plans, tile_h, tile_w)
+        sr_y, tiles_done = assemble_tiles(
+            plans, outputs, padded_h * scale_y, padded_w * scale_x, scale_y, scale_x)
+
+        return (sr_y[:orig_h * scale_y, :orig_w * scale_x],
+                tiles_done, len(plans))
 
     @staticmethod
     def _merge_ycrcb(sr_y, lr_bgr, out_w, out_h):
-        lr_ycrcb = cv2.cvtColor(lr_bgr, cv2.COLOR_BGR2YCrCb)
+        # sr_y comes out of ESPCN as a limited-range Y, so the chroma planes and
+        # the inverse matrix must use the limited-range convention too.
+        lr_ycrcb = bgr_to_ycrcb_limited(lr_bgr)
         cr_up = cv2.resize(lr_ycrcb[:, :, 1], (out_w, out_h),
                            interpolation=cv2.INTER_CUBIC)
         cb_up = cv2.resize(lr_ycrcb[:, :, 2], (out_w, out_h),
                            interpolation=cv2.INTER_CUBIC)
-        return cv2.cvtColor(np.stack([sr_y, cr_up, cb_up], axis=2),
-                            cv2.COLOR_YCrCb2BGR)
+        return ycrcb_limited_to_bgr(np.stack([sr_y, cr_up, cb_up], axis=2))
 
     def _run_image_sr_tiled(self, img: np.ndarray, display: bool,
                              image_path: str = "") -> None:
         t_start = time.perf_counter()
         tile_w, tile_h = self.input_width, self.input_height
-        # Pad original image to tile boundaries without resizing/downscaling.
         orig_h, orig_w = img.shape[:2]
-        lr_w = ((orig_w + tile_w - 1) // tile_w) * tile_w
-        lr_h = ((orig_h + tile_h - 1) // tile_h) * tile_h
-        lr_bgr = cv2.copyMakeBorder(
-            img, 0, lr_h - orig_h, 0, lr_w - orig_w,
-            cv2.BORDER_REPLICATE)
-        lr_gray = cv2.cvtColor(lr_bgr, cv2.COLOR_BGR2GRAY)
 
         t0 = time.perf_counter()
-        probe_out, oth, otw = self._probe_sr_output_size(lr_gray, tile_h, tile_w)
+        oth, otw = self._probe_sr_output_size(tile_h, tile_w)
         scale_x = max(1, otw // tile_w)
         scale_y = max(1, oth // tile_h)
-        padded_out_w, padded_out_h = lr_w * scale_x, lr_h * scale_y
         out_w, out_h = orig_w * scale_x, orig_h * scale_y
 
         t_i0 = time.perf_counter()
-        sr_y, tiles_done = self._tile_sr_pass(
-            lr_gray, tile_h, tile_w, oth, otw, probe_out,
-            padded_out_h, padded_out_w)
-        sr_y = sr_y[:out_h, :out_w]
+        sr_y, tiles_done, tiles_planned = self._sr_tiled_luma(
+            img, tile_h, tile_w, scale_y, scale_x)
         t_i1 = time.perf_counter()
 
         sr_bgr = self._merge_ycrcb(sr_y, img, out_w, out_h)
@@ -1430,10 +1485,10 @@ class SyncRunner:
                     0.6, (0, 255, 100), 2)
         t4 = time.perf_counter()
 
-        tiles_x = lr_w // tile_w
-        tiles_y = lr_h // tile_h
-        logger.info(f"\nSR tiled: {tiles_x}x{tiles_y}={tiles_done} tiles, "
-              f"LR {lr_w}x{lr_h} -> SR {out_w}x{out_h} (x{scale_x})")
+        logger.info(
+            f"\nSR tiled: {tiles_done}/{tiles_planned} tiles "
+            f"(halo={self._resolve_sr_halo()} px), "
+            f"LR {orig_w}x{orig_h} -> SR {out_w}x{out_h} (x{scale_x})")
         env_save = os.environ.get("DXAPP_SAVE_IMAGE")
         if env_save:
             cv2.imwrite(env_save, canvas)

@@ -19,6 +19,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from test_helpers.utils import (  # noqa: E402
     setup_environment,
     cpp_exe_task_map,
+    resolve_cpp_exe_input,
     stream_rejecting_cpp_cases,
 )
 from test_helpers.constants import (  # noqa: E402
@@ -40,6 +41,15 @@ SAMPLE_DIR = PROJECT_ROOT / "sample"
 
 TEST_IMAGE = SAMPLE_DIR / "img" / "sample_kitchen.jpg"
 TEST_VIDEO = ASSETS_DIR / "videos" / "dance-group.mov"
+
+
+def _test_input_for(executable: str) -> Path:
+    """Per-task ``-i`` input: 3D detection needs the KITTI LiDAR ``.bin``, etc.
+
+    ``TEST_IMAGE`` is only the fallback for tasks without a dedicated sample —
+    hardcoding it fed ``sfa3d_608x608`` a JPG, which its runner rejects (rc=255).
+    """
+    return resolve_cpp_exe_input(executable, default=TEST_IMAGE)
 
 
 # ======================================================================
@@ -122,14 +132,15 @@ class TestDumpTensors:
         exe_path = BIN_DIR / executable
         if not exe_path.exists():
             pytest.skip(f"Binary not found: {executable}")
-        if not TEST_IMAGE.exists():
-            pytest.skip(f"Test image not found: {TEST_IMAGE}")
+        test_input = _test_input_for(executable)
+        if not test_input.exists():
+            pytest.skip(f"Test input not found: {test_input}")
 
         save_dir = tmp_path / "dump_img"
         cmd = [
             str(exe_path),
             "-m", str(model_path),
-            "-i", str(TEST_IMAGE),
+            "-i", str(test_input),
             "--no-display",
             "-l", "1",
             "--dump-tensors",

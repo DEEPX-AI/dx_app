@@ -24,7 +24,9 @@
 #include <vector>
 
 #include "common/base/i_factory.hpp"
+#include "common/utility/colorspace.hpp"
 #include "common/utility/common_util.hpp"
+#include "common/utility/sr_tiling.hpp"
 #include "common/utility/run_dir.hpp"
 #include "common/utility/verify_serialize.hpp"
 #include "async_detection_runner.hpp"
@@ -51,6 +53,12 @@ struct AsyncRestorationDisplayArgs {
 template <typename FactoryT>
 class AsyncRestorationRunner {
     bool verbose_ = false;
+    /// Tile halo sources; -1 = not given. See srtiling::resolveHaloFrom.
+    int cli_halo_ = -1;   ///< --sr-tile-halo (bound directly by parseCommandLine)
+    int cfg_halo_ = -1;   ///< config.json "sr_tile_halo"
+    int sr_halo_ = 0;     ///< resolved halo (0 is a valid value, hence the flag)
+    bool sr_halo_resolved_ = false;
+    bool tiling_logged_ = false;  ///< tiles-per-frame line is printed once per run
 
 public:
     explicit AsyncRestorationRunner(std::unique_ptr<FactoryT> factory)
@@ -73,7 +81,8 @@ public:
 
         // Apply default sample image if no input specified
         if (args.imageFilePath.empty() && args.videoFile.empty() && args.cameraIndex < 0 && args.rtspUrl.empty()) {
-            args.imageFilePath = dxapp::getDefaultSampleImage(factory_->getTaskType());
+            args.imageFilePath = dxapp::getDefaultSampleImage(factory_->getTaskType(),
+                                                             factory_->getModelName());
             std::cout << "[DXAPP] [INFO] No input specified. Using default sample: " << args.imageFilePath << std::endl;
         }
         dxapp::resolveAndValidateModel(args.modelPath, argv[0]);
@@ -118,7 +127,16 @@ public:
         // Load model configuration if provided
         if (!args.configPath.empty()) {
             dxapp::ModelConfig config(args.configPath);
+            cfg_halo_ = config.get<int>("sr_tile_halo", -1);
             factory_->loadConfig(config);
+        }
+
+        // Resolve the tile halo here, on the main thread: the tiled path runs in a
+        // worker, and rejecting a bad value from there would abort the process
+        // instead of printing one actionable line. Non-SR restoration models have
+        // no tiles, so they skip it (and ignore --sr-tile-halo).
+        if (is_sr_) {
+            resolveTileHalo(tile_h_, tile_w_);
         }
 
         auto preprocessor = factory_->createPreprocessor(input_width, input_height);
@@ -337,6 +355,38 @@ public:
                 std::this_thread::sleep_for(std::chrono::milliseconds(10));
             }
         }
+        // Frames can still be in flight when the reader hits EOF: a completion
+        // callback may not have queued its frame yet, and the display thread may
+        // hold buffered ones. Wait until every submitted frame has been rendered
+        // (and therefore written) before stopping the consumer — otherwise the
+        // tail of a --save video is silently lost. The live-display path never
+        // showed this because frames are rendered as they arrive. Bail out if no
+        // progress is made for 5 s, so a dropped frame cannot hang shutdown.
+        {
+            auto last_progress = std::chrono::steady_clock::now();
+            int last_rendered = -1;
+            while (running_ && !g_interrupted()) {
+                int rendered;
+                {
+                    std::lock_guard<std::mutex> lock(metrics_.metrics_mutex);
+                    rendered = metrics_.render_completed;
+                }
+                const bool pending = !display_queue_.empty() ||
+                                     (args.saveMode && rendered < processCount);
+                if (!pending) break;
+                if (rendered != last_rendered) {
+                    last_rendered = rendered;
+                    last_progress = std::chrono::steady_clock::now();
+                } else if (std::chrono::steady_clock::now() - last_progress >
+                           std::chrono::seconds(5)) {
+                    std::cerr << "[DXAPP] [WARN] Output frames stopped draining; "
+                                 "saved video may be truncated." << std::endl;
+                    break;
+                }
+                if (!args.no_display) pollDisplay();
+                else std::this_thread::sleep_for(std::chrono::milliseconds(2));
+            }
+        }
         running_ = false;
         display_queue_.shutdown();
         rendered_queue_.shutdown();
@@ -435,62 +485,85 @@ private:
     void processFrameSR(const cv::Mat& frame, dxrt::InferenceEngine& ie, int& processCount,
                          const std::string& save_path = "") {
         auto t_pre_start = std::chrono::high_resolution_clock::now();
-        // Pad original frame to tile boundaries without resizing/downscaling.
         int orig_w = frame.cols;
         int orig_h = frame.rows;
-        int lr_w = ((orig_w + tile_w_ - 1) / tile_w_) * tile_w_;
-        int lr_h = ((orig_h + tile_h_ - 1) / tile_h_) * tile_h_;
 
-        int tiles_count = (lr_w / tile_w_) * (lr_h / tile_h_);
-        if (tiles_count > 400) {
+        // Halo-aware tiling: windows overlap by `halo`, only valid centres are
+        // stitched, so with halo >= the receptive-field radius (4 px for ESPCN) no
+        // tile seams remain. See common/utility/sr_tiling.hpp.
+        // --sr-tile-halo > config.json "sr_tile_halo" > env > default.
+        const int halo = resolveTileHalo(tile_h_, tile_w_);
+        int padded_h = 0, padded_w = 0;
+        std::vector<dxapp::srtiling::TilePlan> plans;
+        dxapp::srtiling::planTiles(orig_h, orig_w, tile_h_, tile_w_, halo,
+                                   padded_h, padded_w, plans);
+        // Report the tiling plan once: at a fixed 17x17 input the per-frame cost is
+        // driven by how many tiles the frame is cut into, i.e. how many inferences
+        // run per frame. Printed once (the plan only changes with input size/halo),
+        // so a stream does not repeat it every frame.
+        if (!tiling_logged_) {
+            tiling_logged_ = true;
+            std::cout << "[DXAPP] [INFO] SR tiling: " << orig_w << "x" << orig_h
+                      << " -> " << plans.size() << " tiles of " << tile_w_ << "x"
+                      << tile_h_ << " (halo=" << halo << " px), so "
+                      << plans.size() << " inferences per frame" << std::endl;
+        }
+        if (plans.size() > 400) {
             std::cerr << "[DXAPP] [WARN] SR: large input (" << orig_w << "x" << orig_h
-                      << ") produces " << tiles_count << " tiles; processing may be slow.\n";
+                      << ") produces " << plans.size() << " tiles; processing may be slow.\n";
         }
 
         cv::Mat lr_bgr;
-        cv::copyMakeBorder(frame, lr_bgr, 0, lr_h - orig_h, 0, lr_w - orig_w,
+        cv::copyMakeBorder(frame, lr_bgr, 0, padded_h - orig_h, 0, padded_w - orig_w,
                    cv::BORDER_REPLICATE);
+        // ESPCN is trained on MATLAB rgb2ycbcr Y, so feed limited-range Y
+        // rather than OpenCV's full-range grayscale.
         cv::Mat lr_gray;
-        cv::cvtColor(lr_bgr, lr_gray, cv::COLOR_BGR2GRAY);
+        dxapp::colorspace::bgrToYLimited(lr_bgr, lr_gray);
         auto t_pre_end = std::chrono::high_resolution_clock::now();
 
-        int padded_out_w = lr_w * scale_x_;
-        int padded_out_h = lr_h * scale_y_;
+        int padded_out_w = padded_w * scale_x_;
+        int padded_out_h = padded_h * scale_y_;
         int out_w = orig_w * scale_x_;
         int out_h = orig_h * scale_y_;
-        cv::Mat sr_y_padded(padded_out_h, padded_out_w, CV_8UC1, cv::Scalar(0));
-        int tiles_x = lr_w / tile_w_;
-        int tiles_y = lr_h / tile_h_;
-        int tiles_done = 0;
+        cv::Mat sr_y_padded;
 
+        // Blocking Run per tile — NOT the pipelined variant. This runner has a
+        // callback registered on `ie` (see RegisterCallback in run()), which
+        // consumes async outputs, so RunAsync + Wait() would return empty tensors
+        // for every tile. The sync restoration runner has no callback and does use
+        // runTilesPipelined().
         auto ti0 = std::chrono::high_resolution_clock::now();
-        for (int ty = 0; ty < tiles_y; ++ty) {
-            for (int tx = 0; tx < tiles_x; ++tx) {
-                cv::Mat tile = lr_gray(cv::Rect(tx*tile_w_, ty*tile_h_, tile_w_, tile_h_)).clone();
-                auto tile_out = ie.Run(tile.data, nullptr, nullptr);
-                if (tile_out.empty()) continue;
-                const float* data = static_cast<const float*>(tile_out[0]->data());
-                if (!data) continue;
-                copyTilePixels(data, tx * out_tile_w_, ty * out_tile_h_, sr_y_padded);
-                ++tiles_done;
-            }
-        }
+        std::vector<dxrt::TensorPtrs> tile_outputs;
+        dxapp::srtiling::runTilesBlocking(
+            ie, lr_gray, plans, tile_w_, tile_h_, tile_outputs);
+        int tiles_done = dxapp::srtiling::assembleTiles(
+            plans, tile_outputs, padded_out_h, padded_out_w,
+            scale_y_, scale_x_, out_tile_w_, sr_y_padded);
         auto ti1 = std::chrono::high_resolution_clock::now();
 
         auto t_post_start = std::chrono::high_resolution_clock::now();
         cv::Mat sr_y = sr_y_padded(cv::Rect(0, 0, out_w, out_h)).clone();
         cv::Mat orig_bgr = lr_bgr(cv::Rect(0, 0, orig_w, orig_h));
-        cv::Mat canvas = buildSRCanvas(orig_bgr, sr_y, out_w, out_h, orig_w, orig_h, tiles_done);
-        // Also save the upscaled output on its own (right panel = SR output, no Bicubic /
-        // labels), next to the side-by-side image — matches the sync / Python runners.
-        // Suffix: <name>_output_only.<ext>.
-        if (!save_path.empty()) {
-            cv::Mat sr_only = canvas(cv::Rect(out_w + 4, 0, out_w, out_h)).clone();
-            std::size_t dot = save_path.find_last_of('.');
-            std::string out = (dot == std::string::npos)
-                ? save_path + "_output_only"
-                : save_path.substr(0, dot) + "_output_only" + save_path.substr(dot);
-            cv::imwrite(out, sr_only);
+        cv::Mat sr_only;
+        cv::Mat canvas = buildSRCanvas(orig_bgr, sr_y, out_w, out_h, orig_w, orig_h,
+                                       tiles_done, &sr_only);
+        // Write <name>_output_only.<ext> — the raw SR output, no Bicubic panel and
+        // no drawn labels — for both --save and DXAPP_SAVE_IMAGE, so this variant
+        // produces the same file set as the sync runner and the Python examples.
+        {
+            auto write_output_only = [&](const std::string& p) {
+                if (p.empty() || sr_only.empty()) return;
+                std::size_t dot = p.find_last_of('.');
+                std::string out = (dot == std::string::npos)
+                    ? p + "_output_only"
+                    : p.substr(0, dot) + "_output_only" + p.substr(dot);
+                cv::imwrite(out, sr_only);
+            };
+            write_output_only(save_path);
+            const char* sv = std::getenv("DXAPP_SAVE_IMAGE");
+            if (sv && *sv && std::string(sv) != save_path)
+                write_output_only(std::string(sv));
         }
         auto t_post_end = std::chrono::high_resolution_clock::now();
 
@@ -523,10 +596,15 @@ private:
     }
 
     /** Build side-by-side bicubic vs SR canvas for display. */
+    /** Build the side-by-side canvas. If `sr_bgr_out` is given it receives the
+     *  label-free SR image, which is what `<name>_output_only` must contain —
+     *  cropping it back out of the canvas would include the drawn label. */
     cv::Mat buildSRCanvas(const cv::Mat& lr_bgr, const cv::Mat& sr_y,
-                          int out_w, int out_h, int lr_w, int lr_h, int tiles_done) const {
+                          int out_w, int out_h, int lr_w, int lr_h, int tiles_done,
+                          cv::Mat* sr_bgr_out = nullptr) const {
+        // sr_y is limited-range — keep the chroma planes on the same convention.
         cv::Mat lr_ycrcb;
-        cv::cvtColor(lr_bgr, lr_ycrcb, cv::COLOR_BGR2YCrCb);
+        dxapp::colorspace::bgrToYCrCbLimited(lr_bgr, lr_ycrcb);
         std::vector<cv::Mat> ch;
         cv::split(lr_ycrcb, ch);
         cv::Mat cr_up, cb_up;
@@ -535,7 +613,8 @@ private:
         cv::Mat ycrcb_merged;
         cv::merge(std::vector<cv::Mat>{sr_y, cr_up, cb_up}, ycrcb_merged);
         cv::Mat sr_bgr;
-        cv::cvtColor(ycrcb_merged, sr_bgr, cv::COLOR_YCrCb2BGR);
+        dxapp::colorspace::ycrcbLimitedToBgr(ycrcb_merged, sr_bgr);
+        if (sr_bgr_out != nullptr) *sr_bgr_out = sr_bgr.clone();
 
         cv::Mat lr_upscaled;
         cv::resize(lr_bgr, lr_upscaled, cv::Size(out_w, out_h), 0, 0, cv::INTER_CUBIC);
@@ -593,6 +672,28 @@ private:
         }
         metrics_.inflight_current++;
         if (metrics_.inflight_current > metrics_.inflight_max) metrics_.inflight_max = metrics_.inflight_current;
+    }
+
+    /** Tile halo for the tiled SR path, resolved once per run.
+     *
+     *  --sr-tile-halo > config.json "sr_tile_halo" > DXAPP_SR_TILE_HALO > default.
+     *  A halo the model cannot use is a configuration mistake, so it ends the run
+     *  with one actionable line rather than throwing from inside planTiles(). */
+    int resolveTileHalo(int tile_h, int tile_w) {
+        if (sr_halo_resolved_) return sr_halo_;
+        std::string source, error;
+        const int halo = dxapp::srtiling::resolveHaloFrom(
+            cli_halo_, cfg_halo_, tile_h, tile_w, source, error);
+        if (!error.empty()) {
+            dxapp::fatal_error("[DXAPP] [ERROR] " + error);
+        }
+        if (verbose_) {
+            std::cout << "[DXAPP] [INFO] SR tile halo: " << halo
+                      << " px (from " << source << ")" << std::endl;
+        }
+        sr_halo_ = halo;
+        sr_halo_resolved_ = true;
+        return sr_halo_;
     }
 
     void probeModel(dxrt::InferenceEngine& ie, int input_width, int input_height, bool is_nhwc = false) {
@@ -657,6 +758,15 @@ private:
              cxxopts::value<std::string>(args.configPath))
             ("show-log", "Enable verbose log output (default: quiet)",
              cxxopts::value<bool>(args.verbose)->default_value("false"))
+            // Bound straight to this runner's own member: the halo is specific to
+            // tiled super-resolution, so it stays out of the CommandLineArgs
+            // struct that every runner (detection included) shares.
+            ("sr-tile-halo", "Tile overlap in LR pixels for tiled super-resolution, "
+                             "0..4 (default: 4 = the ESPCN receptive-field radius, the "
+                             "most context an output pixel can use; 0 = no overlap, "
+                             "fastest but seams appear). Overrides config.json "
+                             "'sr_tile_halo' and DXAPP_SR_TILE_HALO.",
+             cxxopts::value<int>(cli_halo_)->default_value("-1"))
             ("h, help", "print usage");
         auto cmd = options.parse(argc, argv);
         if (cmd.count("help")) { std::cout << options.help() << std::endl; exit(0); }
@@ -720,15 +830,15 @@ private:
             frame.rows != static_cast<int>(SHOW_WINDOW_SIZE_H)) {
             cv::Mat write_frame;
             cv::resize(frame, write_frame, cv::Size(SHOW_WINDOW_SIZE_W, SHOW_WINDOW_SIZE_H));
-            dxapp::writeToVideo(writer, write_frame);
+            dxapp::writeToVideo(writer, write_frame, SHOW_WINDOW_SIZE_W, SHOW_WINDOW_SIZE_H);
         } else {
-            dxapp::writeToVideo(writer, frame);
+            dxapp::writeToVideo(writer, frame, SHOW_WINDOW_SIZE_W, SHOW_WINDOW_SIZE_H);
         }
     }
 
     void displayThread(IVisualizer<RestorationResult>& visualizer, bool no_display,
                        bool save_on, cv::VideoWriter& writer) {
-        while (running_) {
+        while (running_ || !display_queue_.empty()) {
             AsyncRestorationDisplayArgs args;
             if (!display_queue_.try_pop(args, std::chrono::milliseconds(100))) continue;
             cv::Mat result_frame;
@@ -753,6 +863,28 @@ private:
             }
             if (save_on && !result_frame.empty()) writeVideoFrame(writer, result_frame);
             dxapp::saveDebugImage(result_frame);
+            // Super-resolution standard path (full-color models like RealESRGAN
+            // take this path, not the tiled ESPCN path): also save the upscaled
+            // output on its own as <name>_output_only.<ext>, next to the
+            // side-by-side canvas. The tiled path already does this itself, and
+            // sets prerendered_frame with no results, so it won't double-write.
+            if (args.results && !args.results->empty() &&
+                !(*args.results)[0].restored_image.empty() &&
+                factory_->getTaskType() == "super_resolution") {
+                const cv::Mat& sr_only = (*args.results)[0].restored_image;
+                auto write_output_only = [&sr_only](const std::string& p) {
+                    if (p.empty()) return;
+                    std::size_t dot = p.find_last_of('.');
+                    std::string out = (dot == std::string::npos)
+                        ? p + "_output_only"
+                        : p.substr(0, dot) + "_output_only" + p.substr(dot);
+                    cv::imwrite(out, sr_only);
+                };
+                write_output_only(args.save_path);
+                const char* sv = std::getenv("DXAPP_SAVE_IMAGE");
+                if (sv && *sv && std::string(sv) != args.save_path)
+                    write_output_only(std::string(sv));
+            }
             // Push rendered frame for main-thread display (imshow must run on main thread for Qt)
             if (!no_display && !result_frame.empty()) {
                 rendered_queue_.push(result_frame.clone());

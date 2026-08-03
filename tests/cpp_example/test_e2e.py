@@ -29,13 +29,13 @@ from test_helpers.constants import (  # noqa: E402
     MULTI_MODEL_EXECUTABLES,
     PROJECT_ROOT,
     SAMPLE_DIR,
-    TASK_IMAGE_MAP,
+    e2e_effective_loop,
 )
 from test_helpers.utils import (  # noqa: E402
     find_dxnn_ignoring_variant,
     normalize_model_name as _normalize_model_to_exe,
     registry_dxnn_map,
-    resolve_image_for_model,
+    resolve_cpp_exe_input,
     setup_environment,
 )
 
@@ -271,15 +271,12 @@ def _resolve_input_for_exe(executable: str) -> Path:
     instead of the ``.bin``. Mirror the per-task resolution the Python E2E suite
     already uses (``resolve_image_for_model`` → ``TASK_IMAGE_MAP``), falling back
     to ``TEST_IMAGE`` when the task is unknown or its sample is missing.
+
+    Shared with the other CLI suites (save-mode, dump-tensors, verify) via
+    ``test_helpers.utils.resolve_cpp_exe_input`` — one source of truth so a new
+    non-image task cannot be fixed here and stay broken there.
     """
-    base_name = executable.rsplit("_", 1)[0] if executable.endswith(("_sync", "_async")) else executable
-    task = _EXE_TASK_MAP.get(base_name, "")
-    rel = resolve_image_for_model(base_name, task) or TASK_IMAGE_MAP.get(task)
-    if rel:
-        candidate = PROJECT_ROOT / rel
-        if candidate.exists():
-            return candidate
-    return TEST_IMAGE
+    return resolve_cpp_exe_input(executable, default=TEST_IMAGE)
 
 
 @pytest.mark.e2e
@@ -310,17 +307,19 @@ def test_image_inference_e2e(executable, model_path, bin_dir, loop_count):
 
     env = setup_environment()
 
-    # Heavy face models need reduced loop counts to fit within timeout:
-    #   - TTA models (~125s/frame): -l 2 to stay within 300s timeout
-    #   - W6 face models (~3-20s/frame): -l 5 to stay within 100s timeout
-    #   - Regular face models (yolov7_face, yolov7s_face): -l 5 to stay within 100s timeout
+    # Heavy models need reduced loop counts to fit within the subprocess
+    # timeout. Cap via the measured heavy-model set (E2E_HEAVY_MODELS in
+    # test_helpers.constants) rather than by executable-name guesswork:
+    # heavy (<=20 FPS) -> 2 loops, every other model runs the full -l.
     exe_lower = executable.lower()
-    if "tta" in exe_lower:
-        effective_loop = min(loop_count, 2)
-    elif "face" in exe_lower:
-        effective_loop = min(loop_count, 5)
+    if isinstance(model_path, list):
+        # Multi-model exe: use the most conservative (smallest) cap.
+        effective_loop = min(
+            (e2e_effective_loop(mp.stem, loop_count) for mp in model_path),
+            default=loop_count,
+        )
     else:
-        effective_loop = loop_count
+        effective_loop = e2e_effective_loop(model_path.stem, loop_count)
 
     if isinstance(model_path, list):
         # Multi-model executable (e.g. yolov7_x_deeplabv3)

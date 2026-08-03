@@ -388,6 +388,38 @@ public:
                 std::this_thread::sleep_for(std::chrono::milliseconds(10));
             }
         }
+        // Frames can still be in flight when the reader hits EOF: a completion
+        // callback may not have queued its frame yet, and the display thread may
+        // hold buffered ones. Wait until every submitted frame has been rendered
+        // (and therefore written) before stopping the consumer — otherwise the
+        // tail of a --save video is silently lost. The live-display path never
+        // showed this because frames are rendered as they arrive. Bail out if no
+        // progress is made for 5 s, so a dropped frame cannot hang shutdown.
+        {
+            auto last_progress = std::chrono::steady_clock::now();
+            int last_rendered = -1;
+            while (running_ && !g_interrupted()) {
+                int rendered;
+                {
+                    std::lock_guard<std::mutex> lock(metrics_.metrics_mutex);
+                    rendered = metrics_.render_completed;
+                }
+                const bool pending = !display_queue_.empty() ||
+                                     (args.saveMode && rendered < processCount);
+                if (!pending) break;
+                if (rendered != last_rendered) {
+                    last_rendered = rendered;
+                    last_progress = std::chrono::steady_clock::now();
+                } else if (std::chrono::steady_clock::now() - last_progress >
+                           std::chrono::seconds(5)) {
+                    std::cerr << "[DXAPP] [WARN] Output frames stopped draining; "
+                                 "saved video may be truncated." << std::endl;
+                    break;
+                }
+                if (!args.no_display) pollDisplay();
+                else std::this_thread::sleep_for(std::chrono::milliseconds(2));
+            }
+        }
         running_ = false;
         display_queue_.shutdown();
         rendered_queue_.shutdown();
@@ -502,13 +534,16 @@ private:
 
     void displayThread(IVisualizer<PoseResult>& visualizer, bool no_display,
                        bool save_on, cv::VideoWriter& writer) {
-        while (running_) {
+        while (running_ || !display_queue_.empty()) {
             AsyncPoseDisplayArgs args;
             if (!display_queue_.try_pop(args, std::chrono::milliseconds(100))) continue;
             if (!args.original_frame || args.original_frame->empty()) continue;
 
             // Skip rendering entirely if nothing will consume the rendered frame
-            const bool need_render = !no_display || save_on || !args.save_path.empty();
+            // DXAPP_SAVE_IMAGE consumers (CI, AI Studio) run headless with no
+            // --save, so the env hook must keep the frame alive too.
+            const bool need_render = !no_display || save_on || !args.save_path.empty()
+                                     || std::getenv("DXAPP_SAVE_IMAGE") != nullptr;
             cv::Mat result_frame;
             if (need_render) {
                 auto t_render_start = std::chrono::high_resolution_clock::now();
@@ -528,7 +563,7 @@ private:
                     std::cout << "\n[DXAPP] [INFO] Saved output image: " << fs::absolute(args.save_path).string() << std::endl;
                 }
             }
-            if (save_on && writer.isOpened() && !result_frame.empty()) dxapp::writeToVideo(writer, result_frame);
+            if (save_on && writer.isOpened() && !result_frame.empty()) dxapp::writeToVideo(writer, result_frame, SHOW_WINDOW_SIZE_W, SHOW_WINDOW_SIZE_H);
             if (!result_frame.empty()) dxapp::saveDebugImage(result_frame);
             // Push rendered frame for main-thread display (imshow must run on main thread for Qt)
             if (!no_display && !result_frame.empty()) {

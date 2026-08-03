@@ -509,7 +509,7 @@ that match the model's AI task. Do NOT use generic `test.jpg` or `input.jpg`.
 | obb_detection | `P0177.png`, `P0284.png` | `sample/dota8_test/` |
 | instance_segmentation, semantic_segmentation | `sample_street.jpg`, `sample_parking.jpg` | `sample/img/` |
 | classification | `0.jpeg`, `1.jpeg` | `sample/ILSVRC2012/` |
-| super_resolution | `sample_superresolution.png` | `sample/img/` |
+| super_resolution | `sample_lowres275x150.png` (espcn_x2/x3/x4), `sample_lowres165x90.png` (realesrgan_x2/x4/x8) | `sample/img/` |
 | image_enhancement | `sample_lowlight.jpg`, `sample_dark_room.jpg` | `sample/img/` |
 | image_denoising | `sample_denoising.jpg` | `sample/img/` |
 | depth_estimation | `sample_street.jpg` | `sample/img/` |

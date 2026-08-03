@@ -100,7 +100,7 @@ CATEGORY_IMAGE=(
     [semantic_segmentation]="sample/img/sample_parking.jpg"
     [depth_estimation]="sample/img/sample_horse.jpg"
     [image_denoising]="sample/img/sample_denoising.jpg"
-    [super_resolution]="sample/img/sample_superresolution.png"
+    [super_resolution]="sample/img/sample_lowres275x150.png"
     [image_enhancement]="sample/img/sample_lowlight.jpg"
     [embedding]="sample/img/face_pair"
     [attribute_recognition]="sample/img/sample_person_a1.jpg"
@@ -172,13 +172,19 @@ CATEGORY_ORDER=(
     keypoint_detection object_pose_estimation panoptic_driving_perception 3d_object_detection
 )
 
-# Per-model input overrides (for PPU models whose actual task differs from category)
+# Per-model input overrides (for PPU models whose actual task differs from
+# category, and for super-resolution where the input size depends on the scale
+# factor: ESPCN upscales a 275x150 crop, Real-ESRGAN a smaller 165x90 one so the
+# x8 output stays a sane size).
 declare -A MODEL_IMAGE_OVERRIDE MODEL_VIDEO_OVERRIDE
 MODEL_IMAGE_OVERRIDE=(
     [scrfd500m_ppu]="sample/img/sample_face.jpg"
     [yolov5pose_ppu]="sample/img/sample_people.jpg"
     [handlandmarklite_1]="sample/img/sample_hand.jpg"
     [unet_mobilenet_v2]="sample/img/sample_dog.jpg"
+    [realesrgan_x2]="sample/img/sample_lowres165x90.png"
+    [realesrgan_x4]="sample/img/sample_lowres165x90.png"
+    [realesrgan_x8]="sample/img/sample_lowres165x90.png"
 )
 MODEL_VIDEO_OVERRIDE=(
     [scrfd500m_ppu]="assets/videos/dance-solo.mov"

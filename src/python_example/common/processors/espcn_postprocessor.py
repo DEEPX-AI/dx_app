@@ -17,6 +17,7 @@ import cv2
 from typing import List
 
 from ..base import IPostprocessor, PreprocessContext, SuperResolutionResult
+from ..utility.colorspace import bgr_to_ycrcb_limited, ycrcb_limited_to_bgr
 
 
 class ESPCNPostprocessor(IPostprocessor):
@@ -75,9 +76,11 @@ class ESPCNPostprocessor(IPostprocessor):
             sr_y = (output * 255.0).astype(np.uint8)
             out_h, out_w = sr_y.shape
 
-            # Convert original BGR to YCrCb (OpenCV uses YCrCb, not YCbCr)
+            # The model emits a limited-range Y (it was trained on MATLAB
+            # rgb2ycbcr), so the chroma planes and the inverse matrix must use
+            # the same convention — not OpenCV's full-range YCrCb.
             original_bgr = ctx.original_image
-            original_ycrcb = cv2.cvtColor(original_bgr, cv2.COLOR_BGR2YCrCb)
+            original_ycrcb = bgr_to_ycrcb_limited(original_bgr)
             # Bicubic upsample Cr and Cb to match SR output size
             cr_upscaled = cv2.resize(original_ycrcb[:, :, 1], (out_w, out_h),
                                       interpolation=cv2.INTER_CUBIC)
@@ -85,7 +88,7 @@ class ESPCNPostprocessor(IPostprocessor):
                                       interpolation=cv2.INTER_CUBIC)
             # Merge SR Y with upscaled Cr, Cb
             merged_ycrcb = np.stack([sr_y, cr_upscaled, cb_upscaled], axis=2)
-            output_uint8 = cv2.cvtColor(merged_ycrcb, cv2.COLOR_YCrCb2BGR)
+            output_uint8 = ycrcb_limited_to_bgr(merged_ycrcb)
         else:
             output_uint8 = (output * 255.0).astype(np.uint8)
 

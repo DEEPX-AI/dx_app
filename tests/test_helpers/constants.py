@@ -7,6 +7,7 @@ Single source of truth — never duplicate these maps in individual test modules
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Optional
 
 # ======================================================================
 # Paths (relative to ``dx_app/`` project root)
@@ -34,7 +35,10 @@ _SAMPLE_STREET    = f"{_IMG}/sample_street.jpg"
 _SAMPLE_HAND      = f"{_IMG}/sample_hand.jpg"
 _SAMPLE_DENOISING = f"{_IMG}/sample_denoising.jpg"
 _SAMPLE_LOWLIGHT  = f"{_IMG}/sample_lowlight.jpg"
-_SAMPLE_SUPERRES  = f"{_IMG}/sample_superresolution.png"
+# Super-resolution needs a genuinely low-resolution input, and the right size
+# depends on the model's scale factor — see MODEL_IMAGE_OVERRIDE below.
+_SAMPLE_LOWRES_275x150 = f"{_IMG}/sample_lowres275x150.png"
+_SAMPLE_LOWRES_165x90  = f"{_IMG}/sample_lowres165x90.png"
 _SAMPLE_DOTA      = f"{_IMG}/sample_airport_satellite_view.png"
 
 # Non-image sample inputs — these live directly under ``sample/``, NOT under
@@ -63,7 +67,7 @@ TASK_IMAGE_MAP: dict[str, str] = {
     "obb_detection":          _SAMPLE_DOTA,
     "image_denoising":        _SAMPLE_DENOISING,
     "image_enhancement":      _SAMPLE_LOWLIGHT,
-    "super_resolution":       _SAMPLE_SUPERRES,
+    "super_resolution":       _SAMPLE_LOWRES_275x150,   # ESPCN default; see MODEL_IMAGE_OVERRIDE
     "ppu":                    _SAMPLE_DOG,
     # aliases used in some model_registry entries
     "face_alignment":         _SAMPLE_FACE_PAIR_REF,
@@ -87,6 +91,14 @@ MODEL_IMAGE_OVERRIDE: dict[str, str] = {
     "unet_mobilenet_v2":          _SAMPLE_DOG,
     "mediapipe_hand_detector":    _SAMPLE_PERSON_A2,
     "scrfd500m_ppu":              _SAMPLE_PERSON_A2,
+    # Super-resolution: ESPCN upscales a 275x150 crop; Real-ESRGAN takes a
+    # smaller 165x90 one so the x8 output stays a sane size.
+    "espcn_x2":                   _SAMPLE_LOWRES_275x150,
+    "espcn_x3":                   _SAMPLE_LOWRES_275x150,
+    "espcn_x4":                   _SAMPLE_LOWRES_275x150,
+    "realesrgan_x2":              _SAMPLE_LOWRES_165x90,
+    "realesrgan_x4":              _SAMPLE_LOWRES_165x90,
+    "realesrgan_x8":              _SAMPLE_LOWRES_165x90,
 }
 
 # ======================================================================
@@ -256,7 +268,8 @@ E2E_SHORT_MODELS: set[str] = {
     # Image De-noising
     "dncnn_25",
     # Super Resolution
-    "espcn_x4",
+    "espcn_x2",
+    "realesrgan_x2",
     # Depth Estimation
     "fastdepth_1",
     # OBB Detection
@@ -284,3 +297,120 @@ E2E_SHORT_MODELS: set[str] = {
     # Attribute Recognition
     "deepmar_resnet50",
 }
+
+
+# ======================================================================
+# E2E heavy-model loop cap
+# ======================================================================
+E2E_HEAVY_MODELS: frozenset = frozenset({
+    "casvit-t-fpn-resnet50_512x512",
+    "realesrgan-x8_192x192",
+    "realesrgan-x4_192x192",
+    "stdc2-seg50_512x1024",
+    "retinaface_mobilenetv1_736x1280",
+    "zerodce_400x600",
+    "fcn8_resnet50_512x512",
+    "yolov5-x6_1280x1280",
+    "yolov7-e6e_1280x1280",
+    "yolov7-d6_1280x1280",
+    "yolov7-e6_1280x1280",
+    "efficientdet-d4_1024x1024",
+    "yolov5-l6_1280x1280",
+    "yolov7-w6_1280x1280_nodecode",
+    "yolov7-w6_1280x1280",
+    "yolov5-m6_1280x1280_v6.1",
+    "yolov5-m6_1280x1280",
+    "realesrgan-x2_192x192",
+    "yolov5-s6_1280x1280_v6.1",
+    "yolov5-s6_1280x1280",
+    "yolov3-gluon_608x608",
+    "yolov6-l6_1280x1280",
+    "yolov5-n6_1280x1280",
+    "depthanythingv2-vitl_224x224",
+    "yolov5-n6_1280x1280_v6.1",
+    "yolo26-x-obb_1024x1024",
+    "zerodce-pp_400x600",
+    "bisenetv1_1024x2048",
+    "deit-b_384x384",
+    "beit-l-p16_224x224",
+    "fastsam-s_1024x1024",
+    "yolo26-x-seg_640x640",
+    "clip-img_vit-l14_224x224_datacomp-xl-s13b-b90k",
+    "clip-img_vit-l14-quickgelu_224x224_dfn2b",
+    "yolov7-w6-face_1280x1280_tta",
+    "yolopv2_384x640",
+    "yolo11-x-seg_640x640",
+    "yolov5-x-seg_640x640",
+    "yolov8-x-seg_640x640",
+    "dope-hope-ketchup_480x640",
+    "deeplabv3plus-drn_512x512",
+    "regnet-y32gf_384x384",
+    "yolo26-l-obb_1024x1024",
+    "yolact_regnet-x1.6gf_512x512",
+    "deit-b_384x384_distilled",
+    "yolov3-gluon_416x416",
+    "yolact_regnet-x800mf_512x512",
+    "dncnn-color_512x512",
+    "bisenetv2_1024x2048",
+    "dncnn-gray_512x512",
+    "pidnet-s_1024x2048",
+    "centerpose_regnet-x800mf_640x640",
+    "yolov5-l-seg_640x640",
+    "depthanythingv2-vitb_224x224",
+    "dncnn-15_512x512",
+    "dncnn-50_512x512",
+    "regnet-y16gf_384x384",
+    "dncnn-25_512x512",
+    "yolov8-l-seg_640x640",
+    "yolo26-m-obb_1024x1024",
+    "yolo26-l-seg_640x640",
+    "yolo26-x_640x640",
+    "yolov8-x_640x640",
+    "yolo11-x_640x640",
+    "yolo11-l-seg_640x640",
+    "yolo26-x-pose_640x640",
+    "yolov5-x_640x640",
+    "yolov5-m-seg_640x640",
+    "yolo11-x-pose_640x640",
+    "yolox-x_640x640",
+    "yolov8-x-pose_640x640",
+    "yolov10-x_640x640",
+    "yolov7-x_640x640",
+    "yolo26-m-seg_640x640",
+    "efficientdet-d2_768x768",
+    "yolov5-n-seg_640x640",
+    "unet_mobilenetv2_256x256",
+    "yolov8-m-seg_640x640",
+    "yolov5-s-seg_640x640",
+    "yolo11-m-seg_640x640",
+    "densenet161_224x224",
+    "yolov3_640x640",
+    "yolov7-w6-face_960x960",
+    "densenet201_224x224",
+    "espcn_x2", 
+    "espcn_x3", 
+    "espcn_x4", 
+    "realesrgan_x2",
+    "realesrgan_x4",
+    "realesrgan_x8",
+    "dope_hope_ketchup",
+    "sfa3d_608x608",
+})
+
+# Loop-count cap applied to every model in :data:`E2E_HEAVY_MODELS`.
+E2E_HEAVY_MODEL_LOOP_CAP: int = 2
+
+
+def e2e_effective_loop(model_stem: Optional[str], loop_count: int) -> int:
+    """Cap ``loop_count`` for heavy models so E2E runs don't time out.
+
+    Models absent from :data:`E2E_HEAVY_MODELS` run the full requested
+    ``loop_count``. Heavy models -- those measured at or below the 20 FPS
+    threshold -- are capped at :data:`E2E_HEAVY_MODEL_LOOP_CAP`. Never
+    *raises* the loop count.
+    """
+    if not model_stem:
+        return loop_count
+    if model_stem in E2E_HEAVY_MODELS:
+        return min(loop_count, E2E_HEAVY_MODEL_LOOP_CAP)
+    return loop_count

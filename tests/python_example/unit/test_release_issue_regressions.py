@@ -1,5 +1,6 @@
 """Regression tests for Q3 release issue fixes."""
 
+import re
 import subprocess
 import sys
 from types import SimpleNamespace
@@ -40,9 +41,14 @@ def test_cpp_async_sr_stream_path_warns_for_large_tile_count():
     """Async C++ SR stream processing should warn on very large tile counts."""
     source = _read("src/cpp_example/common/runner/async_restoration_runner.hpp")
 
-    assert "tiles_count" in source or "tiles_total" in source
+    # Assert the guard itself — a tile-count threshold wrapping the WARN — not the
+    # name of the variable holding the count. The halo-aware tiling refactor
+    # replaced the local `tiles_count` with `plans.size()` without changing the
+    # threshold or the message.
+    assert re.search(
+        r"if\s*\(.*>\s*400\s*\)\s*\{[^}]*tiles; processing may be slow", source, re.S
+    ), "async SR path must keep the >400-tile warning guard"
     assert "produces " in source
-    assert "tiles; processing may be slow" in source
 
 
 def test_python_image_only_wrappers_mark_stream_inputs_unsupported():

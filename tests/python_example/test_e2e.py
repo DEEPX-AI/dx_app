@@ -27,7 +27,7 @@ from typing import Dict, List, Optional, Tuple
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from test_helpers.constants import PROJECT_ROOT, TASK_IMAGE_MAP, MODEL_IMAGE_OVERRIDE, E2E_SHORT_MODELS, IMAGE_ONLY_TASKS  # noqa: E402
+from test_helpers.constants import PROJECT_ROOT, TASK_IMAGE_MAP, MODEL_IMAGE_OVERRIDE, E2E_SHORT_MODELS, IMAGE_ONLY_TASKS, e2e_effective_loop  # noqa: E402
 from test_helpers.utils import discover_python_scripts, setup_environment, resolve_image_for_model  # noqa: E402
 
 
@@ -262,14 +262,12 @@ def test_image_inference_e2e(script: Path, model: Optional[Path], image: Path, l
     if not image.exists():
         pytest.skip(f"Test image not found: {image}")
 
-    # Heavy models need reduced loop counts to fit within timeout
+    # Heavy models need reduced loop counts to fit within the subprocess
+    # timeout. Cap via the measured heavy-model set (E2E_HEAVY_MODELS) rather
+    # than by model-name guesswork: heavy (<=20 FPS) -> 2 loops, every other
+    # model runs the full requested --loop.
     stem_lower = script.stem.lower()
-    if "tta" in stem_lower:
-        effective_loop = min(loop_count, 2)
-    elif "face" in stem_lower:
-        effective_loop = min(loop_count, 5)
-    else:
-        effective_loop = loop_count
+    effective_loop = e2e_effective_loop(model.stem, loop_count)
 
     display = os.getenv("E2E_DISPLAY", "0") == "1"
     cmd = [
@@ -319,7 +317,7 @@ def test_image_inference_e2e(script: Path, model: Optional[Path], image: Path, l
 @pytest.mark.e2e
 @pytest.mark.e2e_stream
 @pytest.mark.parametrize("script,model", _STREAM_PARAMS)
-def test_stream_inference_e2e(script: Path, model: Optional[Path], loop_count):
+def test_stream_inference_e2e(script: Path, model: Optional[Path]):
     """Run Python script with --video and --no-display."""
     if model is None:
         pytest.skip(f"Model .dxnn not found for {script.stem}: run setup_sample_models.sh first")
@@ -334,11 +332,13 @@ def test_stream_inference_e2e(script: Path, model: Optional[Path], loop_count):
     if "_async" in script.stem and display:
         pytest.skip("Async variants do not support display mode")
 
+    # No --loop for video: process the clip exactly once (mirrors the C++
+    # video test, which passes no -l). A single pass already exercises the
+    # full stream path, and looping heavy models here risks the 900s timeout.
     cmd = [
         sys.executable, str(script),
         "--model", str(model),
         "--video", str(_TEST_VIDEO),
-        "--loop", str(loop_count),
     ]
     if not display:
         cmd.append("--no-display")

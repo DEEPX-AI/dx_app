@@ -20,6 +20,11 @@ CONFIG_SCHEMA: Dict[str, Dict[str, Any]] = {
     "reg_max":              {"type": int,          "min": 1,   "max": 100},
     "num_protos":           {"type": int,          "min": 1,   "max": 1000},
     "has_background":       {"type": bool},
+    # Tile overlap (LR px) for tiled super-resolution. Capped at 4 — the ESPCN
+    # receptive-field radius, beyond which overlap adds no accuracy. A tile
+    # smaller than 9 px tightens this further; the runner enforces that, since it
+    # is the only place that knows the model's input size.
+    "sr_tile_halo":         {"type": int,          "min": 0,   "max": 4},
 }
 
 

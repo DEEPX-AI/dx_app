@@ -11,12 +11,16 @@ import numpy as np
 from typing import Tuple
 
 from ..base import IPreprocessor, PreprocessContext
+from ..utility.colorspace import bgr_to_y_limited
+
+Y_MODE_GRAY = "gray"
+Y_MODE_BT601_LIMITED = "bt601_limited"
 
 
 class GrayscaleResizePreprocessor(IPreprocessor):
     """
     Preprocessor for grayscale models:
-      1. Convert BGR → grayscale
+      1. Convert BGR → single channel
       2. Resize to target size
       3. Add channel dim → [H, W, 1]
       4. Store normalized version in ctx for post-processing usage
@@ -24,19 +28,40 @@ class GrayscaleResizePreprocessor(IPreprocessor):
     Args:
         store_original: If True, saves the original BGR image in ctx.original_image.
                         Needed for ESPCN-style color restoration (YCrCb merge).
+        y_mode: Which single-channel definition to produce.
+
+            ``"gray"`` (default) — OpenCV ``COLOR_BGR2GRAY``, full range
+            [0, 255]. This is the historical behaviour and stays the default so
+            that every existing caller (DnCNN, SuperPoint, …) is unaffected.
+
+            ``"bt601_limited"`` — MATLAB ``rgb2ycbcr`` Y, limited range
+            [16, 235]. Required by models trained through the MATLAB SR
+            pipeline: ESPCN's training set is built with
+            ``bgr_to_ycbcr(..., only_use_y_channel=True)``, so a full-range Y
+            lands outside the model's training domain. Opt in per model —
+            never change the default.
     """
 
-    def __init__(self, input_width: int, input_height: int, store_original: bool = False):
+    def __init__(self, input_width: int, input_height: int, store_original: bool = False,
+                 y_mode: str = Y_MODE_GRAY):
+        if y_mode not in (Y_MODE_GRAY, Y_MODE_BT601_LIMITED):
+            raise ValueError(
+                f"y_mode must be '{Y_MODE_GRAY}' or '{Y_MODE_BT601_LIMITED}', "
+                f"got {y_mode!r}")
         self.input_width = input_width
         self.input_height = input_height
         self.store_original = store_original
+        self.y_mode = y_mode
 
     def process(self, image: np.ndarray) -> Tuple[np.ndarray, PreprocessContext]:
         h, w = image.shape[:2]
 
-        # Convert to grayscale
+        # Convert to the single channel this model was trained on
         if len(image.shape) == 3 and image.shape[2] == 3:
-            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+            if self.y_mode == Y_MODE_BT601_LIMITED:
+                gray = bgr_to_y_limited(image)
+            else:
+                gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         elif len(image.shape) == 2:
             gray = image
         else:

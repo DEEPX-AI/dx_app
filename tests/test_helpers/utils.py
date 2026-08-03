@@ -76,6 +76,38 @@ def resolve_image_for_model(model_name: str, task: str) -> Optional[str]:
     return None
 
 
+def strip_variant_suffix(executable: str) -> str:
+    """``sfa3d_608x608_sync`` → ``sfa3d_608x608`` (``_sync``/``_async`` removed)."""
+    for suffix in ("_sync", "_async"):
+        if executable.endswith(suffix):
+            return executable[: -len(suffix)]
+    return executable
+
+
+def resolve_cpp_exe_input(
+    executable: str,
+    default: Optional[Path] = None,
+) -> Optional[Path]:
+    """Return the sample input an *executable* actually accepts (``-i`` argument).
+
+    Most C++ examples take an image, but a few HARD-REJECT one: 3D object
+    detection (``sfa3d_*``) requires a KITTI LiDAR point cloud
+    (``sample/kitti/velodyne/000049.bin``) and object-pose requires a DOPE frame.
+    Handing those a JPG aborts the run with rc=255 before inference, so every CLI
+    test that passes ``-i`` must resolve per task instead of hardcoding one image
+    (``TASK_IMAGE_MAP`` / ``MODEL_IMAGE_OVERRIDE`` are the source of truth).
+
+    Falls back to *default* when the task is unknown or its sample is missing.
+    """
+    base = strip_variant_suffix(executable)
+    task_map = _cpp_exe_task_map_cached()
+    task = task_map.get(executable) or task_map.get(base, "")
+    rel = resolve_image_for_model(base, task)
+    if rel:
+        return PROJECT_ROOT / rel
+    return default
+
+
 # ======================================================================
 # Model registry helpers
 # ======================================================================
@@ -330,6 +362,16 @@ def cpp_exe_task_map(
             if any(stem.endswith(s) for s in suffixes):
                 mapping[stem] = task_dir.name
     return mapping
+
+
+@lru_cache(maxsize=1)
+def _cpp_exe_task_map_cached() -> dict:
+    """Read-only, cached ``cpp_exe_task_map()`` for per-test input resolution.
+
+    :func:`resolve_cpp_exe_input` is called once per parametrised test, and the
+    uncached map rglobs the whole ``src/cpp_example`` tree each time.
+    """
+    return cpp_exe_task_map()
 
 
 # ======================================================================
