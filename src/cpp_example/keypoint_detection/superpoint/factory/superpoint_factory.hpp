@@ -24,17 +24,23 @@
 namespace dxapp {
 
 /**
- * @brief Wraps SuperPointPostProcess to produce PoseResult (keypoints only)
- *        and keeps a shared SuperPointTracker up to date with every frame.
+ * @brief Wraps SuperPointPostProcess to produce PoseResult (keypoints plus the
+ *        descriptors the tracker needs).
+ *
+ * The tracker is deliberately NOT updated here. This runs in the dxrt
+ * completion callback, which the async runners drive up to max_inflight (40)
+ * frames ahead of the display thread and not in submit order, so tracks
+ * updated here would be drawn over the wrong frame — measured as a 2 → 40
+ * frame overlay lag. The descriptors ride along on the result instead, and
+ * SuperPointTrackingVisualizer::draw() does the update, one frame at a time in
+ * submit order.
  */
 class SuperPointPostprocessorWrapper : public IPostprocessor<PoseResult> {
 public:
-    SuperPointPostprocessorWrapper(std::shared_ptr<SuperPointTracker> tracker,
-                                   int input_w, int input_h,
+    SuperPointPostprocessorWrapper(int input_w, int input_h,
                                    float conf_threshold = 0.015f,
                                    int top_k = 500)
-        : tracker_(std::move(tracker)),
-          impl_(input_w, input_h, conf_threshold, top_k) {}
+        : impl_(input_w, input_h, conf_threshold, top_k) {}
 
     std::vector<PoseResult> process(const dxrt::TensorPtrs& outputs,
                                     const PreprocessContext& ctx) override {
@@ -49,15 +55,10 @@ public:
         std::vector<PoseResult> results = {std::move(pose)};
         detail::scalePoseResults(results, ctx);
 
-        // Feed tracker with scaled keypoints + raw descriptors
-        if (tracker_) {
-            const std::vector<Keypoint>& kps = results[0].keypoints;
-            std::vector<float> xs, ys;
-            xs.reserve(kps.size());
-            ys.reserve(kps.size());
-            for (const auto& kp : kps) { xs.push_back(kp.x); ys.push_back(kp.y); }
-            tracker_->update(xs, ys, sp.descriptors);
-        }
+        // Hand the raw descriptors to the visualizer, which owns the tracker
+        // update (see the class comment).
+        results[0].descriptors = std::make_shared<const std::vector<std::vector<float>>>(
+            std::move(sp.descriptors));
 
         return results;
     }
@@ -65,7 +66,6 @@ public:
     std::string getModelName() const override { return "SuperPoint"; }
 
 private:
-    std::shared_ptr<SuperPointTracker> tracker_;
     SuperPointPostProcess impl_;
 };
 
@@ -90,6 +90,17 @@ public:
                  const std::vector<PoseResult>& results,
                  const PreprocessContext& /*ctx*/) override {
         cv::Mat output = image.clone();
+
+        // Updating in thepostprocessor instead put the overlay up to 40 frames ahead of the
+        // image it was drawn on (the async pipeline depth).
+        if (tracker_ && !results.empty() && results[0].descriptors) {
+            const std::vector<Keypoint>& kps = results[0].keypoints;
+            std::vector<float> xs, ys;
+            xs.reserve(kps.size());
+            ys.reserve(kps.size());
+            for (const auto& kp : kps) { xs.push_back(kp.x); ys.push_back(kp.y); }
+            tracker_->update(xs, ys, *results[0].descriptors);
+        }
 
         // Scale radius for consistent visual appearance across image sizes.
         // Reference: 960×540 (diagonal ≈ 1100 px). Images smaller than the
@@ -160,7 +171,7 @@ public:
     PostprocessorPtr<PoseResult> createPostprocessor(
         int input_width, int input_height, bool /*is_ort_configured*/ = false) override {
         return std::make_unique<SuperPointPostprocessorWrapper>(
-            tracker_, input_width, input_height, conf_threshold_, top_k_);
+            input_width, input_height, conf_threshold_, top_k_);
     }
 
     VisualizerPtr<PoseResult> createVisualizer() override {

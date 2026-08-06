@@ -79,12 +79,6 @@ if(SOURCES)
         POSITION_INDEPENDENT_CODE ON
         LIBRARY_OUTPUT_DIRECTORY ${PROJECT_ROOT}/lib
     )
-    # Copy header files to build directory during build
-    add_custom_command(TARGET yolov8_ppu_postprocess POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E make_directory ${PROJECT_ROOT}/include
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different ${HEADERS} ${PROJECT_ROOT}/include
-        COMMENT "Copying header files to build directory"
-    )
     
     # Compiler flags and definitions
     if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
@@ -100,4 +94,9 @@ install(TARGETS yolov8_ppu_postprocess
     ARCHIVE DESTINATION lib
     LIBRARY DESTINATION lib
     RUNTIME DESTINATION bin
+)
+
+# Install header files (optional - only if make install is used)
+install(FILES ${HEADERS}
+    DESTINATION include
 )
