@@ -1,5 +1,15 @@
 # RELEASE_NOTES
 
+## v3.2.2 / 2026-08-06
+
+### 1. Changed
+- Moved SuperPoint point tracking out of the keypoint detection post-process into the visualizer
+
+### 2. Fixed
+- Fixed the Windows all-build not running in parallel by copying shared files once instead of duplicating the copy per target
+
+### 3. Added
+
 ## DX-APP v3.2.1 / 2026-07-28
 
 ### 1. Changed

@@ -80,13 +80,6 @@ if(SOURCES)
         LIBRARY_OUTPUT_DIRECTORY ${PROJECT_ROOT}/lib
     )
     
-    # Copy header files to build directory during build
-    add_custom_command(TARGET yolov12_postprocess POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E make_directory ${PROJECT_ROOT}/include
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different ${HEADERS} ${PROJECT_ROOT}/include
-        COMMENT "Copying header files to build directory"
-    )
-    
     # Compiler flags and definitions
     if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
         target_compile_options(yolov12_postprocess PRIVATE ${COMMON_COMPILE_FLAGS})

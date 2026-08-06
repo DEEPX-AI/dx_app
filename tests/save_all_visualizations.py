@@ -20,6 +20,12 @@ from pathlib import Path
 import cv2
 import numpy as np
 
+for _stream in (sys.__stdout__, sys.__stderr__, sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(errors="backslashreplace")
+    except (AttributeError, OSError, ValueError):
+        pass  # None (pythonw), or a stream without reconfigure()
+
 # ======================================================================
 # Paths
 # ======================================================================
