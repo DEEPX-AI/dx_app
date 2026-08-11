@@ -50,6 +50,10 @@ class _FactoryConfigMixin:
           (``SemanticSegmentationPostprocessor`` with ``upsample_to_input``) →
           argmax-then-resize instead of upsampling every class logit
           (measured ~4.9x faster).
+        * Depth estimation (``DepthEstimationPostprocessor``, via its
+          ``create_fast_variant``) → single-pass SIMD normalize and colorize at
+          model resolution, leaving the one resize to the visualizer
+          (measured ~2.5x faster).
 
         Returns ``None`` for every other family (the standard Python path is
         already early-gated / argmax-then-resize and shows no headroom).

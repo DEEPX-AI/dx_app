@@ -40,6 +40,13 @@ public:
         cv::Mat resized_depth;
         cv::resize(colored_depth, resized_depth, frame.size(), 0, 0, cv::INTER_LINEAR);
 
+        // alpha_ is 1.0 by default (fully opaque depth) and no caller overrides
+        // it, so the blend below would be an identity pass over the whole frame.
+        // Skip it — the result is bit-for-bit the same image.
+        if (alpha_ >= 1.0f) {
+            return resized_depth;
+        }
+
         // Blend with original frame
         cv::Mat output;
         cv::addWeighted(frame, 1.0 - alpha_, resized_depth, alpha_, 0, output);

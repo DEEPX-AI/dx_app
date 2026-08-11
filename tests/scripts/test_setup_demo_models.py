@@ -76,7 +76,7 @@ def test_setup_assets_uses_v310_sample_video_archive():
 
     combined = result.stdout + result.stderr
     assert result.returncode == 0, combined
-    assert "sample_videos_v3.1.0.tar.gz" in combined
+    assert "sample_videos_v3.2.2.tar.gz" in combined
     assert "sample_videos_v3.1.1.tar.gz" not in combined
 
 

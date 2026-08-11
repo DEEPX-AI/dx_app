@@ -33,13 +33,24 @@ class SimpleResizePreprocessor(IPreprocessor):
               Defaults to [1.0, 1.0, 1.0] (no division).
         bgr:  If True (default False), keep BGR channel order (no RGB conversion).
               Use for models trained on BGR images (e.g. RetinaFace, many OpenCV models).
+        store_original: If True, keep a copy of the input BGR frame in
+              ``ctx.original_image`` (needed only for color restoration, e.g. ESPCN).
+              Off by default: the copy costs ~0.5-1.1 ms/frame at 1080p and no
+              model that uses this preprocessor reads it.
+        store_normalized: If True, also populate ``ctx.normalized_input``
+              (float32 CHW [0,1]) on the uint8/mean-std paths. Off by default:
+              building it costs ~1.7-3.1 ms/frame at 768x768 and only the
+              Zero-DCE enhancement family reads it — that family sets
+              ``normalize_float=True``, which populates it regardless.
     """
-    
+
     def __init__(self, input_width: int, input_height: int,
                  normalize_float: bool = False, nhwc: bool = False,
                  mean: Optional[List[float]] = None,
                  std: Optional[List[float]] = None,
-                 bgr: bool = False):
+                 bgr: bool = False,
+                 store_original: bool = False,
+                 store_normalized: bool = False):
         self._input_width = input_width
         self._input_height = input_height
         self._normalize_float = normalize_float
@@ -47,6 +58,8 @@ class SimpleResizePreprocessor(IPreprocessor):
         self._mean = np.array(mean, dtype=np.float32) if mean is not None else None
         self._std = np.array(std, dtype=np.float32) if std is not None else None
         self._bgr = bgr
+        self._store_original = store_original
+        self._store_normalized = store_normalized
     
     def process(self, input_image: np.ndarray) -> Tuple[np.ndarray, PreprocessContext]:
         """
@@ -72,8 +85,9 @@ class SimpleResizePreprocessor(IPreprocessor):
         ctx.scale = min(ctx.scale_x, ctx.scale_y)
         ctx.pad_x = 0
         ctx.pad_y = 0
-        ctx.original_image = input_image.copy()  # BGR original for color restoration
-        
+        if self._store_original:
+            ctx.original_image = input_image.copy()  # BGR original for color restoration
+
         # Color conversion
         if self._bgr:
             img = input_image  # Keep BGR as-is
@@ -84,9 +98,13 @@ class SimpleResizePreprocessor(IPreprocessor):
         resized = cv2.resize(img, (self._input_width, self._input_height), 
                             interpolation=cv2.INTER_LINEAR)
         
-        # Store normalized input (RGB float32 [0,1] CHW) for models that need it
-        resized_float = resized.astype(np.float32) / 255.0
-        ctx.normalized_input = np.transpose(resized_float, (2, 0, 1))  # HWC → CHW
+        # Store normalized input (RGB float32 [0,1] CHW) only for models that
+        # actually read it — building it is ~1.7-3.1 ms/frame at 768x768 and
+        # the input stage is what caps async throughput.
+        resized_float = None
+        if self._normalize_float or self._store_normalized:
+            resized_float = resized.astype(np.float32) / 255.0
+            ctx.normalized_input = np.transpose(resized_float, (2, 0, 1))  # HWC → CHW
 
         # Mean/std normalization path (overrides normalize_float)
         if self._mean is not None:

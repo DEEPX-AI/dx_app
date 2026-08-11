@@ -5329,5 +5329,70 @@
     },
     "source": "manual",
     "supported": true
+  },
+  {
+    "model_name": "yolo26_depth_s",
+    "dxnn_file": "yolo26-depth-s_768x768.dxnn",
+    "original_name": "yolo26-depth-s",
+    "csv_task": "DEPTH",
+    "add_model_task": "depth_estimation",
+    "postprocessor": "depth",
+    "input_width": 768,
+    "input_height": 768,
+    "config": {},
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "yolo26_depth_n",
+    "dxnn_file": "yolo26-depth-n_768x768.dxnn",
+    "original_name": "yolo26-depth-n",
+    "csv_task": "DEPTH",
+    "add_model_task": "depth_estimation",
+    "postprocessor": "depth",
+    "input_width": 768,
+    "input_height": 768,
+    "config": {},
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "yolo26_depth_m",
+    "dxnn_file": "yolo26-depth-m_768x768.dxnn",
+    "original_name": "yolo26-depth-m",
+    "csv_task": "DEPTH",
+    "add_model_task": "depth_estimation",
+    "postprocessor": "depth",
+    "input_width": 768,
+    "input_height": 768,
+    "config": {},
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "yolo26_depth_l",
+    "dxnn_file": "yolo26-depth-l_768x768.dxnn",
+    "original_name": "yolo26-depth-l",
+    "csv_task": "DEPTH",
+    "add_model_task": "depth_estimation",
+    "postprocessor": "depth",
+    "input_width": 768,
+    "input_height": 768,
+    "config": {},
+    "source": "manual",
+    "supported": true
+  },
+  {
+    "model_name": "yolo26_depth_x",
+    "dxnn_file": "yolo26-depth-x_768x768.dxnn",
+    "original_name": "yolo26-depth-x",
+    "csv_task": "DEPTH",
+    "add_model_task": "depth_estimation",
+    "postprocessor": "depth",
+    "input_width": 768,
+    "input_height": 768,
+    "config": {},
+    "source": "manual",
+    "supported": true
   }
 ]

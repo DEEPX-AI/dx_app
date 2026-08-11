@@ -176,6 +176,9 @@ _VID_DANCE_GROUP = "assets/videos/dance-group.mov"
 _VID_BLACKBOX = "assets/videos/blackbox-city-road.mp4"
 _VID_DOGS = "assets/videos/dogs.mp4"
 _VID_SNOWBOARD = "assets/videos/snowboard.mp4"
+# Super-resolution needs a genuinely low-resolution source, or the upscaled
+# output is indistinguishable from the input (and the frames are huge).
+_VID_LOWRES = "assets/videos/lowres-drone-city-road.mp4"
 
 # Tasks that accept image input only (no video/camera/rtsp stream).
 #   - embedding/reid/attribute_recognition: image-pair / single-image tasks
@@ -241,7 +244,7 @@ _DEFAULT_SAMPLE_VIDEO = {
     "classification":         _VID_DOGS,
     "depth_estimation":       _VID_BLACKBOX,
     "image_denoising":        "assets/videos/noisy_hand.mp4",
-    "super_resolution":       _VID_DANCE_GROUP,
+    "super_resolution":       _VID_LOWRES,
     "image_enhancement":      "assets/videos/lowlight.mp4",
     "embedding":              None,   # image-only task
     "attribute_recognition":  None,   # image-only task
