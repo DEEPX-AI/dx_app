@@ -66,5 +66,11 @@ class DepthEstimationPostprocessor(IPostprocessor):
             depth_colormap=depth_color,
         )]
 
+    def create_fast_variant(self):
+        """Opt-in fast path used by ``--fast-postprocess`` (see IFactory)."""
+        from .fast_depth_postprocessor import FastDepthEstimationPostprocessor
+        return FastDepthEstimationPostprocessor(
+            self.input_width, self.input_height, self.config)
+
     def get_model_name(self) -> str:
         return "depth"

@@ -37,7 +37,7 @@ MODEL_OUTPUT = PROJECT_DIR / "assets" / "models"
 VIDEO_OUTPUT = PROJECT_DIR / "assets" / "videos"
 
 VIDEO_BASE_URL = "https://sdk.deepx.ai/"
-VIDEO_VERSION = "v3.1.0"
+VIDEO_VERSION = "v3.2.2"
 MEDIA_EXTENSIONS = {".mp4", ".mov", ".avi", ".mkv"}
 
 # ── ANSI colors (matching download_models.py style) ──────────────────────────

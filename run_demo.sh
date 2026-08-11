@@ -37,7 +37,7 @@ DEMO_LABELS=(
     # ── Classification (1) ──
     "Classification           (ResNet50)"
     # ── Depth Estimation (1) ──
-    "Depth Estimation         (Depth-Anything-V2-ViT-B)"
+    "Depth Estimation         (YOLO26-Depth-S)"
     # ── Image Restoration (3) ──
     "Image Denoising          (DnCNN-50)"
     "Super Resolution         (ESPCN-X4)"
@@ -77,7 +77,7 @@ DEMO_CPP_BASE=(
     yolov8s_pose handlandmarklite_1 3ddfa_v2_mobilnetv1_120x120
     yolov8n_seg deeplabv3plusmobilenet
     resnet50
-    depth_anything_v2_vitb
+    yolo26_depth_s
     dncnn_50 espcn_x4 zero_dce
     arcface_mobilefacenet deepmar_resnet50 casvit_t
     yolov7_ppu
@@ -97,7 +97,7 @@ DEMO_PY_DIR=(
     "instance_segmentation/yolov8n_seg"
     "semantic_segmentation/deeplabv3plusmobilenet"
     "classification/resnet50"
-    "depth_estimation/depth_anything_v2_vitb"
+    "depth_estimation/yolo26_depth_s"
     "image_denoising/dncnn_50"
     "super_resolution/espcn_x4"
     "image_enhancement/zero_dce"
@@ -117,7 +117,7 @@ DEMO_PY_BASE=(
     yolov8s_pose handlandmarklite_1 3ddfa_v2_mobilnetv1_120x120
     yolov8n_seg deeplabv3plusmobilenet
     resnet50
-    depth_anything_v2_vitb
+    yolo26_depth_s
     dncnn_50 espcn_x4 zero_dce
     arcface_mobilefacenet deepmar_resnet50 casvit_t
     yolov7_ppu
@@ -131,7 +131,7 @@ DEMO_MODEL=(
     yolov8-s-pose_640x640.dxnn mediapipe-hands-lite_224x224.dxnn 3ddfa-v2_mobilenetv1_120x120.dxnn
     yolov8-n-seg_640x640.dxnn deeplabv3plus_mobilenetv1_512x512.dxnn
     resnet50_224x224.dxnn
-    depthanythingv2-vitb_224x224.dxnn
+    yolo26-depth-s_768x768.dxnn
     dncnn-50_512x512.dxnn espcn-x4_17x17.dxnn zerodce_400x600.dxnn
     arcface_mobilefacenet_112x112.dxnn deepmar_resnet50_224x224.dxnn casvit-t_224x224.dxnn
     yolov7_640x640_ppu.dxnn
@@ -153,7 +153,7 @@ DEMO_VIDEO=(
     "assets/videos/dogs.mp4"
     "assets/videos/blackbox-city-road.mp4"
     "assets/videos/noisy_hand.mp4"
-    "assets/videos/dance-group.mov"
+    "assets/videos/lowres-drone-city-road.mp4"
     "assets/videos/lowlight.mp4"
     "assets/videos/face-pair-sofa.mp4"
     "assets/videos/person-pair-hallway.mp4"
