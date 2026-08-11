@@ -1,6 +1,6 @@
 # RELEASE_NOTES
 
-## v3.2.2 / 2026-08-06
+## DX-APP v3.2.2 / 2026-08-11
 
 ### 1. Changed
 - Moved SuperPoint point tracking out of the keypoint detection post-process into the visualizer
