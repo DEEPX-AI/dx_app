@@ -28,6 +28,7 @@ import cv2
 
 from ..config import load_config
 from ..utility import print_image_processing_summary, print_sync_performance_summary
+from ..utility.common_util import window_exists
 from ..utility.video_io import write_video_frame
 from ..utility.colorspace import bgr_to_y_limited, bgr_to_ycrcb_limited, ycrcb_limited_to_bgr
 from .run_dir import create_run_dir, write_run_info, dump_tensors, dump_tensors_on_exception
@@ -43,30 +44,75 @@ logger = logging.getLogger(__name__)
 _MSG_HEADLESS_SKIP = "Headless environment - display skipped"
 
 
+# Platforms whose OpenCV HighGUI uses a native window backend (Win32 / Cocoa)
+# instead of X11 or Wayland, so no display env var is ever set.
+_NATIVE_GUI_PLATFORMS = ("win32", "darwin")
+
+
 def _has_display() -> bool:
     """Return True if a graphical display server is available."""
+    if sys.platform in _NATIVE_GUI_PLATFORMS:
+        return True
     return bool(os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY"))
+
+
+# Tri-state cache for WND_PROP_VISIBLE support: None = not probed yet.
+# HighGUI backend support cannot change within a process, so probing once is
+# enough for every window this run creates.
+_window_prop_supported: Optional[bool] = None
+
+
+def _window_prop_visible_supported(winname: str) -> bool:
+    """Return True if this HighGUI backend really implements WND_PROP_VISIBLE.
+
+    Only the Qt backend does. GTK builds -- what the ``opencv-python`` wheels
+    ship on Linux -- return ``-1`` for it unconditionally, which is
+    indistinguishable from "the window was destroyed". Probing once while the
+    window is known to be alive tells the two apart: anything but a
+    fully-visible answer means the property carries no information and the
+    close check must be skipped, exactly as the C++ runners do
+    (``async_detection_runner.hpp::pollDisplay``).
+
+    Trusting the property only on a clean ``1.0`` also covers backends that
+    report ``0`` while the window is still being mapped; the cost of being
+    wrong is that quitting needs q/ESC instead of the window's X button, which
+    beats tearing the window down before it is ever seen.
+    """
+    global _window_prop_supported
+    if _window_prop_supported is None:
+        try:
+            probe = cv2.getWindowProperty(winname, cv2.WND_PROP_VISIBLE)
+        except Exception:
+            probe = -1.0
+        _window_prop_supported = probe >= 0.5
+    return _window_prop_supported
 
 
 def _window_should_close(winname: str = "Output") -> bool:
     """Return True if user requested quit (q/ESC) or closed the window.
 
-    This handles both keypress and window-close (X) events. When window is
-    closed we destroy the window to avoid stale state.
+    q/ESC works on every backend. Window-close (X) detection additionally needs
+    a backend that implements WND_PROP_VISIBLE — see
+    :func:`_window_prop_visible_supported`; where it does not (GTK), only the
+    keypress path can end the run.
     """
     if not _has_display():
         return False
+    if not window_exists():
+        # No window was ever created — nothing to keep open, nothing to poll.
+        return True
     try:
         key = cv2.waitKey(1) & 0xFF
         if key == ord("q") or key == 27:
             return True
     except Exception:
         pass
+    # Probe after waitKey so the backend has pumped its event loop once.
+    if not _window_prop_visible_supported(winname):
+        return False
     try:
-        # getWindowProperty returns -1 when window was destroyed (user closed),
-        # 0 during initial creation on some backends, and 1 when fully visible.
-        # Use <= 0 to detect window closed; the probe-based approach in C++
-        # handles GTK2 backends that always return -1.
+        # On a supporting backend: 1 while visible, <= 0 once the user closed
+        # the window (-1 after it was destroyed).
         vis = cv2.getWindowProperty(winname, cv2.WND_PROP_VISIBLE)
         if vis <= 0.0:
             return True

@@ -192,12 +192,12 @@ DEMO_IMAGE=(
     "sample/img/sample_hand.jpg"
 )
 
-# "full" = all 6 modes, "no_py_async" = classification only (no async python)
+# "full" = all 6 modes, "no_py_async" = task ships no *_async.py variant
 DEMO_PY_ASYNC=(
     full full full full
     full full full
     full full
-    no_py_async
+    full
     full
     full full full
     full full full
