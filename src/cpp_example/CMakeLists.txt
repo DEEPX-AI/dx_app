@@ -81,6 +81,47 @@ endif()
 set(COMMON_COMPILE_DEFINITIONS PROJECT_ROOT_DIR="${PROJECT_ROOT}")
 
 # =============================================================================
+# Runtime DLL Deployment — Windows/vcpkg only, stage once instead of per target
+# =============================================================================
+# Windows only. On Linux the loader resolves shared libraries through RPATH and
+# ldconfig, there is no vcpkg in the picture (build.sh uses
+# cmake/toolchain.<arch>.cmake), and nothing below runs.
+if(WIN32)
+    # vcpkg keys applocal off the target triplet rather than the compiler, so
+    # guard on WIN32 rather than MSVC to also cover clang-cl / MinGW.
+    set(VCPKG_APPLOCAL_DEPS OFF)
+
+    if(DEFINED VCPKG_INSTALLED_DIR)
+        set(_DXAPP_TRIPLET "${VCPKG_TARGET_TRIPLET}")
+        if(NOT _DXAPP_TRIPLET)
+            set(_DXAPP_TRIPLET "x64-windows")
+        endif()
+
+        # Default RUNTIME_OUTPUT_DIRECTORY layout; nothing here overrides it.
+        get_property(_DXAPP_MULTI_CONFIG GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
+        if(_DXAPP_MULTI_CONFIG)
+            set(_DXAPP_EXAMPLE_BIN_DIR "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>")
+        else()
+            set(_DXAPP_EXAMPLE_BIN_DIR "${CMAKE_CURRENT_BINARY_DIR}")
+        endif()
+
+        set(_DXAPP_VCPKG_BIN "$<IF:$<CONFIG:Debug>,\
+${VCPKG_INSTALLED_DIR}/${_DXAPP_TRIPLET}/debug/bin,\
+${VCPKG_INSTALLED_DIR}/${_DXAPP_TRIPLET}/bin>")
+
+        add_custom_target(dxapp_stage_vcpkg_dlls
+            COMMAND ${CMAKE_COMMAND}
+                    -DSRC_DIR=${_DXAPP_VCPKG_BIN}
+                    -DDST_DIR=${_DXAPP_EXAMPLE_BIN_DIR}
+                    -P ${PROJECT_ROOT}/cmake/stage_vcpkg_dlls.cmake
+            COMMENT "Staging vcpkg runtime DLLs into the example output directory"
+            VERBATIM)
+    else()
+        message(STATUS "cpp_example: VCPKG_INSTALLED_DIR not set, skipping runtime DLL staging")
+    endif()
+endif()
+
+# =============================================================================
 # Common Source Files — build once as OBJECT library instead of per-target
 # =============================================================================
 add_library(dxapp_common_obj OBJECT
@@ -125,6 +166,13 @@ function(add_example TARGET_NAME SOURCE_FILE POSTPROCESS_DIR)
         target_link_libraries(${TARGET_NAME} dxapp_common_obj ${COMMON_LIBS})
     else()
         target_link_libraries(${TARGET_NAME} dxapp_common_obj ${COMMON_LIBS})
+    endif()
+
+    # Windows/vcpkg only: runtime DLLs are staged once up front rather than per
+    # target. The target does not exist elsewhere, so this is a no-op on Linux.
+    # See the "Runtime DLL Deployment" section above.
+    if(TARGET dxapp_stage_vcpkg_dlls)
+        add_dependencies(${TARGET_NAME} dxapp_stage_vcpkg_dlls)
     endif()
 endfunction()
 
@@ -215,4 +263,13 @@ endforeach()
 # Installation (Optional)
 # =============================================================================
 get_property(ALL_TARGETS DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY BUILDSYSTEM_TARGETS)
-install(TARGETS ${ALL_TARGETS} RUNTIME DESTINATION bin)
+
+set(INSTALL_TARGETS)
+foreach(_TARGET ${ALL_TARGETS})
+    get_target_property(_TARGET_TYPE ${_TARGET} TYPE)
+    if(NOT _TARGET_TYPE STREQUAL "UTILITY")
+        list(APPEND INSTALL_TARGETS ${_TARGET})
+    endif()
+endforeach()
+
+install(TARGETS ${INSTALL_TARGETS} RUNTIME DESTINATION bin)
