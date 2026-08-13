@@ -9,10 +9,11 @@
 
 ### 2. Fixed
 - Fixed the Windows all-build not running in parallel by copying shared files once instead of duplicating the copy per target
+- Route C++ Async mode to the _async binary (For Windows)
 
 ### 3. Added
-- YOLO26-Depth examples for all five model sizes (n / s / m / l / x, 768x768): C++ sync and async, plus Python sync, async, sync_cpp_postprocess and async_cpp_postprocess 
-- Registered the 5 yolo26-depth models in `config/model_registry.json`, `scripts/modelzoo_manifest.json` 
+- YOLO26-Depth examples for all five model sizes (n / s / m / l / x, 768x768): C++ sync and async, plus Python sync, async, sync_cpp_postprocess and async_cpp_postprocess
+- Registered the 5 yolo26-depth models in `config/model_registry.json`, `scripts/modelzoo_manifest.json`
 - Use low-resolution sample video for super-resolution demos (bump sample video archive to v3.2.2)
 
 ## DX-APP v3.2.1 / 2026-07-28
