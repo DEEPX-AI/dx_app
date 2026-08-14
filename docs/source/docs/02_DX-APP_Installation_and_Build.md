@@ -31,7 +31,7 @@ This section describes the software requirements and installation steps for sett
 To run **DX-APP** on Linux, the following components **must** be installed.  
 
 - **OS**: Ubuntu 18.04 / 20.04 / 22.04 / 24.04 (x64) and Debian 12 / 13 (x64)  
-- **Deepx M1 Runtime Lib Version**: v3.0.0 or higher  
+- **DEEPX M1 Runtime Lib Version**: v3.0.0 or higher  
 
 All required components are included in the **DXNN All Suite (DX-AS)** package.  
 
@@ -82,7 +82,7 @@ You can view more installation options by entering the `--help` flag.
 **Step 2. OpenCV Installation Options**  
 
 If you want to enable CPU/GPU acceleration, OpenCV **must** be manually installed on your system.  
-During the OpenCV build process, setting the following flags are needed.  
+During the OpenCV build process, setting the following flags is needed.  
 
 - `TBB=ON, IPP=ON, CUDA=ON`  
 
@@ -217,7 +217,7 @@ DEEPX provides an official Windows installer for **DXNN Runtime (DX-RT)**, which
 
 Visual Studio Community 2022 is the build toolchain (IDE + compiler), while the Microsoft Visual C++ 2015-2022 Redistributable provides the runtime DLLs needed to run the built apps.  
 
-For detailed instructions, refer to [DeepX NPU Windows Runtime & Driver](https://github.com/DEEPX-AI/dx_rt_windows).  
+For detailed instructions, refer to [DEEPX NPU Windows Runtime & Driver](https://github.com/DEEPX-AI/dx_rt_windows).  
 
 
 ### Install Visual Studio Community 2022  
@@ -291,7 +291,7 @@ Upon opening the project,
 
 If needed, you can manually specify the following environment variables in `CMakeSettings.json`.  
 
-- `DXRT_DIR`: Path to the installed DX-RT runtime  
+- `DEEPX_SDK_DIR`: Path to the installed DEEPX SDK (DX-RT runtime)  
 - `OpenCV_DIR`: Path to the OpenCV installation (if manually installed)  
 
 ```json
@@ -316,7 +316,7 @@ If needed, you can manually specify the following environment variables in `CMak
 
 Ensure the required runtime libraries are accessible with the system’s `PATH` environment variable.  
 
-- `DXRT_DIR` is referenced in CMAKE as `{env.DXRT_DIR}`.  
+- `DEEPX_SDK_DIR` is referenced in CMAKE as `${env.DEEPX_SDK_DIR}`.  
 
 !!! note "NOTE"  
 
@@ -344,12 +344,12 @@ The updated `build.bat` now generates `build_internal.bat` from `CMakeSettings.j
 **Key behaviors**  
 
 - Generates `build_internal.bat` based on the selected CMake configuration (toolchain, paths, generator).  
-- Validates environment (e.g., `DXRT_DIR`) and cleans stale CMake cache to avoid generator/toolset mismatches.  
+- Validates environment (e.g., `DEEPX_SDK_DIR`) and cleans stale CMake cache to avoid generator/toolset mismatches.  
 - Builds and installs DX-APP executables/libraries, then builds the pybind C++ module.  
 
 **Prerequisites**  
 
-- `DXRT_DIR` set to the DX-RT installation directory  
+- `DEEPX_SDK_DIR` set to the DEEPX SDK installation directory  
 - Visual Studio 2022 with Desktop development with C++ workload  
 - CMake available in `PATH`  
 
@@ -364,7 +364,7 @@ build.bat
 
 **Visual Studio solution Generation**  
 
-After successful execution of build.bat, the scripts generates the necessary solution files for development within the IDE.  
+After successful execution of build.bat, the script generates the necessary solution files for development within the IDE.  
 
 - **[Important] Open Solution:** Open the generated solution file at `out\build\x64-Release\dxapp.sln`  **using Visual Studio 2022**  
      **NOTE.** Opening with other versions may cause compatibility issues or build failures.  

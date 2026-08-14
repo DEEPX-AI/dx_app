@@ -17,7 +17,7 @@ Integrating C++ post-processing into your Python pipeline offers two primary adv
 
     While the C++ library is faster, overall pipeline improvement depends on the bottleneck location. If NPU inference or data reading is the limiting factor, end-to-end FPS gains may be minimal, though CPU power consumption will still decrease.  
 
-For end-to-end Python example usage, refer to the DX-APP Python usage documentation in `docs/source/docs/05_DX-APP_Python_Example_Usage_Guide.md`.  
+For end-to-end Python example usage, refer to [DX-APP Python Example Usage Guide](05_DX-APP_Python_Example_Usage_Guide.md).  
 
 ---
 

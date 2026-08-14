@@ -133,7 +133,7 @@ This mode is better for:
 | Field | Purpose |
 |-------|---------|
 | `model_name` | Unique identifier (e.g., `yolov9s`) |
-| `dxnn_file` | Compiled model filename (e.g., `YOLOV9S.dxnn`) |
+| `dxnn_file` | Compiled model filename (e.g., `yolov9-s_640x640.dxnn`) |
 | `add_model_task` | Task category (e.g., `object_detection`) |
 | `postprocessor` | Which shared processor to use (e.g., `yolov8`) |
 | `input_width`, `input_height` | Model input dimensions |
@@ -315,7 +315,7 @@ In the usual local developer environment, users should not need to edit Visual S
 
 | Variable | Purpose |
 |---|---|
-| `DXRT_DIR` | DXRT SDK root |
+| `DEEPX_SDK_DIR` | DEEPX SDK (DXRT) root |
 | `DXRT_INSTALLED_DIR` | DXRT install root used for `include`, `lib`, and `bin` |
 | `OpenCV_DIR` | OpenCV CMake package directory |
 | `VCPKG_INSTALLED_DIR` | vcpkg installed tree used for runtime DLL lookup |
