@@ -34,9 +34,9 @@ src/
 ```
 
 - **`src/cpp_example/`**: end-to-end C++ example applications — each model directory contains thin entry-point files that delegate to the shared `common/` layer  
-- **`src/cpp_example/common/`**: shared C++ runtime layer — base interfaces (4 hpp), processors (49 hpp), runners (32 hpp), visualizers (13 hpp), input sources (5 hpp), config (1 hpp), and utilities (11 hpp)  
+- **`src/cpp_example/common/`**: shared C++ runtime layer — base interfaces (4 hpp), processors, runners, visualizers, input sources (5 hpp), config, and utilities  
 - **`src/python_example/`**: end-to-end Python example applications — same factory-based delegation pattern as C++  
-- **`src/python_example/common/`**: shared Python runtime layer — base interfaces (4 py), processors (41 py), runners (5 py), visualizers (10 py), input sources (5 py), config (2 py), and utilities (7 py)  
+- **`src/python_example/common/`**: shared Python runtime layer — base interfaces (4 py), processors, runners, visualizers, input sources (5 py), config, and utilities  
 - **`src/postprocess/`**: C++ post-processing libraries consumed by the **pybind11 bindings** (`src/bindings/`). This enables `*_cpp_postprocess` variants to use C++ decode logic from Python  
 - **`src/bindings/`**: pybind11 bridge exposing `src/postprocess/` to Python as the `dx_postprocess` package  
 - **`src/utility/`**: common support code shared across the build flow  
@@ -113,7 +113,7 @@ src/cpp_example/common/
 │   └── i_input_source.hpp         #   IInputSource — image/video/camera/RTSP abstraction
 ├── config/
 │   └── model_config.hpp           # ModelConfig — loads config.json
-├── processors/                    # 46 shared processors
+├── processors/                    # Shared processors
 │   ├── yolov5_postprocessor.hpp
 │   ├── yolov8_postprocessor.hpp
 │   ├── scrfd_postprocessor.hpp
@@ -124,28 +124,28 @@ src/cpp_example/common/
 │   ├── instance_seg_postprocessor.hpp
 │   ├── depth_postprocessor.hpp
 │   └── ...
-├── runner/                        # 24 task-specific runner pairs
+├── runner/                        # Task-specific runner pairs
 │   ├── sync_detection_runner.hpp  #   Sequential detection loop
 │   ├── async_detection_runner.hpp #   Pipelined detection loop
 │   ├── sync_classification_runner.hpp
 │   ├── async_classification_runner.hpp
 │   ├── sync_segmentation_runner.hpp
 │   ├── async_segmentation_runner.hpp
-│   └── ...                        #   12 sync + 12 async = 24 total
+│   └── ...                        #   one sync + one async runner per task type
 ├── inputs/                        # 5 input source headers
 │   ├── camera_source.hpp
 │   ├── image_source.hpp
 │   ├── video_source.hpp
 │   ├── rtsp_source.hpp
 │   └── input_factory.hpp
-├── visualizers/                   # 12 task-specific visualizers
+├── visualizers/                   # Task-specific visualizers
 │   ├── detection_visualizer.hpp
 │   ├── classification_visualizer.hpp
 │   ├── segmentation_visualizer.hpp
 │   ├── face_visualizer.hpp
 │   ├── pose_visualizer.hpp
 │   └── ...
-├── utility/                       # 8 utility headers
+├── utility/                       # Utility headers
 │   ├── common_util.hpp
 │   ├── labels.hpp
 │   ├── preprocessing.hpp
@@ -153,7 +153,9 @@ src/cpp_example/common/
 │   ├── run_dir.hpp
 │   ├── safe_queue.hpp
 │   ├── verify_serialize.hpp
-│   └── visualization.hpp
+│   ├── visualization.hpp
+│   └── ...                        #   colorspace, frame_reorder, kitti_calib,
+│                                  #   lidar_util, sfa3d_geometry, sr_tiling
 └── third_party/                   # Third-party header-only libraries
     └── nlohmann_json.hpp          #   JSON for Modern C++
 ```
@@ -172,7 +174,7 @@ src/python_example/common/
 ├── config/
 │   ├── config_schema.py   # Config schema validation for config.json values
 │   └── model_config.py    # ModelConfig — loads config.json (input size, labels, thresholds)
-├── processors/            # 41 shared processors
+├── processors/            # Shared processors
 │   ├── yolo_postprocessor.py           # YOLOv5/v7/v8/v9/v10/v11/v12/YOLOX
 │   ├── fast_yolo_postprocessor.py      # opt-in exact fast path (YOLOv5/v7, byte-identical)
 │   ├── face_postprocessor.py           # SCRFD, YOLOv5Face, YOLOv7Face
@@ -197,11 +199,12 @@ src/python_example/common/
 │   ├── nms_utils.py                    # Shared NMS / box utilities
 │   ├── letterbox_preprocessor.py       # Shared letterbox preprocessing
 │   └── ...
-├── runner/                # 5 generic runner files
+├── runner/                # Generic runner files
 │   ├── sync_runner.py     # SyncRunner — sequential Pre→Infer→Post→Display loop
 │   ├── async_runner.py    # AsyncRunner — pipelined multi-thread runner
 │   ├── args.py            # Unified CLI argument parser (--model, --image, --video, etc.)
 │   ├── run_dir.py         # Directory-based batch runner
+│   ├── sr_tiling.py       # Tiled super-resolution helper
 │   └── verify_serialize.py # Serialize results to JSON for numerical verification
 ├── inputs/                # 5 input source files
 │   ├── image_source.py
@@ -209,7 +212,7 @@ src/python_example/common/
 │   ├── camera_source.py
 │   ├── rtsp_source.py
 │   └── input_factory.py
-├── visualizers/           # 10 task-specific visualizers
+├── visualizers/           # Task-specific visualizers
 │   ├── detection_visualizer.py
 │   ├── classification_visualizer.py
 │   ├── segmentation_visualizer.py
@@ -218,14 +221,15 @@ src/python_example/common/
 │   ├── instance_seg_visualizer.py
 │   ├── obb_visualizer.py
 │   └── ...
-└── utility/                       # 7 utility files
+└── utility/                       # Utility files
     ├── common_util.py     # General utilities
     ├── labels.py          # COCO / ImageNet label constants
     ├── preprocessing.py   # Shared resize/normalize/letterbox
     ├── profiling.py       # Stage-wise latency profiler
     ├── safe_queue.py      # Thread-safe queue for async pipeline
     ├── skeleton.py        # Pose skeleton definitions
-    └── visualization.py   # Drawing helpers (boxes, text, masks)
+    ├── visualization.py   # Drawing helpers (boxes, text, masks)
+    └── ...                # colorspace, kitti_calib, lidar_input, sfa3d_geometry, video_io
 ```
 
 Python runners are **generic**: `SyncRunner` and `AsyncRunner` work for all task types via the factory pattern. This provides simplicity and uniform usage across all models.
@@ -234,7 +238,7 @@ Python runners are **generic**: `SyncRunner` and `AsyncRunner` work for all task
 
 | Aspect | C++ (`cpp_example/common/runner/`) | Python (`python_example/common/runner/`) |
 |--------|-----------------------------------|-----------------------------------------|
-| Runner count | 24 (12 sync + 12 async) | 5 (2 runners + args + run_dir + verify) |
+| Runner set | One sync + one async runner per task type | `SyncRunner` + `AsyncRunner` plus shared helpers |
 | Dispatch | Task-specific runner per category | Generic runner for all tasks |
 | Example | `sync_detection_runner.hpp` | `sync_runner.py` |
 
@@ -365,11 +369,11 @@ Both `cpp_example/` and `python_example/` contain a `common/` directory with the
 |--------|-----|--------|------|
 | `base/` | 4 interfaces (.hpp) | 4 interfaces (.py) | `IFactory`, `IProcessor`,<br> `IVisualizer`, `IInputSource` |
 | `config/` | `model_config.hpp` | `model_config.py` | Loads `config.json`<br> (input size, labels, thresholds) |
-| `processors/` | 46 header files | 41 Python files | Shared processors for<br> all model families |
-| `runner/` | 24 runner headers | 5 runner files | Sync/Async execution engines<br> with profiling |
+| `processors/` | Header files | Python files | Shared processors for<br> all model families |
+| `runner/` | Runner headers | Runner files | Sync/Async execution engines<br> with profiling |
 | `inputs/` | 5 source headers | 5 source files | Image, Video, Camera,<br> RTSP input abstraction |
-| `visualizers/` | 12 visualizer headers | 10 visualizer files | Task-specific result rendering |
-| `utility/` | 8 utility headers | 7 utility files | Labels, preprocessing,<br> profiling, drawing, run_dir,<br> queue, verify |
+| `visualizers/` | Visualizer headers | Visualizer files | Task-specific result rendering |
+| `utility/` | Utility headers | Utility files | Labels, preprocessing,<br> profiling, drawing, run_dir,<br> queue, verify |
 
 This is the core architectural pattern of DX-APP: model directories are thin wrappers (factory + entry points) that delegate all heavy logic to their respective `common/` layer.  
 
@@ -407,7 +411,7 @@ The model registry is a JSON array that serves as the single source of truth for
 ```json
 {
   "model_name": "yolov9s",
-  "dxnn_file": "YoloV9S.dxnn",
+  "dxnn_file": "yolov9-s_640x640.dxnn",
   "add_model_task": "object_detection",
   "postprocessor": "yolov8",
   "input_width": 640,
