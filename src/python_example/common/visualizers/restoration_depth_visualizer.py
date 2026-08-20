@@ -61,4 +61,9 @@ class DepthVisualizer(IVisualizer):
         # Resize to match original and return depth result directly
         # (GUI CMP slider handles before/after comparison)
         h, w = image.shape[:2]
+        # The standard postprocessor already emits a frame-sized colormap, so
+        # resizing it again to the same size is pure waste. The fast variant
+        # emits it at model resolution, which still needs the resize.
+        if depth_color.shape[0] == h and depth_color.shape[1] == w:
+            return depth_color
         return cv2.resize(depth_color, (w, h))

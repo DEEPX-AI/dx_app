@@ -71,10 +71,21 @@ class GrayscaleResizePreprocessor(IPreprocessor):
         resized = cv2.resize(gray, (self.input_width, self.input_height))
 
         # Store normalized version in context (for DnCNN: denoised = input - residual)
+        # The resize above is a *stretch* (no letterbox), so the context must
+        # carry per-axis scale factors — consumers that map model-space
+        # coordinates back to the source frame (SuperPoint keypoints via
+        # scale_to_original) are a no-op without them.
+        scale_x = float(self.input_width) / float(w) if w > 0 else 0.0
+        scale_y = float(self.input_height) / float(h) if h > 0 else 0.0
         ctx = PreprocessContext(
             original_width=w,
             original_height=h,
-            scale=1.0,
+            input_width=self.input_width,
+            input_height=self.input_height,
+            scale_x=scale_x,
+            scale_y=scale_y,
+            # Keep `scale` for backwards compatibility (uniform-scale readers).
+            scale=min(scale_x, scale_y) if (scale_x > 0 and scale_y > 0) else 1.0,
             pad_x=0,
             pad_y=0,
         )

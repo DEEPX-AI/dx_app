@@ -48,10 +48,10 @@ The `common/` directory is the engine behind all Python examples:
 |--------|------|
 | `common/base/` | Abstract interfaces: `IFactory`, `IProcessor`, `IVisualizer`, `IInputSource` |
 | `common/config/` | `ModelConfig` — loads `config.json` (input size, labels, thresholds) |
-| `common/processors/` | 35 shared post-processors covering all model families |
-| `common/runner/` | `SyncRunner`, `AsyncRunner`, `run_dir`, `verify_serialize`, `args` — generic execution engines with built-in profiling |
+| `common/processors/` | Shared processors covering all model families |
+| `common/runner/` | `SyncRunner`, `AsyncRunner`, `run_dir`, `verify_serialize`, `sr_tiling`, `args` — generic execution engines with built-in profiling |
 | `common/inputs/` | Input source abstraction: image, video, camera, RTSP |
-| `common/visualizers/` | 10 task-specific visualizers (detection, segmentation, pose, etc.) |
+| `common/visualizers/` | Task-specific visualizers (detection, segmentation, pose, etc.) |
 | `common/utility/` | Labels, preprocessing, profiling, drawing helpers |
 
 **Factory Pattern & Model Registry**  

@@ -4,6 +4,7 @@ Common utility functions for neural network operations.
 
 import os
 import subprocess
+import sys
 from typing import Any, List, Tuple
 import numpy as np
 import cv2
@@ -15,13 +16,42 @@ import cv2
 _window_initialized = False
 
 
+def window_exists() -> bool:
+    """Return True once :func:`show_output` has created the output window.
+
+    Callers that block until the user closes the window need this: with no
+    window on screen there is nothing to wait for, and waiting anyway would
+    hang the run.
+    """
+    return _window_initialized
+
+
+def _win32_user32():
+    """Return the DPI-aware ``user32`` handle.
+
+    Raises ``AttributeError`` off Windows, where ``ctypes.windll`` is absent;
+    the caller treats that as "no Win32 metrics available".
+    """
+    import ctypes
+
+    user32 = ctypes.windll.user32
+    try:
+        # Without this the metrics come back in virtualized (scaled) pixels on
+        # high-DPI displays, so the window ends up smaller than requested.
+        user32.SetProcessDPIAware()
+    except Exception:
+        pass
+    return user32
+
+
 def _get_screen_resolution():
     """Return (width, height) of the primary monitor.
 
     Detection order:
       1. DXAPP_SCREEN_W / DXAPP_SCREEN_H environment variables
-      2. xdpyinfo (X11)
-      3. Fallback 1920×1080
+      2. Win32 GetSystemMetrics (Windows) — xdpyinfo does not exist there
+      3. xdpyinfo (X11)
+      4. Fallback 1920×1080
     """
     env_w = os.environ.get("DXAPP_SCREEN_W")
     env_h = os.environ.get("DXAPP_SCREEN_H")
@@ -32,6 +62,18 @@ def _get_screen_resolution():
                 return w, h
         except ValueError:
             pass
+
+    if sys.platform == "win32":
+        try:
+            user32 = _win32_user32()
+            # SM_CXSCREEN = 0, SM_CYSCREEN = 1
+            w, h = user32.GetSystemMetrics(0), user32.GetSystemMetrics(1)
+            if w > 0 and h > 0:
+                return w, h
+        except Exception:
+            pass
+        # xdpyinfo is X11-only, so skip it entirely rather than probing.
+        return 1920, 1080
 
     try:
         result = subprocess.run(

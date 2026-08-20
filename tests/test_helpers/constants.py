@@ -304,8 +304,8 @@ E2E_SHORT_MODELS: set[str] = {
 # ======================================================================
 E2E_HEAVY_MODELS: frozenset = frozenset({
     "casvit-t-fpn-resnet50_512x512",
-    "realesrgan-x8_192x192",
-    "realesrgan-x4_192x192",
+    "realesrgan-x8_192x192",   # postprocess-bound (see note at end of set)
+    "realesrgan-x4_192x192",   # postprocess-bound
     "stdc2-seg50_512x1024",
     "retinaface_mobilenetv1_736x1280",
     "zerodce_400x600",
@@ -320,7 +320,7 @@ E2E_HEAVY_MODELS: frozenset = frozenset({
     "yolov7-w6_1280x1280",
     "yolov5-m6_1280x1280_v6.1",
     "yolov5-m6_1280x1280",
-    "realesrgan-x2_192x192",
+    "realesrgan-x2_192x192",   # postprocess-bound
     "yolov5-s6_1280x1280_v6.1",
     "yolov5-s6_1280x1280",
     "yolov3-gluon_608x608",
@@ -342,7 +342,7 @@ E2E_HEAVY_MODELS: frozenset = frozenset({
     "yolo11-x-seg_640x640",
     "yolov5-x-seg_640x640",
     "yolov8-x-seg_640x640",
-    "dope-hope-ketchup_480x640",
+    "dope-hope-ketchup_480x640",   # postprocess-bound
     "deeplabv3plus-drn_512x512",
     "regnet-y32gf_384x384",
     "yolo26-l-obb_1024x1024",
@@ -387,14 +387,36 @@ E2E_HEAVY_MODELS: frozenset = frozenset({
     "yolov3_640x640",
     "yolov7-w6-face_960x960",
     "densenet201_224x224",
-    "espcn_x2", 
-    "espcn_x3", 
-    "espcn_x4", 
-    "realesrgan_x2",
-    "realesrgan_x4",
-    "realesrgan_x8",
-    "dope_hope_ketchup",
+    # Postprocess-bound entries: NPU inference itself is fast (these are not
+    # <=20 FPS), but the host-side postprocess is heavy enough to blow the E2E
+    # subprocess timeout at a full loop count -- super-resolution writes a
+    # large upscaled frame per iteration, DOPE runs belief-map peak extraction
+    # + PnP per iteration. Capped deliberately, not by FPS measurement.
+    "espcn-x2_17x17",
+    "espcn-x3_17x17",
+    "espcn-x4_17x17",
     "sfa3d_608x608",
+    # semantic_segmentation
+    "deeplabv3-resnet101_512x512",
+    "deeplabv3-resnet50_512x512",
+    "deeplabv3_mobilenetv2_512x512",
+    "deeplabv3_mobilenetv2_513x513_nodilation",
+    "deeplabv3plus-resnet101_512x512",
+    "deeplabv3plus-resnet50_512x512",
+    "deeplabv3plus_mobilenetv1_512x512",
+    "deeplabv3plus_mobilenetv2_512x512",
+    "fcn8_resnet18_1024x1920",
+    "segformer_mit-b0_512x1024",
+    # instance_segmentation
+    "yolo11-n-seg_640x640",
+    "yolo11-s-seg_640x640",
+    "yolo26-n-seg_640x640",
+    "yolo26-s-seg_640x640",
+    "yolov8-n-seg_640x640",
+    "yolov8-s-seg_640x640",
+    # obb_detection
+    "yolo26-n-obb_1024x1024",
+    "yolo26-s-obb_1024x1024",
 })
 
 # Loop-count cap applied to every model in :data:`E2E_HEAVY_MODELS`.

@@ -50,11 +50,11 @@ The `common/` directory is the engine behind all C++ examples:
 |--------|----------|------|
 | `common/base/` | 4 interfaces (.hpp) | `IFactory`, `IProcessor`, `IVisualizer`, `IInputSource` |
 | `common/config/` | `model_config.hpp` | Loads `config.json` (input size, labels, thresholds) |
-| `common/processors/` | 44 processors | Shared decode logic for all model families |
-| `common/runner/` | 24 runner headers | 12 sync + 12 async task-specific runner pairs |
+| `common/processors/` | Postprocessor / preprocessor headers | Shared decode logic for all model families |
+| `common/runner/` | Runner headers | A dedicated sync/async runner pair per task type |
 | `common/inputs/` | 5 source headers | Image, Video, Camera, RTSP input abstraction |
-| `common/visualizers/` | 12 visualizers | Task-specific result rendering |
-| `common/utility/` | 8 utility headers | Labels, preprocessing, profiling, run_dir, signal_handler, verify_serialize |
+| `common/visualizers/` | Visualizer headers | Task-specific result rendering |
+| `common/utility/` | Utility headers | Labels, preprocessing, profiling, run_dir, colorspace, verify_serialize |
 
 Unlike Python's generic `SyncRunner`/`AsyncRunner`, C++ runners are **task-specific**: each task type has a dedicated sync/async pair (e.g., `sync_detection_runner.hpp`, `async_detection_runner.hpp`).
 
@@ -110,7 +110,7 @@ Common files:
 
 ### Execution Variants
 
-**Synchronous Flow (`*_sync.cpp`)**  
+**Synchronous Flow (`xx_sync.cpp`)**  
 
 Use this variant when you want:
 
@@ -118,7 +118,7 @@ Use this variant when you want:
 - easier step-by-step debugging  
 - single-image or low-complexity usage examples  
 
- **Asynchronous Flow (`*_async.cpp`)**  
+ **Asynchronous Flow (`xx_async.cpp`)**  
 
 Use this variant when you want:
 

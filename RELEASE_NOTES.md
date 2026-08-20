@@ -1,5 +1,24 @@
 # RELEASE_NOTES
 
+## DX-APP v3.2.2 / 2026-08-14
+
+### 1. Changed
+- Moved SuperPoint point tracking out of the keypoint detection post-process into the visualizer
+- Switched the depth-estimation demo from Depth-Anything-V2 to YOLO26-Depth-S.
+- Use a new low-resolution source video(lowres-drone-city-road.mp4) for the super-resolution demo
+
+### 2. Fixed
+- Fixed the Windows all-build not running in parallel by copying shared files once instead of duplicating the copy per target
+- Route C++ Async mode to the _async binary (For Windows)
+- Fixed grammar errors in installation and build documentation
+
+### 3. Added
+- YOLO26-Depth examples for all five model sizes (n / s / m / l / x, 768x768): C++ sync and async, plus Python sync, async, sync_cpp_postprocess and async_cpp_postprocess
+- Registered the 5 yolo26-depth models in `config/model_registry.json`, `scripts/modelzoo_manifest.json`
+- Use low-resolution sample video for super-resolution demos (bump sample video archive to v3.2.2)
+
+---
+
 ## DX-APP v3.2.1 / 2026-07-28
 
 ### 1. Changed
@@ -16,6 +35,8 @@
 - Remove tile seams in tiled super-resolution by cutting tiles with a halo of the model's receptive-field radius
 
 ### 3. Added
+
+---
 
 ## DX-APP v3.2.0 / 2026-06-25
 
@@ -91,7 +112,7 @@ Generate standalone Python/C++ inference apps from plain language: an AI agent b
     - **Factory** Per-model component assembly -> `yolov5s_factory.hpp` : `yolov5s_factory.py`
     - **Component** Preprocessor / Postprocessor / Visualizer -> `processors/*.hpp` : `processors/*.py`
     - **Interface** Abstract contracts -> `i_factory.hpp`, `i_processor.hpp` : `i_factory.py`, `i_processor.py`
-- Consolidated cross-language(Python : c++) common modules and 1:1 mapping structure
+- Consolidated cross-language(Python : C++) common modules and 1:1 mapping structure
 - Modernized `run_demo.sh` with a 3-stage interactive menu supporting variable AI tasks
 - `--model`, `--image`, `--video` arguments are now optional — when omitted, task-appropriate default sample image/video is automatically selected
 - `setup_sample_models.sh` migrated to Python-based downloader — supports `--list`, `--dry-run`, `--category`, `--models` and other granular download options
@@ -104,7 +125,7 @@ Generate standalone Python/C++ inference apps from plain language: an AI agent b
 ### 3. Added
 - Supported new Depth Estimation task featuring FastDepth for monocular depth estimation
 - Supported new Image Restoration task featuring DnCNN, Zero-DCE, and ESPCN models
-- Migrated Full DX-Model Zoo encompassing 280 models across 17 taskcategories with 560 C++/Python examples (sync+async)
+- Migrated Full DX-Model Zoo encompassing 280 models across 17 task categories with 560 C++/Python examples (sync+async)
 - Added yolov8, v9, v10, v11, v12 PPU models and C++/Python examples
 - Implemented https://sdk.deepx.ai manifest-based DX-ModelZoo auto-download system (`scripts/download_models.py`)
 - Auto-download for models and videos — automatically invokes `setup_sample_models.sh` when model file is missing, videos via `setup_sample_videos.sh`
@@ -118,7 +139,7 @@ Generate standalone Python/C++ inference apps from plain language: an AI agent b
 ## DX-APP v3.0.2 / 2026-02-10
 
 ### 1. Changed
-- Copy of dxrt and vkpkg DLLs into the dx-app/bin directory when building with MSVC.
+- Copy of dxrt and vcpkg DLLs into the dx-app/bin directory when building with MSVC.
 
 ### 2. Fixed
 - Removed experimental filesystem includes and updated float literals in example cpp files for build error on windows
@@ -277,7 +298,7 @@ v3.0.0 is a major update that includes **Breaking Changes** compared to v2.x.
 
 ### 1. Changed
 - Enhanced build script documentation and usage instructions
-- Updated cmake configuration in build.bat to use C++17 and v143 for enhance documentation windows build script(visual studio 2022)
+- Updated cmake configuration in build.bat to use C++17 and v143 to enhance documentation windows build script(visual studio 2022)
 - Model package updated from version 2.0.0 to 2.1.0 to support PPU models
 - Improved demo script with additional PPU-Demo (1, 4, 6, 8, 11)
 - Added CPU-specific PyTorch wheel source (https://download.pytorch.org/whl/cpu) in templates/python/requirements.txt.
@@ -296,8 +317,8 @@ v3.0.0 is a major update that includes **Breaking Changes** compared to v2.x.
 - Windows Environment Support
 DX-APP now fully supports the Windows operating system! In response to user requests, we've expanded compatibility beyond Linux to include Windows, enabling a broader range of development environments to take advantage of DX-APP.
     - **OS**: Windows 10 / 11
-    - **Deepx M1 Driver Version**: v1.7.1 or higher
-    - **Deepx M1 Runtime Lib Version**: v3.1.0 or higher
+    - **DEEPX M1 Driver Version**: v1.7.1 or higher
+    - **DEEPX M1 Runtime Lib Version**: v3.1.0 or higher
     - **Python**: Version 3.8 or higher (required for Python module support)
     - **Compiler**: Visual Studio Community 2022 (required for building C++ examples)
 - Added automated build script (build.bat) for automatic build and Visual Studio solution generation
@@ -372,7 +393,7 @@ DX-APP now fully supports the Windows operating system! In response to user requ
 - demo : pose estimation    
 - demo : multi models for object detection and segmentation    
 - demo : semantic segmentation    
-- demo : multi channel oject detection   
+- demo : multi channel object detection   
 - template : classification     
 - template : object detection    
-- template : python example (sync/async/pybind c++)
+- template : python example (sync/async/pybind C++)
