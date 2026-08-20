@@ -27,6 +27,7 @@
 #include "common/utility/common_util.hpp"
 #include "common/utility/kitti_calib.hpp"
 #include "common/utility/lidar_util.hpp"
+#include "common/utility/frame_reorder.hpp"
 #include "common/utility/run_dir.hpp"
 #include "common/utility/verify_serialize.hpp"
 #include "common/visualizers/sfa3d_visualizer.hpp"
@@ -44,6 +45,7 @@ struct AsyncOBBDisplayArgs {
     double t_inference = 0.0;
     double t_postprocess = 0.0;
     PreprocessContext ctx;
+    uint64_t frame_index = 0;  // Monotonic submit order, for in-order display
     AsyncOBBDisplayArgs() = default;
     AsyncOBBDisplayArgs(const AsyncOBBDisplayArgs&) = default;
     AsyncOBBDisplayArgs& operator=(const AsyncOBBDisplayArgs&) = default;
@@ -243,6 +245,7 @@ public:
             display_args.t_postprocess = t_postprocess;
             display_args.ctx = ud->ctx;
             display_args.save_path = std::move(ud->save_path);
+            display_args.frame_index = ud->frame_index;
             display_args.source_path = ud->source_bin_path;
             (void)model_path_;
 
@@ -284,6 +287,7 @@ public:
                 if (metrics_.inflight_current > metrics_.inflight_max) metrics_.inflight_max = metrics_.inflight_current;
             }
             static_cast<AsyncUserData*>(user_data)->submit_ts = std::chrono::high_resolution_clock::now();
+            static_cast<AsyncUserData*>(user_data)->frame_index = static_cast<uint64_t>(buffer_index);
             last_job_id = ie.RunAsync(buf.data(), user_data);
             buffer_index++;
             processCount++;
@@ -345,6 +349,7 @@ public:
                     if (metrics_.inflight_current > metrics_.inflight_max) metrics_.inflight_max = metrics_.inflight_current;
                 }
                 ud->submit_ts = std::chrono::high_resolution_clock::now();
+                ud->frame_index = static_cast<uint64_t>(buffer_index);
                 last_job_id = ie.RunAsync(buf.data(), static_cast<void*>(ud.release()));
                 buffer_index++;
                 processCount++;
@@ -579,10 +584,10 @@ private:
 
     void displayThread(IVisualizer<Detection3DResult>& visualizer, bool no_display,
                        bool save_on, cv::VideoWriter& writer) {
-        while (running_ || !display_queue_.empty()) {
-            AsyncOBBDisplayArgs args;
-            if (!display_queue_.try_pop(args, std::chrono::milliseconds(100))) continue;
-            if (!args.original_frame || args.original_frame->empty()) continue;
+        // Render + save + hand one frame to the main-thread display. Extracted so
+        // the reorder buffer below can emit frames strictly in submit order.
+        auto renderArgs = [&](AsyncOBBDisplayArgs& args) {
+            if (!args.original_frame || args.original_frame->empty()) return;
             if (auto* sfa_viz = dynamic_cast<SFA3DVisualizer*>(&visualizer)) {
                 sfa_viz->setSourcePath(args.source_path);
             }
@@ -606,7 +611,18 @@ private:
             if (!no_display && !result_frame.empty()) {
                 rendered_queue_.push(result_frame.clone());
             }
+        };
+
+        // In-order display: completion order is not submission order, and frames
+        // are written to the VideoWriter as they are rendered. See frame_reorder.hpp.
+        FrameReorderBuffer<AsyncOBBDisplayArgs> reorder(metrics_.max_inflight * 2);
+
+        while (running_ || !display_queue_.empty()) {
+            AsyncOBBDisplayArgs args;
+            if (!display_queue_.try_pop(args, std::chrono::milliseconds(100))) continue;
+            reorder.push(std::move(args), renderArgs);
         }
+        reorder.drain(renderArgs);
     }
 
     /** Poll rendered_queue_ and display on main thread. Returns false if user requested quit. */

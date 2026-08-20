@@ -60,10 +60,10 @@ plugins:
       #
       #cover: false
       cover_title: DXNN Application (DX-APP) User Manual
-      cover_subtitle: 2026/06/25 (v3.2.0)
+      cover_subtitle: 2026/08/14 (v3.2.2)
       cover_logo: img/deepx.png
       custom_template_path: source/stylesheets
-      output_path: ../DEEPX_DX-APP_UM_v3.2.0_JUN_2026.pdf
+      output_path: ../DEEPX_DX-APP_UM_v3.2.2_AUG_2026.pdf
 extra:
   homepage: https://developer.deepx.ai
   generator: false
@@ -99,6 +99,4 @@ markdown_extensions:
       alternate_style: true 
   - attr_list
   - md_in_html
-#extra_javascript:
-#  - https://polyfill.io/v3/polyfill.min.js?features=es6
 copyright: ⓒ Copyright 2026 <a href="http://deepx.ai">DEEPX</a>. All Rights Reserved.

@@ -49,9 +49,11 @@ public:
             return {};
         }
 
-        // Create depth map and find min/max
+        // Wrap the tensor buffer WITHOUT copying. The normalization below
+        // allocates its own output, so the result never aliases the (transient)
+        // tensor memory — an up-front clone would just be a wasted full-size
+        // copy (2.36 MB/frame at 768x768).
         cv::Mat depth_map(h, w, CV_32FC1, const_cast<float*>(data));
-        depth_map = depth_map.clone();  // own the data
         double min_val_d, max_val_d;
         cv::minMaxLoc(depth_map, &min_val_d, &max_val_d);
         float min_val = static_cast<float>(min_val_d);
@@ -60,7 +62,9 @@ public:
         // Normalize to [0, 1]
         float range = max_val - min_val;
         if (range > 1e-6f) {
-            depth_map = (depth_map - min_val) / range;
+            depth_map = (depth_map - min_val) / range;  // allocates an owned buffer
+        } else {
+            depth_map = depth_map.clone();  // degenerate: still must own the data
         }
 
         DepthResult result;

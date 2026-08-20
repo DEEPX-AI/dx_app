@@ -576,7 +576,7 @@ inline std::string getDefaultSampleVideo(const std::string& taskType) {
     if (taskType == "classification")         return "assets/videos/dogs.mp4";
     if (taskType == "depth_estimation")       return "assets/videos/blackbox-city-road.mp4";
     if (taskType == "image_denoising")        return "assets/videos/noisy_hand.mp4";
-    if (taskType == "super_resolution")       return "assets/videos/dance-group.mov";
+    if (taskType == "super_resolution")       return "assets/videos/lowres-drone-city-road.mp4";
     if (taskType == "image_enhancement")      return "assets/videos/lowlight.mp4";
     if (taskType == "ppu")                    return "assets/videos/snowboard.mp4";
     return "";  // image-only tasks (embedding, attribute_recognition, reid)

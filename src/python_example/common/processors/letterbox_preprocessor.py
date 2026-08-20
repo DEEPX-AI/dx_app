@@ -20,18 +20,25 @@ class LetterboxPreprocessor(IPreprocessor):
     Stores gain and pad in context for coordinate restoration.
     """
     
-    def __init__(self, input_width: int, input_height: int, pad_color: Tuple[int, int, int] = (114, 114, 114)):
+    def __init__(self, input_width: int, input_height: int,
+                 pad_color: Tuple[int, int, int] = (114, 114, 114),
+                 store_original: bool = False):
         """
         Initialize preprocessor.
-        
+
         Args:
             input_width: Model input width
             input_height: Model input height
             pad_color: Padding color (default: gray 114, 114, 114)
+            store_original: If True, keep a copy of the input BGR frame in
+                ``ctx.original_image`` (color restoration only). Off by default —
+                the copy costs ~0.5-1.1 ms/frame at 1080p and no model that uses
+                letterbox reads it.
         """
         self._input_width = input_width
         self._input_height = input_height
         self._pad_color = pad_color
+        self._store_original = store_original
     
     def _letterbox(self, img: np.ndarray) -> Tuple[np.ndarray, float, Tuple[int, int]]:
         """
@@ -85,8 +92,9 @@ class LetterboxPreprocessor(IPreprocessor):
         ctx.original_width = input_image.shape[1]
         ctx.input_width = self._input_width
         ctx.input_height = self._input_height
-        ctx.original_image = input_image.copy()  # BGR original for color restoration
-        
+        if self._store_original:
+            ctx.original_image = input_image.copy()  # BGR original for color restoration
+
         # Convert BGR to RGB
         rgb = cv2.cvtColor(input_image, cv2.COLOR_BGR2RGB)
         

@@ -27,6 +27,7 @@
 #include "common/utility/colorspace.hpp"
 #include "common/utility/common_util.hpp"
 #include "common/utility/sr_tiling.hpp"
+#include "common/utility/frame_reorder.hpp"
 #include "common/utility/run_dir.hpp"
 #include "common/utility/verify_serialize.hpp"
 #include "async_detection_runner.hpp"
@@ -43,6 +44,7 @@ struct AsyncRestorationDisplayArgs {
     double t_inference = 0.0;
     double t_postprocess = 0.0;
     PreprocessContext ctx;
+    uint64_t frame_index = 0;  // Monotonic submit order, for in-order display
     AsyncRestorationDisplayArgs() = default;
     AsyncRestorationDisplayArgs(const AsyncRestorationDisplayArgs&) = default;
     AsyncRestorationDisplayArgs& operator=(const AsyncRestorationDisplayArgs&) = default;
@@ -247,6 +249,7 @@ public:
             display_args.t_postprocess = t_postprocess;
             display_args.ctx = ud->ctx;
             display_args.save_path = std::move(ud->save_path);
+            display_args.frame_index = ud->frame_index;
             // --- Numerical verification dump (DXAPP_VERIFY=1) ---
             verify::dumpVerifyJson(*display_args.results, model_path_,
                 "restoration", display_args.original_frame->rows, display_args.original_frame->cols);
@@ -476,6 +479,7 @@ private:
         metrics_.waitForSlot();
         updateInflightMetrics();
         static_cast<AsyncUserData*>(user_data)->submit_ts = std::chrono::high_resolution_clock::now();
+        static_cast<AsyncUserData*>(user_data)->frame_index = static_cast<uint64_t>(p.buffer_index);
         p.last_job_id = p.ie.RunAsync(buf.data(), user_data);
         p.buffer_index++;
         p.processCount++;
@@ -570,6 +574,10 @@ private:
         AsyncRestorationDisplayArgs dargs;
         dargs.prerendered_frame = canvas;
         dargs.save_path = save_path;
+        // This path renders on the caller's thread and is already in submit order,
+        // but the display thread keys its reorder buffer on frame_index, so the
+        // index must still be unique and monotonic here.
+        dargs.frame_index = static_cast<uint64_t>(processCount);
         display_queue_.push(std::move(dargs));
         {
             std::lock_guard<std::mutex> lock(metrics_.metrics_mutex);
@@ -654,6 +662,7 @@ private:
         metrics_.waitForSlot();
         updateInflightMetrics();
         static_cast<AsyncUserData*>(user_data)->submit_ts = std::chrono::high_resolution_clock::now();
+        static_cast<AsyncUserData*>(user_data)->frame_index = static_cast<uint64_t>(p.buffer_index);
         p.last_job_id = p.ie.RunAsync(buf.data(), user_data);
         p.buffer_index++;
         p.processCount++;
@@ -838,15 +847,15 @@ private:
 
     void displayThread(IVisualizer<RestorationResult>& visualizer, bool no_display,
                        bool save_on, cv::VideoWriter& writer) {
-        while (running_ || !display_queue_.empty()) {
-            AsyncRestorationDisplayArgs args;
-            if (!display_queue_.try_pop(args, std::chrono::milliseconds(100))) continue;
+        // Render + save + hand one frame to the main-thread display. Extracted so
+        // the reorder buffer below can emit frames strictly in submit order.
+        auto renderArgs = [&](AsyncRestorationDisplayArgs& args) {
             cv::Mat result_frame;
             auto t_render_start = std::chrono::high_resolution_clock::now();
             if (!args.prerendered_frame.empty()) {
                 result_frame = args.prerendered_frame;
             } else {
-                if (!args.original_frame || args.original_frame->empty()) continue;
+                if (!args.original_frame || args.original_frame->empty()) return;
                 result_frame = visualizer.draw(*args.original_frame, *args.results, args.ctx);
             }
             auto t_render_end = std::chrono::high_resolution_clock::now();
@@ -889,7 +898,18 @@ private:
             if (!no_display && !result_frame.empty()) {
                 rendered_queue_.push(result_frame.clone());
             }
+        };
+
+        // In-order display: completion order is not submission order, and frames
+        // are written to the VideoWriter as they are rendered. See frame_reorder.hpp.
+        FrameReorderBuffer<AsyncRestorationDisplayArgs> reorder(metrics_.max_inflight * 2);
+
+        while (running_ || !display_queue_.empty()) {
+            AsyncRestorationDisplayArgs args;
+            if (!display_queue_.try_pop(args, std::chrono::milliseconds(100))) continue;
+            reorder.push(std::move(args), renderArgs);
         }
+        reorder.drain(renderArgs);
     }
 
     /** Poll rendered_queue_ and display on main thread. Returns false if user requested quit. */

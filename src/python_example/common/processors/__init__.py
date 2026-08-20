@@ -36,6 +36,7 @@ from .ssd_postprocessor import SSDPostprocessor
 from .tflite_det_postprocessor import TFLiteDetectionPostprocessor
 from .nanodet_postprocessor import NanoDetPostprocessor
 from .depth_postprocessor import DepthEstimationPostprocessor, DepthResult
+from .fast_depth_postprocessor import FastDepthEstimationPostprocessor
 from .restoration_postprocessor import DnCNNPostprocessor, RestorationResult, RealESRGANPostprocessor
 from .obb_postprocessor import OBBPostprocessor
 from .ppu_postprocessor import (
@@ -112,6 +113,7 @@ __all__ = [
     'NanoDetPostprocessor',
     # Depth Estimation Postprocessor
     'DepthEstimationPostprocessor',
+    'FastDepthEstimationPostprocessor',
     'DepthResult',
     # Image Restoration Postprocessor
     'DnCNNPostprocessor',

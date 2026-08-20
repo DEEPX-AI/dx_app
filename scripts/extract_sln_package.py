@@ -351,7 +351,7 @@ set "BUILD_DIR=%~dp0build"
 
 if exist "%~dp0cmake\\dxapp_package_deps.bat" call "%~dp0cmake\\dxapp_package_deps.bat"
 
-cmake -S "%~dp0." -B "%BUILD_DIR%" -G "Visual Studio 17 2022" -A x64
+cmake -S "%~dp0." -B "%BUILD_DIR%" -G "Visual Studio 17 2022" -A x64 -DCMAKE_SUPPRESS_REGENERATION=ON
 if %ERRORLEVEL% NEQ 0 exit /b %ERRORLEVEL%
 
 for %%S in ("%BUILD_DIR%\\*.sln") do (
@@ -398,6 +398,9 @@ def generate_solution(package_dir):
         VS_GENERATOR,
         "-A",
         VS_ARCH,
+        # Suppress the per-vcxproj ZERO_CHECK re-check custom build step (see
+        # the matching note in scripts/generate_build_bat.py::build_configure_lines).
+        "-DCMAKE_SUPPRESS_REGENERATION=ON",
     ]
     completed = subprocess.run(
         command,

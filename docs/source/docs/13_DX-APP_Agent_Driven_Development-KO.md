@@ -169,7 +169,7 @@ dx_app 에이전틱 개발은 4가지 AI 코딩 도구에서 작동합니다. �
 
 | 스킬 | 파일 |
 |-------|------|
-| `/dx-swe-brainstorm` | `.deepx/skills/dx-swe-brainstorm/SKILL.md` |
+| `/dx-agent-brainstorm` | `.deepx/skills/dx-agent-brainstorm/SKILL.md` |
 | `/dx-agent-app-build-async` | `.deepx/skills/dx-agent-app-build-async/SKILL.md` |
 | `/dx-agent-app-build-cpp` | `.deepx/skills/dx-agent-app-build-cpp/SKILL.md` |
 | `/dx-agent-app-build-python` | `.deepx/skills/dx-agent-app-build-python/SKILL.md` |
@@ -181,9 +181,9 @@ dx_app 에이전틱 개발은 4가지 AI 코딩 도구에서 작동합니다. �
 | `/dx-skill-router` | `.deepx/skills/dx-skill-router/SKILL.md` |
 | `/dx-swe-subagent-dev` | `.deepx/skills/dx-swe-subagent-dev/SKILL.md` |
 | `/dx-swe-debugging` | `.deepx/skills/dx-swe-debugging/SKILL.md` |
-| `/dx-swe-tdd` | `.deepx/skills/dx-swe-tdd/SKILL.md` |
-| `/dx-agent-app-validate` | `.deepx/skills/dx-validate/SKILL.md` |
-| `/dx-swe-verify` | `.deepx/skills/dx-swe-verify/SKILL.md` |
+| `/dx-agent-tdd` | `.deepx/skills/dx-agent-tdd/SKILL.md` |
+| `/dx-agent-app-validate` | `.deepx/skills/dx-agent-app-validate/SKILL.md` |
+| `/dx-agent-verify` | `.deepx/skills/dx-agent-verify/SKILL.md` |
 | `/dx-swe-writing-plans` | `.deepx/skills/dx-swe-writing-plans/SKILL.md` |
 
 **공유 지식 베이스 (`.deepx/`)**  

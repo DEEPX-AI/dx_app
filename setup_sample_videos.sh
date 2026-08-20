@@ -8,7 +8,7 @@ source ${SCRIPT_DIR}/scripts/common_util.sh
 BASE_URL="https://sdk.deepx.ai/"
 
 # default value
-VIDEO_VERSION="v3.1.0"
+VIDEO_VERSION="v3.2.2"
 SOURCE_PATH="res/video/sample_videos_${VIDEO_VERSION}.tar.gz"
 OUTPUT_DIR="$SCRIPT_DIR/assets/videos"
 SYMLINK_TARGET_PATH=""
@@ -140,7 +140,7 @@ main() {
     }
 
     # When no symlink_target_path is set, get_resource.sh extracts into a versioned subdir
-    # (e.g. assets/videos/sample_videos_v3.1.0/). Flatten it so videos live directly in OUTPUT_DIR.
+    # (e.g. assets/videos/sample_videos_v3.2.2/). Flatten it so videos live directly in OUTPUT_DIR.
     # The internal directory name may differ from the tar filename, so detect any single
     # subdirectory that contains media files and flatten it.
     if [ -z "$SYMLINK_TARGET_PATH" ]; then

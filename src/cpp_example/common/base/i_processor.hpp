@@ -209,6 +209,7 @@ struct PoseResult {
     std::vector<float> box;  // x1, y1, x2, y2 (optional bounding box)
     float confidence{0.0f};
     std::vector<Keypoint> keypoints;  // 17 keypoints for COCO pose
+    std::shared_ptr<const std::vector<std::vector<float>>> descriptors;
 
     PoseResult() = default;
     

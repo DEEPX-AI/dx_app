@@ -63,11 +63,6 @@ if(SOURCES)
         POSITION_INDEPENDENT_CODE ON
         LIBRARY_OUTPUT_DIRECTORY ${PROJECT_ROOT}/lib
     )
-    add_custom_command(TARGET espcn_postprocess POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E make_directory ${PROJECT_ROOT}/include
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different ${HEADERS} ${PROJECT_ROOT}/include
-        COMMENT "Copying header files to build directory"
-    )
 
     if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
         target_compile_options(espcn_postprocess PRIVATE ${COMMON_COMPILE_FLAGS})

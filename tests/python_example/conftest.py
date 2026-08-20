@@ -1,5 +1,6 @@
 import importlib.util
 import logging
+import shutil
 import subprocess
 import sys
 from datetime import datetime
@@ -9,6 +10,12 @@ from unittest.mock import Mock, patch
 import cv2
 import numpy as np
 import pytest
+
+for _stream in (sys.__stdout__, sys.__stderr__, sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(errors="backslashreplace")
+    except (AttributeError, OSError, ValueError):
+        pass  # None (pythonw), or a capture object without reconfigure()
 
 _rng = np.random.default_rng(42)
 logger = logging.getLogger(__name__)
@@ -158,12 +165,12 @@ def pytest_configure(config):
         mock_dx_engine.InferenceOption = Mock
         mock_dx_engine.Configuration = Mock
         sys.modules["dx_engine"] = mock_dx_engine
-        print("✓ dx_engine mocked")
+        print("[OK] dx_engine mocked")
 
     if "dx_postprocess" not in sys.modules:
         mock_dx_postprocess = Mock()
         sys.modules["dx_postprocess"] = mock_dx_postprocess
-        print("✓ dx_postprocess mocked")
+        print("[OK] dx_postprocess mocked")
 
     # Dynamically register per-model markers (one per model directory)
     if PYTHON_EXAMPLE_PATH.exists():
@@ -215,9 +222,12 @@ def wait_for_temperature(request):
     """Wait for device temperature to drop below threshold before each e2e test."""
     if request.node.get_closest_marker("e2e"):
         check_temp_script = SCRIPTS_DIR / "check_temperature.sh"
-        if check_temp_script.exists():
+        # bash is absent on stock Windows: resolve it instead of assuming PATH,
+        # or every e2e test dies at setup with FileNotFoundError (WinError 2).
+        bash = shutil.which("bash")
+        if bash and check_temp_script.exists():
             result = subprocess.run(
-                ["bash", str(check_temp_script), "--wait_target_temp=70"],
+                [bash, str(check_temp_script), "--wait_target_temp=70"],
                 check=False, capture_output=True, text=True
             )
             if "Waiting" in result.stdout:
