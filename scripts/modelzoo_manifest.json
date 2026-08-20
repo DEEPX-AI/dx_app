@@ -834,6 +834,36 @@
     "json_url": null
   },
   {
+    "name": "yolo26-depth-l_768x768",
+    "category": "Depth Estimation",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_4_0/yolo26-depth-l_768x768.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "yolo26-depth-m_768x768",
+    "category": "Depth Estimation",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_4_0/yolo26-depth-m_768x768.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "yolo26-depth-n_768x768",
+    "category": "Depth Estimation",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_4_0/yolo26-depth-n_768x768.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "yolo26-depth-s_768x768",
+    "category": "Depth Estimation",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_4_0/yolo26-depth-s_768x768.dxnn",
+    "json_url": null
+  },
+  {
+    "name": "yolo26-depth-x_768x768",
+    "category": "Depth Estimation",
+    "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_4_0/yolo26-depth-x_768x768.dxnn",
+    "json_url": null
+  },
+  {
     "name": "yolo26l",
     "category": "Object Detection",
     "dxnn_url": "https://sdk.deepx.ai/modelzoo/dxnn/2_4_0/yolo26-l_640x640.dxnn",

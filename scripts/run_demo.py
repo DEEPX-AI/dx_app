@@ -35,10 +35,10 @@ DEMOS = [
     ("Face Alignment           (3DDFA-V2)", "Pose & Landmark", "3ddfa_v2_mobilnetv1_120x120", "face_alignment/3ddfa_v2_mobilnetv1_120x120", "3ddfa_v2_mobilnetv1_120x120", "3ddfa-v2_mobilenetv1_120x120.dxnn", "assets/videos/face-alignment-closeup.mp4", "sample/img/face_pair/1_reference.jpg", True, False),
     ("Instance Segmentation    (YOLOv8N-Seg)", "Segmentation", "yolov8n_seg", "instance_segmentation/yolov8n_seg", "yolov8n_seg", "yolov8-n-seg_640x640.dxnn", "assets/videos/dogs.mp4", "sample/img/sample_street.jpg", True, False),
     ("Semantic Segmentation    (DeepLabV3+)", "Segmentation", "deeplabv3plusmobilenet", "semantic_segmentation/deeplabv3plusmobilenet", "deeplabv3plusmobilenet", "deeplabv3plus_mobilenetv1_512x512.dxnn", "assets/videos/blackbox-city-road.mp4", "sample/img/sample_parking.jpg", True, False),
-    ("Classification           (ResNet50)", "Classification", "resnet50", "classification/resnet50", "resnet50", "resnet50_224x224.dxnn", "assets/videos/dogs.mp4", "sample/img/sample_dog.jpg", False, False),
-    ("Depth Estimation         (Depth-Anything-V2-ViT-B)", "Depth Estimation", "depth_anything_v2_vitb", "depth_estimation/depth_anything_v2_vitb", "depth_anything_v2_vitb", "depthanythingv2-vitb_224x224.dxnn", "assets/videos/blackbox-city-road.mp4", "sample/img/sample_parking.jpg", True, False),
+    ("Classification           (ResNet50)", "Classification", "resnet50", "classification/resnet50", "resnet50", "resnet50_224x224.dxnn", "assets/videos/dogs.mp4", "sample/img/sample_dog.jpg", True, False),
+    ("Depth Estimation         (YOLO26-Depth-S)", "Depth Estimation", "yolo26_depth_s", "depth_estimation/yolo26_depth_s", "yolo26_depth_s", "yolo26-depth-s_768x768.dxnn", "assets/videos/blackbox-city-road.mp4", "sample/img/sample_parking.jpg", True, False),
     ("Image Denoising          (DnCNN-50)", "Image Restoration", "dncnn_50", "image_denoising/dncnn_50", "dncnn_50", "dncnn-50_512x512.dxnn", "assets/videos/noisy_hand.mp4", "sample/img/sample_denoising.jpg", True, False),
-    ("Super Resolution         (ESPCN-X4)", "Image Restoration", "espcn_x4", "super_resolution/espcn_x4", "espcn_x4", "espcn-x4_17x17.dxnn", "assets/videos/dance-group.mov", "sample/img/sample_lowres275x150.png", True, False),
+    ("Super Resolution         (ESPCN-X4)", "Image Restoration", "espcn_x4", "super_resolution/espcn_x4", "espcn_x4", "espcn-x4_17x17.dxnn", "assets/videos/lowres-drone-city-road.mp4", "sample/img/sample_lowres275x150.png", True, False),
     ("Image Enhancement        (Zero-DCE)", "Image Restoration", "zero_dce", "image_enhancement/zero_dce", "zero_dce", "zerodce_400x600.dxnn", "assets/videos/lowlight.mp4", "sample/img/sample_lowlight.jpg", True, False),
     ("Embedding                (ArcFace)", "Recognition", "arcface_mobilefacenet", "embedding/arcface_mobilefacenet", "arcface_mobilefacenet", "arcface_mobilefacenet_112x112.dxnn", "assets/videos/face-pair-sofa.mp4", "sample/img/face_pair", True, True),
     ("Attribute Recognition    (DeepMAR)", "Recognition", "deepmar_resnet50", "attribute_recognition/deepmar_resnet50", "deepmar_resnet50", "deepmar_resnet50_224x224.dxnn", "assets/videos/person-pair-hallway.mp4", "sample/img/sample_person_a1.jpg", True, True),
@@ -262,8 +262,10 @@ def main():
     # ═══ Build Command ═══
     model_path = f"assets/models/{demo[D_MODEL]}"
 
+    # NOTE: "async" contains the substring "sync" — never test membership here.
+    # Derive the suffix from the mode key by stripping its language prefix.
     if selected_mode.startswith("cpp_"):
-        suffix = "_sync" if "sync" in selected_mode else "_async"
+        suffix = "_" + selected_mode[len("cpp_"):]
         exe_name = f"{demo[D_CPP]}{suffix}"
         if sys.platform == "win32":
             exe_name += ".exe"
@@ -274,7 +276,7 @@ def main():
         else:
             cmd += ["-i", input_file]
     else:
-        py_script_name = f"{demo[D_PYBASE]}_{selected_mode.replace('py_', '')}.py"
+        py_script_name = f"{demo[D_PYBASE]}_{selected_mode[len('py_'):]}.py"
         py_script = DX_APP_PATH / "src" / "python_example" / demo[D_PYDIR] / py_script_name
         cmd = [sys.executable, str(py_script), "--model", model_path]
         if input_type == "video":
@@ -300,9 +302,8 @@ def main():
         sys.exit(1)
 
     if selected_mode.startswith("cpp_"):
-        exe_check = DX_APP_PATH / "bin" / (f"{demo[D_CPP]}{'_sync' if 'sync' in selected_mode else '_async'}" + (".exe" if sys.platform == "win32" else ""))
-        if not exe_check.exists():
-            cprint(f"\n  [ERR] Executable not found: {exe_check.name}", RED)
+        if not exe_path.exists():
+            cprint(f"\n  [ERR] Executable not found: {exe_path.name}", RED)
             cprint(f"        Run: build.bat to compile the project", YELLOW)
             sys.exit(1)
 

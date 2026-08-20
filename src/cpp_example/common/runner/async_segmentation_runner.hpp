@@ -16,7 +16,6 @@
 #include <iomanip>
 #include <cstdlib>
 #include <iostream>
-#include <map>
 #include <memory>
 #include <mutex>
 #include <opencv2/opencv.hpp>
@@ -26,6 +25,7 @@
 
 #include "common/base/i_factory.hpp"
 #include "common/utility/common_util.hpp"
+#include "common/utility/frame_reorder.hpp"
 #include "common/utility/run_dir.hpp"
 #include "common/utility/verify_serialize.hpp"
 #include "async_detection_runner.hpp"
@@ -577,37 +577,15 @@ private:
 
         // In-order display: async callbacks may complete out of submission order
         // (postprocess runs in the dxrt callback thread, so a heavy frame can
-        // finish after a lighter successor). Buffer by frame_index and emit only
-        // the next expected index so the video never jumps back and forth. The
-        // size cap force-flushes the lowest buffered frame if some index never
-        // arrives (shutdown-timing edge), preventing a permanent stall. Every
-        // submitted frame yields exactly one display item, so in steady state the
-        // buffer holds fewer than SEG_ASYNC_INFLIGHT entries.
-        std::map<uint64_t, AsyncInstanceSegDisplayArgs> reorder;
-        uint64_t next_index = 0;
-        bool have_next = false;
-        const size_t reorder_cap = SEG_ASYNC_INFLIGHT * 2;
+        // finish after a lighter successor). See frame_reorder.hpp.
+        FrameReorderBuffer<AsyncInstanceSegDisplayArgs> reorder(SEG_ASYNC_INFLIGHT * 2);
 
         while (running_ || !display_queue_.empty()) {
             AsyncInstanceSegDisplayArgs args;
             if (!display_queue_.try_pop(args, std::chrono::milliseconds(100))) continue;
-            if (!have_next) { next_index = args.frame_index; have_next = true; }
-            reorder.emplace(args.frame_index, std::move(args));
-
-            while (!reorder.empty()) {
-                auto it = reorder.begin();
-                if (it->first == next_index || reorder.size() > reorder_cap) {
-                    renderArgs(it->second);
-                    next_index = it->first + 1;
-                    reorder.erase(it);
-                } else {
-                    break;
-                }
-            }
+            reorder.push(std::move(args), renderArgs);
         }
-
-        // Drain any frames still buffered at shutdown, in submit order.
-        for (auto& kv : reorder) renderArgs(kv.second);
+        reorder.drain(renderArgs);
     }
 
     /** Poll rendered_queue_ and display on main thread. Returns false if user requested quit. */

@@ -202,23 +202,23 @@ The project is structured to separate core logic from language-specific implemen
 ```text
 dx_app/
 ├── src/
-│   ├── cpp_example/            # C++ end-to-end examples (347 models across 22 tasks)
+│   ├── cpp_example/            # C++ end-to-end examples (organized across 22 tasks)
 │   │   └── common/             # ← Shared C++ runtime layer
 │   │       ├── base/           #   Abstract interfaces (IFactory, IProcessor, ...)
-│   │       ├── processors/     #   49 shared post-processors
-│   │       ├── runner/         #   16 task-specific sync/async runner pairs
+│   │       ├── processors/     #   Shared processors
+│   │       ├── runner/         #   Task-specific sync/async runner pairs
 │   │       ├── inputs/         #   Image/Video/Camera/RTSP input sources
-│   │       ├── visualizers/    #   13 task-specific visualizers
+│   │       ├── visualizers/    #   Task-specific visualizers
 │   │       ├── config/         #   ModelConfig loader
 │   │       ├── utility/        #   Labels, preprocessing, profiling, run_dir, signal_handler, verify_serialize
 │   │       └── third_party/    #   Header-only third-party libraries (nlohmann_json)
-│   ├── python_example/         # Python end-to-end examples (347 models across 22 tasks)
+│   ├── python_example/         # Python end-to-end examples (organized across 22 tasks)
 │   │   └── common/             # ← Shared Python runtime layer
 │   │       ├── base/           #   Abstract interfaces (IFactory, IProcessor, ...)
-│   │       ├── processors/     #   49 shared post-processors
-│   │       ├── runner/         #   SyncRunner, AsyncRunner, run_dir, verify_serialize, args
+│   │       ├── processors/     #   Shared processors
+│   │       ├── runner/         #   SyncRunner, AsyncRunner, run_dir, verify_serialize, sr_tiling, args
 │   │       ├── inputs/         #   Image/Video/Camera/RTSP input sources
-│   │       ├── visualizers/    #   14 task-specific visualizers
+│   │       ├── visualizers/    #   Task-specific visualizers
 │   │       ├── config/         #   ModelConfig loader
 │   │       └── utility/        #   Labels, preprocessing, profiling
 │   ├── postprocess/            # C++ post-processing (consumed by pybind11 bindings)
@@ -254,7 +254,7 @@ For contributor-oriented layout details, refer to [DX-APP Example Source Structu
 
 These templates provide high-performance, production-ready references for building applications using the DX-RT C++ API.  
 
-The refactored C++ tree is organized by **task → model family → variant**, with a shared `common/` layer providing base interfaces, 49 processors, 16 task-specific runner pairs, 13 visualizers, and input abstraction. Each model directory delegates to `common/` via the factory pattern. For details, refer to [DX-APP C++ Usage Guide](03_DX-APP_CPP_Example_Usage_Guide.md) and [DX-APP Example Source Structure](11_DX-APP_Example_Source_Structure.md).
+The refactored C++ tree is organized by **task → model family → variant**, with a shared `common/` layer providing base interfaces, shared processors, task-specific runner pairs, visualizers, and input abstraction. Each model directory delegates to `common/` via the factory pattern. For details, refer to [DX-APP C++ Usage Guide](03_DX-APP_CPP_Example_Usage_Guide.md) and [DX-APP Example Source Structure](11_DX-APP_Example_Source_Structure.md).
 
 **Pipeline Architecture**  
 
@@ -334,12 +334,12 @@ All C++ and Python examples share a consistent set of command-line arguments.
 
 To help developers optimize for specific hardware targets, templates are provided in two execution patterns  
 
-- **Synchronous (`*_sync.cpp`):
+- **Synchronous (`xx_sync.cpp`):
 
     : **Logic:** A single-threaded, sequential loop (**Input → Inference → Output**).  
     : **Use Case:** Best for single-image processing and simplified debugging.  
 
-- **Asynchronous (`*_async.cpp`):
+- **Asynchronous (`xx_async.cpp`):
 
     : **Logic:** Uses multi-threading and the `RunAsync()` API to overlap stages. While the NPU performs inference on Frame **N**, the CPU simultaneously handles pre-processing for Frame **N+1** and post-processing for Frame **N-1**.  
     : **Use Case:** Essential for maximizing **FPS** on live video streams and ensuring high NPU utilization.  
@@ -364,7 +364,7 @@ For detailed usage examples and API references, please refer to the documentatio
 
 These templates utilize `dx_engine` (for inference) and `dx_postprocess` (for acceleration). Users can choose from four variants depending on their performance requirements.  
 
-The refactored Python tree is organized by **task → model family → variant**, with a shared `common/` layer providing base interfaces, 41 processors, generic sync/async runners, 10 visualizers, and input abstraction — the same factory-based architecture as the C++ side. For structure and contributor-facing rules, refer to [DX-APP Python Usage Guide](05_DX-APP_Python_Example_Usage_Guide.md) and [DX-APP Example Source Structure](11_DX-APP_Example_Source_Structure.md).  
+The refactored Python tree is organized by **task → model family → variant**, with a shared `common/` layer providing base interfaces, shared processors, generic sync/async runners, visualizers, and input abstraction — the same factory-based architecture as the C++ side. For structure and contributor-facing rules, refer to [DX-APP Python Usage Guide](05_DX-APP_Python_Example_Usage_Guide.md) and [DX-APP Example Source Structure](11_DX-APP_Example_Source_Structure.md).  
 
 **Task-Based Structure**    
 

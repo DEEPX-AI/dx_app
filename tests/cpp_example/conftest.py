@@ -3,6 +3,7 @@ Configuration and fixtures for bin CLI tests
 """
 import os
 import logging
+import shutil
 import subprocess
 import sys
 from datetime import datetime
@@ -11,6 +12,12 @@ from pathlib import Path
 import pytest
 
 from performance_collector import get_collector
+
+for _stream in (sys.__stdout__, sys.__stderr__, sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(errors="backslashreplace")
+    except (AttributeError, OSError, ValueError):
+        pass  # None (pythonw), or a capture object without reconfigure()
 
 logger = logging.getLogger(__name__)
 
@@ -23,8 +30,16 @@ sys.path.insert(0, str(PROJECT_ROOT))
 def resolve_bin_dir() -> Path:
     """Return the bin directory, handling Windows Release layout."""
     if os.name == "nt":
-        # MSVC builds place binaries under bin/Release (or Debug)
-        return PROJECT_ROOT / "bin" / "Release"
+        # MSVC builds place binaries under bin/Release (or Debug), but
+        # build.bat's install step copies them straight into bin/. Returning
+        # bin/Release unconditionally made EXECUTABLE_PARAMS empty whenever the
+        # exes sat in bin/ -> pytest skipped a [NOTSET] placeholder and exited 0,
+        # which the req_test runner then reported as a PASS. Probe for a real
+        # .exe and fall back to bin/.
+        for candidate in (PROJECT_ROOT / "bin" / "Release",
+                          PROJECT_ROOT / "bin" / "Debug"):
+            if next(candidate.glob("*.exe"), None) is not None:
+                return candidate
     return PROJECT_ROOT / "bin"
 
 def is_executable(path: Path) -> bool:
@@ -86,9 +101,12 @@ def wait_for_temperature(request):
     """Wait for device temperature to drop below threshold before each e2e test."""
     if request.node.get_closest_marker("e2e"):
         check_temp_script = SCRIPTS_DIR / "check_temperature.sh"
-        if check_temp_script.exists():
+        # bash is absent on stock Windows: resolve it instead of assuming PATH,
+        # or every e2e test dies at setup with FileNotFoundError (WinError 2).
+        bash = shutil.which("bash")
+        if bash and check_temp_script.exists():
             result = subprocess.run(
-                ["bash", str(check_temp_script), "--wait_target_temp=70"],
+                [bash, str(check_temp_script), "--wait_target_temp=70"],
                 check=False, capture_output=True, text=True
             )
             if "Waiting" in result.stdout:

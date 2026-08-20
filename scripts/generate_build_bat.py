@@ -189,6 +189,15 @@ def build_configure_lines(cfg: Dict, project_var: str, targets: Optional[List[st
         cfg_lines.append("  %GENERATOR_ARGS% ^")
     if not is_multi_config(generator):
         cfg_lines.append(f"  -DCMAKE_BUILD_TYPE={cfg_type} ^")
+    if is_multi_config(generator):
+        # Visual Studio generator only: suppress the per-vcxproj ZERO_CHECK
+        # "did CMakeLists.txt change?" custom build step. This script always
+        # deletes CMakeCache.txt/CMakeFiles and reconfigures from scratch
+        # before every --build, so ZERO_CHECK's re-check is redundant here —
+        # and under `cmake --build --parallel` with many targets, multiple
+        # MSBuild nodes can invoke ZERO_CHECK's "cmake --check-build-system"
+        # concurrently, racing to rewrite the same .sln/.vcxproj files.
+        cfg_lines.append("  -DCMAKE_SUPPRESS_REGENERATION=ON ^")
     for var in variables_with_derived:
         name = var.get("name")
         raw_val = var.get("value", "")
@@ -286,9 +295,16 @@ def write_env_bat(dxrt_dir: Optional[str], dest: pathlib.Path) -> None:
 
 def run_bat(path: pathlib.Path) -> int:
     # Runs the generated batch in-place so CMake sees the same cwd.
+    # NOTE: subprocess.run(..., shell=True) on Windows always wraps the given
+    # string in an extra pair of quotes (cmd.exe /c "<args>"). If a bare
+    # relative filename (e.g. "build_internal.bat", with no directory
+    # component) is itself quoted here, the resulting command line has FOUR
+    # quote characters total, which defeats cmd.exe's special-case rule for
+    # stripping a single surrounding quote pair around an executable name.
+    resolved = path.resolve()
     try:
         completed = subprocess.run(
-            f'"{path}"', shell=True, check=False
+            f'"{resolved}"', shell=True, check=False
         )
         return completed.returncode
     except FileNotFoundError:

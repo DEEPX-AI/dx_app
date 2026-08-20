@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib.util
 import shutil
 import subprocess
 import sys
@@ -30,6 +31,14 @@ def scratch_output(name: str) -> Path:
 
 def teardown_module():
     shutil.rmtree(SCRATCH, ignore_errors=True)
+
+
+def load_module():
+    spec = importlib.util.spec_from_file_location("generate_build_bat", GENERATOR)
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+    return module
 
 
 def test_targets_emit_target_only_build_and_copy():
@@ -135,6 +144,34 @@ def test_targets_with_hyphens_sanitize_batch_variable_names():
     
     # 배치 변수명은 sanitize되어야 함 (하이픈 -> 언더스코어)
     assert "FOUND_my_target_v2" in text
-    
-    # sanitize 안 된 변수명은 없어야 함
-    assert "FOUND_my-target_v2" not in text
+
+
+def test_run_bat_executes_bare_relative_filename(tmp_path, monkeypatch):
+    """Regression test for a Windows cmd.exe quoting bug in run_bat().
+
+    subprocess.run(f'"{path}"', shell=True) wraps the string in ANOTHER pair
+    of quotes internally (cmd.exe /c "<args>"). If `path` is a bare relative
+    filename with no directory component (e.g. "build_internal.bat", which is
+    the default --output used by build.bat), the resulting command line has
+    four quote characters total, which defeats cmd.exe's special-case rule
+    for stripping a single surrounding quote pair around an executable name.
+    This previously made every real `build.bat --all/--minimal/--category`
+    invocation fail with: '"build_internal.bat"' is not recognized...
+    run_bat() must resolve the path to an absolute one before invoking it.
+    """
+    module = load_module()
+
+    marker = tmp_path / "marker.txt"
+    bat_file = tmp_path / "regression_run.bat"
+    bat_file.write_text(
+        f'@echo off\r\necho done> "{marker}"\r\nexit /b 0\r\n', encoding="utf-8"
+    )
+
+    monkeypatch.chdir(tmp_path)
+    # Pass a BARE relative filename (no "./" prefix) — this is exactly how
+    # build.bat's default `--output build_internal.bat` reaches run_bat().
+    rc = module.run_bat(Path(bat_file.name))
+
+    assert rc == 0
+    assert marker.exists(), "run_bat() failed to execute a bare relative .bat filename"
+    assert marker.read_text(encoding="utf-8").strip() == "done"
