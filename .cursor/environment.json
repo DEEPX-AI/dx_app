@@ -1,0 +1,4 @@
+{
+  "name": "dx_app (DEEPX NPU inference SDK)",
+  "install": "sudo apt-get update && sudo apt-get install -y --no-install-recommends python3-venv libgl1 libglib2.0-0 fonts-dejavu-core && python3 -m venv .venv && .venv/bin/pip install --upgrade pip && .venv/bin/pip install -r requirements.txt && .venv/bin/pip install -r tests/python_example/requirements.txt && ./setup_sample_models.sh --models arcface_mobilefacenet --output assets/models --no-force"
+}
