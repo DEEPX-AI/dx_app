@@ -39,9 +39,11 @@ def test_limit_nms_candidates_returns_original_arrays_when_disabled() -> None:
 
 def test_high_cost_yolo_configs_bound_nms_candidates() -> None:
     config_paths = [
-        ROOT / 'src/python_example/object_detection/yolov5s_wo_spp_640/config.json',
+        ROOT / 'src/python_example/object_detection/yolov5/yolov5-s_640x640_nospp/config.json',
     ]
 
     for config_path in config_paths:
-        config = json.loads(config_path.read_text())
+        # A variant config nests the task settings under "config"; the flat per-example
+        # config.json it replaced held them at the top level.
+        config = json.loads(config_path.read_text())['config']
         assert config['max_nms_candidates'] <= 300, config_path

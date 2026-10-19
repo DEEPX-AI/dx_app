@@ -7,7 +7,6 @@ These tests run actual inference on real images/videos to verify:
 - It processes the expected number of frames
 - FPS metrics are reasonable
 """
-import os
 import re
 import subprocess
 import sys
@@ -20,7 +19,8 @@ from conftest import resolve_bin_dir
 from performance_collector import get_collector, PerformanceMetrics
 
 # -- common module ---------------------------------------------------------
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+# conftest.py puts tests/ on sys.path; hence the noqa: E402 imports below.
+from test_helpers.proc import run_bounded  # noqa: E402
 from test_helpers.constants import (  # noqa: E402
     ASSETS_DIR,
     E2E_SHORT_MODELS,
@@ -29,12 +29,16 @@ from test_helpers.constants import (  # noqa: E402
     MULTI_MODEL_EXECUTABLES,
     PROJECT_ROOT,
     SAMPLE_DIR,
+    VIDEO_RUN_TIMEOUT_S,
     e2e_effective_loop,
+    video_too_slow,
 )
+from test_helpers import platform_paths  # noqa: E402
 from test_helpers.utils import (  # noqa: E402
-    find_dxnn_ignoring_variant,
-    normalize_model_name as _normalize_model_to_exe,
-    registry_dxnn_map,
+    binary_path,
+    cpp_exe_task_map,
+    cpp_variant_image_only_reason,
+    dxnn_for_exe,
     resolve_cpp_exe_input,
     setup_environment,
 )
@@ -45,6 +49,8 @@ LIB_DIR = PROJECT_ROOT / "lib"
 # Test data paths
 TEST_IMAGE = SAMPLE_DIR / "img" / "sample_kitchen.jpg"
 TEST_VIDEO = ASSETS_DIR / "videos" / "dance-group.mov"
+# One pass over the clip. Image E2E uses the --loop fixture (default 20).
+STREAM_LOOP_COUNT = 1
 
 # Multi-model executables expanded with sync/async suffix for E2E test use.
 # The base map lives in test_helpers.constants.MULTI_MODEL_EXECUTABLES.
@@ -69,36 +75,14 @@ def _resolve_multi_model_paths(exe_name: str) -> Optional[List[Path]]:
 
 
 def _find_dxnn_for_exe(base_name: str) -> Optional[Path]:
-    """Find .dxnn whose normalised stem matches *base_name* (exact, then prefix).
+    """A representative ``.dxnn`` for an executable basename, via the registry.
 
-    Prefix match is skipped when a more specific binary exists for that model.
-    e.g. yolov7_w6_face.dxnn won't match yolov7_w6_sync if yolov7_w6_face_sync exists.
-    Fallback: compare with underscores stripped (e.g. YoloV7W6 ↔ yolov7_w6).
+    An executable basename IS the family under the dx-modelzoo layout, and the registry
+    lists every variant of it, so this is a lookup rather than the normalise / prefix /
+    underscore-strip / alias cascade this replaced. That cascade could resolve a typo to
+    a neighbouring model, which is a worse failure than no match.
     """
-    # Authoritative registry lookup first (model_name → dxnn_file). Bridges names
-    # the normalisation heuristics below cannot (e.g. arcface_r50 → arcface_resnet50,
-    # beit_large_patch16 → beit-l-p16), which otherwise SKIP as "model not found".
-    reg = registry_dxnn_map().get(base_name)
-    if reg is not None and reg.exists():
-        return reg
-    for m in sorted(MODELS_DIR.glob("*.dxnn")):
-        if _normalize_model_to_exe(m.stem) == base_name:
-            return m
-    for m in sorted(MODELS_DIR.glob("*.dxnn")):
-        mn = _normalize_model_to_exe(m.stem)
-        if mn.startswith(base_name + "_") or mn.startswith(base_name + "-"):
-            # Skip if a dedicated binary exists for this model
-            if (BIN_DIR / f"{mn}_sync").exists() or (BIN_DIR / f"{mn}_async").exists():
-                continue
-            return m
-    # Fallback: compare with underscores stripped (e.g. YoloV7W6 ↔ yolov7_w6)
-    stripped = base_name.replace("_", "")
-    for m in sorted(MODELS_DIR.glob("*.dxnn")):
-        mn = _normalize_model_to_exe(m.stem).replace("_", "")
-        if mn == stripped:
-            return m
-    # Final fallback: ignore trailing -1/-2/_q-lite variant suffixes on files.
-    return find_dxnn_ignoring_variant(MODELS_DIR, base_name)
+    return dxnn_for_exe(base_name)
 
 
 def discover_test_cases() -> List[tuple]:
@@ -121,6 +105,8 @@ def discover_test_cases() -> List[tuple]:
         if not exe_path.is_file():
             continue
         exe_name = exe_path.name
+        if platform_paths.current_os_name() == "nt" and exe_name.lower().endswith(".exe"):
+            exe_name = exe_name[:-4]  # the case names and command lines stay bare
         if not (exe_name.endswith("_sync") or exe_name.endswith("_async")):
             continue
         if exe_name in seen_exes:
@@ -244,22 +230,9 @@ def get_model_group(executable: str) -> str:
     return re.sub(r'_(async|sync)$', '', executable)
 
 
-def _build_exe_task_map() -> dict:
-    """Build executable-base-name → task mapping from src/cpp_example/<task>/<model>/."""
-    cpp_example_dir = PROJECT_ROOT / "src" / "cpp_example"
-    mapping: dict = {}
-    if not cpp_example_dir.exists():
-        return mapping
-    for task_dir in cpp_example_dir.iterdir():
-        if not task_dir.is_dir() or task_dir.name in ("common", "ppu"):
-            continue
-        for model_dir in task_dir.iterdir():
-            if model_dir.is_dir():
-                mapping[model_dir.name] = task_dir.name
-    return mapping
-
-
-_EXE_TASK_MAP = _build_exe_task_map()
+# Executable name (``<variant>_sync`` / ``<variant>_async``) → task, read from
+# the src/cpp_example/<task>/<family>/<variant>/ layout.
+_EXE_TASK_MAP = cpp_exe_task_map()
 
 
 def _resolve_input_for_exe(executable: str) -> Path:
@@ -289,9 +262,7 @@ def test_image_inference_e2e(executable, model_path, bin_dir, loop_count):
     Executables and models are discovered automatically from ``bin/`` and
     ``assets/models/`` — no manual mapping maintenance required.
     """
-    executable_path = bin_dir / executable
-    if os.name == "nt":
-        executable_path = executable_path.with_suffix(".exe")
+    executable_path = binary_path(bin_dir, executable)
 
     if not executable_path.exists():
         pytest.skip(f"Executable not found: {executable_path}")
@@ -337,16 +308,17 @@ def test_image_inference_e2e(executable, model_path, bin_dir, loop_count):
             "-l", str(effective_loop),
         ]
 
-    # TTA models are significantly heavier (multiple forward passes per image)
-    # and require a longer timeout, especially on aarch64 platforms.
-    image_timeout = 300 if "tta" in exe_lower else 100
+    # TTA runs several forwards per image, so it keeps a wall-clock bound.
+    # Other image runs have none: a 100s cap ended ppmatting while it was
+    # still inferring. Slow models are limited by the heavy-model loop cap.
+    image_timeout = 300 if "tta" in exe_lower else None
 
     try:
-        result = subprocess.run(
+        result = run_bounded(
             cmd,
             capture_output=True,
             text=True,
-            timeout=image_timeout,  # 100 seconds default, 300 for TTA models
+            timeout=image_timeout,
             env=env,
             cwd=PROJECT_ROOT,
         )
@@ -387,13 +359,14 @@ def _build_video_cmd(executable_path, executable, model_path):
         cmd = [str(executable_path)]
         for (flag, _fname), mpath in zip(flag_model_pairs, model_path):
             cmd += [flag, str(mpath)]
-        cmd += ["-v", str(TEST_VIDEO), "--no-display"]
+        cmd += ["-v", str(TEST_VIDEO), "--no-display", "-l", str(STREAM_LOOP_COUNT)]
     else:
         cmd = [
             str(executable_path),
             "-m", str(model_path),
             "-v", str(TEST_VIDEO),
             "--no-display",
+            "-l", str(STREAM_LOOP_COUNT),
         ]
     return cmd
 
@@ -408,32 +381,31 @@ def test_stream_inference_e2e(executable, model_path, bin_dir):
     Executables and models are discovered automatically from ``bin/`` and
     ``assets/models/``.
     """
-    executable_path = bin_dir / executable
-    if os.name == "nt":
-        executable_path = executable_path.with_suffix(".exe")
+    executable_path = binary_path(bin_dir, executable)
 
     if not executable_path.exists():
         pytest.skip(f"Executable not found: {executable_path}")
 
-    # Face models are too slow for full video processing in CI
-    # (e.g. W6 face ~3-20s/frame, TTA ~125s/frame on aarch64).
+    # The W6 face detectors are too slow for full video processing in CI
+    # (~3-20s/frame, TTA ~125s/frame on aarch64); every other face model runs.
     # Image tests with reduced loop counts already verify correctness.
-    if "face" in executable.lower():
-        pytest.skip(f"{executable}: face model too slow for video test in CI")
+    if video_too_slow(executable):
+        pytest.skip(f"{executable}: too slow for the video test")
 
     # Image-only tasks (embedding/reid/attribute/object_pose/3d_det/hand_*) do
     # not support video/stream input — skip by the model's task category.
     # (Previously keyword-only, which missed eigenplaces, dope, sfa3d, etc.)
-    base_name = executable.rsplit("_", 1)[0] if executable.endswith(("_sync", "_async")) else executable
-    task = _EXE_TASK_MAP.get(base_name, "")
+    task = _EXE_TASK_MAP.get(executable, "")
     if task in IMAGE_ONLY_TASKS:
         pytest.skip(f"{executable}: image-only task ({task}), video input not supported")
 
-    # Keyword fallback for models whose exe→task lookup is ambiguous (e.g. casvit
-    # appears under both classification and reid) or absent from the task map.
-    _IMAGE_ONLY_KEYWORDS = ("arcface", "casvit", "deepmar", "face_attr")
-    if any(kw in executable.lower() for kw in _IMAGE_ONLY_KEYWORDS):
-        pytest.skip(f"{executable}: image-only task, video input not supported")
+    # A variant of a video-capable task can itself be image-only: its config.json
+    # says so (casvit-t under image_classification), or its runner has no -v
+    # option (clip-img zero-shot, embedding runner). A name keyword cannot tell
+    # casvit-t from casvit-t-fpn-resnet50 (semantic segmentation, video-capable).
+    image_only = cpp_variant_image_only_reason(executable)
+    if image_only:
+        pytest.skip(f"{executable}: {image_only}, video input not supported")
 
     if not TEST_VIDEO.exists():
         pytest.skip(f"Test video not found: {TEST_VIDEO}")
@@ -445,11 +417,11 @@ def test_stream_inference_e2e(executable, model_path, bin_dir):
     cmd = _build_video_cmd(executable_path, executable, model_path)
 
     try:
-        result = subprocess.run(
+        result = run_bounded(
             cmd,
             capture_output=True,
             text=True,
-            timeout=900,  # 15 minutes timeout for video
+            timeout=VIDEO_RUN_TIMEOUT_S,
             env=env,
             cwd=PROJECT_ROOT,
         )
@@ -500,7 +472,7 @@ def test_stream_inference_e2e(executable, model_path, bin_dir):
             
             # Store model info (only once per group)
             if model_group not in collector.model_info:
-                task = _EXE_TASK_MAP.get(model_group, "")
+                task = _EXE_TASK_MAP.get(executable, "")
                 collector.set_model_info(
                     model_group,
                     str(model_path if isinstance(model_path, Path) else model_path[0]),
@@ -510,7 +482,7 @@ def test_stream_inference_e2e(executable, model_path, bin_dir):
                 )
         
     except subprocess.TimeoutExpired:
-        pytest.fail(f"{executable} video inference timed out after 10 minutes")
+        pytest.fail(f"{executable} video inference timed out after {VIDEO_RUN_TIMEOUT_S} seconds")
     except Exception as e:
         pytest.fail(f"{executable} video inference raised exception: {e}")
 
@@ -531,6 +503,52 @@ def test_e2e_prerequisites():
     print(f"\nFound {len(model_files)} model files")
     print(f"Test image: {TEST_IMAGE}")
     print(f"Test video: {TEST_VIDEO}")
+
+
+SR_STREAM_FRAMES = 6
+SR_STREAM_PARAMS = [p for p in EXECUTABLE_PARAMS
+                    if _EXE_TASK_MAP.get(p.values[0]) == "super_resolution"]
+# The SR video path keeps a small-clip case whenever an SR binary is built: an
+# empty parametrization here once hid that the task lookup never matched.
+assert SR_STREAM_PARAMS or not any(
+    exe.endswith("_sync") and _EXE_TASK_MAP.get(exe) == "super_resolution"
+    for exe, _model in DISCOVERED_CASES
+), "super_resolution binaries are built but SR_STREAM_PARAMS is empty"
+
+
+@pytest.fixture(scope="module")
+def sr_stream_clip(tmp_path_factory):
+    """A 6-frame MJPG .avi of the 165x90 low-res sample: small enough that
+    ESPCN's 17x17 tiling is a few hundred tiles per frame (U-33)."""
+    import cv2
+    image = cv2.imread(str(SAMPLE_DIR / "img" / "sample_lowres165x90.png"))
+    assert image is not None
+    path = tmp_path_factory.mktemp("sr_stream") / "lowres.avi"
+    writer = cv2.VideoWriter(str(path), cv2.VideoWriter_fourcc(*"MJPG"), 10,
+                             (image.shape[1], image.shape[0]))
+    for _ in range(SR_STREAM_FRAMES):
+        writer.write(image)
+    writer.release()
+    return path
+
+
+@pytest.mark.e2e
+@pytest.mark.e2e_stream
+@pytest.mark.parametrize("executable,model_path", SR_STREAM_PARAMS)
+def test_super_resolution_stream_e2e(executable, model_path, bin_dir, sr_stream_clip):
+    """The SR video path, which the 1080p stream test leaves out (U-33)."""
+    executable_path = binary_path(bin_dir, executable)
+    if not executable_path.exists():
+        pytest.skip(f"Executable not found: {executable_path}")
+    if model_path is None:
+        pytest.skip(f"Model .dxnn not found for {executable}")
+    cmd = [str(executable_path), "-m", str(model_path), "-v", str(sr_stream_clip),
+           "--no-display", "-l", str(STREAM_LOOP_COUNT)]
+    result = run_bounded(cmd, capture_output=True, text=True, timeout=300,
+                         env=setup_environment(), cwd=PROJECT_ROOT)
+    output = result.stdout + result.stderr
+    assert result.returncode == 0, f"{' '.join(cmd)}\n{output[-2000:]}"
+    assert parse_detailed_fps(output).get("total_frames") == SR_STREAM_FRAMES, output[-2000:]
 
 
 if __name__ == "__main__":

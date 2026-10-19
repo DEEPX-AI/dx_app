@@ -55,7 +55,9 @@
         "focus": false,
         "panel": "shared"
       },
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": [
+        "$gcc"
+      ]
     },
     {
       "label": "build-target",
@@ -75,747 +77,3369 @@
         "focus": false,
         "panel": "shared"
       },
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": [
+        "$gcc"
+      ]
     },
     {
-      "label": "build: yolov5_sync",
+      "label": "build: sfa3d_608x608_sync",
       "type": "shell",
       "linux": {
         "command": "bash",
-        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov5_sync"]
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target sfa3d_608x608_sync"
+        ]
       },
       "group": "build",
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": [
+        "$gcc"
+      ]
     },
     {
-      "label": "build: yolov5_async",
+      "label": "build: sfa3d_608x608_async",
       "type": "shell",
       "linux": {
         "command": "bash",
-        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov5_async"]
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target sfa3d_608x608_async"
+        ]
       },
       "group": "build",
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": [
+        "$gcc"
+      ]
     },
     {
-      "label": "build: yolov7_sync",
+      "label": "build: efficientad-m-autoencoder_256x256_sync",
       "type": "shell",
       "linux": {
         "command": "bash",
-        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov7_sync"]
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target efficientad-m-autoencoder_256x256_sync"
+        ]
       },
       "group": "build",
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": [
+        "$gcc"
+      ]
     },
     {
-      "label": "build: yolov7_async",
+      "label": "build: efficientad-m-autoencoder_256x256_async",
       "type": "shell",
       "linux": {
         "command": "bash",
-        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov7_async"]
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target efficientad-m-autoencoder_256x256_async"
+        ]
       },
       "group": "build",
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": [
+        "$gcc"
+      ]
     },
     {
-      "label": "build: yolov8_sync",
+      "label": "build: patchcore_224x224_sync",
       "type": "shell",
       "linux": {
         "command": "bash",
-        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov8_sync"]
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target patchcore_224x224_sync"
+        ]
       },
       "group": "build",
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": [
+        "$gcc"
+      ]
     },
     {
-      "label": "build: yolov8_async",
+      "label": "build: patchcore_224x224_async",
       "type": "shell",
       "linux": {
         "command": "bash",
-        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov8_async"]
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target patchcore_224x224_async"
+        ]
       },
       "group": "build",
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": [
+        "$gcc"
+      ]
     },
     {
-      "label": "build: efficientnet_sync",
+      "label": "build: depthanythingv2-vitb_224x224_sync",
       "type": "shell",
       "linux": {
         "command": "bash",
-        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target efficientnet_sync"]
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target depthanythingv2-vitb_224x224_sync"
+        ]
       },
       "group": "build",
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": [
+        "$gcc"
+      ]
     },
     {
-      "label": "build: efficientnet_async",
+      "label": "build: depthanythingv2-vitb_224x224_async",
       "type": "shell",
       "linux": {
         "command": "bash",
-        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target efficientnet_async"]
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target depthanythingv2-vitb_224x224_async"
+        ]
       },
       "group": "build",
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": [
+        "$gcc"
+      ]
     },
     {
-      "label": "build: deeplabv3_sync",
+      "label": "build: fastdepth_224x224_sync",
       "type": "shell",
       "linux": {
         "command": "bash",
-        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target deeplabv3_sync"]
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target fastdepth_224x224_sync"
+        ]
       },
       "group": "build",
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": [
+        "$gcc"
+      ]
     },
     {
-      "label": "build: deeplabv3_async",
+      "label": "build: fastdepth_224x224_async",
       "type": "shell",
       "linux": {
         "command": "bash",
-        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target deeplabv3_async"]
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target fastdepth_224x224_async"
+        ]
       },
       "group": "build",
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": [
+        "$gcc"
+      ]
     },
     {
-      "label": "build: scrfd_sync",
+      "label": "build: scdepthv3_256x320_sync",
       "type": "shell",
       "linux": {
         "command": "bash",
-        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target scrfd_sync"]
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target scdepthv3_256x320_sync"
+        ]
       },
       "group": "build",
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": [
+        "$gcc"
+      ]
     },
     {
-      "label": "build: scrfd_async",
+      "label": "build: scdepthv3_256x320_async",
       "type": "shell",
       "linux": {
         "command": "bash",
-        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target scrfd_async"]
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target scdepthv3_256x320_async"
+        ]
       },
       "group": "build",
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": [
+        "$gcc"
+      ]
     },
     {
-      "label": "build: yolov5face_sync",
+      "label": "build: yolo26-depth-l_768x768_sync",
       "type": "shell",
       "linux": {
         "command": "bash",
-        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov5face_sync"]
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolo26-depth-l_768x768_sync"
+        ]
       },
       "group": "build",
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": [
+        "$gcc"
+      ]
     },
     {
-      "label": "build: yolov5face_async",
+      "label": "build: yolo26-depth-l_768x768_async",
       "type": "shell",
       "linux": {
         "command": "bash",
-        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov5face_async"]
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolo26-depth-l_768x768_async"
+        ]
       },
       "group": "build",
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": [
+        "$gcc"
+      ]
     },
     {
-      "label": "build: yolov5pose_sync",
+      "label": "build: faceattr_resnetv1-18_218x178_sync",
       "type": "shell",
       "linux": {
         "command": "bash",
-        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov5pose_sync"]
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target faceattr_resnetv1-18_218x178_sync"
+        ]
       },
       "group": "build",
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": [
+        "$gcc"
+      ]
     },
     {
-      "label": "build: yolov5pose_async",
+      "label": "build: faceattr_resnetv1-18_218x178_async",
       "type": "shell",
       "linux": {
         "command": "bash",
-        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov5pose_async"]
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target faceattr_resnetv1-18_218x178_async"
+        ]
       },
       "group": "build",
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": [
+        "$gcc"
+      ]
     },
     {
-      "label": "build: yolov9_sync",
+      "label": "build: retinaface_mobilenet-0.25_640x640_sync",
       "type": "shell",
       "linux": {
         "command": "bash",
-        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov9_sync"]
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target retinaface_mobilenet-0.25_640x640_sync"
+        ]
       },
       "group": "build",
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": [
+        "$gcc"
+      ]
     },
     {
-      "label": "build: yolov9_async",
+      "label": "build: retinaface_mobilenet-0.25_640x640_async",
       "type": "shell",
       "linux": {
         "command": "bash",
-        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov9_async"]
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target retinaface_mobilenet-0.25_640x640_async"
+        ]
       },
       "group": "build",
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": [
+        "$gcc"
+      ]
     },
     {
-      "label": "build: yolov10_sync",
+      "label": "build: scrfd-10g_640x640_sync",
       "type": "shell",
       "linux": {
         "command": "bash",
-        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov10_sync"]
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target scrfd-10g_640x640_sync"
+        ]
       },
       "group": "build",
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": [
+        "$gcc"
+      ]
     },
     {
-      "label": "build: yolov10_async",
+      "label": "build: scrfd-10g_640x640_async",
       "type": "shell",
       "linux": {
         "command": "bash",
-        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov10_async"]
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target scrfd-10g_640x640_async"
+        ]
       },
       "group": "build",
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": [
+        "$gcc"
+      ]
     },
     {
-      "label": "build: yolov11_sync",
+      "label": "build: ulfgfd-rfb_240x320_sync",
       "type": "shell",
       "linux": {
         "command": "bash",
-        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov11_sync"]
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target ulfgfd-rfb_240x320_sync"
+        ]
       },
       "group": "build",
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": [
+        "$gcc"
+      ]
     },
     {
-      "label": "build: yolov11_async",
+      "label": "build: ulfgfd-rfb_240x320_async",
       "type": "shell",
       "linux": {
         "command": "bash",
-        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov11_async"]
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target ulfgfd-rfb_240x320_async"
+        ]
       },
       "group": "build",
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": [
+        "$gcc"
+      ]
     },
     {
-      "label": "build: yolov12_sync",
+      "label": "build: yolov5-m-face_640x640_sync",
       "type": "shell",
       "linux": {
         "command": "bash",
-        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov12_sync"]
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov5-m-face_640x640_sync"
+        ]
       },
       "group": "build",
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": [
+        "$gcc"
+      ]
     },
     {
-      "label": "build: yolov12_async",
+      "label": "build: yolov5-m-face_640x640_async",
       "type": "shell",
       "linux": {
         "command": "bash",
-        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov12_async"]
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov5-m-face_640x640_async"
+        ]
       },
       "group": "build",
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": [
+        "$gcc"
+      ]
     },
     {
-      "label": "build: yolov26_sync",
+      "label": "build: yolov7-face_640x640_sync",
       "type": "shell",
       "linux": {
         "command": "bash",
-        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov26_sync"]
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov7-face_640x640_sync"
+        ]
       },
       "group": "build",
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": [
+        "$gcc"
+      ]
     },
     {
-      "label": "build: yolov26_async",
+      "label": "build: yolov7-face_640x640_async",
       "type": "shell",
       "linux": {
         "command": "bash",
-        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov26_async"]
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov7-face_640x640_async"
+        ]
       },
       "group": "build",
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": [
+        "$gcc"
+      ]
     },
     {
-      "label": "build: yolov26pose_sync",
+      "label": "build: 3ddfa-v2_mobilenet-0.5_120x120_sync",
       "type": "shell",
       "linux": {
         "command": "bash",
-        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov26pose_sync"]
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target 3ddfa-v2_mobilenet-0.5_120x120_sync"
+        ]
       },
       "group": "build",
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": [
+        "$gcc"
+      ]
     },
     {
-      "label": "build: yolov26pose_async",
+      "label": "build: 3ddfa-v2_mobilenet-0.5_120x120_async",
       "type": "shell",
       "linux": {
         "command": "bash",
-        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov26pose_async"]
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target 3ddfa-v2_mobilenet-0.5_120x120_async"
+        ]
       },
       "group": "build",
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": [
+        "$gcc"
+      ]
     },
     {
-      "label": "build: yolov26seg_sync",
+      "label": "build: arcface_iresnet100_112x112_ms1m_sync",
       "type": "shell",
       "linux": {
         "command": "bash",
-        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov26seg_sync"]
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target arcface_iresnet100_112x112_ms1m_sync"
+        ]
       },
       "group": "build",
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": [
+        "$gcc"
+      ]
     },
     {
-      "label": "build: yolov26seg_async",
+      "label": "build: arcface_iresnet100_112x112_ms1m_async",
       "type": "shell",
       "linux": {
         "command": "bash",
-        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov26seg_async"]
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target arcface_iresnet100_112x112_ms1m_async"
+        ]
       },
       "group": "build",
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": [
+        "$gcc"
+      ]
     },
     {
-      "label": "build: yolov26obb_sync",
+      "label": "build: mediapipe-hand-detector_192x192_sync",
       "type": "shell",
       "linux": {
         "command": "bash",
-        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov26obb_sync"]
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target mediapipe-hand-detector_192x192_sync"
+        ]
       },
       "group": "build",
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": [
+        "$gcc"
+      ]
     },
     {
-      "label": "build: yolov26obb_async",
+      "label": "build: mediapipe-hand-detector_192x192_async",
       "type": "shell",
       "linux": {
         "command": "bash",
-        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov26obb_async"]
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target mediapipe-hand-detector_192x192_async"
+        ]
       },
       "group": "build",
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": [
+        "$gcc"
+      ]
     },
     {
-      "label": "build: yolov26cls_sync",
+      "label": "build: mediapipe-hands-lite_224x224_sync",
       "type": "shell",
       "linux": {
         "command": "bash",
-        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov26cls_sync"]
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target mediapipe-hands-lite_224x224_sync"
+        ]
       },
       "group": "build",
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": [
+        "$gcc"
+      ]
     },
     {
-      "label": "build: yolov26cls_async",
+      "label": "build: mediapipe-hands-lite_224x224_async",
       "type": "shell",
       "linux": {
         "command": "bash",
-        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov26cls_async"]
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target mediapipe-hands-lite_224x224_async"
+        ]
       },
       "group": "build",
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": [
+        "$gcc"
+      ]
     },
     {
-      "label": "build: yolox_sync",
+      "label": "build: alexnet_224x224_sync",
       "type": "shell",
       "linux": {
         "command": "bash",
-        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolox_sync"]
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target alexnet_224x224_sync"
+        ]
       },
       "group": "build",
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": [
+        "$gcc"
+      ]
     },
     {
-      "label": "build: yolox_async",
+      "label": "build: alexnet_224x224_async",
       "type": "shell",
       "linux": {
         "command": "bash",
-        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolox_async"]
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target alexnet_224x224_async"
+        ]
       },
       "group": "build",
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": [
+        "$gcc"
+      ]
     },
     {
-      "label": "build: yolov5_ppu_sync",
+      "label": "build: beit-l-p16_224x224_sync",
       "type": "shell",
       "linux": {
         "command": "bash",
-        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov5_ppu_sync"]
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target beit-l-p16_224x224_sync"
+        ]
       },
       "group": "build",
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": [
+        "$gcc"
+      ]
     },
     {
-      "label": "build: yolov5_ppu_async",
+      "label": "build: beit-l-p16_224x224_async",
       "type": "shell",
       "linux": {
         "command": "bash",
-        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov5_ppu_async"]
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target beit-l-p16_224x224_async"
+        ]
       },
       "group": "build",
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": [
+        "$gcc"
+      ]
     },
     {
-      "label": "build: yolov7_ppu_sync",
+      "label": "build: casvit-m_224x224_sync",
       "type": "shell",
       "linux": {
         "command": "bash",
-        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov7_ppu_sync"]
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target casvit-m_224x224_sync"
+        ]
       },
       "group": "build",
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": [
+        "$gcc"
+      ]
     },
     {
-      "label": "build: yolov7_ppu_async",
+      "label": "build: casvit-m_224x224_async",
       "type": "shell",
       "linux": {
         "command": "bash",
-        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov7_ppu_async"]
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target casvit-m_224x224_async"
+        ]
       },
       "group": "build",
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": [
+        "$gcc"
+      ]
     },
     {
-      "label": "build: yolov8n_ppu_sync",
+      "label": "build: deit-b_224x224_sync",
       "type": "shell",
       "linux": {
         "command": "bash",
-        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov8n_ppu_sync"]
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target deit-b_224x224_sync"
+        ]
       },
       "group": "build",
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": [
+        "$gcc"
+      ]
     },
     {
-      "label": "build: yolov8n_ppu_async",
+      "label": "build: deit-b_224x224_async",
       "type": "shell",
       "linux": {
         "command": "bash",
-        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov8n_ppu_async"]
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target deit-b_224x224_async"
+        ]
       },
       "group": "build",
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": [
+        "$gcc"
+      ]
     },
     {
-      "label": "build: yolov8s_ppu_sync",
+      "label": "build: densenet121_224x224_sync",
       "type": "shell",
       "linux": {
         "command": "bash",
-        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov8s_ppu_sync"]
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target densenet121_224x224_sync"
+        ]
       },
       "group": "build",
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": [
+        "$gcc"
+      ]
     },
     {
-      "label": "build: yolov8s_ppu_async",
+      "label": "build: densenet121_224x224_async",
       "type": "shell",
       "linux": {
         "command": "bash",
-        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov8s_ppu_async"]
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target densenet121_224x224_async"
+        ]
       },
       "group": "build",
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": [
+        "$gcc"
+      ]
     },
     {
-      "label": "build: yolov9t_ppu_sync",
+      "label": "build: efficientformer-l3_224x224_sync",
       "type": "shell",
       "linux": {
         "command": "bash",
-        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov9t_ppu_sync"]
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target efficientformer-l3_224x224_sync"
+        ]
       },
       "group": "build",
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": [
+        "$gcc"
+      ]
     },
     {
-      "label": "build: yolov9t_ppu_async",
+      "label": "build: efficientformer-l3_224x224_async",
       "type": "shell",
       "linux": {
         "command": "bash",
-        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov9t_ppu_async"]
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target efficientformer-l3_224x224_async"
+        ]
       },
       "group": "build",
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": [
+        "$gcc"
+      ]
     },
     {
-      "label": "build: yolov10n_ppu_sync",
+      "label": "build: efficientnet-b2_288x288_sync",
       "type": "shell",
       "linux": {
         "command": "bash",
-        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov10n_ppu_sync"]
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target efficientnet-b2_288x288_sync"
+        ]
       },
       "group": "build",
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": [
+        "$gcc"
+      ]
     },
     {
-      "label": "build: yolov10n_ppu_async",
+      "label": "build: efficientnet-b2_288x288_async",
       "type": "shell",
       "linux": {
         "command": "bash",
-        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov10n_ppu_async"]
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target efficientnet-b2_288x288_async"
+        ]
       },
       "group": "build",
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": [
+        "$gcc"
+      ]
     },
     {
-      "label": "build: yolov11n_ppu_sync",
+      "label": "build: fastvit-ma36_256x256_sync",
       "type": "shell",
       "linux": {
         "command": "bash",
-        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov11n_ppu_sync"]
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target fastvit-ma36_256x256_sync"
+        ]
       },
       "group": "build",
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": [
+        "$gcc"
+      ]
     },
     {
-      "label": "build: yolov11n_ppu_async",
+      "label": "build: fastvit-ma36_256x256_async",
       "type": "shell",
       "linux": {
         "command": "bash",
-        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov11n_ppu_async"]
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target fastvit-ma36_256x256_async"
+        ]
       },
       "group": "build",
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": [
+        "$gcc"
+      ]
     },
     {
-      "label": "build: yolov12n_ppu_sync",
+      "label": "build: ghostnet_224x224_sync",
       "type": "shell",
       "linux": {
         "command": "bash",
-        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov12n_ppu_sync"]
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target ghostnet_224x224_sync"
+        ]
       },
       "group": "build",
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": [
+        "$gcc"
+      ]
     },
     {
-      "label": "build: yolov12n_ppu_async",
+      "label": "build: ghostnet_224x224_async",
       "type": "shell",
       "linux": {
         "command": "bash",
-        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov12n_ppu_async"]
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target ghostnet_224x224_async"
+        ]
       },
       "group": "build",
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": [
+        "$gcc"
+      ]
     },
     {
-      "label": "build: yolov7x_ppu_sync",
+      "label": "build: hardnet39ds_224x224_sync",
       "type": "shell",
       "linux": {
         "command": "bash",
-        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov7x_ppu_sync"]
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target hardnet39ds_224x224_sync"
+        ]
       },
       "group": "build",
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": [
+        "$gcc"
+      ]
     },
     {
-      "label": "build: yolov7x_ppu_async",
+      "label": "build: hardnet39ds_224x224_async",
       "type": "shell",
       "linux": {
         "command": "bash",
-        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov7x_ppu_async"]
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target hardnet39ds_224x224_async"
+        ]
       },
       "group": "build",
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": [
+        "$gcc"
+      ]
     },
     {
-      "label": "build: scrfd500m_ppu_sync",
+      "label": "build: inceptionv1_224x224_sync",
       "type": "shell",
       "linux": {
         "command": "bash",
-        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target scrfd500m_ppu_sync"]
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target inceptionv1_224x224_sync"
+        ]
       },
       "group": "build",
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": [
+        "$gcc"
+      ]
     },
     {
-      "label": "build: scrfd500m_ppu_async",
+      "label": "build: inceptionv1_224x224_async",
       "type": "shell",
       "linux": {
         "command": "bash",
-        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target scrfd500m_ppu_async"]
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target inceptionv1_224x224_async"
+        ]
       },
       "group": "build",
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": [
+        "$gcc"
+      ]
     },
     {
-      "label": "build: scrfd_ppu_sync",
+      "label": "build: levit-128_224x224_sync",
       "type": "shell",
       "linux": {
         "command": "bash",
-        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target scrfd_ppu_sync"]
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target levit-128_224x224_sync"
+        ]
       },
       "group": "build",
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": [
+        "$gcc"
+      ]
     },
     {
-      "label": "build: scrfd_ppu_async",
+      "label": "build: levit-128_224x224_async",
       "type": "shell",
       "linux": {
         "command": "bash",
-        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target scrfd_ppu_async"]
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target levit-128_224x224_async"
+        ]
       },
       "group": "build",
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": [
+        "$gcc"
+      ]
     },
     {
-      "label": "build: yolov5pose_ppu_sync",
+      "label": "build: mnasnet-0.5_224x224_sync",
       "type": "shell",
       "linux": {
         "command": "bash",
-        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov5pose_ppu_sync"]
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target mnasnet-0.5_224x224_sync"
+        ]
       },
       "group": "build",
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": [
+        "$gcc"
+      ]
     },
     {
-      "label": "build: yolov5pose_ppu_async",
+      "label": "build: mnasnet-0.5_224x224_async",
       "type": "shell",
       "linux": {
         "command": "bash",
-        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov5pose_ppu_async"]
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target mnasnet-0.5_224x224_async"
+        ]
       },
       "group": "build",
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": [
+        "$gcc"
+      ]
     },
     {
-      "label": "build: yolov8seg_sync",
+      "label": "build: mobilenetv1_224x224_sync",
       "type": "shell",
       "linux": {
         "command": "bash",
-        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov8seg_sync"]
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target mobilenetv1_224x224_sync"
+        ]
       },
       "group": "build",
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": [
+        "$gcc"
+      ]
     },
     {
-      "label": "build: yolov8seg_async",
+      "label": "build: mobilenetv1_224x224_async",
       "type": "shell",
       "linux": {
         "command": "bash",
-        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov8seg_async"]
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target mobilenetv1_224x224_async"
+        ]
       },
       "group": "build",
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": [
+        "$gcc"
+      ]
     },
     {
-      "label": "build: yolov7_x_deeplabv3_sync",
+      "label": "build: pphgnet-base_224x224_sync",
       "type": "shell",
       "linux": {
         "command": "bash",
-        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov7_x_deeplabv3_sync"]
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target pphgnet-base_224x224_sync"
+        ]
       },
       "group": "build",
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": [
+        "$gcc"
+      ]
     },
     {
-      "label": "build: yolov7_x_deeplabv3_async",
+      "label": "build: pphgnet-base_224x224_async",
       "type": "shell",
       "linux": {
         "command": "bash",
-        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov7_x_deeplabv3_async"]
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target pphgnet-base_224x224_async"
+        ]
       },
       "group": "build",
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": [
+        "$gcc"
+      ]
     },
     {
-      "label": "build: deepmar_resnet50_sync",
+      "label": "build: pphgnetv2-b0_224x224_sync",
       "type": "shell",
       "linux": {
         "command": "bash",
-        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target deepmar_resnet50_sync"]
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target pphgnetv2-b0_224x224_sync"
+        ]
       },
       "group": "build",
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": [
+        "$gcc"
+      ]
     },
     {
-      "label": "build: deepmar_resnet50_async",
+      "label": "build: pphgnetv2-b0_224x224_async",
       "type": "shell",
       "linux": {
         "command": "bash",
-        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target deepmar_resnet50_async"]
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target pphgnetv2-b0_224x224_async"
+        ]
       },
       "group": "build",
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": [
+        "$gcc"
+      ]
     },
     {
-      "label": "build: casvit_t_sync",
+      "label": "build: pplcnetv2-base_224x224_sync",
       "type": "shell",
       "linux": {
         "command": "bash",
-        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target casvit_t_sync"]
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target pplcnetv2-base_224x224_sync"
+        ]
       },
       "group": "build",
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": [
+        "$gcc"
+      ]
     },
     {
-      "label": "build: casvit_t_async",
+      "label": "build: pplcnetv2-base_224x224_async",
       "type": "shell",
       "linux": {
         "command": "bash",
-        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target casvit_t_async"]
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target pplcnetv2-base_224x224_async"
+        ]
       },
       "group": "build",
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": [
+        "$gcc"
+      ]
     },
     {
-      "label": "build: scdepthv3_sync",
+      "label": "build: regnet-x1.6gf_224x224_v1_sync",
       "type": "shell",
       "linux": {
         "command": "bash",
-        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target scdepthv3_sync"]
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target regnet-x1.6gf_224x224_v1_sync"
+        ]
       },
       "group": "build",
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": [
+        "$gcc"
+      ]
     },
     {
-      "label": "build: scdepthv3_async",
+      "label": "build: regnet-x1.6gf_224x224_v1_async",
       "type": "shell",
       "linux": {
         "command": "bash",
-        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target scdepthv3_async"]
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target regnet-x1.6gf_224x224_v1_async"
+        ]
       },
       "group": "build",
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": [
+        "$gcc"
+      ]
     },
     {
-      "label": "build: demo_multi_channel",
+      "label": "build: repghost-2.0x_224x224_sync",
       "type": "shell",
       "linux": {
         "command": "bash",
-        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target demo_multi_channel"]
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target repghost-2.0x_224x224_sync"
+        ]
       },
       "group": "build",
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": [
+        "$gcc"
+      ]
     },
     {
-      "label": "build: camera_opencv",
+      "label": "build: repghost-2.0x_224x224_async",
       "type": "shell",
       "linux": {
         "command": "bash",
-        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target camera_opencv"]
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target repghost-2.0x_224x224_async"
+        ]
       },
       "group": "build",
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": [
+        "$gcc"
+      ]
     },
     {
-      "label": "build: video_opencv",
+      "label": "build: repvgg-a0_320x320_sync",
       "type": "shell",
       "linux": {
         "command": "bash",
-        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target video_opencv"]
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target repvgg-a0_320x320_sync"
+        ]
       },
       "group": "build",
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": [
+        "$gcc"
+      ]
     },
     {
-      "label": "build: image_opencv",
+      "label": "build: repvgg-a0_320x320_async",
       "type": "shell",
       "linux": {
         "command": "bash",
-        "args": ["-c", "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target image_opencv"]
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target repvgg-a0_320x320_async"
+        ]
       },
       "group": "build",
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: resmlp24_224x224_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target resmlp24_224x224_sync"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: resmlp24_224x224_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target resmlp24_224x224_async"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: resnet101_224x224_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target resnet101_224x224_sync"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: resnet101_224x224_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target resnet101_224x224_async"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: resnext101-32x8d_224x224_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target resnext101-32x8d_224x224_sync"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: resnext101-32x8d_224x224_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target resnext101-32x8d_224x224_async"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: shufflenetv1-x1.0_224x224_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target shufflenetv1-x1.0_224x224_sync"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: shufflenetv1-x1.0_224x224_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target shufflenetv1-x1.0_224x224_async"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: shufflenetv2-x0.5_224x224_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target shufflenetv2-x0.5_224x224_sync"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: shufflenetv2-x0.5_224x224_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target shufflenetv2-x0.5_224x224_async"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: squeezenet-1.0_224x224_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target squeezenet-1.0_224x224_sync"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: squeezenet-1.0_224x224_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target squeezenet-1.0_224x224_async"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: swin-b_224x224_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target swin-b_224x224_sync"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: swin-b_224x224_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target swin-b_224x224_async"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: vgg11-bn_224x224_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target vgg11-bn_224x224_sync"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: vgg11-bn_224x224_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target vgg11-bn_224x224_async"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: vit-b-p16_224x224_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target vit-b-p16_224x224_sync"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: vit-b-p16_224x224_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target vit-b-p16_224x224_async"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: wide-resnet101-2_224x224_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target wide-resnet101-2_224x224_sync"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: wide-resnet101-2_224x224_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target wide-resnet101-2_224x224_async"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: yolo26-cls-l_224x224_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolo26-cls-l_224x224_sync"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: yolo26-cls-l_224x224_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolo26-cls-l_224x224_async"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: yolov12-cls-l_224x224_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov12-cls-l_224x224_sync"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: yolov12-cls-l_224x224_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov12-cls-l_224x224_async"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: dncnn-15_512x512_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target dncnn-15_512x512_sync"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: dncnn-15_512x512_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target dncnn-15_512x512_async"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: ppmatting-hrnet-w48-composition_512x512_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target ppmatting-hrnet-w48-composition_512x512_sync"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: ppmatting-hrnet-w48-composition_512x512_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target ppmatting-hrnet-w48-composition_512x512_async"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: clip-img_resnet50_224x224_openai_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target clip-img_resnet50_224x224_openai_sync"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: clip-img_resnet50_224x224_openai_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target clip-img_resnet50_224x224_openai_async"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: mask-rtdetr-hgnetv2-h-6x_640x640_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target mask-rtdetr-hgnetv2-h-6x_640x640_sync"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: mask-rtdetr-hgnetv2-h-6x_640x640_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target mask-rtdetr-hgnetv2-h-6x_640x640_async"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: yolact_regnet-x1.6gf_512x512_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolact_regnet-x1.6gf_512x512_sync"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: yolact_regnet-x1.6gf_512x512_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolact_regnet-x1.6gf_512x512_async"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: yolo11-l-seg_640x640_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolo11-l-seg_640x640_sync"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: yolo11-l-seg_640x640_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolo11-l-seg_640x640_async"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: yolo26-l-seg_640x640_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolo26-l-seg_640x640_sync"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: yolo26-l-seg_640x640_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolo26-l-seg_640x640_async"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: yolov12-seg-l_640x640_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov12-seg-l_640x640_sync"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: yolov12-seg-l_640x640_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov12-seg-l_640x640_async"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: yolov5-l-seg_640x640_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov5-l-seg_640x640_sync"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: yolov5-l-seg_640x640_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov5-l-seg_640x640_async"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: yolov8-l-seg_640x640_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov8-l-seg_640x640_sync"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: yolov8-l-seg_640x640_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov8-l-seg_640x640_async"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: yolov9-seg-c_640x640_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov9-seg-c_640x640_sync"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: yolov9-seg-c_640x640_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov9-seg-c_640x640_async"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: superpoint_480x640_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target superpoint_480x640_sync"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: superpoint_480x640_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target superpoint_480x640_async"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: zerodce-pp_400x600_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target zerodce-pp_400x600_sync"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: zerodce-pp_400x600_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target zerodce-pp_400x600_async"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: damoyolo-l_640x640_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target damoyolo-l_640x640_sync"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: damoyolo-l_640x640_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target damoyolo-l_640x640_async"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: efficientdet-d1_640x640_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target efficientdet-d1_640x640_sync"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: efficientdet-d1_640x640_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target efficientdet-d1_640x640_async"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: nanodet-plus-1.5x_224x224_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target nanodet-plus-1.5x_224x224_sync"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: nanodet-plus-1.5x_224x224_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target nanodet-plus-1.5x_224x224_async"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: pp-shituv1-mainbody-detection_640x640_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target pp-shituv1-mainbody-detection_640x640_sync"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: pp-shituv1-mainbody-detection_640x640_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target pp-shituv1-mainbody-detection_640x640_async"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: rtdetr-hgnetv2-h-6x_640x640_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target rtdetr-hgnetv2-h-6x_640x640_sync"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: rtdetr-hgnetv2-h-6x_640x640_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target rtdetr-hgnetv2-h-6x_640x640_async"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: ssd-mobilenetv1_300x300_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target ssd-mobilenetv1_300x300_sync"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: ssd-mobilenetv1_300x300_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target ssd-mobilenetv1_300x300_async"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: yolo11-l_640x640_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolo11-l_640x640_sync"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: yolo11-l_640x640_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolo11-l_640x640_async"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: yolo26-l_640x640_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolo26-l_640x640_sync"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: yolo26-l_640x640_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolo26-l_640x640_async"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: yolo11-n_640x640_ppu_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolo11-n_640x640_ppu_sync"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: yolo11-n_640x640_ppu_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolo11-n_640x640_ppu_async"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: yolo26-l_640x640_pre-optimized_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolo26-l_640x640_pre-optimized_sync"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: yolo26-l_640x640_pre-optimized_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolo26-l_640x640_pre-optimized_async"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: yolov10-b_640x640_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov10-b_640x640_sync"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: yolov10-b_640x640_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov10-b_640x640_async"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: yolov12-l_640x640_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov12-l_640x640_sync"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: yolov12-l_640x640_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov12-l_640x640_async"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: yolov13-l_640x640_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov13-l_640x640_sync"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: yolov13-l_640x640_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov13-l_640x640_async"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: yolov3-gluon_416x416_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov3-gluon_416x416_sync"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: yolov3-gluon_416x416_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov3-gluon_416x416_async"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: yolov4-leaky_512x512_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov4-leaky_512x512_sync"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: yolov4-leaky_512x512_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov4-leaky_512x512_async"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: yolov5-l6_1280x1280_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov5-l6_1280x1280_sync"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: yolov5-l6_1280x1280_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov5-l6_1280x1280_async"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: yolov6-l6_1280x1280_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov6-l6_1280x1280_sync"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: yolov6-l6_1280x1280_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov6-l6_1280x1280_async"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: yolov7-d6_1280x1280_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov7-d6_1280x1280_sync"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: yolov7-d6_1280x1280_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov7-d6_1280x1280_async"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: yolov8-l_640x640_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov8-l_640x640_sync"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: yolov8-l_640x640_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov8-l_640x640_async"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: yolov9-c_640x640_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov9-c_640x640_sync"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: yolov9-c_640x640_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov9-c_640x640_async"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: yolox-l-leaky_640x640_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolox-l-leaky_640x640_sync"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: yolox-l-leaky_640x640_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolox-l-leaky_640x640_async"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: dope-hope-ketchup_480x640_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target dope-hope-ketchup_480x640_sync"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: dope-hope-ketchup_480x640_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target dope-hope-ketchup_480x640_async"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: yolo26-l-obb_1024x1024_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolo26-l-obb_1024x1024_sync"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: yolo26-l-obb_1024x1024_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolo26-l-obb_1024x1024_async"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: yolopv2_384x640_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolopv2_384x640_sync"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: yolopv2_384x640_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolopv2_384x640_async"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: deepmar_resnet18_224x224_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target deepmar_resnet18_224x224_sync"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: deepmar_resnet18_224x224_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target deepmar_resnet18_224x224_async"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: repvgg-a0-reid_256x128_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target repvgg-a0-reid_256x128_sync"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: repvgg-a0-reid_256x128_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target repvgg-a0-reid_256x128_async"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: centerpose-fpn_regnet-x1.6gf_512x512_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target centerpose-fpn_regnet-x1.6gf_512x512_sync"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: centerpose-fpn_regnet-x1.6gf_512x512_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target centerpose-fpn_regnet-x1.6gf_512x512_async"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: dark-hrnet-w32_256x192_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target dark-hrnet-w32_256x192_sync"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: dark-hrnet-w32_256x192_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target dark-hrnet-w32_256x192_async"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: vitpose-s_256x192_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target vitpose-s_256x192_sync"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: vitpose-s_256x192_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target vitpose-s_256x192_async"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: yolo11-l-pose_640x640_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolo11-l-pose_640x640_sync"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: yolo11-l-pose_640x640_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolo11-l-pose_640x640_async"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: yolo26-l-pose_640x640_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolo26-l-pose_640x640_sync"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: yolo26-l-pose_640x640_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolo26-l-pose_640x640_async"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: yolo26-l-pose_640x640_pre-optimized_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolo26-l-pose_640x640_pre-optimized_sync"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: yolo26-l-pose_640x640_pre-optimized_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolo26-l-pose_640x640_pre-optimized_async"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: yolov5-s6-pose_640x640_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov5-s6-pose_640x640_sync"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: yolov5-s6-pose_640x640_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov5-s6-pose_640x640_async"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: yolov8-l-pose_640x640_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov8-l-pose_640x640_sync"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: yolov8-l-pose_640x640_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target yolov8-l-pose_640x640_async"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: bisenetv1_1024x2048_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target bisenetv1_1024x2048_sync"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: bisenetv1_1024x2048_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target bisenetv1_1024x2048_async"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: casvit-t-fpn-resnet50_512x512_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target casvit-t-fpn-resnet50_512x512_sync"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: casvit-t-fpn-resnet50_512x512_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target casvit-t-fpn-resnet50_512x512_async"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: ddrnet23-slim_1024x2048_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target ddrnet23-slim_1024x2048_sync"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: ddrnet23-slim_1024x2048_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target ddrnet23-slim_1024x2048_async"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: deeplabv3-resnet101_512x512_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target deeplabv3-resnet101_512x512_sync"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: deeplabv3-resnet101_512x512_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target deeplabv3-resnet101_512x512_async"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: fcn8_resnet18_1024x1920_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target fcn8_resnet18_1024x1920_sync"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: fcn8_resnet18_1024x1920_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target fcn8_resnet18_1024x1920_async"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: pidnet-s_1024x2048_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target pidnet-s_1024x2048_sync"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: pidnet-s_1024x2048_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target pidnet-s_1024x2048_async"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: pp-liteseg-stdc1-camvid-10k_960x720_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target pp-liteseg-stdc1-camvid-10k_960x720_sync"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: pp-liteseg-stdc1-camvid-10k_960x720_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target pp-liteseg-stdc1-camvid-10k_960x720_async"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: segformer_mit-b0_512x1024_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target segformer_mit-b0_512x1024_sync"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: segformer_mit-b0_512x1024_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target segformer_mit-b0_512x1024_async"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: stdc1-seg50_512x1024_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target stdc1-seg50_512x1024_sync"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: stdc1-seg50_512x1024_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target stdc1-seg50_512x1024_async"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: unet_mobilenetv2_256x256_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target unet_mobilenetv2_256x256_sync"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: unet_mobilenetv2_256x256_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target unet_mobilenetv2_256x256_async"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: espcn-x2_17x17_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target espcn-x2_17x17_sync"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: espcn-x2_17x17_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target espcn-x2_17x17_async"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: realesrgan-x2_192x192_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target realesrgan-x2_192x192_sync"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: realesrgan-x2_192x192_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target realesrgan-x2_192x192_async"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: eigenplaces-resnet18_512x512_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target eigenplaces-resnet18_512x512_sync"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: eigenplaces-resnet18_512x512_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target eigenplaces-resnet18_512x512_async"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: pp-shituv2-feature-extraction_224x224_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target pp-shituv2-feature-extraction_224x224_sync"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: pp-shituv2-feature-extraction_224x224_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target pp-shituv2-feature-extraction_224x224_async"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: clip-img_resnet50x16_384x384_openai-wit_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target clip-img_resnet50x16_384x384_openai-wit_sync"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: clip-img_resnet50x16_384x384_openai-wit_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target clip-img_resnet50x16_384x384_openai-wit_async"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: fastsam-s_1024x1024_sync",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target fastsam-s_1024x1024_sync"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "build: fastsam-s_1024x1024_async",
+      "type": "shell",
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "source venv/bin/activate 2>/dev/null || true && ./build.sh --type debug --target fastsam-s_1024x1024_async"
+        ]
+      },
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
     }
   ],
   "inputs": [
@@ -824,82 +3448,232 @@
       "type": "pickString",
       "description": "Select build target",
       "options": [
-        "yolov5_sync",
-        "yolov5_async",
-        "yolov7_sync",
-        "yolov7_async",
-        "yolov8_sync",
-        "yolov8_async",
-        "yolov9_sync",
-        "yolov9_async",
-        "yolov10_sync",
-        "yolov10_async",
-        "yolov11_sync",
-        "yolov11_async",
-        "yolov12_sync",
-        "yolov12_async",
-        "yolov26_sync",
-        "yolov26_async",
-        "yolov26pose_sync",
-        "yolov26pose_async",
-        "yolov26seg_sync",
-        "yolov26seg_async",
-        "yolov26obb_sync",
-        "yolov26obb_async",
-        "yolov26cls_sync",
-        "yolov26cls_async",
-        "yolox_sync",
-        "yolox_async",
-        "efficientnet_sync",
-        "efficientnet_async",
-        "deeplabv3_sync",
-        "deeplabv3_async",
-        "scrfd_sync",
-        "scrfd_async",
-        "yolov5face_sync",
-        "yolov5face_async",
-        "yolov5pose_sync",
-        "yolov5pose_async",
-        "yolov8seg_sync",
-        "yolov8seg_async",
-        "yolov5_ppu_sync",
-        "yolov5_ppu_async",
-        "yolov7_ppu_sync",
-        "yolov7_ppu_async",
-        "yolov8n_ppu_sync",
-        "yolov8n_ppu_async",
-        "yolov8s_ppu_sync",
-        "yolov8s_ppu_async",
-        "yolov9t_ppu_sync",
-        "yolov9t_ppu_async",
-        "yolov10n_ppu_sync",
-        "yolov10n_ppu_async",
-        "yolov11n_ppu_sync",
-        "yolov11n_ppu_async",
-        "yolov12n_ppu_sync",
-        "yolov12n_ppu_async",
-        "yolov7x_ppu_sync",
-        "yolov7x_ppu_async",
-        "scrfd500m_ppu_sync",
-        "scrfd500m_ppu_async",
-        "scrfd_ppu_sync",
-        "scrfd_ppu_async",
-        "yolov5pose_ppu_sync",
-        "yolov5pose_ppu_async",
-        "yolov7_x_deeplabv3_sync",
-        "yolov7_x_deeplabv3_async",
-        "deepmar_resnet50_sync",
-        "deepmar_resnet50_async",
-        "casvit_t_sync",
-        "casvit_t_async",
-        "scdepthv3_sync",
-        "scdepthv3_async",
-        "demo_multi_channel",
-        "camera_opencv",
-        "video_opencv",
-        "image_opencv"
+        "sfa3d_608x608_sync",
+        "sfa3d_608x608_async",
+        "efficientad-m-autoencoder_256x256_sync",
+        "efficientad-m-autoencoder_256x256_async",
+        "patchcore_224x224_sync",
+        "patchcore_224x224_async",
+        "depthanythingv2-vitb_224x224_sync",
+        "depthanythingv2-vitb_224x224_async",
+        "fastdepth_224x224_sync",
+        "fastdepth_224x224_async",
+        "scdepthv3_256x320_sync",
+        "scdepthv3_256x320_async",
+        "yolo26-depth-l_768x768_sync",
+        "yolo26-depth-l_768x768_async",
+        "faceattr_resnetv1-18_218x178_sync",
+        "faceattr_resnetv1-18_218x178_async",
+        "retinaface_mobilenet-0.25_640x640_sync",
+        "retinaface_mobilenet-0.25_640x640_async",
+        "scrfd-10g_640x640_sync",
+        "scrfd-10g_640x640_async",
+        "ulfgfd-rfb_240x320_sync",
+        "ulfgfd-rfb_240x320_async",
+        "yolov5-m-face_640x640_sync",
+        "yolov5-m-face_640x640_async",
+        "yolov7-face_640x640_sync",
+        "yolov7-face_640x640_async",
+        "3ddfa-v2_mobilenet-0.5_120x120_sync",
+        "3ddfa-v2_mobilenet-0.5_120x120_async",
+        "arcface_iresnet100_112x112_ms1m_sync",
+        "arcface_iresnet100_112x112_ms1m_async",
+        "mediapipe-hand-detector_192x192_sync",
+        "mediapipe-hand-detector_192x192_async",
+        "mediapipe-hands-lite_224x224_sync",
+        "mediapipe-hands-lite_224x224_async",
+        "alexnet_224x224_sync",
+        "alexnet_224x224_async",
+        "beit-l-p16_224x224_sync",
+        "beit-l-p16_224x224_async",
+        "casvit-m_224x224_sync",
+        "casvit-m_224x224_async",
+        "deit-b_224x224_sync",
+        "deit-b_224x224_async",
+        "densenet121_224x224_sync",
+        "densenet121_224x224_async",
+        "efficientformer-l3_224x224_sync",
+        "efficientformer-l3_224x224_async",
+        "efficientnet-b2_288x288_sync",
+        "efficientnet-b2_288x288_async",
+        "fastvit-ma36_256x256_sync",
+        "fastvit-ma36_256x256_async",
+        "ghostnet_224x224_sync",
+        "ghostnet_224x224_async",
+        "hardnet39ds_224x224_sync",
+        "hardnet39ds_224x224_async",
+        "inceptionv1_224x224_sync",
+        "inceptionv1_224x224_async",
+        "levit-128_224x224_sync",
+        "levit-128_224x224_async",
+        "mnasnet-0.5_224x224_sync",
+        "mnasnet-0.5_224x224_async",
+        "mobilenetv1_224x224_sync",
+        "mobilenetv1_224x224_async",
+        "pphgnet-base_224x224_sync",
+        "pphgnet-base_224x224_async",
+        "pphgnetv2-b0_224x224_sync",
+        "pphgnetv2-b0_224x224_async",
+        "pplcnetv2-base_224x224_sync",
+        "pplcnetv2-base_224x224_async",
+        "regnet-x1.6gf_224x224_v1_sync",
+        "regnet-x1.6gf_224x224_v1_async",
+        "repghost-2.0x_224x224_sync",
+        "repghost-2.0x_224x224_async",
+        "repvgg-a0_320x320_sync",
+        "repvgg-a0_320x320_async",
+        "resmlp24_224x224_sync",
+        "resmlp24_224x224_async",
+        "resnet101_224x224_sync",
+        "resnet101_224x224_async",
+        "resnext101-32x8d_224x224_sync",
+        "resnext101-32x8d_224x224_async",
+        "shufflenetv1-x1.0_224x224_sync",
+        "shufflenetv1-x1.0_224x224_async",
+        "shufflenetv2-x0.5_224x224_sync",
+        "shufflenetv2-x0.5_224x224_async",
+        "squeezenet-1.0_224x224_sync",
+        "squeezenet-1.0_224x224_async",
+        "swin-b_224x224_sync",
+        "swin-b_224x224_async",
+        "vgg11-bn_224x224_sync",
+        "vgg11-bn_224x224_async",
+        "vit-b-p16_224x224_sync",
+        "vit-b-p16_224x224_async",
+        "wide-resnet101-2_224x224_sync",
+        "wide-resnet101-2_224x224_async",
+        "yolo26-cls-l_224x224_sync",
+        "yolo26-cls-l_224x224_async",
+        "yolov12-cls-l_224x224_sync",
+        "yolov12-cls-l_224x224_async",
+        "dncnn-15_512x512_sync",
+        "dncnn-15_512x512_async",
+        "ppmatting-hrnet-w48-composition_512x512_sync",
+        "ppmatting-hrnet-w48-composition_512x512_async",
+        "clip-img_resnet50_224x224_openai_sync",
+        "clip-img_resnet50_224x224_openai_async",
+        "mask-rtdetr-hgnetv2-h-6x_640x640_sync",
+        "mask-rtdetr-hgnetv2-h-6x_640x640_async",
+        "yolact_regnet-x1.6gf_512x512_sync",
+        "yolact_regnet-x1.6gf_512x512_async",
+        "yolo11-l-seg_640x640_sync",
+        "yolo11-l-seg_640x640_async",
+        "yolo26-l-seg_640x640_sync",
+        "yolo26-l-seg_640x640_async",
+        "yolov12-seg-l_640x640_sync",
+        "yolov12-seg-l_640x640_async",
+        "yolov5-l-seg_640x640_sync",
+        "yolov5-l-seg_640x640_async",
+        "yolov8-l-seg_640x640_sync",
+        "yolov8-l-seg_640x640_async",
+        "yolov9-seg-c_640x640_sync",
+        "yolov9-seg-c_640x640_async",
+        "superpoint_480x640_sync",
+        "superpoint_480x640_async",
+        "zerodce-pp_400x600_sync",
+        "zerodce-pp_400x600_async",
+        "damoyolo-l_640x640_sync",
+        "damoyolo-l_640x640_async",
+        "efficientdet-d1_640x640_sync",
+        "efficientdet-d1_640x640_async",
+        "nanodet-plus-1.5x_224x224_sync",
+        "nanodet-plus-1.5x_224x224_async",
+        "pp-shituv1-mainbody-detection_640x640_sync",
+        "pp-shituv1-mainbody-detection_640x640_async",
+        "rtdetr-hgnetv2-h-6x_640x640_sync",
+        "rtdetr-hgnetv2-h-6x_640x640_async",
+        "ssd-mobilenetv1_300x300_sync",
+        "ssd-mobilenetv1_300x300_async",
+        "yolo11-l_640x640_sync",
+        "yolo11-l_640x640_async",
+        "yolo26-l_640x640_sync",
+        "yolo26-l_640x640_async",
+        "yolo11-n_640x640_ppu_sync",
+        "yolo11-n_640x640_ppu_async",
+        "yolo26-l_640x640_pre-optimized_sync",
+        "yolo26-l_640x640_pre-optimized_async",
+        "yolov10-b_640x640_sync",
+        "yolov10-b_640x640_async",
+        "yolov12-l_640x640_sync",
+        "yolov12-l_640x640_async",
+        "yolov13-l_640x640_sync",
+        "yolov13-l_640x640_async",
+        "yolov3-gluon_416x416_sync",
+        "yolov3-gluon_416x416_async",
+        "yolov4-leaky_512x512_sync",
+        "yolov4-leaky_512x512_async",
+        "yolov5-l6_1280x1280_sync",
+        "yolov5-l6_1280x1280_async",
+        "yolov6-l6_1280x1280_sync",
+        "yolov6-l6_1280x1280_async",
+        "yolov7-d6_1280x1280_sync",
+        "yolov7-d6_1280x1280_async",
+        "yolov8-l_640x640_sync",
+        "yolov8-l_640x640_async",
+        "yolov9-c_640x640_sync",
+        "yolov9-c_640x640_async",
+        "yolox-l-leaky_640x640_sync",
+        "yolox-l-leaky_640x640_async",
+        "dope-hope-ketchup_480x640_sync",
+        "dope-hope-ketchup_480x640_async",
+        "yolo26-l-obb_1024x1024_sync",
+        "yolo26-l-obb_1024x1024_async",
+        "yolopv2_384x640_sync",
+        "yolopv2_384x640_async",
+        "deepmar_resnet18_224x224_sync",
+        "deepmar_resnet18_224x224_async",
+        "repvgg-a0-reid_256x128_sync",
+        "repvgg-a0-reid_256x128_async",
+        "centerpose-fpn_regnet-x1.6gf_512x512_sync",
+        "centerpose-fpn_regnet-x1.6gf_512x512_async",
+        "dark-hrnet-w32_256x192_sync",
+        "dark-hrnet-w32_256x192_async",
+        "vitpose-s_256x192_sync",
+        "vitpose-s_256x192_async",
+        "yolo11-l-pose_640x640_sync",
+        "yolo11-l-pose_640x640_async",
+        "yolo26-l-pose_640x640_sync",
+        "yolo26-l-pose_640x640_async",
+        "yolo26-l-pose_640x640_pre-optimized_sync",
+        "yolo26-l-pose_640x640_pre-optimized_async",
+        "yolov5-s6-pose_640x640_sync",
+        "yolov5-s6-pose_640x640_async",
+        "yolov8-l-pose_640x640_sync",
+        "yolov8-l-pose_640x640_async",
+        "bisenetv1_1024x2048_sync",
+        "bisenetv1_1024x2048_async",
+        "casvit-t-fpn-resnet50_512x512_sync",
+        "casvit-t-fpn-resnet50_512x512_async",
+        "ddrnet23-slim_1024x2048_sync",
+        "ddrnet23-slim_1024x2048_async",
+        "deeplabv3-resnet101_512x512_sync",
+        "deeplabv3-resnet101_512x512_async",
+        "fcn8_resnet18_1024x1920_sync",
+        "fcn8_resnet18_1024x1920_async",
+        "pidnet-s_1024x2048_sync",
+        "pidnet-s_1024x2048_async",
+        "pp-liteseg-stdc1-camvid-10k_960x720_sync",
+        "pp-liteseg-stdc1-camvid-10k_960x720_async",
+        "segformer_mit-b0_512x1024_sync",
+        "segformer_mit-b0_512x1024_async",
+        "stdc1-seg50_512x1024_sync",
+        "stdc1-seg50_512x1024_async",
+        "unet_mobilenetv2_256x256_sync",
+        "unet_mobilenetv2_256x256_async",
+        "espcn-x2_17x17_sync",
+        "espcn-x2_17x17_async",
+        "realesrgan-x2_192x192_sync",
+        "realesrgan-x2_192x192_async",
+        "eigenplaces-resnet18_512x512_sync",
+        "eigenplaces-resnet18_512x512_async",
+        "pp-shituv2-feature-extraction_224x224_sync",
+        "pp-shituv2-feature-extraction_224x224_async",
+        "clip-img_resnet50x16_384x384_openai-wit_sync",
+        "clip-img_resnet50x16_384x384_openai-wit_async",
+        "fastsam-s_1024x1024_sync",
+        "fastsam-s_1024x1024_async"
       ],
-      "default": "yolov5_sync"
+      "default": "sfa3d_608x608_sync"
     }
   ]
 }

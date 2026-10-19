@@ -13,7 +13,7 @@
 
 **DX-STREAM** is a custom GStreamer plugin that enables real-time streaming data integration into AI inference applications on DEEPX NPU. It provides a modular pipeline framework with configurable elements for preprocessing, inference, and postprocessing, tailored to vision AI work. DX-STREAM allows developers to build flexible, high-performance applications for use cases such as video analytics, smart cameras, and edge AI systems.  
 
-**DX-APP** is a collection of runnable example applications that execute compiled models on DEEPX NPUs through DX-RT. It provides examples across 22 AI task categories including classification, object detection, face detection, pose estimation, semantic/instance segmentation, depth estimation, OBB detection, embedding, image denoising, enhancement, super resolution, hand landmark detection, attribute recognition, person re-identification, face alignment, keypoint detection, object pose estimation, panoptic driving perception, 3D object detection, and hand detection. The current DX-APP repository is organized around refactored `src/cpp_example/` and `src/python_example/` trees, each with their own shared runtime layer (`common/`) providing base interfaces, processors, runners, visualizers, and utilities via a factory pattern. Additionally, `src/postprocess/` provides C++ post-processing consumed by pybind11 bindings for `*_cpp_postprocess.py` variants. DX-APP is intended both as a quick-start runtime package for users and as a reusable application baseline for further customization. Below are representative run examples.   
+**DX-APP** is a collection of runnable example applications that execute compiled models on DEEPX NPUs through DX-RT. It provides examples across 28 AI task categories including classification, object detection, face detection, pose estimation, semantic/instance segmentation, depth estimation, OBB detection, embedding, image denoising, enhancement, super resolution, hand landmark detection, attribute recognition, face alignment, keypoint detection, object pose estimation, panoptic driving perception, 3D object detection, hand detection, and the four categories DX Model Zoo added in release 2_5_0 — image retrieval, image matting, visual place recognition and person re-identification. The current DX-APP repository is organized around refactored `src/cpp_example/` and `src/python_example/` trees, each with their own shared runtime layer (`common/`) providing base interfaces, processors, runners, visualizers, and utilities via a factory pattern. Additionally, `src/postprocess/` provides C++ post-processing consumed by pybind11 bindings for `*_cpp_postprocess.py` variants. DX-APP is intended both as a quick-start runtime package for users and as a reusable application baseline for further customization. Below are representative run examples.   
 
 ---
 
@@ -39,8 +39,8 @@ You can quickly evaluate inference capabilities without modifying the source cod
 - Output: Top-1 class  
 - Example run  
 ```bash
-./bin/efficientnet_lite0_async -m ./assets/models/efficientnet-lite0_256x256.dxnn -i ./sample/ILSVRC2012/0.jpeg -l 1
-./bin/efficientnet_lite0_sync  -m ./assets/models/efficientnet-lite0_256x256.dxnn -i ./sample/ILSVRC2012/0.jpeg -l 1
+./bin/efficientnet-lite0_224x224_async -m ./assets/models/efficientnet-lite0_224x224.dxnn -i ./sample/ILSVRC2012/0.jpeg -l 1
+./bin/efficientnet-lite0_224x224_sync  -m ./assets/models/efficientnet-lite0_224x224.dxnn -i ./sample/ILSVRC2012/0.jpeg -l 1
 ```
 
 **Object Detection (YOLOv8N)**  
@@ -49,8 +49,8 @@ You can quickly evaluate inference capabilities without modifying the source cod
 - Output: boxes rendered and logged  
 - Example run  
 ```bash
-./bin/yolov8n_async -m ./assets/models/yolov8-n_640x640.dxnn -i ./sample/img/sample_kitchen.jpg --no-display -l 1
-./bin/yolov8n_sync  -m ./assets/models/yolov8-n_640x640.dxnn -i ./sample/img/sample_kitchen.jpg --no-display -l 1 -s
+./bin/yolov8-n_640x640_async -m ./assets/models/yolov8-n_640x640.dxnn -i ./sample/img/sample_kitchen.jpg --no-display -l 1
+./bin/yolov8-n_640x640_sync  -m ./assets/models/yolov8-n_640x640.dxnn -i ./sample/img/sample_kitchen.jpg --no-display -l 1 -s
 ```
 
 **Face Detection (SCRFD)**  
@@ -59,8 +59,8 @@ You can quickly evaluate inference capabilities without modifying the source cod
 - Output: face boxes, landmarks, log  
 - Example run  
 ```bash
-./bin/scrfd500m_async -m ./assets/models/scrfd-500m_640x640.dxnn -i ./sample/img/sample_face.jpg --no-display -l 1
-./bin/scrfd500m_sync  -m ./assets/models/scrfd-500m_640x640.dxnn -i ./sample/img/sample_face.jpg --no-display -l 1 -s
+./bin/scrfd-500m_640x640_async -m ./assets/models/scrfd-500m_640x640.dxnn -i ./sample/img/sample_face.jpg --no-display -l 1
+./bin/scrfd-500m_640x640_sync  -m ./assets/models/scrfd-500m_640x640.dxnn -i ./sample/img/sample_face.jpg --no-display -l 1 -s
 ```
 
 **Pose Estimation (YOLOv8s Pose)**  
@@ -69,18 +69,18 @@ You can quickly evaluate inference capabilities without modifying the source cod
 - Output: person boxes + keypoints  
 - Example run  
 ```bash
-./bin/yolov8s_pose_async -m ./assets/models/yolov8-s-pose_640x640.dxnn -i ./sample/img/sample_kitchen.jpg --no-display -l 1
-./bin/yolov8s_pose_sync  -m ./assets/models/yolov8-s-pose_640x640.dxnn -i ./sample/img/sample_kitchen.jpg --no-display -l 1 -s
+./bin/yolov8-s-pose_640x640_async -m ./assets/models/yolov8-s-pose_640x640.dxnn -i ./sample/img/sample_kitchen.jpg --no-display -l 1
+./bin/yolov8-s-pose_640x640_sync  -m ./assets/models/yolov8-s-pose_640x640.dxnn -i ./sample/img/sample_kitchen.jpg --no-display -l 1 -s
 ```
 
 **Segmentation (DeepLabV3+)**  
 
 - Input: image/video/camera  
-- Output: boxes + masks rendered, results saved  
+- Output: segmentation masks rendered, results saved  
 - Example run  
 ```bash
-./bin/deeplabv3plusmobilenet_async -m ./assets/models/deeplabv3plus_mobilenetv1_512x512.dxnn -i ./sample/img/sample_parking.jpg --no-display -l 1
-./bin/deeplabv3plusmobilenet_sync  -m ./assets/models/deeplabv3plus_mobilenetv1_512x512.dxnn -i ./sample/img/sample_parking.jpg --no-display -l 1 -s
+./bin/deeplabv3plus_mobilenetv1_512x512_async -m ./assets/models/deeplabv3plus_mobilenetv1_512x512.dxnn -i ./sample/img/sample_parking.jpg --no-display -l 1
+./bin/deeplabv3plus_mobilenetv1_512x512_sync  -m ./assets/models/deeplabv3plus_mobilenetv1_512x512.dxnn -i ./sample/img/sample_parking.jpg --no-display -l 1 -s
 ```
 
 **Semantic Segmentation (BiSeNetV1)**  
@@ -89,8 +89,8 @@ You can quickly evaluate inference capabilities without modifying the source cod
 - Output: segmentation masks rendered  
 - Example run  
 ```bash
-./bin/bisenetv1_async -m ./assets/models/bisenetv1_1024x2048.dxnn -i ./sample/img/sample_parking.jpg --no-display -l 1
-./bin/bisenetv1_sync  -m ./assets/models/bisenetv1_1024x2048.dxnn -i ./sample/img/sample_parking.jpg --no-display -l 1 -s
+./bin/bisenetv1_1024x2048_async -m ./assets/models/bisenetv1_1024x2048.dxnn -i ./sample/img/sample_parking.jpg --no-display -l 1
+./bin/bisenetv1_1024x2048_sync  -m ./assets/models/bisenetv1_1024x2048.dxnn -i ./sample/img/sample_parking.jpg --no-display -l 1 -s
 ```
 
 ---

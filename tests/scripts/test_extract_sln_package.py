@@ -47,22 +47,22 @@ def load_module():
 def test_extract_category_model_creates_skeleton():
     output_dir = reset_scratch("category_model")
     result = run_extract(
-        "classification/resnet50",
+        "image_classification/resnet/resnet50_224x224",
         "--output-dir",
         str(output_dir),
         "--no-generate-sln",
     )
 
     assert result.returncode == 0, result.stderr
-    package_dir = output_dir / "sln" / "classification" / "resnet50"
+    package_dir = output_dir / "sln" / "image_classification" / "resnet50_224x224"
     assert (package_dir / "CMakeLists.txt").is_file()
     assert (package_dir / "build.bat").is_file()
     assert (package_dir / "README.md").is_file()
     assert (package_dir / "cmake" / "dxapp_package_deps.cmake").is_file()
     assert (package_dir / "cmake" / "dxapp_package_deps.bat").is_file()
-    assert (package_dir / "src" / "resnet50_sync.cpp").is_file()
-    assert (package_dir / "src" / "resnet50_async.cpp").is_file()
-    assert (package_dir / "factory" / "resnet50_factory.hpp").is_file()
+    assert (package_dir / "src" / "resnet50_224x224_sync.cpp").is_file()
+    assert (package_dir / "src" / "resnet50_224x224_async.cpp").is_file()
+    assert (package_dir / "factory" / "resnet50_224x224_factory.hpp").is_file()
     assert (package_dir / "common").is_dir()
     assert (package_dir / "utility" / "common_util.cpp").is_file()
     assert (package_dir / "extern" / "cxxopts.hpp").is_file()
@@ -82,7 +82,7 @@ def test_extract_category_model_creates_skeleton():
 def test_generated_cmake_copies_windows_dll_dirs_at_build_time():
     output_dir = reset_scratch("dll_copy")
     result = run_extract(
-        "classification/resnet50",
+        "image_classification/resnet/resnet50_224x224",
         "--output-dir",
         str(output_dir),
         "--no-generate-sln",
@@ -90,7 +90,7 @@ def test_generated_cmake_copies_windows_dll_dirs_at_build_time():
 
     assert result.returncode == 0, result.stderr
     cmake_text = (
-        output_dir / "sln" / "classification" / "resnet50" / "CMakeLists.txt"
+        output_dir / "sln" / "image_classification" / "resnet50_224x224" / "CMakeLists.txt"
     ).read_text(encoding="utf-8")
 
     assert "file(GLOB DXRT_DLLS" not in cmake_text
@@ -106,8 +106,8 @@ def test_generated_cmake_copies_windows_dll_dirs_at_build_time():
     copy_script = (
         output_dir
         / "sln"
-        / "classification"
-        / "resnet50"
+        / "image_classification"
+        / "resnet50_224x224"
         / "cmake"
         / "dxapp_copy_runtime_dir.cmake"
     )
@@ -123,14 +123,14 @@ def test_generated_cmake_copies_windows_dll_dirs_at_build_time():
 def test_extract_unique_basename_resolves_model():
     output_dir = reset_scratch("unique_basename")
     result = run_extract(
-        "resnet50",
+        "resnet50_224x224",
         "--output-dir",
         str(output_dir),
         "--no-generate-sln",
     )
 
     assert result.returncode == 0, result.stderr
-    assert (output_dir / "sln" / "classification" / "resnet50").is_dir()
+    assert (output_dir / "sln" / "image_classification" / "resnet50_224x224").is_dir()
 
 
 def test_extract_unknown_model_returns_dxapp_error():

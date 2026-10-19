@@ -1,0 +1,62 @@
+{
+  "variant": "yolopv2_384x640",
+  "dxnn_file": "yolopv2_384x640.dxnn",
+  "task": "panoptic_driving_perception",
+  "family": "yolopv2",
+  "input_width": 640,
+  "input_height": 384,
+  "image_only": false,
+  "registry_image_only": false,
+  "default_image": "sample/img/sample_parking.jpg",
+  "default_video": "assets/videos/blackbox-city-road.mp4",
+  "zoo_canonical": true,
+  "published": true,
+  "config": {
+    "conf_threshold": 0.25,
+    "nms_threshold": 0.45
+  },
+  "registry_config": {
+    "score_threshold": 0.25,
+    "nms_threshold": 0.45
+  },
+  "cli": {
+    "include_kitti_paths": false,
+    "include_output": false,
+    "include_stream_inputs": true
+  },
+  "preprocessor": {
+    "args": [
+      {
+        "token": "input_width"
+      },
+      {
+        "token": "input_height"
+      }
+    ],
+    "class": "LetterboxPreprocessor",
+    "config_overrides": {},
+    "kwargs": {}
+  },
+  "postprocessor": {
+    "args": [
+      {
+        "token": "input_width"
+      },
+      {
+        "token": "input_height"
+      },
+      {
+        "token": "config"
+      }
+    ],
+    "class": "YOLOPv2Postprocessor",
+    "config_overrides": {},
+    "kwargs": {}
+  },
+  "visualizer": {
+    "args": [],
+    "class": "YOLOPv2Visualizer",
+    "config_overrides": {},
+    "kwargs": {}
+  }
+}

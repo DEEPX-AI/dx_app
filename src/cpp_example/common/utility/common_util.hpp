@@ -22,6 +22,12 @@
 #include <atomic>
 #include <array>
 #include <cstring>
+#include <utility>
+
+#include "common/utility/interrupt_flag.hpp"
+#include "common/utility/display_pump.hpp"
+#include "common/utility/camera.hpp"
+#include "common/utility/repo_path.hpp"
 
 #if __cplusplus >= 201703L || (defined(_MSVC_LANG) && _MSVC_LANG >= 201703L)
 #include <filesystem>
@@ -173,8 +179,9 @@ inline bool isVersionGreaterOrEqual(const std::string& v1, const std::string& v2
 /**
  * @brief Check minimum version compatibility for RT and Compiler
  * 
- * Validates that the DXRT library version is >= 3.0.0 and
+ * Validates that the DXRT library version is >= 3.5.0 and
  * the compiled model version is >= v7 (matching Legacy behavior).
+ * Model Zoo 2_5_0 .dxnn files are container format v9, which DX-RT 3.5.0 parses.
  * 
  * @param ie Pointer to InferenceEngine
  * @return true if versions are compatible
@@ -185,7 +192,7 @@ inline bool minversionforRTandCompiler(dxrt::InferenceEngine* ie) {
     std::string rt_version = dxrt::Configuration::GetInstance().GetVersion();
     std::string compiler_version = ie->GetModelVersion();
 
-    if (isVersionGreaterOrEqual(rt_version, "3.0.0")) {
+    if (isVersionGreaterOrEqual(rt_version, "3.5.0")) {
         if (isVersionGreaterOrEqual(compiler_version, "v7")) {
             return true;
         } else {
@@ -193,14 +200,15 @@ inline bool minversionforRTandCompiler(dxrt::InferenceEngine* ie) {
                          ">= 7, current: "
                       << compiler_version << ")" << std::endl;
             std::cerr << DXAPP_GREEN << "[HINT] Model/compiler version mismatch. "
-                         "Please download updated models: ./setup.sh --models <model_name>"
+                         "Please download updated models: python3 scripts/download_models.py --models <model_name>"
                       << DXAPP_RESET << std::endl;
         }
     } else {
         std::cerr << "[DXAPP] [ERROR] DXRT library version is too low. (required: "
-                     ">= 3.0.0, current: "
+                     ">= 3.5.0, current: "
                   << rt_version << ")" << std::endl;
-        std::cerr << DXAPP_GREEN << "[HINT] Please update DXRT: ./install.sh --all"
+        std::cerr << DXAPP_GREEN << "[HINT] Model Zoo 2_5_0 .dxnn files are container v9. "
+                     "Update DX-RT (and the NPU driver) to >= 3.5.0."
                   << DXAPP_RESET << std::endl;
     }
     return false;
@@ -255,16 +263,18 @@ inline bool& _displayClosed() {
  * @brief Handle window events and check whether the display window was closed or user requested quit.
  *
  * - Pressing 'q' sets the global interrupt flag and returns true.
+ * - A pending interrupt (g_interrupted(), e.g. from SIGINT/SIGTERM) returns true.
  * - If the window named `winname` is closed (getWindowProperty <= 0), this returns true
  *   to signal the caller to stop displaying and proceed to next model.
  */
-// Forward declaration: g_interrupted is defined in run_dir.hpp. Provide a
-// declaration here to avoid build ordering issues when this header is
-// included without run_dir.hpp.
-inline std::atomic<bool>& g_interrupted();
-
 inline bool windowShouldClose(const std::string& winname = "Output") {
     if (_displayClosed()) return true;
+    // SIGINT/SIGTERM (run_dir.hpp's handler) end the wait too: the image-mode
+    // "hold the window open" loop in every sync runner is
+    //     while (!windowShouldClose("Output")) sleep;
+    // and a window nobody can close (QT_QPA_PLATFORM=offscreen, a remote
+    // session) otherwise kept the process alive after the signal.
+    if (g_interrupted().load()) return true;
     try {
         int key = cv::waitKey(1);
         if (key == 'q' || key == 27) {
@@ -360,6 +370,20 @@ inline std::pair<int, int> getScreenResolution() {
 }
 
 /**
+ * @brief Apply the run-time display choices to a DisplayPump, once per run.
+ *
+ * - The window is sized on creation like the Python runners' show_image():
+ *   fitted into half the screen (getScreenResolution(), 1920x1080 fallback).
+ * - `--drop-frames` turns the depth-1 lossy preview back on; by default the
+ *   pump is lossless and a slow window paces the pipeline (2026-10-06).
+ */
+inline void configureDisplayPump(DisplayPump& pump, bool drop_frames) {
+    const std::pair<int, int> screen = getScreenResolution();
+    pump.setScreenSize(screen.first, screen.second);
+    pump.setDropStale(drop_frames);
+}
+
+/**
  * @brief Display frame in a resizable window, sized to ~1/4 screen area on first call.
  *
  * On the first frame, detects screen resolution and sets the window to
@@ -415,6 +439,7 @@ inline void showOutput(const cv::Mat& frame) {
 
     static bool window_sized = false;
     try {
+        prepareGuiBackend();
         cv::namedWindow("Output", cv::WINDOW_NORMAL);
     } catch (const cv::Exception& e ) {
         if (!headless_warned) {
@@ -429,9 +454,9 @@ inline void showOutput(const cv::Mat& frame) {
     window_ever_opened = true;
 
     if (!window_sized && !frame.empty()) {
-        auto [screen_w, screen_h] = getScreenResolution();
-        int target_w = screen_w / 2;
-        int target_h = screen_h / 2;
+        const std::pair<int, int> screen_res = getScreenResolution();
+        int target_w = screen_res.first / 2;
+        int target_h = screen_res.second / 2;
 
         // Fit frame aspect ratio within target_w × target_h
         double scale = std::min(
@@ -487,20 +512,63 @@ inline void writeToVideo(cv::VideoWriter& writer, const cv::Mat& frame,
  * uses its filename as a subdirectory name to avoid collisions when saving
  * multiple images from the same source directory.
  */
+/**
+ * @brief Resolve a factory's companion .dxnn files beside the primary model.
+ *
+ * `declared` is what the factory's getCompanionModels() returned: (role, filename)
+ * pairs, where a relative filename is resolved in the primary model's own directory --
+ * how a model set stays together on disk.
+ *
+ * A missing companion throws. Falling back to the primary alone would produce a
+ * heatmap that still looks like a heatmap while meaning something else entirely, which
+ * is exactly the failure a single-network "EfficientAD" example already demonstrated.
+ *
+ * Mirrors resolve_companion_models() in the Python runner.
+ */
+inline std::vector<std::pair<std::string, std::string>> resolveCompanionModels(
+    const std::vector<std::pair<std::string, std::string>>& declared,
+    const std::string& primaryPath) {
+    std::vector<std::pair<std::string, std::string>> resolved;
+    if (declared.empty()) return resolved;
+
+    const fs::path base = fs::absolute(fs::path(primaryPath)).parent_path();
+    for (const auto& item : declared) {
+        fs::path candidate(item.second);
+        if (!candidate.is_absolute()) candidate = base / candidate;
+        if (!fs::is_regular_file(candidate)) {
+            std::ostringstream msg;
+            msg << "[DXAPP] [ERROR] companion model for role '" << item.first
+                << "' not found: " << candidate.string() << "\n"
+                << "  This factory needs it alongside the primary model ("
+                << fs::path(primaryPath).filename().string() << ").\n"
+                << "  This model set must be downloaded together; running the primary "
+                   "network alone would produce a different measurement under the same "
+                   "name.\n";
+            throw std::runtime_error(msg.str());
+        }
+        resolved.emplace_back(item.first, candidate.string());
+    }
+    return resolved;
+}
+
 inline std::string buildPerImageSavePath(const std::string& runDir,
                                         const std::string& modelName,
                                         const std::string& imagePath,
-                                        int img_idx = 0) {
+                                        int img_idx = 0,
+                                        bool createDirs = true) {
     if (runDir.empty()) return std::string();
     fs::path base(runDir);
     fs::path model_dir = base / (modelName);
-    fs::create_directories(model_dir);
 
     fs::path fname = fs::path(imagePath).filename();
     std::string stem = fname.stem().string();
     if (stem.empty()) stem = "image" + std::to_string(img_idx);
     fs::path out = model_dir / (stem + std::string("_output.jpg"));
-    fs::create_directories(out.parent_path());
+    // `createDirs = false` is for the callers whose visualizer may legitimately render
+    // nothing -- the embedding comparison, whose first image is only the reference.
+    // Creating the directory up front left an EMPTY <model>_sync/ next to run_info.txt,
+    // which reads exactly like an output that failed to be written.
+    if (createDirs) fs::create_directories(out.parent_path());
     return out.string();
 }
 
@@ -538,6 +606,7 @@ inline std::string getDefaultSampleImage(const std::string& taskType,
         return "sample/img/sample_lowres275x150.png";
     }
     if (taskType == "object_detection")       return "sample/img/sample_street.jpg";
+    if (taskType == "mainbody_detection")     return "sample/img/sample_street.jpg";
     if (taskType == "face_detection")         return "sample/img/sample_face.jpg";
     if (taskType == "obb_detection")          return "sample/img/sample_airport_satellite_view.png";
     if (taskType == "pose_estimation")        return "sample/img/sample_people.jpg";
@@ -546,15 +615,37 @@ inline std::string getDefaultSampleImage(const std::string& taskType,
     if (taskType == "face_alignment")         return "sample/img/sample_face_a1.jpg";
     if (taskType == "instance_segmentation")  return "sample/img/sample_street.jpg";
     if (taskType == "semantic_segmentation")  return "sample/img/sample_parking.jpg";
-    if (taskType == "classification")         return "sample/img/sample_dog.jpg";
+    if (taskType == "classification" || taskType == "image_classification")
+        return "sample/img/sample_dog.jpg";
+    if (taskType == "zero_shot_image_classification") return "sample/img/sample_dog.jpg";
+    if (taskType == "oriented_object_detection") return "sample/img/sample_airport_satellite_view.png";
+    if (taskType == "face_recognition")       return "sample/img/face_pair";
+    if (taskType == "face_landmark")          return "sample/img/sample_face_a1.jpg";
+    if (taskType == "face_attribute" || taskType == "person_attribute")
+        return "sample/img/sample_person_a1.jpg";
+    if (taskType == "low_light_enhancement")  return "sample/img/sample_lowlight.jpg";
+    if (taskType == "object_pose_estimation") return "sample/dope/000000.png";
+    if (taskType == "anomaly_detection")      return "sample/img/sample_parking.jpg";
+    if (taskType == "zero_shot_instance_segmentation") return "sample/img/sample_street.jpg";
     if (taskType == "depth_estimation")       return "sample/img/sample_parking.jpg";
     if (taskType == "image_denoising")        return "sample/img/sample_denoising.jpg";
     if (taskType == "image_enhancement")      return "sample/img/sample_lowlight.jpg";
     if (taskType == "embedding")              return "sample/img/face_pair";
+    // The four task categories DX Model Zoo added in 2_5_0. The three retrieval ones
+    // rank a query against a committed gallery (sample/gallery/*.bin), so their default
+    // is a query held OUT of that gallery -- a query that is also a gallery member
+    // scores a meaningless 1.0000 self-match.
+    if (taskType == "image_retrieval")        return "sample/img/sample_person_a2.jpg";
+    if (taskType == "visual_place_recognition") return "sample/vpr/queries/q1.jpg";
+    if (taskType == "person_reid")            return "sample/reid/queries/sample_person_a2.jpg";
+    // Trimap-free matting needs a subject separable from its background; measured, the
+    // beach portrait mattes cleanly where a white shirt on a white backdrop does not.
+    if (taskType == "image_matting")          return "sample/img/sample_person_b.jpg";
     if (taskType == "attribute_recognition")  return "sample/img/sample_person_a1.jpg";
     if (taskType == "reid")                   return "sample/img/person_pair";
     if (taskType == "ppu")                    return "sample/img/sample_street.jpg";
-    if (taskType == "3d_detection")           return "sample/kitti/velodyne/000049.bin";
+    if (taskType == "3d_object_detection")
+        return "sample/kitti/velodyne/000049.bin";
     return "sample/img/sample_street.jpg";
 }
 
@@ -563,8 +654,22 @@ inline std::string getDefaultSampleImage(const std::string& taskType,
  *
  * Returns empty string for image-only tasks (embedding, attribute_recognition, reid).
  */
+/// True for the tasks that compare one image against a stored set, so a video or
+/// camera source has nothing to compare frame-by-frame. Defined once here because four
+/// runners asked the same question and had drifted to four copies of the answer.
+inline bool isComparisonOnlyTask(const std::string& taskType) {
+    return taskType == "embedding" || taskType == "reid"
+        || taskType == "attribute_recognition" || taskType == "image_retrieval"
+        || taskType == "visual_place_recognition" || taskType == "person_reid"
+        || taskType == "face_recognition" || taskType == "face_attribute"
+        || taskType == "person_attribute";
+}
+
 inline std::string getDefaultSampleVideo(const std::string& taskType) {
+    if (isComparisonOnlyTask(taskType))       return "";
+    if (taskType == "image_matting")          return "assets/videos/person-pair-hallway.mp4";
     if (taskType == "object_detection")       return "assets/videos/snowboard.mp4";
+    if (taskType == "mainbody_detection")     return "assets/videos/snowboard.mp4";
     if (taskType == "face_detection")         return "assets/videos/dance-group.mov";
     if (taskType == "obb_detection")          return "assets/videos/obb.mp4";
     if (taskType == "pose_estimation")        return "assets/videos/dance-solo.mov";
@@ -586,14 +691,18 @@ inline std::string getDefaultSampleVideo(const std::string& taskType) {
  * @brief Attempt to auto-download a missing model via setup_sample_models.sh.
  * @return true if download succeeded and file now exists.
  */
-inline bool autoDownloadModel(const std::string& modelPath) {
-    std::string stem = fs::path(modelPath).stem().string();
+inline bool autoDownloadModel(const std::string& modelPath,
+                               const std::string& registryName = "") {
+    // setup.sh matches the manifest display name, which lines up with model_name
+    // (yolov8n), not the .dxnn stem (yolov8-n_640x640).
+    std::string selector = registryName.empty()
+        ? fs::path(modelPath).stem().string() : registryName;
     std::string modelsDir = fs::path(modelPath).parent_path().string();
     if (modelsDir.empty()) modelsDir = "./assets/models";
     std::cout << "[DXAPP] [INFO] Model not found: " << modelPath
               << " — attempting auto-download..." << std::endl;
     std::string cmd = "./setup_sample_models.sh --output=" + modelsDir
-                    + " --models " + stem;
+                    + " --models " + selector;
     int ret = std::system(cmd.c_str());
     return (ret == 0) && fs::exists(modelPath);
 }
@@ -611,10 +720,10 @@ inline bool autoDownloadVideos() {
 /**
  * @brief Derive the example key from argv[0] by stripping the variant suffix.
  *
- * The build names each binary "<example>_sync" / "<example>_async"
- * (optionally with a "_cpp_postprocess" tail), and the example directory name
- * matches the "model_name" key in config/model_registry.json. So the basename
- * with its variant suffix removed is the registry lookup key.
+ * The build names each binary "<variant>_sync" / "<variant>_async"
+ * (optionally with a "_cpp_postprocess" tail). The basename with that suffix
+ * removed is the registry "variant" (for example yolov8-n_640x640), not the
+ * legacy "model_name" (yolov8n).
  */
 inline std::string exampleKeyFromArgv0(const std::string& argv0) {
     std::string name = fs::path(argv0).filename().string();
@@ -632,32 +741,135 @@ inline std::string exampleKeyFromArgv0(const std::string& argv0) {
 /**
  * @brief Resolve this example's default .dxnn path from model_registry.json.
  *
- * Looks up the example key (from argv[0]) against the "model_name" entries in
- * config/model_registry.json and returns "assets/models/<dxnn_file>".
- * Returns "" when the key is not found (caller then errors out).
- * Uses a lightweight scan (consistent with ModelConfig) — no JSON dependency.
+ * Looks the example key up as "variant" first, then "model_name". When
+ * several rows match (an alias_of row shares its target's variant), the
+ * canonical row (alias_of null) wins. dxnn_file sits before variant in each
+ * object, so the match is bounded to the enclosing object. Returns
+ * "assets/models/<dxnn_file>" plus the model_name used by
+ * python3 scripts/download_models.py --models. path is empty when the key is absent.
  */
-inline std::string resolveDefaultModelPath(const std::string& argv0) {
+struct ExampleModelRef {
+    std::string path;
+    std::string modelName;
+};
+
+inline size_t findJsonStringField(const std::string& content, const std::string& field,
+                                   const std::string& value, size_t from) {
+    const std::string spaced = "\"" + field + "\": \"" + value + "\"";
+    const std::string tight = "\"" + field + "\":\"" + value + "\"";
+    size_t spacedPos = content.find(spaced, from);
+    size_t tightPos = content.find(tight, from);
+    if (spacedPos == std::string::npos) return tightPos;
+    if (tightPos == std::string::npos) return spacedPos;
+    return std::min(spacedPos, tightPos);
+}
+
+inline size_t enclosingObjectStart(const std::string& content, size_t pos) {
+    int depth = 0;
+    size_t index = pos;
+    while (index > 0) {
+        --index;
+        if (content[index] == '}') {
+            ++depth;
+        } else if (content[index] == '{') {
+            if (depth == 0) return index;
+            --depth;
+        }
+    }
+    return std::string::npos;
+}
+
+inline size_t enclosingObjectEnd(const std::string& content, size_t start) {
+    int depth = 0;
+    for (size_t index = start; index < content.size(); ++index) {
+        if (content[index] == '{') {
+            ++depth;
+        } else if (content[index] == '}') {
+            --depth;
+            if (depth == 0) return index;
+        }
+    }
+    return std::string::npos;
+}
+
+inline std::string jsonStringValue(const std::string& content, size_t fieldPos, size_t limit) {
+    size_t colon = content.find(':', fieldPos);
+    if (colon == std::string::npos || colon > limit) return "";
+    size_t openQuote = content.find('"', colon + 1);
+    if (openQuote == std::string::npos || openQuote > limit) return "";
+    size_t closeQuote = content.find('"', openQuote + 1);
+    if (closeQuote == std::string::npos || closeQuote > limit) return "";
+    return content.substr(openQuote + 1, closeQuote - openQuote - 1);
+}
+
+// True unless the object [start, end] carries a non-null "alias_of".
+inline bool isCanonicalRegistryRow(const std::string& content, size_t start, size_t end) {
+    size_t field = content.find("\"alias_of\"", start);
+    if (field == std::string::npos || field > end) return true;
+    size_t colon = content.find(':', field);
+    if (colon == std::string::npos || colon > end) return true;
+    size_t value = content.find_first_not_of(" \t\r\n", colon + 1);
+    return value != std::string::npos && content.compare(value, 4, "null") == 0;
+}
+
+// Bounds of the registry row whose `field` is `value`: the first canonical
+// one, else the first. False when no row matches.
+inline bool findRegistryRow(const std::string& content, const std::string& field,
+                            const std::string& value, size_t& start, size_t& end) {
+    bool found = false;
+    for (size_t match = findJsonStringField(content, field, value, 0);
+         match != std::string::npos;
+         match = findJsonStringField(content, field, value, match + 1)) {
+        size_t objectStart = enclosingObjectStart(content, match);
+        size_t objectEnd = (objectStart == std::string::npos)
+            ? std::string::npos : enclosingObjectEnd(content, objectStart);
+        if (objectStart == std::string::npos || objectEnd == std::string::npos) continue;
+        if (isCanonicalRegistryRow(content, objectStart, objectEnd)) {
+            start = objectStart;
+            end = objectEnd;
+            return true;
+        }
+        if (!found) {
+            start = objectStart;
+            end = objectEnd;
+            found = true;
+        }
+    }
+    return found;
+}
+
+inline ExampleModelRef resolveExampleModel(const std::string& argv0) {
+    ExampleModelRef ref;
     std::string key = exampleKeyFromArgv0(argv0);
-    if (key.empty()) return "";
-    fs::path reg = fs::path(PROJECT_ROOT_DIR) / "config" / "model_registry.json";
-    std::ifstream f(reg);
-    if (!f.is_open()) return "";
-    std::string content((std::istreambuf_iterator<char>(f)),
+    if (key.empty()) return ref;
+    fs::path reg = fs::path(::dxapp::RuntimeRoot()) / "config" / "model_registry.json";
+    std::ifstream registryFile(reg);
+    if (!registryFile.is_open()) return ref;
+    std::string content((std::istreambuf_iterator<char>(registryFile)),
                         std::istreambuf_iterator<char>());
-    // Match "model_name": "<key>" (with or without a space after the colon).
-    size_t pos = content.find("\"model_name\": \"" + key + "\"");
-    if (pos == std::string::npos) pos = content.find("\"model_name\":\"" + key + "\"");
-    if (pos == std::string::npos) return "";
-    size_t dpos = content.find("\"dxnn_file\"", pos);
-    if (dpos == std::string::npos) return "";
-    size_t q1 = content.find('"', content.find(':', dpos) + 1);
-    if (q1 == std::string::npos) return "";
-    size_t q2 = content.find('"', q1 + 1);
-    if (q2 == std::string::npos) return "";
-    std::string dxnn = content.substr(q1 + 1, q2 - q1 - 1);
-    if (dxnn.empty()) return "";
-    return "assets/models/" + dxnn;
+
+    size_t objectStart = std::string::npos;
+    size_t objectEnd = std::string::npos;
+    if (!findRegistryRow(content, "variant", key, objectStart, objectEnd) &&
+        !findRegistryRow(content, "model_name", key, objectStart, objectEnd)) {
+        return ref;
+    }
+
+    size_t dxnnPos = content.find("\"dxnn_file\"", objectStart);
+    if (dxnnPos == std::string::npos || dxnnPos > objectEnd) return ref;
+    std::string dxnn = jsonStringValue(content, dxnnPos, objectEnd);
+    if (dxnn.empty()) return ref;
+
+    size_t namePos = content.find("\"model_name\"", objectStart);
+    if (namePos != std::string::npos && namePos < objectEnd) {
+        ref.modelName = jsonStringValue(content, namePos, objectEnd);
+    }
+    ref.path = "assets/models/" + dxnn;
+    return ref;
+}
+
+inline std::string resolveDefaultModelPath(const std::string& argv0) {
+    return resolveExampleModel(argv0).path;
 }
 
 /**
@@ -673,21 +885,23 @@ inline std::string resolveDefaultModelPath(const std::string& argv0) {
  */
 inline void resolveAndValidateModel(std::string& modelPath, const std::string& argv0) {
     if (modelPath.empty()) {
-        std::string def = resolveDefaultModelPath(argv0);
-        if (def.empty()) {
+        ExampleModelRef ref = resolveExampleModel(argv0);
+        if (ref.path.empty()) {
+            std::string key = exampleKeyFromArgv0(argv0);
             fatal_error("[DXAPP] [ERROR] Model path is required. Use -m or --model_path option.\n"
-                "        -> Download:  ./setup.sh --models <model_name>\n"
+                "        -> Download:  python3 scripts/download_models.py --models " + key + "\n"
                 "        -> Or use:    ./run_demo.sh  (auto-downloads demo models)\n"
                 "Use -h or --help for usage information.");
         }
-        modelPath = def;
+        modelPath = ref.path;
         std::cout << "[DXAPP] [INFO] No model specified (-m). Using example default: "
                   << modelPath << std::endl;
         if (!fileExists(modelPath)) {
-            if (!autoDownloadModel(modelPath)) {
-                std::string stem = fs::path(modelPath).stem().string();
+            std::string selector = ref.modelName.empty()
+                ? fs::path(modelPath).stem().string() : ref.modelName;
+            if (!autoDownloadModel(modelPath, selector)) {
                 fatal_error("[DXAPP] [ERROR] Model file not found: " + modelPath + "\n"
-                    "        -> Download:  ./setup.sh --models " + stem + "\n"
+                    "        -> Download:  python3 scripts/download_models.py --models " + selector + "\n"
                     "        -> Or use:    ./run_demo.sh  (auto-downloads demo models)");
             }
             std::cout << "[DXAPP] [INFO] Model downloaded successfully: " << modelPath << std::endl;
@@ -698,7 +912,7 @@ inline void resolveAndValidateModel(std::string& modelPath, const std::string& a
     if (!fileExists(modelPath)) {
         fatal_error("[DXAPP] [ERROR] Model file not found: " + modelPath + "\n"
             "        -> Check the path, or omit -m to use this example's default model.\n"
-            "        -> Download:  ./setup.sh --models " + fs::path(modelPath).stem().string());
+            "        -> Download:  python3 scripts/download_models.py --models " + fs::path(modelPath).stem().string());
     }
 }
 

@@ -1,1 +1,0 @@
-from .squeezenet1_0_factory import Squeezenet1_0Factory

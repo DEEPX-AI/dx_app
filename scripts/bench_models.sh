@@ -47,7 +47,7 @@ cd "$PROJECT_ROOT"
 
 # BUILD_DIR can be provided from the environment (e.g. BUILD_DIR=bin ./scripts/bench_models.sh)
 if [ -z "${BUILD_DIR:-}" ]; then
-    # bin/ 이 build.sh 의 표준 설치 위치(문서의 bin/*_sync 도 여기 기준). build 트리보다 우선.
+    # bin/ is the install location from build.sh (docs refer to bin/*_sync). Prefer it over a build tree.
     CANDIDATE_DIRS=(
         "bin"
         "build_x86_64/release/bin"
@@ -58,15 +58,15 @@ if [ -z "${BUILD_DIR:-}" ]; then
         "src/cpp_example/build"
     )
     BUILD_DIR=""
-    # 1) *_sync 바이너리가 "실제로 들어있는" 첫 후보를 고른다
-    #    (비어있거나 일부만 있는 build 트리가 완비된 bin/ 을 가리지 않도록).
+    # 1) Pick the first candidate that actually contains a *_sync binary
+    #    (an empty or partial build tree must not hide a complete bin/).
     for d in "${CANDIDATE_DIRS[@]}"; do
         if [ -d "${PROJECT_ROOT}/${d}" ] && ls "${PROJECT_ROOT}/${d}"/*_sync >/dev/null 2>&1; then
             BUILD_DIR="${d}"
             break
         fi
     done
-    # 2) 그래도 없으면 존재하는 첫 후보(→ 이후 개별 SKIP 으로 안내)
+    # 2) Otherwise use the first directory that exists (later steps SKIP per binary).
     if [ -z "${BUILD_DIR}" ]; then
         for d in "${CANDIDATE_DIRS[@]}"; do
             [ -d "${PROJECT_ROOT}/${d}" ] && { BUILD_DIR="${d}"; break; }

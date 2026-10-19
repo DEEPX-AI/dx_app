@@ -14,6 +14,7 @@ Output directory (pytest):
 Standalone mode (``python test_visualization.py``):
   Same output structure, inline progress report.
 """
+import ast
 import os
 import subprocess
 import sys
@@ -24,7 +25,8 @@ from typing import Optional
 import pytest
 
 # -- common module ---------------------------------------------------------
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+# conftest.py puts tests/ on sys.path; hence the noqa: E402 imports below.
+from test_helpers.proc import example_python, run_bounded  # noqa: E402
 from test_helpers.constants import (  # noqa: E402
     PROJECT_ROOT,
     TASK_IMAGE_MAP,
@@ -68,6 +70,51 @@ def _build_vis_params():
 
 DISCOVERED = _build_vis_params()
 
+# A comparison visualizer (``NEEDS_REFERENCE``, e.g. EmbeddingVisualizer for
+# ArcFace / CasViT Re-ID) keeps the first image as its reference and draws
+# nothing for it, so a single --image never produces a picture. Which variants
+# do that is read from the variant's own factory, in a child process (every
+# variant ships a package named ``factory``), the way its entry script builds
+# it: ``<Factory>(variant=<dir>).create_visualizer()``.
+_REFERENCE_PROBE = """
+import sys
+from pathlib import Path
+script = Path(sys.argv[1]).resolve()
+for cursor in (script.parent, *script.parents):
+    if (cursor / "common" / "runner" / "entry.py").is_file():
+        sys.path.insert(0, str(cursor))
+        break
+from common.runner.entry import install_import_paths
+install_import_paths(script)
+import factory
+vis = getattr(factory, sys.argv[2])(variant=script.parent.name).create_visualizer()
+print(type(vis).__name__ if getattr(vis, "NEEDS_REFERENCE", False) else "")
+"""
+
+
+def _factory_class_name(script_path: Path) -> Optional[str]:
+    """``X`` of the entry script's ``from factory import X``."""
+    tree = ast.parse(Path(script_path).read_text(encoding="utf-8"))
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and node.module == "factory":
+            return node.names[0].name
+    return None
+
+
+def reference_visualizer(script_path: Path, env: dict) -> Optional[str]:
+    """Name of the script's visualizer class if it needs a reference image, else None."""
+    factory_cls = _factory_class_name(script_path)
+    if factory_cls is None:
+        return None
+    probe = subprocess.run(
+        [example_python(), "-c", _REFERENCE_PROBE, str(script_path), factory_cls],
+        capture_output=True, text=True, timeout=60, env=env, cwd=str(PROJECT_ROOT),
+    )
+    assert probe.returncode == 0, (
+        f"cannot build the visualizer of {script_path.name}: {probe.stderr[-500:]}"
+    )
+    return probe.stdout.strip() or None
+
 VIS_PARAMS = [
     pytest.param(task, name, script, model, mode, img, id=script.stem)
     for task, name, script, model, mode, img in DISCOVERED
@@ -96,7 +143,7 @@ class TestPythonVisualization:
         env["DXAPP_SAVE_IMAGE"] = str(output_image)
 
         cmd = [
-            sys.executable,
+            example_python(),
             str(script_path),
             "--model", str(model_path),
             "--image", str(PROJECT_ROOT / image_rel),
@@ -107,7 +154,7 @@ class TestPythonVisualization:
         timeout = 120
 
         try:
-            result = subprocess.run(
+            result = run_bounded(
                 cmd,
                 capture_output=True,
                 text=True,
@@ -125,6 +172,14 @@ class TestPythonVisualization:
             f"STDERR: {result.stderr[-500:]}"
         )
 
+        if not output_image.exists():
+            ref_vis = reference_visualizer(script_path, env)
+            if ref_vis:
+                pytest.skip(
+                    f"{ref_vis}.NEEDS_REFERENCE (factory create_visualizer()): "
+                    f"a single --image becomes the reference, nothing is rendered"
+                )
+
         assert output_image.exists(), (
             f"Visualization image not saved: {output_image}\n"
             f"STDOUT: {result.stdout[-300:]}"
@@ -132,6 +187,19 @@ class TestPythonVisualization:
         assert output_image.stat().st_size > 0, (
             f"Visualization image is empty: {output_image}"
         )
+
+    def test_reference_visualizer_is_read_from_the_factory(self):
+        """No model, no NPU: the skip above is derived from each variant's factory."""
+        py = PROJECT_ROOT / "src" / "python_example"
+        env = setup_environment(extra_lib_dirs=[_DX_RT_LIB])
+        arcface = py / "face_recognition/arcface/arcface_mobilefacenet_112x112"
+        casvit = py / "image_classification/casvit/casvit-t_224x224"
+        resnet = py / "image_classification/resnet/resnet101_224x224"
+        assert reference_visualizer(
+            arcface / "arcface_mobilefacenet_112x112_sync.py", env) == "EmbeddingVisualizer"
+        assert reference_visualizer(
+            casvit / "casvit-t_224x224_async_cpp_postprocess.py", env) == "EmbeddingVisualizer"
+        assert reference_visualizer(resnet / "resnet101_224x224_sync.py", env) is None
 
     def test_visualization_prerequisites(self):
         """Sanity: count discoverable Python models."""
@@ -151,7 +219,7 @@ def _run_single_py_vis(cmd, output_image, timeout, run_env):
     """Execute one Python visualization and return (status, message, elapsed)."""
     t0 = time.time()
     try:
-        result = subprocess.run(
+        result = run_bounded(
             cmd, capture_output=True, text=True,
             timeout=timeout, env=run_env, cwd=str(PROJECT_ROOT),
         )
@@ -210,7 +278,7 @@ def main():
     print(f"{'='*70}\n")
 
     env = setup_environment(extra_lib_dirs=[_DX_RT_LIB])
-    python_exe = sys.executable
+    python_exe = example_python()
 
     for i, (task, model_name, script_path, model_path, mode, image_rel) in enumerate(params, 1):
         label = f"[{i:3d}/{n}] {mode}/{task}/{model_name}"

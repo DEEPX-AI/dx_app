@@ -16,6 +16,7 @@ MIN_PY_VERSION="3.8.0"
 # color env settings
 source ${SCRIPT_DIR}/scripts/color_env.sh
 source ${SCRIPT_DIR}/scripts/common_util.sh
+source ${SCRIPT_DIR}/scripts/gui_env.sh
 
 # dependencies install script in host
 pushd ${DX_APP_PATH} >&2
@@ -322,41 +323,141 @@ function install_python() {
         fi
         print_colored "[OK] Python dependencies installed." "INFO"
 
-        # Ensure Qt font directory exists for OpenCV's bundled Qt5.
-        # pip's opencv-python bundles Qt5 without fontconfig, so it looks for
-        # fonts at a hardcoded path (cv2/qt/fonts/). If that directory is missing
-        # (e.g. corrupted install), symlink system DejaVu fonts as a fallback.
-        local PYTHON_CMD=""
+        # Python that received the dependencies above.
+        local PYTHON_CMD="python3"
         if [ -n "${VENV_PATH}" ] && [ -f "${VENV_PATH}/bin/python3" ]; then
             PYTHON_CMD="${VENV_PATH}/bin/python3"
         elif [ -f "${DX_APP_PATH}/.venv/bin/python3" ]; then
             PYTHON_CMD="${DX_APP_PATH}/.venv/bin/python3"
-        else
-            PYTHON_CMD="python3"
         fi
-        local CV2_QT_FONTS
-        CV2_QT_FONTS=$("${PYTHON_CMD}" -c "
-import os
-try:
-    import cv2
-    fonts_dir = os.path.join(os.path.dirname(cv2.__file__), 'qt', 'fonts')
-    print(fonts_dir)
-except Exception:
-    pass
-" 2>/dev/null)
-        if [ -n "${CV2_QT_FONTS}" ] && [ ! -d "${CV2_QT_FONTS}" ]; then
-            local SYS_FONT_DIR="/usr/share/fonts/truetype/dejavu"
-            if [ -d "${SYS_FONT_DIR}" ]; then
-                mkdir -p "$(dirname "${CV2_QT_FONTS}")"
-                ln -sf "${SYS_FONT_DIR}" "${CV2_QT_FONTS}"
-                print_colored "[OK] Created symlink: ${CV2_QT_FONTS} -> ${SYS_FONT_DIR}" "INFO"
-            else
-                print_colored "Qt font directory missing and system DejaVu fonts not found. Run: sudo apt install fonts-dejavu-core" "WARNING"
-            fi
-        fi
+        dxapp_link_cv2_qt_fonts "${PYTHON_CMD}"
     fi
 
     print_colored "[OK] Completed to setup python" "INFO"
+}
+
+# On a Raspberry Pi, make the active virtualenv's cv2 the system python3-opencv
+# (built WITH GStreamer) instead of the pip opencv-python wheel (GStreamer: NO),
+# which cannot open the CSI camera's libcamerasrc pipeline. Idempotent; links the
+# system cv2 module into the venv so no PYTHONPATH / system-site-packages is needed.
+function ensure_venv_opencv_gstreamer() {
+    # Resolve the target venv: explicit --venv_path, else the activated venv.
+    local venv=""
+    if [ -n "${VENV_PATH}" ] && [ -x "${VENV_PATH}/bin/python" ]; then
+        venv="${VENV_PATH}"
+    elif [ -n "${VIRTUAL_ENV}" ] && [ -x "${VIRTUAL_ENV}/bin/python" ]; then
+        venv="${VIRTUAL_ENV}"
+    fi
+    if [ -z "$venv" ]; then
+        print_colored "[INFO] No virtualenv detected — system python3-opencv (GStreamer) is used directly; skipping venv OpenCV fix" "INFO"
+        return 0
+    fi
+
+    local vpy="${venv}/bin/python"
+    local vpip="${venv}/bin/pip"
+    local gst_check="import cv2,sys; sys.exit(0 if 'YES' in ([l for l in cv2.getBuildInformation().splitlines() if 'GStreamer' in l] or ['NO'])[0] else 1)"
+
+    # Already GStreamer-enabled? Nothing to do.
+    if "$vpy" -c "$gst_check" 2>/dev/null; then
+        print_colored "[OK] venv OpenCV already has GStreamer — CSI camera ready" "INFO"
+        return 0
+    fi
+
+    # Ensure the system python3-opencv (GStreamer) is present.
+    local sys_cv2
+    sys_cv2="$(ls /usr/lib/python3/dist-packages/cv2*.so 2>/dev/null | head -1)"
+    if [ -z "$sys_cv2" ]; then
+        print_colored "[INFO] Installing system python3-opencv (built with GStreamer)" "INFO"
+        sudo apt-get update && sudo apt-get -y install python3-opencv
+        sys_cv2="$(ls /usr/lib/python3/dist-packages/cv2*.so 2>/dev/null | head -1)"
+    fi
+    if [ -z "$sys_cv2" ]; then
+        print_colored "Could not find system python3-opencv; venv OpenCV may lack GStreamer (CSI camera may not open)." "WARNING"
+        return 0
+    fi
+
+    # Remove the GStreamer-less pip wheel and link the system module into the venv.
+    print_colored "[INFO] Replacing venv pip opencv-python (no GStreamer) with system python3-opencv" "INFO"
+    "$vpip" uninstall -y opencv-python opencv-python-headless opencv-contrib-python >/dev/null 2>&1 || true
+
+    local site_dir
+    site_dir="$("$vpy" -c 'import site; print(site.getsitepackages()[0])' 2>/dev/null)"
+    if [ -z "$site_dir" ] || [ ! -d "$site_dir" ]; then
+        print_colored "Could not resolve venv site-packages; skipping OpenCV link." "WARNING"
+        return 0
+    fi
+    # Drop any leftover pip-wheel cv2, then symlink the system module.
+    rm -rf "${site_dir}/cv2" "${site_dir}"/opencv_python*.dist-info "${site_dir}/opencv_python.libs" 2>/dev/null || true
+    ln -sf "$sys_cv2" "${site_dir}/$(basename "$sys_cv2")"
+
+    # Verify: the venv must now import cv2 WITH GStreamer.
+    if "$vpy" -c "$gst_check" 2>/dev/null; then
+        local ver
+        ver="$("$vpy" -c 'import cv2; print(cv2.__version__)' 2>/dev/null)"
+        print_colored "[OK] venv OpenCV now has GStreamer (cv2 ${ver}) — CSI camera ready via '-c'/'--camera'" "INFO"
+    else
+        print_colored "venv OpenCV still lacks GStreamer after linking system module (python ABI mismatch?). CSI camera may not open." "WARNING"
+    fi
+}
+
+# Auto-install the libcamera GStreamer plugin on a Raspberry Pi that has a
+# CSI/libcamera camera connected, so the "-c" camera option works out of the box.
+# No-op on non-Raspberry-Pi hosts and when no Pi camera is detected.
+function install_rpi_camera() {
+    local model_file=""
+    for f in /proc/device-tree/model /sys/firmware/devicetree/base/model; do
+        [ -r "$f" ] && { model_file="$f"; break; }
+    done
+    if [ -z "$model_file" ] || ! tr -d '\0' < "$model_file" 2>/dev/null | grep -qi "raspberry pi"; then
+        return 0  # Not a Raspberry Pi — nothing to do.
+    fi
+    print_colored "[INFO] Raspberry Pi detected — checking for a CSI/libcamera camera" "INFO"
+
+    # Detect a Pi camera via rpicam/libcamera tooling, or a CSI sensor on I2C.
+    local cam_present=false
+    local list_cmd=""
+    command -v rpicam-hello  >/dev/null 2>&1 && list_cmd="rpicam-hello"
+    [ -z "$list_cmd" ] && command -v libcamera-hello >/dev/null 2>&1 && list_cmd="libcamera-hello"
+    if [ -n "$list_cmd" ]; then
+        if "$list_cmd" --list-cameras 2>/dev/null | grep -qiE "^[[:space:]]*[0-9]+[[:space:]]*:"; then
+            cam_present=true
+        fi
+    fi
+    if [ "$cam_present" == false ]; then
+        # Fallback: an imx*/ov* CSI sensor bound on the I2C bus.
+        if ls -d /sys/bus/i2c/drivers/imx*/*-* 2>/dev/null | grep -q . \
+           || ls -d /sys/bus/i2c/drivers/ov*/*-* 2>/dev/null | grep -q .; then
+            cam_present=true
+        fi
+    fi
+    if [ "$cam_present" == false ]; then
+        print_colored "[INFO] No Raspberry Pi camera detected — skipping libcamera GStreamer plugin install" "INFO"
+        return 0
+    fi
+
+    # (1) rpicam-apps for `--list-cameras` (camera index selection), if missing.
+    if [ -z "$list_cmd" ]; then
+        print_colored "[INFO] Installing rpicam-apps-lite for camera enumeration" "INFO"
+        sudo apt-get update && sudo apt-get -y install rpicam-apps-lite 2>/dev/null || true
+    fi
+
+    # (2) libcamerasrc GStreamer element (the CSI camera is read through it).
+    if gst-inspect-1.0 libcamerasrc >/dev/null 2>&1; then
+        print_colored "[OK] libcamerasrc GStreamer plugin already installed" "INFO"
+    else
+        print_colored "[INFO] Installing gstreamer1.0-libcamera for Raspberry Pi camera support" "INFO"
+        sudo apt-get update && sudo apt-get -y install gstreamer1.0-libcamera gstreamer1.0-plugins-base gstreamer1.0-plugins-good
+        if gst-inspect-1.0 libcamerasrc >/dev/null 2>&1; then
+            print_colored "[OK] libcamerasrc installed — the '-c' option will use the Raspberry Pi camera" "INFO"
+        else
+            print_colored "Failed to install gstreamer1.0-libcamera. The '-c' option may not work with a CSI camera." "WARNING"
+        fi
+    fi
+
+    # (3) Make the venv's OpenCV GStreamer-capable: the pip opencv-python wheel
+    #     has GStreamer: NO and cannot open the CSI camera's libcamerasrc pipeline.
+    #     Runs regardless of whether libcamerasrc was already installed.
+    ensure_venv_opencv_gstreamer
 }
 
 # parse args
@@ -417,5 +518,6 @@ fi
 
 install_dep
 install_opencv
+install_rpi_camera
 
 popd >&2

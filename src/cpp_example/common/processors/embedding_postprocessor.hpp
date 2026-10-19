@@ -30,7 +30,7 @@ public:
         : input_width_(input_width), input_height_(input_height), normalize_(normalize) {}
 
     std::vector<EmbeddingResult> process(const dxrt::TensorPtrs& outputs,
-                                          const PreprocessContext& ctx) override {
+                                          const PreprocessContext& /*ctx*/) override {
         if (outputs.empty()) return {};
 
         auto output = outputs[0];

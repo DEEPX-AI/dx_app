@@ -3,6 +3,7 @@ project(dx_postprocess_module)
 
 set(CMAKE_CXX_STANDARD 14)
 if(MSVC)
+    # MSVC stays C++17, as in the main build (see CMakeLists.txt there).
     set(CMAKE_CXX_STANDARD 17)
 endif()
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -35,6 +36,8 @@ if(MSVC)
     string(REPLACE "\\" "/" DXRT_INSTALLED_DIR ${DXRT_INSTALLED_DIR})
     set(INCLUDE_DIRS ${DXRT_INSTALLED_DIR}/include)
 endif()
+# After the MSVC separator normalisation above, so the path is always '/'-separated.
+include("${PROJECT_ROOT}/cmake/dxapp_cxx14.cmake")
 
 # Find pybind11 (pip-installed)
 find_package(pybind11 CONFIG REQUIRED)
@@ -106,6 +109,9 @@ set(SOURCES
 pybind11_add_module(dx_postprocess ${SOURCES})
 target_include_directories(dx_postprocess PRIVATE ${INCLUDE_DIRS})
 target_link_libraries(dx_postprocess PRIVATE ${DXRT_LIB})
+# C++14 conformance, as in the main build (U-39).
+dxapp_cxx14_conformance_flags(DX_POSTPROCESS_CXX14_FLAGS)
+target_compile_options(dx_postprocess PRIVATE ${DX_POSTPROCESS_CXX14_FLAGS})
 
 if(MSVC)
     # This is a separate CMake project (built via pip), so it does NOT inherit the

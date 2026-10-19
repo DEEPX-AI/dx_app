@@ -132,7 +132,10 @@ This mode is better for:
 
 | Field | Purpose |
 |-------|---------|
-| `model_name` | Unique identifier (e.g., `yolov9s`) |
+| `model_name` | Registry key used by `./setup.sh --models` (e.g., `yolov9s`) |
+| `variant` | Example directory and `.dxnn` stem (e.g., `yolov9-s_640x640`) |
+| `family` | Family directory (e.g., `yolov9`) |
+| `task` | Task directory (e.g., `object_detection`) |
 | `dxnn_file` | Compiled model filename (e.g., `yolov9-s_640x640.dxnn`) |
 | `add_model_task` | Task category (e.g., `object_detection`) |
 | `postprocessor` | Which shared processor to use (e.g., `yolov8`) |
@@ -175,7 +178,7 @@ This runs code generation + NPU inference for all supported models.
 
 ### Execution & Benchmarking
 
-- **Selective Run**: The `run` command abstracts the complexity of finding specific binaries. It uses filters to execute subsets of the 130+ models instantly.  
+- **Selective Run**: The `run` command abstracts the complexity of finding specific binaries. It uses filters to execute subsets of the 497 registered models instantly.  
 
 - **Performance Benchmarking**: The `bench` command runs models in a loop, calculating average latency and throughput (FPS) while minimizing system noise.  
 
@@ -201,7 +204,7 @@ Use this first to avoid creating duplicate or inconsistent example names.
 ./scripts/dx_tool.sh add
 ```
 
-The add flow is intended for contributors creating a new example under the current task/model layout. Typical information includes:  
+The add flow is intended for contributors creating a new example under the `<task>/<family>/<variant>/` layout. Typical information includes:  
 
 - target language (`cpp`, `py`, or both)  
 - task category  
@@ -209,20 +212,25 @@ The add flow is intended for contributors creating a new example under the curre
 - post-processing selection  
 - sync-only or multi-variant generation choice  
 
-You can also invoke `add_model.sh` directly for non-interactive usage:  
-
 For YOLO-family model onboarding and postprocessor selection details, refer to [DX-APP YOLO Customizing Guide](12_DX-APP_YOLO_Customizing_Guide.md).
 
-```bash
-# Create from a postprocessor template
-./scripts/add_model.sh yolo_custom detection --postprocessor yolov8
+You can also invoke `add_model.sh` directly for non-interactive usage:  
 
-# Copy from an existing model directory (useful for same-family variants)
-./scripts/add_model.sh yolov7_w6 detection --base-model yolov7 --postprocessor yolov7
+```bash
+# Create from a postprocessor family (the reference is the first registered example that uses it)
+./scripts/add_model.sh yolo-custom_640x640 object_detection --postprocessor yolov8
+
+# Copy from an existing variant (useful for same-family variants)
+./scripts/add_model.sh yolov7-w6_1280x1280 object_detection --base-model yolov7_640x640 --input-size 1280x1280
+
+# Open a new family for the variant
+./scripts/add_model.sh my-det_640x640 object_detection --family my_det --postprocessor yolov5
 
 # Generate, verify, and push in one step
-./scripts/add_model.sh yolo_custom detection --postprocessor yolov8 --verify --model assets/models/yolo_custom.dxnn --git-push
+./scripts/add_model.sh yolo-custom_640x640 object_detection --postprocessor yolov8 --verify --model assets/models/yolo-custom_640x640.dxnn --git-push
 ```
+
+The first argument is the variant: the `.dxnn` stem, which is also the directory name. The example lands in `src/{cpp,python}_example/<task>/<family>/<variant>/` with the C++ factory scoped in `dxapp::v_<variant>`, `config.json` names the variant, and `config/model_registry.json` and `config/test_models.conf` gain the variant unless `--no-register` is given (a variant that is already registered takes its family, model file and input size from its row). The generator is `scripts/add_model_variant.py`; `add_model.sh` adds `--verify`, `--git-push` and `--auto-add` around it.
 
 Common `--postprocessor` values include:
 
@@ -241,13 +249,17 @@ Key `add_model.sh` options
 | Option | Description |
 |--------|-------------|
 | `--postprocessor <type>` | Select the post-processing family to use as template |
-| `--base-model <name>` | Copy from a specific existing model directory instead of the default reference |
+| `--base-model <variant>` | Copy from a specific existing variant instead of the default reference |
+| `--family <name>` | Family directory (default: the registry row's family, else the reference's) |
+| `--input-size <WxH>` | Model input size (default: the registry row's, else the reference's) |
+| `--dxnn <file>` | Model file name (default: `<variant>.dxnn`) |
+| `--no-register` | Do not add the variant to `model_registry.json` / `test_models.conf` |
 | `--lang <cpp\|py\|both>` | Target language (default: `both`) |
 | `--verify` | Build and run inference verification after generation |
 | `--model <path>` | `.dxnn` model file for `--verify` |
 | `--no-video` | Skip video verification (image only) |
 | `--git-push` | After successful `--verify`, commit and push |
-| `--auto-add` | Batch-generate source packages for all unregistered models |
+| `--auto-add` | Generate the example of every registry row that has none |
 
 After generation, review the resulting files under `src/cpp_example/` and/or `src/python_example/`.
 
@@ -277,30 +289,45 @@ After generation, verify that the new example is correctly integrated and runs w
 
 Use this when you need to convert an external model package into the repository layout used by DX-APP.  
 
+The extracted package carries only the `common/` files the model actually depends on.
+For `object_detection/yolov7` that is 29 of 121 files (C++) and 54 of 103 (Python), instead of
+every postprocessor, runner, and visualizer for all 29 tasks.
+
+To get the complete shared framework instead, answer `n` at the `Prune unused common/ files?
+[Y/n]` prompt, or pass `--no-prune`:
+
+```bash
+./scripts/extract_model_package.sh object_detection/yolov7 --output-dir out_yolov7 --no-prune
+```
+
+Pruned and full packages are equivalent: they compile identically and produce byte-identical
+inference output. Note that the visualization color palette is unseeded, so rendered box colors
+differ between runs either way.
+
 **Step 2-2. Extract a Visual Studio solution package on Windows**
 
 Use `extract_sln_package.bat` when you want to extract a single C++ example into a Visual Studio/CMake package that can be opened or built outside the full DX-APP solution.
 
 ```powershell
-.\scripts\extract_sln_package.bat classification/resnet50 --output-dir out_resnet50
+.\scripts\extract_sln_package.bat image_classification/resnet/resnet50_224x224 --output-dir out_resnet50
 ```
 
 The output is created under:
 
 ```text
-out_resnet50\sln\classification\resnet50\
+out_resnet50\sln\image_classification\resnet50_224x224\
 ```
 
 If CMake and the Visual Studio 2022 generator are available, the extractor also configures the package immediately and generates a solution file:
 
 ```text
-out_resnet50\sln\classification\resnet50\build\dxapp_resnet50_sln_package.sln
+out_resnet50\sln\image_classification\resnet50_224x224\build\dxapp_resnet50_224x224_sln_package.sln
 ```
 
 The package includes the selected model sources, shared C++ example helpers, `CMakeLists.txt`, `build.bat`, and generated dependency defaults. To build it directly:
 
 ```powershell
-cd .\out_resnet50\sln\classification\resnet50
+cd .\out_resnet50\sln\image_classification\resnet50_224x224
 .\build.bat
 ```
 
@@ -323,7 +350,7 @@ In the usual local developer environment, users should not need to edit Visual S
 To create only the package skeleton without configuring CMake or generating `.sln` files:
 
 ```powershell
-.\scripts\extract_sln_package.bat classification/resnet50 --output-dir out_resnet50 --no-generate-sln
+.\scripts\extract_sln_package.bat image_classification/resnet/resnet50_224x224 --output-dir out_resnet50 --no-generate-sln
 ```
 
 
@@ -436,6 +463,6 @@ scripts/run_examples.sh
 - `scripts/run_examples.sh`
 - `scripts/bench_models.sh`
 - `config/model_registry.json`
-- `docs/11_DX-APP_Example_Source_Structure.md`
+- [DX-APP Example Source Structure](11_DX-APP_Example_Source_Structure.md)
 
 ---

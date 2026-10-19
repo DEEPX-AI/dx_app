@@ -4,7 +4,7 @@
 
 ## 개요
 
-dx_app은 22개 AI 작업에 걸쳐 133개의 컴파일된 `.dxnn` 모델을 제공하며, Python (4개 변형) 및 C++ 예제를 포함합니다.
+dx_app은 29개 AI 작업에 걸쳐 497개의 컴파일된 `.dxnn` 모델을 제공하며, Python (4개 변형) 및 C++ 예제를 포함합니다.
 
 ## 응답 언어
 
@@ -122,9 +122,9 @@ pytest tests/                       # Run unit tests
 | /dx-agent-app-model-management | .dxnn 모델 다운로드, 등록, 설정 |
 | /dx-agent-app-validate | 모든 단계 게이트에서 검증 체크 실행 |
 | /dx-agent-runtime-validate | 전체 피드백 루프: 검증, 수집, 승인, 적용, 확인 |
-| /dx-swe-brainstorm | 브레인스토밍, 2-3가지 접근법 제안, 스펙 자체 검토 후 계획 |
-| /dx-swe-tdd | 검증 주도 개발, 선택적 Red-Green-Refactor 단위 테스트 |
-| /dx-swe-verify | 프로세스: 완료 선언 전 검증 — 주장보다 증거 우선 |
+| /dx-agent-brainstorm | 모델 레지스트리 확인과 서브프로젝트 라우팅을 포함한 DEEPX 빌드 브레인스토밍 |
+| /dx-agent-tdd | DEEPX 빌드 검증 순서 — factory, pipeline, integration 체크 |
+| /dx-agent-verify | DEEPX 빌드 검증 체크리스트 — dx_app, dx_stream, cross-project |
 | /dx-swe-writing-plans | 세분화된 태스크로 구현 계획 작성 |
 | /dx-swe-executing-plans | 리뷰 체크포인트와 함께 계획 실행 |
 | /dx-swe-subagent-dev | 태스크별 신규 서브에이전트로 계획 실행, 2단계 리뷰 |
@@ -133,6 +133,7 @@ pytest tests/                       # Run unit tests
 | /dx-swe-requesting-review | 기능 완료 후 코드 리뷰 요청 |
 | /dx-skill-router | 스킬 탐색 및 호출 — 모든 작업 전 스킬 확인 |
 | /dx-harness-writing-skills | 스킬 파일 생성 및 편집 |
+| /dx-harness-validate | 이 repo의 .deepx/ 무결성 검증 (단독 checkout이면 suite harness 자동 확보) |
 | /dx-swe-parallel-agents | 독립 태스크를 위한 병렬 서브에이전트 디스패치 |
 
 ## 대화형 워크플로우 (반드시 준수)
@@ -220,13 +221,13 @@ SyncRunner/AsyncRunner, Output Isolation)과 충돌할 때, 에이전트는 반�
 8. **상대 임포트 금지**: 항상 패키지 루트에서 절대 임포트 사용
 9. **하드코딩된 모델 경로 금지**: 모든 모델 경로는 CLI 인자 또는 model_registry.json에서
 10. **4개 변형**: Python 앱은 sync, async, sync_cpp_postprocess, async_cpp_postprocess
-11. **PPU 모델 자동 감지**: 모델 이름 `_ppu` 접미사, `model_registry.json`의 `csv_task: "PPU"`, 또는 compiler session 컨텍스트로 PPU 모델을 자동 감지. PPU 모델은 `src/python_example/ppu/`에 배치하며 간소화된 후처리(별도 NMS 불필요).
-12. **기존 예제 검색**: 코드 생성 전 `src/python_example/<task>/<model>/`에서 기존 예제를 검색. 발견 시 사용자에게 질문: (a) 기존 예제만 설명, 또는 (b) 기존 예제 기반으로 새 예제 생성. 조용히 건너뛰거나 덮어쓰지 말 것.
+11. **PPU 모델 자동 감지**: 모델 이름 `_ppu` 접미사, `model_registry.json`의 `csv_task: "PPU"`, 또는 compiler session 컨텍스트로 PPU 모델을 자동 감지. PPU 모델도 다른 variant 처럼 해당 task 아래에 배치하며(예: `src/python_example/object_detection/yolo_ppu/<variant>/`) 간소화된 후처리를 사용(별도 NMS 불필요).
+12. **기존 예제 검색**: 코드 생성 전 `src/python_example/<task>/<family>/<variant>/`에서 기존 예제를 검색. 발견 시 사용자에게 질문: (a) 기존 예제만 설명, 또는 (b) 기존 예제 기반으로 새 예제 생성. 조용히 건너뛰거나 덮어쓰지 말 것.
 13. **PPU 예제 생성은 필수**: 컴파일된 .dxnn 모델이 PPU인 경우 에이전트는 반드시 동작하는 예제를 생성해야 함 — PPU 모델에 대해 예제 생성을 건너뛰지 말 것.
 14. **참조 모델과 교차 검증**: `assets/models/`에 사전 컴파일된 DXNN이 있거나 `src/python_example/`에 기존 검증된 예제가 있을 때, Level 5.5 감별 진단을 실행하여 앱 코드 vs 컴파일 문제를 분리. `dx-validate.md` Level 5.5 참조.
 15. **필수 출력 아티팩트**: 모든 세션은 반드시 13개 아티팩트 모두 생성 (factory, config, 4개 변형, __init__.py, session.json, README.md, setup.sh, run.sh, session.log). 에이전트의 MANDATORY OUTPUT REQUIREMENTS 섹션 참조. 완료 선언 전 자체 검증 체크 실행.
-16. **Skeleton 우선 개발** — 코드 작성 전 `.deepx/skills/dx-agent-app-build-python.md` skeleton
-    템플릿을 먼저 읽으세요. `src/python_example/<task>/<model>/`에서 가장 유사한 기존 예제를
+16. **Skeleton 우선 개발** — 코드 작성 전 `.deepx/skills/dx-agent-app-build-python/SKILL.md` skeleton
+    템플릿을 먼저 읽으세요. `src/python_example/<task>/<family>/<variant>/`에서 가장 유사한 기존 예제를
     복사하고 모델별 부분만 수정(factory, postprocessor). 데모 스크립트를 처음부터 작성하지 마세요.
     프레임워크를 우회하는 독립형 스크립트를 제안하지 마세요 (예: factory/runner 패턴 없이 직접
     `InferenceEngine` 사용).
@@ -240,16 +241,16 @@ SyncRunner/AsyncRunner, Output Isolation)과 충돌할 때, 에이전트는 반�
 
 | 작업에서 언급하는 내용... | 읽어야 할 파일 |
 |---|---|
-| **Python app, detection, classification** | `.deepx/skills/dx-agent-app-build-python.md`, `.deepx/toolsets/common-framework-api.md` |
-| **C++ app, native** | `.deepx/skills/dx-agent-app-build-cpp.md`, `.deepx/toolsets/dx-engine-api.md` |
-| **Async, performance, throughput** | `.deepx/skills/dx-agent-app-build-async.md`, `.deepx/memory/performance_patterns.md` |
-| **Model, download, registry** | `.deepx/skills/dx-agent-app-model-management.md`, `.deepx/toolsets/model-registry.md` |
-| **PaddleOCR OCR app (video/webcam), RapidDoc PDF→Markdown, PaddlePaddle** | `.deepx/toolsets/paddleocr-rapiddoc-app.md` (+ `dx-compiler/.deepx/toolsets/paddlepaddle-deepx.md`) |
-| **Validation, testing** | `.deepx/skills/dx-agent-app-validate.md`, `.deepx/instructions/testing-patterns.md` |
-| **Validation, feedback, fix** | `.deepx/skills/dx-agent-app-validate.md`, parent `dx-runtime/.deepx/skills/dx-agent-runtime-validate.md` |
-| **Brainstorm, plan, design** | `.deepx/skills/dx-swe-brainstorm.md` |
-| **TDD, validation, incremental** | `.deepx/skills/dx-swe-tdd.md` |
-| **Completion, verify, evidence** | `.deepx/skills/dx-swe-verify.md` |
+| **Python app, detection, classification** | `.deepx/skills/dx-agent-app-build-python/SKILL.md`, `.deepx/toolsets/common-framework-api.md` |
+| **C++ app, native** | `.deepx/skills/dx-agent-app-build-cpp/SKILL.md`, `.deepx/toolsets/dx-engine-api.md` |
+| **Async, performance, throughput** | `.deepx/skills/dx-agent-app-build-async/SKILL.md`, `.deepx/memory/performance_patterns.md` |
+| **Model, download, registry** | `.deepx/skills/dx-agent-app-model-management/SKILL.md`, `.deepx/toolsets/model-registry.md` |
+| **PaddleOCR OCR app (video/webcam), RapidDoc PDF→Markdown, PaddlePaddle** | `.deepx/toolsets/paddleocr-rapiddoc-app.md` (+ `../../dx-compiler/.deepx/toolsets/paddlepaddle-deepx.md`) |
+| **Validation, testing** | `.deepx/skills/dx-agent-app-validate/SKILL.md`, `.deepx/instructions/testing-patterns.md` |
+| **Validation, feedback, fix** | `.deepx/skills/dx-agent-app-validate/SKILL.md`, parent `../.deepx/skills/dx-agent-runtime-validate/SKILL.md` |
+| **Brainstorm, plan, design** | `.deepx/skills/dx-agent-brainstorm/SKILL.md` |
+| **TDD, validation, incremental** | `.deepx/skills/dx-agent-tdd/SKILL.md` |
+| **Completion, verify, evidence** | `.deepx/skills/dx-agent-verify/SKILL.md` |
 | **항상 읽기 (모든 작업)** | `.deepx/memory/common_pitfalls.md`, `.deepx/instructions/coding-standards.md` |
 
 ## Python 임포트
@@ -264,21 +265,24 @@ logger = logging.getLogger(__name__)
 ## 파일 구조
 
 ```
-src/python_example/{task}/{model}/
+src/python_example/{task}/{family}/
 ├── __init__.py
-├── config.json
-├── {model}_factory.py
-├── {model}_sync.py
-├── {model}_async.py
-├── {model}_sync_cpp_postprocess.py
-└── {model}_async_cpp_postprocess.py
+└── {variant}/                       # directory name is the .dxnn stem
+    ├── config.json
+    ├── factory/
+    │   ├── __init__.py
+    │   └── {variant}_factory.py
+    ├── {variant}_sync.py
+    ├── {variant}_async.py
+    ├── {variant}_sync_cpp_postprocess.py
+    └── {variant}_async_cpp_postprocess.py
 
-src/cpp_example/{task}/{model}/
-├── CMakeLists.txt
-├── main.cpp
-├── config.json
-├── include/
-└── src/
+src/cpp_example/{task}/{family}/
+└── {variant}/                       # directory name is the .dxnn stem
+    ├── config.json
+    ├── factory/{variant}_factory.hpp
+    ├── {variant}_sync.cpp
+    └── {variant}_async.cpp
 ```
 
 ## 플레이스홀더 코드 금지 (MANDATORY)
@@ -510,13 +514,41 @@ Artifact Verification Gate는 각 artifact가 **어떻게** 검증되는지 정�
    낭비합니다. 시스템 프롬프트와 대화 이력에 있는 지식을 사용하세요.
 
 
-## 22개 지원 AI 작업
+## 29개 지원 AI 작업
 
-3d_object_detection, attribute_recognition, classification, depth_estimation,
-embedding, face_alignment, face_detection, hand_detection, hand_landmark,
-image_denoising, image_enhancement, instance_segmentation, keypoint_detection,
-obb_detection, object_detection, object_pose_estimation, panoptic_driving_perception,
-pose_estimation, ppu, reid, semantic_segmentation, super_resolution
+| AI task | 변형 수 | 예제 경로 |
+|---|--:|---|
+| `object_detection` | 167 | `src/{python,cpp}_example/object_detection/` |
+| `image_classification` | 137 | `src/{python,cpp}_example/image_classification/` |
+| `instance_segmentation` | 53 | `src/{python,cpp}_example/instance_segmentation/` |
+| `pose_estimation` | 37 | `src/{python,cpp}_example/pose_estimation/` |
+| `semantic_segmentation` | 24 | `src/{python,cpp}_example/semantic_segmentation/` |
+| `face_detection` | 19 | `src/{python,cpp}_example/face_detection/` |
+| `depth_estimation` | 10 | `src/{python,cpp}_example/depth_estimation/` |
+| `super_resolution` | 6 | `src/{python,cpp}_example/super_resolution/` |
+| `image_denoising` | 5 | `src/{python,cpp}_example/image_denoising/` |
+| `oriented_object_detection` | 5 | `src/{python,cpp}_example/oriented_object_detection/` |
+| `zero_shot_image_classification` | 5 | `src/{python,cpp}_example/zero_shot_image_classification/` |
+| `anomaly_detection` | 4 | `src/{python,cpp}_example/anomaly_detection/` |
+| `face_recognition` | 4 | `src/{python,cpp}_example/face_recognition/` |
+| `visual_place_recognition` **(2_5_0 신규)** | 3 | `src/{python,cpp}_example/visual_place_recognition/` |
+| `face_landmark` | 2 | `src/{python,cpp}_example/face_landmark/` |
+| `image_matting` **(2_5_0 신규)** | 2 | `src/{python,cpp}_example/image_matting/` |
+| `image_retrieval` **(2_5_0 신규)** | 2 | `src/{python,cpp}_example/image_retrieval/` |
+| `low_light_enhancement` | 2 | `src/{python,cpp}_example/low_light_enhancement/` |
+| `mainbody_detection` | 2 | `src/{python,cpp}_example/mainbody_detection/` |
+| `person_attribute` | 2 | `src/{python,cpp}_example/person_attribute/` |
+| `3d_object_detection` | 1 | `src/{python,cpp}_example/3d_object_detection/` |
+| `face_attribute` | 1 | `src/{python,cpp}_example/face_attribute/` |
+| `hand_detection` | 1 | `src/{python,cpp}_example/hand_detection/` |
+| `hand_landmark` | 1 | `src/{python,cpp}_example/hand_landmark/` |
+| `keypoint_detection` | 1 | `src/{python,cpp}_example/keypoint_detection/` |
+| `object_pose_estimation` | 1 | `src/{python,cpp}_example/object_pose_estimation/` |
+| `panoptic_driving_perception` | 1 | `src/{python,cpp}_example/panoptic_driving_perception/` |
+| `person_reid` **(2_5_0 신규)** | 1 | `src/{python,cpp}_example/person_reid/` |
+| `zero_shot_instance_segmentation` | 1 | `src/{python,cpp}_example/zero_shot_instance_segmentation/` |
+
+이 수치는 `config/model_registry.json` 기준입니다. registry가 바뀌면 이 절도 함께 갱신하세요.
 
 ## 하드웨어
 
@@ -767,3 +799,60 @@ Pre-commit hook이 generator output 무결성을 강제합니다: 생성된 파�
 KO 번역 생성, agents/skills 수정)에 적용됩니다. 기능 구현 중 `.deepx/`에 단순
 한 줄 수정이 발생하는 경우에는 적용되지 않습니다.
 
+## Standalone Checkout — Harness Bootstrap (HARD GATE)
+
+이 repo는 dx-all-suite의 sub-project이지만 **단독으로 clone**될 수도 있습니다.
+단독 checkout인 경우 harness tooling이 존재하지 않습니다:
+
+| 이 repo에 있는 것 | dx-all-suite에만 있는 것 |
+|---|---|
+| `.deepx/{agents,skills,templates/{en,ko},scripts,memory,instructions,toolsets}` | `.deepx/tools/` — `dx-agent-gen` generator |
+| `.deepx/scripts/validate_framework.py` | `.deepx/templates/fragments/` — 공유 fragment |
+| 이 instruction 파일 (이미 생성됨) | `.deepx/tests/conformance/` |
+
+위의 Instruction File Verification Loop은 `dx-agent-gen generate` / `check`와
+conformance 테스트 실행을 지시합니다. 그러나 단독 checkout에서는 **그 명령들이
+동작할 수 없습니다**. 바로 이 지점에서 `.deepx/` 수정이 검증 없이 commit되어
+CI에서만 발견되는 drift가 됩니다.
+
+### 첫 `.deepx/` 수정 전에 반드시 실행
+
+```bash
+bash .deepx/scripts/harness_bootstrap.sh --check
+```
+
+이 스크립트는 다음 순서로 실제 dx-all-suite checkout을 확보합니다 — 명시적
+`--suite-dir` / `$DX_SUITE_DIR`, 상위 디렉터리 탐색(일반적인 nested 구성:
+다운로드 없음), 이전에 확보한 `.dx-harness/suite` 캐시, 그리고 `.dx-harness/`로
+shallow clone. 확보 후에는 **CI `subrepo-gate`와 동일한 검증**을 실행합니다:
+generator drift check와 이 repo의 `validate_framework.py`.
+
+`.dx-harness/`는 git-ignore되므로 다운로드된 내용이 index에 들어가지 않습니다.
+
+### exit 3인 경우 — STOP
+
+exit code 3은 suite를 확보하지 못했다는 뜻입니다(로컬 suite 없음, 캐시 없음,
+네트워크 불가). 이때는:
+
+- **`**/.deepx/**` 아래 어떤 파일도 수정하지 마십시오.** generator와 fragment가
+  없으면 `CLAUDE.md` / `AGENTS.md` / `.claude/` / `.github/` / `.cursor/` /
+  `.opencode/`를 재생성할 수 없으므로, 모든 수정이 drift로 commit됩니다.
+- **우회하지 마십시오.** 특히 generator가 `FRAGMENT` placeholder를 나열하며
+  `unresolved template variables` 오류를 출력하면, 해당 fragment는 **누락된
+  것이지 잘못된 것이 아닙니다**. template을 수정하거나 fragment 이름을 바꾸거나
+  `_build_template_context()`에 변수를 추가하는 것은 누락된 입력을 더 심각한
+  두 번째 drift로 만들어 commit하는 행위입니다.
+- 상황을 그대로 알리고, 문서화된 두 가지 해결책을 제시하십시오:
+  `--suite-dir /path/to/dx-all-suite`, `$DX_SUITE_DIR`, 또는 전체
+  dx-all-suite checkout에서 harness 작업을 수행.
+
+harness 이외의 작업은 영향을 받지 않습니다: application 코드, `src/`, 문서,
+테스트, `dx-agent-dev/<session_id>/` 산출물은 bootstrap 실패와 무관하게 정상
+진행합니다.
+
+### 범위 안내
+
+`--check`는 suite conformance 테스트를 의도적으로 실행하지 **않습니다**. 해당
+검사들은 cross-level 검사로 5개 레벨을 상호 비교하기 때문에, 다른 sub-repo가
+없는 상태에서는 만족될 수 없습니다. `subrepo-gate`와 범위를 정확히 일치시키는
+것이 "로컬 통과 = CI 통과"를 보장하는 방법입니다.

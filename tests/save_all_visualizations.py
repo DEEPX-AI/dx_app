@@ -43,152 +43,17 @@ from dx_engine import InferenceEngine, InferenceOption  # noqa: E402
 # Factory directory to .dxnn file mapping
 # key = "task/model"   value = dxnn filename (without extension) or None
 # ======================================================================
-FACTORY_TO_DXNN = {
-    # ── classification (39) ─────────────────────────────────────────
-    "classification/alexnet":              "AlexNet",
-    "classification/densenet121":          "DenseNet121",
-    "classification/densenet161":          "DenseNet161",
-    "classification/efficientnetb2":       "EfficientNetB2",
-    "classification/efficientnet_lite0":   "EfficientNet_Lite0",
-    "classification/efficientnet_lite1":   "EfficientNet_Lite1",
-    "classification/efficientnet_lite2":   "EfficientNet_Lite2",
-    "classification/efficientnet_lite3":   "EfficientNet_Lite3",
-    "classification/efficientnet_lite4":   "EfficientNet_Lite4",
-    "classification/efficientnetv2s":      "EfficientNetV2S",
-    "classification/hardnet39ds":          "HarDNet39DS",
-    "classification/hardnet68":            "HarDNet68",
-    "classification/inceptionv1":          "InceptionV1",
-    "classification/mobilenetv1":          "MobileNetV1",
-    "classification/mobilenetv2":          "MobileNetV2",
-    "classification/mobilenetv3large":     "MobileNetV3Large",
-    "classification/regnetx400mf":         "RegNetX400MF",
-    "classification/regnetx800mf":         "RegNetX800MF",
-    "classification/regnety200mf":         "RegNetY200MF",
-    "classification/regnety400mf":         "RegNetY400MF",
-    "classification/regnety800mf":         "RegNetY800MF",
-    "classification/repvgga1":             "RepVGGA1",
-    "classification/repvgga2":             "RepVGGA2",
-    "classification/resnet101":            "ResNet101",
-    "classification/resnet18":             "ResNet18",
-    "classification/resnet34":             "ResNet34",
-    "classification/resnet50":             "ResNet50",
-    "classification/resnext26_32x4d":      "ResNeXt26_32x4d",
-    "classification/resnext50_32x4d":      "ResNeXt50_32x4d",
-    "classification/squeezenet1_0":        "SqueezeNet1_0",
-    "classification/squeezenet1_1":        "SqueezeNet1_1",
-    "classification/vgg11":                "VGG11",
-    "classification/vgg11bn":              "VGG11BN",
-    "classification/vgg13":                "VGG13",
-    "classification/vgg13bn":              "VGG13BN",
-    "classification/vgg19bn":              "VGG19BN",
-    "classification/wideresnet101_2":      "WideResNet101_2",
-    "classification/wideresnet50_2":       "WideResNet50_2",
-    # ── depth_estimation (1) ────────────────────────────────────────
-    "depth_estimation/fastdepth_1":        "FastDepth_1",
-    # ── embedding (3) ───────────────────────────────────────────────
-    "embedding/arcface_mobilefacenet":                  None,
-    "embedding/clip_resnet50_image_encoder_224x224":    None,
-    "embedding/clip_resnet50_text_encoder_77x512":      None,
-    # ── face_detection (10) ─────────────────────────────────────────
-    "face_detection/retinaface_mobilenet0_25_640":  None,
-    "face_detection/scrfd10g":                      "SCRFD10G",
-    "face_detection/scrfd2_5g":                     "SCRFD2_5G",
-    "face_detection/scrfd500m":                     "SCRFD500M",
-    "face_detection/yolov5m_face":                  "YOLOv5m_Face",
-    "face_detection/yolov5s_face":                  "YOLOv5s_Face",
-    "face_detection/yolov7_face":                   "YOLOv7_Face",
-    "face_detection/yolov7s_face":                  "YOLOv7s_Face",
-    "face_detection/yolov7_w6_face":                "YOLOv7_W6_Face",
-    "face_detection/yolov7_w6_tta_face":            "YOLOv7_W6_TTA_Face",
-    # ── hand_landmark (1) ───────────────────────────────────────────
-    "hand_landmark/handlandmarklite_1":    "HandLandmarkLite_1",
-    # ── image_denoising (3) ─────────────────────────────────────────
-    "image_denoising/dncnn_15":            "DnCNN_15",
-    "image_denoising/dncnn_25":            "DnCNN_25",
-    "image_denoising/dncnn_50":            "DnCNN_50",
-    # ── image_enhancement (1) ───────────────────────────────────────
-    "image_enhancement/zero_dce":          None,
-    # ── instance_segmentation (8) ───────────────────────────────────
-    "instance_segmentation/yolact_regnetx_800mf":  None,
-    "instance_segmentation/yolov5l_seg":           "yolov5l_seg",
-    "instance_segmentation/yolov5m_seg":           "yolov5m_seg",
-    "instance_segmentation/yolov5n_seg":           "yolov5n_seg",
-    "instance_segmentation/yolov5s_seg":           "yolov5s_seg",
-    "instance_segmentation/yolov8m_seg":           "yolov8m_seg",
-    "instance_segmentation/yolov8n_seg":           "yolov8n_seg",
-    "instance_segmentation/yolov8s_seg":           "yolov8s_seg",
-    # ── obb_detection (1) ───────────────────────────────────────────
-    "obb_detection/yolo26n_obb":           "yolo26n-obb",
-    # ── object_detection (43) ───────────────────────────────────────
-    "object_detection/centernet_resnet18":          None,
-    "object_detection/damoyolol":                   "DamoYoloL",
-    "object_detection/damoyolom":                   "DamoYoloM",
-    "object_detection/damoyolos":                   "DamoYoloS",
-    "object_detection/damoyolot":                   "DamoYoloT",
-    "object_detection/damoyolo_tinynasl20_t":       "DamoYolo_tinynasL20_T",
-    "object_detection/damoyolo_tinynasl25_s":       "DamoYolo_tinynasL25_S",
-    "object_detection/damoyolo_tinynasl20_m":       "DamoYolo_tinynasL20_M",
-    "object_detection/nanodet_repvgg":              "NanoDet_RepVGG",
-    "object_detection/nanodet_repvgga1":            "NanoDet_RepVGGA1",
-    "object_detection/ssdmv1":                      "SSDMV1",
-    "object_detection/ssdmv2lite":                  "SSDMV2Lite",
-    "object_detection/yolo26l":                     "yolo26l",
-    "object_detection/yolo26m":                     "yolo26m",
-    "object_detection/yolo26n":                     "yolo26n",
-    "object_detection/yolo26s":                     "yolo26s",
-    "object_detection/yolo26x":                     "yolo26x",
-    "object_detection/yolov10b":                    "YOLOV10B",
-    "object_detection/yolov10l":                    "YOLOV10L",
-    "object_detection/yolov10m":                    "YOLOV10M",
-    "object_detection/yolov10n":                    "YOLOV10N",
-    "object_detection/yolov10s":                    "YOLOV10S",
-    "object_detection/yolov10x":                    "YOLOV10X",
-    "object_detection/yolov11l":                    "YOLOV11L",
-    "object_detection/yolov11m":                    "YOLOV11M",
-    "object_detection/yolov11n":                    "YOLOV11N",
-    "object_detection/yolov11s":                    "YOLOV11S",
-    "object_detection/yolov11x":                    "YOLOV11X",
-    "object_detection/yolov12n":                    "YOLOV12N-1",
-    "object_detection/yolov3":                      "YoloV3",
-    "object_detection/yolov5l":                     "YoloV5L",
-    "object_detection/yolov5m":                     "YoloV5M",
-    "object_detection/yolov5m_6_1":                 "YoloV5M_6.1",
-    "object_detection/yolov5n":                     "YoloV5N",
-    "object_detection/yolov5s":                     "YoloV5S",
-    "object_detection/yolov6n_0_1_0":               "YoloV6N_0.1.0",
-    "object_detection/yolov6n_0_2_1":               "YoloV6n_0.2.1",
-    "object_detection/yolov7":                      "YoloV7",
-    "object_detection/yolov7e6":                    "YoloV7E6",
-    "object_detection/yolov7tiny":                  "YoloV7Tiny",
-    "object_detection/yolov8l":                     "YoloV8L",
-    "object_detection/yolov8m":                     "YoloV8M",
-    "object_detection/yolov8n":                     "YoloV8N",
-    "object_detection/yolov8s":                     "YoloV8S",
-    "object_detection/yolov8x":                     "YoloV8X",
-    "object_detection/yolov9c":                     "YoloV9C",
-    "object_detection/yolov9s":                     "YoloV9S",
-    "object_detection/yolov9t":                     "YoloV9T",
-    "object_detection/yolox_l_leaky":               "YoloX_L_Leaky",
-    "object_detection/yoloxs":                      "YoloXS",
-    "object_detection/yolox_s_leaky":               "YoloX_S_Leaky",
-    "object_detection/yolox_s_wide_leaky":          "YoloX_S_Wide_Leaky",
-    "object_detection/yoloxtiny":                   "YoloXTiny",
-    # ── pose_estimation (3) ─────────────────────────────────────────
-    "pose_estimation/yolov5pose":          "YOLOV5Pose640_1",
-    "pose_estimation/yolov8m_pose":        "yolov8m_pose",
-    "pose_estimation/yolov8s_pose":        "yolov8s_pose",
-    # ── ppu (3) ─────────────────────────────────────────────────────
-    "ppu/yolov5pose_ppu":                  "YOLOV5Pose_PPU",
-    "ppu/yolov5s_ppu":                     "YOLOV5S_PPU",
-    "ppu/yolov7_ppu":                      None,
-    # ── semantic_segmentation (4) ───────────────────────────────────
-    "semantic_segmentation/bisenetv1":               "BiSeNetV1",
-    "semantic_segmentation/bisenetv2":               "BiSeNetV2",
-    "semantic_segmentation/deeplabv3plusmobilenet":   "DeepLabV3PlusMobilenet",
-    "semantic_segmentation/segformer_b0_512x1024":   None,
-    # ── super_resolution (1) ────────────────────────────────────────
-    "super_resolution/espcn_x4":           None,
-}
+def _registry_entries():
+    """``[(task/family, variant, dxnn stem)]`` straight from the registry.
+
+    Replaces a hard-coded task/model -> dxnn table. Under the dx-modelzoo family layout
+    one directory serves every variant of its family, so the table would have had to
+    list each variant against a shared directory anyway -- and the old one had already
+    drifted onto pre-rename .dxnn names like "AlexNet" that are no longer on disk.
+    """
+    reg = json.loads((ROOT / "config" / "model_registry.json").read_text(encoding="utf-8"))
+    return [(f"{e['task']}/{e['family']}", e["variant"], e["dxnn_file"][: -len(".dxnn")])
+            for e in reg]
 
 # ======================================================================
 # Task → sample image mapping
@@ -212,7 +77,6 @@ TASK_IMAGE_MAP = {
 
 # Per-model image overrides (used instead of task defaults)
 MODEL_IMAGE_OVERRIDE = {
-    "ppu/yolov5pose_ppu":  "sample/img/sample_people.jpg",
     # Super-resolution: ESPCN upscales a 275x150 crop; Real-ESRGAN takes a
     # smaller 165x90 one so the x8 output stays a sane size.
     "super_resolution/espcn_x2":      "sample/img/sample_lowres275x150.png",
@@ -240,39 +104,51 @@ def _resolve_input_shape(shape):
     return 1, 1
 
 
-def _load_factory(factory_key: str):
-    """Load factory instance from factory_key='task/model'."""
-    module_path = f"{factory_key.replace('/', '.')}.factory"
-    mod = importlib.import_module(module_path)
+def _load_factory(factory_key: str, variant: str):
+    """Load the family factory BY PATH and bind it to *variant*.
+
+    Path-based rather than ``import_module``: a family directory is not an importable
+    package under every task name (``3d_object_detection`` starts with a digit) and the
+    factory module of a digit-leading family carries an ``n_`` prefix.
+    """
+    import importlib.util
+
+    fdir = SRC / factory_key / "factory"
+    cands = sorted(fdir.glob("*_factory.py"))
+    if not cands:
+        raise RuntimeError(f"no factory module in {fdir}")
+    key = f"fam_{factory_key.replace('/', '_')}"
+    pkg = sys.modules.get(key)
+    if pkg is None:
+        import importlib.machinery
+        pkg = importlib.util.module_from_spec(
+            importlib.machinery.ModuleSpec(key, None, is_package=True))
+        pkg.__path__ = [str(SRC / factory_key)]
+        sys.modules[key] = pkg
+    spec = importlib.util.spec_from_file_location(f"{key}.factory", cands[0])
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = mod
+    spec.loader.exec_module(mod)
     for attr_name in dir(mod):
         obj = getattr(mod, attr_name)
-        if (isinstance(obj, type)
-                and attr_name.endswith("Factory")
-                and attr_name != "Factory"):
-            try:
-                return obj()
-            except TypeError:
-                continue
-    raise RuntimeError(f"No Factory class in {module_path}")
+        if (isinstance(obj, type) and attr_name.endswith("Factory")
+                and attr_name != "Factory" and obj.__module__ == mod.__name__):
+            return obj(variant=variant)
+    raise RuntimeError(f"No Factory class in {cands[0]}")
 
 
-def _load_config(factory_key: str, factory):
-    """Auto-apply config.json if present."""
-    cfg_path = SRC / factory_key / "config.json"
-    if cfg_path.exists():
-        with open(cfg_path) as f:
-            cfg = json.load(f)
-        if cfg and hasattr(factory, "load_config"):
-            factory.load_config(cfg)
+def _variant_config(factory_key: str, variant: str) -> dict:
+    p = SRC / factory_key / variant / "config.json"
+    return json.loads(p.read_text(encoding="utf-8")) if p.is_file() else {}
 
 
 # ======================================================================
 # Single model execution
 # ======================================================================
-def run_single_model(factory_key: str, dxnn_name: str) -> dict:
+def run_single_model(factory_key: str, dxnn_name: str, variant: str) -> dict:
     t0 = time.perf_counter()
     task = factory_key.split("/")[0]
-    model_name = factory_key.split("/")[1]
+    model_name = variant
 
     # Locate .dxnn model file
     dxnn_path = MODELS_DIR / f"{dxnn_name}.dxnn"
@@ -280,10 +156,23 @@ def run_single_model(factory_key: str, dxnn_name: str) -> dict:
         return {"status": "SKIP", "msg": f"dxnn missing: {dxnn_name}"}
 
     # Sample image (per-model override takes priority)
-    img_rel = MODEL_IMAGE_OVERRIDE.get(factory_key) or TASK_IMAGE_MAP.get(task)
+    # The variant config's default_image was baked from the legacy task tables during
+    # the restructure, so it is the per-variant answer those tables used to give.
+    vcfg = _variant_config(factory_key, variant)
+    img_rel = (vcfg.get("default_image")
+               or MODEL_IMAGE_OVERRIDE.get(factory_key)
+               or TASK_IMAGE_MAP.get(task))
     if not img_rel:
         return {"status": "SKIP", "msg": f"no image for task={task}"}
     img_path = ROOT / img_rel
+    # An image-pair task (face_recognition, person re-id) points at a DIRECTORY; this
+    # script visualises one frame, so take its first image rather than failing imread.
+    if img_path.is_dir():
+        members = sorted(q for q in img_path.iterdir()
+                         if q.suffix.lower() in {".jpg", ".jpeg", ".png", ".bmp"})
+        if not members:
+            return {"status": "SKIP", "msg": f"no image in dir: {img_rel}"}
+        img_path = members[0]
     img = cv2.imread(str(img_path))
     if img is None:
         return {"status": "FAIL", "msg": f"imread fail: {img_rel}"}
@@ -297,8 +186,7 @@ def run_single_model(factory_key: str, dxnn_name: str) -> dict:
     input_h, input_w = _resolve_input_shape(shape)
 
     # Factory
-    factory = _load_factory(factory_key)
-    _load_config(factory_key, factory)
+    factory = _load_factory(factory_key, variant)
     preprocessor  = factory.create_preprocessor(input_w, input_h)
     postprocessor = factory.create_postprocessor(input_w, input_h)
     visualizer    = factory.create_visualizer()
@@ -317,6 +205,10 @@ def run_single_model(factory_key: str, dxnn_name: str) -> dict:
         cv2.imwrite(str(out), vis)
         return {"status": "OK", "msg": f"{elapsed:.2f}s", "elapsed": elapsed}
 
+    # An image-pair task (face_recognition, re-id) compares two images and has no
+    # single-frame visualisation, so a None here is expected rather than a failure.
+    if vcfg.get("image_only"):
+        return {"status": "SKIP", "msg": "pair task: no single-frame visualization"}
     return {"status": "FAIL", "msg": "visualize returned None"}
 
 
@@ -326,7 +218,7 @@ def run_single_model(factory_key: str, dxnn_name: str) -> dict:
 def main():
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-    entries = [(k, v) for k, v in FACTORY_TO_DXNN.items() if v is not None]
+    entries = _registry_entries()
     n = len(entries)
     ok = skip = fail = 0
     failures = []
@@ -336,10 +228,10 @@ def main():
     print(f"  Output: {OUTPUT_DIR}")
     print(f"{'='*70}\n")
 
-    for i, (key, dxnn) in enumerate(entries, 1):
+    for i, (key, variant, dxnn) in enumerate(entries, 1):
         label = f"[{i:3d}/{n}] {key}"
         try:
-            r = run_single_model(key, dxnn)
+            r = run_single_model(key, dxnn, variant)
             s = r["status"]
             if s == "OK":
                 ok += 1
@@ -368,7 +260,7 @@ def main():
         for k, m in failures:
             print(f"    ✗ {k}: {m}")
 
-    skipped_no_dxnn = [k for k, v in FACTORY_TO_DXNN.items() if v is None]
+    skipped_no_dxnn = []
     print(f"\n  Excluded (no .dxnn file) ({len(skipped_no_dxnn)}):")
     for k in skipped_no_dxnn:
         print(f"    - {k}")

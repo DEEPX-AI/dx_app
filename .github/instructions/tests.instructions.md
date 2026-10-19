@@ -7,7 +7,7 @@ applyTo: "tests/**"
 Working on dx_app test files.
 
 ## Required Context
-- `.deepx/skills/dx-validate.md`
+- `.deepx/skills/dx-agent-app-validate/SKILL.md`
 - `.deepx/instructions/testing-patterns.md`
 
 ## Rules

@@ -1,0 +1,69 @@
+{
+  "variant": "dope-hope-ketchup_480x640",
+  "dxnn_file": "dope-hope-ketchup_480x640.dxnn",
+  "task": "object_pose_estimation",
+  "family": "dope",
+  "input_width": 640,
+  "input_height": 480,
+  "image_only": true,
+  "registry_image_only": true,
+  "default_image": "sample/img/sample_street.jpg",
+  "default_video": "assets/videos/snowboard.mp4",
+  "zoo_canonical": true,
+  "published": true,
+  "config": {
+    "conf_threshold": 0.0,
+    "focal_length": null,
+    "object_size_cm": [
+      14.860799789428711,
+      4.3368000984191895,
+      6.451399803161621
+    ],
+    "solve_pnp": true,
+    "subpixel_refine": true
+  },
+  "registry_config": {},
+  "cli": {
+    "include_kitti_paths": false,
+    "include_output": false,
+    "include_stream_inputs": true
+  },
+  "preprocessor": {
+    "args": [
+      {
+        "token": "input_width"
+      },
+      {
+        "token": "input_height"
+      }
+    ],
+    "class": "SimpleResizePreprocessor",
+    "config_overrides": {},
+    "kwargs": {}
+  },
+  "postprocessor": {
+    "args": [
+      {
+        "token": "input_width"
+      },
+      {
+        "token": "input_height"
+      },
+      {
+        "token": "config"
+      }
+    ],
+    "class": "DOPEPostprocessor",
+    "config_overrides": {},
+    "kwargs": {}
+  },
+  "visualizer": {
+    "args": [],
+    "class": "DOPEVisualizer",
+    "config_overrides": {},
+    "kwargs": {
+      "focal_length": "<expr:self.config.get('focal_length')>",
+      "object_size_cm": "<expr:self.config.get('object_size_cm')>"
+    }
+  }
+}

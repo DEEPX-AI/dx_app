@@ -3,6 +3,10 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
+import pytest
+
+from build_sh_sandbox import CROSS, NATIVE, Sandbox, needs_toolchain_file
+
 
 ROOT = Path(__file__).resolve().parents[2]
 RESOLVER = ROOT / "scripts" / "build_target_resolver.sh"
@@ -24,26 +28,26 @@ def test_minimal_targets_include_sync_and_async_for_run_demo_entries():
 
     assert result.returncode == 0, result.stderr
     targets = result.stdout.split()
-    assert "yolov7_sync" in targets
-    assert "yolov7_async" in targets
-    assert "resnet50_sync" in targets
-    assert "resnet50_async" in targets
+    assert "yolov7_640x640_sync" in targets
+    assert "yolov7_640x640_async" in targets
+    assert "resnet50_224x224_sync" in targets
+    assert "resnet50_224x224_async" in targets
     assert len(targets) == len(set(targets))
 
 
 def test_category_targets_are_derived_from_cpp_sources():
     result = run_bash(
-        f"source {RESOLVER}; dxapp_resolve_category_targets classification"
+        f"source {RESOLVER}; dxapp_resolve_category_targets image_classification"
     )
 
     assert result.returncode == 0, result.stderr
     targets = result.stdout.split()
-    assert "alexnet_sync" in targets
-    assert "alexnet_async" in targets
-    assert "resnet50_sync" in targets
-    assert "resnet50_async" in targets
+    assert "alexnet_224x224_sync" in targets
+    assert "alexnet_224x224_async" in targets
+    assert "resnet50_224x224_sync" in targets
+    assert "resnet50_224x224_async" in targets
     assert all(target.endswith(("_sync", "_async")) for target in targets)
-    assert "yolov7_sync" not in targets
+    assert "yolov7_640x640_sync" not in targets
 
 
 def test_category_list_excludes_support_directories():
@@ -51,7 +55,7 @@ def test_category_list_excludes_support_directories():
 
     assert result.returncode == 0, result.stderr
     categories = result.stdout.split()
-    assert "classification" in categories
+    assert "image_classification" in categories
     assert "object_detection" in categories
     assert "common" not in categories
     assert "__pycache__" not in categories
@@ -66,98 +70,76 @@ def test_unknown_category_returns_dxapp_error():
     assert "[DXAPP] [ERROR] Unknown category: not_a_category" in result.stderr
 
 
-def test_build_sh_rejects_conflicting_target_modes():
-    result = subprocess.run(
-        ["bash", "build.sh", "--target", "yolov7_sync", "--minimal"],
-        cwd=ROOT,
-        text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        check=False,
-    )
-
-    combined = result.stdout + result.stderr
-    assert result.returncode != 0
-    assert "[DXAPP] [ERROR]" in combined
-    assert "Use only one of --target, --minimal, or --category." in combined
+# ── build.sh itself: only ever in the sandbox (U-74) ──────────────────────
+# The real build.sh re-configures build_<arch>/ and deletes
+# build_<arch>/release, so no test runs it in the repository.
 
 
-def test_build_sh_category_requires_value():
-    result = subprocess.run(
-        ["bash", "build.sh", "--category"],
-        cwd=ROOT,
-        text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        check=False,
-    )
-
-    combined = result.stdout + result.stderr
-    assert result.returncode != 0
-    assert "[DXAPP] [ERROR]" in combined
-    assert "--category requires a category name or 'list'." in combined
+@pytest.fixture()
+def sandbox(tmp_path):
+    return Sandbox(tmp_path / "sb")
 
 
-def test_build_sh_unknown_category_returns_dxapp_error():
-    result = subprocess.run(
-        ["bash", "build.sh", "--category", "not_a_category"],
-        cwd=ROOT,
-        text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        check=False,
-    )
-
-    combined = result.stdout + result.stderr
-    assert result.returncode != 0
-    assert "[DXAPP] [ERROR] Unknown category: not_a_category" in combined
+@needs_toolchain_file
+def test_build_sh_rejects_conflicting_target_modes(sandbox):
+    sandbox.run("--target", "yolov7_sync", "--minimal")
+    assert sandbox.rc != 0
+    assert "[DXAPP] [ERROR]" in sandbox.output
+    assert "Use only one of --all, --minimal, --target, or --category." in sandbox.output
+    assert sandbox.cmake_calls == []
 
 
-def test_build_sh_category_list_prints_without_configuring_cmake():
-    result = subprocess.run(
-        ["bash", "build.sh", "--category", "list"],
-        cwd=ROOT,
-        text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        check=False,
-    )
-
-    assert result.returncode == 0, result.stderr
-    assert "classification" in result.stdout
-    assert "object_detection" in result.stdout
-    assert "cmake args" not in result.stdout
+@needs_toolchain_file
+def test_build_sh_category_requires_value(sandbox):
+    sandbox.run("--category")
+    assert sandbox.rc != 0
+    assert "[DXAPP] [ERROR]" in sandbox.output
+    assert "--category requires a category name or 'list'." in sandbox.output
+    assert sandbox.cmake_calls == []
 
 
-def test_build_sh_target_list_still_uses_existing_path():
-    result = subprocess.run(
-        ["bash", "build.sh", "--target", "list"],
-        cwd=ROOT,
-        text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        check=False,
-    )
-
-    combined = result.stdout + result.stderr
-    assert "Available build targets:" in combined
+@needs_toolchain_file
+def test_build_sh_unknown_category_returns_dxapp_error(sandbox):
+    sandbox.run("--category", "not_a_category", SANDBOX_SRC_TREE="1")
+    assert sandbox.rc != 0
+    assert "[DXAPP] [ERROR] Unknown category: not_a_category" in sandbox.output
+    assert sandbox.cmake_calls == []
 
 
-def test_build_sh_help_includes_build_selection_examples():
-    result = subprocess.run(
-        ["./build.sh", "--help"],
-        cwd=ROOT,
-        text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        check=False,
-    )
+@needs_toolchain_file
+def test_build_sh_category_list_prints_without_configuring_cmake(sandbox):
+    sandbox.run("--category", "list", SANDBOX_SRC_TREE="1")
+    assert sandbox.rc == 0, sandbox.output
+    assert "image_classification" in sandbox.output
+    assert "object_detection" in sandbox.output
+    assert "cmake args" not in sandbox.output
+    assert sandbox.cmake_calls == []
 
-    combined = result.stdout + result.stderr
-    assert result.returncode == 0
-    assert "./build.sh --minimal --type Release" in combined
-    assert "./build.sh --category object_detection --type Release" in combined
-    assert "./build.sh --category list" in combined
+
+@needs_toolchain_file
+def test_build_sh_target_list_configures_then_lists_phony_targets(sandbox):
+    sandbox.run("--target", "list", SANDBOX_CMAKE_RC="0")
+    assert sandbox.rc == 0, sandbox.output
+    assert "Available build targets:" in sandbox.output
+    listed = sandbox.output.split("Available build targets:", 1)[1].split()
+    assert "yolov7_sync" in listed and "yolov7_async" in listed
+    for hidden in ("edit_cache", "rebuild_cache", "install", "list_install_components"):
+        assert hidden not in listed, hidden
+    assert sandbox.cmake_argv[0] == ".."
+    assert sandbox.lines("ninja") == ["-t targets"]
+    # The step U-74 ran against the real tree: every configure starts by
+    # deleting the native build's release/ tree - here, the sandbox's.
+    assert not sandbox.exists(f"build_{NATIVE}/release")
+    assert sandbox.marker(f"build_{CROSS}/release")
+
+
+@needs_toolchain_file
+def test_build_sh_help_includes_build_selection_examples(sandbox):
+    sandbox.run("--help")
+    assert sandbox.rc == 0
+    assert "./build.sh --minimal --type Release" in sandbox.output
+    assert "./build.sh --category object_detection --type Release" in sandbox.output
+    assert "./build.sh --category list" in sandbox.output
 
 
 def test_build_sh_minimal_installs_dx_postprocess_before_target_exit():
@@ -165,7 +147,9 @@ def test_build_sh_minimal_installs_dx_postprocess_before_target_exit():
 
     assert "install_dx_postprocess_module()" in text
 
-    target_exit_start = text.index("# Skip dx_postprocess installation for target builds")
+    target_exit_start = text.index(
+        "# Install dx_postprocess (full pip build) for minimal builds; "
+        "skip for explicit --target / --category builds")
     full_build_start = text.index("if [ -e $build_dir/release/bin ]")
     target_exit_block = text[target_exit_start:full_build_start]
 
@@ -175,36 +159,13 @@ def test_build_sh_minimal_installs_dx_postprocess_before_target_exit():
     assert "popd" not in target_exit_block
 
 
-def test_build_sh_empty_category_fails_before_cmake_configure():
-    empty_category_dir = ROOT / "src" / "cpp_example" / "dxapp_empty_test_category"
-    
-    try:
-        # Create empty category directory
-        empty_category_dir.mkdir(parents=True, exist_ok=True)
-        
-        # Run build.sh with the empty category
-        result = subprocess.run(
-            ["bash", "build.sh", "--category", "dxapp_empty_test_category"],
-            cwd=ROOT,
-            text=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            check=False,
-        )
-        
-        combined = result.stdout + result.stderr
-        
-        # Assert non-zero exit
-        assert result.returncode != 0, "Expected non-zero exit for empty category"
-        
-        # Assert error message appears
-        assert "[DXAPP] [ERROR]" in combined, "Expected [DXAPP] [ERROR] tag"
-        assert "No build targets resolved." in combined, "Expected 'No build targets resolved.' message"
-        
-        # Assert failure happens before CMake configure
-        assert "cmake args" not in combined, "Should fail before CMake configure"
-        
-    finally:
-        # Cleanup: remove the empty directory
-        if empty_category_dir.exists():
-            empty_category_dir.rmdir()
+@needs_toolchain_file
+def test_build_sh_empty_category_fails_before_cmake_configure(sandbox):
+    sandbox.run("--category", "dxapp_empty_test_category", SANDBOX_SRC_TREE="1",
+                SANDBOX_EMPTY_CATEGORY="dxapp_empty_test_category")
+    assert sandbox.rc != 0, "Expected non-zero exit for empty category"
+    assert "[DXAPP] [ERROR]" in sandbox.output
+    assert "No build targets resolved." in sandbox.output
+    assert "cmake args" not in sandbox.output, "Should fail before CMake configure"
+    assert sandbox.cmake_calls == []
+    assert not (ROOT / "src" / "cpp_example" / "dxapp_empty_test_category").exists()

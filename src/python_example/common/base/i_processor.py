@@ -123,6 +123,38 @@ class SegmentationResult:
     height: int = 0
     class_ids: List[int] = field(default_factory=list)
     class_names: List[str] = field(default_factory=list)
+    # Soft alpha matte in [0,1], for models whose output is a continuous
+    # foreground opacity rather than a class map (PP-Matting). `mask` still
+    # carries the thresholded 0/1 class map so SemanticSegmentationVisualizer --
+    # which reads `mask` as class IDs -- renders it unchanged, while a consumer
+    # that wants the real matte (compositing, trimap refinement) has it here
+    # instead of having to recover it from a binary image.
+    alpha: Optional[np.ndarray] = None
+
+
+@dataclass
+class AnomalyResult:
+    """Anomaly-detection response.
+
+    Two producers, two meanings, and the difference matters:
+
+    * :class:`EfficientADPostprocessor` runs the teacher, student and autoencoder
+      together and returns EfficientAD's own combination of their disagreements.
+      `score` is the raw combination's 99th percentile -- comparable across frames
+      for that model set, and NOT to a published MVTec figure, because the reference
+      implementation divides by q_st/q_ae quantiles fitted on the training set and a
+      .dxnn carries no such constants.
+    * :class:`AnomalyFeaturePostprocessor` sees ONE network, so it can only report the
+      magnitude of a feature response. PatchCore is scored that way here because its
+      real metric needs a memory bank of training features, which is a fit step rather
+      than a model.
+
+    `heatmap` is always normalised against its own frame, so that a hot region is
+    visible whatever the absolute magnitudes; it is not comparable between frames.
+    """
+    heatmap: np.ndarray = field(default_factory=lambda: np.array([]))  # H*W float [0,1]
+    score: float = 0.0
+    channels: int = 0
 
 
 @dataclass
@@ -188,6 +220,38 @@ class EmbeddingResult:
     """Result from embedding models (CLIP, ArcFace, etc.)."""
     embedding: np.ndarray = field(default_factory=lambda: np.array([]))  # L2-normalized feature vector
     model_type: str = ""  # "image_encoder", "text_encoder", "face_embedding"
+
+
+@dataclass
+class GalleryMatch:
+    """One ranked hit from a retrieval gallery."""
+    rank: int = 0
+    score: float = 0.0          # cosine similarity in [-1, 1], higher is nearer
+    path: str = ""              # gallery image, repo-relative, for the visualizer
+    label: str = ""             # gallery folder name, "" when the set is unlabelled
+
+
+@dataclass
+class RetrievalResult:
+    """A query descriptor plus its ranking against a prebuilt gallery.
+
+    This is :class:`EmbeddingResult` with the comparison already done. An embedding
+    model alone cannot answer "which place/product/person is this?" -- that needs a
+    gallery to rank against -- so image retrieval, visual place recognition and person
+    ReID all produce this: the same descriptor, plus the top-k it matched.
+
+    ``embedding`` is kept so that everything which already consumes a descriptor
+    (verification, the embedding comparison visualizer) keeps working unchanged.
+
+    ``matches`` is ordered best-first and may be empty: with no gallery loaded the
+    postprocessor still returns the descriptor rather than failing, and the visualizer
+    then says so instead of drawing an empty strip.
+    """
+    embedding: np.ndarray = field(default_factory=lambda: np.array([]))
+    model_type: str = ""
+    matches: List[GalleryMatch] = field(default_factory=list)
+    gallery_size: int = 0
+    gallery_name: str = ""
 
 
 @dataclass

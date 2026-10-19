@@ -220,6 +220,25 @@ private:
 
     // ── NMS + coordinate mapping ───────────────────────────────────────────
 
+    // Normalized model-input coords -> original frame, for either preprocessor:
+    // stretch (scale_x != scale_y): x = n * W_in / scale_x; letterbox: x = (n * W_in - pad_x) / scale.
+    // The palm detector is fed letterboxed frames (aspect-preserving, as trained).
+    bool isStretch(const PreprocessContext& ctx) const {
+        return ctx.scale_x > 0.f && ctx.scale_y > 0.f && std::abs(ctx.scale_x - ctx.scale_y) > 1e-9f;
+    }
+    float toOriginalX(float n, const PreprocessContext& ctx) const {
+        const float w_in = static_cast<float>(ctx.input_width > 0 ? ctx.input_width : input_size_);
+        if (isStretch(ctx)) return n * w_in / ctx.scale_x;
+        const float s = ctx.scale > 0.f ? ctx.scale : 1.f;
+        return (n * w_in - static_cast<float>(ctx.pad_x)) / s;
+    }
+    float toOriginalY(float n, const PreprocessContext& ctx) const {
+        const float h_in = static_cast<float>(ctx.input_height > 0 ? ctx.input_height : input_size_);
+        if (isStretch(ctx)) return n * h_in / ctx.scale_y;
+        const float s = ctx.scale > 0.f ? ctx.scale : 1.f;
+        return (n * h_in - static_cast<float>(ctx.pad_y)) / s;
+    }
+
     std::vector<FaceDetectionResult> applyNMSAndScale(
             const std::vector<float>& x1v, const std::vector<float>& y1v,
             const std::vector<float>& x2v, const std::vector<float>& y2v,
@@ -247,13 +266,14 @@ private:
         std::vector<FaceDetectionResult> results;
         results.reserve(kept.size());
         for (int k : kept) {
-            float bx1 = std::max(0.f, std::min(x1v[k] * ow, ow - 1.f));
-            float by1 = std::max(0.f, std::min(y1v[k] * oh, oh - 1.f));
-            float bx2 = std::max(0.f, std::min(x2v[k] * ow, ow - 1.f));
-            float by2 = std::max(0.f, std::min(y2v[k] * oh, oh - 1.f));
+            float bx1 = std::max(0.f, std::min(toOriginalX(x1v[k], ctx), ow - 1.f));
+            float by1 = std::max(0.f, std::min(toOriginalY(y1v[k], ctx), oh - 1.f));
+            float bx2 = std::max(0.f, std::min(toOriginalX(x2v[k], ctx), ow - 1.f));
+            float by2 = std::max(0.f, std::min(toOriginalY(y2v[k], ctx), oh - 1.f));
             FaceDetectionResult face;
             face.box        = {bx1, by1, bx2, by2};
             face.confidence = sv[k];
+            face.class_name = "hand";  // the palm box expanded to the whole hand
             results.push_back(face);
         }
         return results;

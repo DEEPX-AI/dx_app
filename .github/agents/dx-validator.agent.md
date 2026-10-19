@@ -36,19 +36,21 @@ and reports structured results with severity levels.
 
 ## Scope
 
-dx_app contains **15 AI tasks** and **133 models** across two language targets:
+dx_app contains **29 AI tasks** and **497 model variants** across two language targets:
 
-- Python apps under `src/python_example/<task>/<model>/`
-- C++ apps under `src/cpp_example/<task>/<model>/`
+- Python apps under `src/python_example/<task>/<family>/<variant>/`
+- C++ apps under `src/cpp_example/<task>/<family>/<variant>/`
 
-Each app directory contains:
+`<variant>` is the `.dxnn` stem. Each variant directory contains:
 - `factory/` — IFactory implementation (5 methods)
 - `config.json` — model and threshold configuration
-- Sync and async entry scripts (up to 4 variants)
-- `__init__.py` — package marker
+- Entry scripts named `<variant>_<mode>` — Python: sync, async, sync_cpp_postprocess,
+  async_cpp_postprocess (`.py`); C++: sync, async (`.cpp`)
 
-Framework scope: **40 files** in `.github/` including agents, skills, instructions,
-memory, and scripts.
+Python family directories hold `__init__.py` (package marker).
+
+Framework scope: every file under `.deepx/` — agents, skills, instructions, toolsets,
+memory, templates, and scripts.
 
 ## Validation Targets
 
@@ -125,7 +127,7 @@ If findings exist and the user wants to feed them back into the knowledge base:
 ## Context Loading
 
 ```
-1. .github/memory/common_pitfalls.md       (always)
+1. .deepx/memory/common_pitfalls.md       (always)
 2. .github/skills/dx-agent-app-validate/SKILL.md     (validation reference)
 3. .deepx/scripts/validate_app.py         (app validator)
 4. .deepx/scripts/validate_framework.py   (framework validator)

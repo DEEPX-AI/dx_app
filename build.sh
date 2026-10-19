@@ -11,11 +11,12 @@ if [ $BUILD_JOBS -lt 1 ]; then
 fi
 
 # color env settings
-source ${SCRIPT_DIR}/scripts/color_env.sh
-source ${SCRIPT_DIR}/scripts/common_util.sh
-source ${SCRIPT_DIR}/scripts/build_target_resolver.sh
+source "${SCRIPT_DIR}/scripts/color_env.sh"
+source "${SCRIPT_DIR}/scripts/common_util.sh"
+source "${SCRIPT_DIR}/scripts/gui_env.sh"
+source "${SCRIPT_DIR}/scripts/build_target_resolver.sh"
 
-pushd ${DX_APP_PATH} >&2
+pushd "${DX_APP_PATH}" >&2
 
 help() {
     echo -e "Usage: ${COLOR_CYAN}$0 [OPTIONS]${COLOR_RESET}"
@@ -27,7 +28,7 @@ help() {
     echo -e "  ${COLOR_GREEN}--verbose${COLOR_RESET}    Show detailed build commands during the process."
     echo -e "  ${COLOR_GREEN}--type <TYPE>${COLOR_RESET}  Specify the CMake build type. Valid options: [Release, Debug, RelWithDebInfo]."
     echo -e "  ${COLOR_GREEN}--arch <ARCH>${COLOR_RESET}  Specify the target CPU architecture. Valid options: [x86_64, aarch64]."
-    echo -e "  ${COLOR_GREEN}--target <NAME> [NAME2 ...]${COLOR_RESET} Build only the specified target(s) (e.g., yolov5_sync yolov5_async)."
+    echo -e "  ${COLOR_GREEN}--target <NAME> [NAME2 ...]${COLOR_RESET} Build one target, or every sync/async whose name starts with NAME (e.g., yolov8-m-seg)."
     echo -e "                            Use '--target list' to show all available targets."
     echo -e "  ${COLOR_GREEN}--minimal${COLOR_RESET}     Build run_demo C++ sync/async targets only."
     echo -e "  ${COLOR_GREEN}--category <NAME|list>${COLOR_RESET} Build C++ sync/async targets under a task category."
@@ -38,6 +39,8 @@ help() {
     echo -e "                            If omitted, the default system 'python3' will be used."
     echo -e "  ${COLOR_GREEN}--venv_path <PATH>${COLOR_RESET}  Specify the path to a virtual environment to activate for the build."
     echo -e "                            If omitted, no virtual environment will be activated."
+    echo -e "                            Either option (else an active virtualenv) also sets the Python"
+    echo -e "                            the dx_graph module is built for (-DDXAPP_PYTHON)."
     echo -e ""
     echo -e "${COLOR_BOLD}Examples:${COLOR_RESET}"
     echo -e "  ${COLOR_YELLOW}$0 --type Release --arch x86_64${COLOR_RESET}"
@@ -68,8 +71,8 @@ help() {
 # Helper: uninstall dx_postprocess and clean artifacts
 uninstall_dx_postprocess() {
     echo -e "${TAG_INFO} Uninstalling dx_postprocess from the current Python environment if installed..."
-    if ${python_exec} -m pip show dx_postprocess >/dev/null 2>&1; then
-        ${python_exec} -m pip uninstall -y dx_postprocess || true
+    if "${python_exec}" -m pip show dx_postprocess >/dev/null 2>&1; then
+        "${python_exec}" -m pip uninstall -y dx_postprocess || true
     else
         echo -e "${TAG_WARN} dx_postprocess is not installed (pip show returned non-zero)."
     fi
@@ -77,6 +80,13 @@ uninstall_dx_postprocess() {
 
 install_dx_postprocess_module() {
     if [ ! -d "src/bindings/python/dx_postprocess" ]; then
+        return 0
+    fi
+    if [ "$(uname -m)" != "${target_arch}" ]; then
+        # pip would build the module for THIS host (host compiler, -march=native)
+        # and install it into the host interpreter: nothing a ${target_arch}
+        # board can import (U-38).
+        echo -e "${TAG_INFO} Cross build (${target_arch}): dx_postprocess skipped - build it on the target with ./build.sh there."
         return 0
     fi
 
@@ -109,13 +119,14 @@ install_dx_postprocess_module() {
     if SKBUILD_CMAKE_ARGS="-DCMAKE_BUILD_TYPE=${cmake_build_type}" \
        SKBUILD_INSTALL_STRIP="${strip_option}" \
        PROJECT_ROOT="${DX_APP_PATH}" \
-       ${python_exec} -m pip install . ; then
+       "${python_exec}" -m pip install . ; then
         echo -e "${COLOR_GREEN}${COLOR_BOLD}dx_postprocess installation completed successfully!${COLOR_RESET}"
 
-        INSTALL_LOCATION=$(${python_exec} -c "import sys; print(sys.prefix)" 2>/dev/null)
+        INSTALL_LOCATION=$("${python_exec}" -c "import sys; print(sys.prefix)" 2>/dev/null)
         if [ $? -eq 0 ]; then
             echo -e "${COLOR_GREEN}  ✓ Installed to: ${INSTALL_LOCATION}${COLOR_RESET}"
         fi
+        dxapp_link_cv2_qt_fonts "${python_exec}"
     else
         echo -e "${COLOR_RED}${COLOR_BOLD}dx_postprocess installation failed!${COLOR_RESET}"
         echo -e "${TAG_ERROR} Python module installation is required for complete build"
@@ -248,7 +259,7 @@ if [ -n "${venv_path}" ]; then
         exit 1
     else
         echo -e "${TAG_INFO} --venv_path is set to '${venv_path}'."
-        . ${venv_path}/bin/activate;
+        . "${venv_path}/bin/activate";
     fi
 fi
 
@@ -259,12 +270,28 @@ if [ -n "${python_exec_input}" ]; then
         exit 1
     else
         echo -e "${TAG_INFO} --python_exec is set to '${python_exec_input}'"
-        ${python_exec_input} --version;
+        "${python_exec_input}" --version;
         python_exec=${python_exec_input}
     fi
 else
     # use default python
     python_exec="python3"
+fi
+
+# The dx_graph Python module is built for one interpreter, DXAPP_PYTHON: the
+# one named by --python_exec, else --venv_path's, else the active
+# virtualenv's. Otherwise nothing is passed and CMake keeps its own choice
+# (the cached value, or python3 on PATH).
+dxapp_python=""
+if [ -n "${python_exec_input}" ]; then
+    dxapp_python=$(realpath -s "${python_exec_input}")
+elif [ -n "${venv_path}" ]; then
+    dxapp_python=$(realpath -s "${venv_path}/bin/python")
+elif [ -n "${VIRTUAL_ENV}" ]; then
+    dxapp_python="${VIRTUAL_ENV}/bin/python"
+fi
+if [ -n "${dxapp_python}" ]; then
+    cmd+=("-DDXAPP_PYTHON=${dxapp_python}")
 fi
 
 if [ $target_arch == "arm64" ]; then
@@ -292,7 +319,7 @@ if [ $build_with_codec == "true" ]; then
         build_with_codec=false
     else
         cmd+=(-DUSE_V3_CODEC=True);
-        cmd+=(-DV3_CODEC_DIR=${DX_APP_PATH}/third_party/v3_codec);
+        cmd+=("-DV3_CODEC_DIR=${DX_APP_PATH}/third_party/v3_codec");
     fi
 fi
 
@@ -334,17 +361,24 @@ fi
 
 build_dir=build_"$target_arch"
 out_dir=bin
-echo cmake args : ${cmd[@]}
+echo cmake args : "${cmd[@]}"
+
+# Remove the build directory and, for a native build, the installed bin/,
+# lib/ and include/ as well (a cross build never installs into them, so they
+# are kept). Arguments, if any, prefix each command (the sudo retry).
+clean_build_artifacts() {
+    "$@" rm -rf "${build_dir}" || return 1
+    if [ "$(uname -m)" == "${target_arch}" ]; then
+        "$@" rm -rf bin lib include || return 1
+    fi
+}
 
 if [ $clean_build == "true" ]; then 
     # Uninstall python package and clean artifacts as part of clean build
     uninstall_dx_postprocess
-    CLEAN_CMD="rm -rf $build_dir && [ $(uname -m) == \"$target_arch\" ] && rm -rf bin && rm -rf lib && rm -rf include"
-    ${CLEAN_CMD}
-    if [ $? -ne 0 ]; then
+    if ! clean_build_artifacts; then
         echo -e "${TAG_WARN} Failed to clean build directory. try to clean again with 'sudo'."
-        sudo ${CLEAN_CMD} 
-        if [ $? -ne 0 ]; then
+        if ! clean_build_artifacts sudo; then
             echo -e "${TAG_ERROR} Failed to clean build directory"
             exit 1
         fi
@@ -354,7 +388,7 @@ fi
 mkdir -p $build_dir 
 rm -rf $build_dir/release 
 pushd $build_dir >&2
-cmake .. ${cmd[@]} || {
+cmake .. "${cmd[@]}" || {
     echo -e "${TAG_ERROR} CMake configuration failed. Please check the output above."
     exit 1
 }
@@ -388,9 +422,56 @@ if [ "$build_target" == "list" ]; then
     exit 0
 fi
 
+# --target NAME is a prefix of the variant executable (yolov8-m-seg →
+# yolov8-m-seg_640x640_sync and the pre-optimized sibling). An exact ninja
+# target name stays exact, so the pre-optimized binary is not pulled in.
+expand_prefix_targets() {
+    local available
+    local expanded=()
+    local token t
+    local -a matched
+    mapfile -t available < <(ninja -t targets | sed 's/:.*//' | sort -u)
+    for token in "$@"; do
+        matched=()
+        for t in "${available[@]}"; do
+            case "${t}" in
+                *_sync|*_async) ;;
+                *) continue ;;
+            esac
+            if [ "${t}" = "${token}" ]; then
+                matched=("${t}")
+                break
+            fi
+        done
+        if [ ${#matched[@]} -eq 0 ]; then
+            for t in "${available[@]}"; do
+                case "${t}" in
+                    *_sync|*_async) ;;
+                    *) continue ;;
+                esac
+                if [[ "${t}" == "${token}"* ]]; then
+                    matched+=("${t}")
+                fi
+            done
+        fi
+        if [ ${#matched[@]} -eq 0 ]; then
+            echo -e "${TAG_WARN} Build target not found, skipping: ${token}"
+        else
+            expanded+=("${matched[@]}")
+        fi
+    done
+    if [ ${#expanded[@]} -eq 0 ]; then
+        echo -e "${TAG_ERROR} No build targets resolved." >&2
+        exit 1
+    fi
+    build_targets=("${expanded[@]}")
+}
+
 # Filter targets if using --minimal or --category
 if [ "${build_minimal}" = "true" ] || [ -n "${build_category}" ]; then
     filter_existing_targets "${build_targets[@]}"
+elif [ ${#build_targets[@]} -gt 0 ]; then
+    expand_prefix_targets "${build_targets[@]}"
 fi
 
 # Build specific target or all

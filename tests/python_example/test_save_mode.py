@@ -14,7 +14,8 @@ from typing import List
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+# conftest.py puts tests/ on sys.path; hence the noqa: E402 imports below.
+from test_helpers.proc import example_python, run_bounded  # noqa: E402
 from test_helpers.constants import PROJECT_ROOT, TASK_IMAGE_MAP, MODEL_IMAGE_OVERRIDE  # noqa: E402
 from test_helpers.utils import discover_python_scripts, setup_environment, resolve_image_for_model  # noqa: E402
 
@@ -66,7 +67,7 @@ def test_save_output(script: Path, model: Path, image: Path, tmp_path: Path):
     save_dir.mkdir()
 
     cmd = [
-        sys.executable, str(script),
+        example_python(), str(script),
         "--model", str(model),
         "--image", str(image),
         "--no-display",
@@ -75,7 +76,7 @@ def test_save_output(script: Path, model: Path, image: Path, tmp_path: Path):
     ]
 
     try:
-        result = subprocess.run(
+        result = run_bounded(
             cmd,
             capture_output=True,
             text=True,

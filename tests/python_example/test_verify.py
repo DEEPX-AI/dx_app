@@ -1,184 +1,94 @@
-"""
-Test DXAPP_VERIFY numerical verification for Python inference scripts.
+"""DXAPP_VERIFY: every Python example script of a downloaded model dumps real results (U-30, U-31).
 
-Verifies:
-  - Setting ``DXAPP_VERIFY=1`` env var triggers JSON output
-  - ``verify_results/`` directory is created with ``.json`` files
-  - JSON contains expected fields (model_path, task, results, etc.)
-  - Verification is disabled by default (no JSON without env var)
-
-Mirrors ``tests/cpp_example/test_verify.py``.
+Every ``*_sync*`` / ``*_async*`` script is run - ``*_cpp_postprocess`` and
+``*_ort_off`` variants included - on its task's sample input with a fresh
+DXAPP_VERIFY_DIR. The record must be non-empty and never the ``repr``
+fallback. Expected time: about 3 minutes (~230 runs of under 1 s each).
 """
-import json
-import subprocess
 import sys
 from pathlib import Path
-from typing import List
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from test_helpers.constants import (  # noqa: E402
-    PROJECT_ROOT,
-    SAMPLE_DIR,
-)
-from test_helpers.utils import discover_python_scripts, setup_environment  # noqa: E402
+# conftest.py puts tests/ on sys.path; hence the noqa: E402 imports below.
+from test_helpers.constants import PROJECT_ROOT, SAMPLE_DIR  # noqa: E402
+from test_helpers.proc import example_python, run_bounded  # noqa: E402
+from test_helpers.utils import (  # noqa: E402
+    discover_python_scripts, resolve_image_for_model, setup_environment)
+from test_helpers.verify import payload_nonempty, read_verify_frames, read_verify_json  # noqa: E402
 
-TEST_IMAGE = SAMPLE_DIR / "img" / "sample_kitchen.jpg"
-
-_JSON_GLOB = "*.json"
+DEFAULT_INPUT = SAMPLE_DIR / "img" / "sample_kitchen.jpg"
 
 
-# ======================================================================
-# Discovery — representative sync + async scripts
-# ======================================================================
-
-def _pick_representative(suffixes, max_count=3) -> List[tuple]:
-    raw = discover_python_scripts(suffixes=suffixes)
-    candidates = []
-    for _task, model_name, sync_scripts, async_scripts, model_path in raw:
-        if model_path is None:
+def _cases(mode):
+    cases = []
+    for task, name, sync_scripts, async_scripts, model in discover_python_scripts():
+        if model is None:
             continue
-        scripts = sync_scripts if suffixes[0] == "_sync" else async_scripts
-        if not scripts:
-            continue
-        candidates.append((scripts[0], model_path, model_name))
-
-    priority = ["yolov5s", "yolov8n", "fastdepth"]
-    selected = []
-    for script, model, name in candidates:
-        for p in priority:
-            if name.startswith(p) and len(selected) < max_count:
-                selected.append((script, model))
-                break
-    for script, model, _name in candidates:
-        if len(selected) >= max_count:
-            break
-        if (script, model) not in selected:
-            selected.append((script, model))
-    return selected
+        rel = resolve_image_for_model(name, task)
+        test_input = PROJECT_ROOT / rel if rel else DEFAULT_INPUT
+        for script in (sync_scripts if mode == "sync" else async_scripts):
+            cases.append(pytest.param(script, model, test_input, id=script.stem))
+    return cases
 
 
-SYNC_REPR = _pick_representative(("_sync",))
-ASYNC_REPR = _pick_representative(("_async",))
-
-SYNC_PARAMS = [
-    pytest.param(s, m, id=s.stem, marks=pytest.mark.sync_exec)
-    for s, m in SYNC_REPR
-]
-ASYNC_PARAMS = [
-    pytest.param(s, m, id=s.stem, marks=pytest.mark.async_exec)
-    for s, m in ASYNC_REPR
-]
+SYNC_CASES = _cases("sync")
+ASYNC_CASES = _cases("async")
 
 
-# ======================================================================
-# Tests
-# ======================================================================
+def _run(script, model, test_input, workdir, verify):
+    env = setup_environment()
+    env.pop("DXAPP_VERIFY", None)
+    if verify:
+        env["DXAPP_VERIFY"] = "1"
+    env["DXAPP_VERIFY_DIR"] = str(workdir / "verify")
+    result = run_bounded(
+        [example_python(), str(script), "--model", str(model), "--image", str(test_input),
+         "--no-display", "--loop", "1"],
+        capture_output=True, text=True, timeout=120, env=env, cwd=str(PROJECT_ROOT))
+    assert result.returncode == 0, "{} rc={}\n{}".format(
+        script.name, result.returncode, (result.stdout + result.stderr)[-1500:])
+
+
+def _check_dump(script, workdir):
+    verify_dir = workdir / "verify"
+    data = read_verify_json(verify_dir)
+    assert "repr" not in data and "result_type" not in data, "{} has no serializer: {}".format(
+        script.name, data.get("result_type"))
+    for key in ("task", "model", "model_path", "image_height", "image_width"):
+        assert key in data, "{}: no '{}'".format(script.name, key)
+    assert payload_nonempty(data), "{} dumped no results: {}".format(script.name, sorted(data))
+    frames = read_verify_frames(verify_dir)
+    assert len(frames) == 1 and frames[0]["frame"] == 0
+    record = dict(frames[0])
+    del record["frame"]
+    assert record == data, "{}: the frames.jsonl record differs from the JSON".format(script.name)
+
 
 @pytest.mark.verify
-class TestDxappVerify:
-    """Test ``DXAPP_VERIFY=1`` numerical verification."""
-
-    def _run_with_verify(self, script: Path, model_path: Path, tmp_path: Path):
-        """Run script with DXAPP_VERIFY=1, return (result, json_files)."""
-        if not TEST_IMAGE.exists():
-            pytest.skip(f"Test image not found: {TEST_IMAGE}")
-
-        cmd = [
-            sys.executable, str(script),
-            "--model", str(model_path),
-            "--image", str(TEST_IMAGE),
-            "--no-display",
-            "--loop", "1",
-        ]
-
-        env = setup_environment()
-        env["DXAPP_VERIFY"] = "1"
-        env["DXAPP_VERIFY_DIR"] = str(tmp_path / "verify_results")
-
-        result = subprocess.run(
-            cmd, capture_output=True, text=True, timeout=120,
-            env=env, cwd=str(PROJECT_ROOT),
-        )
-
-        assert result.returncode == 0, (
-            f"{script.name} with DXAPP_VERIFY=1 failed (rc={result.returncode})\n"
-            f"STDERR: {result.stderr[-500:]}"
-        )
-
-        verify_dirs = list(tmp_path.rglob("verify_results"))
-        json_files = []
-        for vd in verify_dirs:
-            json_files.extend(vd.rglob(_JSON_GLOB))
-
-        if not json_files:
-            output = result.stdout + result.stderr
-            if "verify" not in output.lower():
-                pytest.skip(f"{script.name}: DXAPP_VERIFY produced no output (may need NPU)")
-
-        return result, json_files
-
-    @pytest.mark.parametrize("script,model_path", SYNC_PARAMS)
-    def test_verify_sync_creates_json(self, script: Path, model_path: Path, tmp_path: Path):
-        """Run sync script with DXAPP_VERIFY=1, verify JSON output."""
-        _result, json_files = self._run_with_verify(script, model_path, tmp_path)
-
-        for jf in json_files[:3]:
-            try:
-                data = json.loads(jf.read_text())
-                assert isinstance(data, dict), f"JSON should be a dict: {jf}"
-                assert "model_path" in data or "task" in data or "results" in data, (
-                    f"JSON missing expected keys: {list(data.keys())}\nFile: {jf}"
-                )
-            except json.JSONDecodeError as e:
-                pytest.fail(f"Invalid JSON in {jf}: {e}")
-
-    @pytest.mark.parametrize("script,model_path", ASYNC_PARAMS)
-    def test_verify_async_creates_json(self, script: Path, model_path: Path, tmp_path: Path):
-        """Run async script with DXAPP_VERIFY=1, verify JSON output."""
-        self._run_with_verify(script, model_path, tmp_path)
-
-    @pytest.mark.parametrize("script,model_path", SYNC_PARAMS)
-    def test_verify_disabled_by_default(self, script: Path, model_path: Path, tmp_path: Path):
-        """Without DXAPP_VERIFY, no verify_results should be created."""
-        if not TEST_IMAGE.exists():
-            pytest.skip(f"Test image not found: {TEST_IMAGE}")
-
-        cmd = [
-            sys.executable, str(script),
-            "--model", str(model_path),
-            "--image", str(TEST_IMAGE),
-            "--no-display",
-            "--loop", "1",
-        ]
-
-        env = setup_environment()
-        env.pop("DXAPP_VERIFY", None)
-        env["DXAPP_VERIFY_DIR"] = str(tmp_path / "verify_results")
-
-        result = subprocess.run(
-            cmd, capture_output=True, text=True, timeout=120,
-            env=env, cwd=str(PROJECT_ROOT),
-        )
-
-        assert result.returncode == 0
-
-        verify_dirs = list(tmp_path.rglob("verify_results"))
-        json_files = []
-        for vd in verify_dirs:
-            json_files.extend(vd.rglob(_JSON_GLOB))
-        assert len(json_files) == 0, (
-            f"DXAPP_VERIFY not set but JSON files found: {json_files}"
-        )
-
-    def test_verify_prerequisites(self):
-        """Sanity check."""
-        assert len(SYNC_REPR) > 0, "No sync scripts for verify tests"
-        assert len(ASYNC_REPR) > 0, "No async scripts for verify tests"
-        print(f"\n  Sync representatives: {[s.stem for s, _ in SYNC_REPR]}")
-        print(f"  Async representatives: {[s.stem for s, _ in ASYNC_REPR]}")
+@pytest.mark.sync_exec
+@pytest.mark.parametrize("script,model,test_input", SYNC_CASES)
+def test_verify_sync_dumps_real_results(script, model, test_input, tmp_path):
+    _run(script, model, test_input, tmp_path, verify=True)
+    _check_dump(script, tmp_path)
 
 
-if __name__ == "__main__":
-    pytest.main([__file__, "-v"])
+@pytest.mark.verify
+@pytest.mark.async_exec
+@pytest.mark.parametrize("script,model,test_input", ASYNC_CASES)
+def test_verify_async_dumps_real_results(script, model, test_input, tmp_path):
+    _run(script, model, test_input, tmp_path, verify=True)
+    _check_dump(script, tmp_path)
+
+
+@pytest.mark.verify
+@pytest.mark.parametrize("script,model,test_input", SYNC_CASES)
+def test_verify_disabled_by_default(script, model, test_input, tmp_path):
+    _run(script, model, test_input, tmp_path, verify=False)
+    verify_dir = tmp_path / "verify"
+    assert not verify_dir.exists() or not any(verify_dir.iterdir())
+
+
+@pytest.mark.verify
+def test_verify_prerequisites():
+    assert SYNC_CASES and ASYNC_CASES, "no downloaded model has a Python example"

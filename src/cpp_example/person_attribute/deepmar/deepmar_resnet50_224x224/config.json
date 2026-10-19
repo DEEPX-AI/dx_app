@@ -1,0 +1,56 @@
+{
+  "variant": "deepmar_resnet50_224x224",
+  "dxnn_file": "deepmar_resnet50_224x224.dxnn",
+  "task": "person_attribute",
+  "family": "deepmar",
+  "input_width": 224,
+  "input_height": 224,
+  "image_only": true,
+  "registry_image_only": true,
+  "default_image": "sample/img/sample_person_a1.jpg",
+  "default_video": null,
+  "zoo_canonical": true,
+  "published": true,
+  "config": {},
+  "registry_config": {},
+  "cli": {
+    "include_kitti_paths": false,
+    "include_output": false,
+    "include_stream_inputs": true
+  },
+  "preprocessor": {
+    "args": [
+      {
+        "token": "input_width"
+      },
+      {
+        "token": "input_height"
+      }
+    ],
+    "class": "SimpleResizePreprocessor",
+    "config_overrides": {},
+    "kwargs": {}
+  },
+  "postprocessor": {
+    "args": [
+      {
+        "token": "input_width"
+      },
+      {
+        "token": "input_height"
+      },
+      {
+        "token": "config"
+      }
+    ],
+    "class": "AttributePostprocessor",
+    "config_overrides": {},
+    "kwargs": {}
+  },
+  "visualizer": {
+    "args": [],
+    "class": "AttributeVisualizer",
+    "config_overrides": {},
+    "kwargs": {}
+  }
+}

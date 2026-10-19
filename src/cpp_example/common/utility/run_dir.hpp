@@ -32,6 +32,9 @@
 
 #include <dxrt/dxrt_api.h>
 
+#include "common/utility/interrupt_flag.hpp"
+#include "common/utility/signal_escalation.hpp"
+
 namespace dxapp {
 #if __cplusplus >= 201703L || (defined(_MSVC_LANG) && _MSVC_LANG >= 201703L)
 namespace fs = std::filesystem;
@@ -43,30 +46,38 @@ namespace fs = std::experimental::filesystem;
 // Global signal handler for graceful Ctrl+C shutdown
 // ---------------------------------------------------------------
 
-/**
- * @brief Global flag set by SIGINT/SIGTERM handler for graceful shutdown.
- * All runner loops should check this flag in their iteration condition.
- */
-inline std::atomic<bool>& g_interrupted() {
-    static std::atomic<bool> flag{false};
-    return flag;
+/// When the first SIGINT/SIGTERM arrived (0: none yet). See
+/// noteInterruptRequest(). Constant-initialised, so no guard runs in the
+/// handler.
+inline std::atomic<long long>& runnerInterruptRequestMs() {
+    static std::atomic<long long> first_ms{0};
+    return first_ms;
 }
 
 /**
  * @brief Signal handler that sets g_interrupted to true.
- * Register with std::signal(SIGINT, signalHandler) in main.
+ *
+ * SIGINT or SIGTERM asks for a graceful stop (the runner loops check
+ * g_interrupted()). A SIGINT arriving more than kInterruptCoalesceMs after
+ * the first request - a second Ctrl-C by the user - terminates the process
+ * even if the wind-down hangs. Copies arriving sooner are the same request
+ * (one Ctrl-C under `timeout` reaches the runner 2-3 times). SIGTERM never
+ * escalates: `timeout` delivers it twice and escalates with SIGKILL itself.
+ * Async-signal-safe (see signal_escalation.hpp).
  */
-inline void signalHandler(int /*signum*/) {
+inline void signalHandler(int signum) {
     g_interrupted().store(true);
+    const bool later_repeat = noteInterruptRequest(runnerInterruptRequestMs());
+    if (signum == SIGINT && later_repeat) terminateBySignal(SIGINT);
 }
 
 /**
  * @brief Install SIGINT and SIGTERM signal handlers for graceful shutdown.
- * Should be called at the beginning of run().
+ * Should be called at the beginning of run(). See signalHandler().
  */
 inline void installSignalHandlers() {
-    std::signal(SIGINT, signalHandler);
-    std::signal(SIGTERM, signalHandler);
+    installHandlerOrWarn(SIGINT, signalHandler, "SIGINT");
+    installHandlerOrWarn(SIGTERM, signalHandler, "SIGTERM");
 }
 
 // ---------------------------------------------------------------

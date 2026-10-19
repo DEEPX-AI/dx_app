@@ -43,31 +43,31 @@ Use `scripts/add_model.sh` to create the C++ and Python example trees from the c
 
 ```bash
 # YOLOv8-style detection model
-./scripts/add_model.sh yolo_custom object_detection --postprocessor yolov8 --lang both
+./scripts/add_model.sh yolo-custom_640x640 object_detection --postprocessor yolov8 --lang both
 
 # YOLOv7-style anchor-based model
-./scripts/add_model.sh yolov7_w6 object_detection --base-model yolov7 --postprocessor yolov7 --lang both
+./scripts/add_model.sh yolov7-w6_1280x1280 object_detection --base-model yolov7_640x640 --input-size 1280x1280 --lang both
 
 # YOLOX-style model
-./scripts/add_model.sh custom_yolox object_detection --postprocessor yolox --lang both
+./scripts/add_model.sh custom-yolox_640x640 object_detection --postprocessor yolox --lang both
 ```
 
-Generated files follow the standard layout:
+An example lives in the family/variant layout, which is where `add_model.sh` writes it. `<family>` groups related models. `<variant>` is the `.dxnn` stem, and that folder holds the factory, `config.json`, and the entry files.
 
 ```text
-src/cpp_example/object_detection/<model_name>/
-├── config.json
-├── factory/<model_name>_factory.hpp
-├── <model_name>_sync.cpp
-└── <model_name>_async.cpp
+src/cpp_example/object_detection/<family>/<variant>/
+├── factory/<variant>_factory.hpp
+├── <variant>_sync.cpp
+├── <variant>_async.cpp
+└── config.json
 
-src/python_example/object_detection/<model_name>/
+src/python_example/object_detection/<family>/<variant>/
+├── factory/<variant>_factory.py
 ├── config.json
-├── factory/<model_name>_factory.py
-├── <model_name>_sync.py
-├── <model_name>_async.py
-├── <model_name>_sync_cpp_postprocess.py
-└── <model_name>_async_cpp_postprocess.py
+├── <variant>_sync.py
+├── <variant>_async.py
+├── <variant>_sync_cpp_postprocess.py
+└── <variant>_async_cpp_postprocess.py
 ```
 
 After generation, review both language trees. Do not assume a generated factory is final; the selected template only gives a safe starting point.
@@ -200,28 +200,28 @@ If verification fails due to unexpected tensor shape:
 Build the generated targets:
 
 ```bash
-./build.sh --type debug --target <model_name>_sync
-./build.sh --type debug --target <model_name>_async
+./build.sh --type debug --target <variant>_sync
+./build.sh --type debug --target <variant>_async
 ```
 
 Run C++ examples:
 
 ```bash
-./bin/<model_name>_sync  -m assets/models/<Model>.dxnn -i sample/img/sample_kitchen.jpg --no-display -l 1
-./bin/<model_name>_async -m assets/models/<Model>.dxnn -v assets/videos/dance-group.mov --no-display -l 1
+./bin/<variant>_sync  -m assets/models/<variant>.dxnn -i sample/img/sample_kitchen.jpg --no-display -l 1
+./bin/<variant>_async -m assets/models/<variant>.dxnn -v assets/videos/dance-group.mov --no-display -l 1
 ```
 
 Run Python examples:
 
 ```bash
-python src/python_example/object_detection/<model_name>/<model_name>_sync.py \
-  --model assets/models/<Model>.dxnn \
+python src/python_example/object_detection/<family>/<variant>/<variant>_sync.py \
+  --model assets/models/<variant>.dxnn \
   --image sample/img/sample_kitchen.jpg \
   --no-display \
   --loop 1
 
-python src/python_example/object_detection/<model_name>/<model_name>_async.py \
-  --model assets/models/<Model>.dxnn \
+python src/python_example/object_detection/<family>/<variant>/<variant>_async.py \
+  --model assets/models/<variant>.dxnn \
   --video assets/videos/dance-group.mov \
   --no-display \
   --loop 1
@@ -230,7 +230,7 @@ python src/python_example/object_detection/<model_name>/<model_name>_async.py \
 Use saved output for visual checks:
 
 ```bash
-./bin/<model_name>_sync -m assets/models/<Model>.dxnn -i sample/img/sample_kitchen.jpg --save
+./bin/<variant>_sync -m assets/models/<variant>.dxnn -i sample/img/sample_kitchen.jpg --save
 ```
 
 ---
@@ -246,12 +246,12 @@ Recommended sequence:
 ./scripts/dx_tool.sh validate
 
 # Targeted build
-./build.sh --type debug --target <model_name>_sync
-./build.sh --type debug --target <model_name>_async
+./build.sh --type debug --target <variant>_sync
+./build.sh --type debug --target <variant>_async
 
 # CLI smoke tests
-./scripts/dx_tool.sh run --lang cpp --model <model_name>
-./scripts/dx_tool.sh run --lang py --model <model_name>
+./scripts/dx_tool.sh run --lang cpp --model <variant>
+./scripts/dx_tool.sh run --lang py --model <variant>
 
 # Broader checks when assets are available
 ./run_tc.sh --cpp --cli
@@ -283,7 +283,7 @@ A registry entry should identify:
 - support status,
 - any required config metadata.
 
-Do not add registry entries for local experiments or customer-only artifacts unless the release explicitly includes them.
+Do not add registry entries for local experiments or project-specific artifacts unless the release explicitly includes them.
 
 ---
 
@@ -317,7 +317,7 @@ Do not add registry entries for local experiments or customer-only artifacts unl
 
 ### Build target is missing
 
-- Confirm the generated directory name matches `<model_name>`.
+- Confirm the family directory is `<family>/` and the variant directory is the `.dxnn` stem.
 - Run `./scripts/dx_tool.sh validate` to catch layout issues.
 - Check that CMake discovered the generated example directory.
 

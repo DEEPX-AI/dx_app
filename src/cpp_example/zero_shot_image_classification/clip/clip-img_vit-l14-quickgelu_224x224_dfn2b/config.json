@@ -1,0 +1,59 @@
+{
+  "variant": "clip-img_vit-l14-quickgelu_224x224_dfn2b",
+  "dxnn_file": "clip-img_vit-l14-quickgelu_224x224_dfn2b.dxnn",
+  "task": "zero_shot_image_classification",
+  "family": "clip",
+  "input_width": 224,
+  "input_height": 224,
+  "image_only": true,
+  "registry_image_only": true,
+  "default_image": "sample/img/face_pair",
+  "default_video": null,
+  "zoo_canonical": true,
+  "published": true,
+  "config": {},
+  "registry_config": {},
+  "cli": {
+    "include_kitti_paths": false,
+    "include_output": false,
+    "include_stream_inputs": false
+  },
+  "preprocessor": {
+    "args": [
+      {
+        "token": "input_width"
+      },
+      {
+        "token": "input_height"
+      }
+    ],
+    "class": "SimpleResizePreprocessor",
+    "config_overrides": {},
+    "kwargs": {
+      "mean": "<expr:[m * 255.0 for m in mean]>",
+      "std": "<expr:[s * 255.0 for s in std]>"
+    }
+  },
+  "postprocessor": {
+    "args": [
+      {
+        "token": "input_width"
+      },
+      {
+        "token": "input_height"
+      },
+      {
+        "token": "config"
+      }
+    ],
+    "class": "CLIPImagePostprocessor",
+    "config_overrides": {},
+    "kwargs": {}
+  },
+  "visualizer": {
+    "args": [],
+    "class": "EmbeddingVisualizer",
+    "config_overrides": {},
+    "kwargs": {}
+  }
+}

@@ -1,1 +1,0 @@
-from .scrfd500m_ppu_factory import Scrfd500mPpuFactory

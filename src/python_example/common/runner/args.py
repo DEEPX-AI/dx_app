@@ -108,6 +108,18 @@ def parse_common_args(
         help="Model path (.dxnn). If omitted, use this example's default model."
     )
 
+    # ---- Variant selection ----
+    # Under the dx-modelzoo family/variant layout one example directory serves every
+    # variant of its family, so the variant -- the .dxnn stem, e.g.
+    # ``yolov5-s_640x640`` -- is what selects the model. Resolution goes through
+    # config/model_registry.json (see common.variants); an unknown key raises rather
+    # than falling back to a neighbouring model.
+    parser.add_argument(
+        "--variant", type=str, default=None,
+        help="Variant key: the .dxnn stem, e.g. 'yolov5-s_640x640'. Resolves the model "
+             "path from config/model_registry.json. An explicit --model takes precedence."
+    )
+
     # ---- Input source (mutually exclusive) ----
     # Image-only tasks (embedding, ReID, …) pass ``include_stream_inputs=False``
     # so ``--video`` / ``--camera`` / ``--rtsp`` are NOT registered at all: they
@@ -213,4 +225,13 @@ def parse_common_args(
             help="Directory of {frame_id}.png/.jpg camera images paired with --image stems",
         )
 
-    return parser.parse_args()
+    args = parser.parse_args()
+
+    # --variant fills in the model path so every runner keeps reading args.model only.
+    # An explicit --model wins: it is the escape hatch for a locally compiled .dxnn.
+    if getattr(args, "variant", None) and not args.model:
+        from common.variants import resolve_variant
+
+        args.model = str(resolve_variant(args.variant).model_path)
+
+    return args

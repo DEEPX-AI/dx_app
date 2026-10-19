@@ -31,6 +31,25 @@ from .instance_seg_postprocessor import (
     YOLOv5InstanceSegPostprocessor,
 )
 from .fast_instance_seg_postprocessor import FastInstanceSegPostprocessor
+from .preopt_postprocessor import (
+    PreoptDetectionPostprocessor,
+    PreoptPosePostprocessor,
+    PreoptSegPostprocessor,
+)
+from .rtdetr_postprocessor import (
+    MaskRTDETRPostprocessor,
+    RTDETRPostprocessor,
+)
+# The base the arcface/clip wrappers already subclass. Exported so a variant
+# whose embedding is neither a face nor a CLIP image -- PP-ShiTu retrieval,
+# RepVGG person ReID -- can report its own model_type/model_name instead of
+# borrowing ArcFacePostprocessor's hardcoded "face_embedding"/"arcface".
+from .embedding_postprocessor import GenericEmbeddingPostprocessor
+from .matting_postprocessor import PPMattingPostprocessor
+from .gallery_retrieval_postprocessor import GalleryRetrievalPostprocessor
+from .efficientad_postprocessor import EfficientADPostprocessor
+from .anomaly_postprocessor import AnomalyFeaturePostprocessor
+from .picodet_postprocessor import PicoDetPostprocessor
 from .damoyolo_postprocessor import DamoYoloPostprocessor
 from .ssd_postprocessor import SSDPostprocessor
 from .tflite_det_postprocessor import TFLiteDetectionPostprocessor
@@ -61,6 +80,7 @@ from .fast_yolact_postprocessor import FastYOLACTPostprocessor
 from .espcn_postprocessor import ESPCNPostprocessor
 from .zero_dce_postprocessor import ZeroDCEPostprocessor
 from .clip_postprocessor import CLIPImagePostprocessor, CLIPTextPostprocessor
+from .clip_zeroshot_postprocessor import CLIPZeroShotPostprocessor
 from .arcface_postprocessor import ArcFacePostprocessor
 from .segformer_postprocessor import SegFormerPostprocessor
 from .palm_postprocessor import PalmDetectionPostprocessor
@@ -76,6 +96,25 @@ from .sfa3d_postprocessor import SFA3DPostprocessor, Detection3DResult, SFA3D_CL
 from .sfa3d_bev_preprocessor import SFA3DBEVPreprocessor, load_kitti_pointcloud, pointcloud_to_bev
 
 __all__ = [
+    # Pre-optimized YOLO models: the top-k row table is produced inside the model.
+    "PreoptDetectionPostprocessor",
+    "PreoptPosePostprocessor",
+    "PreoptSegPostprocessor",
+    # RT-DETR family: NMS-free query decoding.
+    "RTDETRPostprocessor",
+    "MaskRTDETRPostprocessor",
+    # PaddleSeg matting: a continuous alpha matte, not a class map.
+    "GenericEmbeddingPostprocessor",
+    "PPMattingPostprocessor",
+    # Image retrieval / visual place recognition / person ReID: one descriptor
+    # ranked against a gallery built on the NPU at build time.
+    "GalleryRetrievalPostprocessor",
+    # Anomaly detection: a feature response, not a published anomaly score.
+    "AnomalyFeaturePostprocessor",
+    "EfficientADPostprocessor",
+    # PP-PicoDet: a GFL head delivered one tensor per pyramid level, unlike
+    # NanoDet which concatenates them.
+    "PicoDetPostprocessor",
     # Preprocessors
     'LetterboxPreprocessor',
     'SimpleResizePreprocessor',
@@ -151,6 +190,7 @@ __all__ = [
     # CLIP Postprocessors
     'CLIPImagePostprocessor',
     'CLIPTextPostprocessor',
+    'CLIPZeroShotPostprocessor',
     # ArcFace Postprocessor
     'ArcFacePostprocessor',
     # SegFormer Postprocessor

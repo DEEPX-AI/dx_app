@@ -1,0 +1,62 @@
+{
+  "variant": "yolov5-n6_1280x1280",
+  "dxnn_file": "yolov5-n6_1280x1280.dxnn",
+  "task": "object_detection",
+  "family": "yolov5",
+  "input_width": 1280,
+  "input_height": 1280,
+  "image_only": false,
+  "registry_image_only": false,
+  "default_image": "sample/img/sample_street.jpg",
+  "default_video": "assets/videos/snowboard.mp4",
+  "zoo_canonical": true,
+  "published": true,
+  "config": {
+    "nms_threshold": 0.45,
+    "score_threshold": 0.4
+  },
+  "registry_config": {
+    "score_threshold": 0.4,
+    "nms_threshold": 0.45
+  },
+  "cli": {
+    "include_kitti_paths": false,
+    "include_output": false,
+    "include_stream_inputs": true
+  },
+  "preprocessor": {
+    "args": [
+      {
+        "token": "input_width"
+      },
+      {
+        "token": "input_height"
+      }
+    ],
+    "class": "LetterboxPreprocessor",
+    "config_overrides": {},
+    "kwargs": {}
+  },
+  "postprocessor": {
+    "args": [
+      {
+        "token": "input_width"
+      },
+      {
+        "token": "input_height"
+      },
+      {
+        "token": "config"
+      }
+    ],
+    "class": "YOLOv5Postprocessor",
+    "config_overrides": {},
+    "kwargs": {}
+  },
+  "visualizer": {
+    "args": [],
+    "class": "DetectionVisualizer",
+    "config_overrides": {},
+    "kwargs": {}
+  }
+}

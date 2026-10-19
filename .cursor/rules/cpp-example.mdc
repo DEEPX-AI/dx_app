@@ -11,4 +11,4 @@ globs: ["src/cpp_example/**"]
 - RAII with std::unique_ptr — no raw new/delete
 - SIGINT handler for loop-based apps
 - CMakeLists.txt must link dx_engine
-- Read `.deepx/skills/dx-build-cpp-app.md` for full patterns
+- Read `.deepx/skills/dx-agent-app-build-cpp/SKILL.md` for full patterns

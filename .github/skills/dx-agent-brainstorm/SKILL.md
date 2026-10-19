@@ -34,7 +34,7 @@ Before asking the user anything, gather facts silently:
 python -c "import json; models=json.load(open('config/model_registry.json')); print(f'Registry: {len(models)} models')"
 
 # 2. Check for existing examples matching the model
-ls src/python_example/<task>/<model>/ 2>/dev/null
+ls -d src/python_example/<task>/*/<variant>/ 2>/dev/null   # <variant> = .dxnn stem
 ```
 
 If an existing example is found, ask: **(a)** explain existing, or **(b)** create new based on it.

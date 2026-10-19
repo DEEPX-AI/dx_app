@@ -8,14 +8,15 @@ seconds, then receives SIGINT.  Success = exit 0 + frames > 0 + FPS > 0.
 Usage via run_tc.sh::
 
     ./run_tc.sh --python --camera --camera-index 0
-    ./run_tc.sh --python --rtsp --rtsp-url rtsp://192.168.30.100:8554/stream1
+    ./run_tc.sh --python --rtsp --rtsp-url rtsp://<server-addr>:8554/stream1
 
 Direct pytest::
 
     pytest tests/python_example/test_e2e_camera_rtsp.py -m e2e_camera \\
            --camera-index 0 --stream-duration 10 -v
     pytest tests/python_example/test_e2e_camera_rtsp.py -m e2e_rtsp \\
-           --rtsp-url rtsp://192.168.30.100:8554/stream1 -v
+           --rtsp-url rtsp://<server-addr>:8554/stream1 -v
+
 """
 
 import os
@@ -29,7 +30,8 @@ from typing import Optional
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+# conftest.py puts tests/ on sys.path; hence the noqa: E402 imports below.
+from test_helpers.proc import example_python  # noqa: E402
 from test_helpers.constants import (  # noqa: E402
     E2E_SHORT_MODELS,
     PROJECT_ROOT,
@@ -134,7 +136,7 @@ def test_camera_inference(script: Path, model_path: Optional[Path],
         pytest.skip(f"Model not found for {script.stem}")
 
     env = setup_environment()
-    cmd = [sys.executable, str(script),
+    cmd = [example_python(), str(script),
            "--model", str(model_path),
            "--camera", str(camera_index),
            "--no-display"]
@@ -156,7 +158,7 @@ def test_rtsp_inference(script: Path, model_path: Optional[Path],
         pytest.skip(f"Model not found for {script.stem}")
 
     env = setup_environment()
-    cmd = [sys.executable, str(script),
+    cmd = [example_python(), str(script),
            "--model", str(model_path),
            "--rtsp", rtsp_url,
            "--no-display"]

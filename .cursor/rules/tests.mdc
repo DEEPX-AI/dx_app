@@ -8,4 +8,4 @@ globs: ["tests/**"]
 # Test Rules
 
 - pytest markers: `@pytest.mark.slow`, `@pytest.mark.smoke`
-- Read `.deepx/skills/dx-validate.md` for validation patterns
+- Read `.deepx/skills/dx-agent-app-validate/SKILL.md` for validation patterns

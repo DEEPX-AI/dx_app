@@ -26,14 +26,18 @@ from typing import Any, Callable, Dict, List, Optional, Union
 import numpy as np
 import cv2
 
+from ..base.i_processor import SuperResolutionResult
 from ..config import load_config
 from ..utility import print_image_processing_summary, print_sync_performance_summary
+from ..utility.camera import open_camera_capture
 from ..utility.common_util import window_exists
+from ..utility.progress import progress_tick
 from ..utility.video_io import write_video_frame
 from ..utility.colorspace import bgr_to_y_limited, bgr_to_ycrcb_limited, ycrcb_limited_to_bgr
+from .interrupts import interrupt_scope
 from .run_dir import create_run_dir, write_run_info, dump_tensors, dump_tensors_on_exception
 from .sr_tiling import (
-    assemble_tiles, plan_tiles, resolve_runner_halo, run_tiles_pipelined,
+    plan_tiles, resolve_runner_halo, run_and_assemble_tiles,
 )
 from .verify_serialize import is_verify_enabled, dump_verify_json
 
@@ -229,17 +233,22 @@ _VID_LOWRES = "assets/videos/lowres-drone-city-road.mp4"
 # Tasks that accept image input only (no video/camera/rtsp stream).
 #   - embedding/reid/attribute_recognition: image-pair / single-image tasks
 #   - object_pose_estimation (DOPE): static-object pose, sample is sample/dope/*.png
-#   - 3d_detection (SFA3D): LiDAR .bin input, no video
+#   - 3d_object_detection (SFA3D): LiDAR .bin input, no video
 # NOTE: hand_detection / hand_landmark are NOT image-only — they run the single
 # model per frame on video/camera/RTSP the same way they run on a whole image
 # (no palm-detector crop stage), so they use the normal stream pipeline.
 # NOTE: -v/-c/-r are still accepted as CLI options; stream input is rejected at
 # runtime by _reject_image_only_stream_input() with a clear message.
-_IMAGE_ONLY_TASKS = {"embedding", "reid", "attribute_recognition",
-                     "object_pose_estimation", "3d_detection"}
+_IMAGE_ONLY_TASKS = {
+    "embedding", "reid", "attribute_recognition",
+    "face_recognition", "person_attribute", "face_attribute",
+    "person_reid", "image_retrieval", "visual_place_recognition",
+    "object_pose_estimation", "3d_object_detection",
+}
 
 _DEFAULT_SAMPLE_IMAGE = {
     "object_detection":       _IMG_STREET,
+    "mainbody_detection":     _IMG_STREET,
     "face_detection":         "sample/img/sample_face.jpg",
     "obb_detection":          "sample/img/sample_airport_satellite_view.png",
     "pose_estimation":        "sample/img/sample_people.jpg",
@@ -249,6 +258,19 @@ _DEFAULT_SAMPLE_IMAGE = {
     "instance_segmentation":  _IMG_STREET,
     "semantic_segmentation":  _IMG_PARKING,
     "classification":         "sample/img/sample_dog.jpg",
+    "image_classification":   "sample/img/sample_dog.jpg",
+    "oriented_object_detection": "sample/img/sample_airport_satellite_view.png",
+    "face_recognition":       "sample/img/face_pair",
+    "face_attribute":         "sample/img/sample_person_a1.jpg",
+    "face_landmark":          "sample/img/sample_face_a1.jpg",
+    "person_attribute":       "sample/img/sample_person_a1.jpg",
+    "person_reid":            "sample/reid/queries/sample_person_a2.jpg",
+    "image_retrieval":        "sample/img/sample_person_a2.jpg",
+    "visual_place_recognition": "sample/vpr/queries/q1.jpg",
+    "image_matting":          "sample/img/sample_person_b.jpg",
+    "low_light_enhancement":  "sample/img/sample_lowlight.jpg",
+    "zero_shot_image_classification": "sample/img/sample_dog.jpg",
+    "zero_shot_instance_segmentation": _IMG_STREET,
     "depth_estimation":       _IMG_PARKING,
     "image_denoising":        "sample/img/sample_denoising.jpg",
     "super_resolution":       _IMG_LOWRES_275x150,
@@ -258,10 +280,13 @@ _DEFAULT_SAMPLE_IMAGE = {
     "reid":                   "sample/img/person_pair",
     "ppu":                    _IMG_STREET,
     "keypoint_detection":     _IMG_STREET,
-    "object_pose_estimation": _IMG_STREET,
+    "object_pose_estimation": "sample/dope/000000.png",
     "panoptic_driving_perception": _IMG_PARKING,
-    "3d_object_detection":    _IMG_PARKING,
-    "3d_detection":           "sample/kitti/velodyne/000049.bin",
+    "3d_object_detection":    "sample/kitti/velodyne/000049.bin",
+    # No industrial-defect sample ships with dx_app, and these models produce a
+    # feature response for any input, so a structured scene is the honest default
+    # rather than a stand-in that implies a defect dataset is bundled.
+    "anomaly_detection":      _IMG_PARKING,
 }
 
 # Per-model sample image overrides, applied ahead of the task default.
@@ -279,6 +304,7 @@ _MODEL_SAMPLE_IMAGE_OVERRIDE = {
 
 _DEFAULT_SAMPLE_VIDEO = {
     "object_detection":       _VID_SNOWBOARD,
+    "mainbody_detection":     _VID_SNOWBOARD,
     "face_detection":         _VID_DANCE_GROUP,
     "obb_detection":          "assets/videos/obb.mp4",
     "pose_estimation":        "assets/videos/dance-solo.mov",
@@ -299,9 +325,69 @@ _DEFAULT_SAMPLE_VIDEO = {
     "keypoint_detection":     _VID_SNOWBOARD,
     "object_pose_estimation": _VID_SNOWBOARD,
     "panoptic_driving_perception": _VID_BLACKBOX,
-    "3d_object_detection":    _VID_BLACKBOX,
-    "3d_detection":           None,   # LiDAR .bin input only; video unsupported
+    # LiDAR .bin input only; there is no video form of a point cloud.
+    "3d_object_detection":    None,
+    "anomaly_detection":      _VID_BLACKBOX,
 }
+
+
+def _variant_spec(factory) -> dict:
+    """The factory's variant config, when it is a family factory.
+
+    A family factory serves every variant of its family, so per-variant behaviour --
+    image-only-ness and the default sample media -- comes from the variant config
+    rather than from a table keyed on the task name. The dx-modelzoo task rename
+    invalidates those keys, and two of its moves would otherwise change behaviour
+    outright (reid/casvit -> image_classification, embedding/eigenplaces ->
+    super_resolution). The tables remain the fallback for a hand-written factory.
+    """
+    spec = getattr(factory, "spec", None)
+    return spec if isinstance(spec, dict) else {}
+
+
+def resolve_companion_models(factory, primary_path: str) -> List[tuple]:
+    """``[(role, absolute path)]`` for the extra .dxnn files *factory* needs.
+
+    A factory opts in by defining ``get_companion_models(primary_path)`` returning
+    ``[(role, filename-or-path)]``; a relative name is resolved in the primary model's
+    own directory, which is how every deployment keeps a model set together.
+
+    Declaring this on the FACTORY rather than on the command line keeps the one-``-m``
+    contract that run_demo.sh, the sweeps and every generated entry script rely on.
+
+    A missing companion raises. Falling back to the primary alone would produce a
+    heatmap that still looks like a heatmap while meaning something else entirely --
+    the exact failure that a single-network "EfficientAD" example already demonstrated.
+    """
+    getter = getattr(factory, "get_companion_models", None)
+    if getter is None:
+        return []
+    declared = getter(primary_path) or []
+
+    base = Path(primary_path).resolve().parent
+    resolved = []
+    for role, name in declared:
+        path = Path(name)
+        if not path.is_absolute():
+            path = base / path
+        if not path.is_file():
+            raise FileNotFoundError(
+                f"[DXAPP] [ERROR] companion model for role {role!r} not found: {path}\n"
+                f"  {type(factory).__name__} needs it alongside the primary model "
+                f"({Path(primary_path).name}).\n"
+                "  This model set must be downloaded together; running the primary "
+                "network alone would produce a different measurement under the same "
+                "name."
+            )
+        resolved.append((role, str(path)))
+    return resolved
+
+
+def _is_image_only(factory, task_type: Optional[str]) -> bool:
+    spec = _variant_spec(factory)
+    if "image_only" in spec:
+        return bool(spec["image_only"])
+    return task_type in _IMAGE_ONLY_TASKS
 
 
 def _resolve_default_sample_image(task_type: Optional[str],
@@ -312,6 +398,13 @@ def _resolve_default_sample_image(task_type: Optional[str],
         if key.startswith(prefix):
             return image
     return _DEFAULT_SAMPLE_IMAGE.get(task_type, _IMG_STREET)
+
+
+def _resolve_default_sample_image_for(factory, task_type: Optional[str]) -> str:
+    spec = _variant_spec(factory)
+    if spec.get("default_image"):
+        return spec["default_image"]
+    return _resolve_default_sample_image(task_type, _factory_model_name(factory))
 
 
 def _factory_model_name(factory=None) -> Optional[str]:
@@ -334,20 +427,19 @@ def _apply_default_input(args, factory=None) -> None:
     task_type = factory.get_task_type() if factory else None
     # Image-only tasks: do not auto-fill an input. Let the dispatcher show a
     # hint so the user explicitly provides an image with --image.
-    if task_type in _IMAGE_ONLY_TASKS:
+    if _is_image_only(factory, task_type):
         return
-    default_image = _resolve_default_sample_image(
-        task_type, _factory_model_name(factory))
+    default_image = _resolve_default_sample_image_for(factory, task_type)
     args.image = default_image
     logger.info(f"No input specified. Using default sample: {default_image}")
 
 
 def _show_image_only_no_input_hint(args, factory=None) -> bool:
     task_type = factory.get_task_type() if factory and hasattr(factory, "get_task_type") else ""
-    if task_type not in _IMAGE_ONLY_TASKS or getattr(args, "image", None):
+    if not _is_image_only(factory, task_type) or getattr(args, "image", None):
         return False
 
-    hint = _resolve_default_sample_image(task_type, _factory_model_name(factory))
+    hint = _resolve_default_sample_image_for(factory, task_type)
     logger.info(
         f"Task '{task_type}' takes image input only.\n"
         f"        -> Provide an image with --image (-i), "
@@ -365,7 +457,7 @@ def _has_stream_input(args) -> bool:
 
 def _reject_image_only_stream_input(args, factory=None) -> None:
     task_type = factory.get_task_type() if factory and hasattr(factory, "get_task_type") else ""
-    if task_type not in _IMAGE_ONLY_TASKS or not _has_stream_input(args):
+    if not _is_image_only(factory, task_type) or not _has_stream_input(args):
         return
 
     logger.error(
@@ -419,19 +511,27 @@ def _auto_download_videos() -> bool:
 # Input validation
 # ======================================================================
 
-def _example_key_from_argv0() -> str:
-    """Derive the example key from the entry script name (SDKREQ-529).
+def example_key(name: str) -> str:
+    """The example key of an entry script stem (SDKREQ-529).
 
     Entry scripts are named ``<example>_sync.py`` / ``<example>_async.py``
-    (optionally ``_cpp_postprocess``), and ``<example>`` matches the
-    ``model_name`` key in config/model_registry.json.
+    (optionally ``_cpp_postprocess``). For a per-model script ``<example>``
+    is the registry ``variant``; ``model_name`` is accepted too. The family's
+    ORT-off debug scripts (``yolov8n_sync_ort_off.py``) carry a trailing
+    ``_ort_off``, which is dropped first.
     """
-    name = Path(sys.argv[0]).stem  # drops ".py"
+    if name.endswith("_ort_off"):
+        name = name[: -len("_ort_off")]
     for suf in ("_async_cpp_postprocess", "_sync_cpp_postprocess",
                 "_cpp_postprocess", "_async", "_sync"):
         if name.endswith(suf):
             return name[: -len(suf)]
     return name
+
+
+def _example_key_from_argv0() -> str:
+    """:func:`example_key` of the entry script that started this process."""
+    return example_key(Path(sys.argv[0]).stem)  # stem drops ".py"
 
 
 def _resolve_default_model_path() -> Optional[str]:
@@ -454,9 +554,15 @@ def _resolve_default_model_path() -> Optional[str]:
             entries = json.load(f)
     except Exception:
         return None
-    for e in entries:
-        if e.get("model_name") == key and e.get("dxnn_file"):
-            return f"assets/models/{e['dxnn_file']}"
+    rows = [e for e in entries if isinstance(e, dict) and e.get("dxnn_file")]
+    # Per-model scripts are named after the registry variant; a model_name
+    # still resolves. An alias_of row shares its target's variant, so the
+    # canonical row wins.
+    for field in ("variant", "model_name"):
+        matches = [e for e in rows if e.get(field) == key]
+        if matches:
+            canonical = [e for e in matches if not e.get("alias_of")]
+            return f"assets/models/{(canonical or matches)[0]['dxnn_file']}"
     return None
 
 
@@ -528,7 +634,8 @@ def _validate_media(args, factory=None) -> None:
             logger.error(f"Image path must be a valid file or directory: {args.image}")
             sys.exit(1)
         # 3D LiDAR examples consume raw point clouds — reject a non-.bin file.
-        if task_type == "3d_detection" and p.is_file() and p.suffix.lower() != ".bin":
+        if (task_type == "3d_object_detection" and p.is_file()
+                and p.suffix.lower() != ".bin"):
             logger.error(
                 "This example requires a LiDAR point-cloud .bin input "
                 f"(--image / -i). Got: {args.image}")
@@ -600,6 +707,7 @@ class SyncRunner:
         self._display_size = display_size or _DEFAULT_DISPLAY_SIZE
 
         self.ie: Optional[Any] = None
+        self._companion_engines: List[tuple] = []
         self.input_width = 0
         self.input_height = 0
         self.preprocessor = None
@@ -619,6 +727,7 @@ class SyncRunner:
         self._sr_halo: Optional[int] = None      # resolved once, then cached
         self._sr_tiling_logged = False           # tiles-per-frame line: once per run
         self._video_writer_size = None  # (w, h) the writer was opened with
+        self._verify_source = ""  # DXAPP_VERIFY "input_image" of a stream
 
     # ------------------------------------------------------------------
     # Public API
@@ -626,17 +735,27 @@ class SyncRunner:
 
     def run(self, args) -> None:
         """Main entry point."""
+        with interrupt_scope():
+            try:
+                self._run(args)
+            except KeyboardInterrupt:
+                # SIGINT/SIGTERM outside a stream loop (setup, image mode): end cleanly.
+                logger.info("\nInterrupted by user.")
+
+    def _run(self, args) -> None:
         _check_dxrt_version()
         _apply_default_input(args, self.factory)
         _reject_image_only_stream_input(args, self.factory)
+        # An image-only example given no image answers with the hint before anything
+        # else -- it needs no model to say "use --image" (a missing model used to win).
+        if _show_image_only_no_input_hint(args, self.factory):
+            return
         _validate_inputs(args, self.factory)
 
         self._verbose = getattr(args, "show_log", False)
         self._model_path = args.model
         self._fast_postprocess = getattr(args, "fast_postprocess", False)
         self._sr_halo_cli = getattr(args, "sr_tile_halo", None)
-        if _show_image_only_no_input_hint(args, self.factory):
-            return
         self._init_engine(args.model, _resolve_config_path(args))
 
         self._save = getattr(args, "save", False)
@@ -652,7 +771,7 @@ class SyncRunner:
         display = args.display
         task = self.factory.get_task_type() if hasattr(self.factory, "get_task_type") else ""
         _reject_image_only_stream_input(args, self.factory)
-        if task in _IMAGE_ONLY_TASKS and not getattr(args, "image", None):
+        if _is_image_only(self.factory, task) and not getattr(args, "image", None):
             _show_image_only_no_input_hint(args, self.factory)
             return
         if getattr(args, "image", None):
@@ -687,6 +806,13 @@ class SyncRunner:
             self.ie = InferenceEngine(model_path)
 
         _check_model_version(self.ie)
+
+        self._companion_engines = []
+        for role, path in resolve_companion_models(self.factory, model_path):
+            engine = InferenceEngine(path)
+            _check_model_version(engine)
+            self._companion_engines.append((role, engine))
+            logger.info(f"Companion model ({role}): {path}")
 
         input_info = self.ie.get_input_tensors_info()
         shape = input_info[0]["shape"]
@@ -766,7 +892,14 @@ class SyncRunner:
         return input_tensor
 
     def infer(self, input_tensor: np.ndarray) -> List[np.ndarray]:
-        return self.ie.run([self._prep_input(input_tensor)])
+        prepared = self._prep_input(input_tensor)
+        outputs = list(self.ie.run([prepared]))
+        # Primary first, then companions in the order the factory declared them.
+        # Teacher and autoencoder are the same shape, so nothing downstream could
+        # recover the mapping if this order were incidental.
+        for _role, engine in self._companion_engines:
+            outputs.extend(engine.run([prepared]))
+        return outputs
 
     def postprocess(self, outputs: List[np.ndarray], ctx):
         if self._cpp_postprocessor is not None:
@@ -965,8 +1098,6 @@ class SyncRunner:
         """Dump numerical verification JSON if DXAPP_VERIFY=1."""
         if not is_verify_enabled():
             return
-        if self._cpp_postprocessor is not None:
-            return
         task = self.factory.get_task_type() \
             if hasattr(self.factory, "get_task_type") else ""
         dump_verify_json(
@@ -987,9 +1118,13 @@ class SyncRunner:
         env_save = os.environ.get("DXAPP_SAVE_IMAGE")
         if not save_enabled and not env_save:
             return 0.0
+        if output_img is None:
+            self._warn_nothing_rendered(image_path)
+            return 0.0
         t0 = time.perf_counter()
         if save_enabled and run_dir and output_img is not None:
             base = os.path.splitext(os.path.basename(image_path))[0]
+            run_dir.mkdir(parents=True, exist_ok=True)
             cv2.imwrite(str(run_dir / f"{base}_result.jpg"), output_img)
             if sr_only is not None:
                 cv2.imwrite(str(run_dir / f"{base}_output_only.jpg"), sr_only)
@@ -999,6 +1134,31 @@ class SyncRunner:
                 _stem, _ext = os.path.splitext(env_save)
                 cv2.imwrite(f"{_stem}_output_only{_ext}", sr_only)
         return time.perf_counter() - t0
+
+    def _warn_nothing_rendered(self, image_path: str) -> None:
+        """Say that --save wrote nothing, and why -- once per run.
+
+        A comparison visualizer keeps the first image as its reference and returns no
+        frame for it, so a single-image run legitimately saves nothing. Without this
+        message the run looks completely successful -- performance summary, run
+        directory, no picture -- and the only way to find out why is to read the
+        visualizer.
+        """
+        if getattr(self, "_nothing_rendered_warned", False):
+            return
+        self._nothing_rendered_warned = True
+        name = os.path.basename(image_path) if image_path else "the input"
+        if getattr(self.visualizer, "NEEDS_REFERENCE", False):
+            logger.warning(
+                "No output image for %s: this task compares against a reference, and "
+                "the FIRST image becomes that reference (nothing to compare it with "
+                "yet). Pass a directory holding 2 or more images so each one after the "
+                "first is compared -- e.g. --image sample/img/face_pair (or "
+                "sample/img/person_pair for Re-ID).", name)
+        else:
+            logger.warning(
+                "No output image for %s: the visualizer returned no frame, so nothing "
+                "was saved.", name)
 
     def _display_image_output(self, output_img: np.ndarray,
                               display: bool) -> float:
@@ -1086,7 +1246,10 @@ class SyncRunner:
                 if batch_run_dir:
                     base = os.path.splitext(os.path.basename(img_path))[0]
                     sub_dir = batch_run_dir / base
-                    sub_dir.mkdir(parents=True, exist_ok=True)
+                    # Created lazily, where the image is actually written: a comparison
+                    # visualizer renders nothing for its reference frame, and creating
+                    # the folder here left an empty 1_reference/ that reads like an
+                    # output which failed to be written.
                 result = self._image_inference_once(
                     img_path, display, save_enabled, sub_dir)
                 _add_sync_metrics(batch_metrics, result["metrics"])
@@ -1113,7 +1276,8 @@ class SyncRunner:
 
     def _process_stream_frame(self, frame: np.ndarray,
                               frame_count: int, run_dir: Optional[Path],
-                              source_label: str) -> dict:
+                              source_label: str,
+                              do_render: bool = True) -> dict:
         """Run pre/infer/post/viz on a single frame. Returns timing dict + output."""
         input_tensor: Optional[np.ndarray] = None
         outputs: List[np.ndarray] = []
@@ -1131,7 +1295,8 @@ class SyncRunner:
 
             results = self.postprocess(outputs, ctx)
             t3 = time.perf_counter()
-            output_frame = self.visualize(frame, results)
+            self._try_verify_dump(results, self._verify_source, frame)
+            output_frame = self.visualize(frame, results) if do_render else None
             t4 = time.perf_counter()
         except Exception:
             dump_target = run_dir if run_dir else create_run_dir(
@@ -1190,6 +1355,8 @@ class SyncRunner:
         t2 = time.perf_counter()
 
         sr_bgr = self._merge_ycrcb(sr_y, frame, out_w, out_h)
+        self._try_verify_dump([SuperResolutionResult(output_image=sr_bgr, scale_factor=scale_x)],
+                              self._verify_source, frame)
         t3 = time.perf_counter()
 
         # Side-by-side canvas
@@ -1260,6 +1427,7 @@ class SyncRunner:
         t_disp, quit_requested = self._display_stream_frame(
             result["output_frame"], display, frame_count)
         metrics["sum_display"] += t_disp
+        progress_tick(metrics)   # [PROGRESS] for front ends (DXAPP_PROGRESS=1)
         return frame_count, quit_requested
 
     @staticmethod
@@ -1291,11 +1459,12 @@ class SyncRunner:
     def _stream_inference_once(self, source: Union[str, int],
                                display: bool, save_enabled: bool,
                                run_dir: Optional[Path]) -> dict:
-        cap = cv2.VideoCapture(source)
+        cap = open_camera_capture(source)
         if not cap.isOpened():
             raise RuntimeError(f"Failed to open source: {source}")
 
         is_live, source_label = self._classify_source(source)
+        self._verify_source = source_label
         if is_live:
             cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 
@@ -1313,7 +1482,7 @@ class SyncRunner:
         metrics = _create_sync_metrics()
         frame_count = 0
         quit_requested = False
-        writer = self._init_video_writer_probed(cap, run_dir) if (save_enabled and run_dir) else None
+        writer = None
 
         # Detect if this model needs tiled super-resolution
         use_sr_tiled = self._is_sr_tiled()
@@ -1322,8 +1491,15 @@ class SyncRunner:
             use_sr_tiled = self._sr_cache is not None
 
         start_time = time.perf_counter()
+        # Preview rate for the serial sync loop. -s still renders every frame.
+        preview_interval_s = 0.1
+        last_preview = 0.0
+        env_save = os.environ.get("DXAPP_SAVE_IMAGE")
 
         try:
+            # Opened inside the try: an interrupt right after it still releases it.
+            if save_enabled and run_dir:
+                writer = self._init_video_writer_probed(cap, run_dir)
             while True:
                 t_read_start = time.perf_counter()
                 ret, frame = cap.read()
@@ -1332,25 +1508,34 @@ class SyncRunner:
                     break
 
                 frame_count += 1
+                now = time.perf_counter()
+                preview_due = display and (now - last_preview) >= preview_interval_s
+                do_render = bool(save_enabled or env_save or preview_due)
                 if use_sr_tiled:
                     result = self._process_sr_stream_frame(
                         frame, frame_count)
                 else:
                     result = self._process_stream_frame(
-                        frame, frame_count, run_dir, source_label)
+                        frame, frame_count, run_dir, source_label,
+                        do_render=do_render)
+                if preview_due and result.get("output_frame") is not None:
+                    last_preview = now
 
                 self._accumulate_stream_metrics(metrics, result, t_read)
                 metrics["sum_save"] += self._save_stream_frame(
                     result["output_frame"], writer)
 
                 t_disp, quit_requested = self._display_stream_frame(
-                    result["output_frame"], display, frame_count)
+                    result["output_frame"], display and preview_due, frame_count)
                 metrics["sum_display"] += t_disp
+                progress_tick(metrics)   # [PROGRESS] for front ends (DXAPP_PROGRESS=1)
 
                 if quit_requested:
                     break
         except KeyboardInterrupt:
             logger.info("\nInterrupted by user.")
+            # Stop the whole run: without this, --loop N starts the next pass.
+            quit_requested = True
         finally:
             self._release_capture(writer, cap)
 
@@ -1482,10 +1667,11 @@ class SyncRunner:
         # than full-range gray.
         lr_gray = bgr_to_y_limited(lr_bgr)
 
-        outputs = run_tiles_pipelined(
-            self.ie, self._prep_input, lr_gray, plans, tile_h, tile_w)
-        sr_y, tiles_done = assemble_tiles(
-            plans, outputs, padded_h * scale_y, padded_w * scale_x, scale_y, scale_x)
+        # Each tile is stitched as it arrives, so the frame never holds every
+        # tile output at once.
+        sr_y, tiles_done = run_and_assemble_tiles(
+            self.ie, self._prep_input, lr_gray, plans, tile_h, tile_w,
+            padded_h * scale_y, padded_w * scale_x, scale_y, scale_x)
 
         return (sr_y[:orig_h * scale_y, :orig_w * scale_x],
                 tiles_done, len(plans))
@@ -1519,6 +1705,8 @@ class SyncRunner:
         t_i1 = time.perf_counter()
 
         sr_bgr = self._merge_ycrcb(sr_y, img, out_w, out_h)
+        self._try_verify_dump([SuperResolutionResult(output_image=sr_bgr, scale_factor=scale_x)],
+                              image_path, img)
         t3 = time.perf_counter()
 
         lr_up = cv2.resize(img, (out_w, out_h),

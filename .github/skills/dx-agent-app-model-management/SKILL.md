@@ -250,19 +250,31 @@ application code.
 
 ## Task Code Reference
 
-| csv_task | add_model_task | Count |
-|---|---|---|
-| OD | object_detection | ~50 |
-| IC | classification | ~15 |
-| ISEG | instance_segmentation | ~8 |
-| POSE | pose_estimation | ~6 |
-| FD | face_detection | ~8 |
-| SEG | semantic_segmentation | ~5 |
-| DE | depth_estimation | ~2 |
-| DN | image_denoising | 3 |
-| IE | image_enhancement | 1 |
-| SR | super_resolution | 1 |
-| FREC | embedding | 1 |
-| OBB | obb_detection | 1 |
-| HL | hand_landmark | 1 |
-| PPU | ppu | ~2 |
+| add_model_task | csv_task |
+|---|---|
+| object_detection | OD |
+| mainbody_detection | OD |
+| classification | IC |
+| instance_segmentation | ISEG, SEG |
+| pose_estimation | POSE |
+| face_detection | FD |
+| semantic_segmentation | SEG |
+| depth_estimation | DEPTH |
+| image_denoising | DN |
+| image_enhancement | LLIE |
+| super_resolution | SR |
+| embedding | FREC |
+| obb_detection | OBB |
+| hand_landmark | HAND |
+| ppu | PPU, OD, FD, POSE |
+| 3d_object_detection | 3DOD |
+| attribute_recognition | ATTR, MCL |
+| face_alignment | F3D |
+| hand_detection | HD |
+| keypoint_detection | KD |
+| object_pose_estimation | OD |
+| panoptic_driving_perception | OD |
+| reid | REID |
+
+> For per-task model counts see `agents/dx-model-manager.md` ("Model Count by Task")
+> or query `config/model_registry.json` directly.

@@ -27,7 +27,7 @@ public:
                          float nms_threshold = 0.45f,
                          int num_classes = 80,
                          int reg_max = 10,
-                         bool is_ort_configured = false,
+                         bool /*is_ort_configured*/ = false,
                          const std::vector<std::string>& class_names = {})
         : input_width_(input_width), input_height_(input_height),
           conf_threshold_(conf_threshold), nms_threshold_(nms_threshold),
@@ -90,7 +90,10 @@ public:
         for (int i = 0; i < N && i < static_cast<int>(anchor_cx_.size()); ++i) {
             const float* row = data + i * cols;
 
-            auto [max_score, max_cls] = findMaxClassScore_(row, num_classes_, need_sigmoid);
+            const std::pair<float, int> max_result =
+                findMaxClassScore_(row, num_classes_, need_sigmoid);
+            const float max_score = max_result.first;
+            const int max_cls = max_result.second;
             if (max_score < conf_threshold_) continue;
 
             const float* reg = row + num_classes_;

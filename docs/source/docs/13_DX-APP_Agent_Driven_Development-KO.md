@@ -1,9 +1,9 @@
-# DX-APP 에이전틱 개발 가이드
+# DX-APP Agent-Driven 개발 가이드
 
 ## 개요
 
 DX-APP은 DEEPX NPU 가속기에서 독립형 추론 애플리케이션을 구축하기 위한
-DEEPX agent-driven development (dx-agent-dev) 를 지원합니다. 보일러플레이트를 수동으로 작성하는 대신
+DEEPX agent-driven development (dx-agent-dev)를 지원합니다. boilerplate를 수동으로 작성하는 대신
 자연어로 원하는 것을 설명하면, 전문 에이전트 네트워크가 프로덕션 수준의
 추론 코드를 생성하고 검증하여 결과를 보고합니다.
 
@@ -18,10 +18,10 @@ dx_app 독립형 추론 개발을 위한 문제 해결을 다룹니다.
 
 | 에이전트 | 설명 | 라우팅 대상 |
 |---|---|---|
-| `dx-app-builder` | 마스터 라우터 — 요청 유형을 분류하고<br>적절한 전문 에이전트에 디스패치 | `dx-python-builder`<br>`dx-cpp-builder`<br>`dx-benchmark-builder`<br>`dx-model-manager` |
+| `dx-app-builder` | 마스터 라우터 — 요청 유형을 분류하고<br>적절한 전문 에이전트에 dispatch | `dx-python-builder`<br>`dx-cpp-builder`<br>`dx-benchmark-builder`<br>`dx-model-manager` |
 | `dx-python-builder` | 4가지 변형으로 Python 추론 앱 빌드:<br>`sync`, `async`, `sync_cpp_postprocess`,<br>`async_cpp_postprocess`<br>(Sub-agent — dx-app-builder가 호출) | — |
 | `dx-cpp-builder` | `InferenceEngine` API를 사용한 C++ 추론 앱 빌드 (Sub-agent — dx-app-builder가 호출) | — |
-| `dx-benchmark-builder` | 대상 하드웨어에서의 추론 성능 벤치마크 및 프로파일링 (Sub-agent — dx-app-builder가 호출) | — |
+| `dx-benchmark-builder` | 대상 하드웨어에서의 추론 성능 벤치마크 및 profiling (Sub-agent — dx-app-builder가 호출) | — |
 | `dx-model-manager` | `.dxnn` 컴파일 모델 다운로드, 등록, 관리 (Sub-agent — dx-app-builder가 호출) | — |
 | `dx-validator` | 생성된 앱 코드와 `.deepx/` 프레임워크 무결성 검증 | — |
 
@@ -35,7 +35,7 @@ dx-app-builder  (의도 분류)
     │
     ├──► dx-python-builder    (Python 추론 앱)
     ├──► dx-cpp-builder       (C++ 추론 앱)
-    ├──► dx-benchmark-builder (성능 프로파일링)
+    ├──► dx-benchmark-builder (성능 profiling)
     └──► dx-model-manager     (모델 작업)
             │
             ▼
@@ -46,19 +46,19 @@ dx-app-builder  (의도 분류)
 
 ## 스킬
 
-스킬은 에이전트가 코드 생성 중 호출하는 재사용 가능한 워크플로우를 캡슐화합니다.
+스킬은 에이전트가 코드 생성 중 호출하는 재사용 가능한 workflow를 캡슐화합니다.
 
 **범용 SWE 프로세스**  
 
 | 스킬 | 설명 |
 |------|------|
-| `dx-swe-brainstorm` | 코드 생성 전 브레인스토밍 및 계획 수립 |
-| `dx-swe-tdd` | 테스트 주도 개발 — 파일 생성 직후 즉시 검증 |
-| `dx-swe-verify` | 완료 선언 전 검증 — 증거 기반 확인 |
+| `dx-agent-brainstorm` | 코드 생성 전 brainstorming 및 계획 수립 |
+| `dx-agent-tdd` | 테스트 주도 개발 — 파일 생성 직후 즉시 검증 |
+| `dx-agent-verify` | 완료 선언 전 검증 — 증거 기반 확인 |
 | `dx-swe-writing-plans` | 코드 작성 전 구조화된 구현 계획 작성 |
-| `dx-swe-executing-plans` | 리뷰 체크포인트가 포함된 구현 계획 실행 |
+| `dx-swe-executing-plans` | 리뷰 checkpoint가 포함된 구현 계획 실행 |
 | `dx-swe-debugging` | 체계적 디버깅 — 수정 제안 전 진단 수행 |
-| `dx-swe-parallel-agents` | 2개 이상의 독립 작업을 병렬 에이전트에 디스패치 |
+| `dx-swe-parallel-agents` | 2개 이상의 독립 작업을 병렬 에이전트에 dispatch |
 | `dx-swe-subagent-dev` | 독립 서브 에이전트를 활용한 구현 계획 실행 |
 | `dx-swe-receiving-review` | 기술적 엄밀성을 갖춘 코드 리뷰 피드백 수신 및 처리 |
 | `dx-swe-requesting-review` | 작업이 요구 사항을 충족하는지 검증하기 위한 코드 리뷰 요청 |
@@ -71,14 +71,14 @@ dx-app-builder  (의도 분류)
 | `dx-agent-app-build-python` | IFactory 패턴을 사용하여 4가지 변형의 Python 추론 앱 빌드 |
 | `dx-agent-app-build-cpp` | `InferenceEngine` 런타임 API를 사용한 C++ 추론 앱 빌드 |
 | `dx-agent-app-build-async` | 파이프라인화된 전처리/추론/후처리 단계의 비동기 고성능 앱 빌드 |
-| `dx-agent-app-model-management` | 레지스트리에서 `.dxnn` 모델 다운로드 및 모델 경로 설정 |
-| `dx-agent-app-validate` | 생성된 코드에 대해 5단계 검증 피라미드 실행 |
+| `dx-agent-app-model-management` | registry에서 `.dxnn` 모델 다운로드 및 모델 경로 설정 |
+| `dx-agent-app-validate` | 생성된 코드에 대해 5단계 검증 pyramid 실행 |
 
 ---
 
 ## 지원 AI 도구
 
-dx_app 에이전틱 개발은 4가지 AI 코딩 도구에서 작동합니다. 각 도구는
+dx_app agent-driven 개발은 5가지 AI 코딩 도구에서 작동합니다. 각 도구는
 자체 설정을 통해 지식 베이스를 자동으로 로드합니다.
 
 | 도구 | 설정 파일 | 사용 가능한 에이전트 |
@@ -90,29 +90,29 @@ dx_app 에이전틱 개발은 4가지 AI 코딩 도구에서 작동합니다. �
 
 ### Copilot 파일별 자동 Instruction
 
-다음 글로브 패턴에 매칭되는 파일 편집 시, Copilot이 자동으로
+다음 glob 패턴에 매칭되는 파일 편집 시, Copilot이 자동으로
 컨텍스트별 instruction을 주입합니다:
 
-| 글로브 패턴 | 주입되는 Instruction | 내용 |
+| glob 패턴 | 주입되는 Instruction | 내용 |
 |---|---|---|
-| `src/python_example/**` | `python-example.instructions.md` | IFactory 패턴, SyncRunner/AsyncRunner 사용법, 4변형 네이밍 |
+| `src/python_example/**` | `python-example.instructions.md` | IFactory 패턴, SyncRunner/AsyncRunner 사용법, 4변형 naming |
 | `src/cpp_example/**` | `cpp-example.instructions.md` | C++14 표준, RAII 패턴, InferenceEngine API |
 | `src/postprocess/**` | `postprocess.instructions.md` | 후처리 규칙, pybind 바인딩 |
 | `tests/**` | `tests.instructions.md` | pytest 패턴, fixture, NPU 마커 |
 
-### OpenCode 스킬 (슬래시 명령)
+### OpenCode 스킬 (slash 명령)
 
 **범용 SWE 프로세스**
 
-| 슬래시 명령 | 설명 |
+| slash 명령 | 설명 |
 |---|---|
-| `/dx-swe-brainstorm` | 코드 생성 전 브레인스토밍 및 계획 수립 |
-| `/dx-swe-tdd` | 점진적 검증을 포함한 테스트 주도 개발 |
-| `/dx-swe-verify` | 증거 기반 완료 검증 |
+| `/dx-agent-brainstorm` | 코드 생성 전 brainstorming 및 계획 수립 |
+| `/dx-agent-tdd` | 점진적 검증을 포함한 테스트 주도 개발 |
+| `/dx-agent-verify` | 증거 기반 완료 검증 |
 | `/dx-swe-writing-plans` | 구조화된 구현 계획 작성 |
-| `/dx-swe-executing-plans` | 리뷰 체크포인트가 포함된 구현 계획 실행 |
+| `/dx-swe-executing-plans` | 리뷰 checkpoint가 포함된 구현 계획 실행 |
 | `/dx-swe-debugging` | 체계적 디버깅 — 수정 전 진단 |
-| `/dx-swe-parallel-agents` | 독립 작업을 병렬 에이전트에 디스패치 |
+| `/dx-swe-parallel-agents` | 독립 작업을 병렬 에이전트에 dispatch |
 | `/dx-swe-subagent-dev` | 독립 서브 에이전트를 활용한 계획 실행 |
 | `/dx-swe-receiving-review` | 기술적 엄밀성을 갖춘 코드 리뷰 피드백 수신 |
 | `/dx-swe-requesting-review` | 작업 검증을 위한 코드 리뷰 요청 |
@@ -120,13 +120,13 @@ dx_app 에이전틱 개발은 4가지 AI 코딩 도구에서 작동합니다. �
 
 **DEEPX 빌드**
 
-| 슬래시 명령 | 설명 |
+| slash 명령 | 설명 |
 |---|---|
 | `/dx-agent-app-build-python` | IFactory를 사용한 단계별 Python 앱 생성 |
 | `/dx-agent-app-build-cpp` | InferenceEngine을 사용한 C++ 앱 |
 | `/dx-agent-app-build-async` | 비동기 고성능 앱 |
-| `/dx-agent-app-model-management` | 모델 다운로드 및 레지스트리 |
-| `/dx-agent-app-validate` | 5단계 검증 피라미드 실행 |
+| `/dx-agent-app-model-management` | 모델 다운로드 및 registry |
+| `/dx-agent-app-validate` | 5단계 검증 pyramid 실행 |
 
 ### 플랫폼별 파일 참조
 
@@ -194,11 +194,11 @@ dx_app 에이전틱 개발은 4가지 AI 코딩 도구에서 작동합니다. �
 | 디렉토리 | 파일 | 설명 |
 |-----------|-------|-------------|
 | `.deepx/agents/` | 6개 파일 (`dx-app-builder.md`, `dx-python-builder.md`, `dx-cpp-builder.md`, `dx-benchmark-builder.md`, `dx-model-manager.md`, `dx-validator.md`) | 권위 있는 에이전트 정의 |
-| `.deepx/skills/` | 17개 디렉토리 | 상세 스킬 워크플로우 (디렉토리당 `SKILL.md` 1개) |
+| `.deepx/skills/` | 17개 디렉토리 | 상세 스킬 workflow (디렉토리당 `SKILL.md` 1개) |
 | `.deepx/templates/` | 템플릿 파일 | 코드 생성 템플릿 |
 | `.deepx/knowledge/` | 지식 파일 | 도메인별 참조 자료 |
-| `.deepx/toolsets/` | 5개 파일 | API 참조 및 스키마 문서 |
-| `.deepx/instructions/` | 6개 파일 | 코딩 표준 및 워크플로우 규칙 |
+| `.deepx/toolsets/` | 6개 파일 | API 참조 및 schema 문서 |
+| `.deepx/instructions/` | 6개 파일 | 코딩 표준 및 workflow 규칙 |
 | `.deepx/memory/` | 5개 파일 | 지속적 지식 — 함정 및 세션 메모리 |
 | `.deepx/contextual-rules/` | 4개 파일 | 작업 유형에 따라 활성화되는 컨텍스트 의존 규칙 |
 
@@ -264,7 +264,7 @@ dx_app 에이전틱 개발은 4가지 AI 코딩 도구에서 작동합니다. �
 | **Claude Code** | `@dx-validator` 뒤에 프롬프트 입력. |
 | **GitHub Copilot** | `@dx-validator` 뒤에 프롬프트 입력. |
 | **Cursor** | 프롬프트를 직접 입력. |
-| **OpenCode** | `@dx-validator` 뒤에 프롬프트 입력, 또는 수동 실행: `python .deepx/scripts/validate_app.py src/python_example/object_detection/yolo26n/` |
+| **OpenCode** | `@dx-validator` 뒤에 프롬프트 입력, 또는 수동 실행: `python .deepx/scripts/validate_app.py src/python_example/object_detection/yolo26/yolo26-n_640x640/` |
 
 ### 시나리오 5: 포즈 추정 앱 빌드
 
@@ -276,7 +276,7 @@ dx_app 에이전틱 개발은 4가지 AI 코딩 도구에서 작동합니다. �
 
 | 도구 | 사용 방법 |
 |---|---|
-| **Claude Code** | 프롬프트를 직접 입력. `dx-agent-app-build-python` 스킬이 `pose_estimation` 작업 유형으로 라우팅. 키포인트 시각화 및 스켈레톤 그리기 로직 생성. |
+| **Claude Code** | 프롬프트를 직접 입력. `dx-agent-app-build-python` 스킬이 `pose_estimation` 작업 유형으로 라우팅. keypoint 시각화 및 skeleton 그리기 로직 생성. |
 | **GitHub Copilot** | `@dx-app-builder` 뒤에 프롬프트 입력. 포즈 전용 후처리와 함께 `dx-python-builder`로 라우팅. |
 | **Cursor** | 프롬프트를 직접 입력. `src/python_example/pose_estimation/` 파일 생성 시 `python-example.mdc` 활성화. |
 | **OpenCode** | `@dx-app-builder` 뒤에 프롬프트 입력, 또는 `/dx-agent-app-build-python` 스킬 직접 사용. |
@@ -291,7 +291,7 @@ dx_app 에이전틱 개발은 4가지 AI 코딩 도구에서 작동합니다. �
 
 | 도구 | 사용 방법 |
 |---|---|
-| **Claude Code** | 프롬프트를 직접 입력. `dx-agent-app-build-python` 스킬이 `instance_segmentation` 작업 유형으로 라우팅. 마스크 오버레이 시각화 생성. |
+| **Claude Code** | 프롬프트를 직접 입력. `dx-agent-app-build-python` 스킬이 `instance_segmentation` 작업 유형으로 라우팅. mask overlay 시각화 생성. |
 | **GitHub Copilot** | `@dx-app-builder` 뒤에 프롬프트 입력. 세그멘테이션 전용 후처리와 함께 `dx-python-builder`로 라우팅. |
 | **Cursor** | 프롬프트를 직접 입력. `src/python_example/instance_segmentation/` 파일 생성 시 `python-example.mdc` 활성화. |
 | **OpenCode** | `@dx-app-builder` 뒤에 프롬프트 입력, 또는 `/dx-agent-app-build-python` 스킬 직접 사용. |
@@ -306,9 +306,9 @@ dx_app 에이전틱 개발은 4가지 AI 코딩 도구에서 작동합니다. �
 
 | 도구 | 사용 방법 |
 |---|---|
-| **Claude Code** | 프롬프트를 직접 입력. `dx-agent-app-build-python` 스킬이 `classification` 작업 유형으로 라우팅. Top-K 레이블 예측 로직 생성. |
+| **Claude Code** | 프롬프트를 직접 입력. `dx-agent-app-build-python` 스킬이 `image_classification` 작업 유형으로 라우팅. Top-K 레이블 예측 로직 생성. |
 | **GitHub Copilot** | `@dx-app-builder` 뒤에 프롬프트 입력. 분류 후처리(softmax + Top-K)와 함께 `dx-python-builder`로 라우팅. |
-| **Cursor** | 프롬프트를 직접 입력. `src/python_example/classification/` 파일 생성 시 `python-example.mdc` 활성화. |
+| **Cursor** | 프롬프트를 직접 입력. `src/python_example/image_classification/` 파일 생성 시 `python-example.mdc` 활성화. |
 | **OpenCode** | `@dx-app-builder` 뒤에 프롬프트 입력, 또는 `/dx-agent-app-build-python` 스킬 직접 사용. |
 
 ### 시나리오 8: 비동기 고성능 앱 빌드
@@ -372,29 +372,30 @@ dx-agent-dev/<session_id>/
 ├── setup.sh               # 환경 설정 스크립트 (필수)
 ├── run.sh                 # 앱 실행 스크립트 (필수)
 ├── session.log            # 에이전트 세션 로그 (필수)
-└── src/python_example/{task}/{model}/
-    ├── __init__.py
-    ├── config.json
-    ├── {model}_factory.py
-    ├── {model}_sync.py
-    ├── {model}_async.py
-    ├── {model}_sync_cpp_postprocess.py
-    └── {model}_async_cpp_postprocess.py
+├── __init__.py
+├── config.json
+├── factory/
+│   ├── __init__.py
+│   └── {model}_factory.py
+├── {model}_sync.py
+├── {model}_async.py
+├── {model}_sync_cpp_postprocess.py
+└── {model}_async_cpp_postprocess.py
 ```
 
-세션 ID 형식: `YYYYMMDD-HHMMSS_<agent>_<model>_<task>` — `<agent>`는 `claude`, `copilot`, `cursor`, `opencode` 중 하나 (예: `20260403-143022_claude_yolo26n_detection`).
+세션 ID 형식: `YYYYMMDD-HHMMSS_<agent>_<coding_model>_<target_model>_<task>` — `<agent>`는 `claude`, `codex`, `copilot`, `cursor`, `opencode` 중 하나 (예: `20260403-143022_claude_sonnet46_yolo26n_detection`). timestamp는 시스템 로컬 시간입니다.
 
 ### 프로덕션 출력 (src/)
 
 프로덕션 배치를 명시적으로 요청하면 파일이 표준 소스 트리인
-`src/python_example/{task}/{model}/`에 직접 작성됩니다.
+`src/python_example/{task}/{family}/{variant}/`에 직접 작성됩니다 (`{variant}`는 `.dxnn` stem).
 
 ### 파일 설명
 
 | 파일 | 용도 |
 |---|---|
 | `config.json` | 모델 경로, 작업 유형, 입력 차원, 레이블 맵 |
-| `{model}_factory.py` | `IFactory` 구현 — 전/후처리를 위한 5개 메서드 인터페이스 |
+| `{model}_factory.py` | `IFactory` 구현: `create_preprocessor`, `create_postprocessor`, `create_visualizer`, `get_model_name`, `get_task_type` |
 | `{model}_sync.py` | 동기식 단일 스레드 추론 진입점 |
 | `{model}_async.py` | 비동기 파이프라인 추론 진입점 |
 | `{model}_sync_cpp_postprocess.py` | pybind를 통한 C++ 후처리 동기 추론 |
@@ -406,7 +407,7 @@ dx-agent-dev/<session_id>/
 
 ---
 
-## 5단계 검증 피라미드
+## 5단계 검증 pyramid
 
 `dx-validator`는 비용 오름차순으로 검사를 적용합니다. 각 단계가 다음 단계를 게이트합니다.
 
@@ -416,18 +417,18 @@ dx-agent-dev/<session_id>/
       /───\
      / 4   \     NPU 통합 테스트 (하드웨어 필요)
     /───────\
-   /   3     \   스모크 테스트 (--help, 모듈 임포트)
+   /   3     \   smoke test (--help, 모듈 import)
   /───────────\
  /     2       \ 설정 검증 (모델 경로, 작업 유형)
 /───────────────\
-       1         정적 검사 (임포트, 네이밍, 구조)
+       1         정적 검사 (import, naming, 구조)
 ```
 
 | 단계 | 검사 대상 | 하드웨어 필요 |
 |---|---|---|
-| 1 — 정적 | 절대 임포트, 네이밍 규칙, 파일 구조, IFactory 메서드 | 아니요 |
-| 2 — 설정 | `config.json` 스키마, `.dxnn` 모델 경로 해석, 유효한 작업 유형 | 아니요 |
-| 3 — 스모크 | `--help` 플래그 에러 없이 실행, 모듈이 정상 임포트 | 아니요 |
+| 1 — 정적 | 절대 import, naming 규칙, 파일 구조, IFactory 메서드 | 아니요 |
+| 2 — 설정 | `config.json` schema, `.dxnn` 모델 경로 해석, 유효한 작업 유형 | 아니요 |
+| 3 — 스모크 | `--help` 플래그 에러 없이 실행, 모듈이 정상 import | 아니요 |
 | 4 — NPU 통합 | NPU가 있는 상태에서 샘플 이미지로 엔드-투-엔드 추론 | 예 |
 | 5 — 성능 | FPS가 모델 및 가속기의 목표 임계값 충족 | 예 |
 
@@ -437,10 +438,10 @@ dx-agent-dev/<session_id>/
 
 ```bash
 # 정적 검사 (1, 2단계에 걸친 11개 검사)
-python .deepx/scripts/validate_app.py src/python_example/{task}/{model}/
+python .deepx/scripts/validate_app.py src/python_example/{task}/{family}/{variant}/
 
-# 스모크 테스트 포함 (1~3단계)
-python .deepx/scripts/validate_app.py src/python_example/{task}/{model}/ --smoke-test
+# smoke test 포함 (1~3단계)
+python .deepx/scripts/validate_app.py src/python_example/{task}/{family}/{variant}/ --smoke-test
 
 # 프레임워크 무결성 — .deepx/ 디렉토리 구조 검증
 python .deepx/scripts/validate_framework.py
@@ -455,27 +456,27 @@ python .deepx/scripts/validate_framework.py
 | 디렉토리 | 수량 | 내용 |
 |---|---|---|
 | `agents/` | 6 | 에이전트 정의 및 라우팅 규칙 |
-| `skills/` | 17 | 스킬 워크플로우 디렉토리 (각각 `SKILL.md` 1개) |
+| `skills/` | 17 | 스킬 workflow 디렉토리 (각각 `SKILL.md` 1개) |
 | `templates/` | — | 코드 생성 템플릿 |
 | `knowledge/` | — | 도메인별 참조 자료 |
-| `toolsets/` | 5 | API 참조 (InferenceEngine, IFactory, dxrt-cli, 모델 레지스트리, pybind 헬퍼) |
+| `toolsets/` | 5 | API 참조 (InferenceEngine, IFactory, dxrt-cli, 모델 registry, pybind 헬퍼) |
 | `memory/` | 5 | 지속적 지식 (주요 함정, 플랫폼 API 메모, 최적화 패턴, 카메라/디스플레이 메모, 모델 설정 캐시) |
-| `contextual-rules/` | 4 | 코딩 표준, 임포트 규칙, 네이밍 규칙, 디렉토리 레이아웃 규칙 |
+| `contextual-rules/` | 4 | 코딩 표준, import 규칙, naming 규칙, 디렉토리 레이아웃 규칙 |
 | `prompts/` | 4 | 각 전문 에이전트의 시스템 프롬프트 |
 | `scripts/` | 2 | `validate_app.py`, `validate_framework.py` |
 
 
 !!! note "참고"
 
-    ** 플랫폼 파일(`.github/`, `.cursor/`, `.opencode/`, `CLAUDE.md`, `AGENTS.md`)은  `dx-agent-gen generate --repo dx-runtime/dx_app`에 의해 생성됩니다. 
-    직접 편집하지 마세요. `.deepx/` 소스 파일을 편집한 후 생성기를 다시 실행하세요. pre-commit 훅이 `dx-agent-gen`을 자동으로 실행합니다.
+    플랫폼 파일(`.github/`, `.cursor/`, `.opencode/`, `CLAUDE.md`, `AGENTS.md`)은 `dx-agent-gen generate --repo dx-runtime/dx_app`에 의해 생성됩니다. 
+    직접 편집하지 마세요. `.deepx/` 소스 파일을 편집한 후 생성기를 다시 실행하세요.
 
 에이전트는 작업 시작 시 이 디렉토리들을 읽습니다. 메모리 파일은 개발 중
 새로운 패턴이나 수정 사항이 발견될 때 업데이트됩니다.
 
 ---
 
-## 세션 센티넬
+## 세션 sentinel
 
 에이전트는 자동화된 테스트를 위해 각 작업의 시작과 끝에 고정된 마커를 출력합니다:
 
@@ -484,13 +485,13 @@ python .deepx/scripts/validate_framework.py
 | `[DX-AGENT-DEV: START]` | 에이전트 응답의 첫 번째 줄 |
 | `[DX-AGENT-DEV: DONE (output-dir: <relative_path>)]` | 모든 작업 완료 후 마지막 줄. `<relative_path>`는 프로젝트 루트 기준 세션 출력 디렉토리의 상대 경로. 파일이 생성되지 않은 경우 `(output-dir: ...)` 부분을 생략. |
 
-핸드오프를 통해 호출된 하위 에이전트는 센티넬을 출력하지 않으며, 최상위 에이전트만 출력합니다.
+handoff를 통해 호출된 하위 에이전트는 sentinel을 출력하지 않으며, 최상위 에이전트만 출력합니다.
 
 규칙:  
 
 1. **필수** — 첫 번째 응답의 절대적 첫 줄에 `[DX-AGENT-DEV: START]`를 출력합니다. 다른 텍스트, tool call, reasoning보다 반드시 먼저 출력해야 합니다. 사용자가 "알아서 진행해"라고 해도 생략 불가 — 자동 테스트가 실패합니다.  
 2. 모든 작업, 검증, 파일 생성이 완료된 후 마지막 줄에 `[DX-AGENT-DEV: DONE (output-dir: <path>)]`를 출력합니다.  
-3. 핸드오프/라우팅을 통해 호출된 하위 에이전트인 경우 센티넬을 출력하지 않습니다 — 최상위 에이전트만 출력합니다.  
+3. handoff/라우팅을 통해 호출된 하위 에이전트인 경우 sentinel을 출력하지 않습니다 — 최상위 에이전트만 출력합니다.  
 4. 사용자가 세션에서 여러 프롬프트를 전송하면 각 프롬프트에 대해 START/DONE을 출력합니다.  
 5. DONE의 `output-dir`는 프로젝트 루트에서 세션 출력 디렉토리까지의 상대 경로여야 합니다.  
 6. **기획 산출물(spec, plan, 설계 문서)만 작성한 상태에서는 절대 DONE을 출력하지 마세요.** DONE은 모든 산출물(구현 코드, 스크립트, 설정 파일, 검증 결과)이 생성된 후에만 출력합니다.  
@@ -499,15 +500,15 @@ python .deepx/scripts/validate_framework.py
 
 ## 문제 해결
 
-- **문제:** 에이전트가 상대 임포트 작성 (`from .factory import ...`)  
+- **문제:** 에이전트가 상대 import 작성 (`from .factory import ...`)  
     **원인:** LLM 기본 동작  
-    **해결 방법:** 절대 임포트만 사용해야 합니다.  
-    예: `from dx_app.python_example.detection.yolo26n.yolo26n_factory import ...`
+    **해결 방법:** 절대 import만 사용해야 합니다.  
+    예: `from common.processors import YOLOv8Postprocessor`
 
 - **문제:** Factory 클래스 메서드 누락  
     **원인:** 불완전한 `IFactory` 구현  
     **해결 방법:** 5개 필수 메서드를 모두 구현하세요.  
-    `create_preprocessor`, `create_postprocessor`, `create_label_map`, `create_input_config`, `create_visualizer`
+    `create_preprocessor`, `create_postprocessor`, `create_visualizer`, `get_model_name`, `get_task_type`
 
 - **문제:** 런타임에 모델 미발견  
     **원인:** `.dxnn` 파일 경로 미등록  

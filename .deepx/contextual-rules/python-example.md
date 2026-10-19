@@ -60,9 +60,13 @@ from factory import ModelFactory        # from _module_dir
 from common.runner import SyncRunner    # from _v3_dir
 ```
 
-## Co-located config.json
+## Per-variant config.json
 
-Every model directory MUST contain a `config.json` with at minimum:
+Each `<family>/<variant>/` directory MUST contain a `config.json`, next to the
+variant's `factory/` and entry scripts. A single-model extract may place one
+`config.json` beside the entry script.
+
+Minimum keys:
 
 ```json
 {
@@ -70,22 +74,23 @@ Every model directory MUST contain a `config.json` with at minimum:
 }
 ```
 
-Detection models also include `"nms_threshold"`. The config is loaded automatically
-by the runner via `_FactoryConfigMixin.load_config()`.
+Detection models also include `"nms_threshold"`. Each variant's factory loads
+its settings through `common.variant_config.load_variant_config`.
 
 ## Directory Structure
 
 ```
-src/python_example/<task>/<model>/
+src/python_example/<task>/<family>/
     __init__.py                          # Required (empty)
-    config.json                          # Required
-    factory/
-        __init__.py                      # Exports: from .<model>_factory import <Model>Factory
-        <model>_factory.py               # IFactory implementation
-    <model>_sync.py                      # SyncRunner variant
-    <model>_async.py                     # AsyncRunner variant
-    <model>_sync_cpp_postprocess.py      # Optional
-    <model>_async_cpp_postprocess.py     # Optional
+    <variant>/                           # Directory name is the .dxnn stem
+        config.json                      # Required
+        factory/
+            __init__.py                  # Exports the factory
+            <variant>_factory.py         # IFactory for this variant
+        <variant>_sync.py                # Entry; variant is fixed
+        <variant>_async.py
+        <variant>_sync_cpp_postprocess.py
+        <variant>_async_cpp_postprocess.py
 ```
 
 ## Prohibited Patterns

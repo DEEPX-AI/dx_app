@@ -59,8 +59,8 @@ Before classifying or routing any task:
 ## Scope
 
 dx_app provides **standalone inference applications** only:
-- Python apps (sync default + optional async/cpp variants) under `src/python_example/<task>/<model>/`
-- C++ apps under `src/cpp_example/<task>/<model>/`
+- Python apps under `src/python_example/<task>/<family>/<variant>/` — one directory per `.dxnn` stem with `config.json`, `factory/` and the entries
+- C++ apps under `src/cpp_example/<task>/<family>/<variant>/` — same layout with the C++ sync/async entries
 - No streaming pipelines (that belongs to dx_stream)
 - No GStreamer elements or pipeline graphs
 
@@ -252,7 +252,7 @@ Generate artifacts in this order. Violating this order causes cascading errors
 | Phase | Artifacts | Why this order |
 |---|---|---|
 | **1. Infrastructure** | `setup.sh`, `config.json` | Venv + deps must exist before ANY Python code runs |
-| **2. Skeleton copy** | Copy closest model from `src/python_example/<task>/<model>/` | Prevents API fabrication — skeleton code has correct imports |
+| **2. Skeleton copy** | Copy closest model from `src/python_example/<task>/<family>/<variant>/` | Prevents API fabrication — skeleton code has correct imports |
 | **3. Factory + variants** | `factory/`, `*_sync.py`, + user-requested variants | Modify skeleton copies, do NOT write from scratch |
 | **4. Launchers** | `run.sh`, `README.md`, `session.json`, `__init__.py` | Reference real paths from phases 1-3 |
 | **5. Verification** | Run `setup.sh`, run sync demo, capture `session.log` | LAST — validates everything works end-to-end |
@@ -327,8 +327,9 @@ dx_app v3.0.0 Architecture
 ===========================
 
 Layer 3 — Application Layer
-  src/python_example/<task>/<model>/       # 22 task dirs, 347 models
-  src/cpp_example/<task>/<model>/          # C++ counterparts
+  src/python_example/<task>/<family>/<variant>/   # config.json + thin entries
+  src/cpp_example/<task>/<family>/<variant>/      # config.json only
+  # factory/ and <family>_* entries stay on the family directory
 
 Layer 2 — Framework Layer
   src/python_example/common/
@@ -442,7 +443,7 @@ Gather answers for these decisions before proceeding:
 1. **Language** — Python or C++?
 2. **Execution model** — Sync (default) or Async?
 3. **C++ postprocess** — Use pybind C++ postprocessor? (Python only, default: No)
-4. **AI task** — One of 22 supported tasks in dx_app.
+4. **AI task** — One of 28 supported tasks in dx_app (`src/python_example/`).
 5. **Model** — Specific model name, or let the agent recommend from `config/model_registry.json`.
 6. **Input source** — Image file (default) | Video file | USB camera | RTSP stream | Image directory?
 7. **Output mode** — Display window (default) | Display + save to file | Save only (headless) | Headless (no output)?
@@ -464,7 +465,10 @@ Optional decisions (can use defaults):
 
 **Auto-detect** whether the compiled .dxnn model is a PPU model by checking:
 1. Model file name contains `_ppu` suffix
-2. `config/model_registry.json` entry has `csv_task: "PPU"` or `add_model_task: "ppu"`
+2. `config/model_registry.json` entry has `add_model_task: "ppu"` (primary check —
+   `csv_task` is NOT a reliable signal: only 5/16 ppu models are tagged
+   `csv_task: "PPU"`, the rest carry their underlying task's code, e.g. `OD`,
+   `FD`, `POSE`)
 3. User explicitly mentions "PPU" or the dx-compiler session indicates PPU was enabled
 4. Model was compiled with PPU config in config.json
 
@@ -478,17 +482,17 @@ compiled .dxnn binary. This means:
   - Output is ready-to-use detections [x1,y1,x2,y2,conf,cls]
   - Use PPU-specific factory and postprocessor
 
-The example will be placed in: src/python_example/ppu/{model_name}/
+The example will be placed under its task like any other variant: src/python_example/object_detection/yolo_ppu/{variant}/
 ```
 
-**MUST set task type to `ppu`** and route accordingly.
+**Keep the model's real task** (e.g. `object_detection` — the factory returns `config.json`'s `task`) and route with the PPU flag.
 
 ### MANDATORY: Existing Example Search
 
 **Before generating any code**, search whether an example already exists for this model:
-1. Check `src/python_example/<task>/<model_name>/` directory
-2. Check `src/python_example/ppu/<model_name>/` if PPU model
-3. Check `src/cpp_example/<task>/<model_name>/` for C++ examples
+1. Check `src/python_example/<task>/<family>/<variant>/` (directory name = `.dxnn` stem; PPU variants live under their task too)
+2. Check `src/cpp_example/<task>/<family>/<variant>/` for C++ examples
+3. Family unknown? `ls -d src/python_example/*/*/<variant>/`
 
 **If an existing example is found, MUST ask the user**:
 ```
@@ -531,11 +535,11 @@ Plan:
   Model:   yolo26n
   Variant: Python sync + async (2 files)
   Files:
-    src/python_example/object_detection/yolo26n/
-      factory/yolo26n_factory.py
-      yolo26n_sync.py
-      yolo26n_async.py
-      config.json
+    src/python_example/object_detection/yolov8/
+      factory/yolov8_factory.py
+      yolov8_sync.py
+      yolov8-n_640x640/config.json
+      yolov8-n_640x640/yolov8-n_640x640_sync.py
   Config:  score_threshold=0.25, nms_threshold=0.45
 ```
 
@@ -570,32 +574,41 @@ After confirmation, hand off to the appropriate sub-agent with the gathered cont
    `export DXRT_DYNAMIC_CPU_THREAD=ON` to `run.sh`. See `memory/common_pitfalls.md`
    Pitfall #21 and `memory/performance_patterns.md` for diagnosis method.
 
-## 22 Supported AI Tasks
+## 29 Supported AI Tasks
 
-| Task | Directory | Example Models |
+Each family directory holds one `<variant>/` directory per `.dxnn` stem.
+
+| Task | Directory | Families (examples) |
 |---|---|---|
-| 3d_object_detection | `src/python_example/3d_object_detection/` | sfa3d_608x608 |
-| attribute_recognition | `src/python_example/attribute_recognition/` | deepmar_resnet50, face_attr_resnet_v1_18 |
-| classification | `src/python_example/classification/` | efficientnet_b0, mobilenetv2, resnet50 |
-| depth_estimation | `src/python_example/depth_estimation/` | fastdepth_1 |
-| embedding | `src/python_example/embedding/` | arcface_mobilefacenet |
-| face_alignment | `src/python_example/face_alignment/` | 3ddfa_v2_mobilnet0_5_120x120 |
-| face_detection | `src/python_example/face_detection/` | scrfd_10g, yolov5s_face, retinaface |
+| 3d_object_detection | `src/python_example/3d_object_detection/` | sfa3d |
+| anomaly_detection | `src/python_example/anomaly_detection/` | efficientad, patchcore |
+| depth_estimation | `src/python_example/depth_estimation/` | depthanythingv2, fastdepth, scdepthv3, yolo26_depth |
+| face_attribute | `src/python_example/face_attribute/` | faceattr |
+| face_detection | `src/python_example/face_detection/` | retinaface, scrfd, ulfgfd, yolov5_face, … |
+| face_landmark | `src/python_example/face_landmark/` | 3ddfa_v2 |
+| face_recognition | `src/python_example/face_recognition/` | arcface |
 | hand_detection | `src/python_example/hand_detection/` | mediapipe_hand_detector |
-| hand_landmark | `src/python_example/hand_landmark/` | handlandmarklite_1 |
-| image_denoising | `src/python_example/image_denoising/` | dncnn_15, dncnn_25, dncnn_50 |
-| image_enhancement | `src/python_example/image_enhancement/` | zero_dce |
-| instance_segmentation | `src/python_example/instance_segmentation/` | yolov5n_seg, yolov8n_seg |
+| hand_landmark | `src/python_example/hand_landmark/` | mediapipe_hands_lite |
+| image_classification | `src/python_example/image_classification/` | alexnet, beit, casvit, deit, … |
+| image_denoising | `src/python_example/image_denoising/` | dncnn |
+| image_matting | `src/python_example/image_matting/` | ppmatting |
+| image_retrieval | `src/python_example/image_retrieval/` | clip_rn50 |
+| instance_segmentation | `src/python_example/instance_segmentation/` | mask_rtdetr, yolact, yolo11_seg, yolo26_seg, … |
 | keypoint_detection | `src/python_example/keypoint_detection/` | superpoint |
-| obb_detection | `src/python_example/obb_detection/` | yolo26n_obb |
-| object_detection | `src/python_example/object_detection/` | yolov5n, yolov8n, yolov10n, yolov11n, yolo26n |
-| object_pose_estimation | `src/python_example/object_pose_estimation/` | dope_hope_ketchup |
+| low_light_enhancement | `src/python_example/low_light_enhancement/` | zerodce |
+| mainbody_detection | `src/python_example/mainbody_detection/` | pp_shitu |
+| object_detection | `src/python_example/object_detection/` | damoyolo, efficientdet, nanodet, rtdetr, … |
+| object_pose_estimation | `src/python_example/object_pose_estimation/` | dope |
+| oriented_object_detection | `src/python_example/oriented_object_detection/` | yolo26_obb |
 | panoptic_driving_perception | `src/python_example/panoptic_driving_perception/` | yolopv2 |
-| pose_estimation | `src/python_example/pose_estimation/` | yolov5s_pose, yolov8n_pose |
-| ppu | `src/python_example/ppu/` | yolov5s_ppu, yolov7_ppu |
-| reid | `src/python_example/reid/` | casvit_m, casvit_s |
-| semantic_segmentation | `src/python_example/semantic_segmentation/` | bisenetv1, deeplabv3plusmobilenet, segformer_b0 |
-| super_resolution | `src/python_example/super_resolution/` | espcn_x4 |
+| person_attribute | `src/python_example/person_attribute/` | deepmar |
+| person_reid | `src/python_example/person_reid/` | repvgg_reid |
+| pose_estimation | `src/python_example/pose_estimation/` | centerpose, dark_hrnet, vitpose, yolo11_pose, … |
+| semantic_segmentation | `src/python_example/semantic_segmentation/` | bisenet, casvit_seg, ddrnet, deeplabv3, … |
+| super_resolution | `src/python_example/super_resolution/` | espcn, realesrgan |
+| visual_place_recognition | `src/python_example/visual_place_recognition/` | eigenplaces, pp_shitu_rec |
+| zero_shot_image_classification | `src/python_example/zero_shot_image_classification/` | clip |
+| zero_shot_instance_segmentation | `src/python_example/zero_shot_instance_segmentation/` | fastsam |
 
 ## Error Recovery
 

@@ -29,14 +29,14 @@ class SuperPointPostProcess {
     float conf_threshold_{0.015f};
     int top_k_{500};
     int nms_dist_{4};
-    int border_remove_{4};
+    int border_remove_{8};   // one full cell -- see .cpp for why 4 is too small
 
    public:
     SuperPointPostProcess(int input_w, int input_h,
                           float conf_threshold = 0.015f,
                           int top_k = 500,
                           int nms_dist = 4,
-                          int border_remove = 4);
+                          int border_remove = 8);
     SuperPointPostProcess();
     ~SuperPointPostProcess() = default;
 

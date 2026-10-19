@@ -166,3 +166,39 @@ query `config/model_registry.json` for the current list.
 
 7. **Hardcoding model lists** — the registry is the live source. This document
    intentionally does not list every model to avoid going stale.
+
+## dx-modelzoo Alignment (Phase 0, 2026-09-16)
+
+`config/model_registry.json` carries the authoritative (task, family, variant)
+mapping, joined from a committed snapshot of the dx-modelzoo CV tree.
+
+| Field | Meaning |
+|---|---|
+| `variant` | Identity for `--variant` and `assets/models/<variant>.dxnn`. Equals the dxnn stem except for the 3 documented exceptions. |
+| `family` | dx-modelzoo family, snake_cased (`wide-resnet` → `wide_resnet`). 89 families. |
+| `task` | dx-modelzoo task name. 23 values. |
+| `task_legacy` | Pre-alignment `add_model_task`, preserved for migration. |
+| `image_only` | Per-variant replacement for the task-keyed `_IMAGE_ONLY_TASKS`. 17 variants. |
+| `zoo_canonical` | `false` for the entries absent from DX Model Zoo q-lite `2_4_0`. |
+| `alias_of` | Set when an entry shares another entry's variant. Alias entries are **retained, never deleted**. |
+
+- Snapshot: `tests/data/modelzoo_cv_tree.json` — refresh with
+  `python scripts/harvest_modelzoo_tree.py`.
+- Family assignment is **data, not an algorithm**: dx-modelzoo folds depth/width
+  into the family (`resnet50` → `resnet`, `vgg16-bn` → `vgg`). Never derive it —
+  a best-effort heuristic yields 211 families against the authoritative 89.
+- **`variant` follows the `.dxnn`, never the legacy example-dir name.**
+  `deit_base384_distilled` owns variant `deit-b_384x384_distilled` and is the
+  only row for `deit-b_384x384_distilled.dxnn`. The legacy duplicate row
+  `deit_base_distilled_2` was dropped, so that old name no longer resolves in
+  `graph_models.md` — use the variant or `deit_base384_distilled`. The
+  non-distilled file belongs only to `deitbase384`.
+- **RETENTION POLICY — conflicting EXAMPLES are kept, never deleted.** The
+  alignment renames and regroups; it does not remove examples. That is about the
+  example tree, not the registry: a duplicate REGISTRY row may be dropped once its
+  name is resolvable elsewhere. `deit-b_384x384_distilled.dxnn` was the only such
+  conflict (2 rows) and the legacy `deit_base_distilled_2` row is now gone, so
+  every row owns exactly one variant and conflict scope is 0. Differing `config` within a family (14 of 89)
+  is NOT a conflict — each variant keeps its own `<family>/<variant>/config.json`.
+- Guarded by `tests/python_example/unit/test_registry_modelzoo_conformance.py`
+  and `test_registry_image_only.py`.

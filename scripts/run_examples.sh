@@ -113,6 +113,20 @@ CATEGORY_IMAGE=(
     [object_pose_estimation]="sample/dope/000000.png"
     [panoptic_driving_perception]="sample/img/sample_parking.jpg"
     [3d_object_detection]="sample/kitti/velodyne/000049.bin"
+    [image_classification]="sample/img/sample_dog.jpg"
+    [oriented_object_detection]="sample/img/sample_airport_satellite_view.png"
+    [face_recognition]="sample/img/face_pair"
+    [face_attribute]="sample/img/sample_person_a1.jpg"
+    [face_landmark]="sample/img/sample_face_a1.jpg"
+    [person_attribute]="sample/img/sample_person_a1.jpg"
+    [person_reid]="sample/reid/queries/sample_person_a2.jpg"
+    [image_retrieval]="sample/img/sample_person_a2.jpg"
+    [visual_place_recognition]="sample/vpr/queries/q1.jpg"
+    [image_matting]="sample/img/sample_person_b.jpg"
+    [low_light_enhancement]="sample/img/sample_lowlight.jpg"
+    [zero_shot_image_classification]="sample/img/sample_dog.jpg"
+    [zero_shot_instance_segmentation]="sample/img/sample_street.jpg"
+    [anomaly_detection]="sample/img/sample_parking.jpg"
 )
 CATEGORY_VIDEO=(
     [object_detection]="assets/videos/blackbox-city-road.mp4"
@@ -137,6 +151,14 @@ CATEGORY_VIDEO=(
     [object_pose_estimation]="assets/videos/snowboard.mp4"
     [panoptic_driving_perception]="assets/videos/blackbox-city-road.mp4"
     [3d_object_detection]="assets/videos/blackbox-city-road.mp4"
+    [image_classification]="assets/videos/dogs.mp4"
+    [oriented_object_detection]="assets/videos/obb.mp4"
+    [face_landmark]="assets/videos/face-alignment-closeup.mp4"
+    [image_matting]="assets/videos/person-pair-hallway.mp4"
+    [low_light_enhancement]="assets/videos/lowlight.mp4"
+    [zero_shot_image_classification]="assets/videos/dogs.mp4"
+    [zero_shot_instance_segmentation]="assets/videos/blackbox-city-road.mp4"
+    [anomaly_detection]="assets/videos/blackbox-city-road.mp4"
 )
 CATEGORY_DISPLAY=(
     [object_detection]="Object Detection"
@@ -161,15 +183,34 @@ CATEGORY_DISPLAY=(
     [object_pose_estimation]="Object Pose Estimation"
     [panoptic_driving_perception]="Panoptic Driving Perception"
     [3d_object_detection]="3D Object Detection"
+    [image_classification]="Image Classification"
+    [oriented_object_detection]="Oriented Object Detection"
+    [face_recognition]="Face Recognition"
+    [face_attribute]="Face Attribute"
+    [face_landmark]="Face Landmark"
+    [person_attribute]="Person Attribute"
+    [person_reid]="Person Re-Identification"
+    [image_retrieval]="Image Retrieval"
+    [visual_place_recognition]="Visual Place Recognition"
+    [image_matting]="Image Matting"
+    [low_light_enhancement]="Low Light Enhancement"
+    [zero_shot_image_classification]="Zero-shot Image Classification"
+    [zero_shot_instance_segmentation]="Zero-shot Instance Segmentation"
+    [anomaly_detection]="Anomaly Detection"
 )
 
 CATEGORY_ORDER=(
-    object_detection face_detection pose_estimation obb_detection classification
+    object_detection face_detection pose_estimation obb_detection
+    oriented_object_detection classification image_classification
     instance_segmentation semantic_segmentation depth_estimation
-    image_denoising super_resolution image_enhancement
-    embedding attribute_recognition reid ppu
+    image_denoising super_resolution image_enhancement low_light_enhancement
+    embedding face_recognition attribute_recognition person_attribute
+    face_attribute face_landmark reid person_reid image_retrieval
+    visual_place_recognition image_matting ppu
     hand_landmark hand_detection face_alignment
-    keypoint_detection object_pose_estimation panoptic_driving_perception 3d_object_detection
+    keypoint_detection object_pose_estimation panoptic_driving_perception
+    3d_object_detection anomaly_detection
+    zero_shot_image_classification zero_shot_instance_segmentation
 )
 
 # Per-model input overrides (for PPU models whose actual task differs from
@@ -178,8 +219,6 @@ CATEGORY_ORDER=(
 # x8 output stays a sane size).
 declare -A MODEL_IMAGE_OVERRIDE MODEL_VIDEO_OVERRIDE
 MODEL_IMAGE_OVERRIDE=(
-    [scrfd500m_ppu]="sample/img/sample_face.jpg"
-    [yolov5pose_ppu]="sample/img/sample_people.jpg"
     [handlandmarklite_1]="sample/img/sample_hand.jpg"
     [unet_mobilenet_v2]="sample/img/sample_dog.jpg"
     [realesrgan_x2]="sample/img/sample_lowres165x90.png"
@@ -187,8 +226,6 @@ MODEL_IMAGE_OVERRIDE=(
     [realesrgan_x8]="sample/img/sample_lowres165x90.png"
 )
 MODEL_VIDEO_OVERRIDE=(
-    [scrfd500m_ppu]="assets/videos/dance-solo.mov"
-    [yolov5pose_ppu]="assets/videos/dance-solo.mov"
     [handlandmarklite_1]="assets/videos/hand.mp4"
 )
 
@@ -200,7 +237,41 @@ MODEL_VIDEO_OVERRIDE=(
 #     (upscaled stream output is large/slow and not meaningful for testing)
 # NOTE: hand_detection / hand_landmark are NOT image-only — the single model runs
 # per frame on video (e.g. assets/videos/hand.mp4), so they are video-capable.
-IMAGE_ONLY_CATEGORIES="embedding reid attribute_recognition object_pose_estimation 3d_object_detection super_resolution"
+IMAGE_ONLY_CATEGORIES="embedding reid attribute_recognition face_recognition person_attribute face_attribute person_reid image_retrieval visual_place_recognition object_pose_estimation 3d_object_detection super_resolution anomaly_detection"
+
+# True when the category token is image-only. Substring match would treat
+# "reid" as a hit inside "person_reid".
+is_image_only_category() {
+    [[ " ${IMAGE_ONLY_CATEGORIES} " == *" $1 "* ]]
+}
+
+# assets/models first, then workspace/res/models walking up from dx_app.
+resolve_dxnn() {
+    local raw="$1"
+    local name
+    name=$(basename "$raw")
+    if [[ -f "$raw" ]]; then
+        echo "$raw"
+        return
+    fi
+    if [[ -f "${PROJECT_ROOT}/${raw}" ]]; then
+        echo "${PROJECT_ROOT}/${raw}"
+        return
+    fi
+    if [[ -f "${PROJECT_ROOT}/assets/models/${name}" ]]; then
+        echo "${PROJECT_ROOT}/assets/models/${name}"
+        return
+    fi
+    local dir="$PROJECT_ROOT"
+    while [[ "$dir" != "/" ]]; do
+        if [[ -f "${dir}/workspace/res/models/${name}" ]]; then
+            echo "${dir}/workspace/res/models/${name}"
+            return
+        fi
+        dir=$(dirname "$dir")
+    done
+    echo "$raw"
+}
 
 # ============================================================
 # Interactive Mode (when no arguments provided)
@@ -239,12 +310,10 @@ interactive_menu() {
     # ── Stage 2/6: Category ──
     # Count models per category from config
     declare -A _cat_count
-    if [[ -f "$CONFIG_FILE" ]]; then
-        while IFS=$'\t' read -r _name _cat _file; do
-            [[ -z "$_name" || "$_name" == \#* ]] && continue
-            _cat_count["$_cat"]=$(( ${_cat_count["$_cat"]:-0} + 1 ))
-        done < "$CONFIG_FILE"
-    fi
+    for _cat in "${CATEGORY_ORDER[@]}"; do
+        _cat_count["$_cat"]=$(find "${PROJECT_ROOT}/src/python_example/${_cat}" \
+            -mindepth 3 -maxdepth 3 -name config.json 2>/dev/null | wc -l)
+    done
 
     echo ""
     printf "${CYAN}%s${NC}\n" "───────────────────────────────────────────────────────────────"
@@ -280,13 +349,13 @@ interactive_menu() {
         echo ""
         printf "  ${YELLOW}Models in ${CATEGORY_DISPLAY[$CATEGORY_FILTER]}:${NC}\n"
         local _col=0
-        while IFS=$'\t' read -r _mn _mc _mf; do
-            [[ -z "$_mn" || "$_mn" == \#* ]] && continue
-            [[ "$_mc" != "$CATEGORY_FILTER" ]] && continue
+        while IFS= read -r _cfg; do
+            _mn=$(basename "$(dirname "$_cfg")")
             printf "  %-28s" "$_mn"
             _col=$((_col + 1))
             (( _col % 3 == 0 )) && echo ""
-        done < "$CONFIG_FILE"
+        done < <(find "${PROJECT_ROOT}/src/python_example/${CATEGORY_FILTER}" \
+            -mindepth 3 -maxdepth 3 -name config.json 2>/dev/null | sort)
         (( _col % 3 != 0 )) && echo ""
     fi
 
@@ -572,13 +641,28 @@ fi
 # ============================================================
 # Load Model Registry
 # ============================================================
-declare -A MODEL_FILE MODEL_CATEGORY
+declare -A MODEL_FILE MODEL_CATEGORY MODEL_FAMILY
 
-while IFS=$'\t' read -r name category model_file; do
-    [[ -z "$name" || "$name" == \#* ]] && continue
-    MODEL_FILE["$name"]="$model_file"
-    MODEL_CATEGORY["$name"]="$category"
+# Column 4 is the variant (executable / script basename). Column 1 is the family.
+while IFS=$'\t' read -r family category model_file variant _rest; do
+    [[ -z "$family" || "$family" == \#* ]] && continue
+    key="${variant:-$family}"
+    MODEL_FILE["$key"]=$(resolve_dxnn "$model_file")
+    MODEL_CATEGORY["$key"]="$category"
+    MODEL_FAMILY["$key"]="$family"
 done < "${CONFIG_FILE}"
+
+# Example folders are task/family/variant. Prefer that task over the conf column
+# so the sample image matches the directory the example actually lives in.
+while IFS= read -r cfg; do
+    variant=$(basename "$(dirname "$cfg")")
+    family=$(basename "$(dirname "$(dirname "$cfg")")")
+    task=$(basename "$(dirname "$(dirname "$(dirname "$cfg")")")")
+    [[ "$task" == "python_example" || "$task" == "cpp_example" ]] && continue
+    MODEL_CATEGORY["$variant"]="$task"
+    MODEL_FAMILY["$variant"]="$family"
+done < <(find src/python_example src/cpp_example -name config.json \
+    ! -path '*/common/*' ! -path '*/__pycache__/*' 2>/dev/null)
 
 echo "Loaded ${#MODEL_FILE[@]} models from config" >&2
 
@@ -691,7 +775,7 @@ run_cpp_model() {
     local async_exe="${BUILD_DIR}/${model_name}_async"
 
     local is_image_only=false
-    [[ -n "$category" && "$IMAGE_ONLY_CATEGORIES" == *"$category"* ]] && is_image_only=true
+    is_image_only_category "$category" && is_image_only=true
 
     echo "=== [C++] ${model_name} ===" | tee -a "${SUMMARY_LOG}"
 
@@ -718,7 +802,7 @@ run_cpp_model() {
 # ============================================================
 # Python Test Functions
 # ============================================================
-# run_py_model <model_name> <py_category_dir> <category> <model_file> <image> <video>
+# run_py_model <model_name> <py_category_dir> <category> <model_file> <image> <video> <family>
 run_py_model() {
     local model_name="$1"
     local py_cat="$2"
@@ -726,10 +810,11 @@ run_py_model() {
     local model_file="$4"
     local image="$5"
     local video="$6"
-    local model_dir="${PY_BASE}/${py_cat}/${model_name}"
+    local family="$7"
+    local model_dir="${PY_BASE}/${py_cat}/${family}/${model_name}"
 
     local is_image_only=false
-    [[ "$IMAGE_ONLY_CATEGORIES" == *"$category"* ]] && is_image_only=true
+    is_image_only_category "$category" && is_image_only=true
 
     echo "=== [Python] ${model_name} ===" | tee -a "${SUMMARY_LOG}"
 
@@ -807,26 +892,33 @@ if [[ "$LANG_MODE" == "cpp" || "$LANG_MODE" == "both" ]]; then
 fi
 
 # Python model discovery
-declare -a PY_MODELS=()  # "model_name|py_dir|category"
+declare -a PY_MODELS=()  # "model_name|py_dir|category|family"
 if [[ "$LANG_MODE" == "py" || "$LANG_MODE" == "both" ]]; then
     for category_dir in "${PY_BASE}"/*/; do
         py_cat=$(basename "$category_dir")
         [[ "$py_cat" == "common" || "$py_cat" == "__pycache__" || "$py_cat" == "utils" ]] && continue
 
-        for model_dir in "${category_dir}"*/; do
-            [ -d "$model_dir" ] || continue
-            model_name=$(basename "$model_dir")
-            [[ "$model_name" == "__pycache__" || "$model_name" == "factory" ]] && continue
-            if [[ -n "$FILTER" ]]; then
-                _mn_lower="${model_name,,}"
-                _fl_lower="${FILTER,,}"
-                [[ "$_mn_lower" != *"$_fl_lower"* ]] && continue
-            fi
+        for family_dir in "${category_dir}"*/; do
+            [ -d "$family_dir" ] || continue
+            family=$(basename "$family_dir")
+            [[ "$family" == "__pycache__" || "$family" == "factory" ]] && continue
 
-            category="${MODEL_CATEGORY[$model_name]}"
-            [ -z "$category" ] && category="$py_cat"
-            [[ -n "$CATEGORY_FILTER" && "$category" != "$CATEGORY_FILTER" ]] && continue
-            PY_MODELS+=("${model_name}|${py_cat}|${category}")
+            for variant_dir in "${family_dir}"*/; do
+                [ -d "$variant_dir" ] || continue
+                [ -f "${variant_dir}config.json" ] || continue
+                model_name=$(basename "$variant_dir")
+                [[ "$model_name" == "__pycache__" || "$model_name" == "factory" ]] && continue
+                if [[ -n "$FILTER" ]]; then
+                    _mn_lower="${model_name,,}"
+                    _fl_lower="${FILTER,,}"
+                    [[ "$_mn_lower" != *"$_fl_lower"* ]] && continue
+                fi
+
+                category="${MODEL_CATEGORY[$model_name]}"
+                [ -z "$category" ] && category="$py_cat"
+                [[ -n "$CATEGORY_FILTER" && "$category" != "$CATEGORY_FILTER" ]] && continue
+                PY_MODELS+=("${model_name}|${py_cat}|${category}|${family}")
+            done
         done
     done
 fi
@@ -878,7 +970,7 @@ for category in "${CATEGORY_ORDER[@]}"; do
     # Collect Python models for this category
     py_cat_models=()
     for entry in "${PY_MODELS[@]}"; do
-        IFS='|' read -r m_name m_pydir m_cat <<< "$entry"
+        IFS='|' read -r m_name m_pydir m_cat _m_family <<< "$entry"
         [[ "$m_cat" == "$category" ]] && py_cat_models+=("$entry")
     done
 
@@ -904,13 +996,15 @@ for category in "${CATEGORY_ORDER[@]}"; do
             continue
         fi
         m_image="${MODEL_IMAGE_OVERRIDE[$model_name]:-$image}"
+        [[ "$model_name" == realesrgan* ]] && m_image="sample/img/sample_lowres165x90.png"
+        [ -z "$m_image" ] && m_image="sample/img/sample_street.jpg"
         m_video="${MODEL_VIDEO_OVERRIDE[$model_name]:-$video}"
         run_cpp_model "$model_name" "$model_file" "$m_image" "$m_video" "$category"
     done
 
     # Python tests
     for entry in "${py_cat_models[@]}"; do
-        IFS='|' read -r model_name py_cat _ <<< "$entry"
+        IFS='|' read -r model_name py_cat _ family <<< "$entry"
         model_file="${MODEL_FILE[$model_name]}"
         if [ -z "$model_file" ]; then
             echo -e "${YELLOW}[DXAPP] [WARN]${NC} Python ${model_name}: no model file in config — skipping" | tee -a "${SUMMARY_LOG}"
@@ -923,8 +1017,10 @@ for category in "${CATEGORY_ORDER[@]}"; do
             continue
         fi
         m_image="${MODEL_IMAGE_OVERRIDE[$model_name]:-$image}"
+        [[ "$model_name" == realesrgan* ]] && m_image="sample/img/sample_lowres165x90.png"
+        [ -z "$m_image" ] && m_image="sample/img/sample_street.jpg"
         m_video="${MODEL_VIDEO_OVERRIDE[$model_name]:-$video}"
-        run_py_model "$model_name" "$py_cat" "$category" "$model_file" "$m_image" "$m_video"
+        run_py_model "$model_name" "$py_cat" "$category" "$model_file" "$m_image" "$m_video" "$family"
     done
     echo "" | tee -a "${SUMMARY_LOG}"
 done

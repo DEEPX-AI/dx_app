@@ -47,7 +47,6 @@ public:
         // Identify box tensor (last_dim=4, 3D or 4D) and score tensor (last_dim=C)
         const dxrt::TensorPtr* boxes_t = nullptr;
         const dxrt::TensorPtr* scores_t = nullptr;
-        const dxrt::TensorPtr* classes_t = nullptr;
         const dxrt::TensorPtr* num_det_t = nullptr;
         int boxes_N = 0;
 

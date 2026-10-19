@@ -16,7 +16,8 @@ from unittest.mock import patch
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+# conftest.py puts tests/ on sys.path; hence the noqa: E402 imports below.
+from test_helpers.proc import example_python, run_bounded  # noqa: E402
 from test_helpers.constants import PROJECT_ROOT  # noqa: E402
 from test_helpers.utils import discover_python_scripts, setup_environment  # noqa: E402
 from conftest import load_module_from_file  # noqa: E402
@@ -50,7 +51,7 @@ SYNC_SCRIPT_PARAMS = _discover_sync_scripts()
 
 
 def _run(cmd: List[str], timeout: int = 10) -> subprocess.CompletedProcess:
-    return subprocess.run(
+    return run_bounded(
         cmd,
         capture_output=True,
         text=True,
@@ -76,7 +77,7 @@ def test_explicit_missing_model_fails(script: Path):
     fails immediately and does NOT trigger the auto-downloader.
     """
     try:
-        result = _run([sys.executable, str(script),
+        result = _run([example_python(), str(script),
                        "--model", "__nonexistent__.dxnn",
                        "--image", "sample/img/sample_street.jpg"])
     except subprocess.TimeoutExpired:
@@ -97,7 +98,7 @@ def test_explicit_missing_model_fails(script: Path):
 def test_invalid_arguments(script: Path):
     """Unrecognised option should exit non-zero."""
     try:
-        result = _run([sys.executable, str(script), "--invalid-option-that-does-not-exist"])
+        result = _run([example_python(), str(script), "--invalid-option-that-does-not-exist"])
     except subprocess.TimeoutExpired:
         pytest.fail(f"{script.name} (invalid opt) timed out")
 

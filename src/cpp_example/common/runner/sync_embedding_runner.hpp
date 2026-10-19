@@ -21,15 +21,26 @@
 
 #include "common/base/i_factory.hpp"
 #include "common/utility/common_util.hpp"
+#include "common/utility/progress.hpp"
 #include "common/utility/run_dir.hpp"
 #include "common/utility/verify_serialize.hpp"
 #include "sync_detection_runner.hpp"
+
+// NOTE: DisplayPump is deliberately NOT used here. The embedding runners are
+// image-pair viewers -- they collect the rendered frames and show them one after the
+// other -- and a depth-1 lossy sink drops all but the newest by design, which would
+// discard the first image of the pair. Embedding tasks (face_recognition,
+// zero_shot_image_classification) are image_only and have no video path, so the
+// display-pacing ceiling that DisplayPump removes cannot arise here. Only the
+// headless wait-loop guard below is needed.
 
 namespace dxapp {
 
 template <typename FactoryT>
 class SyncEmbeddingRunner {
     bool verbose_ = false;
+    // The reference-frame explanation is printed once per run, not once per frame.
+    bool nothing_rendered_warned_ = false;
 
 public:
     explicit SyncEmbeddingRunner(std::unique_ptr<FactoryT> factory)
@@ -42,6 +53,10 @@ public:
 
         CommandLineArgs args = parseCommandLine(argc, argv);
         verbose_ = args.verbose;
+        // No display server: run as --no-display. The first window would end the
+        // process (Qt: qFatal on the xcb plugin; GTK on OpenCV < 4.5: exit(1)
+        // in gtk_init()), and neither can be caught.
+        if (!dxapp::hasDisplay()) args.no_display = true;
 
         if (verbose_) {
             std::cout << "[DXAPP] [INFO] --show-log: This task produces image-based output. "
@@ -51,12 +66,12 @@ public:
         // (do not auto-run inference on a default sample).
         std::string task = factory_->getTaskType();
         bool hasStreamInput = !args.videoFile.empty() || args.cameraIndex >= 0 || !args.rtspUrl.empty();
-        if ((task == "embedding" || task == "reid" || task == "attribute_recognition") && hasStreamInput) {
+        if (dxapp::isComparisonOnlyTask(task) && hasStreamInput) {
             dxapp::fatal_error("[DXAPP] [ERROR] Task '" + task + "' supports image input only (-i / --image_path). "
                 "Video/camera input requires a detection crop pipeline and is not supported in single-model examples. "
                 "Use -i (--image_path) to provide an image file or directory.");
         }
-        if ((task == "embedding" || task == "reid" || task == "attribute_recognition")
+        if (dxapp::isComparisonOnlyTask(task)
             && args.imageFilePath.empty()) {
             std::cout << "[DXAPP] [INFO] Task '" << task << "' takes image input only." << std::endl;
             std::cout << "        -> Provide an image with -i (--image_path), e.g. -i "
@@ -250,6 +265,7 @@ private:
             metrics.sum_preprocess += t_preprocess;
             metrics.sum_inference += t_inference;
             metrics.infer_completed++;
+            dxapp::progressTick(metrics);   // [PROGRESS] for front ends (DXAPP_PROGRESS=1)
             return true;
         }
 
@@ -296,9 +312,22 @@ private:
         double t_save = 0.0;
         double t_display = 0.0;
         bool quit_requested = false;
+        if (result_frame.empty() && !saveImagePath.empty()
+                && !nothing_rendered_warned_) {
+            nothing_rendered_warned_ = true;
+                std::cerr << "[DXAPP] [WARN] No output image for "
+                          << fs::path(saveImagePath).filename().string()
+                          << ": this task compares against a reference, and the FIRST "
+                             "image becomes that reference (nothing to compare it with "
+                             "yet). Pass a directory holding 2 or more images so each "
+                             "one after the first is compared -- e.g. -i "
+                             "sample/img/face_pair (or sample/img/person_pair for "
+                             "Re-ID)." << std::endl;
+        }
         if (!result_frame.empty()) {
             if (!saveImagePath.empty()) {
                 auto save_start = std::chrono::high_resolution_clock::now();
+                fs::create_directories(fs::path(saveImagePath).parent_path());
                 cv::imwrite(saveImagePath, result_frame);
                 auto save_end = std::chrono::high_resolution_clock::now();
                 t_save = std::chrono::duration<double, std::milli>(save_end - save_start).count();
@@ -318,7 +347,7 @@ private:
                 t_display = std::chrono::duration<double, std::milli>(display_end - display_start).count();
                 if (is_image_mode) {
                     // Wait for user to close window — outside timing.
-                    while (!dxapp::windowShouldClose("Output")) {
+                    while (dxapp::hasDisplay() && !dxapp::windowShouldClose("Output")) {
                         std::this_thread::sleep_for(std::chrono::milliseconds(10));
                     }
                 }
@@ -333,6 +362,7 @@ private:
         metrics.sum_save += t_save;
         metrics.sum_display += t_display;
         metrics.infer_completed++;
+        dxapp::progressTick(metrics);   // [PROGRESS] for front ends (DXAPP_PROGRESS=1)
 
         return !quit_requested;
     }
@@ -348,7 +378,7 @@ private:
             std::string currentImagePath = imageFiles[i % imageFiles.size()];
             std::string savePath;
             if (!runDir.empty() && saveMode) {
-                savePath = dxapp::buildPerImageSavePath(runDir, factory_->getModelName() + "_sync", currentImagePath, i);
+                savePath = dxapp::buildPerImageSavePath(runDir, factory_->getModelName() + "_sync", currentImagePath, i, /*createDirs=*/false);
             }
             auto tr0 = std::chrono::high_resolution_clock::now();
             cv::Mat img = cv::imread(currentImagePath);

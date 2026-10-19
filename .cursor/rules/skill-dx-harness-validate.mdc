@@ -1,0 +1,7 @@
+---
+description: 'Internal harness development: validate this repo''s .deepx/ integrity, acquiring the suite harness first when
+  running from a standalone checkout'
+alwaysApply: false
+---
+
+Read and follow the skill documentation at `.deepx/skills/dx-harness-validate/SKILL.md`.

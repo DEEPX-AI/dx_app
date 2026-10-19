@@ -17,6 +17,11 @@ tile is almost entirely call overhead (measured 0.849 ms/tile). Issuing
 ``run_async()`` over a bounded in-flight window measured 0.19 ms/tile — 4.5x
 more throughput, which is what makes the extra tiles from overlapping affordable.
 
+**Streaming.** :func:`run_and_assemble_tiles` stitches each tile as soon as its
+output is waited for, so only the in-flight window's outputs exist at once.
+Holding every output until the frame is done costs ~0.5 GB at 1920x1080
+(25,560 ESPCN x4 tiles).
+
 ``halo=0`` reduces this module to plain non-overlapping tiling, which is what the
 runners did before it existed — useful as a regression harness.
 """
@@ -217,11 +222,13 @@ def plan_tiles(orig_h: int, orig_w: int, tile_h: int, tile_w: int,
     return padded_h, padded_w, plans
 
 
-def run_tiles_pipelined(ie, prep: Callable[[np.ndarray], np.ndarray],
-                        lr_plane: np.ndarray, plans: Sequence[TilePlan],
-                        tile_h: int, tile_w: int,
-                        inflight: int = DEFAULT_INFLIGHT) -> List[Optional[list]]:
-    """Run every planned tile through ``ie``, pipelined via ``run_async``.
+def pipeline_tiles(ie, prep: Callable[[np.ndarray], np.ndarray],
+                   lr_plane: np.ndarray, plans: Sequence[TilePlan],
+                   tile_h: int, tile_w: int,
+                   on_output: Callable[[int, Optional[list]], None],
+                   inflight: int = DEFAULT_INFLIGHT) -> None:
+    """Run every planned tile through ``ie``, pipelined via ``run_async``, and hand
+    each tile's outputs to ``on_output(index, outputs)`` as soon as they are waited for.
 
     Args:
         ie: InferenceEngine.
@@ -229,14 +236,12 @@ def run_tiles_pipelined(ie, prep: Callable[[np.ndarray], np.ndarray],
             and layout); typically the runner's own input-preparation step.
         lr_plane: the padded LR plane, ``[padded_h, padded_w]``.
         plans: from :func:`plan_tiles`.
+        on_output: called in tile order; ``outputs`` is ``None`` if that tile failed.
         inflight: how many jobs to keep queued.
-
-    Returns outputs in tile order; an entry is ``None`` if that tile failed.
     """
     if inflight < 1:
         inflight = 1
 
-    results: List[Optional[list]] = [None] * len(plans)
     # Holds (index, job_id, tensor). The tensor reference must outlive the job —
     # the engine may read the buffer until wait() returns.
     queue: collections.deque = collections.deque()
@@ -244,63 +249,123 @@ def run_tiles_pipelined(ie, prep: Callable[[np.ndarray], np.ndarray],
     def drain_one():
         idx, job_id, _tensor = queue.popleft()
         try:
-            results[idx] = ie.wait(job_id)
+            outputs = ie.wait(job_id)
         except Exception:
-            results[idx] = None
+            outputs = None
+        on_output(idx, outputs)
 
-    for i, p in enumerate(plans):
-        tile = lr_plane[p.win_y:p.win_y + tile_h, p.win_x:p.win_x + tile_w]
-        tensor = prep(np.ascontiguousarray(tile)[:, :, np.newaxis])
-        queue.append((i, ie.run_async([tensor]), tensor))
-        if len(queue) >= inflight:
+    try:
+        for i, p in enumerate(plans):
+            tile = lr_plane[p.win_y:p.win_y + tile_h, p.win_x:p.win_x + tile_w]
+            tensor = prep(np.ascontiguousarray(tile)[:, :, np.newaxis])
+            queue.append((i, ie.run_async([tensor]), tensor))
+            if len(queue) >= inflight:
+                drain_one()
+    except BaseException:
+        # A submit failed: the jobs already in flight still read their
+        # tensors, so wait for every one before `queue` lets them go, as the
+        # C++ pipelineTiles does.
+        while queue:
             drain_one()
+        raise
 
     while queue:
         drain_one()
 
+
+def run_tiles_pipelined(ie, prep: Callable[[np.ndarray], np.ndarray],
+                        lr_plane: np.ndarray, plans: Sequence[TilePlan],
+                        tile_h: int, tile_w: int,
+                        inflight: int = DEFAULT_INFLIGHT) -> List[Optional[list]]:
+    """:func:`pipeline_tiles` collecting every tile's outputs, in tile order; an
+    entry is ``None`` if that tile failed.
+
+    Holds all of a frame's outputs at once. The runners use
+    :func:`run_and_assemble_tiles`.
+    """
+    results: List[Optional[list]] = [None] * len(plans)
+
+    def keep(idx, outputs):
+        results[idx] = outputs
+
+    pipeline_tiles(ie, prep, lr_plane, plans, tile_h, tile_w, keep, inflight)
     return results
+
+
+def assemble_tile(sr_y: np.ndarray, p: TilePlan, outputs: Optional[list],
+                  scale_y: int, scale_x: int) -> bool:
+    """Write tile ``p``'s valid region into ``sr_y`` (padded output size).
+
+    Only the valid region is written, so with a halo of at least the
+    receptive-field radius the result has no tile seams. False when the tile has
+    no output to stitch.
+    """
+    # ``None`` marks a tile whose wait() raised (see pipeline_tiles); an empty
+    # list means the engine returned no output tensors. Neither carries pixels
+    # to stitch, and indexing an empty list would raise, so both are skipped —
+    # spelled out rather than relying on falsiness.
+    if outputs is None or len(outputs) == 0:
+        return False
+    arr = np.squeeze(outputs[0])
+    if arr is None or arr.ndim == 0:
+        return False
+    arr2d = arr[0] if arr.ndim == 3 else arr
+    tile_u8 = (np.clip(arr2d, 0.0, 1.0) * 255.0).astype(np.uint8)
+
+    sy, sx = p.src_y * scale_y, p.src_x * scale_x
+    vh, vw = p.valid_h * scale_y, p.valid_w * scale_x
+    src = tile_u8[sy:sy + vh, sx:sx + vw]
+
+    dy = (p.win_y + p.src_y) * scale_y
+    dx = (p.win_x + p.src_x) * scale_x
+    sr_y[dy:dy + src.shape[0], dx:dx + src.shape[1]] = src
+    return True
+
+
+def _warn_dropped_tiles(tiles_done: int, tiles_planned: int) -> None:
+    # A dropped tile leaves its region black. tiles_done already reports this, but
+    # only as part of an info line, so say it out loud — a partially reconstructed
+    # frame should not look like a model quality problem.
+    if tiles_done < tiles_planned:
+        logger.warning(
+            f"SR tiling: {tiles_planned - tiles_done} of {tiles_planned} tiles produced "
+            f"no usable output; those regions stay black")
+
+
+def run_and_assemble_tiles(ie, prep: Callable[[np.ndarray], np.ndarray],
+                           lr_plane: np.ndarray, plans: Sequence[TilePlan],
+                           tile_h: int, tile_w: int,
+                           padded_out_h: int, padded_out_w: int,
+                           scale_y: int, scale_x: int,
+                           inflight: int = DEFAULT_INFLIGHT) -> Tuple[np.ndarray, int]:
+    """Run every planned tile through ``ie`` and stitch it into the SR luminance
+    plane as soon as its output arrives, so only the in-flight window's outputs
+    are alive. Same image as :func:`run_tiles_pipelined` + :func:`assemble_tiles`.
+
+    Returns ``(sr_y, tiles_done)``.
+    """
+    sr_y = np.zeros((padded_out_h, padded_out_w), dtype=np.uint8)
+    tiles_done = 0
+
+    def stitch(idx, outputs):
+        nonlocal tiles_done
+        if assemble_tile(sr_y, plans[idx], outputs, scale_y, scale_x):
+            tiles_done += 1
+
+    pipeline_tiles(ie, prep, lr_plane, plans, tile_h, tile_w, stitch, inflight)
+    _warn_dropped_tiles(tiles_done, len(plans))
+    return sr_y, tiles_done
 
 
 def assemble_tiles(plans: Sequence[TilePlan], outputs: Sequence[Optional[list]],
                    padded_out_h: int, padded_out_w: int,
                    scale_y: int, scale_x: int) -> Tuple[np.ndarray, int]:
-    """Stitch tile outputs into one SR luminance plane.
+    """Stitch collected tile outputs into one SR luminance plane.
 
-    Only each tile's valid region is written, so with a halo of at least the
-    receptive-field radius the result has no tile seams. Returns
-    ``(sr_y, tiles_done)``.
+    Returns ``(sr_y, tiles_done)``.
     """
     sr_y = np.zeros((padded_out_h, padded_out_w), dtype=np.uint8)
-    tiles_done = 0
-
-    for p, out in zip(plans, outputs):
-        # ``None`` marks a tile whose wait() raised (see run_tiles_pipelined); an
-        # empty list means the engine returned no output tensors. Neither carries
-        # pixels to stitch, and indexing an empty list would raise, so both are
-        # skipped — spelled out rather than relying on falsiness.
-        if out is None or len(out) == 0:
-            continue
-        arr = np.squeeze(out[0])
-        if arr is None or arr.ndim == 0:
-            continue
-        arr2d = arr[0] if arr.ndim == 3 else arr
-        tile_u8 = (np.clip(arr2d, 0.0, 1.0) * 255.0).astype(np.uint8)
-
-        sy, sx = p.src_y * scale_y, p.src_x * scale_x
-        vh, vw = p.valid_h * scale_y, p.valid_w * scale_x
-        src = tile_u8[sy:sy + vh, sx:sx + vw]
-
-        dy = (p.win_y + p.src_y) * scale_y
-        dx = (p.win_x + p.src_x) * scale_x
-        sr_y[dy:dy + src.shape[0], dx:dx + src.shape[1]] = src
-        tiles_done += 1
-
-    # A dropped tile leaves its region black. tiles_done already reports this, but
-    # only as part of an info line, so say it out loud — a partially reconstructed
-    # frame should not look like a model quality problem.
-    if tiles_done < len(plans):
-        logger.warning(
-            f"SR tiling: {len(plans) - tiles_done} of {len(plans)} tiles produced "
-            f"no usable output; those regions stay black")
-
+    tiles_done = sum(1 for p, out in zip(plans, outputs)
+                     if assemble_tile(sr_y, p, out, scale_y, scale_x))
+    _warn_dropped_tiles(tiles_done, len(plans))
     return sr_y, tiles_done

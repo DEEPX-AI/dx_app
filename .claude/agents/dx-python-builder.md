@@ -63,13 +63,13 @@ OPTIONS: Image file | Video file | USB camera | RTSP stream -->
 
 If the model is a PPU model (detected by dx-app-builder or user input):
 
-1. **Task type MUST be `ppu`** — examples go under `src/python_example/ppu/<model>/`
+1. **Task stays the model's real task** (e.g. `object_detection`) — PPU variants live beside the others, e.g. `src/python_example/object_detection/yolo_ppu/<variant>/`
 2. **Factory uses PPU-specific interfaces**:
    - No NMS postprocessor needed — output is already decoded detections
    - Use `PPUPostprocessor` or simplified direct-output handler
    - Visualizer is the same as `DetectionVisualizer`
-3. **Reference existing PPU examples**: Check `src/python_example/ppu/yolov5s_ppu/` and
-   `src/python_example/ppu/yolov7_ppu/` for the established pattern
+3. **Reference existing PPU examples**: Check `src/python_example/object_detection/yolo_ppu/yolov5-s_640x640_ppu/` and
+   `src/python_example/object_detection/yolo_ppu/yolov7_640x640_ppu/` for the established pattern
 4. **config.json for PPU** does not need `nms_threshold` — PPU handles this internally
 
 #### Existing Example Handling (MANDATORY)
@@ -113,7 +113,13 @@ If dx-app-builder determined an existing example exists and the user chose optio
 
 ### Phase 3: Build
 
-Create files in this order under `src/python_example/<task>/<model>/`:
+In the source tree, each variant gets its own directory
+`src/python_example/<task>/<family>/<variant>/` holding `config.json`, `factory/`
+and the entry scripts; the family directory holds `__init__.py`.
+The variant directory name is the `.dxnn` stem. A `dx-agent-dev/` session
+for one model stays flat (factory, entries, and `config.json` together).
+
+Create production files in this order:
 
 #### 3a. Factory (`factory/<model>_factory.py`)
 
@@ -365,15 +371,16 @@ Run validation checks:
 Present summary to user:
 ```
 Created files:
-  src/python_example/<task>/<model>/
-    factory/__init__.py
-    factory/<model>_factory.py
-    <model>_sync.py
-    <model>_async.py
-    <model>_sync_cpp_postprocess.py
-    <model>_async_cpp_postprocess.py
-    config.json
+  src/python_example/<task>/<family>/
     __init__.py
+    <variant>/
+      config.json
+      factory/__init__.py
+      factory/<variant>_factory.py
+      <variant>_sync.py
+      <variant>_async.py
+      <variant>_sync_cpp_postprocess.py
+      <variant>_async_cpp_postprocess.py
 
 Run with:
     python <model>_sync.py --model ../../assets/models/<model>.dxnn \
@@ -413,21 +420,21 @@ Run with:
 ## Standard File Structure
 
 ```
-src/python_example/<task>/<model>/
+src/python_example/<task>/<family>/
     __init__.py
-    config.json
-    factory/
-        __init__.py
-        <model>_factory.py
-    <model>_sync.py
-    <model>_async.py
-    <model>_sync_cpp_postprocess.py       # optional
-    <model>_async_cpp_postprocess.py      # optional
-    <model>_sync_ort_off.py               # optional (USE_ORT=OFF)
-    <model>_async_ort_off.py              # optional (USE_ORT=OFF)
-    <model>_sync_cpp_postprocess_ort_off.py   # optional
-    <model>_async_cpp_postprocess_ort_off.py  # optional
+    <variant>/                                # .dxnn stem
+        config.json
+        factory/
+            __init__.py
+            <variant>_factory.py
+        <variant>_sync.py                     # entry; variant fixed
+        <variant>_async.py
+        <variant>_sync_cpp_postprocess.py
+        <variant>_async_cpp_postprocess.py
 ```
+
+ORT-off entry scripts, when present, stay in the family directory
+(for example `yolov8n_sync_ort_off.py`).
 
 ## Preprocessor / Postprocessor / Visualizer Lookup
 
@@ -495,6 +502,7 @@ that match the model's AI task. Do NOT use generic `test.jpg` or `input.jpg`.
 | Task | Sample Images | Path |
 |---|---|---|
 | object_detection | `sample_dog.jpg`, `sample_horse.jpg`, `sample_street.jpg` | `sample/img/` |
+| mainbody_detection | `sample_street.jpg` (img) / `snowboard.mp4` (video) | `sample/img/`, `assets/videos/` |
 | face_detection | `sample_face.jpg`, `sample_crowd.jpg` | `sample/img/` |
 | pose_estimation | `sample_people.jpg`, `sample_crowd.jpg` | `sample/img/` |
 | hand_landmark | `sample_hand.jpg` | `sample/img/` |

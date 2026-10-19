@@ -70,12 +70,11 @@ public:
                           int max_nms_candidates = 0)
         : input_width_(input_w), input_height_(input_h),
           object_threshold_(obj_threshold), score_threshold_(score_threshold),
-          nms_threshold_(nms_threshold), num_classes_(num_classes),
-          class_names_(class_names),
-          is_ort_configured_(is_ort_configured),
+          nms_threshold_(nms_threshold), max_nms_candidates_(max_nms_candidates),
+          num_classes_(num_classes), class_names_(class_names),
+          is_ort_configured_(is_ort_configured), npu_supported_(npu_supported),
           cpu_output_names_(cpu_output_names), npu_output_names_(npu_output_names),
-          anchors_by_strides_(anchors), npu_supported_(npu_supported),
-          max_nms_candidates_(max_nms_candidates) {
+          anchors_by_strides_(anchors) {
         if (!is_ort_configured_ && !npu_supported_) {
             throw std::invalid_argument(
                 "ORT-OFF output postprocessing is not supported for this model.\n"
@@ -355,7 +354,9 @@ private:
                 float obj = det[4];
                 if (obj < object_threshold_) continue;
 
-                auto [max_cls, max_conf] = find_best_class(det, obj);
+                const std::pair<int, float> max_result = find_best_class(det, obj);
+                const int max_cls = max_result.first;
+                const float max_conf = max_result.second;
                 if (max_cls == -1) continue;
 
                 AnchorYOLOResult r;
@@ -409,7 +410,9 @@ private:
                 float obj = det[4];   // sigmoid already applied
                 if (obj < object_threshold_) continue;
 
-                auto [best_cls, best_conf] = find_best_class_score_(det, obj);
+                const std::pair<int, float> best_result = find_best_class_score_(det, obj);
+                const int best_cls = best_result.first;
+                const float best_conf = best_result.second;
                 if (best_cls == -1) continue;
 
                 // Grid decode for YOLOX raw bbox offsets

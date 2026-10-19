@@ -1,0 +1,74 @@
+/**
+ * @file yolox-t_416x416_factory.hpp
+ * @brief YOLOX_l_leaky Abstract Factory implementation
+ */
+
+#ifndef YOLOX_T_416X416_FACTORY_HPP
+#define YOLOX_T_416X416_FACTORY_HPP
+
+#include "common/base/i_factory.hpp"
+#include "common/processors/letterbox_preprocessor.hpp"
+#include "common/processors/yolo_detection_postprocessor.hpp"
+#include "common/visualizers/detection_visualizer.hpp"
+#include "common/config/model_config.hpp"
+
+#include <string>
+#include <utility>
+
+namespace dxapp {
+namespace v_yolox_t_416x416 {
+
+class YoloxFactory : public IDetectionFactory {
+public:
+
+    YoloxFactory(float obj_threshold = 0.25f,
+                 float score_threshold = 0.3f,
+                 float nms_threshold = 0.45f)
+        : obj_threshold_(obj_threshold),
+          score_threshold_(score_threshold),
+          nms_threshold_(nms_threshold) {}
+
+    PreprocessorPtr createPreprocessor(int input_width, int input_height) override {
+        return std::make_unique<DetectionPreprocessor>(input_width, input_height);
+    }
+
+    PostprocessorPtr<DetectionResult> createPostprocessor(
+        int input_width, int input_height, bool is_ort_configured = false) override {
+        return std::make_unique<YOLOXPostprocessor>(
+            input_width, input_height,
+            obj_threshold_, score_threshold_, nms_threshold_,
+            is_ort_configured,
+            num_classes_,
+            class_names_
+        );
+    }
+
+    VisualizerPtr<DetectionResult> createVisualizer() override {
+        return std::make_unique<DetectionVisualizer>();
+    }
+
+    void loadConfig(const dxapp::ModelConfig& config) override {
+        obj_threshold_ = config.get<float>("obj_threshold", obj_threshold_);
+        score_threshold_ = config.get<float>("score_threshold", score_threshold_);
+        nms_threshold_ = config.get<float>("nms_threshold", nms_threshold_);
+        class_names_ = config.get_string_list("class_names");
+        num_classes_ = config.get<int>("num_classes", num_classes_);
+    }
+
+    std::string getModelName() const override {
+        return "yolox-t_416x416";
+    }
+    std::string getTaskType() const override { return "object_detection"; }
+
+private:
+    float obj_threshold_;
+    float score_threshold_;
+    float nms_threshold_;
+    int num_classes_{80};
+    std::vector<std::string> class_names_;
+};
+
+}  // namespace v_yolox_t_416x416
+}  // namespace dxapp
+
+#endif  // YOLOX_T_416X416_FACTORY_HPP

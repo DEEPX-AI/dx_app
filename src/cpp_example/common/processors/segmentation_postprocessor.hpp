@@ -34,7 +34,7 @@ public:
           upsample_to_input_(upsample_to_input) {}
 
     std::vector<SegmentationResult> process(const dxrt::TensorPtrs& outputs,
-                                            const PreprocessContext& ctx) override {
+                                            const PreprocessContext& /*ctx*/) override {
         std::vector<SegmentationResult> results;
         if (outputs.empty()) return results;
 
@@ -127,7 +127,7 @@ private:
 
     // Helper: copy int64 argmax-already indices into mask (e.g. SegFormer h)
     // Shape: [1,1,H,W] or [1,H,W] — single channel containing class indices
-    static void fillMaskInt64(const int64_t* data, int C, int H, int W,
+    static void fillMaskInt64(const int64_t* data, int /*C*/, int H, int W,
                               std::vector<int>& mask,
                               std::set<int>& unique_classes) {
         const int64_t* p = data;
@@ -493,7 +493,7 @@ public:
                            float nms_threshold = 0.45f,
                            int num_classes = 80,
                            int num_masks = 32,
-                           bool is_ort_configured = false,
+                           bool /*is_ort_configured*/ = false,
                            const std::vector<std::string>& class_names = {})
         : input_width_(input_width), input_height_(input_height),
           obj_threshold_(obj_threshold), score_threshold_(score_threshold),

@@ -24,11 +24,22 @@
 #include <vector>
 
 #include "common/base/i_factory.hpp"
+#include "common/processors/serialized_postprocessor.hpp"
 #include "common/utility/common_util.hpp"
+#include "common/utility/progress.hpp"
+#include "common/utility/run_clock.hpp"
 #include "common/utility/frame_reorder.hpp"
 #include "common/utility/run_dir.hpp"
 #include "common/utility/verify_serialize.hpp"
 #include "async_detection_runner.hpp"
+
+// NOTE: DisplayPump is deliberately NOT used here. The embedding runners are
+// image-pair viewers -- they collect the rendered frames and show them one after the
+// other -- and a depth-1 lossy sink drops all but the newest by design, which would
+// discard the first image of the pair. Embedding tasks (face_recognition,
+// zero_shot_image_classification) are image_only and have no video path, so the
+// display-pacing ceiling that DisplayPump removes cannot arise here. Only the
+// headless wait-loop guard below is needed.
 
 namespace dxapp {
 
@@ -52,6 +63,8 @@ struct AsyncEmbeddingDisplayArgs {
 template <typename FactoryT>
 class AsyncEmbeddingRunner {
     bool verbose_ = false;
+    // The reference-frame explanation is printed once per run, not once per frame.
+    std::atomic<bool> nothing_rendered_warned_{false};
 
 public:
     explicit AsyncEmbeddingRunner(std::unique_ptr<FactoryT> factory)
@@ -64,6 +77,9 @@ public:
 
         CommandLineArgs args = parseCommandLine(argc, argv);
         verbose_ = args.verbose;
+        // No display server: run as --no-display. Nothing can be shown, and the
+        // render thread would otherwise queue preview frames nobody takes.
+        if (!dxapp::hasDisplay()) args.no_display = true;
 
         if (verbose_) {
             std::cout << "[DXAPP] [INFO] --show-log: This task produces image-based output. "
@@ -73,12 +89,12 @@ public:
         // (do not auto-run inference on a default sample).
         std::string task = factory_->getTaskType();
         bool hasStreamInput = !args.videoFile.empty() || args.cameraIndex >= 0 || !args.rtspUrl.empty();
-        if ((task == "embedding" || task == "reid" || task == "attribute_recognition") && hasStreamInput) {
+        if (dxapp::isComparisonOnlyTask(task) && hasStreamInput) {
             dxapp::fatal_error("[DXAPP] [ERROR] Task '" + task + "' supports image input only (-i / --image_path). "
                 "Video/camera input requires a detection crop pipeline and is not supported in single-model examples. "
                 "Use -i (--image_path) to provide an image file or directory.");
         }
-        if ((task == "embedding" || task == "reid" || task == "attribute_recognition")
+        if (dxapp::isComparisonOnlyTask(task)
             && args.imageFilePath.empty()) {
             std::cout << "[DXAPP] [INFO] Task '" << task << "' takes image input only." << std::endl;
             std::cout << "        -> Provide an image with -i (--image_path), e.g. -i "
@@ -119,10 +135,11 @@ public:
         }
 
         auto preprocessor = factory_->createPreprocessor(input_width, input_height);
-        // Use shared_ptr so the callback lambda can capture by value and extend lifetime
-        // past ie.Wait() which may return before the background callback thread completes.
-        auto postprocessor_uptr = factory_->createPostprocessor(input_width, input_height);
-        auto postprocessor = std::shared_ptr<typename decltype(postprocessor_uptr)::element_type>(std::move(postprocessor_uptr));
+        // One decoder for every completion callback. dxrt runs the callbacks on
+        // its worker pool, so Serialize() lets one process() run at a time
+        // (serialized_postprocessor.hpp). It is a shared_ptr: the lambda's copy
+        // outlives ie.Wait(), which can return before the last callback finishes.
+        auto postprocessor = Serialize(factory_->createPostprocessor(input_width, input_height));
         auto visualizer = factory_->createVisualizer();
 
         std::cout << "[DXAPP] [INFO] Task: " << factory_->getTaskType() << std::endl;
@@ -172,6 +189,7 @@ public:
                 metrics_.inflight_last_ts = now;
                 metrics_.infer_last_ts = now;
                 metrics_.infer_completed++;
+                dxapp::progressTick(metrics_);   // [PROGRESS] for front ends (DXAPP_PROGRESS=1)
             }
             metrics_.notifySlot();
 
@@ -182,10 +200,6 @@ public:
             display_args.ctx = ud_ptr->ctx;
             display_args.save_path = ud_ptr->save_path;
             display_args.frame_index = ud_ptr->frame_index;
-            // --- Numerical verification dump (DXAPP_VERIFY=1) ---
-            verify::dumpVerifyJson(*display_args.results, model_path_,
-                "embedding", display_args.original_frame->rows, display_args.original_frame->cols);
-
             display_queue_.push(std::move(display_args));
             delete ud_ptr;
             return 0;
@@ -225,7 +239,7 @@ public:
                 fillModelInputBuffer(ie, buf, preprocessed);
                 std::string save_path;
                 if (!run_dir.empty()) {
-                    save_path = dxapp::buildPerImageSavePath(run_dir, factory_->getModelName() + "_async", imageFiles[i % imageFiles.size()], i);
+                    save_path = dxapp::buildPerImageSavePath(run_dir, factory_->getModelName() + "_async", imageFiles[i % imageFiles.size()], i, /*createDirs=*/false);
                 }
                 auto ud = std::make_unique<AsyncUserData>(AsyncUserData{display_image.clone(), ctx, std::move(save_path), {}});
                 metrics_.waitForSlot();
@@ -282,7 +296,12 @@ public:
                 if (!rendered_frames.empty()) break;
             }
             bool wp_supported = true;
-            for (size_t fi = 0; fi < rendered_frames.size() && running_; ++fi) {
+            // Headless: nothing can be shown and no key can be pressed, so the
+            // frame-by-frame viewer must not run at all -- it would otherwise wait for
+            // a window close that can never happen. Guarding the loop condition rather
+            // than returning keeps the rest of this int-returning function intact.
+            for (size_t fi = 0; dxapp::hasDisplay()
+                 && fi < rendered_frames.size() && running_ && !g_interrupted(); ++fi) {
                 dxapp::showOutput(rendered_frames[fi]);
                 if (fi == 0) {
                     cv::waitKey(1);
@@ -292,7 +311,7 @@ public:
                     } catch (const cv::Exception&)  { wp_supported = false; }
                 }
                 bool is_last = (fi + 1 == rendered_frames.size());
-                while (running_) {
+                while (running_ && !g_interrupted()) {  // one SIGINT/SIGTERM ends the wait
                     int k = cv::waitKey(10);
                     if (k == 'q' || k == 27) {
                         if (is_last) { running_ = false; break; }
@@ -320,20 +339,30 @@ public:
             int last_rendered = -1;
             while (running_ && !g_interrupted()) {
                 int rendered;
+                int received;
                 {
                     std::lock_guard<std::mutex> lock(metrics_.metrics_mutex);
                     rendered = metrics_.render_completed;
+                    received = metrics_.display_received;
                 }
-                const bool pending = !display_queue_.empty() ||
+                // received < processCount: a completion callback has not queued its
+                // frame yet. Callbacks finish out of order and ie.Wait(last_job_id)
+                // waits for the last job only, so without this the display thread
+                // could stop before an earlier frame arrived (no render, no dump).
+                const bool pending = !display_queue_.empty() || received < processCount ||
                                      (args.saveMode && rendered < processCount);
                 if (!pending) break;
-                if (rendered != last_rendered) {
-                    last_rendered = rendered;
+                if (rendered + received != last_rendered) {
+                    last_rendered = rendered + received;
                     last_progress = std::chrono::steady_clock::now();
                 } else if (std::chrono::steady_clock::now() - last_progress >
                            std::chrono::seconds(5)) {
                     std::cerr << "[DXAPP] [WARN] Output frames stopped draining; "
-                                 "saved video may be truncated." << std::endl;
+                              << (args.saveMode
+                                      ? "saved video may be truncated."
+                                      : "the last frames may be missing from the display and "
+                                        "DXAPP_VERIFY records.")
+                              << std::endl;
                     break;
                 }
                 if (!args.no_display) pollDisplay();
@@ -346,7 +375,8 @@ public:
         displayThr.join();
         cv::destroyAllWindows();
 
-        auto e_time = std::chrono::high_resolution_clock::now();
+        // Total Time ends at the last completed frame: the wait, drain and shutdown above are not processing
+        auto e_time = dxapp::asyncRunEnd(metrics_);
         double total_time = std::chrono::duration<double>(e_time - s_time).count();
         if (g_interrupted()) {
             std::cout << "\n[DXAPP] [INFO] Interrupted by user (Ctrl+C)" << std::endl;
@@ -421,7 +451,24 @@ private:
         // Render + save + hand one frame to the main-thread display. Extracted so
         // the reorder buffer below can emit frames strictly in submit order.
         auto renderArgs = [&](AsyncEmbeddingDisplayArgs& args) {
+            // DXAPP_VERIFY: here, where the reorder buffer releases the frame (one
+            // thread, input order), not in the dxrt completion callback.
+            if (args.results && args.original_frame) {
+                verify::dumpVerifyJson(*args.results, model_path_, "embedding",
+                                       args.original_frame->rows, args.original_frame->cols);
+            }
             if (!args.original_frame || args.original_frame->empty()) return;
+            // Embedding has no DisplayPump; keep the same preview budget so a
+            // live window does not draw every comparison frame.
+            constexpr auto kPreviewInterval = std::chrono::milliseconds(16);
+            static auto next_preview = std::chrono::steady_clock::time_point{};
+            const char* env_save = std::getenv("DXAPP_SAVE_IMAGE");
+            const bool persist = !args.save_path.empty()
+                || (env_save != nullptr && *env_save != '\0');
+            const auto now = std::chrono::steady_clock::now();
+            const bool preview = !no_display && now >= next_preview;
+            if (!persist && !preview) return;
+            if (preview) next_preview = now + kPreviewInterval;
             auto t_render_start = std::chrono::high_resolution_clock::now();
             cv::Mat result_frame = visualizer.draw(*args.original_frame, *args.results, args.ctx);
             auto t_render_end = std::chrono::high_resolution_clock::now();
@@ -433,8 +480,20 @@ private:
             if (!result_frame.empty()) {
                 dxapp::saveDebugImage(result_frame);
             }
+            if (!args.save_path.empty() && result_frame.empty()
+                    && !nothing_rendered_warned_.exchange(true)) {
+                std::cerr << "[DXAPP] [WARN] No output image for "
+                          << fs::path(args.save_path).filename().string()
+                          << ": this task compares against a reference, and the FIRST "
+                             "image becomes that reference (nothing to compare it with "
+                             "yet). Pass a directory holding 2 or more images so each "
+                             "one after the first is compared -- e.g. -i "
+                             "sample/img/face_pair (or sample/img/person_pair for "
+                             "Re-ID)." << std::endl;
+            }
             if (!args.save_path.empty() && !result_frame.empty()) {
                 auto t_save_start = std::chrono::high_resolution_clock::now();
+                fs::create_directories(fs::path(args.save_path).parent_path());
                 cv::imwrite(args.save_path, result_frame);
                 if (verbose_) {
                     std::cout << "\n[DXAPP] [INFO] Saved output image: " << fs::absolute(args.save_path).string() << std::endl;
@@ -456,6 +515,7 @@ private:
         while (running_ || !display_queue_.empty()) {
             AsyncEmbeddingDisplayArgs args;
             if (!display_queue_.try_pop(args, std::chrono::milliseconds(100))) continue;
+            { std::lock_guard<std::mutex> lock(metrics_.metrics_mutex); metrics_.display_received++; }
             reorder.push(std::move(args), renderArgs);
         }
         reorder.drain(renderArgs);

@@ -27,15 +27,20 @@ dxapp_list_categories() {
 }
 
 dxapp_resolve_minimal_targets() {
+    # Default ./build.sh builds the models run_demo.sh actually launches.
+    # The executable name is the .dxnn stem (yolov7_640x640_sync), not the family.
     awk '
-        /^DEMO_CPP_BASE=\(/ { in_array=1; next }
+        /^DEMO_MODEL=\(/ { in_array=1; next }
         in_array && /^\)/ { in_array=0; next }
         in_array {
             gsub(/#.*/, "")
+            gsub(/["\047]/, "")
             for (i = 1; i <= NF; i++) {
-                if ($i != "") {
-                    print $i "_sync"
-                    print $i "_async"
+                stem = $i
+                sub(/\.dxnn$/, "", stem)
+                if (stem != "") {
+                    print stem "_sync"
+                    print stem "_async"
                 }
             }
         }
@@ -57,10 +62,13 @@ dxapp_resolve_category_targets() {
         return 1
     fi
 
-    for model_dir in "${category_dir}"/*; do
-        [ -d "${model_dir}" ] || continue
-        model=$(basename "${model_dir}")
-        [ -f "${model_dir}/${model}_sync.cpp" ] && printf '%s_sync\n' "${model}"
-        [ -f "${model_dir}/${model}_async.cpp" ] && printf '%s_async\n' "${model}"
+    for family_dir in "${category_dir}"/*; do
+        [ -d "${family_dir}" ] || continue
+        for variant_dir in "${family_dir}"/*; do
+            [ -d "${variant_dir}" ] || continue
+            variant=$(basename "${variant_dir}")
+            [ -f "${variant_dir}/${variant}_sync.cpp" ] && printf '%s_sync\n' "${variant}"
+            [ -f "${variant_dir}/${variant}_async.cpp" ] && printf '%s_async\n' "${variant}"
+        done
     done | sort -u
 }

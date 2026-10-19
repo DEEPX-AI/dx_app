@@ -1,4 +1,0 @@
-"""
-Scrfd Model Module
-"""
-

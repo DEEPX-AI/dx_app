@@ -19,6 +19,7 @@ from .colorspace import (
 )
 from .safe_queue import SafeQueue
 from .video_io import write_video_frame, writer_frame_size
+from .camera import open_camera_capture
 from .skeleton import (
     SKELETON, POSE_LIMB_COLOR, POSE_KPT_COLOR, KEYPOINT_NAMES,
     FACE_KEYPOINT_NAMES, FACE_KPT_COLOR
@@ -64,6 +65,8 @@ __all__ = [
     'SafeQueue',
     # Video output
     'write_video_frame', 'writer_frame_size',
+    # Camera input (USB / Raspberry Pi CSI via libcamera)
+    'open_camera_capture',
     # Skeleton constants
     'SKELETON', 'POSE_LIMB_COLOR', 'POSE_KPT_COLOR', 'KEYPOINT_NAMES',
     'FACE_KEYPOINT_NAMES', 'FACE_KPT_COLOR',
