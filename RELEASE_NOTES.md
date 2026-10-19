@@ -1,5 +1,33 @@
 # RELEASE_NOTES
 
+## v3.3.0 / 2026-10-14
+
+### 1. Changed
+- Reorganized C++ and Python examples into task/family/variant directories. The variant name is the .dxnn stem, and each C++ factory is namespaced `dxapp::v_<variant>`
+- Renamed tasks
+    -  `classification` → `image_classification`,
+    - `embedding` → `face_recognition` / `image_retrieval` / `visual_place_recognition` / `zero_shot_image_classification`
+    - `attribute_recognition` → `person_attribute` / `face_attribute`,
+    - `obb_detection` → `oriented_object_detection`,
+    - `image_enhancement` → `low_light_enhancement`,
+    - `face_alignment` → `face_landmark`.
+    - and now PPU models live under `object_detection/yolo_ppu`
+- `scripts/extract_model_package.sh` now prunes `common/` to the files the extracted model actually depends on instead of copying the whole framework (yolov7: 121→29 C++, 103→54 Python); use `--no-prune` for the previous full copy
+
+### 2. Fixed
+- Fixed async runners calling the shared postprocessor from several dxrt callback threads at once. DXAPP_VERIFY records follow input order
+- Fixed retrieval, re-id, and `--check` gallery paths that depended on the working directory
+- Fixed SuperPoint keypoints being drawn at the wrong vertical position in the C++ example
+- Fixed SuperPoint tracker settings (nn_thresh, max_pixel_dist, track_max_length) being ignored
+
+### 3. Added
+- Multi-model graph engine and CLI `multi_model_graph_sync` / `multi_model_graph_async` (`--check`, `--list-models`, `--report`)
+- Registered 147 DX Model Zoo models, including RT-DETR, YOLOv12, YOLOv13, pre-optimized YOLO, anomaly detection, image matting, CLIP retrieval, person re-id, and visual place recognition
+- Sample galleries for re-id, image retrieval, and visual place recognition
+
+### 4. Removed
+- Ubuntu 18.04 support (Makefile, CI matrix, installation guide, `install_python_and_venv.sh`)
+
 ## DX-APP v3.2.2 / 2026-08-14
 
 ### 1. Changed
@@ -72,11 +100,11 @@ Generate standalone Python/C++ inference apps from plain language: an AI agent b
 - Native C++ post-processing for the example model zoo (YOLO families, semantic seg, Face3D, embedding/classification/attribute, restoration, YOLO-PPU), replacing Python fallbacks
 - Opt-in `--fast-postprocess` path for object detection and instance segmentation
 - YOLO Customizing Guide documentation
-- Added Windows standalone Visual Studio solution package extraction workflow for DX-APP C++ examples, including automatic  OpenCV/DXRT CMake dependency configuration.
- -  Added `--demo-models` setup/download option to download only models used by `run_demo.sh` / `run_demo.bat`
+- Added Windows standalone Visual Studio solution package extraction workflow for DX-APP C++ examples, including automatic OpenCV/DXRT CMake dependency configuration.
+- Added `--demo-models` setup/download option to download only models used by `run_demo.sh` / `run_demo.bat`
 - Added DX-APP build selection options for minimal and category-based builds, plus Windows build selection TUI(Text User Interface).
-- Added knowledge base (`.deepx/`) : specialized agents, app-building/SWE skills, and multi-platform agent-instruction generation
-  (CLAUDE/AGENTS/copilot/cursor) via `dx-agent-gen`
+- Added the agent knowledge base (`.deepx/`): specialized agents, app-building/SWE skills, and generated
+  instruction files for Claude Code, GitHub Copilot, Cursor, OpenCode, and Codex CLI
 - Support for 69 net-new .dxnn models (86 added / 17 removed) and 5 new AI task categories
   
   - **Model registry**: 280 → 347 models across 22 AI task categories

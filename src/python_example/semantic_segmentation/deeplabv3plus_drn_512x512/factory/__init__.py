@@ -1,1 +1,0 @@
-from .deeplabv3plus_drn_512x512_factory import Deeplabv3plus_drn_512x512Factory

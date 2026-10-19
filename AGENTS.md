@@ -4,7 +4,7 @@
 
 ## Overview
 
-dx_app provides 133 compiled `.dxnn` models across 22 AI tasks with Python (4 variants) and C++ examples.
+dx_app provides 497 compiled `.dxnn` models across 29 AI tasks with Python (4 variants) and C++ examples.
 
 ## Response Language
 
@@ -124,9 +124,9 @@ pytest tests/                       # Run unit tests
 | /dx-agent-app-model-management | Download, register, and configure .dxnn models |
 | /dx-agent-app-validate | Run validation checks at every phase gate |
 | /dx-agent-runtime-validate | Full feedback loop: validate, collect, approve, apply, verify |
-| /dx-swe-brainstorm | Brainstorm, propose 2-3 approaches, spec self-review, then plan |
-| /dx-swe-tdd | Validation-driven development with optional Red-Green-Refactor for unit tests |
-| /dx-swe-verify | Process: verify before claiming completion — evidence before assertions |
+| /dx-agent-brainstorm | DEEPX build brainstorming with model registry check and sub-project routing |
+| /dx-agent-tdd | DEEPX build validation order — factory, pipeline, and integration checks |
+| /dx-agent-verify | DEEPX build verification checklists — dx_app, dx_stream, and cross-project |
 | /dx-swe-writing-plans | Write implementation plans with bite-sized tasks |
 | /dx-swe-executing-plans | Execute plans with review checkpoints |
 | /dx-swe-subagent-dev | Execute plans via fresh subagent per task with two-stage review |
@@ -135,6 +135,7 @@ pytest tests/                       # Run unit tests
 | /dx-swe-requesting-review | Request code review after completing features |
 | /dx-skill-router | Skill discovery and invocation — check skills before any action |
 | /dx-harness-writing-skills | Create and edit skill files |
+| /dx-harness-validate | Validate this repo's .deepx/ integrity (bootstraps the suite harness when standalone) |
 | /dx-swe-parallel-agents | Dispatch parallel subagents for independent tasks |
 
 ## Interactive Workflow (MUST FOLLOW)
@@ -226,14 +227,14 @@ See the common conflict patterns in the parent project's instructions.
 8. **No dotted-relative imports**: never `from ..common import ...`; import `common` as a top-level package (`from common.base import ...`)
 9. **No hardcoded model paths**: All model paths from CLI args or model_registry.json
 10. **4 variants**: Python apps have sync, async, sync_cpp_postprocess, async_cpp_postprocess
-11. **PPU model auto-detection**: Auto-detect PPU models by checking model name `_ppu` suffix, `model_registry.json` `csv_task: "PPU"`, or compiler session context. PPU models go under `src/python_example/ppu/` with simplified postprocessing (no separate NMS needed).
-12. **Existing example search**: Before generating code, search `src/python_example/<task>/<model>/` for existing examples. If found, ask user: (a) explain existing only, or (b) create new example based on existing. Never silently skip or overwrite.
+11. **PPU model auto-detection**: Auto-detect PPU models by checking model name `_ppu` suffix, `model_registry.json` `csv_task: "PPU"`, or compiler session context. PPU models live under their task like any other variant (e.g. `src/python_example/object_detection/yolo_ppu/<variant>/`) and use simplified postprocessing (no separate NMS needed).
+12. **Existing example search**: Before generating code, search `src/python_example/<task>/<family>/<variant>/` for existing examples. If found, ask user: (a) explain existing only, or (b) create new example based on existing. Never silently skip or overwrite.
 13. **PPU example generation is MANDATORY**: If the compiled .dxnn model is PPU, the agent MUST generate a working example — never skip example generation for PPU models.
 14. **Cross-validation with reference model**: When a precompiled DXNN exists in `assets/models/` or an existing verified example exists in `src/python_example/`, run the Level 5.5 differential diagnosis to isolate app code vs compilation issues. See `dx-validate.md` Level 5.5.
 15. **Mandatory output artifacts**: Every session MUST produce ALL 13 artifacts (factory, config, 4 variants, __init__.py, session.json, README.md, setup.sh, run.sh, session.log). See agent's MANDATORY OUTPUT REQUIREMENTS section. Run self-verification check before claiming completion.
-16. **Skeleton-first development** — Read `.deepx/skills/dx-agent-app-build-python.md` skeleton
+16. **Skeleton-first development** — Read `.deepx/skills/dx-agent-app-build-python/SKILL.md` skeleton
     template BEFORE writing any code. Copy the closest existing example from
-    `src/python_example/<task>/<model>/` and modify ONLY model-specific parts (factory,
+    `src/python_example/<task>/<family>/<variant>/` and modify ONLY model-specific parts (factory,
     postprocessor). NEVER write demo scripts from scratch. NEVER propose standalone
     scripts that bypass the framework (e.g., direct `InferenceEngine` usage without
     factory/runner pattern).
@@ -247,16 +248,16 @@ See the common conflict patterns in the parent project's instructions.
 
 | Task mentions... | Read these files |
 |---|---|
-| **Python app, detection, classification** | `.deepx/skills/dx-agent-app-build-python.md`, `.deepx/toolsets/common-framework-api.md` |
-| **C++ app, native** | `.deepx/skills/dx-agent-app-build-cpp.md`, `.deepx/toolsets/dx-engine-api.md` |
-| **Async, performance, throughput** | `.deepx/skills/dx-agent-app-build-async.md`, `.deepx/memory/performance_patterns.md` |
-| **Model, download, registry** | `.deepx/skills/dx-agent-app-model-management.md`, `.deepx/toolsets/model-registry.md` |
-| **PaddleOCR OCR app (video/webcam), RapidDoc PDF→Markdown, PaddlePaddle** | `.deepx/toolsets/paddleocr-rapiddoc-app.md` (+ `dx-compiler/.deepx/toolsets/paddlepaddle-deepx.md`) |
-| **Validation, testing** | `.deepx/skills/dx-agent-app-validate.md`, `.deepx/instructions/testing-patterns.md` |
-| **Validation, feedback, fix** | `.deepx/skills/dx-agent-app-validate.md`, parent `dx-runtime/.deepx/skills/dx-agent-runtime-validate.md` |
-| **Brainstorm, plan, design** | `.deepx/skills/dx-swe-brainstorm.md` |
-| **TDD, validation, incremental** | `.deepx/skills/dx-swe-tdd.md` |
-| **Completion, verify, evidence** | `.deepx/skills/dx-swe-verify.md` |
+| **Python app, detection, classification** | `.deepx/skills/dx-agent-app-build-python/SKILL.md`, `.deepx/toolsets/common-framework-api.md` |
+| **C++ app, native** | `.deepx/skills/dx-agent-app-build-cpp/SKILL.md`, `.deepx/toolsets/dx-engine-api.md` |
+| **Async, performance, throughput** | `.deepx/skills/dx-agent-app-build-async/SKILL.md`, `.deepx/memory/performance_patterns.md` |
+| **Model, download, registry** | `.deepx/skills/dx-agent-app-model-management/SKILL.md`, `.deepx/toolsets/model-registry.md` |
+| **PaddleOCR OCR app (video/webcam), RapidDoc PDF→Markdown, PaddlePaddle** | `.deepx/toolsets/paddleocr-rapiddoc-app.md` (+ `../../dx-compiler/.deepx/toolsets/paddlepaddle-deepx.md`) |
+| **Validation, testing** | `.deepx/skills/dx-agent-app-validate/SKILL.md`, `.deepx/instructions/testing-patterns.md` |
+| **Validation, feedback, fix** | `.deepx/skills/dx-agent-app-validate/SKILL.md`, parent `../.deepx/skills/dx-agent-runtime-validate/SKILL.md` |
+| **Brainstorm, plan, design** | `.deepx/skills/dx-agent-brainstorm/SKILL.md` |
+| **TDD, validation, incremental** | `.deepx/skills/dx-agent-tdd/SKILL.md` |
+| **Completion, verify, evidence** | `.deepx/skills/dx-agent-verify/SKILL.md` |
 | **Debug, root cause, investigate** | `.deepx/skills/dx-swe-debugging/SKILL.md` |
 | **Plan, execute, subagent** | `.deepx/skills/dx-swe-writing-plans/SKILL.md`, `.deepx/skills/dx-swe-executing-plans/SKILL.md` |
 | **Code review, feedback** | `.deepx/skills/dx-swe-receiving-review/SKILL.md`, `.deepx/skills/dx-swe-requesting-review/SKILL.md` |
@@ -274,21 +275,24 @@ logger = logging.getLogger(__name__)
 ## File Structure
 
 ```
-src/python_example/{task}/{model}/
+src/python_example/{task}/{family}/
 ├── __init__.py
-├── config.json
-├── {model}_factory.py
-├── {model}_sync.py
-├── {model}_async.py
-├── {model}_sync_cpp_postprocess.py
-└── {model}_async_cpp_postprocess.py
+└── {variant}/                       # directory name is the .dxnn stem
+    ├── config.json
+    ├── factory/
+    │   ├── __init__.py
+    │   └── {variant}_factory.py
+    ├── {variant}_sync.py
+    ├── {variant}_async.py
+    ├── {variant}_sync_cpp_postprocess.py
+    └── {variant}_async_cpp_postprocess.py
 
-src/cpp_example/{task}/{model}/
-├── CMakeLists.txt
-├── main.cpp
-├── config.json
-├── include/
-└── src/
+src/cpp_example/{task}/{family}/
+└── {variant}/                       # directory name is the .dxnn stem
+    ├── config.json
+    ├── factory/{variant}_factory.hpp
+    ├── {variant}_sync.cpp
+    └── {variant}_async.cpp
 ```
 
 ## No Placeholder Code (MANDATORY)
@@ -528,13 +532,41 @@ When the user is absent — autopilot mode, `--yolo` flag, or system auto-respon
    already in your system prompt and conversation history.
 
 
-## 22 Supported AI Tasks
+## 29 Supported AI Tasks
 
-3d_object_detection, attribute_recognition, classification, depth_estimation,
-embedding, face_alignment, face_detection, hand_detection, hand_landmark,
-image_denoising, image_enhancement, instance_segmentation, keypoint_detection,
-obb_detection, object_detection, object_pose_estimation, panoptic_driving_perception,
-pose_estimation, ppu, reid, semantic_segmentation, super_resolution
+| AI task | Variants | Example tree |
+|---|--:|---|
+| `object_detection` | 167 | `src/{python,cpp}_example/object_detection/` |
+| `image_classification` | 137 | `src/{python,cpp}_example/image_classification/` |
+| `instance_segmentation` | 53 | `src/{python,cpp}_example/instance_segmentation/` |
+| `pose_estimation` | 37 | `src/{python,cpp}_example/pose_estimation/` |
+| `semantic_segmentation` | 24 | `src/{python,cpp}_example/semantic_segmentation/` |
+| `face_detection` | 19 | `src/{python,cpp}_example/face_detection/` |
+| `depth_estimation` | 10 | `src/{python,cpp}_example/depth_estimation/` |
+| `super_resolution` | 6 | `src/{python,cpp}_example/super_resolution/` |
+| `image_denoising` | 5 | `src/{python,cpp}_example/image_denoising/` |
+| `oriented_object_detection` | 5 | `src/{python,cpp}_example/oriented_object_detection/` |
+| `zero_shot_image_classification` | 5 | `src/{python,cpp}_example/zero_shot_image_classification/` |
+| `anomaly_detection` | 4 | `src/{python,cpp}_example/anomaly_detection/` |
+| `face_recognition` | 4 | `src/{python,cpp}_example/face_recognition/` |
+| `visual_place_recognition` **(2_5_0 new)** | 3 | `src/{python,cpp}_example/visual_place_recognition/` |
+| `face_landmark` | 2 | `src/{python,cpp}_example/face_landmark/` |
+| `image_matting` **(2_5_0 new)** | 2 | `src/{python,cpp}_example/image_matting/` |
+| `image_retrieval` **(2_5_0 new)** | 2 | `src/{python,cpp}_example/image_retrieval/` |
+| `low_light_enhancement` | 2 | `src/{python,cpp}_example/low_light_enhancement/` |
+| `mainbody_detection` | 2 | `src/{python,cpp}_example/mainbody_detection/` |
+| `person_attribute` | 2 | `src/{python,cpp}_example/person_attribute/` |
+| `3d_object_detection` | 1 | `src/{python,cpp}_example/3d_object_detection/` |
+| `face_attribute` | 1 | `src/{python,cpp}_example/face_attribute/` |
+| `hand_detection` | 1 | `src/{python,cpp}_example/hand_detection/` |
+| `hand_landmark` | 1 | `src/{python,cpp}_example/hand_landmark/` |
+| `keypoint_detection` | 1 | `src/{python,cpp}_example/keypoint_detection/` |
+| `object_pose_estimation` | 1 | `src/{python,cpp}_example/object_pose_estimation/` |
+| `panoptic_driving_perception` | 1 | `src/{python,cpp}_example/panoptic_driving_perception/` |
+| `person_reid` **(2_5_0 new)** | 1 | `src/{python,cpp}_example/person_reid/` |
+| `zero_shot_instance_segmentation` | 1 | `src/{python,cpp}_example/zero_shot_instance_segmentation/` |
+
+Counts come from `config/model_registry.json`; regenerate this section when the registry changes (`python3 -c "import json,collections;print(collections.Counter(r['task'] for r in json.load(open('config/model_registry.json'))))"`).
 
 ## Hardware
 
@@ -787,3 +819,61 @@ rules, syncing platforms, creating KO translations, modifying agents/skills). It
 does NOT apply when a feature implementation incidentally triggers a single-line
 change in `.deepx/`.
 
+## Standalone Checkout — Harness Bootstrap (HARD GATE)
+
+This repo is a sub-project of dx-all-suite, but it can also be cloned **on its
+own**. In that standalone case the harness tooling is simply not present:
+
+| Present in this repo | Ships only with dx-all-suite |
+|---|---|
+| `.deepx/{agents,skills,templates/{en,ko},scripts,memory,instructions,toolsets}` | `.deepx/tools/` — the `dx-agent-gen` generator |
+| `.deepx/scripts/validate_framework.py` | `.deepx/templates/fragments/` — the shared fragments |
+| this instruction file (already generated) | `.deepx/tests/conformance/` |
+
+The Instruction File Verification Loop above tells you to run
+`dx-agent-gen generate` / `check` and the conformance tests. In a standalone
+checkout **none of those commands can work** — which is exactly how `.deepx/`
+edits get committed unverified and become drift that only CI catches.
+
+### Required before the FIRST `.deepx/` edit
+
+```bash
+bash .deepx/scripts/harness_bootstrap.sh --check
+```
+
+It resolves a real dx-all-suite checkout in this order — explicit
+`--suite-dir` / `$DX_SUITE_DIR`, then a parent directory (the normal nested
+case: nothing is downloaded), then a previously acquired `.dx-harness/suite`
+cache, then a shallow clone into `.dx-harness/` — and then runs **the same
+verification the CI `subrepo-gate` runs**: the generator drift check plus this
+repo's `validate_framework.py`.
+
+`.dx-harness/` is git-ignored, so nothing it downloads can reach the index.
+
+### When it exits 3 — STOP
+
+Exit code 3 means no suite could be acquired (no local suite, no cache, no
+network). Then:
+
+- **Do NOT edit any file under `**/.deepx/**`** in this checkout. Without the
+  generator and the fragments you cannot regenerate `CLAUDE.md` / `AGENTS.md` /
+  `.claude/` / `.github/` / `.cursor/` / `.opencode/`, so every edit ships as
+  drift.
+- **Do NOT work around it.** Specifically, if the generator reports
+  `unresolved template variables` listing `FRAGMENT` placeholders, those
+  fragments are **missing, not wrong**. Editing the templates, renaming
+  fragments, or adding variables to `_build_template_context()` turns a missing
+  input into a second, worse drift that is committed.
+- Say so plainly, and offer the two documented ways forward:
+  `--suite-dir /path/to/dx-all-suite`, `$DX_SUITE_DIR`, or doing the harness
+  work from a full dx-all-suite checkout.
+
+Non-harness work is unaffected: application code, `src/`, docs, tests and
+`dx-agent-dev/<session_id>/` outputs proceed normally when bootstrap fails.
+
+### Scope note
+
+`--check` deliberately does **not** run the suite conformance suite. Those
+checks are cross-level — they compare all 5 levels against each other — so they
+cannot be satisfied when the other sub-repos are absent. Matching the
+`subrepo-gate` scope exactly is what makes "local green" mean "CI green".

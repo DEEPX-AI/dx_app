@@ -26,7 +26,12 @@
 
 #include "common/base/i_factory.hpp"
 #include "common/config/model_config.hpp"
+#include "common/processors/serialized_postprocessor.hpp"
+#include "common/runner/detection_runner_ops.hpp"
 #include "common/utility/common_util.hpp"
+#include "common/utility/progress.hpp"
+#include "common/utility/run_clock.hpp"
+#include "common/utility/display_pump.hpp"
 #include "common/utility/frame_reorder.hpp"
 #include "common/utility/run_dir.hpp"
 #include "common/utility/verify_serialize.hpp"
@@ -49,6 +54,7 @@ struct CommandLineArgs {
     int cameraIndex = -1;
     int loopTest = -1;
     bool no_display = false;
+    bool drop_frames = false;  // --drop-frames: lossy preview (default: lossless)
     bool saveMode = false;
     bool dumpTensors = false;
     bool verbose = false;
@@ -66,6 +72,7 @@ struct AsyncProfilingMetrics {
     int infer_completed = 0;
     int render_completed = 0;
     int display_completed = 0;
+    int display_received = 0;  // items the display thread has taken off display_queue_
 
     // Inflight tracking
     std::chrono::high_resolution_clock::time_point infer_first_ts;
@@ -156,8 +163,8 @@ struct AsyncUserData {
     cv::Mat display_frame;
     PreprocessContext ctx;
     std::string save_path;  // Empty means no save for this frame
-    std::chrono::high_resolution_clock::time_point submit_ts;  // For inference time measurement
-    std::string source_bin_path;  // Original velodyne .bin path for multi-view viz (SFA3D 3D detection)
+    std::chrono::high_resolution_clock::time_point submit_ts{};  // For inference time measurement
+    std::string source_bin_path{};  // Original velodyne .bin path for multi-view viz (SFA3D 3D detection)
     uint64_t frame_index = 0;  // Monotonic submit order; used for in-order display reordering
 
     AsyncUserData() = default;
@@ -169,8 +176,9 @@ struct AsyncUserData {
 };
 
 // Display arguments for async processing
-struct AsyncDisplayArgs {
-    std::shared_ptr<std::vector<DetectionResult>> detections;
+template <typename ResultT>
+struct AsyncResultDisplayArgs {
+    std::shared_ptr<std::vector<ResultT>> detections;
     std::shared_ptr<cv::Mat> original_frame;
     std::string save_path;
     double t_read = 0.0;
@@ -179,20 +187,26 @@ struct AsyncDisplayArgs {
     double t_postprocess = 0.0;
     PreprocessContext ctx;
     uint64_t frame_index = 0;  // Monotonic submit order, for in-order display
-    AsyncDisplayArgs() = default;
-    AsyncDisplayArgs(const AsyncDisplayArgs&) = default;
-    AsyncDisplayArgs& operator=(const AsyncDisplayArgs&) = default;
-    AsyncDisplayArgs(AsyncDisplayArgs&&) noexcept = default;
-    AsyncDisplayArgs& operator=(AsyncDisplayArgs&&) noexcept = default;
+    AsyncResultDisplayArgs() = default;
+    AsyncResultDisplayArgs(const AsyncResultDisplayArgs&) = default;
+    AsyncResultDisplayArgs& operator=(const AsyncResultDisplayArgs&) = default;
+    AsyncResultDisplayArgs(AsyncResultDisplayArgs&&) noexcept = default;
+    AsyncResultDisplayArgs& operator=(AsyncResultDisplayArgs&&) noexcept = default;
 };
+using AsyncDisplayArgs = AsyncResultDisplayArgs<DetectionResult>;
 
 /**
  * @brief Generic asynchronous runner for detection-based models
- * @tparam FactoryT The factory type (must derive from IDetectionFactory)
+ * @tparam FactoryT The factory type: an IDetectionFactory for DetectionResult, an
+ *                  IPanopticDrivingFactory for PanopticResult (YOLOPv2)
+ * @tparam ResultT  The per-frame result: DetectionResult (default) or PanopticResult;
+ *                  DetectionRunnerOps<ResultT> picks the factory calls
  */
-template <typename FactoryT>
+template <typename FactoryT, typename ResultT = DetectionResult>
 class AsyncDetectionRunner {
     bool verbose_ = false;
+    using Ops = DetectionRunnerOps<ResultT>;
+    using DisplayArgs = AsyncResultDisplayArgs<ResultT>;
 
 public:
     explicit AsyncDetectionRunner(std::unique_ptr<FactoryT> factory)
@@ -205,6 +219,7 @@ public:
 
         // Parse command line arguments
         CommandLineArgs args = parseCommandLine(argc, argv);
+        dxapp::configureDisplayPump(display_pump_, args.drop_frames);
         verbose_ = args.verbose;
         // Apply default sample image if no input specified
         if (args.imageFilePath.empty() && args.videoFile.empty() && args.cameraIndex < 0 && args.rtspUrl.empty()) {
@@ -260,11 +275,13 @@ public:
         }
 
         auto preprocessor = factory_->createPreprocessor(input_width, input_height);
-        // Use shared_ptr so the callback lambda can capture by value and extend lifetime
-        // past ie.Wait() which returns before the background callback thread fires.
-        std::shared_ptr<IPostprocessor<DetectionResult>> postprocessor(
-            factory_->createPostprocessor(input_width, input_height, ie.IsOrtConfigured()));
-        auto visualizer = factory_->createVisualizer();
+        // One decoder for every completion callback. dxrt runs the callbacks on
+        // its worker pool, so Serialize() lets one process() run at a time
+        // (serialized_postprocessor.hpp). It is a shared_ptr: the lambda's copy
+        // outlives ie.Wait(), which can return before the last callback finishes.
+        auto postprocessor = Serialize(
+            Ops::createPostprocessor(*factory_, input_width, input_height, ie.IsOrtConfigured()));
+        auto visualizer = Ops::createVisualizer(*factory_);
 
         std::cout << "[DXAPP] [INFO] Task: " << factory_->getTaskType() << std::endl;
         std::cout << "[DXAPP] [INFO] Model loaded: " << args.modelPath << std::endl;
@@ -381,112 +398,76 @@ public:
         int last_job_id = -1;
         int images_per_loop = is_image ? static_cast<int>(imageFiles.size()) : 0;
 
-        if (is_image) {
-            int effective_loop_count = (images_per_loop > 0) ? loopTest / images_per_loop : 1;
-            for (int i = 0; i < loopTest && running_ && !g_interrupted(); ++i) {
-                int loop_idx = i / images_per_loop;
-                int img_idx  = i % images_per_loop;
-                std::string currentImagePath = imageFiles[img_idx];
+        // The pipeline runs on a WORKER thread; the main thread does nothing but service
+        // the window. Qt requires imshow/waitKey on the process main thread, so the
+        // pipeline is what has to move: while pollDisplay() was called from this submit
+        // loop, GUI time was charged to frame submission. DisplayPump had already removed
+        // the blocking back-pressure, but on a REAL display the pump still costs ~2.6 ms
+        // and at 60 pumps/s it capped throughput again -- measured -31.6% for yolo26-n
+        // and -69.9% for 3ddfa-v2, with display-mode FPS clustering at 160-200 whatever
+        // the model. Off the submit thread that coupling is gone.
+        auto pipeline = [&]() {
+            if (is_image) {
+                int effective_loop_count = (images_per_loop > 0) ? loopTest / images_per_loop : 1;
+                for (int i = 0; i < loopTest && running_ && !g_interrupted(); ++i) {
+                    int loop_idx = i / images_per_loop;
+                    int img_idx  = i % images_per_loop;
+                    std::string currentImagePath = imageFiles[img_idx];
 
-                // Loop banner
-                if (effective_loop_count > 1 && img_idx == 0 && args.verbose) {
-                    std::cout << "\n=================================================" << std::endl;
-                    std::cout << "[DXAPP] [INFO] Loop " << (loop_idx + 1) << "/" << effective_loop_count << std::endl;
-                    std::cout << "=================================================" << std::endl;
-                }
-                if (args.verbose) {
-                    std::cout << "\n[DXAPP] [INFO] Image " << (img_idx + 1) << "/" << images_per_loop
-                          << ": " << fs::path(currentImagePath).filename().string() << std::endl;
-                }
-
-                auto t_read_start = std::chrono::high_resolution_clock::now();
-                cv::Mat img = cv::imread(currentImagePath);
-                auto t_read_end = std::chrono::high_resolution_clock::now();
-
-                if (img.empty()) {
-                    std::cerr << "[DXAPP] [ERROR] Failed to read image: " << currentImagePath << std::endl;
-                    continue;
-                }
-                if (loop_idx == 0) {
-                    if (args.verbose) {
-                        std::cout << "[DXAPP] [INFO] Input image: " << currentImagePath << std::endl;
-                        std::cout << "[DXAPP] [INFO] Image resolution (WxH): " << img.cols << "x" << img.rows << std::endl;
+                    // Loop banner
+                    if (effective_loop_count > 1 && img_idx == 0 && args.verbose) {
+                        std::cout << "\n=================================================" << std::endl;
+                        std::cout << "[DXAPP] [INFO] Loop " << (loop_idx + 1) << "/" << effective_loop_count << std::endl;
+                        std::cout << "=================================================" << std::endl;
                     }
-                }
+                    if (args.verbose) {
+                        std::cout << "\n[DXAPP] [INFO] Image " << (img_idx + 1) << "/" << images_per_loop
+                              << ": " << fs::path(currentImagePath).filename().string() << std::endl;
+                    }
 
-                PreprocessContext ctx;
-                cv::Mat preprocessed;
-                // Preprocess original image so ctx.original_* are correct
-                auto t_pre_start = std::chrono::high_resolution_clock::now();
-                preprocessor->process(img, preprocessed, ctx);
-                auto t_pre_end = std::chrono::high_resolution_clock::now();
-                {
-                    std::lock_guard<std::mutex> lock(metrics_.metrics_mutex);
-                    metrics_.sum_read += std::chrono::duration<double, std::milli>(t_read_end - t_read_start).count();
-                    metrics_.sum_preprocess += std::chrono::duration<double, std::milli>(t_pre_end - t_pre_start).count();
-                }
-                // Prepare display image from original
-                dxapp::displayResize(img, display_image, SHOW_WINDOW_SIZE_W, SHOW_WINDOW_SIZE_H);
-
-                // Copy to pre-allocated buffer (convert to float if needed)
-                auto& buf = input_buffers[buffer_index % ASYNC_BUFFER_SIZE];
-                copyToInputBuffer(buf, preprocessed, is_float_input, is_nhwc);
-
-                // Compute save_path for this image (dedup in loop mode)
-                std::string save_path = computeImageSavePath(
-                    image_save_dir, currentImagePath, images_per_loop, saved_files);
-
-                // can render using original-pixel coordinates (not the resized display image).
-                auto ud = std::make_unique<AsyncUserData>(AsyncUserData{img.clone(), ctx, std::move(save_path), {}});
-
-                // Back-pressure: wait for available slot
-                metrics_.waitForSlot();
-                // Update inflight tracking
-                updateInflightMetrics();
-
-                ud->submit_ts = std::chrono::high_resolution_clock::now();
-                ud->frame_index = static_cast<uint64_t>(buffer_index);
-                last_job_id = ie.RunAsync(buf.data(), static_cast<void*>(ud.release()));
-                buffer_index++;
-                processCount++;
-                if (!args.no_display && !pollDisplay()) break;
-            }
-        } else {
-            // Video multi-loop
-            for (int loop_idx = 0; loop_idx < loopTest && running_ && !g_interrupted(); ++loop_idx) {
-                if (loopTest > 1 && args.verbose) {
-                    std::cout << "\n=================================================" << std::endl;
-                    std::cout << "[DXAPP] [INFO] Loop " << (loop_idx + 1) << "/" << loopTest << std::endl;
-                    std::cout << "=================================================" << std::endl;
-                }
-
-                auto readFrame = [&video](cv::Mat& f) { video >> f; return !f.empty(); };
-                cv::Mat frame;
-                while (running_ && !g_interrupted()) {
                     auto t_read_start = std::chrono::high_resolution_clock::now();
-                    if (!readFrame(frame)) break;
+                    cv::Mat img = cv::imread(currentImagePath);
                     auto t_read_end = std::chrono::high_resolution_clock::now();
+
+                    if (img.empty()) {
+                        std::cerr << "[DXAPP] [ERROR] Failed to read image: " << currentImagePath << std::endl;
+                        continue;
+                    }
+                    if (loop_idx == 0) {
+                        if (args.verbose) {
+                            std::cout << "[DXAPP] [INFO] Input image: " << currentImagePath << std::endl;
+                            std::cout << "[DXAPP] [INFO] Image resolution (WxH): " << img.cols << "x" << img.rows << std::endl;
+                        }
+                    }
+
                     PreprocessContext ctx;
                     cv::Mat preprocessed;
-                    // Preprocess original video frame so ctx.original_* are correct
+                    // Preprocess original image so ctx.original_* are correct
                     auto t_pre_start = std::chrono::high_resolution_clock::now();
-                    preprocessor->process(frame, preprocessed, ctx);
+                    preprocessor->process(img, preprocessed, ctx);
                     auto t_pre_end = std::chrono::high_resolution_clock::now();
                     {
                         std::lock_guard<std::mutex> lock(metrics_.metrics_mutex);
                         metrics_.sum_read += std::chrono::duration<double, std::milli>(t_read_end - t_read_start).count();
                         metrics_.sum_preprocess += std::chrono::duration<double, std::milli>(t_pre_end - t_pre_start).count();
                     }
-                    // Prepare display image from original frame
-                    dxapp::displayResize(frame, display_image, SHOW_WINDOW_SIZE_W, SHOW_WINDOW_SIZE_H);
+                    // Prepare display image from original
+                    dxapp::displayResize(img, display_image, SHOW_WINDOW_SIZE_W, SHOW_WINDOW_SIZE_H);
 
+                    // Copy to pre-allocated buffer (convert to float if needed)
                     auto& buf = input_buffers[buffer_index % ASYNC_BUFFER_SIZE];
                     copyToInputBuffer(buf, preprocessed, is_float_input, is_nhwc);
 
-                    // Use the original video frame (not the resized display image)
-                    auto ud = std::make_unique<AsyncUserData>(AsyncUserData{frame.clone(), ctx, "", {}});
+                    // Compute save_path for this image (dedup in loop mode)
+                    std::string save_path = computeImageSavePath(
+                        image_save_dir, currentImagePath, images_per_loop, saved_files);
+
+                    // can render using original-pixel coordinates (not the resized display image).
+                    auto ud = std::make_unique<AsyncUserData>(AsyncUserData{img.clone(), ctx, std::move(save_path), {}});
+
                     // Back-pressure: wait for available slot
                     metrics_.waitForSlot();
+                    // Update inflight tracking
                     updateInflightMetrics();
 
                     ud->submit_ts = std::chrono::high_resolution_clock::now();
@@ -494,81 +475,151 @@ public:
                     last_job_id = ie.RunAsync(buf.data(), static_cast<void*>(ud.release()));
                     buffer_index++;
                     processCount++;
-                    if (!args.no_display && !pollDisplay()) break;
+                    // display is pumped by the main thread (runPipelineWithDisplay)
+                    if (!running_) break;
                 }
+            } else {
+                // Video multi-loop
+                for (int loop_idx = 0; loop_idx < loopTest && running_ && !g_interrupted(); ++loop_idx) {
+                    if (loopTest > 1 && args.verbose) {
+                        std::cout << "\n=================================================" << std::endl;
+                        std::cout << "[DXAPP] [INFO] Loop " << (loop_idx + 1) << "/" << loopTest << std::endl;
+                        std::cout << "=================================================" << std::endl;
+                    }
 
-                // Reopen video for next loop iteration
-                if (loop_idx + 1 >= loopTest || args.videoFile.empty()) continue;
-                video.release();
-                video.open(args.videoFile);
-                if (!video.isOpened()) {
-                    std::cerr << "[DXAPP] [ERROR] Failed to reopen video for loop " << (loop_idx + 2) << std::endl;
-                    break;
-                }
-            }
-        }
+                    auto readFrame = [&video](cv::Mat& f) { video >> f; return !f.empty(); };
+                    cv::Mat frame;
+                    while (running_ && !g_interrupted()) {
+                        auto t_read_start = std::chrono::high_resolution_clock::now();
+                        if (!readFrame(frame)) break;
+                        auto t_read_end = std::chrono::high_resolution_clock::now();
+                        PreprocessContext ctx;
+                        cv::Mat preprocessed;
+                        // Preprocess original video frame so ctx.original_* are correct
+                        auto t_pre_start = std::chrono::high_resolution_clock::now();
+                        preprocessor->process(frame, preprocessed, ctx);
+                        auto t_pre_end = std::chrono::high_resolution_clock::now();
+                        {
+                            std::lock_guard<std::mutex> lock(metrics_.metrics_mutex);
+                            metrics_.sum_read += std::chrono::duration<double, std::milli>(t_read_end - t_read_start).count();
+                            metrics_.sum_preprocess += std::chrono::duration<double, std::milli>(t_pre_end - t_pre_start).count();
+                        }
+                        // Prepare display image from original frame
+                        dxapp::displayResize(frame, display_image, SHOW_WINDOW_SIZE_W, SHOW_WINDOW_SIZE_H);
 
-        // Wait for inference completion while keeping display responsive
-        if (last_job_id >= 0) {
-            if (!running_) display_queue_.shutdown();
-            std::atomic<bool> inference_done{false};
-            std::thread waitThread([&ie, last_job_id, &inference_done]() {
-                ie.Wait(last_job_id);
-                inference_done.store(true, std::memory_order_release);
-            });
-            while (!inference_done.load(std::memory_order_acquire) && running_) {
-                if (!args.no_display && !pollDisplay()) break;
-                else std::this_thread::sleep_for(std::chrono::milliseconds(10));
-            }
-            waitThread.join();
-        }
-        // For images: keep display alive until user closes window
-        if (is_image && !args.no_display) {
-            // Drain remaining rendered frames
-            while (running_) {
-                if (!pollDisplay()) break;
-                std::this_thread::sleep_for(std::chrono::milliseconds(10));
-            }
-        }
-        // Frames can still be in flight when the reader hits EOF: a completion
-        // callback may not have queued its frame yet, and the display thread may
-        // hold buffered ones. Wait until every submitted frame has been rendered
-        // (and therefore written) before stopping the consumer — otherwise the
-        // tail of a --save video is silently lost. The live-display path never
-        // showed this because frames are rendered as they arrive. Bail out if no
-        // progress is made for 5 s, so a dropped frame cannot hang shutdown.
-        {
-            auto last_progress = std::chrono::steady_clock::now();
-            int last_rendered = -1;
-            while (running_ && !g_interrupted()) {
-                int rendered;
-                {
-                    std::lock_guard<std::mutex> lock(metrics_.metrics_mutex);
-                    rendered = metrics_.render_completed;
+                        auto& buf = input_buffers[buffer_index % ASYNC_BUFFER_SIZE];
+                        copyToInputBuffer(buf, preprocessed, is_float_input, is_nhwc);
+
+                        // Use the original video frame (not the resized display image)
+                        auto ud = std::make_unique<AsyncUserData>(AsyncUserData{frame.clone(), ctx, "", {}});
+                        // Back-pressure: wait for available slot
+                        metrics_.waitForSlot();
+                        updateInflightMetrics();
+
+                        ud->submit_ts = std::chrono::high_resolution_clock::now();
+                        ud->frame_index = static_cast<uint64_t>(buffer_index);
+                        last_job_id = ie.RunAsync(buf.data(), static_cast<void*>(ud.release()));
+                        buffer_index++;
+                        processCount++;
+                        // display is pumped by the main thread (runPipelineWithDisplay)
+                        if (!running_) break;
+                    }
+
+                    // Reopen video for next loop iteration
+                    if (loop_idx + 1 >= loopTest || args.videoFile.empty()) continue;
+                    video.release();
+                    video.open(args.videoFile);
+                    if (!video.isOpened()) {
+                        std::cerr << "[DXAPP] [ERROR] Failed to reopen video for loop " << (loop_idx + 2) << std::endl;
+                        break;
+                    }
                 }
-                const bool pending = !display_queue_.empty() ||
-                                     (args.saveMode && rendered < processCount);
-                if (!pending) break;
-                if (rendered != last_rendered) {
-                    last_rendered = rendered;
-                    last_progress = std::chrono::steady_clock::now();
-                } else if (std::chrono::steady_clock::now() - last_progress >
-                           std::chrono::seconds(5)) {
-                    std::cerr << "[DXAPP] [WARN] Output frames stopped draining; "
-                                 "saved video may be truncated." << std::endl;
-                    break;
-                }
-                if (!args.no_display) pollDisplay();
-                else std::this_thread::sleep_for(std::chrono::milliseconds(2));
             }
-        }
+
+            // Wait for inference completion while keeping display responsive
+            if (last_job_id >= 0) {
+                if (!running_) display_queue_.shutdown();
+                std::atomic<bool> inference_done{false};
+                std::thread waitThread([&ie, last_job_id, &inference_done]() {
+                    ie.Wait(last_job_id);
+                    inference_done.store(true, std::memory_order_release);
+                });
+                while (!inference_done.load(std::memory_order_acquire) && running_) {
+                    // display is pumped by the main thread (runPipelineWithDisplay)
+                    if (!running_) break;
+                    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+                }
+                waitThread.join();
+            }
+            // For images: keep display alive until user closes window.
+            // Only when a GUI actually exists -- pump() reports "no quit requested" on a
+            // headless box, so without this guard the loop waits forever for a user who
+            // cannot press anything. Previously this path aborted instead (Qt's missing
+            // xcb plugin calls qFatal), so the hang was never observable.
+            if (is_image && !args.no_display && display_pump_.guiAvailable()) {
+                // Drain remaining rendered frames
+                while (running_ && !g_interrupted()) {  // one SIGINT/SIGTERM ends the wait
+                    if (!running_) break;
+                    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+                }
+            }
+            // Frames can still be in flight when the reader hits EOF: a completion
+            // callback may not have queued its frame yet, and the display thread may
+            // hold buffered ones. Wait until every submitted frame has been rendered
+            // (and therefore written) before stopping the consumer — otherwise the
+            // tail of a --save video is silently lost. The live-display path never
+            // showed this because frames are rendered as they arrive. Bail out if no
+            // progress is made for 5 s, so a dropped frame cannot hang shutdown.
+            {
+                auto last_progress = std::chrono::steady_clock::now();
+                int last_rendered = -1;
+                while (running_ && !g_interrupted()) {
+                    int rendered;
+                    int received;
+                    {
+                        std::lock_guard<std::mutex> lock(metrics_.metrics_mutex);
+                        rendered = metrics_.render_completed;
+                        received = metrics_.display_received;
+                    }
+                    // received < processCount: a completion callback has not queued its
+                    // frame yet. Callbacks finish out of order and ie.Wait(last_job_id)
+                    // waits for the last job only, so without this the display thread
+                    // could stop before an earlier frame arrived (no render, no dump).
+                    const bool pending = !display_queue_.empty() || received < processCount ||
+                                         (args.saveMode && rendered < processCount);
+                    if (!pending) break;
+                    if (rendered + received != last_rendered) {
+                        last_rendered = rendered + received;
+                        last_progress = std::chrono::steady_clock::now();
+                    } else if (std::chrono::steady_clock::now() - last_progress >
+                               std::chrono::seconds(5)) {
+                        std::cerr << "[DXAPP] [WARN] Output frames stopped draining; "
+                                  << (args.saveMode
+                                          ? "saved video may be truncated."
+                                          : "the last frames may be missing from the display and "
+                                            "DXAPP_VERIFY records.")
+                                  << std::endl;
+                        break;
+                    }
+                    std::this_thread::sleep_for(std::chrono::milliseconds(2));
+                }
+            }
+        };
+        runPipelineWithDisplay(pipeline, display_pump_, args.no_display,
+                               [&]() {
+                                   running_ = false;
+                                   display_queue_.shutdown();
+                               });
         running_ = false;
         display_queue_.shutdown();
-        rendered_queue_.shutdown();
-        displayThr.join();
+        // Lossless tail: keep pumping until the display thread has offered and
+        // the window has shown its last frames, then stop the pump.
+        dxapp::pumpUntilJoined(display_pump_, displayThr);
+        display_pump_.stop();
         cv::destroyAllWindows();
 
-        auto e_time = std::chrono::high_resolution_clock::now();
+        // Total Time ends at the last completed frame: the wait, drain and shutdown above are not processing
+        auto e_time = dxapp::asyncRunEnd(metrics_);
         double total_time = std::chrono::duration<double>(e_time - s_time).count();
 
         if (g_interrupted()) {
@@ -594,16 +645,20 @@ private:
     std::unique_ptr<FactoryT> factory_;
     std::string model_path_;
     std::atomic<bool> running_{true};
-    bool window_shown_ = false;
-    bool window_prop_supported_ = true;  // false if backend always returns -1
-    SafeQueue<AsyncDisplayArgs> display_queue_;
-    SafeQueue<cv::Mat> rendered_queue_;  // Rendered frames for main-thread display
+    SafeQueue<DisplayArgs> display_queue_;
+    // Lossy, rate-limited display sink. It replaced a bounded BLOCKING
+    // SafeQueue<cv::Mat> that was fed with result_frame.clone(): once the GUI fell
+    // behind, push() blocked the render thread, display_queue_ filled behind it and the
+    // back-pressure reached the DXRT completion callback, so reported FPS measured
+    // HighGUI rather than the NPU. DisplayPump cannot do that -- offer() replaces the
+    // single pending frame (refcount bump, no pixel copy) and never blocks.
+    DisplayPump display_pump_{"Output", DISPLAY_PUMP_DEFAULT_FPS};
     AsyncProfilingMetrics metrics_;
 
     /** Handle async inference completion: postprocess, log, update metrics, enqueue display. */
     int onAsyncInferenceComplete(
         dxrt::TensorPtrs& outputs, void* user_data,  // NOSONAR(cpp:S5008)
-        IPostprocessor<DetectionResult>& postprocessor) {
+        IPostprocessor<ResultT>& postprocessor) {
         auto* ud = static_cast<AsyncUserData*>(user_data);
         auto t_callback_start = std::chrono::high_resolution_clock::now();
 
@@ -616,14 +671,14 @@ private:
 
         auto t_post_start = std::chrono::high_resolution_clock::now();
 
-        std::vector<DetectionResult> detections;
+        std::vector<ResultT> detections;
         try {
             detections = postprocessor.process(outputs, ud->ctx);
         } catch (const std::exception& e) {
             std::cerr << "[DXAPP] [ERROR] Postprocess error: " << e.what() << std::endl;
         }
 
-        printDetectionResults(detections, ud->display_frame.cols, ud->display_frame.rows, verbose_);
+        printDetectionResults(Ops::boxes(detections), ud->display_frame.cols, ud->display_frame.rows, verbose_);
 
         auto t_post_end = std::chrono::high_resolution_clock::now();
         double t_postprocess = std::chrono::duration<double, std::milli>(t_post_end - t_post_start).count();
@@ -631,16 +686,13 @@ private:
 
         completeInflightMetrics();
 
-        AsyncDisplayArgs display_args;
+        DisplayArgs display_args;
         display_args.original_frame = std::make_shared<cv::Mat>(ud->display_frame);
-        display_args.detections = std::make_shared<std::vector<DetectionResult>>(std::move(detections));
+        display_args.detections = std::make_shared<std::vector<ResultT>>(std::move(detections));
         display_args.t_postprocess = t_postprocess;
         display_args.ctx = ud->ctx;
         display_args.save_path = std::move(ud->save_path);
         display_args.frame_index = ud->frame_index;
-
-        verify::dumpVerifyJson(detections, model_path_,
-            "object_detection", ud->display_frame.rows, ud->display_frame.cols);
 
         display_queue_.push(std::move(display_args));
         auto guard = std::unique_ptr<AsyncUserData>{ud};
@@ -651,6 +703,8 @@ private:
     /** Print detection results to stdout for pipeline parsing. */
     static void printDetectionResults(const std::vector<DetectionResult>& detections,
                                       int frame_width, int frame_height, bool verbose = false) {
+        if (!verbose) return;
+        std::lock_guard<std::mutex> out_lock(dxapp::stdoutMutex());   // whole lines, one frame together
         for (size_t di = 0; di < detections.size(); ++di) {
             const auto& det = detections[di];
             if (det.box.size() >= 4) {
@@ -680,6 +734,7 @@ private:
             metrics_.inflight_last_ts = now;
             metrics_.infer_last_ts = now;
             metrics_.infer_completed++;
+            dxapp::progressTick(metrics_);   // [PROGRESS] for front ends (DXAPP_PROGRESS=1)
         }
         metrics_.notifySlot();
     }
@@ -759,6 +814,8 @@ private:
              cxxopts::value<int>(args.loopTest)->default_value("-1"))
             ("no-display", "will not visualize, only show fps",
              cxxopts::value<bool>(args.no_display)->default_value("false"))
+            ("drop-frames", "display: drop stale frames instead of pacing the pipeline (default: off, every frame is shown)",
+             cxxopts::value<bool>(args.drop_frames)->default_value("false"))
             ("config", "Model configuration JSON file path",
              cxxopts::value<std::string>(args.configPath))
             ("show-log", "Enable verbose log output (default: quiet)",
@@ -833,7 +890,8 @@ private:
 
     bool openVideoCapture(cv::VideoCapture& video, const CommandLineArgs& args) {
         if (args.cameraIndex >= 0) {
-            video.open(args.cameraIndex);
+            // Handles USB webcams and the Raspberry Pi CSI camera (via libcamera).
+            dxapp::openCameraCapture(video, args.cameraIndex);
         } else if (!args.rtspUrl.empty()) {
             video.open(args.rtspUrl);
         } else {
@@ -842,24 +900,37 @@ private:
         return video.isOpened();
     }
 
-    void displayThread(IVisualizer<DetectionResult>& visualizer, bool no_display,
+    void displayThread(IVisualizer<ResultT>& visualizer, bool no_display,
                        bool save_on, cv::VideoWriter& writer) {
         // Render + save + hand one frame to the main-thread display. Extracted so
         // the reorder buffer below can emit frames strictly in submit order.
-        auto renderArgs = [&](AsyncDisplayArgs& args) {
+        auto renderArgs = [&](DisplayArgs& args) {
+            // DXAPP_VERIFY: here, where the reorder buffer releases the frame (one
+            // thread, input order), not in the dxrt completion callback.
+            if (args.detections && args.original_frame) {
+                verify::dumpVerifyJson(*args.detections, model_path_, "object_detection",
+                                       args.original_frame->rows, args.original_frame->cols);
+            }
             if (!args.original_frame || args.original_frame->empty()) {
                 return;
             }
 
-            // Render
-            auto t_render_start = std::chrono::high_resolution_clock::now();
-            cv::Mat result_frame = args.original_frame->clone();
-            if (args.detections) {
-                result_frame = visualizer.draw(result_frame, *args.detections, args.ctx);
+            // Live preview draws only frames the window will show. --no-display
+            // skips the overlay; -s / DXAPP_SAVE_IMAGE still draw every frame.
+            const bool need_render = mustRenderFrame(
+                no_display, save_on, args.save_path, display_pump_);
+            cv::Mat result_frame;
+            double render_time = 0.0;
+            if (need_render) {
+                auto t_render_start = std::chrono::high_resolution_clock::now();
+                result_frame = args.original_frame->clone();
+                if (args.detections) {
+                    result_frame = visualizer.draw(result_frame, *args.detections, args.ctx);
+                }
+                auto t_render_end = std::chrono::high_resolution_clock::now();
+                render_time = std::chrono::duration<double, std::milli>(
+                    t_render_end - t_render_start).count();
             }
-            auto t_render_end = std::chrono::high_resolution_clock::now();
-            double render_time = std::chrono::duration<double, std::milli>(
-                t_render_end - t_render_start).count();
 
             // Save
             auto t_save_start = std::chrono::high_resolution_clock::now();
@@ -879,78 +950,61 @@ private:
             double save_time = std::chrono::duration<double, std::milli>(
                 t_save_end - t_save_start).count();
 
-            // Update metrics
+            // Update metrics. Skipped preview frames must not count as renders,
+            // or the summary averages the overlay cost down to ~0.
             {
                 std::lock_guard<std::mutex> lock(metrics_.metrics_mutex);
-                metrics_.sum_render += render_time;
-                metrics_.render_completed++;
+                if (need_render) {
+                    metrics_.sum_render += render_time;
+                    metrics_.render_completed++;
+                }
                 metrics_.sum_save += save_time;
             }
 
-            // Push rendered frame for main-thread display (imshow must run on main thread for Qt)
+            // Hand the frame to the main-thread display sink. result_frame is a local
+            // Mat, freshly allocated per call, so a refcount bump is safe and the
+            // former .clone() was a full pixel copy for nothing.
             if (!no_display && !result_frame.empty()) {
-                rendered_queue_.push(result_frame.clone());
+                display_pump_.offer(result_frame);
             }
         };
 
         // In-order display: completion order is not submission order, and frames
         // are written to the VideoWriter as they are rendered. See frame_reorder.hpp.
-        FrameReorderBuffer<AsyncDisplayArgs> reorder(metrics_.max_inflight * 2);
+        FrameReorderBuffer<DisplayArgs> reorder(metrics_.max_inflight * 2);
 
         while (running_ || !display_queue_.empty()) {
-            AsyncDisplayArgs args;
+            DisplayArgs args;
             if (!display_queue_.try_pop(args, std::chrono::milliseconds(100))) {
                 continue;
             }
+            { std::lock_guard<std::mutex> lock(metrics_.metrics_mutex); metrics_.display_received++; }
             reorder.push(std::move(args), renderArgs);
         }
         reorder.drain(renderArgs);
     }
 
-    /** Poll rendered_queue_ and display on main thread. Returns false if user requested quit. */
+    /** Service the display once on the main thread. Returns false if the user quit.
+     *
+     * All HighGUI work happens here, in DisplayPump::pump(), which shows at most one
+     * frame per tick subject to a 60 fps cap and pumps the event loop exactly once.
+     * Window creation, close detection and the backend probe live in the pump too.
+     */
     bool pollDisplay() {
-        cv::Mat frame;
-        if (rendered_queue_.try_pop(frame, std::chrono::milliseconds(1))) {
-            auto display_start = std::chrono::high_resolution_clock::now();
-            dxapp::showOutput(frame);
-            auto display_end = std::chrono::high_resolution_clock::now();
-            {
-                std::lock_guard<std::mutex> lock(metrics_.metrics_mutex);
-                metrics_.sum_display += std::chrono::duration<double, std::milli>(display_end - display_start).count();
-                metrics_.display_completed++;
-            }
-            if (!window_shown_) {
-                window_shown_ = true;
-                // Probe backend: some backends (e.g. GTK2) always return -1
-                // for WND_PROP_VISIBLE. Detect this on the first frame so we
-                // never falsely interpret -1 as "window closed by user".
-                cv::waitKey(1);
-                double probe = cv::getWindowProperty("Output", cv::WND_PROP_VISIBLE);
-                if (probe < -0.5) {
-                    window_prop_supported_ = false;
-                }
-                return true;
-            }
+        const auto t0 = std::chrono::high_resolution_clock::now();
+        const bool keep_going = display_pump_.pump();
+        const auto t1 = std::chrono::high_resolution_clock::now();
+        if (display_pump_.guiAvailable()) {
+            std::lock_guard<std::mutex> lock(metrics_.metrics_mutex);
+            metrics_.sum_display += std::chrono::duration<double, std::milli>(t1 - t0).count();
+            metrics_.display_completed++;
         }
-        if (!window_shown_) return true;  // window not created yet, skip checks
-        // Pump events and detect user quit / window close
-        char key = cv::waitKey(1);
-        if (key == 'q' || key == 27) {
+        if (!keep_going) {
             running_ = false;
             display_queue_.shutdown();
-            rendered_queue_.shutdown();
-            return false;
+            display_pump_.stop();
         }
-        if (window_prop_supported_) {
-            double vis = cv::getWindowProperty("Output", cv::WND_PROP_VISIBLE);
-            if (vis <= 0.0) {
-                running_ = false;
-                display_queue_.shutdown();
-                rendered_queue_.shutdown();
-                return false;
-            }
-        }
-        return true;
+        return keep_going;
     }
 
     // --- Performance summary (matching Legacy async format exactly) ---
@@ -987,9 +1041,19 @@ private:
             double avg_save = metrics_.sum_save / metrics_.infer_completed;
             printRow("Save", avg_save, avg_save > 0 ? 1000.0/avg_save : 0.0);
         }
-        if (metrics_.display_completed > 0 && metrics_.sum_display > 0) {
-            double avg_display = metrics_.sum_display / metrics_.display_completed;
+        // Display cost now comes from the pump itself: the pipeline no longer calls
+        // pollDisplay(), so metrics_.sum_display is never populated on this path. Report
+        // the pump's own figures, and the drop count with them -- dropping stale frames
+        // is how the display stays off the critical path, so it must stay visible rather
+        // than looking like lost work.
+        if (display_pump_.shown() > 0) {
+            const double avg_display = display_pump_.avgShowMs();
             printRow("Display", avg_display, avg_display > 0 ? 1000.0/avg_display : 0.0);
+            std::cout << " Display shown    : " << std::setw(6) << display_pump_.shown();
+            if (display_pump_.dropStale()) {
+                std::cout << "   dropped (stale): " << display_pump_.dropped();
+            }
+            std::cout << std::endl;
         }
         std::cout << "--------------------------------------------------" << std::endl;
         std::cout << " * Async: turnaround latency (submit to callback)" << std::endl;

@@ -1,0 +1,61 @@
+{
+  "variant": "espcn-x2_17x17",
+  "dxnn_file": "espcn-x2_17x17.dxnn",
+  "task": "super_resolution",
+  "family": "espcn",
+  "input_width": 17,
+  "input_height": 17,
+  "image_only": false,
+  "registry_image_only": false,
+  "default_image": "sample/img/sample_lowres275x150.png",
+  "default_video": "assets/videos/lowres-drone-city-road.mp4",
+  "zoo_canonical": true,
+  "published": true,
+  "config": {
+    "sr_tile_halo": 4
+  },
+  "registry_config": {},
+  "cli": {
+    "include_kitti_paths": false,
+    "include_output": false,
+    "include_stream_inputs": true
+  },
+  "preprocessor": {
+    "args": [
+      {
+        "token": "input_width"
+      },
+      {
+        "token": "input_height"
+      }
+    ],
+    "class": "GrayscaleResizePreprocessor",
+    "config_overrides": {},
+    "kwargs": {
+      "store_original": true,
+      "y_mode": "bt601_limited"
+    }
+  },
+  "postprocessor": {
+    "args": [
+      {
+        "token": "input_width"
+      },
+      {
+        "token": "input_height"
+      },
+      {
+        "token": "config"
+      }
+    ],
+    "class": "ESPCNPostprocessor",
+    "config_overrides": {},
+    "kwargs": {}
+  },
+  "visualizer": {
+    "args": [],
+    "class": "SuperResolutionVisualizer",
+    "config_overrides": {},
+    "kwargs": {}
+  }
+}

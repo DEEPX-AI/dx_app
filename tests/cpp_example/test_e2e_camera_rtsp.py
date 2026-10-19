@@ -9,7 +9,7 @@ receives SIGINT; success = exit 0 + frames > 0 + FPS > 0.
 Usage via run_tc.sh::
 
     ./run_tc.sh --cpp --camera --camera-index 0
-    ./run_tc.sh --cpp --rtsp --rtsp-url rtsp://192.168.30.100:8554/stream1
+    ./run_tc.sh --cpp --rtsp --rtsp-url rtsp://<server-addr>:8554/stream1
     ./run_tc.sh --cpp --camera --rtsp --camera-index 0 --rtsp-url rtsp://...
 
 Direct pytest::
@@ -17,7 +17,8 @@ Direct pytest::
     pytest tests/cpp_example/test_e2e_camera_rtsp.py -m e2e_camera \\
            --camera-index 0 --stream-duration 10 -v
     pytest tests/cpp_example/test_e2e_camera_rtsp.py -m e2e_rtsp \\
-           --rtsp-url rtsp://192.168.30.100:8554/stream1 -v
+           --rtsp-url rtsp://<server-addr>:8554/stream1 -v
+
 """
 
 import os
@@ -33,7 +34,7 @@ import pytest
 
 from conftest import resolve_bin_dir
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+# conftest.py puts tests/ on sys.path; hence the noqa: E402 imports below.
 from test_helpers.constants import (  # noqa: E402
     E2E_SHORT_MODELS,
     MODELS_DIR,
@@ -41,8 +42,7 @@ from test_helpers.constants import (  # noqa: E402
     PROJECT_ROOT,
 )
 from test_helpers.utils import (  # noqa: E402
-    find_dxnn_ignoring_variant,
-    normalize_model_name as _normalize,
+    dxnn_for_exe,
     setup_environment,
 )
 
@@ -72,17 +72,14 @@ def _resolve_multi_model_paths(exe_name: str) -> Optional[List[Path]]:
 
 
 def _find_dxnn(base_name: str) -> Optional[Path]:
-    for m in sorted(MODELS_DIR.glob("*.dxnn")):
-        if _normalize(m.stem) == base_name:
-            return m
-    for m in sorted(MODELS_DIR.glob("*.dxnn")):
-        mn = _normalize(m.stem)
-        if mn.startswith(base_name + "_") or mn.startswith(base_name + "-"):
-            if (BIN_DIR / f"{mn}_sync").exists() or (BIN_DIR / f"{mn}_async").exists():
-                continue
-            return m
-    # Fallback: underscores stripped, ignoring trailing -1/-2/_q-lite suffixes.
-    return find_dxnn_ignoring_variant(MODELS_DIR, base_name)
+    """A representative ``.dxnn`` for an executable basename, via the registry.
+
+    An executable basename IS the family under the dx-modelzoo layout, and the registry
+    lists every variant of it, so this is a lookup rather than the normalise / prefix /
+    underscore-strip / alias cascade this replaced. That cascade could resolve a typo to
+    a neighbouring model, which is a worse failure than no match.
+    """
+    return dxnn_for_exe(base_name)
 
 
 def _discover() -> list:

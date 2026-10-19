@@ -235,6 +235,7 @@ if not exist "%CMAKE_TOOLCHAIN_FILE%" (
 echo [OK] Toolchain: %CMAKE_TOOLCHAIN_FILE%
 
 REM Build scope selection: interactive if no argument given
+set "STEP=build scope"
 if defined BUILD_SCOPE goto :scope_ready
 
 echo Select build scope:
@@ -242,11 +243,16 @@ echo   1^) minimal   - run_demo C++ apps only ^(default^)
 echo   2^) all       - full build and install
 echo   3^) category  - specific model category
 echo.
+set "BUILD_SCOPE_INPUT="
 set /p "BUILD_SCOPE_INPUT=Enter 1/2/3 [default: 1]: "
+if "!BUILD_SCOPE_INPUT!"=="" set "BUILD_SCOPE=minimal"
 if "!BUILD_SCOPE_INPUT!"=="1" set "BUILD_SCOPE=minimal"
 if "!BUILD_SCOPE_INPUT!"=="2" set "BUILD_SCOPE=all"
 if "!BUILD_SCOPE_INPUT!"=="3" set "BUILD_SCOPE=category"
-if not defined BUILD_SCOPE set "BUILD_SCOPE=minimal"
+if not defined BUILD_SCOPE (
+    echo [DXAPP] [ERROR] Invalid choice: !BUILD_SCOPE_INPUT! ^(enter 1, 2 or 3; empty = 1^)
+    goto :err
+)
 echo.
 
 :scope_ready

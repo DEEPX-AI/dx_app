@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "name": "denoise-then-detect",
+  "nodes": [
+    { "id": "cam",     "type": "source", "uri": "sample/img/sample_people.jpg" },
+    { "id": "denoise", "model": "dncnn-color_512x512" },
+    { "id": "od",      "model": "yolov5-n_640x640" }
+  ],
+  "edges": [
+    { "from": "cam",     "to": "denoise" },
+    { "from": "denoise", "to": "od" }
+  ]
+}

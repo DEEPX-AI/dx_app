@@ -1,0 +1,72 @@
+{
+  "variant": "repvgg-a0-reid_256x128",
+  "dxnn_file": "repvgg-a0-reid_256x128.dxnn",
+  "task": "person_reid",
+  "family": "repvgg_reid",
+  "input_width": 128,
+  "input_height": 256,
+  "image_only": true,
+  "registry_image_only": true,
+  "default_image": "sample/reid/queries/sample_person_a2.jpg",
+  "default_video": null,
+  "zoo_canonical": false,
+  "published": true,
+  "config": {
+    "gallery": "sample/gallery/reid_repvgg-a0-reid_256x128.bin",
+    "top_k": 5,
+    "max_display": 3,
+    "title": "Person ReID - RepVGG-A0"
+  },
+  "registry_config": {},
+  "cli": {
+    "include_kitti_paths": false,
+    "include_output": false,
+    "include_stream_inputs": false
+  },
+  "preprocessor": {
+    "class": "SimpleResizePreprocessor",
+    "args": [
+      {
+        "token": "input_width"
+      },
+      {
+        "token": "input_height"
+      }
+    ],
+    "kwargs": {},
+    "config_overrides": {}
+  },
+  "postprocessor": {
+    "class": "GalleryRetrievalPostprocessor",
+    "args": [
+      {
+        "token": "input_width"
+      },
+      {
+        "token": "input_height"
+      },
+      {
+        "token": "config"
+      }
+    ],
+    "kwargs": {
+      "model_type": "person_reid_embedding",
+      "model_name": "repvgg-a0-reid_256x128"
+    },
+    "config_overrides": {}
+  },
+  "visualizer": {
+    "class": "RetrievalVisualizer",
+    "args": [
+      {
+        "token": "config"
+      }
+    ],
+    "kwargs": {},
+    "config_overrides": {}
+  },
+  "gallery": "sample/gallery/reid_repvgg-a0-reid_256x128.bin",
+  "top_k": 5,
+  "max_display": 3,
+  "title": "Person ReID - RepVGG-A0"
+}

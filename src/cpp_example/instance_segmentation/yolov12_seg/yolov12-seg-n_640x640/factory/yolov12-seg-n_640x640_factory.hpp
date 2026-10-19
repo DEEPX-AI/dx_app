@@ -1,0 +1,68 @@
+/**
+ * @file yolov12-seg-n_640x640_factory.hpp
+ * @brief Yolov12Seg Abstract Factory implementation
+ */
+
+#ifndef YOLOV12_SEG_N_640X640_FACTORY_HPP
+#define YOLOV12_SEG_N_640X640_FACTORY_HPP
+
+#include "common/base/i_factory.hpp"
+#include "common/processors/letterbox_preprocessor.hpp"
+#include "common/processors/segmentation_postprocessor.hpp"
+#include "common/visualizers/segmentation_visualizer.hpp"
+#include "common/config/model_config.hpp"
+
+#include <string>
+#include <utility>
+
+// Carried over from instance_segmentation/yolov8_seg: this family was added
+// after the restructure, so it has no original factory of its own,
+// and that family's postprocessing is what yolov12_seg needs. Only the
+// class name, include guard and identity differ.
+
+namespace dxapp {
+namespace v_yolov12_seg_n_640x640 {
+
+class Yolov12SegFactory : public IInstanceSegmentationFactory {
+public:
+
+    Yolov12SegFactory(float score_threshold = 0.5f, float nms_threshold = 0.65f)
+        : score_threshold_(score_threshold), nms_threshold_(nms_threshold) {}
+
+    PreprocessorPtr createPreprocessor(int input_width, int input_height) override {
+        return std::make_unique<DetectionPreprocessor>(input_width, input_height);
+    }
+
+    PostprocessorPtr<InstanceSegmentationResult> createPostprocessor(
+        int input_width, int input_height, bool is_ort_configured = false) override {
+        // default: yolov8-l-seg_640x640
+        return std::make_unique<YOLOv8SegPostprocessor>(
+            input_width, input_height,
+            score_threshold_, nms_threshold_,
+            is_ort_configured);
+    }
+
+    VisualizerPtr<InstanceSegmentationResult> createVisualizer() override {
+        return std::make_unique<InstanceSegmentationVisualizer>();
+    }
+
+    void loadConfig(const dxapp::ModelConfig& config) override {
+        score_threshold_ = config.get<float>("score_threshold", score_threshold_);
+        nms_threshold_ = config.get<float>("nms_threshold", nms_threshold_);
+    }
+
+    std::string getModelName() const override {
+        return "yolov12-seg-n_640x640";
+    }
+    std::string getTaskType() const override { return "instance_segmentation"; }
+
+private:
+    std::vector<std::string> class_names_;  // from a sibling variant in this family
+    float score_threshold_;
+    float nms_threshold_;
+};
+
+}  // namespace v_yolov12_seg_n_640x640
+}  // namespace dxapp
+
+#endif  // YOLOV12_SEG_N_640X640_FACTORY_HPP

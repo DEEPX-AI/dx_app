@@ -1,1 +1,0 @@
-from .fastvit_ma36_factory import Fastvit_ma36Factory

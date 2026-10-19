@@ -1,0 +1,72 @@
+{
+  "variant": "eigenplaces-resnet18_512x512",
+  "dxnn_file": "eigenplaces-resnet18_512x512.dxnn",
+  "task": "visual_place_recognition",
+  "family": "eigenplaces",
+  "input_width": 512,
+  "input_height": 512,
+  "image_only": true,
+  "registry_image_only": true,
+  "default_image": "sample/vpr/queries/q1.jpg",
+  "default_video": null,
+  "zoo_canonical": true,
+  "published": true,
+  "config": {
+    "gallery": "sample/gallery/vpr_eigenplaces-resnet18_512x512.bin",
+    "top_k": 5,
+    "max_display": 3,
+    "title": "Visual Place Recognition - EigenPlaces ResNet-18"
+  },
+  "registry_config": {},
+  "cli": {
+    "include_kitti_paths": false,
+    "include_output": false,
+    "include_stream_inputs": false
+  },
+  "preprocessor": {
+    "args": [
+      {
+        "token": "input_width"
+      },
+      {
+        "token": "input_height"
+      }
+    ],
+    "class": "SimpleResizePreprocessor",
+    "config_overrides": {},
+    "kwargs": {}
+  },
+  "postprocessor": {
+    "class": "GalleryRetrievalPostprocessor",
+    "args": [
+      {
+        "token": "input_width"
+      },
+      {
+        "token": "input_height"
+      },
+      {
+        "token": "config"
+      }
+    ],
+    "kwargs": {
+      "model_type": "place_descriptor",
+      "model_name": "eigenplaces-resnet18_512x512"
+    },
+    "config_overrides": {}
+  },
+  "visualizer": {
+    "class": "RetrievalVisualizer",
+    "args": [
+      {
+        "token": "config"
+      }
+    ],
+    "kwargs": {},
+    "config_overrides": {}
+  },
+  "gallery": "sample/gallery/vpr_eigenplaces-resnet18_512x512.bin",
+  "top_k": 5,
+  "max_display": 3,
+  "title": "Visual Place Recognition - EigenPlaces ResNet-18"
+}

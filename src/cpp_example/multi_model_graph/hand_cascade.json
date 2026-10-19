@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "name": "hand_cascade",
+  "nodes": [
+    { "id": "cam",      "type": "source", "uri": "sample/img/sample_hand.jpg" },
+    { "id": "palm",     "model": "mediapipe-hand-detector_192x192" },
+    { "id": "landmark", "model": "mediapipe-hands-lite_224x224" }
+  ],
+  "edges": [
+    { "from": "cam",  "to": "palm" },
+    { "from": "palm", "to": "landmark", "roi": { "pad": 0.15 } }
+  ]
+}

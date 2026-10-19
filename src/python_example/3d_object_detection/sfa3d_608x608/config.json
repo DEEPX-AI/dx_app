@@ -1,6 +1,0 @@
-{
-    "score_threshold": 0.3,
-    "nms_threshold": 0.2,
-    "max_detections": 100,
-    "require_calib": false
-}

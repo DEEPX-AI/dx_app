@@ -23,7 +23,7 @@ At a high level, these libraries manage the transition from **DX-RT Tensors** to
 - **Step 3.** Specialized Extraction  
      : **Pose:** Extracting **x, y** coordinates and visibility scores for keypoint skeletons.  
      : **Segmentation:** Decoding segmentation logits into per-pixel masks or class color maps.  
-- **Step 4.**	Hardware Adaptation: Finalizing and scaling coordinates for models that use the **PPU** to handle the initial stages of post-processing.  
+- **Step 4.** Hardware Adaptation: Finalizing and scaling coordinates for models that use the **PPU** to handle the initial stages of post-processing.  
 
 ### Implementation Examples
 
@@ -54,26 +54,35 @@ Each subdirectory follows a standardized pattern
 src/postprocess/
 ├── CMakeLists.txt
 ├── README.md
+├── attribute/
 ├── centerpose/
 ├── classification/
 ├── damoyolo/
 ├── deeplabv3/
 ├── depth/
 ├── dncnn/
+├── dope/
 ├── efficientdet/
 ├── embedding/
 ├── espcn/
 ├── face3d/
 ├── hand_landmark/
+├── mediapipe_hand/
 ├── nanodet/
 ├── obb/
+├── realesrgan/
 ├── retinaface/
 ├── scrfd/
 ├── scrfd_ppu/
 ├── semantic_seg/
+├── sfa3d/
 ├── ssd/
+├── superpoint/
 ├── ulfgfd/
+├── vitpose/
 ├── yolact/
+├── yolopv2/
+├── yolov4/
 ├── yolov5/
 ├── yolov5_ppu/
 ├── yolov5face/
@@ -109,7 +118,7 @@ The SDK is designed so that C++ and Python developers utilize the same underlyin
 
 Include the header and instantiate the class directly within your inference loop.  
 
-```bash
+```cpp
 #include "yolov5_postprocess.h" 
 
 auto post_processor = YOLOv5PostProcess(conf_threshold, nms_threshold); 
@@ -120,7 +129,7 @@ auto final_results = post_processor.postprocess(npu_output_tensors);
 
 Import the `pybind11` wrapper via the `dx_postprocess` module to access the same C++ performance.  
 
-```bash
+```python
 from dx_postprocess import YOLOv5PostProcess 
 
 post_processor = YOLOv5PostProcess(conf_threshold, nms_threshold) 

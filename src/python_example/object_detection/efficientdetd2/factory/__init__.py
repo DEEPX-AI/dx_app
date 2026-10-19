@@ -1,1 +1,0 @@
-from .efficientdetd2_factory import Efficientdetd2Factory

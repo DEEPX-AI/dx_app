@@ -69,7 +69,15 @@ endif()
 
 set(CMAKE_CXX_STANDARD 14)
 if(MSVC)
-set(CMAKE_CXX_STANDARD 17)
+    # MSVC stays C++17 (SP6 U-37). Under /std:c++14 the tree's own switch
+    # (#if __cplusplus >= 201703L || _MSVC_LANG >= 201703L) picks
+    # <experimental/filesystem>, which current MSVC STL rejects with #error
+    # unless _SILENCE_EXPERIMENTAL_FILESYSTEM_DEPRECATION_WARNING is defined,
+    # and the shipped Windows build (DX-RT SDK, vcpkg OpenCV) has only ever
+    # been built as C++17. C++14 conformance is enforced where it can be
+    # verified: GCC/Clang -Werror=c++17-extensions (cmake/dxapp_cxx14.cmake)
+    # and scripts/check_cross_compile.sh. Not built on Windows here.
+    set(CMAKE_CXX_STANDARD 17)
 endif()
 set(CMAKE_CXX_STANDARD_REQUIRED "ON")
 
@@ -107,11 +115,10 @@ endif()
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake) # using function & cfg cmake file
 
-if(NOT "${CMAKE_HOST_SYSTEM_PROCESSOR}" STREQUAL "${CMAKE_SYSTEM_PROCESSOR}")
-    set(CROSS_COMPILE TRUE)
-else()
-    set(CROSS_COMPILE FALSE)
-endif()
+# CROSS_COMPILE: host processor != target processor (see cmake/dxapp_platform.cmake
+# for why CMAKE_CROSSCOMPILING is not the test).
+include(${CMAKE_SOURCE_DIR}/cmake/dxapp_platform.cmake)
+dxapp_detect_cross_compile()
 
 if(CROSS_COMPILE)
     set(CMAKE_SKIP_RPATH TRUE)
@@ -131,6 +138,11 @@ if(MSVC)
 else()
     add_compile_options(-W -Wall -Wextra -pthread -O3 -fstrict-volatile-bitfields -fPIC)
 endif()
+# C++14 conformance (GCC/Clang): a C++17 extension fails the build. The same
+# module guards the separate dx_postprocess pip project.
+include(${CMAKE_SOURCE_DIR}/cmake/dxapp_cxx14.cmake)
+dxapp_cxx14_conformance_flags(DXAPP_CXX14_FLAGS)
+add_compile_options(${DXAPP_CXX14_FLAGS})
 
 if(ENABLE_DEBUG_INFO OR CMAKE_BUILD_TYPE STREQUAL "Debug" OR CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
     message(STATUS "Debug info enabled")

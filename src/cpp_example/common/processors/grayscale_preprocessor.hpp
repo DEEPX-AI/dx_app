@@ -28,10 +28,19 @@ public:
         ctx.original_height = input.rows;
         ctx.input_width = input_width_;
         ctx.input_height = input_height_;
-        ctx.scale = std::min(
-            static_cast<float>(input_width_) / input.cols,
-            static_cast<float>(input_height_) / input.rows
-        );
+        // The resize below is a plain cv::resize to the model's exact input
+        // size, so it does not preserve aspect ratio -- a 960x540 frame going
+        // into a 640x480 model is squashed by different factors in x and y.
+        // Record both, the way sfa3d_bev_preprocessor does: scaleKeypoint /
+        // scaleBox use the per-axis values when they are set, and fall back to
+        // the uniform ctx.scale otherwise. Leaving them at 0 sent SuperPoint
+        // keypoints through the uniform branch: ctx.scale = min(640/960, 480/540)
+        // = 2/3, so y came back scaled by 1/(2/3) = 1.5 where the correct factor
+        // is 540/480 = 1.125 -- a 1.33x vertical stretch that pushed ~20% of the
+        // keypoints off the bottom of the canvas.
+        ctx.scale_x = static_cast<float>(input_width_) / std::max(input.cols, 1);
+        ctx.scale_y = static_cast<float>(input_height_) / std::max(input.rows, 1);
+        ctx.scale = std::min(ctx.scale_x, ctx.scale_y);
         ctx.pad_x = 0;
         ctx.pad_y = 0;
 

@@ -50,12 +50,17 @@ dx-agent-dev/<YYYYMMDD-HHMMSS>_<model>_<task>/
 
 ### When to Use Production Path
 
-Only create files in `src/cpp_example/<task>/<model>/` when the user EXPLICITLY says:
+Only create files under `src/cpp_example/` when the user EXPLICITLY says:
 - "Add this to the production codebase"
 - "Create this in src/"
 - "Make this a permanent addition"
 
 Default behavior: ALWAYS use `dx-agent-dev/`.
+
+Production layout: each variant gets its own directory
+`src/cpp_example/<task>/<family>/<variant>/` holding `config.json`,
+`factory/<variant>_factory.hpp` and the `<variant>_sync.cpp` / `<variant>_async.cpp`
+entries. The variant directory name is the `.dxnn` stem.
 
 ## Phase 0: Prerequisites Check
 
@@ -82,7 +87,7 @@ Before starting the build workflow, verify:
 ## Step 1: Create Directory Structure
 
 ```bash
-mkdir -p src/cpp_example/<TASK>/<MODEL>/factory
+mkdir -p src/cpp_example/<TASK>/<FAMILY>/<VARIANT>/factory
 ```
 
 ## Step 2: Create Factory Header
@@ -310,7 +315,9 @@ target_include_directories(<model>_async PRIVATE
 
 ## Step 6: Create config.json
 
-Same as Python config.json:
+Same keys as the Python config. In the source tree the file is
+`src/cpp_example/<task>/<family>/<variant>/config.json`, next to that
+variant's factory and entries (the directory name is the `.dxnn` stem).
 
 ```json
 {
@@ -386,13 +393,13 @@ int model_ver = engine.get_model_version();
 ## File Structure Summary
 
 ```
-src/cpp_example/<task>/<model>/
-    CMakeLists.txt
-    config.json
-    factory/
-        <model>_factory.hpp
-    <model>_sync.cpp
-    <model>_async.cpp           # optional
+src/cpp_example/<task>/<family>/
+    <variant>/                  # .dxnn stem
+        config.json
+        factory/
+            <variant>_factory.hpp
+        <variant>_sync.cpp
+        <variant>_async.cpp
 ```
 
 ## Build and Run

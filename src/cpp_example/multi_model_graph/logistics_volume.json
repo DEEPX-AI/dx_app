@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "name": "logistics_volume",
+  "nodes": [
+    { "id": "cam", "type": "source", "uri": "sample/img/sample_baggage_cart_airport.jpg" },
+    { "id": "det", "model": "yolo26-n_640x640" },
+    { "id": "seg", "model": "yolo26-n-seg_640x640" },
+    { "id": "depth", "model": "yolo26-depth-n_768x768" },
+    {
+      "id": "volume",
+      "type": "cpu",
+      "op": "volume",
+      "params": { "scale_factor": 1.0 }
+    }
+  ],
+  "edges": [
+    { "from": "cam", "to": "det" },
+    { "from": "cam", "to": "seg" },
+    { "from": "cam", "to": "depth" },
+    { "from": "det", "to": "volume", "carry": "result" },
+    { "from": "seg", "to": "volume", "carry": "result" },
+    { "from": "depth", "to": "volume", "carry": "result" }
+  ]
+}

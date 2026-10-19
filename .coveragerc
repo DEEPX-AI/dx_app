@@ -5,6 +5,14 @@ source = src/python_example
 # Enable branch coverage (track if/else branches)
 branch = True
 
+# The e2e tests run each example as a subprocess, so coverage has to be
+# collected in several processes at once and merged afterwards. Without this
+# every process writes the same data file and the last writer wins -- which is
+# why example code showed ~10% while the e2e suite was exercising all of it.
+# Requires COVERAGE_PROCESS_START in the child environment (set by run_tc.sh)
+# and a `coverage combine` before reporting.
+parallel = True
+
 # File patterns to omit from coverage measurement
 omit =
     # Utility files (excluded from per-task tests)

@@ -3,7 +3,7 @@
 # extract_model_package.sh - Prepare model directories for standalone deployment (C++/Python)
 # =============================================================================
 # Usage:
-#   ./extract_model_package.sh <model_dir|all> [--lang cpp|py|both] [--output-dir <path>] [--clean]
+#   ./extract_model_package.sh <model_dir|all> [--lang cpp|py|both] [--output-dir <path>] [--no-prune] [--clean]
 #
 # C++ mode:  Copy common/, utility/, extern/, generate CMakeLists.txt
 # Python mode: Copy common/
@@ -12,9 +12,14 @@
 #   --output-dir <path>  Export standalone package to a separate directory
 #                        instead of modifying the source tree in-place.
 #                        Creates <path>/<lang>/<category>/<model>/
+#   --no-prune           Copy the whole common/ tree instead of only the files
+#                        the model depends on. Pruning is ON by default.
+#   --prune              Explicitly request pruning (the default). Unlike the
+#                        default, a package with no sources is a hard error.
 #
 # Examples:
 #   ./extract_model_package.sh object_detection/yolov7
+#   ./extract_model_package.sh depth_estimation/depthanythingv2/depthanythingv2-vitb_224x224 --output-dir /tmp/x --lang py
 #   ./extract_model_package.sh all
 #   ./extract_model_package.sh all --lang cpp
 #   ./extract_model_package.sh all --lang py
@@ -22,6 +27,7 @@
 #   ./extract_model_package.sh all --clean --lang both
 #   ./extract_model_package.sh object_detection/yolov7 --output-dir outputs/
 #   ./extract_model_package.sh all --output-dir /tmp/standalone --lang cpp
+#   ./extract_model_package.sh object_detection/yolov7 --output-dir outputs/ --no-prune
 
 set -e
 
@@ -45,13 +51,14 @@ NC='\033[0m'
 # Usage
 # =========================================================================
 usage() {
-    echo "Usage: $0 <model_dir|all> [--lang cpp|py|both] [--output-dir <path>] [--clean]"
+    echo "Usage: $0 <model_dir|all> [--lang cpp|py|both] [--output-dir <path>] [--no-prune] [--clean]"
     echo ""
     echo "Arguments:"
-    echo "  model_dir           Relative path to model directory (e.g., object_detection/yolov7)"
+    echo "  model_dir           Family (task/family) or one model (task/family/variant)"
     echo "  all                 Prepare all model directories"
     echo "  --lang <mode>       Language: cpp, py, or both (default: both)"
     echo "  --output-dir <path> Export to a separate directory (default: in-place)"
+    echo "  --no-prune          Copy all of common/ (default: prune to what is used)"
     echo "  --clean             Remove standalone files instead of creating them"
     echo ""
     echo "Examples:"
@@ -61,6 +68,7 @@ usage() {
     echo "  $0 all --clean"
     echo "  $0 all --output-dir outputs/"
     echo "  $0 object_detection/yolov7 --output-dir /tmp/deploy --lang cpp"
+    echo "  $0 object_detection/yolov7 --output-dir /tmp/deploy --no-prune"
     exit 1
 }
 
@@ -73,10 +81,16 @@ CLEAN_MODE=false
 MODEL_ARG=""
 LANG_MODE="both"
 OUTPUT_DIR=""
+# Pruning is the default: a standalone package should carry what it uses, not the
+# whole framework. --no-prune restores the historical full copy.
+PRUNE_MODE=true
+PRUNE_EXPLICIT=false
 
 while [ $# -gt 0 ]; do
     case "$1" in
         --clean)      CLEAN_MODE=true;  shift ;;
+        --no-prune)   PRUNE_MODE=false; shift ;;
+        --prune)      PRUNE_MODE=true;  PRUNE_EXPLICIT=true; shift ;;
         --lang)       LANG_MODE="$2";   shift 2 ;;
         --output-dir) OUTPUT_DIR="$2";  shift 2 ;;
         -h|--help)    usage ;;
@@ -85,6 +99,30 @@ while [ $# -gt 0 ]; do
 done
 
 if [ -z "$MODEL_ARG" ]; then usage; fi
+
+if [ "$PRUNE_EXPLICIT" = true ] && [ "$CLEAN_MODE" = true ]; then
+    echo -e "${RED}[DXAPP] [ERROR]${NC} --prune cannot be combined with --clean"
+    exit 1
+fi
+
+PRUNE_SCRIPT="$SCRIPT_DIR/prune_common.py"
+if [ "$PRUNE_MODE" = true ] && [ ! -f "$PRUNE_SCRIPT" ]; then
+    echo -e "${RED}[DXAPP] [ERROR]${NC} --prune requires $PRUNE_SCRIPT"
+    exit 1
+fi
+
+# Drop common/ files the package does not reach. Failure aborts the extraction
+# rather than leaving a package with a half-pruned common/.
+run_prune() {
+    local target_dir="$1"
+    local lang="$2"
+    [ "$PRUNE_MODE" = true ] || return 0
+    # When the user did not ask for pruning, a package we cannot analyse (no
+    # sources) must not fail the extraction — fall back to the full copy.
+    local lenient=""
+    [ "$PRUNE_EXPLICIT" = true ] || lenient="--allow-no-roots"
+    python3 "$PRUNE_SCRIPT" --lang "$lang" "$target_dir" $lenient
+}
 
 # Resolve output-dir to absolute path
 if [ -n "$OUTPUT_DIR" ]; then
@@ -136,13 +174,13 @@ generate_cmake() {
     local sync_sources=()
     local async_sources=()
     while IFS= read -r -d '' f; do
-        sync_sources+=("$(basename "$f")")
-    done < <(find "$target_dir" -maxdepth 1 -name "*_sync.cpp" -print0 2>/dev/null)
+        sync_sources+=("${f#"$target_dir"/}")
+    done < <(find "$target_dir" -name "*_sync.cpp" ! -path "*/common/*" -print0 2>/dev/null)
     while IFS= read -r -d '' f; do
-        async_sources+=("$(basename "$f")")
-    done < <(find "$target_dir" -maxdepth 1 -name "*_async.cpp" -print0 2>/dev/null)
+        async_sources+=("${f#"$target_dir"/}")
+    done < <(find "$target_dir" -name "*_async.cpp" ! -path "*/common/*" -print0 2>/dev/null)
 
-    # pthread 는 COMMON_LIBS 의 Threads::Threads 로 모든 타깃에 링크된다(개별 탐지 불필요).
+    # pthread is linked into every target via Threads::Threads in COMMON_LIBS (no per-target probe).
     # Start generating CMakeLists.txt
     cat > "$target_dir/CMakeLists.txt" << 'CMAKEHEAD'
 # =============================================================================
@@ -164,8 +202,9 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # Find Required Packages
 # =============================================================================
 find_package(OpenCV REQUIRED)
-# async 러너(common/runner/async_*.hpp)가 std::thread 를 사용하므로 pthread 링크가 필요하다.
-# 엔트리 .cpp 만으로는 스레드 사용을 알 수 없어(스레드는 헤더에 있음) 표준 Threads 를 항상 링크한다.
+# Async runners (common/runner/async_*.hpp) use std::thread, so pthread must be linked.
+# The entry .cpp files do not mention threads themselves (the use is in the headers),
+# so always link the standard Threads package.
 find_package(Threads REQUIRED)
 
 if(CROSS_COMPILE OR MSVC)
@@ -217,7 +256,8 @@ CMAKEBODY
 
     # Generate target definitions
     for src in "${sync_sources[@]}"; do
-        local target_name="${src%.cpp}"
+        local target_name
+        target_name="$(basename "${src%.cpp}")"
         cat >> "$target_dir/CMakeLists.txt" << EOF
 # --- ${target_name} ---
 add_executable(${target_name} ${src} \${UTILITY_SOURCES} \${POSTPROCESS_SOURCES})
@@ -228,7 +268,8 @@ EOF
     done
 
     for src in "${async_sources[@]}"; do
-        local target_name="${src%.cpp}"
+        local target_name
+        target_name="$(basename "${src%.cpp}")"
         cat >> "$target_dir/CMakeLists.txt" << EOF
 # --- ${target_name} ---
 add_executable(${target_name} ${src} \${UTILITY_SOURCES} \${POSTPROCESS_SOURCES})
@@ -240,37 +281,99 @@ EOF
 }
 
 # =========================================================================
+# Resolve task/family or task/family/variant
+# Prints "<family_rel>|<variant>" (variant empty for a whole family).
+# =========================================================================
+resolve_model_arg() {
+    local lang="$1"
+    local rel="${2%/}"
+    local src_root
+    case "$lang" in
+        py)  src_root="$PY_SRC_DIR" ;;
+        cpp) src_root="$CPP_SRC_DIR" ;;
+        *)   return 1 ;;
+    esac
+    if [ -f "$src_root/$rel/config.json" ]; then
+        echo "$(dirname "$rel")|$(basename "$rel")"
+        return 0
+    fi
+    if [ -d "$src_root/$rel" ]; then
+        echo "$rel|"
+        return 0
+    fi
+    return 1
+}
+
+# Copy <variant>/config.json trees. only_variant empty means every model folder.
+copy_model_configs() {
+    local src_family="$1"
+    local dst_family="$2"
+    local only_variant="$3"
+    local child name
+    for child in "$src_family"/*/; do
+        [ -d "$child" ] || continue
+        [ -f "${child}config.json" ] || continue
+        name="$(basename "$child")"
+        if [ -n "$only_variant" ] && [ "$name" != "$only_variant" ]; then
+            continue
+        fi
+        mkdir -p "$dst_family/$name"
+        cp "${child}config.json" "$dst_family/$name/config.json"
+    done
+}
+
+# =========================================================================
 # C++ - Prepare a single model directory for standalone deployment
 # =========================================================================
 prepare_model_cpp() {
-    local model_dir="$1"
-    local src_model_dir="$CPP_SRC_DIR/$model_dir"
+    local family_rel="$1"
+    local only_variant="$2"
+    local src_model_dir="$CPP_SRC_DIR/$family_rel"
     local target_dir
     local model_name
-    model_name=$(basename "$model_dir")
+    model_name=$(basename "$family_rel")
 
     if [ ! -d "$src_model_dir" ]; then
-        echo -e "${RED}[DXAPP] [ERROR]${NC} C++ directory not found: $model_dir"
+        echo -e "${RED}[DXAPP] [ERROR]${NC} C++ directory not found: $family_rel"
         return 1
     fi
 
-    # Determine target: output-dir or in-place
+    # Each variant is its own example: factory + <variant>_sync.cpp + <variant>_async.cpp.
     if [ -n "$OUTPUT_DIR" ]; then
-        target_dir="$OUTPUT_DIR/cpp/$model_dir"
-        mkdir -p "$target_dir"
-        # Copy model source files
-        find "$src_model_dir" -maxdepth 1 -type f | while read -r f; do
-            cp "$f" "$target_dir/"
-        done
-        # Copy factory/ subdirectory
-        if [ -d "$src_model_dir/factory" ]; then
-            cp -r "$src_model_dir/factory" "$target_dir/factory"
+        copy_variant_example() {
+            local src_variant="$1"
+            local dst_variant="$2"
+            local variant_name
+            variant_name="$(basename "$src_variant")"
+            mkdir -p "$dst_variant"
+            cp "$src_variant/${variant_name}_sync.cpp" "$dst_variant/" 2>/dev/null || true
+            cp "$src_variant/${variant_name}_async.cpp" "$dst_variant/" 2>/dev/null || true
+            if [ -d "$src_variant/factory" ]; then
+                cp -r "$src_variant/factory" "$dst_variant/factory"
+            fi
+            if [ -f "$src_variant/config.json" ]; then
+                cp "$src_variant/config.json" "$dst_variant/config.json"
+            fi
+        }
+        if [ -n "$only_variant" ]; then
+            target_dir="$OUTPUT_DIR/cpp/$family_rel/$only_variant"
+            copy_variant_example "$src_model_dir/$only_variant" "$target_dir"
+        else
+            target_dir="$OUTPUT_DIR/cpp/$family_rel"
+            mkdir -p "$target_dir"
+            for child in "$src_model_dir"/*/; do
+                [ -d "$child" ] || continue
+                [ -f "${child}config.json" ] || continue
+                copy_variant_example "${child%/}" "$target_dir/$(basename "$child")"
+            done
         fi
     else
         target_dir="$src_model_dir"
     fi
 
-    echo -e "${CYAN}[PREPARE]${NC} C++ $model_dir${OUTPUT_DIR:+ → $target_dir}"
+    local label="$family_rel"
+    [ -n "$only_variant" ] && label="$family_rel/$only_variant"
+    echo -e "${CYAN}[PREPARE]${NC} C++ $label${OUTPUT_DIR:+ → $target_dir}"
 
     # 1. Copy common/ headers
     rm -rf "$target_dir/common"
@@ -309,7 +412,8 @@ prepare_model_cpp() {
             cp "$src_file" "$target_dir/$inc_path"
             ext_factory_count=$((ext_factory_count + 1))
         fi
-    done < <(grep -rh '#include "' "$scan_dir"/*.cpp 2>/dev/null \
+    done < <(find "$scan_dir" -name '*.cpp' ! -path '*/common/*' -print0 2>/dev/null \
+             | xargs -0 grep -h '#include "' 2>/dev/null \
              | sed -n 's/.*#include "\([^"]*\)".*/\1/p' \
              | grep -v '^common/' \
              | grep -v '^<' \
@@ -319,15 +423,18 @@ prepare_model_cpp() {
         echo "  → external factories copied ($ext_factory_count files)"
     fi
 
-    # 6. Generate standalone CMakeLists.txt
+    # 6. Prune unreachable common/ headers (opt-in)
+    run_prune "$target_dir" cpp
+
+    # 7. Generate standalone CMakeLists.txt
     generate_cmake "$target_dir" "$model_name"
     echo "  → CMakeLists.txt generated"
 
-    echo -e "${GREEN}[SUCCESS]${NC} C++ standalone ready: $model_dir"
+    echo -e "${GREEN}[SUCCESS]${NC} C++ standalone ready: $label"
     if [ -n "$OUTPUT_DIR" ]; then
         echo "  Build: cd $target_dir && mkdir -p build && cd build && cmake .. && make -j\$(nproc)"
     else
-        echo "  Build: cd $model_dir && mkdir -p build && cd build && cmake .. && make -j\$(nproc)"
+        echo "  Build: cd $family_rel && mkdir -p build && cd build && cmake .. && make -j\$(nproc)"
     fi
     echo ""
 }
@@ -352,27 +459,51 @@ clean_model_py() {
 # Python - Prepare a single model directory for standalone deployment
 # =========================================================================
 prepare_model_py() {
-    local model_dir="$1"
-    local src_model_dir="$PY_SRC_DIR/$model_dir"
+    local family_rel="$1"
+    local only_variant="$2"
+    local src_model_dir="$PY_SRC_DIR/$family_rel"
     local target_dir
 
     if [ ! -d "$src_model_dir" ]; then
-        echo -e "${RED}[DXAPP] [ERROR]${NC} Python directory not found: $model_dir"
+        echo -e "${RED}[DXAPP] [ERROR]${NC} Python directory not found: $family_rel"
         return 1
     fi
 
-    # Determine target: output-dir or in-place
+    # A single model is a self-contained folder: its scripts, config.json,
+    # variant factory/, custom_ops.py and a pruned common/. A family export
+    # keeps every model folder under <task>/<family>/.
     if [ -n "$OUTPUT_DIR" ]; then
-        target_dir="$OUTPUT_DIR/py/$model_dir"
-        mkdir -p "$target_dir"
-        # Copy model source files
-        find "$src_model_dir" -maxdepth 1 -type f | while read -r f; do
-            cp "$f" "$target_dir/"
-        done
-        # Copy factory/ subdirectory
-        if [ -d "$src_model_dir/factory" ]; then
-            cp -r "$src_model_dir/factory" "$target_dir/factory"
+        if [ -n "$only_variant" ]; then
+            target_dir="$OUTPUT_DIR/py/$family_rel/$only_variant"
+            mkdir -p "$target_dir"
+            find "$src_model_dir/$only_variant" -maxdepth 1 -type f | while read -r f; do
+                cp "$f" "$target_dir/"
+            done
+            if [ -d "$src_model_dir/$only_variant/factory" ]; then
+                cp -r "$src_model_dir/$only_variant/factory" "$target_dir/factory"
+            fi
+        else
+            target_dir="$OUTPUT_DIR/py/$family_rel"
+            mkdir -p "$target_dir"
+            find "$src_model_dir" -maxdepth 1 -type f | while read -r f; do
+                cp "$f" "$target_dir/"
+            done
+            local child name
+            for child in "$src_model_dir"/*/; do
+                [ -f "${child}config.json" ] || continue
+                name="$(basename "$child")"
+                mkdir -p "$target_dir/$name"
+                find "$child" -maxdepth 1 -type f | while read -r f; do
+                    cp "$f" "$target_dir/$name/"
+                done
+                if [ -d "${child}factory" ]; then
+                    rm -rf "$target_dir/$name/factory"
+                    cp -r "${child}factory" "$target_dir/$name/factory"
+                fi
+            done
         fi
+    elif [ -n "$only_variant" ]; then
+        target_dir="$src_model_dir/$only_variant"
     else
         target_dir="$src_model_dir"
     fi
@@ -388,7 +519,12 @@ prepare_model_py() {
     # Clean up __pycache__
     find "$common_dst" -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
 
-    echo -e "${GREEN}[SUCCESS]${NC} Python standalone ready: $model_dir${OUTPUT_DIR:+ → $target_dir}"
+    # Prune unreachable common/ modules and rewrite the __init__.py barrels (opt-in)
+    run_prune "$target_dir" py
+
+    local label="$family_rel"
+    [ -n "$only_variant" ] && label="$family_rel/$only_variant"
+    echo -e "${GREEN}[SUCCESS]${NC} Python standalone ready: $label${OUTPUT_DIR:+ → $target_dir}"
 }
 
 # =========================================================================
@@ -397,16 +533,24 @@ prepare_model_py() {
 process_model() {
     local model_dir="$1"
     local lang="$2"
+    local resolved family_rel only_variant
+
+    if ! resolved="$(resolve_model_arg "$lang" "$model_dir")"; then
+        echo -e "${RED}[DXAPP] [ERROR]${NC} directory not found: $model_dir ($lang)"
+        return 1
+    fi
+    family_rel="${resolved%%|*}"
+    only_variant="${resolved#*|}"
 
     if [ "$CLEAN_MODE" = true ]; then
         case "$lang" in
-            cpp) clean_model_cpp "$model_dir" ;;
-            py)  clean_model_py "$model_dir" ;;
+            cpp) clean_model_cpp "$family_rel" ;;
+            py)  clean_model_py "$family_rel" ;;
         esac
     else
         case "$lang" in
-            cpp) prepare_model_cpp "$model_dir" ;;
-            py)  prepare_model_py "$model_dir" ;;
+            cpp) prepare_model_cpp "$family_rel" "$only_variant" ;;
+            py)  prepare_model_py "$family_rel" "$only_variant" ;;
         esac
     fi
 }
@@ -470,7 +614,9 @@ if [ "$MODEL_ARG" == "all" ]; then
 
     echo "=============================================="
     echo -e "${GREEN}[DONE]${NC} All model directories processed!"
-    [ -n "$OUTPUT_DIR" ] && echo -e "${GREEN}[OUTPUT]${NC} $OUTPUT_DIR"
+    if [ -n "$OUTPUT_DIR" ]; then
+        echo -e "${GREEN}[OUTPUT]${NC} $OUTPUT_DIR"
+    fi
     echo "=============================================="
 else
     # Strip trailing slash
@@ -480,5 +626,7 @@ else
         process_model "$MODEL_ARG" "$lang"
     done
 
-    [ -n "$OUTPUT_DIR" ] && echo -e "\n${GREEN}[OUTPUT]${NC} Exported to: $OUTPUT_DIR"
+    if [ -n "$OUTPUT_DIR" ]; then
+        echo -e "\n${GREEN}[OUTPUT]${NC} Exported to: $OUTPUT_DIR"
+    fi
 fi

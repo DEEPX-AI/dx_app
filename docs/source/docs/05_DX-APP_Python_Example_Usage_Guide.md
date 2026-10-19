@@ -10,27 +10,26 @@ The Python examples are located under `src/python_example/` and are organized by
 
 - **task**    
 - **model family**    
-- **execution and post-processing variant**  
+- **variant** (the `.dxnn` stem; each folder has sync, async, and C++ post-process entries)
 
-All examples share a common runtime layer under `src/python_example/common/` that provides base interfaces, processors, runners, input sources, visualizers, and utilities. This is the Python counterpart of `src/cpp_example/common/` — both languages implement the same 7-module factory-based architecture. Each model directory contains only thin entry-point scripts and a factory that wires shared components together.  
+All examples share a common runtime layer under `src/python_example/common/` that provides base interfaces, processors, runners, input sources, visualizers, and utilities. This is the Python counterpart of `src/cpp_example/common/` — both languages implement the same 7-module factory-based architecture. Each variant directory contains thin entry-point scripts and a factory that wires shared components together.  
 
 Representative task directories include:  
 
-- `classification/` — EfficientNet, AlexNet, ResNet, MobileNet, etc.  
-- `object_detection/` — YOLOv3/v5/v7/v8/v9/v10/v11/v12, YOLO26, YOLOX, NanoDet, DAMOYOLO, SSD  
+- `image_classification/` — EfficientNet, AlexNet, ResNet, MobileNet, CasViT, etc.  
+- `object_detection/` — YOLOv3/v5/v7/v8/v9/v10/v11/v12, YOLO26, YOLOX, NanoDet, DAMOYOLO, SSD. PPU variants live under families such as `yolo_ppu/`  
 - `face_detection/` — SCRFD, YOLOv5Face, YOLOv7Face, RetinaFace  
 - `pose_estimation/` — YOLOv8-Pose  
 - `semantic_segmentation/` — BiSeNet, DeepLabV3+, SegFormer  
 - `instance_segmentation/` — YOLOv8Seg, YOLOv26Seg  
 - `depth_estimation/` — FastDepth, SCDepthV3  
-- `embedding/` — ArcFace  
-- `obb_detection/` — YOLOv26OBB  
-- `image_denoising/`, `image_enhancement/`, `super_resolution/`  
+- `face_recognition/` — ArcFace  
+- `oriented_object_detection/` — YOLOv26OBB  
+- `image_denoising/`, `low_light_enhancement/`, `super_resolution/`  
 - `hand_landmark/` — Hand landmark estimation  
-- `ppu/` — PPU-accelerated variants (YOLOv5/v7/v8/v9/v10/v11/v12/SCRFD/Pose)  
-- `attribute_recognition/` — Attribute recognition (DeepMAR)  
-- `reid/` — Person re-identification (CasViT)  
-- `face_alignment/` — Face alignment / 3D landmark (3DDFA v2)  
+- `person_attribute/` — Attribute recognition (DeepMAR)  
+- `person_reid/` — Person re-identification (RepVGG)  
+- `face_landmark/` — Face alignment / 3D landmark (3DDFA v2)  
 
 For the full repository-level structure, refer to [DX-APP Example Source Structure](11_DX-APP_Example_Source_Structure.md).  
 
@@ -63,7 +62,7 @@ from common.processors import YOLOv5Postprocessor
 from common.visualizers import DetectionVisualizer
 
 class Yolov9sFactory(IFactory):
-    def create_processor(self):
+    def create_postprocessor(self):
         return YOLOv5Postprocessor(self.config)
     def create_visualizer(self):
         return DetectionVisualizer(self.config)
@@ -83,17 +82,18 @@ A JSON registry stores per-model metadata (task, postprocessor type, input dimen
 
 ### Directory & File Pattern
 
-Each model family has its own directory with a consistent structure:  
+Each task directory contains model families. Each variant is a subdirectory named after the `.dxnn` stem and holds that variant's factory, `config.json`, and thin entry scripts.
 
 ```text
-src/python_example/object_detection/yolov9s/
-├── config.json                           # Model-specific runtime settings
-├── factory/
-│   └── yolov9s_factory.py                # Wires shared processor + visualizer
-├── yolov9s_sync.py                       # Pure Python synchronous
-├── yolov9s_async.py                      # Pure Python asynchronous
-├── yolov9s_sync_cpp_postprocess.py       # Synchronous + C++ binding
-└── yolov9s_async_cpp_postprocess.py      # Asynchronous + C++ binding
+src/python_example/object_detection/yolov8/
+└── yolov8-n_640x640/
+    ├── factory/
+    │   └── yolov8-n_640x640_factory.py
+    ├── config.json
+    ├── yolov8-n_640x640_sync.py
+    ├── yolov8-n_640x640_async.py
+    ├── yolov8-n_640x640_sync_cpp_postprocess.py
+    └── yolov8-n_640x640_async_cpp_postprocess.py
 ```
 
 ---
@@ -144,7 +144,17 @@ All Python examples use `argparse` via `common/runner/args.py` and share a consi
 
 !!! note "NOTE"
 
-    **Image-only tasks:** `embedding`, `reid`, and `attribute_recognition` tasks accept `--image` input only. `--video`, `--camera`, and `--rtsp` are not supported for these tasks because meaningful inference requires a crop of a pre-detected subject (face or person). Running a single embedding model on a raw video stream without a preceding detector would not produce valid results. Passing a video/camera source to these tasks exits with an error.
+    **Image-only tasks:** 11 tasks accept `--image` input only; `--video`, `--camera` and `--rtsp`
+    are rejected at runtime with an error. The authoritative list is
+    `_IMAGE_ONLY_TASKS` in `src/python_example/common/runner/sync_runner.py`.
+
+    `embedding`, `reid`, `attribute_recognition`, `face_recognition`, `face_attribute`, `person_attribute`, `person_reid`, `image_retrieval`, `visual_place_recognition` need a crop of a pre-detected subject, or a committed gallery to rank
+    against. Running a single embedding model on a raw stream without a preceding
+    detector would not produce valid results.
+
+    `object_pose_estimation`, `3d_object_detection` do not take a video frame at all: `3d_object_detection` (SFA3D) consumes a
+    LiDAR point cloud (`sample/kitti/velodyne/*.bin`) and refuses any other file
+    type, and DOPE scores the pose of a static object from a single image.
 
 ---
 
@@ -165,8 +175,8 @@ All Python examples use `argparse` via `common/runner/args.py` and share a consi
 **Step 3. Run a Python example**  
 
 ```bash
-python src/python_example/object_detection/yolov9s/yolov9s_sync.py --model assets/models/yolov9-s_640x640.dxnn --image sample/img/sample_kitchen.jpg
-python src/python_example/object_detection/yolov9s/yolov9s_async_cpp_postprocess.py --model assets/models/yolov9-s_640x640.dxnn --video assets/videos/dance-group.mov
+python src/python_example/object_detection/yolov9/yolov9-s_640x640/yolov9-s_640x640_sync.py --model assets/models/yolov9-s_640x640.dxnn --image sample/img/sample_kitchen.jpg
+python src/python_example/object_detection/yolov9/yolov9-s_640x640/yolov9-s_640x640_async_cpp_postprocess.py --model assets/models/yolov9-s_640x640.dxnn --video assets/videos/dance-group.mov
 ```
 
 ---
@@ -188,7 +198,13 @@ If no input source is provided, the runner automatically selects a default sampl
 
 **Signal Handling**  
 
-Both `SyncRunner` and `AsyncRunner` use `stop_event` (`threading.Event`) for graceful Ctrl+C shutdown. The async pipeline uses a SENTINEL chain to propagate stop signals through all queues.  
+Both runners install SIGINT/SIGTERM handlers (`common/runner/interrupts.py`), mirroring the C++ runners: the first Ctrl-C or a SIGTERM stops gracefully (the video writer is finalized and the summary printed); a later Ctrl-C, more than 200 ms after the first, terminates at once; repeats within 200 ms count as one request; SIGTERM never escalates. Python runs signal handlers between bytecodes, so during one long native call the escalation waits until the call returns. The async pipeline uses a SENTINEL chain to propagate the stop through its queues.  
+
+The handlers are installed only while a runner's `run()` executes and the previous handlers are restored when it returns, so importing the runner modules changes nothing and each `run()` starts with a fresh first request. A stop outside the stream loop (during setup or in image mode) prints `Interrupted by user.` and exits with status 0 instead of a `KeyboardInterrupt` traceback.  
+
+**Output order**  
+
+The async runner waits for dxrt's results in submit order (one wait worker and FIFO queues between the workers), so saved output and `DXAPP_VERIFY` records follow the input order and equal the sync runner's frame by frame. The live window also shows frames in input order, but when nothing is saved it is a best-effort preview: it draws at most about 60 frames a second and, when the window falls behind, drops the oldest waiting frame instead of slowing inference (`offer_latest` in `common/runner/async_runner.py`).  
 
 **Output Management** (`--save`)  
 
@@ -200,7 +216,7 @@ When `DISPLAY`/`WAYLAND_DISPLAY` environment variables are absent, `cv2.imshow()
 
 **Model Configuration** (`--config`)  
 
-Runtime parameters (thresholds, top-k, etc.) are loaded via `_FactoryConfigMixin` with alias normalization (`score_threshold` → `conf_threshold`). If omitted, `config.json` is auto-detected adjacent to the model or script.  
+Runtime parameters (thresholds, top-k, etc.) come from `<task>/<family>/<variant>/config.json` via `load_variant_config`, with alias normalization (`score_threshold` → `conf_threshold`). The thin script in that folder fixes the variant. A single-model extract may keep `config.json` beside the entry script.  
 
 **Fast Postprocessing** (`--fast-postprocess`)  
 
@@ -222,7 +238,7 @@ There are two accuracy tiers:
 
 ```bash
 # Object detection (exact tier) — identical results, faster decode
-python src/python_example/object_detection/yolov7/yolov7_sync.py \
+python src/python_example/object_detection/yolov7/yolov7_640x640/yolov7_640x640_sync.py \
     --model assets/models/yolov7_640x640.dxnn --image sample/img/sample_street.jpg --fast-postprocess
 ```
 
@@ -230,7 +246,9 @@ python src/python_example/object_detection/yolov7/yolov7_sync.py \
 
 **Numerical Verification** (`DXAPP_VERIFY`)  
 
-Set `DXAPP_VERIFY=1` to serialize all post-processing results to `logs/verify/{model}.json` for inspection and debugging.  
+Set `DXAPP_VERIFY=1` to serialize post-processing results. Each run writes `logs/verify/{model}.json` (override the directory with `DXAPP_VERIFY_DIR`) holding the last frame, and `{model}.frames.jsonl` with one record per frame (`"frame": 0, 1, …` in input order). Writes are serialized and the JSON is replaced atomically, so a reader never sees a half-written file. Every runner dumps its real results, including tiled super-resolution (statistics of the stitched output), 3D detection and YOLOPv2 (boxes plus drivable/lane mask statistics); SuperPoint records carry each frame's keypoints and the descriptor size. The `*_cpp_postprocess` scripts dump too (raw arrays as `output_stats` / `output_stats_list`, for the scripts whose post-processing returns arrays). `{model}.json` holds the last frame.  
+
+Frame numbers count per process, so with `--loop N` on a video the records of later loops continue the numbering.  
 
 **Tensor Dump for Debugging** (`--dump-tensors`)  
 
@@ -249,6 +267,8 @@ bash scripts/validate_models.sh --lang py
 |----------|-------------|
 | `DXAPP_SAVE_IMAGE` | Save visualization to the specified file path (no `--save` required) |
 | `DXAPP_VERIFY` | When `1`, dump JSON verification data |
+| `DXAPP_VERIFY_DIR` | Directory for `DXAPP_VERIFY` output (default `logs/verify`) |
+| `DXAPP_PROGRESS` | When `1`, print `[PROGRESS] frames=N fps=F avg_fps=A read_ms=… pre_ms=… infer_ms=… post_ms=…` once a second and at exit (front ends) |
 
 ---
 

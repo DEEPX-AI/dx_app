@@ -1,0 +1,67 @@
+{
+  "variant": "superpoint_480x640",
+  "dxnn_file": "superpoint_480x640.dxnn",
+  "task": "keypoint_detection",
+  "family": "superpoint",
+  "input_width": 640,
+  "input_height": 480,
+  "image_only": false,
+  "registry_image_only": false,
+  "default_image": "sample/img/sample_street.jpg",
+  "default_video": "assets/videos/snowboard.mp4",
+  "zoo_canonical": true,
+  "published": true,
+  "config": {
+    "conf_threshold": 0.015,
+    "top_k": 500
+  },
+  "registry_config": {},
+  "cli": {
+    "include_kitti_paths": false,
+    "include_output": false,
+    "include_stream_inputs": true
+  },
+  "preprocessor": {
+    "args": [
+      {
+        "token": "input_width"
+      },
+      {
+        "token": "input_height"
+      }
+    ],
+    "class": "GrayscaleResizePreprocessor",
+    "config_overrides": {},
+    "kwargs": {}
+  },
+  "postprocessor": {
+    "args": [
+      {
+        "token": "input_width"
+      },
+      {
+        "token": "input_height"
+      },
+      {
+        "token": "config"
+      }
+    ],
+    "class": "SuperPointPostprocessor",
+    "config_overrides": {},
+    "kwargs": {}
+  },
+  "visualizer": {
+    "args": [],
+    "class": "SuperPointVisualizer",
+    "config_overrides": {},
+    "kwargs": {
+      "conf_threshold": "<expr:float(cfg.get('conf_threshold', 0.015))>",
+      "max_keypoints": "<expr:int(cfg.get('top_k', 500))>",
+      "max_pixel_dist": "<expr:float(cfg.get('max_pixel_dist', 100.0))>",
+      "min_track_length": "<expr:int(cfg.get('min_track_length', 2))>",
+      "nn_thresh": "<expr:float(cfg.get('nn_thresh', 0.7))>",
+      "ratio_thresh": "<expr:float(cfg.get('ratio_thresh', 0.75))>",
+      "track_max_length": "<expr:int(cfg.get('track_max_length', 5))>"
+    }
+  }
+}

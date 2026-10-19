@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "name": "dms_headpose",
+  "nodes": [
+    { "id": "cam", "type": "source", "uri": "sample/img/sample_face.jpg" },
+    { "id": "face", "model": "scrfd-500m_640x640" },
+    { "id": "headpose", "type": "cpu", "op": "headpose" }
+  ],
+  "edges": [
+    { "from": "cam", "to": "face" },
+    { "from": "face", "to": "headpose", "carry": "result" }
+  ]
+}

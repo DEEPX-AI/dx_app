@@ -141,6 +141,26 @@ def check_routing_table_paths(deepx_dir: Path, report: FrameworkReport):
             refs += re.findall(r'\.deepx/([\w./\-]+\.md)', content)
 
             for ref in refs:
+                if any(ch in ref for ch in "*?["):
+                    # A glob such as `.deepx/skills/*/SKILL.md` describes a layout,
+                    # not one file: PASS when it matches at least one file.
+                    matches = list(deepx_dir.glob(ref))
+                    if matches:
+                        report.add(CheckResult(
+                            "routing_paths",
+                            f"path_ref:{ref}",
+                            True,
+                            f".deepx/{ref} matches {len(matches)} file(s)"
+                        ))
+                    else:
+                        report.add(CheckResult(
+                            "routing_paths",
+                            f"path_ref:{md_file.name}",
+                            False,
+                            f"Glob .deepx/{ref} matches no files "
+                            f"(in {md_file.relative_to(deepx_dir)})"
+                        ))
+                    continue
                 ref_path = deepx_dir / ref
                 if not ref_path.exists():
                     report.add(CheckResult(
@@ -464,11 +484,43 @@ def check_model_registry(deepx_dir: Path, report: FrameworkReport):
 
 
 # ---------------------------------------------------------------------------
+# Category 9: No Broken Symlinks in docs/source/.deepx trees
+# ---------------------------------------------------------------------------
+
+def check_docs_symlinks(deepx_dir: Path, report: FrameworkReport):
+    """No broken symlinks in the docs tree (root cause: dx_stream v3.1.2 shipped
+    docs/source/docs/RELEASE_NOTES.md as a symlink whose target was the literal
+    pymdownx.snippets directive)."""
+    # broken symlinks always land in filenames (os.walk classifies via
+    # is_dir(), which follows the link); dirnames kept as belt-and-braces
+    repo_root = deepx_dir.parent
+    found_any = False
+    for sub in ("docs", "source", ".deepx"):
+        base = repo_root / sub
+        if not base.is_dir():
+            continue
+        for dirpath, dirnames, filenames in os.walk(base):
+            for name in dirnames + filenames:
+                p = Path(dirpath) / name
+                if p.is_symlink() and not p.exists():
+                    found_any = True
+                    rel = p.relative_to(repo_root)
+                    report.add(CheckResult(
+                        "docs", f"symlink:{rel}", False,
+                        f"broken symlink -> {os.readlink(p)!r}; for a mkdocs "
+                        "snippet include the FILE CONTENT should be the "
+                        '--8<-- "..." line'
+                    ))
+    if not found_any:
+        report.add(CheckResult("docs", "symlinks", True, "No broken symlinks found"))
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
 def run_validation(deepx_dir: Path) -> FrameworkReport:
-    """Run all 8 categories of validation."""
+    """Run all 9 categories of validation."""
     report = FrameworkReport()
 
     check_routing_table_paths(deepx_dir, report)
@@ -479,6 +531,7 @@ def run_validation(deepx_dir: Path) -> FrameworkReport:
     check_toolset_signatures(deepx_dir, report)
     check_memory_domain_tags(deepx_dir, report)
     check_model_registry(deepx_dir, report)
+    check_docs_symlinks(deepx_dir, report)
 
     return report
 

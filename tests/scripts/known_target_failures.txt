@@ -1,0 +1,7 @@
+# tests/scripts tests that are known to fail on the release base.
+# scripts/ci_checks.sh runs tests/scripts with this list, and each test below
+# is xfail(strict=True) there (tests/scripts/known_failures.py): CI stays green
+# while it fails and goes red the day it passes - then delete its line.
+# A plain `pytest tests/scripts` ignores this file and shows them failing.
+#
+# <test id, relative to this directory> | <reason>

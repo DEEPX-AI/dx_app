@@ -1,1 +1,0 @@
-from .vit_l_14_datacomp_xl_s13b_b90k_factory import Vit_l_14_datacomp_xl_s13b_b90kFactory

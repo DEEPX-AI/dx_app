@@ -35,52 +35,96 @@ class SuperPointPostprocessor(IPostprocessor):
         self.conf_threshold = float(self.config.get("conf_threshold", 0.015))
         self.top_k = int(self.config.get("top_k", 500))
         self.nms_dist = int(self.config.get("nms_dist", 4))
-        self.border_remove = int(self.config.get("border_remove", 4))
         self._cell = 8
+        # One full cell, not the reference implementation's 4 px. The model
+        # collapses each border cell's 64-way softmax onto its first sub-pixel,
+        # so the last cell row/column carries a ridge ~7x the image mean while
+        # the 7 sub-rows behind it are dead. A 4 px margin trims only the dead
+        # part and leaves the ridge, which was filling 15-22% of the top-k with
+        # points along the image edge rather than real corners.
+        #
+        # The trailing/right edges lose nothing real: behind the ridge the model
+        # emits no candidates at all. The leading/top-left rows 1..7 do carry
+        # signal, but recovering them is a net loss because top_k is a fixed
+        # budget -- measured at top_k=500, border_remove of 1/2/4 admitted 72-93
+        # edge points and evicted the same number of better interior ones,
+        # taking corner-response quality from 10.8x a random-position control
+        # down to 9.1x and 5.0x on two scenes. The cost of keeping one cell is a
+        # 24x18 px band (5.8% of a 1920x1080 frame); that is accepted for
+        # visualisation. Genuine edge coverage needs overlapping tiles, not a
+        # smaller margin.
+        self.border_remove = int(self.config.get("border_remove", self._cell))
 
     def _nms_fast(self, pts: np.ndarray, H: int, W: int, dist_thresh: int):
         """
         Fast approximate NMS on 3×N corners array [x, y, conf].
         Iterates from highest to lowest confidence; suppresses an (2d+1)×(2d+1)
         neighbourhood around each kept point (infinity-norm distance d).
-        Returns surviving corners (3×N) and their original indices.
+        Returns surviving corners (3×N) and their original indices, ordered by
+        descending confidence.
+
+        Ties are broken deterministically: ``pts`` arrives in row-major order
+        (``np.where`` over the heatmap), so a stable sort orders equal scores by
+        ascending y then x -- the same rule the C++ postprocessor applies, which
+        keeps the two implementations byte-comparable.
         """
-        grid = np.zeros((H, W), dtype=int)
-        inds = np.zeros((H, W), dtype=int)
-
-        inds1 = np.argsort(-pts[2, :])
+        inds1 = np.argsort(-pts[2, :], kind="stable")
         corners = pts[:, inds1]
-        rcorners = corners[:2, :].round().astype(int)
+        n = corners.shape[1]
 
-        if rcorners.shape[1] == 0:
+        if n == 0:
             return np.zeros((3, 0)), np.zeros(0, dtype=int)
-        if rcorners.shape[1] == 1:
-            out = np.vstack((rcorners, corners[2])).reshape(3, 1)
+        if n == 1:
+            out = np.vstack((corners[:2, :].round().astype(int), corners[2])).reshape(3, 1)
             return out, np.zeros(1, dtype=int)
 
-        for i in range(rcorners.shape[1]):
-            ry = int(np.clip(rcorners[1, i], 0, H - 1))
-            rx = int(np.clip(rcorners[0, i], 0, W - 1))
-            grid[ry, rx] = 1
-            inds[ry, rx] = i
+        rx = np.clip(corners[0, :].round().astype(np.intp), 0, W - 1)
+        ry = np.clip(corners[1, :].round().astype(np.intp), 0, H - 1)
 
         pad = dist_thresh
-        grid = np.pad(grid, ((pad, pad), (pad, pad)), mode='constant')
+        # Occupancy grid, pre-padded so a suppression box never needs clipping.
+        # int8 keeps the (2d+1)² zero-fill cheap. Cells: 0 = empty/suppressed,
+        # 1 = candidate alive, -1 = kept.
+        grid = np.zeros((H + 2 * pad, W + 2 * pad), dtype=np.int8)
+        # Candidates come from np.where() over the heatmap, so every (x, y) is
+        # unique -- this scatter is exactly equivalent to a per-point loop.
+        grid[ry + pad, rx + pad] = 1
 
-        for i in range(rcorners.shape[1]):
-            ry = int(np.clip(rcorners[1, i], 0, H - 1))
-            rx = int(np.clip(rcorners[0, i], 0, W - 1))
-            pt = (rx + pad, ry + pad)
-            if grid[pt[1], pt[0]] == 1:
-                grid[pt[1] - pad:pt[1] + pad + 1, pt[0] - pad:pt[0] + pad + 1] = 0
-                grid[pt[1], pt[0]] = -1
+        # The greedy pass is order-dependent and cannot be vectorised, so keep
+        # its body free of numpy scalar calls: index Python lists, not arrays.
+        gx = (rx + pad).tolist()
+        gy = (ry + pad).tolist()
+        rxl = rx.tolist()
+        ryl = ry.tolist()
 
-        keepy, keepx = np.where(grid == -1)
-        keepy, keepx = keepy - pad, keepx - pad
-        inds_keep = inds[keepy, keepx]
+        # The caller applies border removal then top-k straight after this NMS,
+        # and both this scan and the output are ordered by descending
+        # confidence. So once top_k border-passing points are kept, no later
+        # (lower-confidence) candidate can still reach the output -- stop there.
+        bord = self.border_remove
+        top_k = self.top_k
+        hi_x, hi_y = W - bord, H - bord
+
+        keep = []
+        n_inside = 0
+        for i in range(n):
+            y = gy[i]
+            x = gx[i]
+            if grid[y, x] == 1:
+                # grid is pre-padded, and (rx, ry) are clipped to the image, so
+                # y is in [pad, H-1+pad]: the box spans [y-pad, y+pad] inclusive,
+                # which is always inside the (H+2*pad, W+2*pad) grid.
+                grid[y - pad:y + pad + 1, x - pad:x + pad + 1] = 0
+                grid[y, x] = -1
+                keep.append(i)
+                if bord <= rxl[i] < hi_x and bord <= ryl[i] < hi_y:
+                    n_inside += 1
+                    if top_k > 0 and n_inside >= top_k:
+                        break
+
+        inds_keep = np.asarray(keep, dtype=np.intp)
         out = corners[:, inds_keep]
-        values = out[-1, :]
-        inds2 = np.argsort(-values)
+        inds2 = np.argsort(-out[-1, :], kind="stable")
         out = out[:, inds2]
         out_inds = inds1[inds_keep[inds2]]
         return out, out_inds
@@ -161,9 +205,9 @@ class SuperPointPostprocessor(IPostprocessor):
         # NMS (grid-based, dist_thresh=4)
         pts, _ = self._nms_fast(pts, H, W, dist_thresh=self.nms_dist)
 
-        # Sort by confidence descending
-        inds = np.argsort(pts[2, :])
-        pts = pts[:, inds[::-1]]
+        # _nms_fast already returns points ordered by descending confidence with
+        # a deterministic tie-break; a stable re-sort preserves that order.
+        pts = pts[:, np.argsort(-pts[2, :], kind="stable")]
 
         # Border removal (4-px margin)
         bord = self.border_remove

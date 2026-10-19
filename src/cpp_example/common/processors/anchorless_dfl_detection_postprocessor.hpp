@@ -303,7 +303,9 @@ private:
                 return {best_cls, best_conf};
             };
             for (int i = 0; i < num_dets; ++i) {
-                auto [max_cls, max_conf] = find_best_transposed_class(data, num_dets, i);
+                const std::pair<int, float> max_result = find_best_transposed_class(data, num_dets, i);
+                const int max_cls = max_result.first;
+                const float max_conf = max_result.second;
                 if (max_cls == -1) continue;
 
                 float bx[4];

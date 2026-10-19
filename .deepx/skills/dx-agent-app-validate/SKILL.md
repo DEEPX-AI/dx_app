@@ -321,7 +321,7 @@ if result.returncode != 0:
     print(result.stderr[-500:])
     sys.exit(1)
 
-# Parse saved JSON output (artifacts/<task>/<model>/detections.json)
+# Parse saved JSON output (detections.json in the working directory)
 try:
     with open("detections.json") as f:
         detections = json.load(f)
@@ -611,11 +611,11 @@ python <generated_app>/<model>_sync.py \
 ### Test B: Compare Against Existing Verified Example
 
 If an existing verified example for the same model exists in
-`src/python_example/<task>/<model>/`, use it as a reference implementation:
+`src/python_example/<task>/<family>/<variant>/`, use it as a reference implementation:
 
 ```bash
 # Step 1: Run existing verified example with --verbose (--show-log for C++)
-EXISTING_APP="src/python_example/<task>/<model>/<model>_sync.py"
+EXISTING_APP="src/python_example/<task>/<family>/<variant>/<variant>_sync.py"
 if [ -f "$EXISTING_APP" ]; then
     echo "=== Reference App Output ==="
     python "$EXISTING_APP" \
@@ -642,12 +642,12 @@ compilation-level problems from app-level problems:
 
 ```bash
 # Existing verified app + generated (new) model
-python src/python_example/<task>/<model>/<model>_sync.py \
+python src/python_example/<task>/<family>/<variant>/<variant>_sync.py \
     --model <new_model_path>/<model>.dxnn \
     --image <TASK_SAMPLE_IMAGE> --no-display --verbose 2>&1 | tee /tmp/existing_with_new.log
 
 # Existing verified app + precompiled (reference) model
-python src/python_example/<task>/<model>/<model>_sync.py \
+python src/python_example/<task>/<family>/<variant>/<variant>_sync.py \
     --model assets/models/<model>.dxnn \
     --image <TASK_SAMPLE_IMAGE> --no-display --verbose 2>&1 | tee /tmp/existing_with_ref.log
 ```

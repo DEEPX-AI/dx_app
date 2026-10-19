@@ -49,43 +49,42 @@ Both `cpp_example/` and `python_example/` follow the same task-first structure.
 
 Representative task directories include:  
 
-- `classification/`  
-- `object_detection/`  
+- `image_classification/`  
+- `object_detection/` — PPU models are a family here, for example `yolo_ppu/`  
 - `face_detection/`  
 - `pose_estimation/`  
 - `semantic_segmentation/`  
 - `instance_segmentation/`  
 - `depth_estimation/`  
-- `embedding/`  
+- `face_recognition/`  
 - `image_denoising/`  
-- `image_enhancement/`  
+- `low_light_enhancement/`  
 - `super_resolution/`  
-- `obb_detection/`  
-- `ppu/`  
+- `oriented_object_detection/`  
 - `hand_landmark/`  
-- `attribute_recognition/`  
-- `reid/`  
-- `face_alignment/`  
+- `person_attribute/`  
+- `person_reid/`  
+- `face_landmark/`  
 
 This makes it easy to answer both questions below:  
 
 - what task does this example belong to?  
 - where should a new model example be added?  
 
-**Model-First Subdirectories**  
+**Family and Variant Subdirectories**  
 
-Within each task directory, examples are split again by model family.  
+Within each task directory, examples are split by model family, then by variant. The variant directory name is the `.dxnn` stem.
 
 Examples:  
 
 ```text
-src/cpp_example/object_detection/yolov9s/
-src/cpp_example/object_detection/yolov8/
-src/python_example/object_detection/yolov9s/
-src/python_example/object_detection/ssdmv1/
+src/cpp_example/object_detection/yolov9/yolov9-s_640x640/
+src/cpp_example/object_detection/yolov8/yolov8-n_640x640/
+src/python_example/object_detection/yolov9/yolov9-s_640x640/
+src/python_example/object_detection/ssd/ssd-mobilenetv2-lite_300x300/
 ```
 
-This gives each model family its own isolated workspace for:  
+This gives each variant its own workspace for:  
 
 - config files  
 - source files  
@@ -114,14 +113,13 @@ src/cpp_example/common/
 ├── config/
 │   └── model_config.hpp           # ModelConfig — loads config.json
 ├── processors/                    # Shared processors
-│   ├── yolov5_postprocessor.hpp
-│   ├── yolov8_postprocessor.hpp
-│   ├── scrfd_postprocessor.hpp
+│   ├── yolo_detection_postprocessor.hpp     # YOLOv5/v7/v8 and the later YOLO detectors
+│   ├── scrfd_face_postprocessor.hpp
 │   ├── nanodet_postprocessor.hpp
 │   ├── damoyolo_postprocessor.hpp
 │   ├── ssd_postprocessor.hpp
 │   ├── segmentation_postprocessor.hpp       # DeepLabV3 plus FastSegmentationPostprocessor
-│   ├── instance_seg_postprocessor.hpp
+│   ├── anchorless_instance_seg_postprocessor.hpp
 │   ├── depth_postprocessor.hpp
 │   └── ...
 ├── runner/                        # Task-specific runner pairs
@@ -186,11 +184,11 @@ src/python_example/common/
 │   ├── fast_yolact_postprocessor.py    # opt-in fast mask path (YOLACT)
 │   ├── obb_postprocessor.py            # YOLOv26OBB
 │   ├── pose_postprocessor.py           # YOLOv8-Pose
-│   ├── ppu_postprocessor.py            # PPU variants (YOLOv5/v7/SCRFD/Pose)
+│   ├── ppu_postprocessor.py            # PPU variants (YOLOv3/v4/v5/v7/v8/v9/v10/v11/v12, YOLOX)
 │   ├── classification_postprocessor.py # EfficientNet, AlexNet, etc.
 │   ├── efficientdet_postprocessor.py   # EfficientDet
 │   ├── fast_efficientdet_postprocessor.py # opt-in exact fast path (EfficientDet, byte-identical)
-│   ├── depth_postprocessor.py          # FastDepth, MiDaS
+│   ├── depth_postprocessor.py          # FastDepth, SCDepth
 │   ├── nanodet_postprocessor.py        # NanoDet
 │   ├── ssd_postprocessor.py            # SSD MobileNet
 │   ├── damoyolo_postprocessor.py       # DAMOYOLO
@@ -203,7 +201,7 @@ src/python_example/common/
 │   ├── sync_runner.py     # SyncRunner — sequential Pre→Infer→Post→Display loop
 │   ├── async_runner.py    # AsyncRunner — pipelined multi-thread runner
 │   ├── args.py            # Unified CLI argument parser (--model, --image, --video, etc.)
-│   ├── run_dir.py         # Directory-based batch runner
+│   ├── run_dir.py         # `--save` run-directory and run_info helper
 │   ├── sr_tiling.py       # Tiled super-resolution helper
 │   └── verify_serialize.py # Serialize results to JSON for numerical verification
 ├── inputs/                # 5 input source files
@@ -245,35 +243,39 @@ Python runners are **generic**: `SyncRunner` and `AsyncRunner` work for all task
 
 ### How Model Directories Connect to `common/`
 
-**C++ model directory**  
+**C++ variant directory**
+
+The factory and the sync/async entries live in `<task>/<family>/<variant>/`. The directory name is the `.dxnn` stem.
 
 ```text
-src/cpp_example/object_detection/yolov9s/
-├── config.json
+src/cpp_example/object_detection/yolov8/yolov8-n_640x640/
 ├── factory/
-│   └── yolov9s_factory.hpp      # Assembles processor + visualizer from common/
-├── yolov9s_sync.cpp              # Entry point → sync_detection_runner
-└── yolov9s_async.cpp             # Entry point → async_detection_runner
+│   └── yolov8-n_640x640_factory.hpp
+├── yolov8-n_640x640_sync.cpp        # Entry → sync_detection_runner
+├── yolov8-n_640x640_async.cpp       # Entry → async_detection_runner
+└── config.json
 ```
 
-**Python model directory**  
+**Python variant directory**
+
+The same folder holds the factory, `config.json`, and one thin script per execution mode. Each script fixes that variant.
 
 ```text
-src/python_example/object_detection/yolov9s/
-├── config.json
+src/python_example/object_detection/yolov8/yolov8-n_640x640/
 ├── factory/
-│   └── yolov9s_factory.py                # Assembles processor + visualizer from common/
-├── yolov9s_sync.py                       # Entry point → SyncRunner
-├── yolov9s_async.py                      # Entry point → AsyncRunner
-├── yolov9s_sync_cpp_postprocess.py       # Entry point → SyncRunner + C++ binding
-└── yolov9s_async_cpp_postprocess.py      # Entry point → AsyncRunner + C++ binding
+│   └── yolov8-n_640x640_factory.py
+├── config.json
+├── yolov8-n_640x640_sync.py
+├── yolov8-n_640x640_async.py
+├── yolov8-n_640x640_sync_cpp_postprocess.py
+└── yolov8-n_640x640_async_cpp_postprocess.py
 ```
 
 The factory imports shared components from `common/`:
 
 ```cpp
 // C++ factory example
-#include "common/processors/yolov8_postprocessor.hpp"
+#include "common/processors/yolo_detection_postprocessor.hpp"
 #include "common/visualizers/detection_visualizer.hpp"
 ```
 
@@ -292,68 +294,40 @@ runner = SyncRunner(factory)
 runner.run()
 ```
 
-This means adding a new model typically requires only a `config.json` and a factory file — the shared infrastructure handles everything else.
+Adding a variant means a new `<task>/<family>/<variant>/` directory with `config.json`, a factory, and that variant's entry files.
 
-### Variant Naming Rules
+### Entry Naming
 
-**C++ variants**  
-
-A typical C++ model directory contains:  
+**C++**
 
 ```text
-config.json
-factory/
-<model>_sync.cpp
-<model>_async.cpp
+src/cpp_example/<task>/<family>/<variant>/
+├── factory/<variant>_factory.hpp
+├── <variant>_sync.cpp
+├── <variant>_async.cpp
+└── config.json
 ```
 
-Example:
+- `<variant>_sync.cpp`: sequential execution for that variant
+- `<variant>_async.cpp`: pipelined execution for that variant
+- `bin/<variant>_sync` and `bin/<variant>_async`: built executables
+
+**Python**
 
 ```text
-src/cpp_example/object_detection/yolov9s/
+src/python_example/<task>/<family>/<variant>/
+├── factory/<variant>_factory.py
 ├── config.json
-├── factory/
-├── yolov9s_sync.cpp
-└── yolov9s_async.cpp
+├── <variant>_sync.py
+├── <variant>_async.py
+├── <variant>_sync_cpp_postprocess.py
+└── <variant>_async_cpp_postprocess.py
 ```
 
-Common C++ variant patterns:  
-
-- `*_sync.cpp`: sequential execution path  
-- `*_async.cpp`: pipelined or threaded execution path  
-- task/model-specific additional variants when required  
-
-**Python variants**  
-
-A typical Python model directory contains:  
-
-```text
-config.json
-factory/
-<model>_sync.py
-<model>_async.py
-<model>_sync_cpp_postprocess.py
-<model>_async_cpp_postprocess.py
-```
-
-Example:
-
-```text
-src/python_example/object_detection/yolov9s/
-├── config.json
-├── factory/
-├── yolov9s_sync.py
-├── yolov9s_async.py
-├── yolov9s_sync_cpp_postprocess.py
-└── yolov9s_async_cpp_postprocess.py
-```
-
-Common Python variant patterns:  
-
-- `*_sync.py`: Python-only synchronous path  
-- `*_async.py`: Python-only asynchronous path  
-- `*_sync_cpp_postprocess.py`: synchronous path using shared C++ post-processing bindings  
-- `*_async_cpp_postprocess.py`: asynchronous path using shared C++ post-processing bindings  
+- `*_sync.py`: synchronous path
+- `*_async.py`: asynchronous path
+- `*_sync_cpp_postprocess.py`: synchronous path using shared C++ post-processing bindings
+- `*_async_cpp_postprocess.py`: asynchronous path using shared C++ post-processing bindings
 
 ---
 
@@ -393,7 +367,7 @@ This bridge enables the `*_cpp_postprocess.py` Python variants to use C++ decode
 
 DX-APP can serialize post-processing results to JSON for inspection and debugging:  
 
-- **`DXAPP_VERIFY=1`**: serializes post-processing results to `logs/verify/{model}.json`  
+- **`DXAPP_VERIFY=1`**: serializes post-processing results to `logs/verify/{model}.json` (last frame) and `{model}.frames.jsonl` (every frame, in input order)  
 - **`common/runner/verify_serialize.py`**: serializes postprocess results to JSON for comparison  
 
 This helps catch regressions such as broken post-processing, incorrect model configurations, or NPU output changes.  
@@ -412,25 +386,30 @@ The model registry is a JSON array that serves as the single source of truth for
 {
   "model_name": "yolov9s",
   "dxnn_file": "yolov9-s_640x640.dxnn",
+  "variant": "yolov9-s_640x640",
+  "family": "yolov9",
+  "task": "object_detection",
   "add_model_task": "object_detection",
   "postprocessor": "yolov8",
   "input_width": 640,
   "input_height": 640,
-  "config": { "conf_threshold": 0.5, "num_classes": 80 },
+  "config": { "score_threshold": 0.25, "nms_threshold": 0.45 },
   "supported": true
 }
 ```
+
+`model_name` is the registry key used by `./setup.sh --models`. The example directory is `<task>/<family>/<variant>`, here `object_detection/yolov9/yolov9-s_640x640`.
 
 **`scripts/add_model.sh`**
 
 The `add_model.sh` script reads an entry from the registry and auto-generates:
 
 - `config.json` with correct input dimensions and thresholds
-- `factory/{model}_factory.py` wired to the correct processor and visualizer
-- 4 entry-point scripts (sync/async × python/cpp_postprocess)
-- C++ equivalents under `src/cpp_example/`
+- `factory/<variant>_factory.py` wired to the correct processor and visualizer
+- 4 entry-point scripts under the variant directory (sync/async × python/cpp_postprocess)
+- C++ `<variant>_sync.cpp` and `<variant>_async.cpp` under `src/cpp_example/<task>/<family>/<variant>/`
 
-This enables onboarding a new model with zero manual code in most cases.
+This enables onboarding a new model with zero manual code in most cases; see the [DX Tool Guide](10_DX-APP_DX-Tool_Guide.md) for the options.
 
 ### Contributor Rules
 
@@ -439,7 +418,7 @@ This enables onboarding a new model with zero manual code in most cases.
 When adding a new example, keep the following rules:  
 
 - (1) choose the correct task directory first  
-- (2) create a dedicated model directory under that task  
+- (2) create `<task>/<family>/<variant>/` for that model  
 - (3) follow existing variant naming conventions  
 - (4) place shared decode logic in `src/cpp_example/common/processors/` (C++) or `src/python_example/common/processors/` (Python) when appropriate  
 - (5) add pybind11 bindings in `src/postprocess/` + `src/bindings/` only if the new flow needs `*_cpp_postprocess.py` variants  
@@ -450,7 +429,7 @@ When adding a new example, keep the following rules:
 
 When a new example is intended to become part of the maintained repository flow, confirm all of the following:  
 
-- source files are placed under the correct task/model directory  
+- source files are placed under the correct `<task>/<family>/<variant>/` directory  
 - naming follows the current variant convention  
 - required shared post-processing logic exists or is added under `src/cpp_example/common/processors/` (C++) or `src/python_example/common/processors/` (Python)  
 - model assets can be prepared through the standard setup flow  
@@ -466,9 +445,9 @@ When a new example is intended to become part of the maintained repository flow,
 
 The source tree and the test tree are related, but not identical.
 
-**Shared Test Infrastructure** (`tests/common/`)  
+**Shared Test Infrastructure** (`tests/test_helpers/`)  
 
-`tests/common/` provides shared constants and utilities used by both C++ and Python test suites:  
+`tests/test_helpers/` provides shared constants and utilities used by both C++ and Python test suites:  
 
 - `constants.py` — paths, timeout values, suffix patterns (e.g., `_sync`, `_async`)  
 - `utils.py` — helper functions for executable/script discovery, process execution, result validation  
@@ -489,20 +468,21 @@ C++ tests are organized into four categories:
 | Feature: Multi-Loop | `test_multi_loop.py` | Tests `--loop` repeated execution |
 | Feature: Signal | `test_signal_handling.py` | Tests SIGINT/SIGTERM graceful shutdown |
 
-All tests auto-discover executables from `bin/` using `tests/common/utils.py`.
+All tests auto-discover executables from `bin/` using `tests/test_helpers/utils.py`.
 
 **Python tests**  
 
-- Python example tests are driven by centralized configuration under `tests/python_example/framework/`  
-- `test_visualization.py` validates output image generation across all task types  
+- Python example tests discover variant scripts through `tests/test_helpers/utils.py` and `config/model_registry.json`  
+- `tests/python_example/test_visualization.py` validates output image generation across task types  
+- `tests/python_example/unit/` holds processor and layout checks  
 - adding a new source directory alone does **not** automatically guarantee full test coverage  
 
 Relevant files include:  
 
-- `tests/python_example/framework/config.py`  
-- `tests/python_example/framework/performance_collector.py`  
+- `tests/test_helpers/utils.py`  
+- `tests/test_helpers/constants.py`  
 - `tests/python_example/test_visualization.py`  
-- `tests/python_example/<task>/` (14 task directories)  
+- `tests/python_example/unit/`  
 - `config/test_models.conf`  
 
 **Model validation**  
@@ -549,6 +529,6 @@ If the example is intended to be part of the standard repository workflow, also 
 - `scripts/validate_models.sh`
 - `tests/cpp_example/`
 - `tests/python_example/`
-- `docs/10_DX-APP_DX-Tool_Guide.md`
+- [DX Tool Guide](10_DX-APP_DX-Tool_Guide.md)
 
 ---

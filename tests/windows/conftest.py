@@ -12,6 +12,10 @@ from pathlib import Path
 import pytest
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+sys.path.insert(0, str(PROJECT_ROOT / "tests"))
+from test_helpers.platform_paths import resolve_bin_dir  # noqa: E402
+
+BIN_DIR = resolve_bin_dir(PROJECT_ROOT)
 
 # --- Register DXRT DLL directories so dx_postprocess can load ---
 if sys.platform == "win32":
@@ -19,13 +23,12 @@ if sys.platform == "win32":
     _DLL_SEARCH_DIRS = [
         os.path.join(_DEEPX_SDK_DIR, "csharp"),
         os.path.join(_DEEPX_SDK_DIR, "bin"),
-        str(PROJECT_ROOT / "bin" / "Release"),
+        str(BIN_DIR),
         str(PROJECT_ROOT / "lib"),
     ]
     for _dll_dir in _DLL_SEARCH_DIRS:
         if os.path.isdir(_dll_dir):
             os.add_dll_directory(_dll_dir)
-BIN_DIR = PROJECT_ROOT / "bin" / "Release" if os.name == "nt" else PROJECT_ROOT / "bin"
 MODELS_DIR = PROJECT_ROOT / "assets" / "models"
 VIDEOS_DIR = PROJECT_ROOT / "assets" / "videos"
 SAMPLE_DIR = PROJECT_ROOT / "sample" / "img"
@@ -35,10 +38,16 @@ PYTHON_EXAMPLE_DIR = PROJECT_ROOT / "src" / "python_example"
 YOLOV7_MODEL = MODELS_DIR / "YoloV7.dxnn"
 YOLOV7_VIDEO = VIDEOS_DIR / "snowboard.mp4"
 YOLOV7_IMAGE = SAMPLE_DIR / "sample_street.jpg"
-YOLOV7_CPP_SYNC = BIN_DIR / "yolov7_sync.exe"
-YOLOV7_CPP_ASYNC = BIN_DIR / "yolov7_async.exe"
-YOLOV7_PY_SYNC = PYTHON_EXAMPLE_DIR / "object_detection" / "yolov7" / "yolov7_sync.py"
-YOLOV7_PY_ASYNC = PYTHON_EXAMPLE_DIR / "object_detection" / "yolov7" / "yolov7_async.py"
+YOLOV7_CPP_SYNC = BIN_DIR / "yolov7_640x640_sync.exe"
+YOLOV7_CPP_ASYNC = BIN_DIR / "yolov7_640x640_async.exe"
+YOLOV7_PY_SYNC = (
+    PYTHON_EXAMPLE_DIR / "object_detection" / "yolov7"
+    / "yolov7_640x640" / "yolov7_640x640_sync.py"
+)
+YOLOV7_PY_ASYNC = (
+    PYTHON_EXAMPLE_DIR / "object_detection" / "yolov7"
+    / "yolov7_640x640" / "yolov7_640x640_async.py"
+)
 
 
 def setup_environment() -> dict:

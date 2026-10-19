@@ -91,11 +91,26 @@ def bgr_to_ycrcb_limited(bgr: np.ndarray) -> np.ndarray:
     return np.clip(out, 0.0, 255.0).round().astype(np.uint8)
 
 
+# Rows converted per step by ycrcb_limited_to_bgr. Its input is often a
+# super-resolved frame (7680x4320 at x4 from 1080p), where whole-image float32
+# temporaries came to ~2 GB; a block of rows keeps them to a few MB.
+_ROWS_PER_BLOCK = 256
+
+
 def ycrcb_limited_to_bgr(ycrcb: np.ndarray) -> np.ndarray:
     """Limited-range [H, W, 3] YCrCb uint8 -> BGR uint8.
 
-    Drop-in replacement for ``cv2.cvtColor(ycrcb, COLOR_YCrCb2BGR)``.
+    Drop-in replacement for ``cv2.cvtColor(ycrcb, COLOR_YCrCb2BGR)``. Converts
+    ``_ROWS_PER_BLOCK`` rows at a time; the result is the same as one pass.
     """
+    out = np.empty(ycrcb.shape, dtype=np.uint8)
+    for row in range(0, ycrcb.shape[0], _ROWS_PER_BLOCK):
+        rows = slice(row, row + _ROWS_PER_BLOCK)
+        out[rows] = _ycrcb_limited_to_bgr_block(ycrcb[rows])
+    return out
+
+
+def _ycrcb_limited_to_bgr_block(ycrcb: np.ndarray) -> np.ndarray:
     y = ycrcb[:, :, 0].astype(np.float32) - Y_LIMITED_MIN
     cr = ycrcb[:, :, 1].astype(np.float32) - 128.0
     cb = ycrcb[:, :, 2].astype(np.float32) - 128.0

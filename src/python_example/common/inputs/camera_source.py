@@ -7,10 +7,11 @@ import numpy as np
 import cv2
 
 from ..base.i_input_source import IInputSource, InputType
+from ..utility.camera import open_camera_capture
 
 
 class CameraSource(IInputSource):
-    """Input source for camera devices (USB, built-in)."""
+    """Input source for camera devices (USB, built-in, Raspberry Pi CSI)."""
     
     def __init__(self, device_id: int = 0, 
                  width: Optional[int] = None, 
@@ -28,7 +29,7 @@ class CameraSource(IInputSource):
         self._device_id = device_id
         self._cap: Optional[cv2.VideoCapture] = None
         
-        self._cap = cv2.VideoCapture(device_id)
+        self._cap = open_camera_capture(device_id, width, height)
         if not self._cap.isOpened():
             raise RuntimeError(f"Failed to open camera device: {device_id}")
         

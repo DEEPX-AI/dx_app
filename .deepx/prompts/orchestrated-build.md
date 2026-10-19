@@ -78,10 +78,10 @@ Dispatch independent builds to specialist agents:
 Run validation suite:
 ```bash
 # Static checks
-python .deepx/scripts/validate_app.py src/python_example/<task>/<model>/
+python .deepx/scripts/validate_app.py src/python_example/<task>/<family>/<variant>/
 
 # Smoke tests (if NPU available)
-python .deepx/scripts/validate_app.py src/python_example/<task>/<model>/ --smoke-test
+python .deepx/scripts/validate_app.py src/python_example/<task>/<family>/<variant>/ --smoke-test
 
 # Framework integrity
 python .deepx/scripts/validate_framework.py

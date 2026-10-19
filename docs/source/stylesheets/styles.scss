@@ -1,5 +1,5 @@
 /* ==================================================== */
-/* Cover page (앞표지)                                   */
+/* Cover page (front cover)                             */
 /* ==================================================== */
 @page :first {
   @top-right { content: normal; }
@@ -10,7 +10,7 @@
 article#doc-cover {
   display: block;
   page-break-after: always;
-  /* 1. 표지 밀림 방지: 상단 여백 대폭 축소 */
+  /* 1. Keep the cover on one page: shrink the top margin */
   padding-top: 20mm; 
   box-sizing: border-box;
 
@@ -19,7 +19,7 @@ article#doc-cover {
     padding: 0 3rem;
 
     &.upper {
-      /* 2. 로고와 타이틀 사이 간격 축소 */
+      /* 2. Tighten the gap between the logo and the title */
       margin-bottom: 20mm; 
 
       > .logo {
@@ -33,7 +33,7 @@ article#doc-cover {
     }
 
     h1 {
-      /* 표지 제목 크기 약간 조정 */
+      /* Slightly adjust the cover title size */
       font-size: 32pt;
       line-height: 1.4;
       margin-bottom: 20px;
@@ -47,7 +47,7 @@ article#doc-cover {
   }
 
   & > .properties {
-    /* 3. 하단 저작권 정보 여백 축소하여 1페이지 안에 쏙 들어오게 맞춤 */
+    /* 3. Shrink the bottom copyright margin so it fits on page 1 */
     margin-top: 40mm; 
     text-align: right;
     padding: 0 2rem;
@@ -59,7 +59,7 @@ article#doc-cover {
 }
 
 /* ==================================================== */
-/* 일반 본문 요소 스타일                                 */
+/* Body element styles                                   */
 /* ==================================================== */
 article {
   h1 { border-bottom: 2px solid #06b; page-break-after: avoid; }
@@ -74,7 +74,7 @@ article {
 }
 
 /* ==================================================== */
-/* Back cover (뒷표지)                                   */
+/* Back cover                                            */
 /* ==================================================== */
 $back_cover-bg: #fff;
 
@@ -136,11 +136,11 @@ article#doc-back_cover {
 }
 
 /* ==================================================== */
-/* 인쇄 가독성 향상을 위한 미디어 쿼리                     */
+/* Media query for print readability                     */
 /* ==================================================== */
 @media print {
   .md-typeset {
-    /* 4. 왕글씨 문제 해결: 표준 문서 사이즈인 11pt로 수정 */
+    /* 4. Fix oversized type: use the standard 11pt body size */
     font-size: 11pt !important;
     font-family: 'Noto Sans Display';
 
@@ -149,7 +149,7 @@ article#doc-back_cover {
       line-height: 1.6;
     }
 
-    /* 5. 본문 크기에 맞춰 대/중/소제목 크기도 밸런스 있게 축소 */
+    /* 5. Scale heading sizes so they stay in balance with the body */
     h1 { font-size: 20pt !important; margin-top: 1.5em; margin-bottom: 0.6em; }
     h2 { font-size: 16pt !important; margin-top: 1.3em; margin-bottom: 0.5em; }
     h3 { font-size: 14pt !important; margin-top: 1.1em; margin-bottom: 0.4em; }
@@ -165,7 +165,7 @@ article#doc-back_cover {
       font-size: 11pt !important;
     }
 
-    /* 6. 코드 블록 글씨도 본문보다 살짝 작게(9.5pt) 맞춰서 예쁘게 출력되도록 수정 */
+    /* 6. Keep code blocks slightly smaller than the body (9.5pt) for print */
     pre, code, var, samp, kbd, tt {
       font-family: 'Roboto Mono';
       font-size: 9.5pt !important;
@@ -188,7 +188,7 @@ article#doc-back_cover {
     }
 
     table, th, td {
-      font-size: 10.5pt !important; /* 본문(11pt)과 비슷하거나 꽉 차지 않게 살짝만 작게 */
+      font-size: 10.5pt !important; /* Close to the 11pt body, only a little smaller so it does not fill the line */
     }
   }
 }

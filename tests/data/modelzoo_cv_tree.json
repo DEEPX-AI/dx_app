@@ -1,0 +1,2003 @@
+{
+  "source": "https://github.com/DEEPX-AI/dx-modelzoo/tree/main/src/dx_modelzoo/models/cv/",
+  "ref": "main",
+  "harvested_at": "2026-09-22",
+  "variant_count": 350,
+  "variants": {
+    "3ddfa-v2_mobilenet-0.5_120x120": {
+      "task": "face_landmark",
+      "family": "3ddfa-v2"
+    },
+    "3ddfa-v2_mobilenetv1_120x120": {
+      "task": "face_landmark",
+      "family": "3ddfa-v2"
+    },
+    "alexnet_224x224": {
+      "task": "image_classification",
+      "family": "alexnet"
+    },
+    "arcface_iresnet100_112x112_ms1m": {
+      "task": "face_recognition",
+      "family": "arcface"
+    },
+    "arcface_iresnet50_112x112_ms1m": {
+      "task": "face_recognition",
+      "family": "arcface"
+    },
+    "arcface_mobilefacenet_112x112": {
+      "task": "face_recognition",
+      "family": "arcface"
+    },
+    "arcface_resnet50_112x112": {
+      "task": "face_recognition",
+      "family": "arcface"
+    },
+    "beit-l-p16_224x224": {
+      "task": "image_classification",
+      "family": "beit"
+    },
+    "bisenetv1_1024x2048": {
+      "task": "semantic_segmentation",
+      "family": "bisenet"
+    },
+    "bisenetv2_1024x2048": {
+      "task": "semantic_segmentation",
+      "family": "bisenet"
+    },
+    "casvit-m_224x224": {
+      "task": "image_classification",
+      "family": "casvit"
+    },
+    "casvit-t-fpn-resnet50_512x512": {
+      "task": "semantic_segmentation",
+      "family": "casvit"
+    },
+    "casvit-t_224x224": {
+      "task": "image_classification",
+      "family": "casvit"
+    },
+    "centerpose-fpn_regnet-x1.6gf_512x512": {
+      "task": "pose_estimation",
+      "family": "centerpose"
+    },
+    "centerpose_regnet-x800mf_640x640": {
+      "task": "pose_estimation",
+      "family": "centerpose"
+    },
+    "centerpose_repvgg-a0_416x416": {
+      "task": "pose_estimation",
+      "family": "centerpose"
+    },
+    "clip-img_resnet50x16_384x384_openai-wit": {
+      "task": "zero_shot_image_classification",
+      "family": "clip"
+    },
+    "clip-img_vit-b32_256x256_datacomp-s34b-b86k": {
+      "task": "zero_shot_image_classification",
+      "family": "clip"
+    },
+    "clip-img_vit-l14-quickgelu_224x224_dfn2b": {
+      "task": "zero_shot_image_classification",
+      "family": "clip"
+    },
+    "clip-img_vit-l14_224x224_datacomp-xl-s13b-b90k": {
+      "task": "zero_shot_image_classification",
+      "family": "clip"
+    },
+    "damoyolo-l_640x640": {
+      "task": "object_detection",
+      "family": "damoyolo"
+    },
+    "damoyolo-m_640x640": {
+      "task": "object_detection",
+      "family": "damoyolo"
+    },
+    "damoyolo-s_640x640": {
+      "task": "object_detection",
+      "family": "damoyolo"
+    },
+    "damoyolo-t_640x640": {
+      "task": "object_detection",
+      "family": "damoyolo"
+    },
+    "damoyolo-tinynas-l20m_640x640": {
+      "task": "object_detection",
+      "family": "damoyolo"
+    },
+    "damoyolo-tinynas-l20t_640x640": {
+      "task": "object_detection",
+      "family": "damoyolo"
+    },
+    "damoyolo-tinynas-l25s_640x640": {
+      "task": "object_detection",
+      "family": "damoyolo"
+    },
+    "deeplabv3-resnet101_512x512": {
+      "task": "semantic_segmentation",
+      "family": "deeplabv3"
+    },
+    "deeplabv3-resnet50_512x512": {
+      "task": "semantic_segmentation",
+      "family": "deeplabv3"
+    },
+    "deeplabv3_mobilenetv2_512x512": {
+      "task": "semantic_segmentation",
+      "family": "deeplabv3"
+    },
+    "deeplabv3_mobilenetv2_513x513_nodilation": {
+      "task": "semantic_segmentation",
+      "family": "deeplabv3"
+    },
+    "deeplabv3plus-drn_512x512": {
+      "task": "semantic_segmentation",
+      "family": "deeplabv3"
+    },
+    "deeplabv3plus-resnet101_512x512": {
+      "task": "semantic_segmentation",
+      "family": "deeplabv3"
+    },
+    "deeplabv3plus-resnet50_512x512": {
+      "task": "semantic_segmentation",
+      "family": "deeplabv3"
+    },
+    "deeplabv3plus_mobilenetv1_512x512": {
+      "task": "semantic_segmentation",
+      "family": "deeplabv3"
+    },
+    "deeplabv3plus_mobilenetv2_512x512": {
+      "task": "semantic_segmentation",
+      "family": "deeplabv3"
+    },
+    "deepmar_resnet18_224x224": {
+      "task": "person_attribute",
+      "family": "deepmar"
+    },
+    "deepmar_resnet50_224x224": {
+      "task": "person_attribute",
+      "family": "deepmar"
+    },
+    "deit-b_224x224": {
+      "task": "image_classification",
+      "family": "deit"
+    },
+    "deit-b_224x224_distilled": {
+      "task": "image_classification",
+      "family": "deit"
+    },
+    "deit-b_384x384": {
+      "task": "image_classification",
+      "family": "deit"
+    },
+    "deit-b_384x384_distilled": {
+      "task": "image_classification",
+      "family": "deit"
+    },
+    "deit-s_224x224": {
+      "task": "image_classification",
+      "family": "deit"
+    },
+    "deit-s_224x224_distilled": {
+      "task": "image_classification",
+      "family": "deit"
+    },
+    "deit-t_224x224": {
+      "task": "image_classification",
+      "family": "deit"
+    },
+    "deit-t_224x224_distilled": {
+      "task": "image_classification",
+      "family": "deit"
+    },
+    "densenet121_224x224": {
+      "task": "image_classification",
+      "family": "densenet"
+    },
+    "densenet161_224x224": {
+      "task": "image_classification",
+      "family": "densenet"
+    },
+    "densenet169_224x224": {
+      "task": "image_classification",
+      "family": "densenet"
+    },
+    "densenet201_224x224": {
+      "task": "image_classification",
+      "family": "densenet"
+    },
+    "depthanythingv2-vitb_224x224": {
+      "task": "depth_estimation",
+      "family": "depthanythingv2"
+    },
+    "depthanythingv2-vitl_224x224": {
+      "task": "depth_estimation",
+      "family": "depthanythingv2"
+    },
+    "depthanythingv2-vits_224x224": {
+      "task": "depth_estimation",
+      "family": "depthanythingv2"
+    },
+    "dncnn-15_512x512": {
+      "task": "image_denoising",
+      "family": "dncnn"
+    },
+    "dncnn-25_512x512": {
+      "task": "image_denoising",
+      "family": "dncnn"
+    },
+    "dncnn-50_512x512": {
+      "task": "image_denoising",
+      "family": "dncnn"
+    },
+    "dncnn-color_512x512": {
+      "task": "image_denoising",
+      "family": "dncnn"
+    },
+    "dncnn-gray_512x512": {
+      "task": "image_denoising",
+      "family": "dncnn"
+    },
+    "dope-hope-ketchup_480x640": {
+      "task": "object_pose_estimation",
+      "family": "dope"
+    },
+    "efficientdet-d1_640x640": {
+      "task": "object_detection",
+      "family": "efficientdet"
+    },
+    "efficientdet-d2_768x768": {
+      "task": "object_detection",
+      "family": "efficientdet"
+    },
+    "efficientdet-d4_1024x1024": {
+      "task": "object_detection",
+      "family": "efficientdet"
+    },
+    "efficientformer-l3_224x224": {
+      "task": "image_classification",
+      "family": "efficientformer"
+    },
+    "efficientformer-l7_224x224": {
+      "task": "image_classification",
+      "family": "efficientformer"
+    },
+    "efficientformerv2-l_224x224": {
+      "task": "image_classification",
+      "family": "efficientformer"
+    },
+    "efficientnet-b2_288x288": {
+      "task": "image_classification",
+      "family": "efficientnet"
+    },
+    "efficientnet-b3_300x300": {
+      "task": "image_classification",
+      "family": "efficientnet"
+    },
+    "efficientnet-b4_380x380": {
+      "task": "image_classification",
+      "family": "efficientnet"
+    },
+    "efficientnet-b5_456x456": {
+      "task": "image_classification",
+      "family": "efficientnet"
+    },
+    "efficientnet-b6_528x528": {
+      "task": "image_classification",
+      "family": "efficientnet"
+    },
+    "efficientnet-b7_600x600": {
+      "task": "image_classification",
+      "family": "efficientnet"
+    },
+    "efficientnet-lite0_224x224": {
+      "task": "image_classification",
+      "family": "efficientnet"
+    },
+    "efficientnet-lite1_240x240": {
+      "task": "image_classification",
+      "family": "efficientnet"
+    },
+    "efficientnet-lite2_260x260": {
+      "task": "image_classification",
+      "family": "efficientnet"
+    },
+    "efficientnet-lite3_300x300": {
+      "task": "image_classification",
+      "family": "efficientnet"
+    },
+    "efficientnet-lite4_380x380": {
+      "task": "image_classification",
+      "family": "efficientnet"
+    },
+    "efficientnetv2-l_480x480": {
+      "task": "image_classification",
+      "family": "efficientnet"
+    },
+    "efficientnetv2-m_480x480": {
+      "task": "image_classification",
+      "family": "efficientnet"
+    },
+    "efficientnetv2-s_384x384": {
+      "task": "image_classification",
+      "family": "efficientnet"
+    },
+    "eigenplaces-resnet18_512x512": {
+      "task": "super_resolution",
+      "family": "eigenplaces"
+    },
+    "eigenplaces-resnet50_512x512": {
+      "task": "super_resolution",
+      "family": "eigenplaces"
+    },
+    "espcn-x2_17x17": {
+      "task": "super_resolution",
+      "family": "espcn"
+    },
+    "espcn-x3_17x17": {
+      "task": "super_resolution",
+      "family": "espcn"
+    },
+    "espcn-x4_17x17": {
+      "task": "super_resolution",
+      "family": "espcn"
+    },
+    "faceattr_resnetv1-18_218x178": {
+      "task": "face_attribute",
+      "family": "faceattr"
+    },
+    "fastdepth_224x224": {
+      "task": "depth_estimation",
+      "family": "fastdepth"
+    },
+    "fastsam-s_1024x1024": {
+      "task": "zero_shot_instance_segmentation",
+      "family": "fastsam"
+    },
+    "fastvit-ma36_256x256": {
+      "task": "image_classification",
+      "family": "fastvit"
+    },
+    "fastvit-sa24_256x256": {
+      "task": "image_classification",
+      "family": "fastvit"
+    },
+    "fastvit-sa36_256x256": {
+      "task": "image_classification",
+      "family": "fastvit"
+    },
+    "fcn8_resnet18_1024x1920": {
+      "task": "semantic_segmentation",
+      "family": "fcn"
+    },
+    "fcn8_resnet50_512x512": {
+      "task": "semantic_segmentation",
+      "family": "fcn"
+    },
+    "ghostnet_224x224": {
+      "task": "image_classification",
+      "family": "ghostnet"
+    },
+    "hardnet39ds_224x224": {
+      "task": "image_classification",
+      "family": "hardnet"
+    },
+    "hardnet68_224x224": {
+      "task": "image_classification",
+      "family": "hardnet"
+    },
+    "inceptionv1_224x224": {
+      "task": "image_classification",
+      "family": "inception"
+    },
+    "levit-128_224x224": {
+      "task": "image_classification",
+      "family": "levit"
+    },
+    "levit-192_224x224": {
+      "task": "image_classification",
+      "family": "levit"
+    },
+    "levit-256_224x224": {
+      "task": "image_classification",
+      "family": "levit"
+    },
+    "levit-384_224x224": {
+      "task": "image_classification",
+      "family": "levit"
+    },
+    "mediapipe-hand-detector_192x192": {
+      "task": "hand_detection",
+      "family": "mediapipe-hand-detector"
+    },
+    "mediapipe-hands-lite_224x224": {
+      "task": "hand_landmark",
+      "family": "mediapipe-hands-lite"
+    },
+    "mnasnet-0.5_224x224": {
+      "task": "image_classification",
+      "family": "mnasnet"
+    },
+    "mnasnet-0.75_224x224": {
+      "task": "image_classification",
+      "family": "mnasnet"
+    },
+    "mnasnet-1.0_224x224": {
+      "task": "image_classification",
+      "family": "mnasnet"
+    },
+    "mnasnet-1.3_224x224": {
+      "task": "image_classification",
+      "family": "mnasnet"
+    },
+    "mobilenetv1_224x224": {
+      "task": "image_classification",
+      "family": "mobilenet"
+    },
+    "mobilenetv2_224x224": {
+      "task": "image_classification",
+      "family": "mobilenet"
+    },
+    "mobilenetv3-large_224x224": {
+      "task": "image_classification",
+      "family": "mobilenet"
+    },
+    "nanodet-plus-1.5x_224x224": {
+      "task": "object_detection",
+      "family": "nanodet"
+    },
+    "nanodet-plus_416x416": {
+      "task": "object_detection",
+      "family": "nanodet"
+    },
+    "nanodet-repvgg-a12_224x224": {
+      "task": "object_detection",
+      "family": "nanodet"
+    },
+    "nanodet-repvgg-a_224x224": {
+      "task": "object_detection",
+      "family": "nanodet"
+    },
+    "nanodet_224x224": {
+      "task": "object_detection",
+      "family": "nanodet"
+    },
+    "pidnet-s_1024x2048": {
+      "task": "semantic_segmentation",
+      "family": "pidnet"
+    },
+    "realesrgan-x2_192x192": {
+      "task": "super_resolution",
+      "family": "realesrgan"
+    },
+    "realesrgan-x4_192x192": {
+      "task": "super_resolution",
+      "family": "realesrgan"
+    },
+    "realesrgan-x8_192x192": {
+      "task": "super_resolution",
+      "family": "realesrgan"
+    },
+    "regnet-x1.6gf_224x224_v1": {
+      "task": "image_classification",
+      "family": "regnet"
+    },
+    "regnet-x1.6gf_224x224_v2": {
+      "task": "image_classification",
+      "family": "regnet"
+    },
+    "regnet-x16gf_224x224": {
+      "task": "image_classification",
+      "family": "regnet"
+    },
+    "regnet-x3.2gf_224x224": {
+      "task": "image_classification",
+      "family": "regnet"
+    },
+    "regnet-x32gf_224x224": {
+      "task": "image_classification",
+      "family": "regnet"
+    },
+    "regnet-x400mf_224x224": {
+      "task": "image_classification",
+      "family": "regnet"
+    },
+    "regnet-x800mf_224x224": {
+      "task": "image_classification",
+      "family": "regnet"
+    },
+    "regnet-x8gf_224x224": {
+      "task": "image_classification",
+      "family": "regnet"
+    },
+    "regnet-y1.6gf_224x224": {
+      "task": "image_classification",
+      "family": "regnet"
+    },
+    "regnet-y16gf_384x384": {
+      "task": "image_classification",
+      "family": "regnet"
+    },
+    "regnet-y200mf_224x224": {
+      "task": "image_classification",
+      "family": "regnet"
+    },
+    "regnet-y3.2gf_224x224": {
+      "task": "image_classification",
+      "family": "regnet"
+    },
+    "regnet-y32gf_384x384": {
+      "task": "image_classification",
+      "family": "regnet"
+    },
+    "regnet-y400mf_224x224": {
+      "task": "image_classification",
+      "family": "regnet"
+    },
+    "regnet-y800mf_224x224": {
+      "task": "image_classification",
+      "family": "regnet"
+    },
+    "regnet-y8gf_224x224": {
+      "task": "image_classification",
+      "family": "regnet"
+    },
+    "repghost-2.0x_224x224": {
+      "task": "image_classification",
+      "family": "repghost"
+    },
+    "repvgg-a0_320x320": {
+      "task": "image_classification",
+      "family": "repvgg"
+    },
+    "repvgg-a1_320x320": {
+      "task": "image_classification",
+      "family": "repvgg"
+    },
+    "repvgg-a2_320x320": {
+      "task": "image_classification",
+      "family": "repvgg"
+    },
+    "repvgg-b0_320x320": {
+      "task": "image_classification",
+      "family": "repvgg"
+    },
+    "repvgg-b1_320x320": {
+      "task": "image_classification",
+      "family": "repvgg"
+    },
+    "resmlp24_224x224": {
+      "task": "image_classification",
+      "family": "resmlp"
+    },
+    "resnet101_224x224": {
+      "task": "image_classification",
+      "family": "resnet"
+    },
+    "resnet152_224x224": {
+      "task": "image_classification",
+      "family": "resnet"
+    },
+    "resnet18_224x224": {
+      "task": "image_classification",
+      "family": "resnet"
+    },
+    "resnet18_224x224_brecq": {
+      "task": "image_classification",
+      "family": "resnet"
+    },
+    "resnet34_224x224": {
+      "task": "image_classification",
+      "family": "resnet"
+    },
+    "resnet50_224x224": {
+      "task": "image_classification",
+      "family": "resnet"
+    },
+    "resnext101-32x8d_224x224": {
+      "task": "image_classification",
+      "family": "resnext"
+    },
+    "resnext101-64x4d_224x224": {
+      "task": "image_classification",
+      "family": "resnext"
+    },
+    "resnext26-32x4d_224x224": {
+      "task": "image_classification",
+      "family": "resnext"
+    },
+    "resnext50-32x4d_224x224": {
+      "task": "image_classification",
+      "family": "resnext"
+    },
+    "resnext50-32x4d_224x224_imgclsmob": {
+      "task": "image_classification",
+      "family": "resnext"
+    },
+    "retinaface_mobilenet-0.25_640x640": {
+      "task": "face_detection",
+      "family": "retinaface"
+    },
+    "retinaface_mobilenetv1_736x1280": {
+      "task": "face_detection",
+      "family": "retinaface"
+    },
+    "scdepthv3_256x320": {
+      "task": "depth_estimation",
+      "family": "scdepthv3"
+    },
+    "scrfd-10g_640x640": {
+      "task": "face_detection",
+      "family": "scrfd"
+    },
+    "scrfd-2.5g_640x640": {
+      "task": "face_detection",
+      "family": "scrfd"
+    },
+    "scrfd-500m_640x640": {
+      "task": "face_detection",
+      "family": "scrfd"
+    },
+    "segformer_mit-b0_512x1024": {
+      "task": "semantic_segmentation",
+      "family": "segformer"
+    },
+    "sfa3d_608x608": {
+      "task": "3d_object_detection",
+      "family": "sfa3d"
+    },
+    "shufflenetv1-x1.0_224x224": {
+      "task": "image_classification",
+      "family": "shufflenetv1"
+    },
+    "shufflenetv2-x0.5_224x224": {
+      "task": "image_classification",
+      "family": "shufflenetv2"
+    },
+    "shufflenetv2-x1.0_224x224": {
+      "task": "image_classification",
+      "family": "shufflenetv2"
+    },
+    "shufflenetv2-x1.5_224x224": {
+      "task": "image_classification",
+      "family": "shufflenetv2"
+    },
+    "shufflenetv2-x2.0_224x224": {
+      "task": "image_classification",
+      "family": "shufflenetv2"
+    },
+    "squeezenet-1.0_224x224": {
+      "task": "image_classification",
+      "family": "squeezenet"
+    },
+    "squeezenet-1.1_224x224": {
+      "task": "image_classification",
+      "family": "squeezenet"
+    },
+    "ssd-mobilenetv1_300x300": {
+      "task": "object_detection",
+      "family": "ssd"
+    },
+    "ssd-mobilenetv2-lite_300x300": {
+      "task": "object_detection",
+      "family": "ssd"
+    },
+    "ssd-vgg16_300x300": {
+      "task": "object_detection",
+      "family": "ssd"
+    },
+    "stdc2-seg50_512x1024": {
+      "task": "semantic_segmentation",
+      "family": "stdc-seg"
+    },
+    "superpoint_480x640": {
+      "task": "keypoint_detection",
+      "family": "superpoint"
+    },
+    "ulfgfd-rfb_240x320": {
+      "task": "face_detection",
+      "family": "ulfgfd"
+    },
+    "ulfgfd-rfb_240x320_nopp": {
+      "task": "face_detection",
+      "family": "ulfgfd"
+    },
+    "ulfgfd-rfb_480x640": {
+      "task": "face_detection",
+      "family": "ulfgfd"
+    },
+    "ulfgfd-slim_240x320": {
+      "task": "face_detection",
+      "family": "ulfgfd"
+    },
+    "ulfgfd-slim_240x320_nopp": {
+      "task": "face_detection",
+      "family": "ulfgfd"
+    },
+    "unet_mobilenetv2_256x256": {
+      "task": "semantic_segmentation",
+      "family": "unet"
+    },
+    "vgg11-bn_224x224": {
+      "task": "image_classification",
+      "family": "vgg"
+    },
+    "vgg11_224x224": {
+      "task": "image_classification",
+      "family": "vgg"
+    },
+    "vgg13-bn_224x224": {
+      "task": "image_classification",
+      "family": "vgg"
+    },
+    "vgg13_224x224": {
+      "task": "image_classification",
+      "family": "vgg"
+    },
+    "vgg16-bn_224x224": {
+      "task": "image_classification",
+      "family": "vgg"
+    },
+    "vgg16_224x224": {
+      "task": "image_classification",
+      "family": "vgg"
+    },
+    "vgg19-bn_224x224": {
+      "task": "image_classification",
+      "family": "vgg"
+    },
+    "vgg19_224x224": {
+      "task": "image_classification",
+      "family": "vgg"
+    },
+    "vit-b-p16_224x224": {
+      "task": "image_classification",
+      "family": "vit"
+    },
+    "vit-b-p16_224x224_bn": {
+      "task": "image_classification",
+      "family": "vit"
+    },
+    "vit-b-p32_224x224": {
+      "task": "image_classification",
+      "family": "vit"
+    },
+    "vit-l-p32_224x224": {
+      "task": "image_classification",
+      "family": "vit"
+    },
+    "vit-s-p16_224x224": {
+      "task": "image_classification",
+      "family": "vit"
+    },
+    "vitpose-s_256x192": {
+      "task": "pose_estimation",
+      "family": "vitpose"
+    },
+    "wide-resnet101-2_224x224": {
+      "task": "image_classification",
+      "family": "wide-resnet"
+    },
+    "wide-resnet50-2_224x224": {
+      "task": "image_classification",
+      "family": "wide-resnet"
+    },
+    "yolact_regnet-x1.6gf_512x512": {
+      "task": "instance_segmentation",
+      "family": "yolact"
+    },
+    "yolact_regnet-x800mf_512x512": {
+      "task": "instance_segmentation",
+      "family": "yolact"
+    },
+    "yolo11-l-seg_640x640": {
+      "task": "instance_segmentation",
+      "family": "yolo11-seg"
+    },
+    "yolo11-l_640x640": {
+      "task": "object_detection",
+      "family": "yolo11"
+    },
+    "yolo11-m-pose_640x640": {
+      "task": "pose_estimation",
+      "family": "yolo11-pose"
+    },
+    "yolo11-m-seg_640x640": {
+      "task": "instance_segmentation",
+      "family": "yolo11-seg"
+    },
+    "yolo11-m_640x640": {
+      "task": "object_detection",
+      "family": "yolo11"
+    },
+    "yolo11-n-pose_640x640": {
+      "task": "pose_estimation",
+      "family": "yolo11-pose"
+    },
+    "yolo11-n-seg_640x640": {
+      "task": "instance_segmentation",
+      "family": "yolo11-seg"
+    },
+    "yolo11-n_640x640": {
+      "task": "object_detection",
+      "family": "yolo11"
+    },
+    "yolo11-n_640x640_ppu": {
+      "task": "object_detection",
+      "family": "yolo-ppu"
+    },
+    "yolo11-s-pose_640x640": {
+      "task": "pose_estimation",
+      "family": "yolo11-pose"
+    },
+    "yolo11-s-seg_640x640": {
+      "task": "instance_segmentation",
+      "family": "yolo11-seg"
+    },
+    "yolo11-s_640x640": {
+      "task": "object_detection",
+      "family": "yolo11"
+    },
+    "yolo11-x-pose_640x640": {
+      "task": "pose_estimation",
+      "family": "yolo11-pose"
+    },
+    "yolo11-x-seg_640x640": {
+      "task": "instance_segmentation",
+      "family": "yolo11-seg"
+    },
+    "yolo11-x_640x640": {
+      "task": "object_detection",
+      "family": "yolo11"
+    },
+    "yolo26-depth-l_768x768": {
+      "task": "depth_estimation",
+      "family": "yolo26-depth"
+    },
+    "yolo26-depth-m_768x768": {
+      "task": "depth_estimation",
+      "family": "yolo26-depth"
+    },
+    "yolo26-depth-n_768x768": {
+      "task": "depth_estimation",
+      "family": "yolo26-depth"
+    },
+    "yolo26-depth-s_768x768": {
+      "task": "depth_estimation",
+      "family": "yolo26-depth"
+    },
+    "yolo26-depth-x_768x768": {
+      "task": "depth_estimation",
+      "family": "yolo26-depth"
+    },
+    "yolo26-l-obb_1024x1024": {
+      "task": "oriented_object_detection",
+      "family": "yolo26-obb"
+    },
+    "yolo26-l-pose_640x640": {
+      "task": "pose_estimation",
+      "family": "yolo26-pose"
+    },
+    "yolo26-l-seg_640x640": {
+      "task": "instance_segmentation",
+      "family": "yolo26-seg"
+    },
+    "yolo26-cls-l_224x224": {
+      "task": "image_classification",
+      "family": "yolo26-cls"
+    },
+    "yolo26-l_640x640": {
+      "task": "object_detection",
+      "family": "yolo26"
+    },
+    "yolo26-m-obb_1024x1024": {
+      "task": "oriented_object_detection",
+      "family": "yolo26-obb"
+    },
+    "yolo26-m-pose_640x640": {
+      "task": "pose_estimation",
+      "family": "yolo26-pose"
+    },
+    "yolo26-m-seg_640x640": {
+      "task": "instance_segmentation",
+      "family": "yolo26-seg"
+    },
+    "yolo26-cls-m_224x224": {
+      "task": "image_classification",
+      "family": "yolo26-cls"
+    },
+    "yolo26-m_640x640": {
+      "task": "object_detection",
+      "family": "yolo26"
+    },
+    "yolo26-n-obb_1024x1024": {
+      "task": "oriented_object_detection",
+      "family": "yolo26-obb"
+    },
+    "yolo26-n-pose_640x640": {
+      "task": "pose_estimation",
+      "family": "yolo26-pose"
+    },
+    "yolo26-n-seg_640x640": {
+      "task": "instance_segmentation",
+      "family": "yolo26-seg"
+    },
+    "yolo26-cls-n_224x224": {
+      "task": "image_classification",
+      "family": "yolo26-cls"
+    },
+    "yolo26-n_640x640": {
+      "task": "object_detection",
+      "family": "yolo26"
+    },
+    "yolo26-s-obb_1024x1024": {
+      "task": "oriented_object_detection",
+      "family": "yolo26-obb"
+    },
+    "yolo26-s-pose_640x640": {
+      "task": "pose_estimation",
+      "family": "yolo26-pose"
+    },
+    "yolo26-s-seg_640x640": {
+      "task": "instance_segmentation",
+      "family": "yolo26-seg"
+    },
+    "yolo26-cls-s_224x224": {
+      "task": "image_classification",
+      "family": "yolo26-cls"
+    },
+    "yolo26-s_640x640": {
+      "task": "object_detection",
+      "family": "yolo26"
+    },
+    "yolo26-x-obb_1024x1024": {
+      "task": "oriented_object_detection",
+      "family": "yolo26-obb"
+    },
+    "yolo26-x-pose_640x640": {
+      "task": "pose_estimation",
+      "family": "yolo26-pose"
+    },
+    "yolo26-x-seg_640x640": {
+      "task": "instance_segmentation",
+      "family": "yolo26-seg"
+    },
+    "yolo26-cls-x_224x224": {
+      "task": "image_classification",
+      "family": "yolo26-cls"
+    },
+    "yolo26-x_640x640": {
+      "task": "object_detection",
+      "family": "yolo26"
+    },
+    "yolopv2_384x640": {
+      "task": "panoptic_driving_perception",
+      "family": "yolopv2"
+    },
+    "yolov10-b_640x640": {
+      "task": "object_detection",
+      "family": "yolov10"
+    },
+    "yolov10-l_640x640": {
+      "task": "object_detection",
+      "family": "yolov10"
+    },
+    "yolov10-m_640x640": {
+      "task": "object_detection",
+      "family": "yolov10"
+    },
+    "yolov10-n_640x640": {
+      "task": "object_detection",
+      "family": "yolov10"
+    },
+    "yolov10-n_640x640_ppu": {
+      "task": "object_detection",
+      "family": "yolo-ppu"
+    },
+    "yolov10-s_640x640": {
+      "task": "object_detection",
+      "family": "yolov10"
+    },
+    "yolov10-x_640x640": {
+      "task": "object_detection",
+      "family": "yolov10"
+    },
+    "yolov12-n_640x640_ppu": {
+      "task": "object_detection",
+      "family": "yolo-ppu"
+    },
+    "yolov3-gluon_416x416": {
+      "task": "object_detection",
+      "family": "yolov3"
+    },
+    "yolov3-gluon_608x608": {
+      "task": "object_detection",
+      "family": "yolov3"
+    },
+    "yolov3-tiny_416x416": {
+      "task": "object_detection",
+      "family": "yolov3"
+    },
+    "yolov3-tiny_416x416_ppu": {
+      "task": "object_detection",
+      "family": "yolo-ppu"
+    },
+    "yolov3_416x416": {
+      "task": "object_detection",
+      "family": "yolov3"
+    },
+    "yolov3_416x416_ppu": {
+      "task": "object_detection",
+      "family": "yolo-ppu"
+    },
+    "yolov3_608x608_ppu": {
+      "task": "object_detection",
+      "family": "yolo-ppu"
+    },
+    "yolov3_640x640": {
+      "task": "object_detection",
+      "family": "yolov3"
+    },
+    "yolov4-leaky_512x512": {
+      "task": "object_detection",
+      "family": "yolov4"
+    },
+    "yolov4-t_416x416": {
+      "task": "object_detection",
+      "family": "yolov4"
+    },
+    "yolov4_512x512_ppu": {
+      "task": "object_detection",
+      "family": "yolo-ppu"
+    },
+    "yolov5-l-seg_640x640": {
+      "task": "instance_segmentation",
+      "family": "yolov5-seg"
+    },
+    "yolov5-l6_1280x1280": {
+      "task": "object_detection",
+      "family": "yolov5"
+    },
+    "yolov5-l_640x640": {
+      "task": "object_detection",
+      "family": "yolov5"
+    },
+    "yolov5-m-face_640x640": {
+      "task": "face_detection",
+      "family": "yolov5-face"
+    },
+    "yolov5-m-seg_640x640": {
+      "task": "instance_segmentation",
+      "family": "yolov5-seg"
+    },
+    "yolov5-m6_1280x1280": {
+      "task": "object_detection",
+      "family": "yolov5"
+    },
+    "yolov5-m6_1280x1280_v6.1": {
+      "task": "object_detection",
+      "family": "yolov5"
+    },
+    "yolov5-m6_640x640": {
+      "task": "object_detection",
+      "family": "yolov5"
+    },
+    "yolov5-m_640x640": {
+      "task": "object_detection",
+      "family": "yolov5"
+    },
+    "yolov5-m_640x640_nospp": {
+      "task": "object_detection",
+      "family": "yolov5"
+    },
+    "yolov5-n-face_640x640": {
+      "task": "face_detection",
+      "family": "yolov5-face"
+    },
+    "yolov5-n-seg_640x640": {
+      "task": "instance_segmentation",
+      "family": "yolov5-seg"
+    },
+    "yolov5-n6_1280x1280": {
+      "task": "object_detection",
+      "family": "yolov5"
+    },
+    "yolov5-n6_1280x1280_v6.1": {
+      "task": "object_detection",
+      "family": "yolov5"
+    },
+    "yolov5-n_640x640": {
+      "task": "object_detection",
+      "family": "yolov5"
+    },
+    "yolov5-s-face_640x640": {
+      "task": "face_detection",
+      "family": "yolov5-face"
+    },
+    "yolov5-s-seg_640x640": {
+      "task": "instance_segmentation",
+      "family": "yolov5-seg"
+    },
+    "yolov5-s6-pose_640x640": {
+      "task": "pose_estimation",
+      "family": "yolov5-pose"
+    },
+    "yolov5-s6_1280x1280": {
+      "task": "object_detection",
+      "family": "yolov5"
+    },
+    "yolov5-s6_1280x1280_v6.1": {
+      "task": "object_detection",
+      "family": "yolov5"
+    },
+    "yolov5-s_320x320": {
+      "task": "object_detection",
+      "family": "yolov5"
+    },
+    "yolov5-s_640x640": {
+      "task": "object_detection",
+      "family": "yolov5"
+    },
+    "yolov5-s_640x640_c3tr": {
+      "task": "object_detection",
+      "family": "yolov5"
+    },
+    "yolov5-s_640x640_decode": {
+      "task": "object_detection",
+      "family": "yolov5"
+    },
+    "yolov5-s_640x640_nospp": {
+      "task": "object_detection",
+      "family": "yolov5"
+    },
+    "yolov5-s_640x640_ppu": {
+      "task": "object_detection",
+      "family": "yolo-ppu"
+    },
+    "yolov5-x-seg_640x640": {
+      "task": "instance_segmentation",
+      "family": "yolov5-seg"
+    },
+    "yolov5-x6_1280x1280": {
+      "task": "object_detection",
+      "family": "yolov5"
+    },
+    "yolov5-x_640x640": {
+      "task": "object_detection",
+      "family": "yolov5"
+    },
+    "yolov5-xs_512x512_nospp": {
+      "task": "object_detection",
+      "family": "yolov5"
+    },
+    "yolov6-l6_1280x1280": {
+      "task": "object_detection",
+      "family": "yolov6"
+    },
+    "yolov6-l_640x640": {
+      "task": "object_detection",
+      "family": "yolov6"
+    },
+    "yolov6-m_640x640": {
+      "task": "object_detection",
+      "family": "yolov6"
+    },
+    "yolov6-n0_640x640_v0.1.0": {
+      "task": "object_detection",
+      "family": "yolov6"
+    },
+    "yolov6-n0_640x640_v0.2.1": {
+      "task": "object_detection",
+      "family": "yolov6"
+    },
+    "yolov6-n_640x640": {
+      "task": "object_detection",
+      "family": "yolov6"
+    },
+    "yolov6-n_640x640_nmscore": {
+      "task": "object_detection",
+      "family": "yolov6"
+    },
+    "yolov6-s_640x640": {
+      "task": "object_detection",
+      "family": "yolov6"
+    },
+    "yolov7-d6_1280x1280": {
+      "task": "object_detection",
+      "family": "yolov7"
+    },
+    "yolov7-e6_1280x1280": {
+      "task": "object_detection",
+      "family": "yolov7"
+    },
+    "yolov7-e6e_1280x1280": {
+      "task": "object_detection",
+      "family": "yolov7"
+    },
+    "yolov7-face_640x640": {
+      "task": "face_detection",
+      "family": "yolov7-face"
+    },
+    "yolov7-lite-t-face_640x640": {
+      "task": "face_detection",
+      "family": "yolov7-face"
+    },
+    "yolov7-s-face_640x640": {
+      "task": "face_detection",
+      "family": "yolov7-face"
+    },
+    "yolov7-tiny_640x640": {
+      "task": "object_detection",
+      "family": "yolov7"
+    },
+    "yolov7-w6-face_1280x1280_tta": {
+      "task": "face_detection",
+      "family": "yolov7-face"
+    },
+    "yolov7-w6-face_960x960": {
+      "task": "face_detection",
+      "family": "yolov7-face"
+    },
+    "yolov7-w6_1280x1280": {
+      "task": "object_detection",
+      "family": "yolov7"
+    },
+    "yolov7-w6_1280x1280_nodecode": {
+      "task": "object_detection",
+      "family": "yolov7"
+    },
+    "yolov7-x_640x640": {
+      "task": "object_detection",
+      "family": "yolov7"
+    },
+    "yolov7-x_640x640_ppu": {
+      "task": "object_detection",
+      "family": "yolo-ppu"
+    },
+    "yolov7_640x640": {
+      "task": "object_detection",
+      "family": "yolov7"
+    },
+    "yolov7_640x640_nodecode": {
+      "task": "object_detection",
+      "family": "yolov7"
+    },
+    "yolov7_640x640_ppu": {
+      "task": "object_detection",
+      "family": "yolo-ppu"
+    },
+    "yolov8-l-pose_640x640": {
+      "task": "pose_estimation",
+      "family": "yolov8-pose"
+    },
+    "yolov8-l-seg_640x640": {
+      "task": "instance_segmentation",
+      "family": "yolov8-seg"
+    },
+    "yolov8-l_640x640": {
+      "task": "object_detection",
+      "family": "yolov8"
+    },
+    "yolov8-m-pose_640x640": {
+      "task": "pose_estimation",
+      "family": "yolov8-pose"
+    },
+    "yolov8-m-seg_640x640": {
+      "task": "instance_segmentation",
+      "family": "yolov8-seg"
+    },
+    "yolov8-m_640x640": {
+      "task": "object_detection",
+      "family": "yolov8"
+    },
+    "yolov8-n-pose_640x640": {
+      "task": "pose_estimation",
+      "family": "yolov8-pose"
+    },
+    "yolov8-n-seg_640x640": {
+      "task": "instance_segmentation",
+      "family": "yolov8-seg"
+    },
+    "yolov8-n_640x640": {
+      "task": "object_detection",
+      "family": "yolov8"
+    },
+    "yolov8-n_640x640_ppu": {
+      "task": "object_detection",
+      "family": "yolo-ppu"
+    },
+    "yolov8-s-pose_640x640": {
+      "task": "pose_estimation",
+      "family": "yolov8-pose"
+    },
+    "yolov8-s-seg_640x640": {
+      "task": "instance_segmentation",
+      "family": "yolov8-seg"
+    },
+    "yolov8-s_640x640": {
+      "task": "object_detection",
+      "family": "yolov8"
+    },
+    "yolov8-s_640x640_decode": {
+      "task": "object_detection",
+      "family": "yolov8"
+    },
+    "yolov8-s_640x640_ppu": {
+      "task": "object_detection",
+      "family": "yolo-ppu"
+    },
+    "yolov8-x-pose_640x640": {
+      "task": "pose_estimation",
+      "family": "yolov8-pose"
+    },
+    "yolov8-x-seg_640x640": {
+      "task": "instance_segmentation",
+      "family": "yolov8-seg"
+    },
+    "yolov8-x_640x640": {
+      "task": "object_detection",
+      "family": "yolov8"
+    },
+    "yolov9-c_640x640": {
+      "task": "object_detection",
+      "family": "yolov9"
+    },
+    "yolov9-gelan-c_640x640": {
+      "task": "object_detection",
+      "family": "yolov9"
+    },
+    "yolov9-m_640x640": {
+      "task": "object_detection",
+      "family": "yolov9"
+    },
+    "yolov9-s_640x640": {
+      "task": "object_detection",
+      "family": "yolov9"
+    },
+    "yolov9-t_640x640": {
+      "task": "object_detection",
+      "family": "yolov9"
+    },
+    "yolov9-t_640x640_ppu": {
+      "task": "object_detection",
+      "family": "yolo-ppu"
+    },
+    "yolox-l-leaky_640x640": {
+      "task": "object_detection",
+      "family": "yolox"
+    },
+    "yolox-l_640x640": {
+      "task": "object_detection",
+      "family": "yolox"
+    },
+    "yolox-m_640x640": {
+      "task": "object_detection",
+      "family": "yolox"
+    },
+    "yolox-s-leaky_640x640": {
+      "task": "object_detection",
+      "family": "yolox"
+    },
+    "yolox-s-wide-leaky_640x640": {
+      "task": "object_detection",
+      "family": "yolox"
+    },
+    "yolox-s_640x640": {
+      "task": "object_detection",
+      "family": "yolox"
+    },
+    "yolox-s_640x640_ppu": {
+      "task": "object_detection",
+      "family": "yolo-ppu"
+    },
+    "yolox-t_416x416": {
+      "task": "object_detection",
+      "family": "yolox"
+    },
+    "yolox-x_640x640": {
+      "task": "object_detection",
+      "family": "yolox"
+    },
+    "zerodce-pp_400x600": {
+      "task": "low_light_enhancement",
+      "family": "zerodce"
+    },
+    "zerodce_400x600": {
+      "task": "low_light_enhancement",
+      "family": "zerodce"
+    }
+  },
+  "provisional": {
+    "note": "Unpublished in dx-modelzoo as of assigned_at. The (task, family) values here are OUR assignments, following dx-modelzoo's postprocessing-chain rule, because the authoritative upstream table does not exist for these stems yet. When upstream publishes one it must move into 'variants'; test_provisional_never_overlaps_the_harvested_table fails until it does, and harvest_modelzoo_tree.py reports any stem upstream assigns differently.",
+    "assigned_at": "2026-10-16",
+    "variant_count": 147,
+    "variants": {
+      "beit-l-p16_384x384": {
+        "task": "image_classification",
+        "family": "beit"
+      },
+      "clip-img_resnet50_224x224_openai": {
+        "task": "image_retrieval",
+        "family": "clip_rn50"
+      },
+      "clip-img_vit-b16-quickgelu_224x224_metaclip-fullcc": {
+        "task": "zero_shot_image_classification",
+        "family": "clip"
+      },
+      "clip-text_resnet50_77x512_openai": {
+        "task": "image_retrieval",
+        "family": "clip_rn50"
+      },
+      "dark-hrnet-w32_256x192": {
+        "task": "pose_estimation",
+        "family": "dark_hrnet"
+      },
+      "ddrnet23-slim_1024x2048": {
+        "task": "semantic_segmentation",
+        "family": "ddrnet"
+      },
+      "ddrnet23_1024x2048": {
+        "task": "semantic_segmentation",
+        "family": "ddrnet"
+      },
+      "efficientad-m-autoencoder_256x256": {
+        "task": "anomaly_detection",
+        "family": "efficientad"
+      },
+      "efficientad-m-student_256x256": {
+        "task": "anomaly_detection",
+        "family": "efficientad"
+      },
+      "efficientad-m-teacher_256x256": {
+        "task": "anomaly_detection",
+        "family": "efficientad"
+      },
+      "levit-128s_224x224": {
+        "task": "image_classification",
+        "family": "levit"
+      },
+      "mask-rtdetr-hgnetv2-h-6x_640x640": {
+        "task": "instance_segmentation",
+        "family": "mask_rtdetr"
+      },
+      "mask-rtdetr-hgnetv2-l-6x_640x640": {
+        "task": "instance_segmentation",
+        "family": "mask_rtdetr"
+      },
+      "mask-rtdetr-hgnetv2-m-6x_640x640": {
+        "task": "instance_segmentation",
+        "family": "mask_rtdetr"
+      },
+      "mask-rtdetr-hgnetv2-s-6x_640x640": {
+        "task": "instance_segmentation",
+        "family": "mask_rtdetr"
+      },
+      "mask-rtdetr-hgnetv2-x-6x_640x640": {
+        "task": "instance_segmentation",
+        "family": "mask_rtdetr"
+      },
+      "patchcore_224x224": {
+        "task": "anomaly_detection",
+        "family": "patchcore"
+      },
+      "pp-liteseg-stdc1-camvid-10k_960x720": {
+        "task": "semantic_segmentation",
+        "family": "pp_liteseg"
+      },
+      "pp-shituv1-mainbody-detection_640x640": {
+        "task": "mainbody_detection",
+        "family": "pp_shitu"
+      },
+      "pp-shituv2-feature-extraction_224x224": {
+        "task": "visual_place_recognition",
+        "family": "pp_shitu_rec"
+      },
+      "pp-shituv2-mainbody-detection_640x640": {
+        "task": "mainbody_detection",
+        "family": "pp_shitu"
+      },
+      "pphgnet-base_224x224": {
+        "task": "image_classification",
+        "family": "pphgnet"
+      },
+      "pphgnet-small_224x224": {
+        "task": "image_classification",
+        "family": "pphgnet"
+      },
+      "pphgnet-tiny_224x224": {
+        "task": "image_classification",
+        "family": "pphgnet"
+      },
+      "pphgnetv2-b0_224x224": {
+        "task": "image_classification",
+        "family": "pphgnetv2"
+      },
+      "pphgnetv2-b1_224x224": {
+        "task": "image_classification",
+        "family": "pphgnetv2"
+      },
+      "pphgnetv2-b2_224x224": {
+        "task": "image_classification",
+        "family": "pphgnetv2"
+      },
+      "pphgnetv2-b3_224x224": {
+        "task": "image_classification",
+        "family": "pphgnetv2"
+      },
+      "pphgnetv2-b4_224x224": {
+        "task": "image_classification",
+        "family": "pphgnetv2"
+      },
+      "pphgnetv2-b5_224x224": {
+        "task": "image_classification",
+        "family": "pphgnetv2"
+      },
+      "pphgnetv2-b6_224x224": {
+        "task": "image_classification",
+        "family": "pphgnetv2"
+      },
+      "pplcnetv2-base_224x224": {
+        "task": "image_classification",
+        "family": "pplcnetv2"
+      },
+      "pplcnetv2-large_224x224": {
+        "task": "image_classification",
+        "family": "pplcnetv2"
+      },
+      "pplcnetv2-small_224x224": {
+        "task": "image_classification",
+        "family": "pplcnetv2"
+      },
+      "ppmatting-hrnet-w48-composition_512x512": {
+        "task": "image_matting",
+        "family": "ppmatting"
+      },
+      "ppmatting-hrnet-w48-distinctions_512x512": {
+        "task": "image_matting",
+        "family": "ppmatting"
+      },
+      "repvgg-a0-reid_256x128": {
+        "task": "person_reid",
+        "family": "repvgg_reid"
+      },
+      "rtdetr-hgnetv2-h-6x_640x640": {
+        "task": "object_detection",
+        "family": "rtdetr"
+      },
+      "rtdetr-hgnetv2-l-6x_640x640": {
+        "task": "object_detection",
+        "family": "rtdetr"
+      },
+      "rtdetr-hgnetv2-x-6x_640x640": {
+        "task": "object_detection",
+        "family": "rtdetr"
+      },
+      "rtdetr-r101vd-6x_640x640": {
+        "task": "object_detection",
+        "family": "rtdetr"
+      },
+      "rtdetr-r18vd-6x_640x640": {
+        "task": "object_detection",
+        "family": "rtdetr"
+      },
+      "rtdetr-r34vd-6x_640x640": {
+        "task": "object_detection",
+        "family": "rtdetr"
+      },
+      "rtdetr-r50vd-6x_640x640": {
+        "task": "object_detection",
+        "family": "rtdetr"
+      },
+      "rtdetr-r50vd-m-6x_640x640": {
+        "task": "object_detection",
+        "family": "rtdetr"
+      },
+      "rtdetrv2-r101vd-6x_640x640": {
+        "task": "object_detection",
+        "family": "rtdetr"
+      },
+      "rtdetrv2-r18vd-120e_640x640": {
+        "task": "object_detection",
+        "family": "rtdetr"
+      },
+      "rtdetrv2-r34vd-120e_640x640": {
+        "task": "object_detection",
+        "family": "rtdetr"
+      },
+      "rtdetrv2-r50vd-6x_640x640": {
+        "task": "object_detection",
+        "family": "rtdetr"
+      },
+      "rtdetrv2-r50vd-m-7x_640x640": {
+        "task": "object_detection",
+        "family": "rtdetr"
+      },
+      "rtdetrv3-r18vd-6x_640x640": {
+        "task": "object_detection",
+        "family": "rtdetr"
+      },
+      "rtdetrv3-r50vd-6x_640x640": {
+        "task": "object_detection",
+        "family": "rtdetr"
+      },
+      "stdc1-seg50_512x1024": {
+        "task": "semantic_segmentation",
+        "family": "stdc_seg"
+      },
+      "stdc1-seg75_768x1536": {
+        "task": "semantic_segmentation",
+        "family": "stdc_seg"
+      },
+      "stdc2-seg75_768x1536": {
+        "task": "semantic_segmentation",
+        "family": "stdc_seg"
+      },
+      "swin-b_224x224": {
+        "task": "image_classification",
+        "family": "swin"
+      },
+      "vit-b-p16_384x384": {
+        "task": "image_classification",
+        "family": "vit"
+      },
+      "vit-l-p16_512x512_swag": {
+        "task": "image_classification",
+        "family": "vit"
+      },
+      "vit-t-p16_224x224": {
+        "task": "image_classification",
+        "family": "vit"
+      },
+      "yolo11-l-pose_640x640": {
+        "task": "pose_estimation",
+        "family": "yolo11_pose"
+      },
+      "yolo11-l-pose_640x640_pre-optimized": {
+        "task": "pose_estimation",
+        "family": "yolo11_pose"
+      },
+      "yolo11-l-seg_640x640_pre-optimized": {
+        "task": "instance_segmentation",
+        "family": "yolo11_seg"
+      },
+      "yolo11-l_640x640_pre-optimized": {
+        "task": "object_detection",
+        "family": "yolo11"
+      },
+      "yolo11-m-pose_640x640_pre-optimized": {
+        "task": "pose_estimation",
+        "family": "yolo11_pose"
+      },
+      "yolo11-m-seg_640x640_pre-optimized": {
+        "task": "instance_segmentation",
+        "family": "yolo11_seg"
+      },
+      "yolo11-m_640x640_pre-optimized": {
+        "task": "object_detection",
+        "family": "yolo11"
+      },
+      "yolo11-n-pose_640x640_pre-optimized": {
+        "task": "pose_estimation",
+        "family": "yolo11_pose"
+      },
+      "yolo11-n-seg_640x640_pre-optimized": {
+        "task": "instance_segmentation",
+        "family": "yolo11_seg"
+      },
+      "yolo11-n_640x640_pre-optimized": {
+        "task": "object_detection",
+        "family": "yolo11"
+      },
+      "yolo11-s-pose_640x640_pre-optimized": {
+        "task": "pose_estimation",
+        "family": "yolo11_pose"
+      },
+      "yolo11-s-seg_640x640_pre-optimized": {
+        "task": "instance_segmentation",
+        "family": "yolo11_seg"
+      },
+      "yolo11-s_640x640_pre-optimized": {
+        "task": "object_detection",
+        "family": "yolo11"
+      },
+      "yolo11-x-pose_640x640_pre-optimized": {
+        "task": "pose_estimation",
+        "family": "yolo11_pose"
+      },
+      "yolo11-x-seg_640x640_pre-optimized": {
+        "task": "instance_segmentation",
+        "family": "yolo11_seg"
+      },
+      "yolo11-x_640x640_pre-optimized": {
+        "task": "object_detection",
+        "family": "yolo11"
+      },
+      "yolo26-l-pose_640x640_pre-optimized": {
+        "task": "pose_estimation",
+        "family": "yolo_preopt_pose"
+      },
+      "yolo26-l_640x640_pre-optimized": {
+        "task": "object_detection",
+        "family": "yolo_preopt"
+      },
+      "yolo26-m-pose_640x640_pre-optimized": {
+        "task": "pose_estimation",
+        "family": "yolo_preopt_pose"
+      },
+      "yolo26-m_640x640_pre-optimized": {
+        "task": "object_detection",
+        "family": "yolo_preopt"
+      },
+      "yolo26-n-pose_640x640_pre-optimized": {
+        "task": "pose_estimation",
+        "family": "yolo_preopt_pose"
+      },
+      "yolo26-n_640x640_pre-optimized": {
+        "task": "object_detection",
+        "family": "yolo_preopt"
+      },
+      "yolo26-s-pose_640x640_pre-optimized": {
+        "task": "pose_estimation",
+        "family": "yolo_preopt_pose"
+      },
+      "yolo26-s_640x640_pre-optimized": {
+        "task": "object_detection",
+        "family": "yolo_preopt"
+      },
+      "yolo26-x-pose_640x640_pre-optimized": {
+        "task": "pose_estimation",
+        "family": "yolo_preopt_pose"
+      },
+      "yolo26-x_640x640_pre-optimized": {
+        "task": "object_detection",
+        "family": "yolo_preopt"
+      },
+      "yolov12-cls-l_224x224": {
+        "task": "image_classification",
+        "family": "yolov12_cls"
+      },
+      "yolov12-cls-m_224x224": {
+        "task": "image_classification",
+        "family": "yolov12_cls"
+      },
+      "yolov12-cls-n_224x224": {
+        "task": "image_classification",
+        "family": "yolov12_cls"
+      },
+      "yolov12-cls-s_224x224": {
+        "task": "image_classification",
+        "family": "yolov12_cls"
+      },
+      "yolov12-cls-x_224x224": {
+        "task": "image_classification",
+        "family": "yolov12_cls"
+      },
+      "yolov12-l_640x640": {
+        "task": "object_detection",
+        "family": "yolov12"
+      },
+      "yolov12-l_640x640_pre-optimized": {
+        "task": "object_detection",
+        "family": "yolov12"
+      },
+      "yolov12-m_640x640": {
+        "task": "object_detection",
+        "family": "yolov12"
+      },
+      "yolov12-m_640x640_pre-optimized": {
+        "task": "object_detection",
+        "family": "yolov12"
+      },
+      "yolov12-n_640x640": {
+        "task": "object_detection",
+        "family": "yolov12"
+      },
+      "yolov12-n_640x640_pre-optimized": {
+        "task": "object_detection",
+        "family": "yolov12"
+      },
+      "yolov12-s_640x640": {
+        "task": "object_detection",
+        "family": "yolov12"
+      },
+      "yolov12-s_640x640_pre-optimized": {
+        "task": "object_detection",
+        "family": "yolov12"
+      },
+      "yolov12-seg-l_640x640": {
+        "task": "instance_segmentation",
+        "family": "yolov12_seg"
+      },
+      "yolov12-seg-l_640x640_pre-optimized": {
+        "task": "instance_segmentation",
+        "family": "yolov12_seg"
+      },
+      "yolov12-seg-m_640x640": {
+        "task": "instance_segmentation",
+        "family": "yolov12_seg"
+      },
+      "yolov12-seg-m_640x640_pre-optimized": {
+        "task": "instance_segmentation",
+        "family": "yolov12_seg"
+      },
+      "yolov12-seg-n_640x640": {
+        "task": "instance_segmentation",
+        "family": "yolov12_seg"
+      },
+      "yolov12-seg-n_640x640_pre-optimized": {
+        "task": "instance_segmentation",
+        "family": "yolov12_seg"
+      },
+      "yolov12-seg-s_640x640": {
+        "task": "instance_segmentation",
+        "family": "yolov12_seg"
+      },
+      "yolov12-seg-s_640x640_pre-optimized": {
+        "task": "instance_segmentation",
+        "family": "yolov12_seg"
+      },
+      "yolov12-seg-x_640x640": {
+        "task": "instance_segmentation",
+        "family": "yolov12_seg"
+      },
+      "yolov12-seg-x_640x640_pre-optimized": {
+        "task": "instance_segmentation",
+        "family": "yolov12_seg"
+      },
+      "yolov12-x_640x640": {
+        "task": "object_detection",
+        "family": "yolov12"
+      },
+      "yolov12-x_640x640_pre-optimized": {
+        "task": "object_detection",
+        "family": "yolov12"
+      },
+      "yolov13-l_640x640": {
+        "task": "object_detection",
+        "family": "yolov13"
+      },
+      "yolov13-l_640x640_pre-optimized": {
+        "task": "object_detection",
+        "family": "yolov13"
+      },
+      "yolov13-n_640x640": {
+        "task": "object_detection",
+        "family": "yolov13"
+      },
+      "yolov13-n_640x640_pre-optimized": {
+        "task": "object_detection",
+        "family": "yolov13"
+      },
+      "yolov13-s_640x640": {
+        "task": "object_detection",
+        "family": "yolov13"
+      },
+      "yolov13-s_640x640_pre-optimized": {
+        "task": "object_detection",
+        "family": "yolov13"
+      },
+      "yolov13-x_640x640": {
+        "task": "object_detection",
+        "family": "yolov13"
+      },
+      "yolov13-x_640x640_pre-optimized": {
+        "task": "object_detection",
+        "family": "yolov13"
+      },
+      "yolov6-m6_1280x1280": {
+        "task": "object_detection",
+        "family": "yolov6"
+      },
+      "yolov8-l-pose_640x640_pre-optimized": {
+        "task": "pose_estimation",
+        "family": "yolov8_pose"
+      },
+      "yolov8-l-seg_640x640_pre-optimized": {
+        "task": "instance_segmentation",
+        "family": "yolov8_seg"
+      },
+      "yolov8-l_640x640_pre-optimized": {
+        "task": "object_detection",
+        "family": "yolov8"
+      },
+      "yolov8-m-pose_640x640_pre-optimized": {
+        "task": "pose_estimation",
+        "family": "yolov8_pose"
+      },
+      "yolov8-m-seg_640x640_pre-optimized": {
+        "task": "instance_segmentation",
+        "family": "yolov8_seg"
+      },
+      "yolov8-m_640x640_pre-optimized": {
+        "task": "object_detection",
+        "family": "yolov8"
+      },
+      "yolov8-n-pose_640x640_pre-optimized": {
+        "task": "pose_estimation",
+        "family": "yolov8_pose"
+      },
+      "yolov8-n-seg_640x640_pre-optimized": {
+        "task": "instance_segmentation",
+        "family": "yolov8_seg"
+      },
+      "yolov8-n_640x640_pre-optimized": {
+        "task": "object_detection",
+        "family": "yolov8"
+      },
+      "yolov8-s-pose_640x640_pre-optimized": {
+        "task": "pose_estimation",
+        "family": "yolov8_pose"
+      },
+      "yolov8-s-seg_640x640_pre-optimized": {
+        "task": "instance_segmentation",
+        "family": "yolov8_seg"
+      },
+      "yolov8-s_640x640_pre-optimized": {
+        "task": "object_detection",
+        "family": "yolov8"
+      },
+      "yolov8-x-pose_640x640_pre-optimized": {
+        "task": "pose_estimation",
+        "family": "yolov8_pose"
+      },
+      "yolov8-x-seg_640x640_pre-optimized": {
+        "task": "instance_segmentation",
+        "family": "yolov8_seg"
+      },
+      "yolov8-x_640x640_pre-optimized": {
+        "task": "object_detection",
+        "family": "yolov8"
+      },
+      "yolov9-c_640x640_pre-optimized": {
+        "task": "object_detection",
+        "family": "yolov9"
+      },
+      "yolov9-e_640x640": {
+        "task": "object_detection",
+        "family": "yolov9"
+      },
+      "yolov9-e_640x640_pre-optimized": {
+        "task": "object_detection",
+        "family": "yolov9"
+      },
+      "yolov9-gelan-c_640x640_pre-optimized": {
+        "task": "object_detection",
+        "family": "yolov9"
+      },
+      "yolov9-m_640x640_pre-optimized": {
+        "task": "object_detection",
+        "family": "yolov9"
+      },
+      "yolov9-s_640x640_pre-optimized": {
+        "task": "object_detection",
+        "family": "yolov9"
+      },
+      "yolov9-seg-c_640x640": {
+        "task": "instance_segmentation",
+        "family": "yolov9_seg"
+      },
+      "yolov9-seg-c_640x640_pre-optimized": {
+        "task": "instance_segmentation",
+        "family": "yolov9_seg"
+      },
+      "yolov9-seg-e_640x640": {
+        "task": "instance_segmentation",
+        "family": "yolov9_seg"
+      },
+      "yolov9-seg-e_640x640_pre-optimized": {
+        "task": "instance_segmentation",
+        "family": "yolov9_seg"
+      },
+      "yolov9-seg-gelan-c_640x640": {
+        "task": "instance_segmentation",
+        "family": "yolov9_seg"
+      },
+      "yolov9-seg-gelan-c_640x640_pre-optimized": {
+        "task": "instance_segmentation",
+        "family": "yolov9_seg"
+      },
+      "yolov9-t_640x640_pre-optimized": {
+        "task": "object_detection",
+        "family": "yolov9"
+      }
+    }
+  }
+}

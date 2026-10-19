@@ -19,6 +19,11 @@
  * in-flight window recovers ~4x throughput, which is what makes the extra tiles
  * from overlapping affordable.
  *
+ * **Streaming.** runAndAssembleTiles() stitches each tile as soon as its output
+ * is waited for, so only the in-flight window's outputs exist at once. Holding
+ * every output until the frame is done costs ~0.5 GB at 1920x1080 (25,560
+ * ESPCN x4 tiles).
+ *
  * `halo=0` reduces this to plain non-overlapping tiling — the behaviour the
  * runners had before this header existed, useful as a regression harness.
  *
@@ -38,7 +43,10 @@
 #include <stdexcept>
 #include <string>
 #include <tuple>
+#include <utility>
 #include <vector>
+
+#include "common/utility/colorspace.hpp"
 
 namespace dxapp {
 namespace srtiling {
@@ -201,45 +209,28 @@ inline void planTiles(int orig_h, int orig_w, int tile_h, int tile_w, int halo,
 }
 
 /**
- * @brief Run every planned tile through @p ie, blocking on each.
+ * @brief Run every planned tile through @p ie, pipelined via RunAsync, and hand
+ *        each tile's outputs to `on_output(index, outputs)` as soon as they are
+ *        waited for.
  *
- * Use this when the engine has a callback registered (RegisterCallback): the
- * callback consumes the outputs, so RunAsync + Wait() would hand back empty
- * tensors. The async restoration runner is in exactly that situation.
- */
-inline void runTilesBlocking(dxrt::InferenceEngine& ie, const cv::Mat& lr_plane,
-                             const std::vector<TilePlan>& plans,
-                             int tile_h, int tile_w,
-                             std::vector<dxrt::TensorPtrs>& outputs) {
-    outputs.assign(plans.size(), dxrt::TensorPtrs{});
-    for (size_t i = 0; i < plans.size(); ++i) {
-        const TilePlan& p = plans[i];
-        cv::Mat tile = lr_plane(cv::Rect(p.win_x, p.win_y, tile_w, tile_h)).clone();
-        try {
-            outputs[i] = ie.Run(tile.data, nullptr, nullptr);
-        } catch (...) {
-            outputs[i] = dxrt::TensorPtrs{};
-        }
-    }
-}
-
-/**
- * @brief Run every planned tile through @p ie, pipelined via RunAsync.
- *
- * Outputs come back in tile order; an entry is empty if that tile failed. The
- * tile buffer must outlive its job, so each clone is held until its Wait().
+ * Tiles complete in submission order. `outputs` is empty if that tile failed.
+ * The tile buffer must outlive its job, so each clone is held until its Wait().
+ * If RunAsync throws, every job already submitted is waited for (and passed to
+ * @p on_output) before the exception leaves this function.
  *
  * @warning Only valid when NO callback is registered on @p ie. With a callback
  * installed the engine routes outputs there and Wait() returns nothing, so every
- * tile would come back empty — use runTilesBlocking() instead.
+ * tile would come back empty.
+ *
+ * @tparam Engine dxrt::InferenceEngine, or anything with `int RunAsync(void*)`
+ *         and `dxrt::TensorPtrs Wait(int)` (the unit tests' fake engines).
+ * @tparam OnOutput callable as `on_output(size_t index, dxrt::TensorPtrs outputs)`.
  */
-inline void runTilesPipelined(dxrt::InferenceEngine& ie, const cv::Mat& lr_plane,
-                              const std::vector<TilePlan>& plans,
-                              int tile_h, int tile_w,
-                              std::vector<dxrt::TensorPtrs>& outputs,
-                              int inflight = kDefaultInflight) {
+template <typename Engine, typename OnOutput>
+inline void pipelineTiles(Engine& ie, const cv::Mat& lr_plane,
+                          const std::vector<TilePlan>& plans,
+                          int tile_h, int tile_w, int inflight, OnOutput on_output) {
     if (inflight < 1) inflight = 1;
-    outputs.assign(plans.size(), dxrt::TensorPtrs{});
 
     // (index, job id, tile buffer kept alive until Wait)
     std::deque<std::tuple<size_t, int, cv::Mat>> queue;
@@ -247,29 +238,122 @@ inline void runTilesPipelined(dxrt::InferenceEngine& ie, const cv::Mat& lr_plane
     auto drain_one = [&]() {
         auto item = queue.front();
         queue.pop_front();
+        dxrt::TensorPtrs outputs;
         try {
-            outputs[std::get<0>(item)] = ie.Wait(std::get<1>(item));
+            outputs = ie.Wait(std::get<1>(item));
         } catch (...) {
-            outputs[std::get<0>(item)] = dxrt::TensorPtrs{};
+            outputs.clear();
         }
+        on_output(std::get<0>(item), std::move(outputs));
     };
 
-    for (size_t i = 0; i < plans.size(); ++i) {
-        const TilePlan& p = plans[i];
-        cv::Mat tile = lr_plane(cv::Rect(p.win_x, p.win_y, tile_w, tile_h)).clone();
-        const int job_id = ie.RunAsync(tile.data);
-        queue.emplace_back(i, job_id, tile);
-        if (static_cast<int>(queue.size()) >= inflight) drain_one();
+    try {
+        for (size_t i = 0; i < plans.size(); ++i) {
+            const TilePlan& p = plans[i];
+            cv::Mat tile = lr_plane(cv::Rect(p.win_x, p.win_y, tile_w, tile_h)).clone();
+            // The queue slot first: once RunAsync has submitted the job,
+            // nothing that can throw stands between it and the queue, so
+            // every submitted job is waited for below.
+            queue.emplace_back(i, -1, tile);
+            try {
+                std::get<1>(queue.back()) = ie.RunAsync(std::get<2>(queue.back()).data);
+            } catch (...) {
+                queue.pop_back();  // never submitted
+                throw;
+            }
+            if (static_cast<int>(queue.size()) >= inflight) drain_one();
+        }
+    } catch (...) {
+        // A submit failed: the jobs already in flight still read their tile
+        // buffers, so wait for every one before `queue` frees them.
+        while (!queue.empty()) drain_one();
+        throw;
     }
     while (!queue.empty()) drain_one();
 }
 
 /**
- * @brief Stitch tile outputs into one SR luminance plane (CV_8UC1).
+ * @brief pipelineTiles() collecting every tile's outputs into @p outputs, in
+ *        tile order; an entry is empty if that tile failed.
  *
- * Only each tile's valid region is written, so with a halo of at least the
- * receptive-field radius the result carries no tile seams. Returns the number of
- * tiles that contributed.
+ * Holds all of a frame's outputs at once. The runners use runAndAssembleTiles().
+ */
+template <typename Engine>
+inline void runTilesPipelined(Engine& ie, const cv::Mat& lr_plane,
+                              const std::vector<TilePlan>& plans,
+                              int tile_h, int tile_w,
+                              std::vector<dxrt::TensorPtrs>& outputs,
+                              int inflight = kDefaultInflight) {
+    outputs.assign(plans.size(), dxrt::TensorPtrs{});
+    pipelineTiles(ie, lr_plane, plans, tile_h, tile_w, inflight,
+                  [&outputs](size_t i, dxrt::TensorPtrs tile_outputs) {
+                      outputs[i] = std::move(tile_outputs);
+                  });
+}
+
+/**
+ * @brief Write tile @p p's valid region into @p sr_y (CV_8UC1, padded output size).
+ *
+ * Only the valid region is written, so with a halo of at least the
+ * receptive-field radius the result carries no tile seams. False when the tile
+ * has no output to stitch.
+ */
+inline bool assembleTile(const TilePlan& p, const dxrt::TensorPtrs& outputs,
+                         int scale_y, int scale_x, int out_tile_w, cv::Mat& sr_y) {
+    if (outputs.empty()) return false;
+    const float* data = static_cast<const float*>(outputs[0]->data());
+    if (data == nullptr) return false;
+
+    const int sy = p.src_y * scale_y, sx = p.src_x * scale_x;
+    const int vh = p.valid_h * scale_y, vw = p.valid_w * scale_x;
+    const int dy = (p.win_y + p.src_y) * scale_y;
+    const int dx = (p.win_x + p.src_x) * scale_x;
+
+    for (int py = 0; py < vh; ++py) {
+        const int oy = dy + py;
+        if (oy >= sr_y.rows) break;
+        uchar* dst = sr_y.ptr<uchar>(oy);
+        const float* src = data + static_cast<size_t>(sy + py) * out_tile_w + sx;
+        for (int px = 0; px < vw; ++px) {
+            const int ox = dx + px;
+            if (ox >= sr_y.cols) break;
+            const float v = std::max(0.0f, std::min(1.0f, src[px]));
+            dst[ox] = static_cast<uchar>(v * 255.0f + 0.5f);
+        }
+    }
+    return true;
+}
+
+/**
+ * @brief Run every planned tile through @p ie and stitch it into @p sr_y as soon
+ *        as its output arrives, so only the in-flight window's outputs are alive.
+ *
+ * Same image as runTilesPipelined() + assembleTiles(). Returns the number of
+ * tiles that contributed. Same engine requirement as pipelineTiles().
+ */
+template <typename Engine>
+inline int runAndAssembleTiles(Engine& ie, const cv::Mat& lr_plane,
+                               const std::vector<TilePlan>& plans,
+                               int tile_h, int tile_w,
+                               int padded_out_h, int padded_out_w,
+                               int scale_y, int scale_x, int out_tile_w,
+                               cv::Mat& sr_y, int inflight = kDefaultInflight) {
+    sr_y = cv::Mat::zeros(padded_out_h, padded_out_w, CV_8UC1);
+    int tiles_done = 0;
+    pipelineTiles(ie, lr_plane, plans, tile_h, tile_w, inflight,
+                  [&](size_t i, dxrt::TensorPtrs tile_outputs) {
+                      if (assembleTile(plans[i], tile_outputs, scale_y, scale_x,
+                                       out_tile_w, sr_y)) {
+                          ++tiles_done;
+                      }
+                  });
+    return tiles_done;
+}
+
+/**
+ * @brief Stitch collected tile outputs into one SR luminance plane (CV_8UC1).
+ *
+ * Returns the number of tiles that contributed.
  */
 inline int assembleTiles(const std::vector<TilePlan>& plans,
                          const std::vector<dxrt::TensorPtrs>& outputs,
@@ -278,33 +362,54 @@ inline int assembleTiles(const std::vector<TilePlan>& plans,
                          int out_tile_w, cv::Mat& sr_y) {
     sr_y = cv::Mat::zeros(padded_out_h, padded_out_w, CV_8UC1);
     int tiles_done = 0;
-
     for (size_t i = 0; i < plans.size(); ++i) {
-        if (outputs[i].empty()) continue;
-        const float* data = static_cast<const float*>(outputs[i][0]->data());
-        if (data == nullptr) continue;
-
-        const TilePlan& p = plans[i];
-        const int sy = p.src_y * scale_y, sx = p.src_x * scale_x;
-        const int vh = p.valid_h * scale_y, vw = p.valid_w * scale_x;
-        const int dy = (p.win_y + p.src_y) * scale_y;
-        const int dx = (p.win_x + p.src_x) * scale_x;
-
-        for (int py = 0; py < vh; ++py) {
-            const int oy = dy + py;
-            if (oy >= padded_out_h) break;
-            uchar* dst = sr_y.ptr<uchar>(oy);
-            const float* src = data + static_cast<size_t>(sy + py) * out_tile_w + sx;
-            for (int px = 0; px < vw; ++px) {
-                const int ox = dx + px;
-                if (ox >= padded_out_w) break;
-                const float v = std::max(0.0f, std::min(1.0f, src[px]));
-                dst[ox] = static_cast<uchar>(v * 255.0f + 0.5f);
-            }
+        if (assembleTile(plans[i], outputs[i], scale_y, scale_x, out_tile_w, sr_y)) {
+            ++tiles_done;
         }
-        ++tiles_done;
     }
     return tiles_done;
+}
+
+/** Compute output scale factors by probing once.
+ *  Only the output *shape* matters, so a zero tile is enough.
+ *  @return (scale_x, scale_y), each >= 1. */
+inline std::pair<int, int> probeOutputScale(dxrt::InferenceEngine& ie, int tile_w, int tile_h) {
+    cv::Mat probe_tile = cv::Mat::zeros(tile_h, tile_w, CV_8UC1);
+    dxrt::TensorPtrs probe_out = ie.Run(probe_tile.data, nullptr, nullptr);
+    int out_tile_h = tile_h, out_tile_w = tile_w;
+    if (!probe_out.empty()) {
+        auto shape = probe_out[0]->shape();
+        if (shape.size() == 4)      { out_tile_h = static_cast<int>(shape[2]); out_tile_w = static_cast<int>(shape[3]); }
+        else if (shape.size() == 3) { out_tile_h = static_cast<int>(shape[1]); out_tile_w = static_cast<int>(shape[2]); }
+        else if (shape.size() == 2) { out_tile_h = static_cast<int>(shape[0]); out_tile_w = static_cast<int>(shape[1]); }
+    }
+    return {std::max(1, out_tile_w / tile_w), std::max(1, out_tile_h / tile_h)};
+}
+
+/// Replicate-pad `bgr` to padded_h x padded_w and take its limited-range Y
+/// (ESPCN is trained on MATLAB rgb2ycbcr Y), exactly as the runner does.
+inline void prepareLowRes(const cv::Mat& bgr, int padded_h, int padded_w,
+                          cv::Mat& lr_bgr, cv::Mat& lr_gray) {
+    cv::copyMakeBorder(bgr, lr_bgr, 0, padded_h - bgr.rows, 0, padded_w - bgr.cols,
+                       cv::BORDER_REPLICATE);
+    dxapp::colorspace::bgrToYLimited(lr_bgr, lr_gray);
+}
+
+/// The super-resolved luma `sr_y` plus `orig_bgr`'s chroma, bicubic-resized
+/// to sr_y's size, back to BGR in the limited-range convention.
+inline cv::Mat mergeSrLuma(const cv::Mat& orig_bgr, const cv::Mat& sr_y) {
+    cv::Mat lr_ycrcb;
+    dxapp::colorspace::bgrToYCrCbLimited(orig_bgr, lr_ycrcb);
+    std::vector<cv::Mat> ch;
+    cv::split(lr_ycrcb, ch);
+    cv::Mat cr_up, cb_up;
+    cv::resize(ch[1], cr_up, sr_y.size(), 0, 0, cv::INTER_CUBIC);
+    cv::resize(ch[2], cb_up, sr_y.size(), 0, 0, cv::INTER_CUBIC);
+    cv::Mat merged;
+    cv::merge(std::vector<cv::Mat>{sr_y, cr_up, cb_up}, merged);
+    cv::Mat bgr;
+    dxapp::colorspace::ycrcbLimitedToBgr(merged, bgr);
+    return bgr;
 }
 
 }  // namespace srtiling

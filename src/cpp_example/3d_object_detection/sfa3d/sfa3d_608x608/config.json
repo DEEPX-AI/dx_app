@@ -1,0 +1,61 @@
+{
+  "variant": "sfa3d_608x608",
+  "dxnn_file": "sfa3d_608x608.dxnn",
+  "task": "3d_object_detection",
+  "family": "sfa3d",
+  "input_width": 608,
+  "input_height": 608,
+  "image_only": true,
+  "registry_image_only": true,
+  "default_image": "sample/kitti/velodyne/000049.bin",
+  "default_video": null,
+  "zoo_canonical": true,
+  "published": true,
+  "config": {
+    "max_detections": 100,
+    "nms_threshold": 0.2,
+    "require_calib": false,
+    "score_threshold": 0.3
+  },
+  "registry_config": {},
+  "cli": {
+    "include_kitti_paths": true,
+    "include_output": false,
+    "include_stream_inputs": true
+  },
+  "preprocessor": {
+    "args": [
+      {
+        "token": "input_width"
+      },
+      {
+        "token": "input_height"
+      }
+    ],
+    "class": "SFA3DBEVPreprocessor",
+    "config_overrides": {},
+    "kwargs": {}
+  },
+  "postprocessor": {
+    "args": [
+      {
+        "token": "input_width"
+      },
+      {
+        "token": "input_height"
+      },
+      {
+        "token": "config"
+      }
+    ],
+    "class": "SFA3DPostprocessor",
+    "config_overrides": {},
+    "kwargs": {}
+  },
+  "visualizer": {
+    "args": [],
+    "class": "SFA3DVisualizer",
+    "config_overrides": {},
+    "kwargs": {}
+  }
+}

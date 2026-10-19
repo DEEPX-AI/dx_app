@@ -7,6 +7,9 @@
 
 #include <dxrt/dxrt_api.h>
 
+#include <atomic>
+#include <cstdio>
+#include <cstdlib>
 #include <string>
 #include <vector>
 
@@ -73,6 +76,11 @@ class YOLOv5FacePostProcess {
     enum { landmarks_coords_ = 10 };  // Total landmark coordinates (5*2)
 
     bool is_ort_configured_{false};  // Whether ORT inference is configured
+
+    // DXAPP_DEBUG: the one-time output-shape header is logged once per
+    // instance. Atomic because one instance's postprocess() may be entered
+    // from several completion threads.
+    std::atomic<bool> debug_logged_{false};
 
     // Model-specific configuration parameters - using const where possible
     std::vector<std::string> cpu_output_names_;  // CPU output tensor names
@@ -230,9 +238,8 @@ inline YOLOv5FacePostProcess::YOLOv5FacePostProcess() {
 
 // Process model outputs
 inline std::vector<YOLOv5FaceResult> YOLOv5FacePostProcess::postprocess(const dxrt::TensorPtrs& outputs) {
-    static bool debug_logged = false;
-    if (!debug_logged && getenv("DXAPP_DEBUG")) {
-        debug_logged = true;
+    static const bool s_debug = (std::getenv("DXAPP_DEBUG") != nullptr);
+    if (s_debug && !debug_logged_.exchange(true)) {
         fprintf(stderr, "[DEBUG] is_ort_configured=%d, raw_outputs=%zu\n",
                 is_ort_configured_, outputs.size());
         for (size_t i = 0; i < outputs.size(); ++i) {
@@ -257,7 +264,6 @@ inline std::vector<YOLOv5FaceResult> YOLOv5FacePostProcess::postprocess(const dx
         detections = decoding_npu_outputs(aligned_outputs);
     }
 
-    static const bool s_debug = (std::getenv("DXAPP_DEBUG") != nullptr);
     if (s_debug) {
         fprintf(stderr, "[DEBUG] pre-NMS=%zu", detections.size());
     }
@@ -265,7 +271,7 @@ inline std::vector<YOLOv5FaceResult> YOLOv5FacePostProcess::postprocess(const dx
     // Apply Non-Maximum Suppression
     detections = apply_nms(detections);
 
-    if (getenv("DXAPP_DEBUG")) {
+    if (s_debug) {
         fprintf(stderr, " post-NMS=%zu", detections.size());
         for (size_t d = 0; d < detections.size() && d < 5; ++d) {
             auto& b = detections[d].box;

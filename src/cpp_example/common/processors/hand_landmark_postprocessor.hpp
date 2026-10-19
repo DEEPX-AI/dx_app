@@ -5,9 +5,13 @@
  * Processes hand landmark model output (e.g., MediaPipe HandLandmarkLite).
  *
  * Expected output tensors:
- *   - Tensor[0]: [1, 63] — 21 landmarks × 3 (x, y, z) normalized coordinates
- *   - Tensor[1]: [1, 1]  — handedness score (optional)
- *   - Tensor[2]: [1, 1]  — hand confidence score (optional)
+ *   - Tensor[0]: [1, 63] — 21 landmarks × 3 (x, y, z), normalized or in input pixels
+ *   - Tensor[1]: [1, 1]  — hand presence score (optional)
+ *   - Tensor[2]: [1, 1]  — handedness score (optional)
+ *
+ * z is MediaPipe's relative depth (negative toward the camera), not a score.
+ * Keypoint has no depth field, so z is not kept; each keypoint's confidence
+ * is the hand presence score, or 1.0 when the model has no presence output.
  *
  * 21 keypoints follow the MediaPipe hand landmark topology:
  *   0: Wrist
@@ -47,6 +51,16 @@ public:
 
         HandLandmarkResult result;
 
+        // Hand presence (tensor[1]) scores the hand and so every one of its
+        // landmarks; without it nothing scores them and they are taken as is.
+        if (outputs.size() > 1) {
+            const float* presence_data = static_cast<const float*>(outputs[1]->data());
+            result.confidence = presence_data[0];
+        } else {
+            result.handedness = "Unknown";
+            result.confidence = 1.0f;
+        }
+
         // Parse 21 landmarks from primary output tensor
         auto lm_tensor = outputs[0];
         const float* lm_data = static_cast<const float*>(lm_tensor->data());
@@ -62,28 +76,18 @@ public:
             int offset = i * COORDS_PER_LANDMARK;
             float x = lm_data[offset + 0];
             float y = lm_data[offset + 1];
-            // z is depth (relative), we store in confidence for now
-            float z = (offset + 2 < num_elements) ? lm_data[offset + 2] : 0.0f;
+            // lm_data[offset + 2] is z (relative depth): no field holds it.
 
             // Coordinates may be normalized [0, 1] or in input pixel space
             if (x <= 1.0f && y <= 1.0f && x >= 0.0f && y >= 0.0f) {
                 // Normalized → scale to original image
-                result.landmarks[i] = Keypoint(x * scale_x, y * scale_y, z);
+                result.landmarks[i] = Keypoint(x * scale_x, y * scale_y, result.confidence);
             } else {
                 // Input pixel space → scale to original image
                 float sx = scale_x / input_width_;
                 float sy = scale_y / input_height_;
-                result.landmarks[i] = Keypoint(x * sx, y * sy, z);
+                result.landmarks[i] = Keypoint(x * sx, y * sy, result.confidence);
             }
-        }
-
-        // Parse hand presence score (tensor[1]) — used as confidence
-        if (outputs.size() > 1) {
-            const float* presence_data = static_cast<const float*>(outputs[1]->data());
-            result.confidence = presence_data[0];
-        } else {
-            result.handedness = "Unknown";
-            result.confidence = 1.0f;
         }
 
         // Parse handedness if available (tensor[2])

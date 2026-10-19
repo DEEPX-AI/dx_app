@@ -1,0 +1,60 @@
+{
+  "variant": "pp-liteseg-stdc1-camvid-10k_960x720",
+  "dxnn_file": "pp-liteseg-stdc1-camvid-10k_960x720.dxnn",
+  "task": "semantic_segmentation",
+  "family": "pp_liteseg",
+  "input_width": 960,
+  "input_height": 720,
+  "image_only": false,
+  "registry_image_only": false,
+  "default_image": "sample/img/sample_parking.jpg",
+  "default_video": "assets/videos/blackbox-city-road.mp4",
+  "zoo_canonical": false,
+  "published": true,
+  "config": {
+    "num_classes": 11
+  },
+  "registry_config": {
+    "num_classes": 11
+  },
+  "cli": {
+    "include_kitti_paths": false,
+    "include_output": false,
+    "include_stream_inputs": true
+  },
+  "preprocessor": {
+    "class": "SimpleResizePreprocessor",
+    "args": [
+      {
+        "token": "input_width"
+      },
+      {
+        "token": "input_height"
+      }
+    ],
+    "kwargs": {},
+    "config_overrides": {}
+  },
+  "postprocessor": {
+    "class": "SemanticSegmentationPostprocessor",
+    "args": [
+      {
+        "token": "input_width"
+      },
+      {
+        "token": "input_height"
+      },
+      {
+        "token": "config"
+      }
+    ],
+    "kwargs": {},
+    "config_overrides": {}
+  },
+  "visualizer": {
+    "class": "SemanticSegmentationVisualizer",
+    "args": [],
+    "kwargs": {},
+    "config_overrides": {}
+  }
+}

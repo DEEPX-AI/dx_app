@@ -25,7 +25,10 @@
 
 #include "common/base/i_factory.hpp"
 #include "common/config/model_config.hpp"
+#include "common/runner/detection_runner_ops.hpp"
 #include "common/utility/common_util.hpp"
+#include "common/utility/progress.hpp"
+#include "common/utility/display_pump.hpp"
 #include "common/utility/run_dir.hpp"
 #include "common/utility/verify_serialize.hpp"
 
@@ -57,6 +60,7 @@ struct CommandLineArgs {
     int cameraIndex = -1;
     int loopTest = -1;
     bool no_display = false;
+    bool drop_frames = false;  // --drop-frames: lossy preview (default: lossless)
     bool saveMode = false;
     bool dumpTensors = false;
     bool verbose = false;
@@ -119,11 +123,24 @@ inline std::tuple<double, double, double, bool> renderSaveDisplay(
     double t_save = 0.0;
     double t_display = 0.0;
     bool quit_requested = false;
-    auto render_start = std::chrono::high_resolution_clock::now();
-    cv::Mat result_frame = display_image.clone();
-    result_frame = visualizer.draw(result_frame, results, ctx);
-    auto render_end = std::chrono::high_resolution_clock::now();
-    t_render = std::chrono::duration<double, std::milli>(render_end - render_start).count();
+    // Sync pays imshow on the frame loop, so the preview is 10 fps. Drawing
+    // (and waitKey) on the frames that will not be shown is what caps E2E FPS.
+    // -s still renders every frame (the file is the overlay); it does not
+    // imshow every frame.
+    auto& preview_pump = dxapp::syncPreviewPump();  // shared, configured in run()
+    const char* env_save = std::getenv("DXAPP_SAVE_IMAGE");
+    const bool persist = saveMode || !saveImagePath.empty()
+        || (env_save != nullptr && *env_save != '\0');
+    const bool preview = !no_display && preview_pump.wouldShow();
+    const bool need_render = persist || preview;
+    cv::Mat result_frame;
+    if (need_render) {
+        auto render_start = std::chrono::high_resolution_clock::now();
+        result_frame = display_image.clone();
+        result_frame = visualizer.draw(result_frame, results, ctx);
+        auto render_end = std::chrono::high_resolution_clock::now();
+        t_render = std::chrono::duration<double, std::milli>(render_end - render_start).count();
+    }
 
     if (result_frame.empty()) return {t_render, t_save, t_display, quit_requested};
 
@@ -143,10 +160,12 @@ inline std::tuple<double, double, double, bool> renderSaveDisplay(
         t_save = std::chrono::duration<double, std::milli>(save_end - save_start).count();
     }
     dxapp::saveDebugImage(result_frame);
-    if (!no_display) {
+    if (preview && preview_pump.guiAvailable()) {
+        // waitKey only on a preview tick. Calling it on every inference frame
+        // is on this serial path and becomes the FPS cap.
         auto display_start = std::chrono::high_resolution_clock::now();
-        dxapp::showOutput(result_frame);
-        if (dxapp::windowShouldClose("Output")) {
+        preview_pump.offer(result_frame);
+        if (!preview_pump.pump()) {
             quit_requested = true;
         }
         auto display_end = std::chrono::high_resolution_clock::now();
@@ -157,11 +176,15 @@ inline std::tuple<double, double, double, bool> renderSaveDisplay(
 
 /**
  * @brief Generic synchronous runner for detection-based models
- * @tparam FactoryT The factory type (must derive from IDetectionFactory)
+ * @tparam FactoryT The factory type: an IDetectionFactory for DetectionResult, an
+ *                  IPanopticDrivingFactory for PanopticResult (YOLOPv2)
+ * @tparam ResultT  The per-frame result: DetectionResult (default) or PanopticResult;
+ *                  DetectionRunnerOps<ResultT> picks the factory calls
  */
-template <typename FactoryT>
+template <typename FactoryT, typename ResultT = DetectionResult>
 class SyncDetectionRunner {
     bool verbose_ = false;
+    using Ops = DetectionRunnerOps<ResultT>;
 
 public:
     explicit SyncDetectionRunner(std::unique_ptr<FactoryT> factory)
@@ -225,8 +248,8 @@ public:
         }
 
         auto preprocessor = factory_->createPreprocessor(input_width, input_height);
-        auto postprocessor = factory_->createPostprocessor(input_width, input_height, ie.IsOrtConfigured());
-        auto visualizer = factory_->createVisualizer();
+        auto postprocessor = Ops::createPostprocessor(*factory_, input_width, input_height, ie.IsOrtConfigured());
+        auto visualizer = Ops::createVisualizer(*factory_);
         std::string scriptTag = factory_->getModelName() + "_sync";
 
         std::cout << "[DXAPP] [INFO] Task: " << factory_->getTaskType() << std::endl;
@@ -450,6 +473,8 @@ private:
              cxxopts::value<int>(args.loopTest)->default_value("-1"))
             ("no-display", "will not visualize, only show fps",
              cxxopts::value<bool>(args.no_display)->default_value("false"))
+            ("drop-frames", "display: drop stale frames instead of pacing the pipeline (default: off, every frame is shown)",
+             cxxopts::value<bool>(args.drop_frames)->default_value("false"))
             ("config", "Model configuration JSON file path",
              cxxopts::value<std::string>(args.configPath))
             ("show-log", "Enable verbose log output (default: quiet)",
@@ -457,6 +482,8 @@ private:
             ("h, help", "print usage");
 
         auto cmd = options.parse(argc, argv);
+
+        dxapp::configureDisplayPump(dxapp::syncPreviewPump(), args.drop_frames);
         if (cmd.count("help")) {
             std::cout << options.help() << std::endl;
             exit(0);
@@ -528,7 +555,8 @@ private:
 
     bool openVideoCapture(cv::VideoCapture& video, const CommandLineArgs& args) {
         if (args.cameraIndex >= 0) {
-            video.open(args.cameraIndex);
+            // Handles USB webcams and the Raspberry Pi CSI camera (via libcamera).
+            dxapp::openCameraCapture(video, args.cameraIndex);
         } else if (!args.rtspUrl.empty()) {
             video.open(args.rtspUrl);
         } else {
@@ -563,8 +591,8 @@ private:
         const cv::Mat& input_frame, cv::Mat& display_image,
         dxrt::InferenceEngine& ie,
         IPreprocessor& preprocessor,
-        IPostprocessor<DetectionResult>& postprocessor,
-        IVisualizer<DetectionResult>& visualizer,
+        IPostprocessor<ResultT>& postprocessor,
+        IVisualizer<ResultT>& visualizer,
         SyncProfilingMetrics& metrics,
         cv::VideoWriter& writer, bool no_display, bool saveMode, double t_read,
         bool is_float_input = false, bool is_nhwc = false,
@@ -608,6 +636,7 @@ private:
             metrics.sum_preprocess += t_preprocess;
             metrics.sum_inference += t_inference;
             metrics.infer_completed++;
+            dxapp::progressTick(metrics);   // [PROGRESS] for front ends (DXAPP_PROGRESS=1)
             return true;
         }
 
@@ -622,7 +651,7 @@ private:
         }
 
         // Postprocess
-        std::vector<DetectionResult> detections;
+        std::vector<ResultT> detections;
         auto t_post_start = std::chrono::high_resolution_clock::now();
         try {
             detections = postprocessor.process(outputs, ctx);
@@ -642,13 +671,14 @@ private:
             metrics.sum_preprocess += t_preprocess;
             metrics.sum_inference += t_inference;
             metrics.infer_completed++;
+            dxapp::progressTick(metrics);   // [PROGRESS] for front ends (DXAPP_PROGRESS=1)
             return true;
         }
         auto t3 = std::chrono::high_resolution_clock::now();
         double t_postprocess = std::chrono::duration<double, std::milli>(t3 - t_post_start).count();
 
         // Print detection results to stdout for pipeline parsing
-        printDetectionResults(detections, display_image.cols, display_image.rows, verbose_);
+        printDetectionResults(Ops::boxes(detections), display_image.cols, display_image.rows, verbose_);
 
 
         // --- Numerical verification dump (DXAPP_VERIFY=1) ---
@@ -677,17 +707,18 @@ private:
         metrics.sum_save += t_save;
         metrics.sum_display += t_display;
         metrics.infer_completed++;
+        dxapp::progressTick(metrics);   // [PROGRESS] for front ends (DXAPP_PROGRESS=1)
 
         return !quit_requested;
     }
 
     void processImageFrames(
         const std::vector<std::string>& imageFiles, bool is_dir_input,
-        int user_loop_count, cv::Mat& display_image, const cv::Mat& preprocessed_image,
+        int user_loop_count, cv::Mat& display_image, const cv::Mat& /*preprocessed_image*/,
         dxrt::InferenceEngine& ie,
         IPreprocessor& preprocessor,
-        IPostprocessor<DetectionResult>& postprocessor,
-        IVisualizer<DetectionResult>& visualizer,
+        IPostprocessor<ResultT>& postprocessor,
+        IVisualizer<ResultT>& visualizer,
         SyncProfilingMetrics& metrics,
         int& processCount, cv::VideoWriter& writer, bool no_display, bool saveMode,
         bool is_float_input, bool is_nhwc,
@@ -753,9 +784,13 @@ private:
                     return;
                 }
                 processCount++;
-                // In image mode, block after showing the frame until user closes
-                // the window or presses q/ESC — matches Python behavior.
-                if (!no_display) {
+                // In image mode, block after showing the frame until the user closes
+                // the window or presses q/ESC -- matches Python behavior. Only when a
+                // GUI actually exists: on a headless box windowShouldClose() can never
+                // become true, so this waited forever for a user who cannot press
+                // anything. Previously the process aborted before reaching here (Qt's
+                // missing xcb plugin calls qFatal), which hid the hang.
+                if (!no_display && dxapp::hasDisplay()) {
                     while (!dxapp::windowShouldClose("Output")) {
                         std::this_thread::sleep_for(std::chrono::milliseconds(10));
                     }
@@ -768,8 +803,8 @@ private:
         cv::VideoCapture& video, cv::Mat& display_image, const cv::Mat& /*preprocessed_image*/,
         dxrt::InferenceEngine& ie,
         IPreprocessor& preprocessor,
-        IPostprocessor<DetectionResult>& postprocessor,
-        IVisualizer<DetectionResult>& visualizer,
+        IPostprocessor<ResultT>& postprocessor,
+        IVisualizer<ResultT>& visualizer,
         SyncProfilingMetrics& metrics,
         int& processCount, cv::VideoWriter& writer,
         const CommandLineArgs& args, int loopTest,

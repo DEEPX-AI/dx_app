@@ -1,0 +1,67 @@
+{
+  "variant": "clip-img_vit-b16-quickgelu_224x224_metaclip-fullcc",
+  "dxnn_file": "clip-img_vit-b16-quickgelu_224x224_metaclip-fullcc.dxnn",
+  "task": "zero_shot_image_classification",
+  "family": "clip",
+  "input_width": 224,
+  "input_height": 224,
+  "image_only": true,
+  "registry_image_only": true,
+  "default_image": "sample/img/face_pair",
+  "default_video": null,
+  "zoo_canonical": false,
+  "published": true,
+  "config": {},
+  "registry_config": {},
+  "cli": {
+    "include_kitti_paths": false,
+    "include_output": false,
+    "include_stream_inputs": false
+  },
+  "preprocessor": {
+    "class": "SimpleResizePreprocessor",
+    "args": [
+      {
+        "token": "input_width"
+      },
+      {
+        "token": "input_height"
+      }
+    ],
+    "kwargs": {
+      "mean": [
+        122.7709383,
+        116.7460125,
+        104.09373615000001
+      ],
+      "std": [
+        68.5005327,
+        66.6321579,
+        70.32316304999999
+      ]
+    },
+    "config_overrides": {}
+  },
+  "postprocessor": {
+    "class": "CLIPImagePostprocessor",
+    "args": [
+      {
+        "token": "input_width"
+      },
+      {
+        "token": "input_height"
+      },
+      {
+        "token": "config"
+      }
+    ],
+    "kwargs": {},
+    "config_overrides": {}
+  },
+  "visualizer": {
+    "class": "EmbeddingVisualizer",
+    "args": [],
+    "kwargs": {},
+    "config_overrides": {}
+  }
+}

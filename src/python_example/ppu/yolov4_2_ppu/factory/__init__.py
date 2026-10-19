@@ -1,1 +1,0 @@
-from .yolov4_2_ppu_factory import Yolov4_2_ppuFactory

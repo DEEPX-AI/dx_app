@@ -26,9 +26,13 @@ from typing import Dict, List, Optional, Tuple
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from test_helpers.constants import PROJECT_ROOT, TASK_IMAGE_MAP, MODEL_IMAGE_OVERRIDE, E2E_SHORT_MODELS, IMAGE_ONLY_TASKS, e2e_effective_loop  # noqa: E402
-from test_helpers.utils import discover_python_scripts, setup_environment, resolve_image_for_model  # noqa: E402
+# conftest.py puts tests/ on sys.path; hence the noqa: E402 imports below.
+from test_helpers.proc import example_python, run_bounded  # noqa: E402
+from test_helpers.constants import PROJECT_ROOT, TASK_IMAGE_MAP, MODEL_IMAGE_OVERRIDE, E2E_SHORT_MODELS, IMAGE_ONLY_TASKS, e2e_effective_loop, video_too_slow  # noqa: E402
+from test_helpers.utils import (  # noqa: E402
+    discover_python_scripts, py_script_task, py_variant_image_only, setup_environment,
+    resolve_image_for_model,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -231,8 +235,9 @@ def _build_params() -> Tuple[List, List]:
                 marks.append(pytest.mark.e2e_short)
             param = pytest.param(script, model_path, image_path, id=script.stem, marks=marks)
             image_params.append(param)
-            # Skip image-only tasks from stream (video) tests
-            if task not in _IMAGE_ONLY_TASKS:
+            # Skip image-only tasks, and image-only variants of other tasks
+            # (config.json image_only, e.g. casvit), from stream (video) tests
+            if task not in _IMAGE_ONLY_TASKS and not py_variant_image_only(script):
                 stream_param = pytest.param(script, model_path, id=script.stem, marks=marks)
                 stream_params.append(stream_param)
 
@@ -271,7 +276,7 @@ def test_image_inference_e2e(script: Path, model: Optional[Path], image: Path, l
 
     display = os.getenv("E2E_DISPLAY", "0") == "1"
     cmd = [
-        sys.executable, str(script),
+        example_python(), str(script),
         "--model", str(model),
         "--image", str(image),
         "--loop", str(effective_loop),
@@ -281,7 +286,7 @@ def test_image_inference_e2e(script: Path, model: Optional[Path], image: Path, l
 
     image_timeout = 300 if "tta" in stem_lower else 120
     try:
-        result = subprocess.run(
+        result = run_bounded(
             cmd,
             capture_output=True,
             text=True,
@@ -300,7 +305,7 @@ def test_image_inference_e2e(script: Path, model: Optional[Path], image: Path, l
     )
 
     # Collect performance metrics from stdout if FPS data is present
-    task = script.parent.parent.name
+    task = py_script_task(script)
     metrics = _collector.parse_output(
         result.stdout + result.stderr,
         task=task,
@@ -324,19 +329,19 @@ def test_stream_inference_e2e(script: Path, model: Optional[Path]):
     if not _TEST_VIDEO.exists():
         pytest.skip(f"Test video not found: {_TEST_VIDEO}")
 
-    # Face models are too slow for full video processing
-    if "face" in script.stem.lower():
-        pytest.skip(f"{script.stem}: face model too slow for video test")
+    # Only the W6 face detectors are too slow for full video processing
+    if video_too_slow(script.stem):
+        pytest.skip(f"{script.stem}: too slow for the video test")
 
     display = os.getenv("E2E_DISPLAY", "0") == "1"
     if "_async" in script.stem and display:
         pytest.skip("Async variants do not support display mode")
 
-    # No --loop for video: process the clip exactly once (mirrors the C++
-    # video test, which passes no -l). A single pass already exercises the
-    # full stream path, and looping heavy models here risks the 900s timeout.
+    # No --loop for video: process the clip exactly once (the C++ video test
+    # passes -l 1). A single pass already exercises the full stream path, and
+    # looping heavy models here risks the 2000s timeout.
     cmd = [
-        sys.executable, str(script),
+        example_python(), str(script),
         "--model", str(model),
         "--video", str(_TEST_VIDEO),
     ]
@@ -344,16 +349,16 @@ def test_stream_inference_e2e(script: Path, model: Optional[Path]):
         cmd.append("--no-display")
 
     try:
-        result = subprocess.run(
+        result = run_bounded(
             cmd,
             capture_output=True,
             text=True,
-            timeout=900,  # 15 minutes timeout for video
+            timeout=2000,  # ~33 minutes timeout for video
             env=setup_environment(),
             cwd=str(PROJECT_ROOT),
         )
     except subprocess.TimeoutExpired:
-        pytest.fail(f"{script.name}: stream inference timed out after 900s")
+        pytest.fail(f"{script.name}: stream inference timed out after 2000s")
 
     assert result.returncode == 0, (
         f"stream_inference FAILED (exit {result.returncode})\n"
@@ -363,7 +368,7 @@ def test_stream_inference_e2e(script: Path, model: Optional[Path]):
     )
 
     # Collect performance metrics from stdout if FPS data is present
-    task = script.parent.parent.name
+    task = py_script_task(script)
     metrics = _collector.parse_output(
         result.stdout + result.stderr,
         task=task,
@@ -375,3 +380,48 @@ def test_stream_inference_e2e(script: Path, model: Optional[Path]):
     )
     if metrics is not None:
         _collector.add_result(metrics)
+
+
+_SR_STREAM_FRAMES = 6
+_SR_STREAM_PARAMS = [
+    pytest.param(script, model_path, id=script.stem)
+    for task, _name, sync_scripts, async_scripts, model_path
+    in discover_python_scripts(suffixes=("_sync", "_async"))
+    if task == "super_resolution"
+    for script in list(sync_scripts) + list(async_scripts)
+]
+
+
+@pytest.fixture(scope="module")
+def sr_stream_clip(tmp_path_factory):
+    """The C++ suite's clip: 6 frames of the 165x90 low-res sample (U-33)."""
+    import cv2
+    image = cv2.imread(str(PROJECT_ROOT / "sample" / "img" / "sample_lowres165x90.png"))
+    assert image is not None
+    path = tmp_path_factory.mktemp("sr_stream") / "lowres.avi"
+    writer = cv2.VideoWriter(str(path), cv2.VideoWriter_fourcc(*"MJPG"), 10,
+                             (image.shape[1], image.shape[0]))
+    for _ in range(_SR_STREAM_FRAMES):
+        writer.write(image)
+    writer.release()
+    return path
+
+
+@pytest.mark.e2e
+@pytest.mark.e2e_stream
+@pytest.mark.parametrize("script,model", _SR_STREAM_PARAMS)
+def test_super_resolution_stream_e2e(script: Path, model: Optional[Path], sr_stream_clip):
+    """The SR video path, which the 1080p stream test leaves out (U-33)."""
+    if model is None:
+        pytest.skip(f"Model .dxnn not found for {script.stem}")
+    cmd = [example_python(), str(script), "--model", str(model),
+           "--video", str(sr_stream_clip), "--no-display"]
+    result = run_bounded(cmd, capture_output=True, text=True, timeout=300,
+                         env=setup_environment(), cwd=str(PROJECT_ROOT))
+    output = result.stdout + result.stderr
+    assert result.returncode == 0, f"{' '.join(cmd)}\n{output[-2000:]}"
+    assert "Traceback" not in output, output[-2000:]
+    # The runner's summary counts processed frames as "Total Frames : <n>"
+    # (the "Frames: <n>" line is --verbose only and reports the container).
+    frames = re.search(r"Total Frames\s*:\s*(\d+)", output)
+    assert frames and int(frames.group(1)) == _SR_STREAM_FRAMES, output[-2000:]

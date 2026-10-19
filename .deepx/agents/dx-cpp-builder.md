@@ -48,7 +48,12 @@ OPTIONS: Runner framework (recommended) | Raw InferenceEngine API -->
 
 ### Phase 2: Build
 
-Create files under `src/cpp_example/<task>/<model>/`:
+In the source tree, each variant gets its own directory
+`src/cpp_example/<task>/<family>/<variant>/` holding `config.json`, the factory
+and the `<variant>_sync.cpp` / `<variant>_async.cpp` entries. The variant
+directory name is the `.dxnn` stem. A `dx-agent-dev/` session for one model stays flat.
+
+Create production files under `src/cpp_example/<task>/<family>/<variant>/`:
 
 #### 2a. CMakeLists.txt
 
@@ -233,12 +238,11 @@ private:
 
 ```
 Created files:
-  src/cpp_example/<task>/<model>/
-    CMakeLists.txt
-    <model>_sync.cpp
-    <model>_async.cpp
-    factory/<model>_factory.hpp
+  src/cpp_example/<task>/<family>/<variant>/
     config.json
+    factory/<variant>_factory.hpp
+    <variant>_sync.cpp
+    <variant>_async.cpp
 
 Build:
     cd build && cmake .. && make <model>_sync
@@ -295,6 +299,7 @@ that match the model's AI task. Do NOT use generic `test.jpg` or `input.jpg`.
 | Task | Sample Images | Path |
 |---|---|---|
 | object_detection | `sample_dog.jpg`, `sample_horse.jpg`, `sample_street.jpg` | `sample/img/` |
+| mainbody_detection | `sample_street.jpg` (img) / `snowboard.mp4` (video) | `sample/img/`, `assets/videos/` |
 | face_detection | `sample_face.jpg`, `sample_crowd.jpg` | `sample/img/` |
 | face_alignment | `sample_face.jpg`, `sample_face_a1.jpg` | `sample/img/` |
 | pose_estimation | `sample_people.jpg`, `sample_crowd.jpg` | `sample/img/` |
@@ -319,7 +324,7 @@ that match the model's AI task. Do NOT use generic `test.jpg` or `input.jpg`.
 
 **Video support**: Most tasks accept `-v <video>`, but these are **image-only (no video
 example)** — use image / point-cloud input, never `-v`: `embedding`, `reid`,
-`attribute_recognition`, `object_pose_estimation`, `3d_object_detection`.
+`attribute_recognition`, `object_pose_estimation`, `3d_object_detection`, `super_resolution`.
 `hand_detection` and `hand_landmark` DO accept `-v` (the single model runs per frame,
 e.g. `assets/videos/hand.mp4`). (Source of truth: `scripts/run_examples.sh` → `IMAGE_ONLY_CATEGORIES`.)
 

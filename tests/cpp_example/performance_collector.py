@@ -77,12 +77,10 @@ class PerformanceCollector:
         model_groups = {
             'deeplabv3': 'Semantic Segmentation - DEEPLABV3',
             'scrfd': 'Object Detection - SCRFD',
-            'scrfd_ppu': 'Ppu - SCRFD',
             'yolov5': 'Object Detection - YOLOV5',
             'yolov5_ppu': 'Ppu - YOLOV5_PPU',
             'yolov5face': 'Object Detection - YOLOV5FACE',
             'yolov5pose': 'Object Detection - YOLOV5POSE',
-            'yolov5pose_ppu': 'Ppu - YOLOV5POSE_PPU',
             'yolov7': 'Object Detection - YOLOV7',
             'yolov7_ppu': 'Ppu - YOLOV7_PPU',
             'yolov8': 'Object Detection - YOLOV8',

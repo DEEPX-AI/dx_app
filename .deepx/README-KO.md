@@ -32,7 +32,7 @@ DEEPX 독립 실행형 추론 애플리케이션 빌드를 위한 자체 완결�
 ├── memory/                            # 영속적 학습 지식
 │   ├── MEMORY.md                      # 메모리 인덱스 및 업데이트 프로토콜
 │   ├── common_pitfalls.md             # 도메인 태그된 함정 (항상 읽음)
-│   ├── model_zoo.md                   # 22개 task에 걸친 349개 모델
+│   ├── model_zoo.md                   # 28개 task에 걸친 497개 variant
 │   ├── platform_api.md                # DX-RT 플랫폼 API 및 진단
 │   └── performance_patterns.md        # FPS 최적화 기법
 ├── prompts/                           # 재사용 가능한 프롬프트 템플릿
@@ -89,7 +89,7 @@ DEEPX 독립 실행형 추론 애플리케이션 빌드를 위한 자체 완결�
 | `dx-engine-api.md` | InferenceEngine 생성자, infer(), run_async(), get_input_shape(), 에러 코드 |
 | `dx-postprocess-api.md` | 37개 pybind11 바인딩: detection (11), classification (4), segmentation (4), pose (2), face (3), 기타 |
 | `common-framework-api.md` | SyncRunner (1104 라인), AsyncRunner, IFactory (11개 인터페이스), parse_common_args() (11개 플래그) |
-| `model-registry.md` | model_registry.json 스키마, 쿼리 패턴, 349개 모델, 명명 컨벤션 |
+| `model-registry.md` | model_registry.json 스키마, 쿼리 패턴, 497개 variant, 명명 컨벤션 |
 | `dx-model-format.md` | .dxnn 포맷, 텐서 스펙, 데이터 타입, 컴파일 흐름, 포맷 버전 |
 
 ## Memory (5개 파일 + 인덱스)
@@ -232,9 +232,13 @@ fragment 라이브러리를 기준으로 해석됩니다.
 
 ## 핵심 정보
 
-- **dx_app v3.2.0**: 22개 AI task, 349개 모델, 4개 Python variant, C++ 예제
+- **dx_app v3.3.0**: 29개 AI task, 497개 variant (전부 공개; registry 497행, alias 없음), 4개 Python variant, C++ 예제
 - **프레임워크**: SyncRunner (1104 라인), AsyncRunner, 11개 IFactory 인터페이스
 - **Postprocess**: 37개 pybind11 C++ 바인딩
 - **CLI**: 11개 플래그를 갖는 parse_common_args()
 - **NPU**: DX-RT 3.0.x를 통한 DX-M1 / DX-M1A (단종)
 - **모델 포맷**: .dxnn (v7+, INT8/UINT8/FP16)
+
+## CI Drift Gate
+
+이 repo는 `subrepo-gate` CI job(`.github/workflows/dx-agent-dev-subrepo-gate-{ghes,cloud}.yml`)으로 검사됩니다. 실행 내용, 로컬 재현, red일 때 수정 방법: [`docs/ci-subrepo-gate-KO.md`](docs/ci-subrepo-gate-KO.md).

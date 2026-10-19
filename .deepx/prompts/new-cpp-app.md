@@ -7,6 +7,8 @@
 | Variable | Description | Example |
 |---|---|---|
 | `{model_name}` | Model name from model_registry.json | `yolo26n` |
+| `{family}` | Example family directory | `yolo26` |
+| `{variant}` | `.dxnn` stem (variant directory name) | `yolo26-n_640x640` |
 | `{task}` | AI task | `object_detection` |
 | `{mode}` | Execution mode | `sync`, `async`, `both` |
 
@@ -23,7 +25,7 @@ Query `config/model_registry.json`:
 
 ### Step 2: Create CMakeLists.txt
 
-Create `src/cpp_example/{task}/{model_name}/CMakeLists.txt`:
+Create `src/cpp_example/{task}/{family}/{variant}/CMakeLists.txt`:
 
 ```cmake
 cmake_minimum_required(VERSION 3.14)
@@ -49,7 +51,7 @@ target_include_directories({model_name}_sync PRIVATE
 
 ### Step 3: Create main.cpp
 
-Create `src/cpp_example/{task}/{model_name}/{model_name}_sync.cpp`:
+Create `src/cpp_example/{task}/{family}/{variant}/{variant}_sync.cpp`:
 
 ```cpp
 #include <csignal>
@@ -111,7 +113,7 @@ int main(int argc, char* argv[]) {
 
 ### Step 4: Create Factory Header (Optional Runner Pattern)
 
-Create `src/cpp_example/{task}/{model_name}/factory/{model_name}_factory.hpp`:
+Create `src/cpp_example/{task}/{family}/{variant}/factory/{variant}_factory.hpp`:
 
 ```cpp
 #pragma once

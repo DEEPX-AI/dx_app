@@ -1,1 +1,0 @@
-from .vit_small_p16_factory import Vit_small_p16Factory

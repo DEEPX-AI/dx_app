@@ -60,10 +60,10 @@ plugins:
       #
       #cover: false
       cover_title: DXNN Application (DX-APP) User Manual
-      cover_subtitle: 2026/08/14 (v3.2.2)
+      cover_subtitle: 2026/10/14 (v3.3.0)
       cover_logo: img/deepx.png
       custom_template_path: source/stylesheets
-      output_path: ../DEEPX_DX-APP_UM_v3.2.2_AUG_2026.pdf
+      output_path: ../DEEPX_DX-APP_UM_v3.3.0_OCT_2026.pdf
 extra:
   homepage: https://developer.deepx.ai
   generator: false

@@ -36,7 +36,7 @@ The SDK follows a **Single Source of Truth** strategy to ensure reliability acro
 
 ### Supported Models & Tasks
 
-The library wraps **48 C++ post-processing classes** with pybind11 bindings, ensuring consistent results between C++ and Python implementations.  
+The library wraps **50 C++ post-processing classes** with pybind11 bindings, ensuring consistent results between C++ and Python implementations.  
 
 - **Object Detection:** YOLOv5, YOLOv7, YOLOv8, YOLOv9, YOLOv10, YOLOv11, YOLOv12, YOLOv26, YOLOX, NanoDet, DAMOYOLO, SSD, CenterPose, EfficientDet, YOLACT  
 - **Face Detection:** SCRFD, YOLOv5Face, RetinaFace, ULFGFD, Face3D  
@@ -56,7 +56,7 @@ The library wraps **48 C++ post-processing classes** with pybind11 bindings, ens
 - **Image Enhancement:** Zero-DCE  
 - **Embedding:** ArcFace  
 - **Hand Landmark:** HandLandmark  
-- **PPU Variants:** YOLOv5-PPU, YOLOv7-PPU, YOLOv8-PPU, SCRFD-PPU, YOLOv5Pose-PPU, YOLOX-PPU, YOLOv3Tiny-PPU  
+- **PPU Variants:** YOLOv5-PPU, YOLOv7-PPU, YOLOv8-PPU, SCRFD-PPU, YOLOv5Pose-PPU, YOLOX-PPU, YOLOv3Tiny-PPU. `SCRFD-PPU` and `YOLOv5Pose-PPU` are postprocess classes only; `SCRFD500M_PPU` and `YOLOV5Pose_PPU` are not registered examples.  
 
 !!! note "Generic fast segmentation in Python examples"
     `FastSegmentationPostprocessor` is available from `common.processors` for Python example-layer semantic segmentation. It is intentionally generic and selected by the `fast_segmentation` generation alias. It is not a direct `dx_postprocess` pybind class; use it from `src/python_example/common/processors/fast_segmentation_postprocessor.py` when the model outputs low-resolution logits or class maps that should be argmaxed before resize.
@@ -70,8 +70,8 @@ The library wraps **48 C++ post-processing classes** with pybind11 bindings, ens
 Before building, ensure the following are installed on your system  
 
 - **Python:** 3.8 or higher  
-- **Compiler:** GCC 4.8+ or Clang 3.3+  
-- **Build Tool:** CMake 3.16 or higher  
+- **Compiler:** C++14-compatible (GCC 7.5+, Clang, etc.)  
+- **Build Tool:** CMake 3.14 or higher  
 
 During the installation, `pybind11` is automatically cloned from GitHub to `extern/pybind11` if it is not already present.  
 
@@ -110,10 +110,10 @@ The `dx_postprocess` classes expect a list of NumPy arrays directly from the `In
 # From dx_app/ directory
 
 # Sync (Image Inference)
-python src/python_example/object_detection/yolov9s/yolov9s_sync_cpp_postprocess.py --model assets/models/yolov9-s_640x640.dxnn --image sample/img/sample_kitchen.jpg
+python src/python_example/object_detection/yolov9/yolov9-s_640x640/yolov9-s_640x640_sync_cpp_postprocess.py --model assets/models/yolov9-s_640x640.dxnn --image sample/img/sample_kitchen.jpg
 
 # Async (Stream Inference)
-python src/python_example/object_detection/yolov9s/yolov9s_async_cpp_postprocess.py --model assets/models/yolov9-s_640x640.dxnn --video assets/videos/dance-group.mov
+python src/python_example/object_detection/yolov9/yolov9-s_640x640/yolov9-s_640x640_async_cpp_postprocess.py --model assets/models/yolov9-s_640x640.dxnn --video assets/videos/dance-group.mov
 ```
 
 ### Direct API Call  

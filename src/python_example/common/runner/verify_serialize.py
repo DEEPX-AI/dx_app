@@ -3,7 +3,9 @@
 Serialize postprocess results to JSON for numerical verification.
 
 Activated by DXAPP_VERIFY=1 environment variable.
-Writes one JSON per inference to ``logs/verify/{model_name}.json``.
+Writes the last frame to ``{model}.json`` and every frame to
+``{model}.frames.jsonl`` (one compact record per line with ``"frame": n``,
+0-based per process) in ``$DXAPP_VERIFY_DIR`` (default ``logs/verify``).
 
 Supported result types:
   - DetectionResult, FaceResult  → detections[]
@@ -13,15 +15,24 @@ Supported result types:
   - ClassificationResult         → classifications[]
   - OBBResult                    → detections[] + angle
   - EmbeddingResult              → embedding{dim, l2_norm, has_nan}
+  - RetrievalResult              → embedding{...} + matches[]
   - HandLandmarkResult           → detections[] + landmarks[]
   - SuperResolutionResult        → output_shape, output_stats
   - EnhancedImageResult          → output_shape, output_stats
-  - Other / raw numpy            → output_stats
+  - RestorationResult            → output_shape, output_stats
+  - YOLOPv2Result                → detections[] + drivable_stats, lane_stats
+  - Detection3DResult            → detections[] {bev, center, dims, yaw}
+  - SuperPointResult             → detections[0].keypoints[] + descriptor_dim
+  - DopeResult                   → detections[] + keypoints[] (pixels), has_pose
+  - FaceAlignmentResult          → detections[] {landmarks_2d, pose, params_size}
+  - raw numpy array              → output_stats
+  - list/tuple of 2+ raw arrays  → output_stats_list
 """
 
 import json
 import math
 import os
+import threading
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -40,6 +51,27 @@ def _get_verify_dir() -> Path:
     return d
 
 
+#: Every verify write in the process goes through this lock (async workers,
+#: tiled SR helpers); <stem>.frames.jsonl gets its frame numbers under it.
+_WRITE_LOCK = threading.Lock()
+_NEXT_FRAME: Dict[str, int] = {}
+
+
+def _write_atomically(path: Path, text: str) -> None:
+    """Write through a sibling temp file and os.replace(): a reader never sees a torn file."""
+    tmp = path.with_name("{}.tmp.{}".format(path.name, os.getpid()))
+    try:
+        with open(tmp, "w") as f:
+            f.write(text)
+        os.replace(str(tmp), str(path))
+    except BaseException:
+        try:
+            tmp.unlink()
+        except OSError:
+            pass
+        raise
+
+
 def _np_stats(arr: np.ndarray) -> dict:
     """Safe statistics for a numpy array."""
     flat = arr.astype(np.float64).ravel()
@@ -55,15 +87,14 @@ def _np_stats(arr: np.ndarray) -> dict:
     }
 
 
+def _det_entry(d):
+    return {"bbox": list(map(float, d.box)), "conf": float(d.confidence),
+            "class_id": int(d.class_id), "class_name": str(d.class_name)}
+
+
 def _ser_detection(items, img_h, img_w):
-    return {
-        "image_height": img_h, "image_width": img_w,
-        "detections": [
-            {"bbox": list(map(float, d.box)), "conf": float(d.confidence),
-             "class_id": int(d.class_id), "class_name": str(d.class_name)}
-            for d in items
-        ],
-    }
+    return {"image_height": img_h, "image_width": img_w,
+            "detections": [_det_entry(d) for d in items]}
 
 
 def _ser_face(items, img_h, img_w):
@@ -111,6 +142,23 @@ def _ser_depth(items, img_h, img_w):
         "image_height": img_h, "image_width": img_w,
         "output_stats": _np_stats(first.depth_map)
         if hasattr(first, "depth_map") and first.depth_map is not None else {},
+    }
+
+
+def _ser_anomaly(items, img_h, img_w):
+    """Heatmap stats plus the two scalars, so the C++ peer can be diffed against it.
+
+    Neither tree serialised this result type: the family was added after the verify
+    harness, and the two implementations then diverged unnoticed -- Python moved to the
+    three-network EfficientAD combination while C++ kept one network's magnitude.
+    """
+    first = items[0]
+    return {
+        "image_height": img_h, "image_width": img_w,
+        "output_stats": _np_stats(first.heatmap)
+        if getattr(first, "heatmap", None) is not None else {},
+        "score": float(first.score),
+        "channels": int(first.channels),
     }
 
 
@@ -167,6 +215,29 @@ def _ser_embedding(items, img_h, img_w):
     }
 
 
+def _ser_retrieval(items, img_h, img_w):
+    """Descriptor plus its ranking. Both are compared across trees: a matching
+    descriptor with a different order means the gallery differs, not the model."""
+    first = items[0]
+    vec = np.asarray(first.embedding) if first.embedding is not None else np.array([])
+    return {
+        "image_height": img_h, "image_width": img_w,
+        "embedding": {
+            "dim": int(vec.size),
+            "l2_norm": float(np.linalg.norm(vec)) if vec.size > 0 else 0.0,
+            "has_nan": bool(np.isnan(vec).any()) if vec.size > 0 else False,
+            "model_type": str(first.model_type),
+        },
+        "gallery": {"name": str(first.gallery_name),
+                    "size": int(first.gallery_size)},
+        "matches": [
+            {"rank": int(m.rank), "score": float(m.score),
+             "path": str(m.path), "label": str(m.label)}
+            for m in (first.matches or [])
+        ],
+    }
+
+
 def _ser_hand_landmark(items, img_h, img_w):
     return {
         "image_height": img_h, "image_width": img_w,
@@ -195,19 +266,69 @@ def _ser_image_output(items, img_h, img_w):
     }
 
 
+def _ser_panoptic(items, img_h, img_w):
+    first = items[0]
+    return {"image_height": img_h, "image_width": img_w,
+            "detections": [_det_entry(d) for d in first.detections],
+            "drivable_stats": _np_stats(np.asarray(first.drivable_mask)),
+            "lane_stats": _np_stats(np.asarray(first.lane_mask))}
+
+
+def _ser_detection3d(items, img_h, img_w):
+    return {"image_height": img_h, "image_width": img_w, "detections": [
+        {"class_id": int(d.class_id), "class_name": str(d.class_name), "conf": float(d.confidence),
+         "bev": [float(d.bev_x), float(d.bev_y), float(d.bev_w), float(d.bev_h)],
+         "center": [float(d.x3d), float(d.y3d), float(d.z3d)],
+         "dims": [float(d.dim_h), float(d.dim_w), float(d.dim_l)],
+         "yaw": float(d.yaw)} for d in items]}
+
+
+def _ser_superpoint(items, img_h, img_w):
+    first = items[0]
+    desc = np.asarray(first.descriptors)
+    return {"image_height": img_h, "image_width": img_w,
+            "detections": [{"bbox": [], "conf": 1.0, "keypoints": [
+                {"x": float(x), "y": float(y), "conf": float(s)}
+                for (x, y), s in zip(first.keypoints, first.scores)]}],
+            "descriptor_dim": int(desc.shape[1]) if desc.ndim == 2 else 0}
+
+
+def _ser_dope(items, img_h, img_w):
+    return {"image_height": img_h, "image_width": img_w, "detections": [
+        {"bbox": [], "conf": float(d.confidence),
+         "keypoints": [{"x": float(k[0]) * img_w, "y": float(k[1]) * img_h, "conf": float(c)}
+                       for k, c in zip(np.asarray(d.keypoints), np.asarray(d.all_conf))],
+         "has_pose": d.pose is not None} for d in items]}
+
+
+def _ser_face_alignment(items, img_h, img_w):
+    return {"image_height": img_h, "image_width": img_w, "detections": [
+        {"landmarks_2d": [{"x": float(p[0]), "y": float(p[1])} for p in np.asarray(d.landmarks_2d)],
+         "pose": [float(v) for v in d.pose],
+         "params_size": int(np.asarray(d.params).size)} for d in items]}
+
+
 _SERIALIZER_MAP = {
     "DetectionResult":        _ser_detection,
     "FaceResult":             _ser_face,
     "PoseResult":             _ser_pose,
     "InstanceSegResult":      _ser_instance_seg,
     "DepthResult":            _ser_depth,
+    "AnomalyResult":          _ser_anomaly,
     "SegmentationResult":     _ser_segmentation,
     "ClassificationResult":   _ser_classification,
     "OBBResult":              _ser_obb,
     "EmbeddingResult":        _ser_embedding,
+    "RetrievalResult":        _ser_retrieval,
     "HandLandmarkResult":     _ser_hand_landmark,
     "SuperResolutionResult":  _ser_image_output,
     "EnhancedImageResult":    _ser_image_output,
+    "RestorationResult":      _ser_image_output,
+    "YOLOPv2Result":          _ser_panoptic,
+    "Detection3DResult":      _ser_detection3d,
+    "SuperPointResult":       _ser_superpoint,
+    "DopeResult":             _ser_dope,
+    "FaceAlignmentResult":    _ser_face_alignment,
 }
 
 
@@ -241,8 +362,11 @@ def _serialize_results(results: Any, image_hw: tuple) -> dict:
     if serializer is not None:
         return serializer(items, img_h, img_w)
 
-    # Fallback: numpy array
+    # Raw C++ postprocess output (``*_cpp_postprocess`` without a convert function)
     if isinstance(first, np.ndarray):
+        if len(items) > 1 and all(isinstance(x, np.ndarray) for x in items):
+            return {"image_height": img_h, "image_width": img_w,
+                    "output_stats_list": [_np_stats(x) for x in items]}
         return {"image_height": img_h, "image_width": img_w,
                 "output_stats": _np_stats(first)}
 
@@ -260,7 +384,10 @@ def dump_verify_json(
     verbose: bool = False,
 ) -> Optional[str]:
     """
-    Serialize results and write to ``logs/verify/<model>.json``.
+    Serialize results; write them to ``<model>.json`` (the last frame) and
+    append them to ``<model>.frames.jsonl`` (every frame, with ``"frame"``).
+
+    Thread-safe; the JSON is replaced atomically.
 
     Parameters
     ----------
@@ -281,12 +408,20 @@ def dump_verify_json(
         data["model_path"] = model_path
         data["input_image"] = image_path
 
-        verify_dir = _get_verify_dir()
-        model_stem = Path(model_path).stem
-        json_path = verify_dir / f"{model_stem}.json"
-
-        with open(json_path, "w") as f:
-            json.dump(data, f, indent=2, ensure_ascii=False)
+        with _WRITE_LOCK:
+            verify_dir = _get_verify_dir()
+            model_stem = Path(model_path).stem
+            json_path = verify_dir / f"{model_stem}.json"
+            frames_path = verify_dir / f"{model_stem}.frames.jsonl"
+            _write_atomically(json_path, json.dumps(data, indent=2, ensure_ascii=False))
+            frame = _NEXT_FRAME.get(str(frames_path), 0)
+            record = dict(data)
+            record["frame"] = frame
+            with open(frames_path, "w" if frame == 0 else "a") as f:
+                f.write(json.dumps(record, ensure_ascii=False) + "\n")
+            # Only a written record uses up its number: until the first write
+            # succeeds, the next dump still truncates (never appends to an old run).
+            _NEXT_FRAME[str(frames_path)] = frame + 1
 
         if verbose:
             print(f"[VERIFY] Dumped → {json_path}")

@@ -1,0 +1,60 @@
+{
+  "variant": "yolo26-cls-l_224x224",
+  "dxnn_file": "yolo26-cls-l_224x224.dxnn",
+  "task": "image_classification",
+  "family": "yolo26_cls",
+  "input_width": 224,
+  "input_height": 224,
+  "image_only": false,
+  "registry_image_only": false,
+  "default_image": "sample/img/sample_dog.jpg",
+  "default_video": "assets/videos/dogs.mp4",
+  "zoo_canonical": true,
+  "published": true,
+  "config": {
+    "top_k": 5
+  },
+  "registry_config": {
+    "top_k": 5
+  },
+  "cli": {
+    "include_kitti_paths": false,
+    "include_output": false,
+    "include_stream_inputs": true
+  },
+  "preprocessor": {
+    "args": [
+      {
+        "token": "input_width"
+      },
+      {
+        "token": "input_height"
+      }
+    ],
+    "class": "SimpleResizePreprocessor",
+    "config_overrides": {},
+    "kwargs": {}
+  },
+  "postprocessor": {
+    "args": [
+      {
+        "token": "input_width"
+      },
+      {
+        "token": "input_height"
+      },
+      {
+        "token": "config"
+      }
+    ],
+    "class": "ClassificationPostprocessor",
+    "config_overrides": {},
+    "kwargs": {}
+  },
+  "visualizer": {
+    "args": [],
+    "class": "ClassificationVisualizer",
+    "config_overrides": {},
+    "kwargs": {}
+  }
+}

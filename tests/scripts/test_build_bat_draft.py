@@ -37,15 +37,25 @@ def test_build_bat_declares_invalid_scope_and_missing_category_errors():
 
     assert "[DXAPP] [ERROR] Invalid BUILD_SCOPE:" in text
     assert "[DXAPP] [ERROR] BUILD_CATEGORY is required when BUILD_SCOPE=category." in text
+    # The three refusals go to :err, which names STEP: not the stale "vcpkg setup".
+    assert 'set "STEP=build scope"' in text
+    assert text.index('set "STEP=build scope"') < text.index("if defined BUILD_SCOPE goto :scope_ready")
 
 
-def test_build_bat_rejects_empty_or_invalid_interactive_scope_choice():
+def test_build_bat_interactive_scope_choice_defaults_to_minimal():
+    # The prompt offers 1/2/3 with minimal as the default: an empty answer
+    # builds minimal, never "all".
     text = BUILD_BAT.read_text(encoding="utf-8")
 
-    assert "Select build scope [1-3]:" in text
-    assert "[DXAPP] [ERROR] Build scope selection is required." in text
-    assert "[DXAPP] [ERROR] Invalid build scope selection:" in text
-    assert 'if "!BUILD_SCOPE_CHOICE!"==""' in text
+    assert "echo Select build scope:" in text
+    assert 'set /p "BUILD_SCOPE_INPUT=Enter 1/2/3 [default: 1]: "' in text
+    assert 'if "!BUILD_SCOPE_INPUT!"=="1" set "BUILD_SCOPE=minimal"' in text
+    assert 'if "!BUILD_SCOPE_INPUT!"=="2" set "BUILD_SCOPE=all"' in text
+    assert 'if "!BUILD_SCOPE_INPUT!"=="3" set "BUILD_SCOPE=category"' in text
+    assert 'set "BUILD_SCOPE_INPUT="' in text
+    assert 'if "!BUILD_SCOPE_INPUT!"=="" set "BUILD_SCOPE=minimal"' in text
+    assert "[DXAPP] [ERROR] Invalid choice: !BUILD_SCOPE_INPUT!" in text
+    assert text.index('set "BUILD_SCOPE_INPUT="') < text.index('set /p "BUILD_SCOPE_INPUT=')
     assert "Falling back to: all" not in text
     assert 'if not defined BUILD_SCOPE set "BUILD_SCOPE=all"' not in text
 
@@ -98,3 +108,8 @@ def test_build_bat_invokes_generator_directly_per_scope():
     # Must have direct invocation with quoted delayed expansion for category
     assert '.\\scripts\\generate_build_bat.py --run --category "!BUILD_CATEGORY!"' in text or \
            '.\\\\scripts\\\\generate_build_bat.py --run --category "!BUILD_CATEGORY!"' in text
+
+
+def test_build_bat_stays_crlf():
+    raw = BUILD_BAT.read_bytes()
+    assert b"\r\n" in raw and b"\n" not in raw.replace(b"\r\n", b"")

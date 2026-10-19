@@ -13,6 +13,7 @@ REM   run_tests.bat              Run all tests
 REM   run_tests.bat cpp          Run C++ tests only
 REM   run_tests.bat python       Run Python script tests only
 REM   run_tests.bat pybinding    Run pybinding tests only
+REM   run_tests.bat graph        Run the graph CLI smoke tests only
 REM   run_tests.bat smoke        Run smoke subset (fast)
 REM =========================================================================
 
@@ -55,6 +56,7 @@ if "%~1"=="" goto :run_all
 if /i "%~1"=="cpp" goto :run_cpp
 if /i "%~1"=="python" goto :run_python
 if /i "%~1"=="pybinding" goto :run_pybinding
+if /i "%~1"=="graph" goto :run_graph
 if /i "%~1"=="smoke" goto :run_smoke
 goto :usage
 
@@ -88,6 +90,14 @@ set "MARKER=-m pybinding"
 set "TEST_FILE=test_pybinding_invalid_args.py"
 goto :execute
 
+:run_graph
+echo.
+echo  Running multi-model graph CLI smoke tests...
+echo.
+set "MARKER=-m graph"
+set "TEST_FILE=test_graph_smoke.py"
+goto :execute
+
 :run_smoke
 echo.
 echo  Running smoke tests (fast subset)...
@@ -97,7 +107,7 @@ goto :execute
 
 :usage
 echo.
-echo  Usage: run_tests.bat [cpp / python / pybinding / smoke]
+echo  Usage: run_tests.bat [cpp / python / pybinding / graph / smoke]
 echo.
 exit /b 1
 

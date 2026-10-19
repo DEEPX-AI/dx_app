@@ -3,8 +3,7 @@
  * @brief Stateful embedding comparison visualizer
  *
  * First image/frame is captured as a reference. Subsequent calls
- * produce a side-by-side comparison canvas with cosine similarity,
- * matching the demo_embedding_compare / demo_reid_compare output.
+ * produce a side-by-side comparison canvas with cosine similarity.
  */
 
 #ifndef EMBEDDING_VISUALIZER_HPP
@@ -85,7 +84,7 @@ private:
 
     /** Build a side-by-side comparison canvas with a minimum display size. */
     cv::Mat makeComparisonCanvas(const cv::Mat& ref, const cv::Mat& cur,
-                                 float similarity, int dim) const {
+                                 float similarity, int /*dim*/) const {
         // Ensure minimum canvas size for readability
         static constexpr int MIN_W = 960;
         static constexpr int MIN_H = 640;

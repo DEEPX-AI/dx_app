@@ -1,0 +1,16 @@
+/**
+ * @file ddrnet23-slim_1024x2048
+ * @brief ddrnet sync inference -- one entry point for the whole family.
+ *
+ * The variant is the .dxnn stem, so the model path alone identifies it and no
+ * --variant flag or runner change is needed.
+ */
+
+#include "factory/ddrnet23-slim_1024x2048_factory.hpp"
+#include "common/runner/sync_semantic_seg_runner.hpp"
+
+int main(int argc, char* argv[]) {
+    auto factory = std::make_unique<dxapp::v_ddrnet23_slim_1024x2048::DdrnetFactory>();
+    dxapp::SyncSemanticSegRunner<dxapp::v_ddrnet23_slim_1024x2048::DdrnetFactory> runner(std::move(factory));
+    return runner.run(argc, argv);
+}

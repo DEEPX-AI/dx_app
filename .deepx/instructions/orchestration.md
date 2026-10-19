@@ -23,7 +23,7 @@ Phase 5: REPORT     Summarize files created and run commands
 
 Gather information:
 - Read `config/model_registry.json` for model metadata
-- Check if `src/python_example/<task>/<model>/` already exists
+- Check if `src/python_example/<task>/<family>/<variant>/` already exists
 - Identify the IFactory interface (from `.deepx/instructions/factory-pattern.md`)
 - Determine which preprocessor/postprocessor/visualizer to use
 

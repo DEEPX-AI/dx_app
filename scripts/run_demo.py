@@ -21,34 +21,54 @@ DIM = "\033[90m"
 DX_APP_PATH = Path(__file__).resolve().parent.parent
 
 
+def resolve_model_path(name: str) -> Path:
+    """assets/models first, then a parent checkout's workspace/res/models."""
+    local = DX_APP_PATH / "assets" / "models" / name
+    if local.is_file():
+        return local
+    directory = DX_APP_PATH
+    while directory != directory.parent:
+        candidate = directory / "workspace" / "res" / "models" / name
+        if candidate.is_file():
+            return candidate
+        directory = directory.parent
+    return local
+
+
 # ═══════════════════════════════════════════════════════════════
 # Demo Registry
 # ═══════════════════════════════════════════════════════════════
 DEMOS = [
     # (label, group, cpp_base, py_dir, py_base, model, video, image, py_async, image_only)
     ("Object Detection         (YOLOv7)", "Detection", "yolov7", "object_detection/yolov7", "yolov7", "yolov7_640x640.dxnn", "assets/videos/snowboard.mp4", "sample/img/sample_street.jpg", True, False),
-    ("Object Detection         (YOLOv11N)", "Detection", "yolov11n", "object_detection/yolov11n", "yolov11n", "yolo11-n_640x640.dxnn", "assets/videos/boat.mp4", "sample/img/sample_street.jpg", True, False),
-    ("Face Detection           (SCRFD500M)", "Detection", "scrfd500m", "face_detection/scrfd500m", "scrfd500m", "scrfd-500m_640x640.dxnn", "assets/videos/dance-group.mov", "sample/img/sample_face.jpg", True, False),
-    ("OBB Detection            (YOLO26N-OBB)", "Detection", "yolo26n_obb", "obb_detection/yolo26n_obb", "yolo26n_obb", "yolo26-n-obb_1024x1024.dxnn", "assets/videos/obb.mp4", "sample/img/sample_airport_satellite_view.png", True, False),
-    ("Pose Estimation          (YOLOv8s-Pose)", "Pose & Landmark", "yolov8s_pose", "pose_estimation/yolov8s_pose", "yolov8s_pose", "yolov8-s-pose_640x640.dxnn", "assets/videos/dance-solo.mov", "sample/img/sample_people.jpg", True, False),
-    ("Hand Landmark            (HandLandmarkLite)", "Pose & Landmark", "handlandmarklite_1", "hand_landmark/handlandmarklite_1", "handlandmarklite_1", "mediapipe-hands-lite_224x224.dxnn", "assets/videos/hand.mp4", "sample/img/sample_hand.jpg", True, False),
-    ("Face Alignment           (3DDFA-V2)", "Pose & Landmark", "3ddfa_v2_mobilnetv1_120x120", "face_alignment/3ddfa_v2_mobilnetv1_120x120", "3ddfa_v2_mobilnetv1_120x120", "3ddfa-v2_mobilenetv1_120x120.dxnn", "assets/videos/face-alignment-closeup.mp4", "sample/img/face_pair/1_reference.jpg", True, False),
-    ("Instance Segmentation    (YOLOv8N-Seg)", "Segmentation", "yolov8n_seg", "instance_segmentation/yolov8n_seg", "yolov8n_seg", "yolov8-n-seg_640x640.dxnn", "assets/videos/dogs.mp4", "sample/img/sample_street.jpg", True, False),
-    ("Semantic Segmentation    (DeepLabV3+)", "Segmentation", "deeplabv3plusmobilenet", "semantic_segmentation/deeplabv3plusmobilenet", "deeplabv3plusmobilenet", "deeplabv3plus_mobilenetv1_512x512.dxnn", "assets/videos/blackbox-city-road.mp4", "sample/img/sample_parking.jpg", True, False),
-    ("Classification           (ResNet50)", "Classification", "resnet50", "classification/resnet50", "resnet50", "resnet50_224x224.dxnn", "assets/videos/dogs.mp4", "sample/img/sample_dog.jpg", True, False),
-    ("Depth Estimation         (YOLO26-Depth-S)", "Depth Estimation", "yolo26_depth_s", "depth_estimation/yolo26_depth_s", "yolo26_depth_s", "yolo26-depth-s_768x768.dxnn", "assets/videos/blackbox-city-road.mp4", "sample/img/sample_parking.jpg", True, False),
-    ("Image Denoising          (DnCNN-50)", "Image Restoration", "dncnn_50", "image_denoising/dncnn_50", "dncnn_50", "dncnn-50_512x512.dxnn", "assets/videos/noisy_hand.mp4", "sample/img/sample_denoising.jpg", True, False),
-    ("Super Resolution         (ESPCN-X4)", "Image Restoration", "espcn_x4", "super_resolution/espcn_x4", "espcn_x4", "espcn-x4_17x17.dxnn", "assets/videos/lowres-drone-city-road.mp4", "sample/img/sample_lowres275x150.png", True, False),
-    ("Image Enhancement        (Zero-DCE)", "Image Restoration", "zero_dce", "image_enhancement/zero_dce", "zero_dce", "zerodce_400x600.dxnn", "assets/videos/lowlight.mp4", "sample/img/sample_lowlight.jpg", True, False),
-    ("Embedding                (ArcFace)", "Recognition", "arcface_mobilefacenet", "embedding/arcface_mobilefacenet", "arcface_mobilefacenet", "arcface_mobilefacenet_112x112.dxnn", "assets/videos/face-pair-sofa.mp4", "sample/img/face_pair", True, True),
-    ("Attribute Recognition    (DeepMAR)", "Recognition", "deepmar_resnet50", "attribute_recognition/deepmar_resnet50", "deepmar_resnet50", "deepmar_resnet50_224x224.dxnn", "assets/videos/person-pair-hallway.mp4", "sample/img/sample_person_a1.jpg", True, True),
-    ("Person Re-ID             (CasViT-T)", "Recognition", "casvit_t", "reid/casvit_t", "casvit_t", "casvit-t_224x224.dxnn", "assets/videos/person-pair-hallway.mp4", "sample/img/person_pair", True, True),
-    ("PPU Pipeline             (YOLOv7-PPU)", "PPU", "yolov7_ppu", "ppu/yolov7_ppu", "yolov7_ppu", "yolov7_640x640_ppu.dxnn", "assets/videos/snowboard.mp4", "sample/img/sample_street.jpg", True, False),
+    ("Object Detection         (YOLOv11N)", "Detection", "yolo11", "object_detection/yolo11", "yolo11", "yolo11-n_640x640.dxnn", "assets/videos/boat.mp4", "sample/img/sample_street.jpg", True, False),
+    ("Face Detection           (SCRFD500M)", "Detection", "scrfd", "face_detection/scrfd", "scrfd", "scrfd-500m_640x640.dxnn", "assets/videos/dance-group.mov", "sample/img/sample_face.jpg", True, False),
+    ("OBB Detection            (YOLO26N-OBB)", "Detection", "yolo26_obb", "oriented_object_detection/yolo26_obb", "yolo26_obb", "yolo26-n-obb_1024x1024.dxnn", "assets/videos/obb.mp4", "sample/img/sample_airport_satellite_view.png", True, False),
+    ("Pose Estimation          (YOLOv8s-Pose)", "Pose & Landmark", "yolov8_pose", "pose_estimation/yolov8_pose", "yolov8_pose", "yolov8-s-pose_640x640.dxnn", "assets/videos/dance-solo.mov", "sample/img/sample_people.jpg", True, False),
+    ("Hand Landmark            (HandLandmarkLite)", "Pose & Landmark", "mediapipe_hands_lite", "hand_landmark/mediapipe_hands_lite", "mediapipe_hands_lite", "mediapipe-hands-lite_224x224.dxnn", "assets/videos/hand.mp4", "sample/img/sample_hand.jpg", True, False),
+    ("Face Alignment           (3DDFA-V2-MobileNetV1)", "Pose & Landmark", "3ddfa_v2", "face_landmark/3ddfa_v2", "3ddfa_v2", "3ddfa-v2_mobilenetv1_120x120.dxnn", "assets/videos/face-alignment-closeup.mp4", "sample/img/sample_face_a1.jpg", True, False),
+    ("Instance Segmentation    (YOLOv8N-Seg)", "Segmentation", "yolov8_seg", "instance_segmentation/yolov8_seg", "yolov8_seg", "yolov8-n-seg_640x640.dxnn", "assets/videos/dogs.mp4", "sample/img/sample_street.jpg", True, False),
+    ("Semantic Segmentation    (DeepLabV3+MobileNet)", "Segmentation", "deeplabv3", "semantic_segmentation/deeplabv3", "deeplabv3", "deeplabv3plus_mobilenetv1_512x512.dxnn", "assets/videos/blackbox-city-road.mp4", "sample/img/sample_parking.jpg", True, False),
+    ("Classification           (ResNet50)", "Classification", "resnet", "image_classification/resnet", "resnet", "resnet50_224x224.dxnn", "assets/videos/dogs.mp4", "sample/img/sample_dog.jpg", True, False),
+    ("Depth Estimation         (YOLO26-Depth-S)", "Depth Estimation", "yolo26_depth", "depth_estimation/yolo26_depth", "yolo26_depth", "yolo26-depth-s_768x768.dxnn", "assets/videos/blackbox-city-road.mp4", "sample/img/sample_parking.jpg", True, False),
+    ("Image Denoising          (DnCNN-50)", "Image Restoration", "dncnn", "image_denoising/dncnn", "dncnn", "dncnn-50_512x512.dxnn", "assets/videos/noisy_hand.mp4", "sample/img/sample_denoising.jpg", True, False),
+    ("Super Resolution         (ESPCN-X4)", "Image Restoration", "espcn", "super_resolution/espcn", "espcn", "espcn-x4_17x17.dxnn", "assets/videos/lowres-drone-city-road.mp4", "sample/img/sample_lowres275x150.png", True, False),
+    ("Image Enhancement        (Zero-DCE)", "Image Restoration", "zerodce", "low_light_enhancement/zerodce", "zerodce", "zerodce_400x600.dxnn", "assets/videos/lowlight.mp4", "sample/img/sample_lowlight.jpg", True, False),
+    ("Embedding                (ArcFace)", "Recognition", "arcface", "face_recognition/arcface", "arcface", "arcface_mobilefacenet_112x112.dxnn", "assets/videos/face-pair-sofa.mp4", "sample/img/face_pair", True, True),
+    ("Attribute Recognition    (DeepMAR-ResNet50)", "Recognition", "deepmar", "person_attribute/deepmar", "deepmar", "deepmar_resnet50_224x224.dxnn", "assets/videos/person-pair-hallway.mp4", "sample/img/sample_person_a1.jpg", True, True),
+    ("PPU Pipeline             (YOLOv7-PPU)", "PPU", "yolo_ppu", "object_detection/yolo_ppu", "yolo_ppu", "yolov7_640x640_ppu.dxnn", "assets/videos/snowboard.mp4", "sample/img/sample_street.jpg", True, False),
     ("Keypoint Detection       (SuperPoint)", "Keypoint & Pose", "superpoint", "keypoint_detection/superpoint", "superpoint", "superpoint_480x640.dxnn", "assets/videos/blackbox-city-road2.mov", "sample/img/sample_street.jpg", True, False),
-    ("Object Pose Estimation   (DOPE)", "Keypoint & Pose", "dope_hope_ketchup", "object_pose_estimation/dope_hope_ketchup", "dope_hope_ketchup", "dope-hope-ketchup_480x640.dxnn", "assets/videos/snowboard.mp4", "sample/dope/000000.png", True, True),
+    ("Object Pose Estimation   (DOPE)", "Keypoint & Pose", "dope", "object_pose_estimation/dope", "dope", "dope-hope-ketchup_480x640.dxnn", "assets/videos/snowboard.mp4", "sample/dope/000000.png", True, True),
     ("Panoptic Driving         (YOLOPv2)", "Driving & 3D", "yolopv2", "panoptic_driving_perception/yolopv2", "yolopv2", "yolopv2_384x640.dxnn", "assets/videos/blackbox-city-road.mp4", "sample/img/sample_parking.jpg", True, False),
-    ("3D Object Detection      (SFA3D)", "Driving & 3D", "sfa3d_608x608", "3d_object_detection/sfa3d_608x608", "sfa3d_608x608", "sfa3d_608x608.dxnn", "assets/videos/blackbox-city-road.mp4", "sample/kitti/velodyne/000049.bin", True, True),
-    ("Hand Detection           (MediaPipe Palm)", "Hand Detection", "mediapipe_hand_detector", "hand_detection/mediapipe_hand_detector", "mediapipe_hand_detector", "mediapipe-hand-detector_192x192.dxnn", "assets/videos/hand.mp4", "sample/img/sample_person_a2.jpg", True, False),
+    ("3D Object Detection      (SFA3D)", "Driving & 3D", "sfa3d", "3d_object_detection/sfa3d", "sfa3d", "sfa3d_608x608.dxnn", "assets/videos/blackbox-city-road.mp4", "sample/kitti/velodyne/000049.bin", True, True),
+    ("Hand Detection           (MediaPipe Palm)", "Hand Detection", "mediapipe_hand_detector", "hand_detection/mediapipe_hand_detector", "mediapipe_hand_detector", "mediapipe-hand-detector_192x192.dxnn", "assets/videos/hand.mp4", "sample/img/sample_hand.jpg", True, False),
+    # The four task categories DX Model Zoo added in 2_5_0. All four rank a query
+    # against a gallery or produce a matte, so they are image-only: the comparison set
+    # is a committed database (sample/gallery/*.npz), not a previous frame.
+    ("Image Retrieval          (CLIP RN50)", "Retrieval & Matting", "clip-img_resnet50_224x224_openai", "image_retrieval/clip_rn50", "clip-img_resnet50_224x224_openai", "clip-img_resnet50_224x224_openai.dxnn", None, "sample/img/sample_person_a2.jpg", True, True),
+    ("Visual Place Recognition (EigenPlaces R18)", "Retrieval & Matting", "eigenplaces-resnet18_512x512", "visual_place_recognition/eigenplaces", "eigenplaces-resnet18_512x512", "eigenplaces-resnet18_512x512.dxnn", None, "sample/vpr/queries/q1.jpg", True, True),
+    ("Person Re-ID             (RepVGG-A0)", "Retrieval & Matting", "repvgg-a0-reid_256x128", "person_reid/repvgg_reid", "repvgg-a0-reid_256x128", "repvgg-a0-reid_256x128.dxnn", None, "sample/reid/queries/sample_person_a2.jpg", True, True),
+    ("Image Matting            (PP-Matting HRNet-W48)", "Retrieval & Matting", "ppmatting-hrnet-w48-composition_512x512", "image_matting/ppmatting", "ppmatting-hrnet-w48-composition_512x512", "ppmatting-hrnet-w48-composition_512x512.dxnn", "assets/videos/person-pair-hallway.mp4", "sample/img/sample_person_b.jpg", True, True),
 ]
 
 D_LABEL, D_GROUP, D_CPP, D_PYDIR, D_PYBASE, D_MODEL, D_VIDEO, D_IMAGE, D_PYASYNC, D_IMGONLY = range(10)
@@ -80,27 +100,25 @@ def select_menu(title, options, default=0):
         else:
             print(f"   {i+1}: {opt}")
 
-    prompt_max = len(options) if isinstance(options[0], tuple) else len(options)
-    prompt_min = 0 if isinstance(options[0], tuple) else 1
+    # Grouped menus are 0-indexed; flat menus are 1-indexed.
+    grouped = isinstance(options[0], tuple)
+    prompt_min = 0 if grouped else 1
+    prompt_max = len(options) - 1 if grouped else len(options)
 
     while True:
         try:
-            raw = input(f"\n  Select [{prompt_min}-{prompt_max - (1 if prompt_min == 0 else 0)}, default: {default}]: ").strip()
+            raw = input(f"\n  Select [{prompt_min}-{prompt_max}, default: {default}]: ").strip()
         except (EOFError, KeyboardInterrupt):
             print()
             sys.exit(0)
 
         if not raw:
-            return default if isinstance(options[0], tuple) else default - 1
+            return default if grouped else default - 1
 
         try:
             val = int(raw)
-            if isinstance(options[0], tuple):
-                if 0 <= val < len(options):
-                    return val
-            else:
-                if 1 <= val <= len(options):
-                    return val - 1
+            if prompt_min <= val <= prompt_max:
+                return val if grouped else val - 1
         except ValueError:
             pass
         cprint(f"  Invalid input: '{raw}'", RED)
@@ -129,16 +147,17 @@ def run_all(show_log=False):
     failed_list = []
     line = "-" * 63
     for demo in DEMOS:
-        model_path = f"assets/models/{demo[D_MODEL]}"
+        model_path = str(resolve_model_path(demo[D_MODEL]))
         image = demo[D_IMAGE]
-        model_ok = (DX_APP_PATH / model_path).exists()
+        model_ok = Path(model_path).is_file()
         input_ok = (DX_APP_PATH / image).exists()
         # Async variants: C++ async + Python async + Python async+C++postprocess.
         #   (lang, exec_name, display_label). Python variants only when D_PYASYNC.
-        variants = [("cpp", f"{demo[D_CPP]}_async", "C++ async")]
+        model_stem = Path(demo[D_MODEL]).stem
+        variants = [("cpp", f"{model_stem}_async", "C++ async")]
         if demo[D_PYASYNC]:
-            variants.append(("py", f"{demo[D_PYBASE]}_async", "Python async"))
-            variants.append(("py", f"{demo[D_PYBASE]}_async_cpp_postprocess", "Python async+cpp_pp"))
+            variants.append(("py", f"{model_stem}_async", "Python async"))
+            variants.append(("py", f"{model_stem}_async_cpp_postprocess", "Python async+cpp_pp"))
         for lang, name, mode_label in variants:
             tag = f"{demo[D_LABEL].split('(')[0].strip()} [{mode_label}]"
             if not model_ok:
@@ -151,7 +170,10 @@ def run_all(show_log=False):
                     cprint(f"  [SKIP] {tag}  (binary missing: bin/{name} — build first)", YELLOW); skip += 1; continue
                 cmd = [str(exe), "-m", model_path, "-i", image, "--no-display", "-s"]
             else:
-                script = DX_APP_PATH / "src" / "python_example" / demo[D_PYDIR] / (name + ".py")
+                script = (
+                    DX_APP_PATH / "src" / "python_example" / demo[D_PYDIR]
+                    / model_stem / (name + ".py")
+                )
                 if not script.exists():
                     cprint(f"  [SKIP] {tag}  (example missing: {script.name})", YELLOW); skip += 1; continue
                 cmd = [sys.executable, str(script), "--model", model_path, "--image", image, "--no-display", "--save"]
@@ -184,7 +206,8 @@ def run_all(show_log=False):
 
 def main():
     parser = argparse.ArgumentParser(description="DX-APP Interactive Demo")
-    parser.add_argument("--task", type=int, default=None, help="Pre-select task (0-22)")
+    parser.add_argument("--task", type=int, default=None,
+                        help=f"Pre-select task (0-{len(DEMOS) - 1})")
     parser.add_argument("--mode", type=int, default=None, help="Pre-select mode (1-6)")
     parser.add_argument("--input", type=int, default=None, help="Pre-select input (1=video, 2=image)")
     parser.add_argument("--show-log", action="store_true", help="Enable verbose log")
@@ -260,13 +283,14 @@ def main():
     cprint(f"  >> Input: {input_type} ({input_file})", GREEN)
 
     # ═══ Build Command ═══
-    model_path = f"assets/models/{demo[D_MODEL]}"
+    model_file = resolve_model_path(demo[D_MODEL])
+    model_path = str(model_file)
 
     # NOTE: "async" contains the substring "sync" — never test membership here.
     # Derive the suffix from the mode key by stripping its language prefix.
     if selected_mode.startswith("cpp_"):
         suffix = "_" + selected_mode[len("cpp_"):]
-        exe_name = f"{demo[D_CPP]}{suffix}"
+        exe_name = f"{Path(demo[D_MODEL]).stem}{suffix}"
         if sys.platform == "win32":
             exe_name += ".exe"
         exe_path = DX_APP_PATH / "bin" / exe_name
@@ -276,8 +300,12 @@ def main():
         else:
             cmd += ["-i", input_file]
     else:
-        py_script_name = f"{demo[D_PYBASE]}_{selected_mode[len('py_'):]}.py"
-        py_script = DX_APP_PATH / "src" / "python_example" / demo[D_PYDIR] / py_script_name
+        model_stem = Path(demo[D_MODEL]).stem
+        py_script_name = f"{model_stem}_{selected_mode[len('py_'):]}.py"
+        py_script = (
+            DX_APP_PATH / "src" / "python_example" / demo[D_PYDIR]
+            / model_stem / py_script_name
+        )
         cmd = [sys.executable, str(py_script), "--model", model_path]
         if input_type == "video":
             cmd += ["--video", input_file]
@@ -288,7 +316,7 @@ def main():
         cmd.append("--show-log")
 
     # ═══ Pre-flight Checks ═══
-    model_full = DX_APP_PATH / model_path
+    model_full = model_file
     input_full = DX_APP_PATH / input_file
 
     if not model_full.exists():

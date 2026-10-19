@@ -5,7 +5,8 @@ Common utility functions for neural network operations.
 import os
 import subprocess
 import sys
-from typing import Any, List, Tuple
+from contextlib import contextmanager
+from typing import Any, Iterator, List, Tuple
 import numpy as np
 import cv2
 
@@ -14,6 +15,73 @@ import cv2
 # Screen-aware display window
 # ---------------------------------------------------------------------------
 _window_initialized = False
+
+# opencv-python's config-3.py points QT_QPA_FONTDIR at cv2/qt/fonts, which
+# the wheel does not ship. Prefer a system face directory that actually exists.
+_FONT_DIR_CANDIDATES = (
+    "/usr/share/fonts/truetype/dejavu",
+    "/usr/share/fonts/truetype/liberation",
+    "/usr/share/fonts/TTF",
+    "/usr/share/fonts",
+)
+
+
+def _is_gnome_wayland() -> bool:
+    """True when Qt would ignore a Wayland session and fall back to xcb."""
+    session_type = os.environ.get("XDG_SESSION_TYPE", "")
+    if session_type != "wayland":
+        return False
+    desktop = os.environ.get("XDG_CURRENT_DESKTOP", "")
+    legacy_session = os.environ.get("DESKTOP_SESSION", "")
+    return "gnome" in desktop.lower() or "gnome" in legacy_session.lower()
+
+
+def _existing_font_dir() -> str:
+    """First system font directory Qt can open, or an empty string."""
+    for font_dir in _FONT_DIR_CANDIDATES:
+        if os.path.isdir(font_dir):
+            return font_dir
+    return ""
+
+
+def prepare_gui_backend() -> None:
+    """Point Qt at a real font directory before the first OpenCV window.
+
+    ``import cv2`` overwrites ``QT_QPA_FONTDIR`` with ``cv2/qt/fonts``.
+    That directory is not in the wheel, so QFontDatabase warns once per
+    font database it builds. Replace the path only when it does not exist.
+    """
+    if not sys.platform.startswith("linux"):
+        return
+    font_dir = os.environ.get("QT_QPA_FONTDIR", "")
+    if font_dir and os.path.isdir(font_dir):
+        return
+    fallback = _existing_font_dir()
+    if fallback:
+        os.environ["QT_QPA_FONTDIR"] = fallback
+
+
+@contextmanager
+def _xcb_session_for_gnome_wayland() -> Iterator[None]:
+    """Report an X11 session while Qt creates its xcb window.
+
+    On GNOME, Qt 5.15 warns and refuses Wayland unless
+    ``QT_QPA_PLATFORM=wayland``. The opencv wheel only ships the xcb
+    plugin, so that setting aborts. The session type is restored after
+    the window exists; Qt does not read it again.
+    """
+    saved_session = os.environ.get("XDG_SESSION_TYPE")
+    quiet = sys.platform.startswith("linux") and _is_gnome_wayland()
+    if quiet:
+        os.environ["XDG_SESSION_TYPE"] = "x11"
+    try:
+        yield
+    finally:
+        if quiet:
+            if saved_session is None:
+                os.environ.pop("XDG_SESSION_TYPE", None)
+            else:
+                os.environ["XDG_SESSION_TYPE"] = saved_session
 
 
 def window_exists() -> bool:
@@ -100,9 +168,11 @@ def show_output(img, winname: str = "Output"):
     """
     if img is None:
         return
+    prepare_gui_backend()
     global _window_initialized
     if not _window_initialized:
-        cv2.namedWindow(winname, cv2.WINDOW_NORMAL)
+        with _xcb_session_for_gnome_wayland():
+            cv2.namedWindow(winname, cv2.WINDOW_NORMAL)
         screen_w, screen_h = _get_screen_resolution()
         target_w = screen_w // 2
         target_h = screen_h // 2

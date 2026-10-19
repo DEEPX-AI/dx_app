@@ -55,6 +55,13 @@ public:
             // it from the first *arriving* item instead would emit that item
             // immediately and then stall on its lower-numbered predecessors
             // until the cap force-flushed them.
+            // An index below next_ arrived after a gap flush. Emit it now.
+            // Rewinding next_ would pin that late item at begin() until drain().
+            if (it->first < next_) {
+                emit(it->second);
+                buffer_.erase(it);
+                continue;
+            }
             if (it->first != next_ && buffer_.size() <= cap_) break;
             emit(it->second);
             next_ = it->first + 1;

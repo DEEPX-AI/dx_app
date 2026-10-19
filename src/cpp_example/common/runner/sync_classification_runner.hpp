@@ -21,6 +21,8 @@
 
 #include "common/base/i_factory.hpp"
 #include "common/utility/common_util.hpp"
+#include "common/utility/progress.hpp"
+#include "common/utility/display_pump.hpp"
 #include "sync_detection_runner.hpp"
 #include "common/utility/run_dir.hpp"
 #include "common/utility/verify_serialize.hpp"
@@ -49,7 +51,7 @@ public:
         // Image-only tasks: if no input was given, show a hint and exit normally
         // (do not auto-run inference on a default sample).
         std::string task = factory_->getTaskType();
-        bool imageOnlyTask = (task == "embedding" || task == "reid" || task == "attribute_recognition");
+        bool imageOnlyTask = dxapp::isComparisonOnlyTask(task);
         bool hasStreamInput = !args.videoFile.empty() || args.cameraIndex >= 0 || !args.rtspUrl.empty();
         if (imageOnlyTask && hasStreamInput) {
             dxapp::fatal_error("[DXAPP] [ERROR] Task '" + task + "' supports image input only (-i / --image_path). "
@@ -349,7 +351,7 @@ private:
     }
 
     bool openVideoCapture(cv::VideoCapture& video, const CommandLineArgs& args) {
-        if (args.cameraIndex >= 0) video.open(args.cameraIndex);
+        if (args.cameraIndex >= 0) dxapp::openCameraCapture(video, args.cameraIndex);
         else if (!args.rtspUrl.empty()) video.open(args.rtspUrl);
         else video.open(args.videoFile);
         return video.isOpened();
@@ -422,6 +424,7 @@ private:
             metrics.sum_preprocess += t_preprocess;
             metrics.sum_inference += t_inference;
             metrics.infer_completed++;
+            dxapp::progressTick(metrics);   // [PROGRESS] for front ends (DXAPP_PROGRESS=1)
             return true;
         }
         auto t3 = std::chrono::high_resolution_clock::now();
@@ -467,6 +470,7 @@ private:
         metrics.sum_save += t_save;
         metrics.sum_display += t_display;
         metrics.infer_completed++;
+        dxapp::progressTick(metrics);   // [PROGRESS] for front ends (DXAPP_PROGRESS=1)
 
         return !quit_requested;
     }
@@ -503,7 +507,7 @@ private:
                                     currentImagePath, i, frameDumpPath, false, savePath,
                                     is_float_input, is_nhwc)) break;
             processCount++;
-            if (!no_display) {
+            if (!no_display && dxapp::hasDisplay()) {
                 while (!dxapp::windowShouldClose("Output")) {
                     std::this_thread::sleep_for(std::chrono::milliseconds(10));
                 }

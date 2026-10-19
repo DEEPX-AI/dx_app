@@ -7,7 +7,7 @@
 **Key Features & Objectives**  
 
 - **Rapid Deployment:** Ready-to-run examples across multiple AI task categories — Classification, Object Detection, Face Detection, Pose Estimation, Semantic/Instance Segmentation, Depth Estimation, OBB Detection, Embedding, and more.
--	**Dual-Language Flexibility:** High-performance **C++** for production and **Python** for rapid prototyping, each with their own shared runtime layer (`src/cpp_example/common/` for C++, `src/python_example/common/` for Python).  
+- **Dual-Language Flexibility:** High-performance **C++** for production and **Python** for rapid prototyping, each with their own shared runtime layer (`src/cpp_example/common/` for C++, `src/python_example/common/` for Python).  
 - **Hardware Acceleration:** Native support for **PPU-enabled models** and **Async templates** that overlap pipeline stages to maximize FPS.  
 - **Modular Design:** Clean, task-oriented templates that serve as reusable blueprints for custom commercial applications.  
 
@@ -63,12 +63,6 @@ Download the required models and sample media files.
 
 ## Download specific models by name
 ./setup.sh --models yolov8n yolov9s efficientnet_lite0
-
-## Internal/air-gapped — copy from local mount instead of downloading from S3
-./setup.sh --all --internal
-
-## Internal mode with a custom local path
-./setup.sh --all --internal --internal-path=/path/to/local/models
 ```
 
 **`setup.sh` Options**  
@@ -110,7 +104,7 @@ Build the C++ binaries and the Python dx_postprocess bindings simultaneously.
 ## For a clean rebuild, use: ./build.sh --clean
 
 ## Build specific targets only (faster incremental builds)
-./build.sh --target yolov9s_sync yolov9s_async
+./build.sh --target yolov9-s_640x640_sync yolov9-s_640x640_async
 
 ## List all available build targets
 ./build.sh --target list
@@ -125,12 +119,12 @@ Test the NPU performance using the YOLOv9 object detection template.
 
 ```bash
 ## Static Image Inference (Synchronous)
-./bin/yolov9s_sync \
+./bin/yolov9-s_640x640_sync \
 -m assets/models/yolov9-s_640x640.dxnn \
 -i sample/img/sample_kitchen.jpg
 
 ## Video Stream Inference (Asynchronous)
-./bin/yolov9s_async \
+./bin/yolov9-s_640x640_async \
 -m assets/models/yolov9-s_640x640.dxnn \
 -v assets/videos/dance-group.mov
 ```
@@ -139,12 +133,12 @@ Test the NPU performance using the YOLOv9 object detection template.
 
 ```bash
 ## Python Baseline (Synchronous)
-python src/python_example/object_detection/yolov9s/yolov9s_sync.py \
+python src/python_example/object_detection/yolov9/yolov9-s_640x640/yolov9-s_640x640_sync.py \
    --model assets/models/yolov9-s_640x640.dxnn \
    --image sample/img/sample_kitchen.jpg
 
 ## Python Optimized (Asynchronous + C++ Post-processing)
-python src/python_example/object_detection/yolov9s/yolov9s_async_cpp_postprocess.py \
+python src/python_example/object_detection/yolov9/yolov9-s_640x640/yolov9-s_640x640_async_cpp_postprocess.py \
   --model assets/models/yolov9-s_640x640.dxnn \
     --video assets/videos/dance-group.mov 
 ```
@@ -202,7 +196,7 @@ The project is structured to separate core logic from language-specific implemen
 ```text
 dx_app/
 ├── src/
-│   ├── cpp_example/            # C++ end-to-end examples (organized across 22 tasks)
+│   ├── cpp_example/            # C++ end-to-end examples (organized across 29 tasks)
 │   │   └── common/             # ← Shared C++ runtime layer
 │   │       ├── base/           #   Abstract interfaces (IFactory, IProcessor, ...)
 │   │       ├── processors/     #   Shared processors
@@ -210,9 +204,9 @@ dx_app/
 │   │       ├── inputs/         #   Image/Video/Camera/RTSP input sources
 │   │       ├── visualizers/    #   Task-specific visualizers
 │   │       ├── config/         #   ModelConfig loader
-│   │       ├── utility/        #   Labels, preprocessing, profiling, run_dir, signal_handler, verify_serialize
+│   │       ├── utility/        #   Labels, preprocessing, profiling, run_dir, interrupt handling, verify_serialize
 │   │       └── third_party/    #   Header-only third-party libraries (nlohmann_json)
-│   ├── python_example/         # Python end-to-end examples (organized across 22 tasks)
+│   ├── python_example/         # Python end-to-end examples (organized across 29 tasks)
 │   │   └── common/             # ← Shared Python runtime layer
 │   │       ├── base/           #   Abstract interfaces (IFactory, IProcessor, ...)
 │   │       ├── processors/     #   Shared processors
@@ -232,7 +226,7 @@ dx_app/
 │   └── README.md               # Config directory documentation
 ├── scripts/                    # Developer tools, validation, and helper scripts
 ├── tests/                      # pytest-based test suites
-│   ├── common/                 #   Shared test constants & utilities
+│   ├── test_helpers/           #   Shared test constants & utilities
 │   ├── cpp_example/            #   C++ tests (CLI, E2E, visualization, features)
 │   └── python_example/         #   Python tests (unit, integration, CLI, E2E, visualization)
 ├── assets/                     # Downloaded models/videos (via setup.sh)
@@ -328,18 +322,20 @@ All C++ and Python examples share a consistent set of command-line arguments.
 | Variable | Description |
 |----------|-------------|
 | `DXAPP_SAVE_IMAGE` | When set to a file path, saves the visualization output to that path (no `--save` required) |
-| `DXAPP_VERIFY` | When set to `1`, dumps post-processing results to `logs/verify/{model}.json` for numerical verification |
+| `DXAPP_VERIFY` | When set to `1`, dumps post-processing results to `logs/verify/{model}.json` (last frame) and `{model}.frames.jsonl` (every frame, in input order) for numerical verification |
+| `DXAPP_VERIFY_DIR` | Directory for `DXAPP_VERIFY` output (default `logs/verify`) |
+| `DXAPP_PROGRESS` | When set to `1`, prints `[PROGRESS] frames=N fps=F avg_fps=A read_ms=R pre_ms=P infer_ms=I post_ms=Q` at most once a second and once at exit, for front ends such as DX AI Studio: `fps` is the last second's rate, `avg_fps` counts from the first frame (start-up and model load excluded), `*_ms` are the stage averages over the same second (the final line: run averages). The multi_model_graph binaries print `node_ms=<id>:<ms>,...` (time per graph node) instead of the `*_ms` stage fields |
 
 ### C++ Templates 
 
 To help developers optimize for specific hardware targets, templates are provided in two execution patterns  
 
-- **Synchronous (`xx_sync.cpp`):
+- **Synchronous (`xx_sync.cpp`):**
 
     : **Logic:** A single-threaded, sequential loop (**Input → Inference → Output**).  
     : **Use Case:** Best for single-image processing and simplified debugging.  
 
-- **Asynchronous (`xx_async.cpp`):
+- **Asynchronous (`xx_async.cpp`):**
 
     : **Logic:** Uses multi-threading and the `RunAsync()` API to overlap stages. While the NPU performs inference on Frame **N**, the CPU simultaneously handles pre-processing for Frame **N+1** and post-processing for Frame **N-1**.  
     : **Use Case:** Essential for maximizing **FPS** on live video streams and ensuring high NPU utilization.  
@@ -354,8 +350,8 @@ To eliminate post-inference bottlenecks, DX-APP provides optimized C++ logic exp
 
 - **Key Capabilities:** Handles CPU-intensive tasks such as NMS (Non-Maximum Suppression), tensor decoding, and mask generation at native speeds.  
 - **Unified Logic:** Shares the exact same decoding logic as the C++ examples, ensuring consistent inference results across all platforms.  
-- **Installation:** -Automatically compiled during `./build.sh`.  
-    : **Manual install:** `cd src/bindings/python/dx_postprocess && pip install`.  
+- **Installation:** Automatically compiled during `./build.sh`.  
+    : **Manual install:** `cd src/bindings/python/dx_postprocess && python3 -m pip install .`  
 
 For detailed usage examples and API references, please refer to the documentation in 
 [**Section. DX-APP Python Post-processing**](08_DX-APP_Pybind_PostProcess_Overview.md)
@@ -403,7 +399,7 @@ If no input source (`--image`, `--video`, `--camera`, `--rtsp`) is provided, the
 
 **Signal Handling**  
 
-All runners register SIGINT/SIGTERM handlers for graceful shutdown. Pressing Ctrl+C during inference prints `"Interrupted by user"` and cleanly exits, releasing all resources.  
+C++ runners and the `multi_model_graph_*` CLI register SIGINT/SIGTERM handlers for graceful shutdown. Pressing Ctrl+C during inference cleanly exits, releasing all resources: a runner prints `"Interrupted by user"`, and the graph CLI finishes the frames in flight in every stream and finalizes `--report`/`--output`/`--events`. A later Ctrl+C, more than 200 ms after the first, terminates the process at once (for a shutdown that is itself stuck); repeats within 200 ms count as the same request. SIGTERM is always graceful, however often it arrives. Python runners behave the same way (`common/runner/interrupts.py`); see the [Python usage guide](05_DX-APP_Python_Example_Usage_Guide.md).  
 
 **Run Directory** (`--save` / `--save-dir`)  
 
@@ -423,8 +419,8 @@ artifacts/cpp_example/
 A complete pipeline for serializing inference results for inspection and debugging:  
 
 - (1) Set `DXAPP_VERIFY=1` before running any example  
-- (2) Post-processing results are serialized to `logs/verify/{model}.json`  
-- (3) Supports all 12 result types (Detection, Classification, Pose, Segmentation, etc.)  
+- (2) Post-processing results are serialized to `logs/verify/{model}.json` (last frame) and `{model}.frames.jsonl` (every frame, in input order)  
+- (3) Supports every result type (Detection, Classification, Pose, Segmentation, Panoptic, 3D, SuperPoint keypoints, …)  
 
 **Tensor Dump** (`--dump-tensors`)  
 
@@ -432,16 +428,16 @@ Dumps raw input/output tensors for debugging. On exception, tensors are auto-dum
 
 **Model Config** (`--config`)  
 
-Runtime parameters (score threshold, NMS threshold, top-k) can be tuned per-model via `config.json`. If not specified, the runner auto-detects `config.json` adjacent to the model or script.  
+Runtime parameters (score threshold, NMS threshold, top-k) live in `<task>/<family>/<variant>/config.json`, next to that variant's entry. A single-model extract may keep `config.json` beside the entry script.  
 
 **Version Compatibility**  
 
-All runners verify:  
+The runners check the runtime and the model before they run:  
 
-- **DX-RT library** ≥ 3.0.0  
-- **Compiled model format** ≥ v7  
+- **C++:** DX-RT library ≥ 3.5.0 and compiled model format ≥ v7 (`minversionforRTandCompiler` in `common/utility/common_util.hpp`), checked once the engine is created  
+- **Python:** DX-RT library ≥ 3.0.0, and a warning for a model format older than v7  
 
-Incompatible versions produce a clear error message before exit.
+An incompatible version stops the example with an error message. The Model Zoo 2_5_0 files (`.dxnn` container v9) need DX-RT ≥ 3.5.0 in both languages; see *Software Requirements on Linux* in the installation guide.
 
 **Headless Mode**  
 

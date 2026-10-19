@@ -69,7 +69,7 @@ class TestRealESRGANPostprocessor:
         results = post.process([_nchw_output()], _ctx(20, 10))
         img = results[0].output_image
         assert (img.shape[1], img.shape[0]) == (80, 40)
-        assert round(img.shape[1] / img.shape[0], 3) == 2.0
+        assert img.shape[1] / img.shape[0] == pytest.approx(2.0, abs=1e-3)
 
     def test_square_source_is_also_scaled_by_the_upscale_factor(self):
         """A square source keeps its 1:1 ratio but still gets original * scale,
