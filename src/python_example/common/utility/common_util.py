@@ -1216,3 +1216,43 @@ def convert_cpp_sfa3d_detections(detections: Any, ctx=None) -> List:
             )
         )
     return results
+
+
+def _anomaly_heatmap(anomaly_map: np.ndarray, ctx=None) -> np.ndarray:
+    """Feature-resolution anomaly map -> 0..1 heatmap at the original image size."""
+    heatmap = np.asarray(anomaly_map, dtype=np.float32)
+    if ctx is not None:
+        heatmap = cv2.resize(heatmap, (ctx.original_width, ctx.original_height),
+                             interpolation=cv2.INTER_LINEAR)
+    return np.clip(heatmap, 0.0, 1.0).astype(np.float32)
+
+
+def convert_cpp_efficientad(result_tuple, ctx=None) -> list:
+    """Convert C++ EfficientADPostProcess output to [AnomalyResult].
+
+    C++ does the channel reductions, the per-frame normalisation and the raw
+    score percentile; it returns (map[H, W], score, channels) at feature
+    resolution. dx_postprocess has no OpenCV, so the resize to the original image
+    happens here, as in EfficientADPostprocessor.
+    """
+    from ..base import AnomalyResult
+
+    anomaly_map, score, channels = result_tuple
+    return [AnomalyResult(heatmap=_anomaly_heatmap(anomaly_map, ctx),
+                          score=float(score), channels=int(channels))]
+
+
+def convert_cpp_anomaly_feature(result_tuple, ctx=None, score_percentile: float = 99.0) -> list:
+    """Convert C++ AnomalyFeaturePostProcess output to [AnomalyResult].
+
+    The score is read again from the resized heatmap, because
+    AnomalyFeaturePostprocessor takes its percentile at image resolution while
+    the C++ class can only see the feature map.
+    """
+    from ..base import AnomalyResult
+
+    anomaly_map, _score, channels = result_tuple
+    heatmap = _anomaly_heatmap(anomaly_map, ctx)
+    return [AnomalyResult(heatmap=heatmap,
+                          score=float(np.percentile(heatmap, score_percentile)),
+                          channels=int(channels))]

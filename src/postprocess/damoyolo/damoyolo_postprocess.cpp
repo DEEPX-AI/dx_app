@@ -93,10 +93,13 @@ std::vector<DamoYOLOResult> DamoYOLOPostProcess::apply_nms(
 
     std::vector<size_t> indices(detections.size());
     std::iota(indices.begin(), indices.end(), 0);
-    std::sort(indices.begin(), indices.end(),
-              [&detections](size_t a, size_t b) {
-                  return detections[a].confidence > detections[b].confidence;
-              });
+    // Class-agnostic greedy NMS, as cv::dnn::NMSBoxes runs it in the Python
+    // postprocessor and the C++ example: stable score order, a box suppresses
+    // any lower-scored box whose IoU exceeds the threshold regardless of class.
+    std::stable_sort(indices.begin(), indices.end(),
+                     [&detections](size_t a, size_t b) {
+                         return detections[a].confidence > detections[b].confidence;
+                     });
 
     std::vector<bool> suppressed(detections.size(), false);
     std::vector<DamoYOLOResult> results;
@@ -106,8 +109,7 @@ std::vector<DamoYOLOResult> DamoYOLOPostProcess::apply_nms(
         results.push_back(detections[idx]);
         for (size_t j : indices) {
             if (suppressed[j] || j == idx) continue;
-            if (detections[idx].class_id == detections[j].class_id &&
-                detections[idx].iou(detections[j]) > nms_threshold_) {
+            if (detections[idx].iou(detections[j]) > nms_threshold_) {
                 suppressed[j] = true;
             }
         }

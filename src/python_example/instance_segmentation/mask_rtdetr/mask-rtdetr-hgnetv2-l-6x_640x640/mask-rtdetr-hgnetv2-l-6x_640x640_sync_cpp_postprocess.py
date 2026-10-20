@@ -2,6 +2,9 @@
 # Copyright (C) 2018- DEEPX Ltd. All rights reserved.
 """mask-rtdetr-hgnetv2-l-6x_640x640 sync_cpp_postprocess inference.
 
+dx_postprocess has no C++ binding for ``MaskRTDETRPostprocessor`` yet, so this variant
+runs the same Python postprocessor as ``mask-rtdetr-hgnetv2-l-6x_640x640_sync.py``.
+
 The variant is fixed to this folder. Run it from here with no PYTHONPATH::
 
     python mask-rtdetr-hgnetv2-l-6x_640x640_sync_cpp_postprocess.py -i <image>

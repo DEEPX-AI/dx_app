@@ -19,14 +19,15 @@
 - Fixed retrieval, re-id, and `--check` gallery paths that depended on the working directory
 - Fixed SuperPoint keypoints being drawn at the wrong vertical position in the C++ example
 - Fixed SuperPoint tracker settings (nn_thresh, max_pixel_dist, track_max_length) being ignored
+- Fixed `*_cpp_postprocess.py` Python examples running the Python postprocessor (RT-DETR, Mask RT-DETR, PP-Matting, CLIP text, PP-ShiTu mainbody, YOLO26 pre-optimized)
+- Fixed 3D object detection C++ runners printing errors and logs without the `[DXAPP]` prefix
+- Fixed `scripts/bench_models.sh` for the v3.3.0 layout: it read the 4-column `config/test_models.conf` as 3 columns and keyed models by family, so every row came out NO_MODEL; it now benchmarks each of the 497 variants
 
 ### 3. Added
 - Multi-model graph engine and CLI `multi_model_graph_sync` / `multi_model_graph_async` (`--check`, `--list-models`, `--report`)
 - Registered 147 DX Model Zoo models, including RT-DETR, YOLOv12, YOLOv13, pre-optimized YOLO, anomaly detection, image matting, CLIP retrieval, person re-id, and visual place recognition
 - Sample galleries for re-id, image retrieval, and visual place recognition
-
-### 4. Removed
-- Ubuntu 18.04 support (Makefile, CI matrix, installation guide, `install_python_and_venv.sh`)
+- `dx_postprocess.EfficientADPostProcess` and `AnomalyFeaturePostProcess` (52 pybind classes): the anomaly detection `*_cpp_postprocess.py` examples run their post-processing in C++
 
 ## DX-APP v3.2.2 / 2026-08-14
 

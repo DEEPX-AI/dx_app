@@ -25,7 +25,7 @@ struct VitPoseResult {
  * @brief VitPose heatmap-based pose postprocessor
  *
  * Input: [1, 17, H, W] NCHW float32 heatmap (COCO 17 keypoints)
- * Output: 17 keypoints (x, y, confidence) in model output coordinates.
+ * Output: 17 keypoints (x, y, confidence) in model input pixels (input_w x input_h).
  *         No resize — caller handles scaling to original image size.
  */
 class VitPosePostProcess {

@@ -33,6 +33,7 @@ from typing import Any
 
 from common import processors as _processors
 from common import visualizers as _visualizers
+from common.base.i_factory import CONFIG_ALIASES
 
 EXPR_MARKER = "<expr:"
 
@@ -124,13 +125,31 @@ def _check_literal(where: str, value: Any) -> None:
         )
 
 
+def with_config_aliases(config: dict | None) -> dict:
+    """A copy of *config* that also carries the Python name of each C++-named key.
+
+    The variant ``config`` block is written once for both runtimes, in the C++ key
+    names (``score_threshold``), while the Python postprocessors read
+    ``conf_threshold``. load_config() aliases a flat ``--config`` file, but the
+    nested block reaches the processors through the factory constructor without
+    it, which left every Python postprocessor on its 0.3 default while the C++
+    side ran at the configured value. A key already under the Python name wins.
+    """
+    merged = dict(config or {})
+    for key, alias in CONFIG_ALIASES.items():
+        if key in merged and alias not in merged:
+            merged[alias] = merged[key]
+    return merged
+
+
 def build_processor(spec: dict, *, input_width: int, input_height: int,
                     config: dict | None = None):
     """Instantiate one processor by replaying *spec*'s recorded call."""
     if not spec or not spec.get("class"):
         raise VariantConfigError(f"spec has no class: {spec!r}")
 
-    merged = {**(config or {}), **(spec.get("config_overrides") or {})}
+    merged = with_config_aliases(
+        {**(config or {}), **(spec.get("config_overrides") or {})})
     tokens = {"input_width": input_width, "input_height": input_height,
               "width": input_width, "height": input_height,
               "w": input_width, "h": input_height,

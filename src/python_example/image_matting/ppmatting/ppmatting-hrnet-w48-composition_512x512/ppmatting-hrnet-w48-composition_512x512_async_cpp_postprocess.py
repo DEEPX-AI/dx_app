@@ -2,6 +2,9 @@
 # Copyright (C) 2018- DEEPX Ltd. All rights reserved.
 """ppmatting-hrnet-w48-composition_512x512 async_cpp_postprocess inference.
 
+dx_postprocess has no C++ binding for ``PPMattingPostprocessor`` yet, so this variant
+runs the same Python postprocessor as ``ppmatting-hrnet-w48-composition_512x512_async.py``.
+
 The variant is fixed to this folder. Run it from here with no PYTHONPATH::
 
     python ppmatting-hrnet-w48-composition_512x512_async_cpp_postprocess.py -i <image>

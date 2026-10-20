@@ -2,6 +2,10 @@
 # Copyright (C) 2018- DEEPX Ltd. All rights reserved.
 """yolov8-s-seg_640x640 async_cpp_postprocess inference.
 
+Post-processing runs in C++ through the dx_postprocess pybind11 module
+(``YOLOv8SegPostProcess``) instead of the Python postprocessor that
+``yolov8-s-seg_640x640_async.py`` uses.
+
 The variant is fixed to this folder. Run it from here with no PYTHONPATH::
 
     python yolov8-s-seg_640x640_async_cpp_postprocess.py -i <image>
@@ -22,11 +26,31 @@ from common.runner.entry import install_import_paths, run_entry
 
 install_import_paths(_script)
 
+from common.utility.visualization import yolov8seg_cpp_visualize
 from factory import Yolov8SegFactory
 from common.runner import AsyncRunner
 
 # Directory name is the .dxnn stem this script always builds.
 _FIXED_VARIANT = "yolov8-s-seg_640x640"
+
+
+def on_engine_init(runner):
+    """Swap the Python postprocessor for the C++ one from dx_postprocess.
+
+    Imported here rather than at module level so ``--help`` works before
+    the pybind11 module is built (``./build.sh``).
+    """
+    from dx_engine import InferenceOption
+    from dx_postprocess import YOLOv8SegPostProcess
+
+    input_w = runner.input_width
+    input_h = runner.input_height
+    use_ort = InferenceOption().get_use_ort()
+    config = runner.factory.config
+    score_thr = config.get("score_threshold", 0.3)
+    nms_thr = config.get("nms_threshold", 0.45)
+    runner._cpp_postprocessor = YOLOv8SegPostProcess(input_w, input_h, score_thr, nms_thr, use_ort)
+    runner._cpp_visualize_fn = yolov8seg_cpp_visualize
 
 
 def main():
@@ -36,6 +60,7 @@ def main():
         runner_cls=AsyncRunner,
         description="yolov8-s-seg_640x640 async_cpp_postprocess inference",
         fixed_variant=_FIXED_VARIANT,
+        on_engine_init=on_engine_init,
     )
 
 

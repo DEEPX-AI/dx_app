@@ -52,6 +52,7 @@
 #include "yolopv2_postprocess.h"
 #include "attribute_postprocess.h"
 #include "sfa3d_postprocess.h"
+#include "anomaly_postprocess.h"
 
 namespace py = pybind11;
 
@@ -1151,6 +1152,20 @@ py::array_t<float> centerpose_results_to_numpy(const std::vector<CenterPoseResul
     return out;
 }
 
+// --- Anomaly result converter ---
+// Returns tuple(anomaly_map[H,W] float32 at feature resolution, score, channels)
+py::tuple anomaly_result_to_python(const AnomalyMapResult& result) {
+    py::array_t<float> anomaly_map({static_cast<py::ssize_t>(result.height),
+                                    static_cast<py::ssize_t>(result.width)});
+    auto buf = anomaly_map.mutable_unchecked<2>();
+    for (int y = 0; y < result.height; ++y) {
+        for (int x = 0; x < result.width; ++x) {
+            buf(y, x) = result.anomaly_map[static_cast<size_t>(y) * result.width + x];
+        }
+    }
+    return py::make_tuple(anomaly_map, result.score, result.channels);
+}
+
 PYBIND11_MODULE(dx_postprocess, m)
 {
     py::class_<YOLOv5PostProcess>(m, "YOLOv5PostProcess")
@@ -2177,4 +2192,36 @@ PYBIND11_MODULE(dx_postprocess, m)
         }, py::arg("ie_output"))
         .def("get_input_width", &SFA3DPostProcess::get_input_width)
         .def("get_input_height", &SFA3DPostProcess::get_input_height);
+
+    // --- Anomaly detection (EfficientAD, PatchCore) ---
+    py::class_<EfficientADPostProcess>(m, "EfficientADPostProcess")
+        .def(py::init<std::vector<std::string>, float, float, float>(),
+             py::arg("roles") = std::vector<std::string>{},
+             py::arg("st_weight") = 0.5f,
+             py::arg("ae_weight") = 0.5f,
+             py::arg("score_percentile") = 99.0f)
+        .def("postprocess", [](EfficientADPostProcess& self, py::list ie_output) {
+            auto tensors = numpy_to_dxrt_tensors(ie_output);
+            AnomalyMapResult result;
+            {
+                py::gil_scoped_release release;
+                result = self.postprocess(tensors);
+            }
+            return anomaly_result_to_python(result);
+        }, py::arg("ie_output"))
+        .def("get_roles", &EfficientADPostProcess::get_roles)
+        .def("get_score_percentile", &EfficientADPostProcess::get_score_percentile);
+
+    py::class_<AnomalyFeaturePostProcess>(m, "AnomalyFeaturePostProcess")
+        .def(py::init<float>(), py::arg("score_percentile") = 99.0f)
+        .def("postprocess", [](AnomalyFeaturePostProcess& self, py::list ie_output) {
+            auto tensors = numpy_to_dxrt_tensors(ie_output);
+            AnomalyMapResult result;
+            {
+                py::gil_scoped_release release;
+                result = self.postprocess(tensors);
+            }
+            return anomaly_result_to_python(result);
+        }, py::arg("ie_output"))
+        .def("get_score_percentile", &AnomalyFeaturePostProcess::get_score_percentile);
 }

@@ -2,6 +2,9 @@
 # Copyright (C) 2018- DEEPX Ltd. All rights reserved.
 """yolo26-x-pose_640x640_pre-optimized async_cpp_postprocess inference.
 
+dx_postprocess has no C++ binding for ``PreoptPosePostprocessor`` yet, so this variant
+runs the same Python postprocessor as ``yolo26-x-pose_640x640_pre-optimized_async.py``.
+
 The variant is fixed to this folder. Run it from here with no PYTHONPATH::
 
     python yolo26-x-pose_640x640_pre-optimized_async_cpp_postprocess.py -i <image>

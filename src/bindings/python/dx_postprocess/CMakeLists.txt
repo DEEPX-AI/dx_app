@@ -95,6 +95,7 @@ set(INCLUDE_DIRS
     "${PROJECT_ROOT}/src/postprocess/sfa3d"
     "${PROJECT_ROOT}/src/postprocess/ulfgfd"
     "${PROJECT_ROOT}/src/postprocess/centerpose"
+    "${PROJECT_ROOT}/src/postprocess/anomaly"
     "${PROJECT_ROOT}/src/utility"
     "${PROJECT_ROOT}/extern"
 )

@@ -36,7 +36,7 @@ The SDK follows a **Single Source of Truth** strategy to ensure reliability acro
 
 ### Supported Models & Tasks
 
-The library wraps **50 C++ post-processing classes** with pybind11 bindings, ensuring consistent results between C++ and Python implementations.  
+The library wraps the C++ post-processing classes listed below with pybind11 bindings, ensuring consistent results between C++ and Python implementations.  
 
 - **Object Detection:** YOLOv5, YOLOv7, YOLOv8, YOLOv9, YOLOv10, YOLOv11, YOLOv12, YOLOv26, YOLOX, NanoDet, DAMOYOLO, SSD, CenterPose, EfficientDet, YOLACT  
 - **Face Detection:** SCRFD, YOLOv5Face, RetinaFace, ULFGFD, Face3D  
@@ -56,6 +56,7 @@ The library wraps **50 C++ post-processing classes** with pybind11 bindings, ens
 - **Image Enhancement:** Zero-DCE  
 - **Embedding:** ArcFace  
 - **Hand Landmark:** HandLandmark  
+- **Anomaly Detection:** EfficientAD (teacher + student + autoencoder outputs), AnomalyFeature (PatchCore backbone response). Both return the anomaly map at feature-map resolution; the Python examples resize it to the image with OpenCV.  
 - **PPU Variants:** YOLOv5-PPU, YOLOv7-PPU, YOLOv8-PPU, SCRFD-PPU, YOLOv5Pose-PPU, YOLOX-PPU, YOLOv3Tiny-PPU. `SCRFD-PPU` and `YOLOv5Pose-PPU` are postprocess classes only; `SCRFD500M_PPU` and `YOLOV5Pose_PPU` are not registered examples.  
 
 !!! note "Generic fast segmentation in Python examples"
@@ -115,6 +116,12 @@ python src/python_example/object_detection/yolov9/yolov9-s_640x640/yolov9-s_640x
 # Async (Stream Inference)
 python src/python_example/object_detection/yolov9/yolov9-s_640x640/yolov9-s_640x640_async_cpp_postprocess.py --model assets/models/yolov9-s_640x640.dxnn --video assets/videos/dance-group.mov
 ```
+
+Each `*_cpp_postprocess.py` script defines an `on_engine_init(runner)` callback and passes it to `run_entry()`. Once the engine reports the model input size, the callback creates the model's `dx_postprocess` class (for example `YOLOv8PostProcess` or `ClassificationPostProcess`) and sets it as `runner._cpp_postprocessor`, so the C++ class replaces the Python postprocessor. `dx_postprocess` is imported inside the callback, so `--help` works before the module is built.  
+
+!!! note "NOTE"  
+
+    The following Python postprocessors have no C++ binding yet. Their `*_cpp_postprocess.py` scripts run the same Python postprocessor as the matching `*_sync.py` / `*_async.py` scripts, and their docstrings say so: `CLIPTextPostprocessor`, `MaskRTDETRPostprocessor`, `PPMattingPostprocessor`, `PicoDetPostprocessor` (PP-ShiTu mainbody detection), `PreoptDetectionPostprocessor` / `PreoptPosePostprocessor` (YOLO26 pre-optimized) and `RTDETRPostprocessor`.  
 
 ### Direct API Call  
 

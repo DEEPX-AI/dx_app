@@ -2,6 +2,10 @@
 # Copyright (C) 2018- DEEPX Ltd. All rights reserved.
 """clip-img_vit-l14-quickgelu_224x224_dfn2b async_cpp_postprocess inference.
 
+Post-processing runs in C++ through the dx_postprocess pybind11 module
+(``EmbeddingPostProcess``) instead of the Python postprocessor that
+``clip-img_vit-l14-quickgelu_224x224_dfn2b_async.py`` uses.
+
 The variant is fixed to this folder. Run it from here with no PYTHONPATH::
 
     python clip-img_vit-l14-quickgelu_224x224_dfn2b_async_cpp_postprocess.py -i <image>
@@ -29,6 +33,22 @@ from common.runner import AsyncRunner
 _FIXED_VARIANT = "clip-img_vit-l14-quickgelu_224x224_dfn2b"
 
 
+def on_engine_init(runner):
+    """Swap the Python postprocessor for the C++ one from dx_postprocess.
+
+    Imported here rather than at module level so ``--help`` works before
+    the pybind11 module is built (``./build.sh``).
+    """
+    from dx_postprocess import EmbeddingPostProcess
+
+    runner._cpp_postprocessor = EmbeddingPostProcess()
+    # Zero-shot labels come from prompt_bank.json, so that step stays in
+    # Python and gets the C++ L2-normalised embedding instead of the raw
+    # model output.
+    runner._cpp_convert_fn = (
+        lambda embedding, ctx: runner.postprocessor.process([embedding], ctx))
+
+
 def main():
     run_entry(
         _script,
@@ -36,6 +56,7 @@ def main():
         runner_cls=AsyncRunner,
         description="clip-img_vit-l14-quickgelu_224x224_dfn2b async_cpp_postprocess inference",
         fixed_variant=_FIXED_VARIANT,
+        on_engine_init=on_engine_init,
     )
 
 

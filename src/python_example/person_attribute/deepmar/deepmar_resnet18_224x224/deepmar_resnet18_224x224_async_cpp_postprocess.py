@@ -2,6 +2,10 @@
 # Copyright (C) 2018- DEEPX Ltd. All rights reserved.
 """deepmar_resnet18_224x224 async_cpp_postprocess inference.
 
+Post-processing runs in C++ through the dx_postprocess pybind11 module
+(``AttributePostProcess``) instead of the Python postprocessor that
+``deepmar_resnet18_224x224_async.py`` uses.
+
 The variant is fixed to this folder. Run it from here with no PYTHONPATH::
 
     python deepmar_resnet18_224x224_async_cpp_postprocess.py -i <image>
@@ -22,11 +26,26 @@ from common.runner.entry import install_import_paths, run_entry
 
 install_import_paths(_script)
 
+from common.processors.attribute_postprocessor import PETA_35_LABELS
+from common.utility import convert_cpp_attribute
+from functools import partial
 from factory import DeepmarFactory
 from common.runner import AsyncRunner
 
 # Directory name is the .dxnn stem this script always builds.
 _FIXED_VARIANT = "deepmar_resnet18_224x224"
+
+
+def on_engine_init(runner):
+    """Swap the Python postprocessor for the C++ one from dx_postprocess.
+
+    Imported here rather than at module level so ``--help`` works before
+    the pybind11 module is built (``./build.sh``).
+    """
+    from dx_postprocess import AttributePostProcess
+
+    runner._cpp_postprocessor = AttributePostProcess(0.5, False)
+    runner._cpp_convert_fn = partial(convert_cpp_attribute, labels=PETA_35_LABELS)
 
 
 def main():
@@ -36,6 +55,7 @@ def main():
         runner_cls=AsyncRunner,
         description="deepmar_resnet18_224x224 async_cpp_postprocess inference",
         fixed_variant=_FIXED_VARIANT,
+        on_engine_init=on_engine_init,
     )
 
 

@@ -2,6 +2,9 @@
 # Copyright (C) 2018- DEEPX Ltd. All rights reserved.
 """rtdetrv2-r101vd-6x_640x640 async_cpp_postprocess inference.
 
+dx_postprocess has no C++ binding for ``RTDETRPostprocessor`` yet, so this variant
+runs the same Python postprocessor as ``rtdetrv2-r101vd-6x_640x640_async.py``.
+
 The variant is fixed to this folder. Run it from here with no PYTHONPATH::
 
     python rtdetrv2-r101vd-6x_640x640_async_cpp_postprocess.py -i <image>

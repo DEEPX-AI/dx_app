@@ -2,6 +2,10 @@
 # Copyright (C) 2018- DEEPX Ltd. All rights reserved.
 """yolov7-w6_1280x1280_nodecode async_cpp_postprocess inference.
 
+Post-processing runs in C++ through the dx_postprocess pybind11 module
+(``YOLOv5PostProcess``) instead of the Python postprocessor that
+``yolov7-w6_1280x1280_nodecode_async.py`` uses.
+
 The variant is fixed to this folder. Run it from here with no PYTHONPATH::
 
     python yolov7-w6_1280x1280_nodecode_async_cpp_postprocess.py -i <image>
@@ -22,11 +26,35 @@ from common.runner.entry import install_import_paths, run_entry
 
 install_import_paths(_script)
 
+from common.utility import convert_cpp_detections
+from custom_ops import YOLOV7_W6_ANCHORS
 from factory import Yolov7Factory
 from common.runner import AsyncRunner
 
 # Directory name is the .dxnn stem this script always builds.
 _FIXED_VARIANT = "yolov7-w6_1280x1280_nodecode"
+
+
+def on_engine_init(runner):
+    """Swap the Python postprocessor for the C++ one from dx_postprocess.
+
+    Imported here rather than at module level so ``--help`` works before
+    the pybind11 module is built (``./build.sh``).
+    """
+    from dx_engine import InferenceOption
+    from dx_postprocess import YOLOv5PostProcess
+
+    use_ort = InferenceOption().get_use_ort()
+    config = runner.factory.config
+    obj_thr = config.get("obj_threshold", 0.25)
+    conf_thr = config.get("conf_threshold", config.get("score_threshold", 0.3))
+    nms_thr = config.get("nms_threshold", 0.45)
+    post = YOLOv5PostProcess(
+        runner.input_width, runner.input_height, obj_thr, conf_thr, nms_thr, use_ort)
+    post.set_anchors({int(s): [(int(a[0]), int(a[1])) for a in al]
+                      for s, al in YOLOV7_W6_ANCHORS.items()})
+    runner._cpp_postprocessor = post
+    runner._cpp_convert_fn = convert_cpp_detections
 
 
 def main():
@@ -36,6 +64,7 @@ def main():
         runner_cls=AsyncRunner,
         description="yolov7-w6_1280x1280_nodecode async_cpp_postprocess inference",
         fixed_variant=_FIXED_VARIANT,
+        on_engine_init=on_engine_init,
     )
 
 

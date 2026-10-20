@@ -2,6 +2,10 @@
 # Copyright (C) 2018- DEEPX Ltd. All rights reserved.
 """3ddfa-v2_mobilenet-0.5_120x120 sync_cpp_postprocess inference.
 
+Post-processing runs in C++ through the dx_postprocess pybind11 module
+(``Face3DPostProcess``) instead of the Python postprocessor that
+``3ddfa-v2_mobilenet-0.5_120x120_sync.py`` uses.
+
 The variant is fixed to this folder. Run it from here with no PYTHONPATH::
 
     python 3ddfa-v2_mobilenet-0.5_120x120_sync_cpp_postprocess.py -i <image>
@@ -22,11 +26,24 @@ from common.runner.entry import install_import_paths, run_entry
 
 install_import_paths(_script)
 
+from common.utility import convert_cpp_face3d
 from factory import N3ddfaV2Factory
 from common.runner import SyncRunner
 
 # Directory name is the .dxnn stem this script always builds.
 _FIXED_VARIANT = "3ddfa-v2_mobilenet-0.5_120x120"
+
+
+def on_engine_init(runner):
+    """Swap the Python postprocessor for the C++ one from dx_postprocess.
+
+    Imported here rather than at module level so ``--help`` works before
+    the pybind11 module is built (``./build.sh``).
+    """
+    from dx_postprocess import Face3DPostProcess
+
+    runner._cpp_postprocessor = Face3DPostProcess(runner.input_width, runner.input_height)
+    runner._cpp_convert_fn = convert_cpp_face3d
 
 
 def main():
@@ -36,6 +53,7 @@ def main():
         runner_cls=SyncRunner,
         description="3ddfa-v2_mobilenet-0.5_120x120 sync_cpp_postprocess inference",
         fixed_variant=_FIXED_VARIANT,
+        on_engine_init=on_engine_init,
     )
 
 

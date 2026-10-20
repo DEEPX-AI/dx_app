@@ -5,6 +5,24 @@
 #include <iostream>
 #include <numeric>
 
+namespace {
+
+// True when the network already ends in softmax: every value >= -1e-4 and the
+// sum within 1e-3 of 1. Same tolerances as detail::IsAlreadyDistribution() in
+// the C++ example and _is_already_distribution() in the Python postprocessor,
+// so all three report the same confidences.
+bool is_already_distribution(const float* data, int size) {
+    if (size <= 0) return false;
+    double sum = 0.0;
+    for (int i = 0; i < size; ++i) {
+        if (data[i] < -1e-4f) return false;
+        sum += data[i];
+    }
+    return std::fabs(sum - 1.0) <= 1e-3;
+}
+
+}  // namespace
+
 ClassificationPostProcess::ClassificationPostProcess(int top_k)
     : top_k_(top_k) {}
 
@@ -60,17 +78,24 @@ std::vector<ClassificationResult> ClassificationPostProcess::postprocess(
         return {ClassificationResult(class_id, 1.0f)};
     }
 
-    // Apply softmax
-    std::vector<float> probabilities = apply_softmax(data, num_classes);
+    // Apply softmax unless the network already did
+    std::vector<float> probabilities =
+        is_already_distribution(data, num_classes)
+            ? std::vector<float>(data, data + num_classes)
+            : apply_softmax(data, num_classes);
 
     // Get top-K indices
     std::vector<int> indices(num_classes);
     std::iota(indices.begin(), indices.end(), 0);
 
+    // Ties go to the lower class id, like the Python postprocessor's stable sort.
     int k = std::min(top_k_, num_classes);
     std::partial_sort(indices.begin(), indices.begin() + k, indices.end(),
                       [&probabilities](int a, int b) {
-                          return probabilities[a] > probabilities[b];
+                          if (probabilities[a] != probabilities[b]) {
+                              return probabilities[a] > probabilities[b];
+                          }
+                          return a < b;
                       });
 
     std::vector<ClassificationResult> results;
