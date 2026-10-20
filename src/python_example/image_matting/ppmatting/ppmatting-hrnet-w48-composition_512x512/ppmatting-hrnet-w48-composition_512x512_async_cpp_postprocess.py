@@ -2,8 +2,9 @@
 # Copyright (C) 2018- DEEPX Ltd. All rights reserved.
 """ppmatting-hrnet-w48-composition_512x512 async_cpp_postprocess inference.
 
-dx_postprocess has no C++ binding for ``PPMattingPostprocessor`` yet, so this variant
-runs the same Python postprocessor as ``ppmatting-hrnet-w48-composition_512x512_async.py``.
+Post-processing runs in C++ through the dx_postprocess pybind11 module
+(``PPMattingPostProcess``) instead of the Python postprocessor that
+``ppmatting-hrnet-w48-composition_512x512_async.py`` uses.
 
 The variant is fixed to this folder. Run it from here with no PYTHONPATH::
 
@@ -25,11 +26,28 @@ from common.runner.entry import install_import_paths, run_entry
 
 install_import_paths(_script)
 
+from common.utility import convert_cpp_ppmatting
+from functools import partial
 from factory import PpmattingFactory
 from common.runner import AsyncRunner
 
 # Directory name is the .dxnn stem this script always builds.
 _FIXED_VARIANT = "ppmatting-hrnet-w48-composition_512x512"
+
+
+def on_engine_init(runner):
+    """Swap the Python postprocessor for the C++ one from dx_postprocess.
+
+    Imported here rather than at module level so ``--help`` works before
+    the pybind11 module is built (``./build.sh``).
+    """
+    from dx_postprocess import PPMattingPostProcess
+
+    runner._cpp_postprocessor = PPMattingPostProcess(runner.input_width, runner.input_height)
+    # The resize to the image happens in the convert step: dx_postprocess has no OpenCV.
+    runner._cpp_convert_fn = partial(
+        convert_cpp_ppmatting,
+        alpha_threshold=float(runner.factory.config.get("alpha_threshold", 0.5)))
 
 
 def main():
@@ -39,6 +57,7 @@ def main():
         runner_cls=AsyncRunner,
         description="ppmatting-hrnet-w48-composition_512x512 async_cpp_postprocess inference",
         fixed_variant=_FIXED_VARIANT,
+        on_engine_init=on_engine_init,
     )
 
 

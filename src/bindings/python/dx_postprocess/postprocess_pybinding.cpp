@@ -53,6 +53,11 @@
 #include "attribute_postprocess.h"
 #include "sfa3d_postprocess.h"
 #include "anomaly_postprocess.h"
+#include "rtdetr_postprocess.h"
+#include "preopt_topk_postprocess.h"
+#include "picodet_postprocess.h"
+#include "ppmatting_postprocess.h"
+#include "clip_text_postprocess.h"
 
 namespace py = pybind11;
 
@@ -70,9 +75,12 @@ dxrt::TensorPtrs numpy_to_dxrt_tensors(py::list ie_output, const std::vector<dxr
             dtype = force_dtypes[i];
         } else if (info.format == py::format_descriptor<float>::format()) {
             dtype = dxrt::DataType::FLOAT;
-        } else if (info.format == py::format_descriptor<int32_t>::format()) {
+        } else if (info.format == py::format_descriptor<int32_t>::format() ||
+                   (info.format == "l" && info.itemsize == 4)) {
             dtype = dxrt::DataType::INT32;
-        } else if (info.format == py::format_descriptor<int64_t>::format()) {
+        } else if (info.format == py::format_descriptor<int64_t>::format() ||
+                   ((info.format == "l" || info.format == "q") && info.itemsize == 8)) {
+            // numpy spells a 64-bit int64 "l" on LP64 platforms, not "q".
             dtype = dxrt::DataType::INT64;
         } else if (info.format == py::format_descriptor<uint8_t>::format()) {
             dtype = dxrt::DataType::UINT8;
@@ -1166,6 +1174,96 @@ py::tuple anomaly_result_to_python(const AnomalyMapResult& result) {
     return py::make_tuple(anomaly_map, result.score, result.channels);
 }
 
+// --- RT-DETR result converter ---
+// Returns [N, 6] float32: x1, y1, x2, y2 (model-input pixels), score, class_id
+py::array_t<float> rtdetr_results_to_numpy(const std::vector<RTDETRResult>& results) {
+    const size_t num_results = results.size();
+    if (num_results == 0) {
+        return py::array_t<float>(std::vector<py::ssize_t>{0, 6});
+    }
+    py::array_t<float> detections(std::vector<py::ssize_t>{static_cast<py::ssize_t>(num_results), 6});
+    auto buf = detections.mutable_unchecked<2>();
+    for (size_t i = 0; i < num_results; ++i) {
+        const auto& result = results[i];
+        buf(i, 0) = result.box[0];
+        buf(i, 1) = result.box[1];
+        buf(i, 2) = result.box[2];
+        buf(i, 3) = result.box[3];
+        buf(i, 4) = result.confidence;
+        buf(i, 5) = static_cast<float>(result.class_id);
+    }
+    return detections;
+}
+
+// --- mask-RT-DETR result converter ---
+// Returns tuple(detections[N, 6], masks[N, H, W] float32 probabilities at the mask resolution)
+py::tuple mask_rtdetr_results_to_python(const std::vector<MaskRTDETRResult>& results) {
+    const size_t n = results.size();
+    py::array_t<float> detections(std::vector<py::ssize_t>{static_cast<py::ssize_t>(n), 6});
+    const int h = n ? results[0].mask_height : 0;
+    const int w = n ? results[0].mask_width : 0;
+    py::array_t<float> masks(std::vector<py::ssize_t>{static_cast<py::ssize_t>(n),
+                                                      static_cast<py::ssize_t>(h),
+                                                      static_cast<py::ssize_t>(w)});
+    if (n == 0) return py::make_tuple(detections, masks);  // (0, 6) and (0, 0, 0): nothing to fill
+    auto det = detections.mutable_unchecked<2>();
+    auto mask = masks.mutable_unchecked<3>();
+    for (size_t i = 0; i < n; ++i) {
+        const auto& d = results[i].detection;
+        det(i, 0) = d.box[0]; det(i, 1) = d.box[1]; det(i, 2) = d.box[2]; det(i, 3) = d.box[3];
+        det(i, 4) = d.confidence; det(i, 5) = static_cast<float>(d.class_id);
+        const float* src = results[i].mask.data();
+        for (int y = 0; y < h; ++y)
+            for (int x = 0; x < w; ++x)
+                mask(i, y, x) = src[static_cast<size_t>(y) * w + x];
+    }
+    return py::make_tuple(detections, masks);
+}
+
+// --- pre-optimized top-k result converter ---
+// Returns [N, 6 + 3 * num_keypoints]: x1, y1, x2, y2, score, class_id, (x, y, visibility)...
+py::array_t<float> preopt_results_to_numpy(const std::vector<PreoptResult>& results, int num_keypoints) {
+    const size_t n = results.size();
+    const py::ssize_t cols = 6 + 3 * num_keypoints;
+    py::array_t<float> table(std::vector<py::ssize_t>{static_cast<py::ssize_t>(n), cols});
+    if (n == 0) return table;
+    auto buf = table.mutable_unchecked<2>();
+    for (size_t i = 0; i < n; ++i) {
+        const auto& r = results[i];
+        buf(i, 0) = r.box[0]; buf(i, 1) = r.box[1]; buf(i, 2) = r.box[2]; buf(i, 3) = r.box[3];
+        buf(i, 4) = r.confidence; buf(i, 5) = static_cast<float>(r.class_id);
+        for (py::ssize_t k = 0; k < cols - 6; ++k) buf(i, 6 + k) = r.keypoints[static_cast<size_t>(k)];
+    }
+    return table;
+}
+
+// --- PicoDet result converter ---
+// Returns [N, 6]: x1, y1, x2, y2 (model-input pixels), score, class_id
+py::array_t<float> picodet_results_to_numpy(const std::vector<PicoDetResult>& results) {
+    const size_t n = results.size();
+    py::array_t<float> detections(std::vector<py::ssize_t>{static_cast<py::ssize_t>(n), 6});
+    if (n == 0) return detections;
+    auto buf = detections.mutable_unchecked<2>();
+    for (size_t i = 0; i < n; ++i) {
+        const auto& r = results[i];
+        buf(i, 0) = r.box[0]; buf(i, 1) = r.box[1]; buf(i, 2) = r.box[2]; buf(i, 3) = r.box[3];
+        buf(i, 4) = r.confidence; buf(i, 5) = static_cast<float>(r.class_id);
+    }
+    return detections;
+}
+
+// --- PP-Matting result converter ---
+// Returns the alpha matte [H, W] float32 in [0, 1] at the model's output resolution
+py::array_t<float> ppmatting_result_to_numpy(const PPMattingResult& result) {
+    py::array_t<float> alpha(std::vector<py::ssize_t>{static_cast<py::ssize_t>(result.height),
+                                                      static_cast<py::ssize_t>(result.width)});
+    auto buf = alpha.mutable_unchecked<2>();
+    for (int y = 0; y < result.height; ++y)
+        for (int x = 0; x < result.width; ++x)
+            buf(y, x) = result.alpha[static_cast<size_t>(y) * result.width + x];
+    return alpha;
+}
+
 PYBIND11_MODULE(dx_postprocess, m)
 {
     py::class_<YOLOv5PostProcess>(m, "YOLOv5PostProcess")
@@ -2224,4 +2322,134 @@ PYBIND11_MODULE(dx_postprocess, m)
             return anomaly_result_to_python(result);
         }, py::arg("ie_output"))
         .def("get_score_percentile", &AnomalyFeaturePostProcess::get_score_percentile);
+
+    // --- RT-DETR (v1 / v2 / v3) ---
+    py::class_<RTDETRPostProcess>(m, "RTDETRPostProcess")
+        .def(py::init<int, int, float, float, int, const std::string&>(),
+             py::arg("input_w"),
+             py::arg("input_h"),
+             py::arg("score_threshold") = 0.4f,
+             py::arg("nms_threshold") = 1.0f,
+             py::arg("top_k") = 300,
+             py::arg("layout") = "auto")
+        .def("postprocess", [](RTDETRPostProcess& self, py::list ie_output) {
+            auto tensors = numpy_to_dxrt_tensors(ie_output);
+            std::vector<RTDETRResult> results;
+            {
+                py::gil_scoped_release release;
+                results = self.postprocess(tensors);
+            }
+            return rtdetr_results_to_numpy(results);
+        }, py::arg("ie_output"))
+        .def("get_input_width", &RTDETRPostProcess::get_input_width)
+        .def("get_input_height", &RTDETRPostProcess::get_input_height)
+        .def("get_score_threshold", &RTDETRPostProcess::get_score_threshold)
+        .def("get_nms_threshold", &RTDETRPostProcess::get_nms_threshold)
+        .def("get_top_k", &RTDETRPostProcess::get_top_k)
+        .def("get_layout", &RTDETRPostProcess::get_layout);
+
+    py::class_<MaskRTDETRPostProcess>(m, "MaskRTDETRPostProcess")
+        .def(py::init<int, int, float, float, int, const std::string&>(),
+             py::arg("input_w"),
+             py::arg("input_h"),
+             py::arg("score_threshold") = 0.4f,
+             py::arg("nms_threshold") = 1.0f,
+             py::arg("top_k") = 300,
+             py::arg("layout") = "auto")
+        .def("postprocess", [](MaskRTDETRPostProcess& self, py::list ie_output) {
+            auto tensors = numpy_to_dxrt_tensors(ie_output);
+            std::vector<MaskRTDETRResult> results;
+            {
+                py::gil_scoped_release release;
+                results = self.postprocess(tensors);
+            }
+            return mask_rtdetr_results_to_python(results);
+        }, py::arg("ie_output"))
+        .def("get_input_width", &MaskRTDETRPostProcess::get_input_width)
+        .def("get_input_height", &MaskRTDETRPostProcess::get_input_height)
+        .def("get_score_threshold", &MaskRTDETRPostProcess::get_score_threshold)
+        .def("get_nms_threshold", &MaskRTDETRPostProcess::get_nms_threshold)
+        .def("get_top_k", &MaskRTDETRPostProcess::get_top_k)
+        .def("get_layout", &MaskRTDETRPostProcess::get_layout);
+
+    // --- Pre-optimized YOLO (top-k table): detection and pose ---
+    py::class_<PreoptTopKPostProcess>(m, "PreoptTopKPostProcess")
+        .def(py::init<int, int, float, float, int, int>(),
+             py::arg("input_w"),
+             py::arg("input_h"),
+             py::arg("score_threshold") = 0.3f,
+             py::arg("nms_threshold") = 0.45f,
+             py::arg("top_k") = 300,
+             py::arg("num_keypoints") = 0)
+        .def("postprocess", [](PreoptTopKPostProcess& self, py::list ie_output) {
+            auto tensors = numpy_to_dxrt_tensors(ie_output);
+            std::vector<PreoptResult> results;
+            {
+                py::gil_scoped_release release;
+                results = self.postprocess(tensors);
+            }
+            return preopt_results_to_numpy(results, self.get_num_keypoints());
+        }, py::arg("ie_output"))
+        .def("get_input_width", &PreoptTopKPostProcess::get_input_width)
+        .def("get_input_height", &PreoptTopKPostProcess::get_input_height)
+        .def("get_score_threshold", &PreoptTopKPostProcess::get_score_threshold)
+        .def("get_nms_threshold", &PreoptTopKPostProcess::get_nms_threshold)
+        .def("get_top_k", &PreoptTopKPostProcess::get_top_k)
+        .def("get_num_keypoints", &PreoptTopKPostProcess::get_num_keypoints);
+
+    // --- PP-PicoDet (PP-ShiTu mainbody detection) ---
+    py::class_<PicoDetPostProcess>(m, "PicoDetPostProcess")
+        .def(py::init<int, int, float, float, int>(),
+             py::arg("input_w"),
+             py::arg("input_h"),
+             py::arg("score_threshold") = 0.3f,
+             py::arg("nms_threshold") = 0.5f,
+             py::arg("num_classes") = 1)
+        .def("postprocess", [](PicoDetPostProcess& self, py::list ie_output) {
+            auto tensors = numpy_to_dxrt_tensors(ie_output);
+            std::vector<PicoDetResult> results;
+            {
+                py::gil_scoped_release release;
+                results = self.postprocess(tensors);
+            }
+            return picodet_results_to_numpy(results);
+        }, py::arg("ie_output"))
+        .def("get_input_width", &PicoDetPostProcess::get_input_width)
+        .def("get_input_height", &PicoDetPostProcess::get_input_height)
+        .def("get_score_threshold", &PicoDetPostProcess::get_score_threshold)
+        .def("get_nms_threshold", &PicoDetPostProcess::get_nms_threshold)
+        .def("get_num_classes", &PicoDetPostProcess::get_num_classes);
+
+    // --- PP-Matting ---
+    py::class_<PPMattingPostProcess>(m, "PPMattingPostProcess")
+        .def(py::init<int, int>(),
+             py::arg("input_w") = 512,
+             py::arg("input_h") = 512)
+        .def("postprocess", [](PPMattingPostProcess& self, py::list ie_output) {
+            auto tensors = numpy_to_dxrt_tensors(ie_output);
+            PPMattingResult result;
+            {
+                py::gil_scoped_release release;
+                result = self.postprocess(tensors);
+            }
+            return ppmatting_result_to_numpy(result);
+        }, py::arg("ie_output"))
+        .def("get_input_width", &PPMattingPostProcess::get_input_width)
+        .def("get_input_height", &PPMattingPostProcess::get_input_height);
+
+    // --- CLIP text encoder ---
+    py::class_<CLIPTextPostProcess>(m, "CLIPTextPostProcess")
+        .def(py::init<bool>(), py::arg("normalize") = true)
+        .def("postprocess", [](CLIPTextPostProcess& self, py::list ie_output) {
+            auto tensors = numpy_to_dxrt_tensors(ie_output);
+            std::vector<float> embedding;
+            {
+                py::gil_scoped_release release;
+                embedding = self.postprocess(tensors);
+            }
+            py::array_t<float> out(static_cast<py::ssize_t>(embedding.size()));
+            std::copy(embedding.begin(), embedding.end(), out.mutable_data());
+            return out;
+        }, py::arg("ie_output"))
+        .def("get_normalize", &CLIPTextPostProcess::get_normalize);
 }

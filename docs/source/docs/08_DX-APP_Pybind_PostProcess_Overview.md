@@ -36,9 +36,9 @@ The SDK follows a **Single Source of Truth** strategy to ensure reliability acro
 
 ### Supported Models & Tasks
 
-The library wraps the C++ post-processing classes listed below with pybind11 bindings, ensuring consistent results between C++ and Python implementations.  
+The library wraps **58 C++ post-processing classes** with pybind11 bindings, ensuring consistent results between C++ and Python implementations.  
 
-- **Object Detection:** YOLOv5, YOLOv7, YOLOv8, YOLOv9, YOLOv10, YOLOv11, YOLOv12, YOLOv26, YOLOX, NanoDet, DAMOYOLO, SSD, CenterPose, EfficientDet, YOLACT  
+- **Object Detection:** YOLOv5, YOLOv7, YOLOv8, YOLOv9, YOLOv10, YOLOv11, YOLOv12, YOLOv26, YOLOX, NanoDet, DAMOYOLO, SSD, CenterPose, EfficientDet, YOLACT, RT-DETR (v1/v2/v3), PP-PicoDet (PP-ShiTu mainbody), YOLO26 pre-optimized (top-k table; detection and pose)  
 - **Face Detection:** SCRFD, YOLOv5Face, RetinaFace, ULFGFD, Face3D  
 - **Pose Estimation:** YOLOv5Pose, YOLOv8Pose, VitPose  
 - **Keypoint Detection:** SuperPoint  
@@ -47,14 +47,15 @@ The library wraps the C++ post-processing classes listed below with pybind11 bin
 - **Panoptic Driving Perception:** YOLOPv2  
 - **Hand Detection:** MediaPipe Hand  
 - **Semantic Segmentation:** DeepLabV3, SemanticSeg (BiSeNet/SegFormer)  
-- **Instance Segmentation:** YOLOv5Seg, YOLOv8Seg  
+- **Instance Segmentation:** YOLOv5Seg, YOLOv8Seg, mask-RT-DETR  
+- **Image Matting:** PP-Matting (alpha matte at the model resolution; the examples resize it)  
 - **OBB Detection:** YOLOv26-OBB  
 - **Classification:** EfficientNet-family  
 - **Depth Estimation:** DepthPostProcess (FastDepth, SCDepth)  
 - **Image Denoising:** DnCNN  
 - **Super Resolution:** ESPCN, RealESRGAN  
 - **Image Enhancement:** Zero-DCE  
-- **Embedding:** ArcFace  
+- **Embedding:** ArcFace, CLIP text encoder  
 - **Hand Landmark:** HandLandmark  
 - **Anomaly Detection:** EfficientAD (teacher + student + autoencoder outputs), AnomalyFeature (PatchCore backbone response). Both return the anomaly map at feature-map resolution; the Python examples resize it to the image with OpenCV.  
 - **PPU Variants:** YOLOv5-PPU, YOLOv7-PPU, YOLOv8-PPU, SCRFD-PPU, YOLOv5Pose-PPU, YOLOX-PPU, YOLOv3Tiny-PPU. `SCRFD-PPU` and `YOLOv5Pose-PPU` are postprocess classes only; `SCRFD500M_PPU` and `YOLOV5Pose_PPU` are not registered examples.  
@@ -119,9 +120,6 @@ python src/python_example/object_detection/yolov9/yolov9-s_640x640/yolov9-s_640x
 
 Each `*_cpp_postprocess.py` script defines an `on_engine_init(runner)` callback and passes it to `run_entry()`. Once the engine reports the model input size, the callback creates the model's `dx_postprocess` class (for example `YOLOv8PostProcess` or `ClassificationPostProcess`) and sets it as `runner._cpp_postprocessor`, so the C++ class replaces the Python postprocessor. `dx_postprocess` is imported inside the callback, so `--help` works before the module is built.  
 
-!!! note "NOTE"  
-
-    The following Python postprocessors have no C++ binding yet. Their `*_cpp_postprocess.py` scripts run the same Python postprocessor as the matching `*_sync.py` / `*_async.py` scripts, and their docstrings say so: `CLIPTextPostprocessor`, `MaskRTDETRPostprocessor`, `PPMattingPostprocessor`, `PicoDetPostprocessor` (PP-ShiTu mainbody detection), `PreoptDetectionPostprocessor` / `PreoptPosePostprocessor` (YOLO26 pre-optimized) and `RTDETRPostprocessor`.  
 
 ### Direct API Call  
 

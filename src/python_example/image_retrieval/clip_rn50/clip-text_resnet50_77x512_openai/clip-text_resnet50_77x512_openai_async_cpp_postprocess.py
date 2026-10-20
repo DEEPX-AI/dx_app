@@ -2,8 +2,9 @@
 # Copyright (C) 2018- DEEPX Ltd. All rights reserved.
 """clip-text_resnet50_77x512_openai async_cpp_postprocess inference.
 
-dx_postprocess has no C++ binding for ``CLIPTextPostprocessor`` yet, so this variant
-runs the same Python postprocessor as ``clip-text_resnet50_77x512_openai_async.py``.
+Post-processing runs in C++ through the dx_postprocess pybind11 module
+(``CLIPTextPostProcess``) instead of the Python postprocessor that
+``clip-text_resnet50_77x512_openai_async.py`` uses.
 
 The variant is fixed to this folder. Run it from here with no PYTHONPATH::
 
@@ -25,11 +26,25 @@ from common.runner.entry import install_import_paths, run_entry
 
 install_import_paths(_script)
 
+from common.utility import convert_cpp_text_embedding
 from factory import ClipFactory
 from common.runner import AsyncRunner
 
 # Directory name is the .dxnn stem this script always builds.
 _FIXED_VARIANT = "clip-text_resnet50_77x512_openai"
+
+
+def on_engine_init(runner):
+    """Swap the Python postprocessor for the C++ one from dx_postprocess.
+
+    Imported here rather than at module level so ``--help`` works before
+    the pybind11 module is built (``./build.sh``).
+    """
+    from dx_postprocess import CLIPTextPostProcess
+
+    runner._cpp_postprocessor = CLIPTextPostProcess(
+        bool(runner.factory.config.get("normalize", True)))
+    runner._cpp_convert_fn = convert_cpp_text_embedding
 
 
 def main():
@@ -39,6 +54,7 @@ def main():
         runner_cls=AsyncRunner,
         description="clip-text_resnet50_77x512_openai async_cpp_postprocess inference",
         fixed_variant=_FIXED_VARIANT,
+        on_engine_init=on_engine_init,
     )
 
 
