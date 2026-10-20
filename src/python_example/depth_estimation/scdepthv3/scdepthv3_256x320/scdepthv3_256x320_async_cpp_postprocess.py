@@ -2,6 +2,10 @@
 # Copyright (C) 2018- DEEPX Ltd. All rights reserved.
 """scdepthv3_256x320 async_cpp_postprocess inference.
 
+Post-processing runs in C++ through the dx_postprocess pybind11 module
+(``DepthPostProcess``) instead of the Python postprocessor that
+``scdepthv3_256x320_async.py`` uses.
+
 The variant is fixed to this folder. Run it from here with no PYTHONPATH::
 
     python scdepthv3_256x320_async_cpp_postprocess.py -i <image>
@@ -22,11 +26,26 @@ from common.runner.entry import install_import_paths, run_entry
 
 install_import_paths(_script)
 
+from common.utility.visualization import depth_cpp_visualize
 from factory import Scdepthv3Factory
 from common.runner import AsyncRunner
 
 # Directory name is the .dxnn stem this script always builds.
 _FIXED_VARIANT = "scdepthv3_256x320"
+
+
+def on_engine_init(runner):
+    """Swap the Python postprocessor for the C++ one from dx_postprocess.
+
+    Imported here rather than at module level so ``--help`` works before
+    the pybind11 module is built (``./build.sh``).
+    """
+    from dx_postprocess import DepthPostProcess
+
+    input_w = runner.input_width
+    input_h = runner.input_height
+    runner._cpp_postprocessor = DepthPostProcess(input_w, input_h)
+    runner._cpp_visualize_fn = depth_cpp_visualize
 
 
 def main():
@@ -36,6 +55,7 @@ def main():
         runner_cls=AsyncRunner,
         description="scdepthv3_256x320 async_cpp_postprocess inference",
         fixed_variant=_FIXED_VARIANT,
+        on_engine_init=on_engine_init,
     )
 
 

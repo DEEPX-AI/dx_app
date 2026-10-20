@@ -2,6 +2,9 @@
 # Copyright (C) 2018- DEEPX Ltd. All rights reserved.
 """clip-text_resnet50_77x512_openai async_cpp_postprocess inference.
 
+dx_postprocess has no C++ binding for ``CLIPTextPostprocessor`` yet, so this variant
+runs the same Python postprocessor as ``clip-text_resnet50_77x512_openai_async.py``.
+
 The variant is fixed to this folder. Run it from here with no PYTHONPATH::
 
     python clip-text_resnet50_77x512_openai_async_cpp_postprocess.py -i <image>

@@ -13,6 +13,7 @@ from common.variant_config import (
     build_processor,
     default_variant,
     load_variant_config,
+    with_config_aliases,
 )
 import importlib.util as _ilu
 
@@ -38,7 +39,8 @@ class Yolov7Factory(IDetectionFactory):
         # Variants whose arguments are computed rather than literal delegate to the
         # family's custom_ops.py, which holds their original factory verbatim.
         if self.variant in custom_ops.FACTORIES:
-            delegate = custom_ops.FACTORIES[self.variant](self.config)
+            delegate = custom_ops.FACTORIES[self.variant](
+                with_config_aliases(self.config))
             if role == "visualizer":
                 return delegate.create_visualizer()
             return getattr(delegate, "create_" + role)(input_width, input_height)

@@ -12,14 +12,17 @@ from .i_processor import IPreprocessor, IPostprocessor
 from .i_visualizer import IVisualizer
 
 
+# Alias mapping so that a single config.json works for both C++ and Python.
+# C++ uses 'score_threshold'; Python postprocessors use 'conf_threshold'.
+CONFIG_ALIASES = {
+    "score_threshold": "conf_threshold",
+}
+
+
 class _FactoryConfigMixin:
     """Mixin providing load_config() for all factory interfaces."""
 
-    # Alias mapping so that a single config.json works for both C++ and Python.
-    # C++ uses 'score_threshold'; Python postprocessors use 'conf_threshold'.
-    _CONFIG_ALIASES = {
-        "score_threshold": "conf_threshold",
-    }
+    _CONFIG_ALIASES = CONFIG_ALIASES
 
     def load_config(self, config: dict) -> None:
         """

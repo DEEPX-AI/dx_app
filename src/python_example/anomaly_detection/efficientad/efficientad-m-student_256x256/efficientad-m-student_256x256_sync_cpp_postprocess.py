@@ -2,6 +2,10 @@
 # Copyright (C) 2018- DEEPX Ltd. All rights reserved.
 """efficientad-m-student_256x256 sync_cpp_postprocess inference.
 
+Post-processing runs in C++ through the dx_postprocess pybind11 module
+(``EfficientADPostProcess``) instead of the Python postprocessor that
+``efficientad-m-student_256x256_sync.py`` uses.
+
 The variant is fixed to this folder. Run it from here with no PYTHONPATH::
 
     python efficientad-m-student_256x256_sync_cpp_postprocess.py -i <image>
@@ -22,11 +26,31 @@ from common.runner.entry import install_import_paths, run_entry
 
 install_import_paths(_script)
 
+from common.utility import convert_cpp_efficientad
 from factory import EfficientadFactory
 from common.runner import SyncRunner
 
 # Directory name is the .dxnn stem this script always builds.
 _FIXED_VARIANT = "efficientad-m-student_256x256"
+
+
+def on_engine_init(runner):
+    """Swap the Python postprocessor for the C++ one from dx_postprocess.
+
+    Imported here rather than at module level so ``--help`` works before
+    the pybind11 module is built (``./build.sh``).
+    """
+    from dx_postprocess import EfficientADPostProcess
+
+    config = runner.factory.config
+    # Teacher and autoencoder are both 384-channel, so config.roles names the
+    # outputs in arrival order, as EfficientADPostprocessor reads it.
+    runner._cpp_postprocessor = EfficientADPostProcess(
+        [str(r) for r in (config.get("roles") or [])],
+        float(config.get("st_weight", 0.5)),
+        float(config.get("ae_weight", 0.5)),
+        float(config.get("score_percentile", 99.0)))
+    runner._cpp_convert_fn = convert_cpp_efficientad
 
 
 def main():
@@ -36,6 +60,7 @@ def main():
         runner_cls=SyncRunner,
         description="efficientad-m-student_256x256 sync_cpp_postprocess inference",
         fixed_variant=_FIXED_VARIANT,
+        on_engine_init=on_engine_init,
     )
 
 

@@ -7,8 +7,9 @@
  *   1. Auto-identify tensors by channel count and mean magnitude.
  *   2. 3×3 max-pool pseudo-NMS on center heatmap.
  *   3. Extract top-K peaks above score_threshold.
- *   4. Decode center (x,y), bbox (w/h), and 8 corner keypoints.
- *   5. IoU-NMS on decoded bounding boxes.
+ *   4. Decode center (x,y), bbox (w/h), and K keypoints from the hps offsets.
+ *   5. Snap each keypoint onto its hm_hp peak near the centre, when present.
+ *   6. IoU-NMS on decoded bounding boxes.
  *
  * Coordinate output: model-input pixel space [0, input_w] × [0, input_h].
  */
@@ -154,6 +155,65 @@ static std::vector<float> decode_peak_keypoints(
     return lm;
 }
 
+// 3×3 local-maximum filter of one keypoint heatmap plane, as the Python
+// CenterPosePostprocessor._heatmap_nms_2d computes it: the max-pool starts from
+// 0, so a pixel survives only if it is its neighbourhood's maximum and >= 0.
+static std::vector<float> keypoint_peak_plane(const float* plane, int H, int W) {
+    std::vector<float> peaks(static_cast<size_t>(H) * W, 0.0f);
+    for (int y = 0; y < H; ++y) {
+        for (int x = 0; x < W; ++x) {
+            float mx = 0.0f;
+            for (int dy = -1; dy <= 1; ++dy) {
+                int ny = y + dy;
+                if (ny < 0 || ny >= H) continue;
+                for (int dx = -1; dx <= 1; ++dx) {
+                    int nx = x + dx;
+                    if (nx < 0 || nx >= W) continue;
+                    mx = std::max(mx, plane[ny * W + nx]);
+                }
+            }
+            float v = plane[y * W + x];
+            peaks[y * W + x] = (v == mx) ? v : 0.0f;
+        }
+    }
+    return peaks;
+}
+
+// Replace each regressed keypoint with the strongest peak of its hm_hp plane in
+// a square of radius max(2, bw / stride / 2) cells around the centre cell, when
+// that peak exceeds 0.1. The snapped position is the peak cell times the stride.
+// Mirrors CenterPosePostprocessor._refine_keypoints_with_hm_hp so the C++ and
+// Python results agree.
+static void refine_keypoints_with_hm_hp(
+    const std::vector<std::vector<float>>& kp_peaks, int H, int W,
+    int ys, int xs, float bw, float stride_f, std::vector<float>& lm) {
+    int search_r = std::max(2, static_cast<int>(bw / stride_f / 2.0f));
+    int y1 = std::max(0, ys - search_r);
+    int y2 = std::min(H, ys + search_r + 1);
+    int x1 = std::max(0, xs - search_r);
+    int x2 = std::min(W, xs + search_r + 1);
+    if (y1 >= y2 || x1 >= x2) return;
+    for (size_t ki = 0; ki < kp_peaks.size(); ++ki) {
+        const float* plane = kp_peaks[ki].data();
+        float best = -std::numeric_limits<float>::infinity();
+        int best_y = y1;
+        int best_x = x1;
+        for (int y = y1; y < y2; ++y) {
+            for (int x = x1; x < x2; ++x) {
+                if (plane[y * W + x] > best) {  // first maximum, like np.argmax
+                    best = plane[y * W + x];
+                    best_y = y;
+                    best_x = x;
+                }
+            }
+        }
+        if (best > 0.1f) {
+            lm[ki * 3]     = static_cast<float>(best_x) * stride_f;
+            lm[ki * 3 + 1] = static_cast<float>(best_y) * stride_f;
+        }
+    }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // postprocess
 // ─────────────────────────────────────────────────────────────────────────────
@@ -242,6 +302,20 @@ std::vector<CenterPoseResult> CenterPosePostProcess::postprocess(
 
     float stride_f = static_cast<float>(stride_);
 
+    // Per-keypoint heatmap peaks for the refinement step (skipped without hm_hp).
+    std::vector<std::vector<float>> kp_peaks;
+    if (hmhp_tensor != nullptr) {
+        auto hp_sh = hmhp_tensor->shape();
+        int hp_c = static_cast<int>(hp_sh[hp_sh.size() - 3]);
+        if (static_cast<int>(hp_sh[hp_sh.size() - 2]) == H &&
+            static_cast<int>(hp_sh[hp_sh.size() - 1]) == W) {
+            const float* hp_data = static_cast<const float*>(hmhp_tensor->data());
+            for (int ki = 0; ki < std::min(K, hp_c); ++ki) {
+                kp_peaks.push_back(keypoint_peak_plane(hp_data + ki * HW, H, W));
+            }
+        }
+    }
+
     std::vector<CenterPoseResult> candidates;
     candidates.reserve(actual_top_k);
 
@@ -272,6 +346,9 @@ std::vector<CenterPoseResult> CenterPosePostProcess::postprocess(
         // Decode K keypoints via helper (hps offsets from center)
         auto lm = decode_peak_keypoints(hps_data, K, K2, HW, W,
                                         ys, xs, cx, cy, stride_f);
+        if (!kp_peaks.empty()) {
+            refine_keypoints_with_hm_hp(kp_peaks, H, W, ys, xs, bw, stride_f, lm);
+        }
 
         candidates.push_back(CenterPoseResult({x1, y1, x2, y2}, score, cls, std::move(lm)));
     }

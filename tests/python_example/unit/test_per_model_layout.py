@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -80,6 +81,63 @@ def test_each_python_model_folder_has_thin_entry_scripts(registry):
             if "_peek_variant" in text:
                 missing.append(f"{script.relative_to(PROJECT_ROOT)} still inlines peek")
     assert not missing, "\n  ".join(missing[:20])
+
+
+# Python postprocessors dx_postprocess has no C++ binding for. Their
+# *_cpp_postprocess scripts keep the Python postprocessor and say so.
+PYTHON_ONLY_POSTPROCESSORS = {
+    "CLIPTextPostprocessor",
+    "MaskRTDETRPostprocessor",
+    "PPMattingPostprocessor",
+    "PicoDetPostprocessor",
+    "PreoptDetectionPostprocessor",
+    "PreoptPosePostprocessor",
+    "RTDETRPostprocessor",
+}
+BINDING = PROJECT_ROOT / "src" / "bindings" / "python" / "dx_postprocess" / "postprocess_pybinding.cpp"
+
+
+def _cpp_postprocess_scripts() -> list[Path]:
+    root = PROJECT_ROOT / "src" / "python_example"
+    return sorted(root.glob("*/*/*/*_cpp_postprocess.py"))
+
+
+def test_cpp_postprocess_scripts_install_dx_postprocess():
+    """A *_cpp_postprocess script must run a dx_postprocess class (SR-835).
+
+    v3.3.0 regenerated these scripts without their ``on_engine_init``, so all
+    998 silently ran the Python postprocessor like the plain sync/async ones.
+    """
+    scripts = _cpp_postprocess_scripts()
+    assert scripts
+    wrong: list[str] = []
+    for script in scripts:
+        rel = script.relative_to(PROJECT_ROOT)
+        text = script.read_text(encoding="utf-8")
+        spec = json.loads((script.parent / "config.json").read_text(encoding="utf-8"))
+        pp_class = (spec.get("postprocessor") or {}).get("class")
+        if pp_class in PYTHON_ONLY_POSTPROCESSORS:
+            if "has no C++ binding" not in text:
+                wrong.append(f"{rel}: Python-only variant does not say so")
+            continue
+        if "from dx_postprocess import" not in text:
+            wrong.append(f"{rel}: does not import dx_postprocess")
+        if "on_engine_init=on_engine_init" not in text:
+            wrong.append(f"{rel}: does not pass on_engine_init to run_entry")
+    assert not wrong, "\n  ".join(wrong[:20])
+
+
+def test_cpp_postprocess_scripts_name_bound_classes():
+    bound = set(re.findall(r'py::class_<\w+>\(m, "(\w+)"', BINDING.read_text(encoding="utf-8")))
+    assert bound
+    unknown: list[str] = []
+    for script in _cpp_postprocess_scripts():
+        text = script.read_text(encoding="utf-8")
+        for names in re.findall(r"from dx_postprocess import ([\w, ]+)", text):
+            for name in (n.strip() for n in names.split(",")):
+                if name not in bound:
+                    unknown.append(f"{script.relative_to(PROJECT_ROOT)}: {name}")
+    assert not unknown, "\n  ".join(unknown[:20])
 
 
 def test_default_variant_is_first_published_model_folder(tmp_path):

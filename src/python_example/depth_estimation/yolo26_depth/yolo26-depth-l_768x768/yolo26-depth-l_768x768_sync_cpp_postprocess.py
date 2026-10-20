@@ -2,6 +2,10 @@
 # Copyright (C) 2018- DEEPX Ltd. All rights reserved.
 """yolo26-depth-l_768x768 sync_cpp_postprocess inference.
 
+Post-processing runs in C++ through the dx_postprocess pybind11 module
+(``DepthPostProcess``) instead of the Python postprocessor that
+``yolo26-depth-l_768x768_sync.py`` uses.
+
 The variant is fixed to this folder. Run it from here with no PYTHONPATH::
 
     python yolo26-depth-l_768x768_sync_cpp_postprocess.py -i <image>
@@ -22,11 +26,24 @@ from common.runner.entry import install_import_paths, run_entry
 
 install_import_paths(_script)
 
+from common.utility.visualization import depth_cpp_visualize
 from factory import Yolo26DepthFactory
 from common.runner import SyncRunner
 
 # Directory name is the .dxnn stem this script always builds.
 _FIXED_VARIANT = "yolo26-depth-l_768x768"
+
+
+def on_engine_init(runner):
+    """Swap the Python postprocessor for the C++ one from dx_postprocess.
+
+    Imported here rather than at module level so ``--help`` works before
+    the pybind11 module is built (``./build.sh``).
+    """
+    from dx_postprocess import DepthPostProcess
+
+    runner._cpp_postprocessor = DepthPostProcess(runner.input_width, runner.input_height)
+    runner._cpp_visualize_fn = depth_cpp_visualize
 
 
 def main():
@@ -36,6 +53,7 @@ def main():
         runner_cls=SyncRunner,
         description="yolo26-depth-l_768x768 sync_cpp_postprocess inference",
         fixed_variant=_FIXED_VARIANT,
+        on_engine_init=on_engine_init,
     )
 
 

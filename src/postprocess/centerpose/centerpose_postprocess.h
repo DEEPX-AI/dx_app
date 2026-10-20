@@ -48,7 +48,8 @@ struct CenterPoseResult {
  *   wh        [1, 2, H/4, W/4]  bbox width/height
  *   reg       [1, 2, H/4, W/4]  sub-pixel center offset
  *   hps/kps   [1, K*2, H/4, W/4]  K keypoint (x,y) offsets from center
- *   hm_hp     [1, K, H/4, W/4]   (optional) per-keypoint heatmaps
+ *   hm_hp     [1, K, H/4, W/4]   (optional) per-keypoint heatmaps; snaps
+ *                                each keypoint to its peak near the centre
  *   hp_offset [1, 2, H/4, W/4]   (optional) keypoint sub-pixel offset
  *
  * Tensors are auto-identified by channel count.

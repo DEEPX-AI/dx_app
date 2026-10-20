@@ -2,6 +2,10 @@
 # Copyright (C) 2018- DEEPX Ltd. All rights reserved.
 """realesrgan-x4_192x192 async_cpp_postprocess inference.
 
+Post-processing runs in C++ through the dx_postprocess pybind11 module
+(``RealESRGANPostProcess``) instead of the Python postprocessor that
+``realesrgan-x4_192x192_async.py`` uses.
+
 The variant is fixed to this folder. Run it from here with no PYTHONPATH::
 
     python realesrgan-x4_192x192_async_cpp_postprocess.py -i <image>
@@ -22,11 +26,25 @@ from common.runner.entry import install_import_paths, run_entry
 
 install_import_paths(_script)
 
+from common.utility import convert_cpp_restoration
 from factory import RealesrganFactory
 from common.runner import AsyncRunner
 
 # Directory name is the .dxnn stem this script always builds.
 _FIXED_VARIANT = "realesrgan-x4_192x192"
+
+
+def on_engine_init(runner):
+    """Swap the Python postprocessor for the C++ one from dx_postprocess.
+
+    Imported here rather than at module level so ``--help`` works before
+    the pybind11 module is built (``./build.sh``).
+    """
+    from dx_postprocess import RealESRGANPostProcess
+
+    runner._cpp_postprocessor = RealESRGANPostProcess(
+        runner.input_width, runner.input_height, scale_factor=4)
+    runner._cpp_convert_fn = convert_cpp_restoration
 
 
 def main():
@@ -36,6 +54,7 @@ def main():
         runner_cls=AsyncRunner,
         description="realesrgan-x4_192x192 async_cpp_postprocess inference",
         fixed_variant=_FIXED_VARIANT,
+        on_engine_init=on_engine_init,
     )
 
 

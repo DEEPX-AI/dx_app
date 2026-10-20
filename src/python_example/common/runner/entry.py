@@ -127,11 +127,16 @@ def run_entry(
     runner_cls,
     description: str,
     fixed_variant: str | None = None,
+    on_engine_init=None,
 ) -> None:
     """Parse the variant-shaped CLI and run one inference entry point.
 
     *fixed_variant* is set by per-model scripts. Family scripts pass ``None``
     and honour ``--variant`` / ``-m``, falling back to the family's default.
+
+    *on_engine_init* is forwarded to the runner. The ``*_cpp_postprocess``
+    scripts use it to install a ``dx_postprocess`` (C++) postprocessor once the
+    engine reports the model input size.
     """
     script_dir = install_import_paths(script_file)
     from common.runner.args import parse_common_args
@@ -149,4 +154,9 @@ def run_entry(
         include_output=cli.get("include_output", False),
         include_kitti_paths=cli.get("include_kitti_paths", False),
     )
-    runner_cls(factory_cls(variant=variant)).run(args)
+    factory = factory_cls(variant=variant)
+    if on_engine_init is None:
+        runner = runner_cls(factory)
+    else:
+        runner = runner_cls(factory, on_engine_init=on_engine_init)
+    runner.run(args)
