@@ -19,7 +19,7 @@
 - Fixed retrieval, re-id, and `--check` gallery paths that depended on the working directory
 - Fixed SuperPoint keypoints being drawn at the wrong vertical position in the C++ example
 - Fixed SuperPoint tracker settings (nn_thresh, max_pixel_dist, track_max_length) being ignored
-- Fixed `*_cpp_postprocess.py` Python examples running the Python postprocessor (RT-DETR, Mask RT-DETR, PP-Matting, CLIP text, PP-ShiTu mainbody, YOLO26 pre-optimized)
+- Fixed all 998 `*_cpp_postprocess.py` Python examples running the Python postprocessor instead of `dx_postprocess`: the layout regeneration had dropped their `on_engine_init`, so they behaved exactly like the plain sync/async scripts. Each installs its C++ class again, and `run_entry()` forwards `on_engine_init` to the runner
 - Fixed 3D object detection C++ runners printing errors and logs without the `[DXAPP]` prefix
 - Fixed `scripts/bench_models.sh` for the v3.3.0 layout: it read the 4-column `config/test_models.conf` as 3 columns and keyed models by family, so every row came out NO_MODEL; it now benchmarks each of the 497 variants
 
@@ -27,7 +27,10 @@
 - Multi-model graph engine and CLI `multi_model_graph_sync` / `multi_model_graph_async` (`--check`, `--list-models`, `--report`)
 - Registered 147 DX Model Zoo models, including RT-DETR, YOLOv12, YOLOv13, pre-optimized YOLO, anomaly detection, image matting, CLIP retrieval, person re-id, and visual place recognition
 - Sample galleries for re-id, image retrieval, and visual place recognition
-- `dx_postprocess.EfficientADPostProcess` and `AnomalyFeaturePostProcess` (52 pybind classes): the anomaly detection `*_cpp_postprocess.py` examples run their post-processing in C++
+- `dx_postprocess` classes for the eight postprocessors that had none (50 → 58 pybind classes): `EfficientADPostProcess`, `AnomalyFeaturePostProcess` (PatchCore), `RTDETRPostProcess` (RT-DETR v1/v2/v3), `MaskRTDETRPostProcess`, `PreoptTopKPostProcess` (YOLO26 pre-optimized detection and pose), `PicoDetPostProcess` (PP-ShiTu mainbody), `PPMattingPostProcess` and `CLIPTextPostProcess`. Anomaly maps, masks and alpha mattes come back at the model's resolution and the examples resize them, since the module has no OpenCV
+
+### 4. Removed
+- Ubuntu 18.04 support guide (Makefile, installation guide, `install_python_and_venv.sh`)
 
 ## DX-APP v3.2.2 / 2026-08-14
 

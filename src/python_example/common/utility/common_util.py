@@ -1256,3 +1256,79 @@ def convert_cpp_anomaly_feature(result_tuple, ctx=None, score_percentile: float 
     return [AnomalyResult(heatmap=heatmap,
                           score=float(np.percentile(heatmap, score_percentile)),
                           channels=int(channels))]
+
+
+def convert_cpp_text_embedding(embedding: np.ndarray, ctx=None) -> list:
+    """Convert C++ CLIPTextPostProcess output [D] to [EmbeddingResult]."""
+    from ..base import EmbeddingResult
+
+    vector = np.asarray(embedding, dtype=np.float32)
+    if vector.size == 0:
+        return []
+    return [EmbeddingResult(embedding=vector, model_type="text_encoder")]
+
+
+def convert_cpp_ppmatting(alpha_map: np.ndarray, ctx=None, alpha_threshold: float = 0.5) -> list:
+    """Convert C++ PPMattingPostProcess output [H, W] to [SegmentationResult].
+
+    dx_postprocess has no OpenCV, so the resize to the original image happens
+    here, as in PPMattingPostprocessor; ``mask`` is the thresholded class map and
+    ``alpha`` the matte itself.
+    """
+    from ..base import SegmentationResult
+
+    alpha = np.asarray(alpha_map, dtype=np.float32)
+    if alpha.ndim != 2 or alpha.size == 0:
+        raise ValueError(
+            "[DXAPP] [ERROR] convert_cpp_ppmatting - expected a non-empty [H, W] alpha "
+            f"map from PPMattingPostProcess, got shape {alpha.shape}.")
+    if ctx is not None and (alpha.shape[1], alpha.shape[0]) != (ctx.original_width,
+                                                              ctx.original_height):
+        alpha = cv2.resize(alpha, (ctx.original_width, ctx.original_height),
+                           interpolation=cv2.INTER_LINEAR)
+    alpha = np.clip(alpha, 0.0, 1.0)
+    return [SegmentationResult(
+        mask=(alpha > alpha_threshold).astype(np.uint8),
+        alpha=alpha,
+        width=int(alpha.shape[1]),
+        height=int(alpha.shape[0]),
+        class_ids=[0, 1],
+        class_names=["background", "foreground"],
+    )]
+
+
+def convert_cpp_mask_rtdetr(result_tuple, ctx=None, mask_threshold: float = 0.5) -> list:
+    """Convert C++ MaskRTDETRPostProcess output to [InstanceSegResult].
+
+    The tuple is (detections [N, 6] in model-input pixels, masks [N, H, W]
+    probabilities). Boxes stay in model space for the runner to map; each mask
+    is resized to the original image, thresholded and confined to its box in
+    original coordinates, as MaskRTDETRPostprocessor does.
+    """
+    from ..base import InstanceSegResult
+    from .preprocessing import scale_to_original
+
+    detections, masks = result_tuple
+    results = []
+    for det, probability in zip(detections, masks):
+        box = [float(det[0]), float(det[1]), float(det[2]), float(det[3])]
+        if ctx is not None:
+            full = cv2.resize(np.asarray(probability, dtype=np.float32),
+                              (ctx.original_width, ctx.original_height),
+                              interpolation=cv2.INTER_LINEAR)
+            x1, y1 = scale_to_original(box[0], box[1], ctx)
+            x2, y2 = scale_to_original(box[2], box[3], ctx)
+        else:
+            full = np.asarray(probability, dtype=np.float32)
+            x1, y1, x2, y2 = box
+        height, width = full.shape
+        binary = (full > mask_threshold).astype(np.uint8)
+        bx1, by1 = max(0, int(x1)), max(0, int(y1))
+        bx2, by2 = min(width, int(np.ceil(x2))), min(height, int(np.ceil(y2)))
+        binary[:by1, :] = 0
+        binary[by2:, :] = 0
+        binary[:, :bx1] = 0
+        binary[:, bx2:] = 0
+        results.append(InstanceSegResult(box=box, confidence=float(det[4]),
+                                         class_id=int(det[5]), mask=binary))
+    return results

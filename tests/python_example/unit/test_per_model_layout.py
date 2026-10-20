@@ -83,17 +83,11 @@ def test_each_python_model_folder_has_thin_entry_scripts(registry):
     assert not missing, "\n  ".join(missing[:20])
 
 
-# Python postprocessors dx_postprocess has no C++ binding for. Their
+# Python postprocessors dx_postprocess has no C++ binding for: their
 # *_cpp_postprocess scripts keep the Python postprocessor and say so.
-PYTHON_ONLY_POSTPROCESSORS = {
-    "CLIPTextPostprocessor",
-    "MaskRTDETRPostprocessor",
-    "PPMattingPostprocessor",
-    "PicoDetPostprocessor",
-    "PreoptDetectionPostprocessor",
-    "PreoptPosePostprocessor",
-    "RTDETRPostprocessor",
-}
+# Empty since every postprocessor got a binding; list a new one here until
+# its C++ class exists.
+PYTHON_ONLY_POSTPROCESSORS: set[str] = set()
 BINDING = PROJECT_ROOT / "src" / "bindings" / "python" / "dx_postprocess" / "postprocess_pybinding.cpp"
 
 

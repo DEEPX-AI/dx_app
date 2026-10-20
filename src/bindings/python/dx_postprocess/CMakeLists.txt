@@ -96,6 +96,11 @@ set(INCLUDE_DIRS
     "${PROJECT_ROOT}/src/postprocess/ulfgfd"
     "${PROJECT_ROOT}/src/postprocess/centerpose"
     "${PROJECT_ROOT}/src/postprocess/anomaly"
+    "${PROJECT_ROOT}/src/postprocess/rtdetr"
+    "${PROJECT_ROOT}/src/postprocess/preopt"
+    "${PROJECT_ROOT}/src/postprocess/picodet"
+    "${PROJECT_ROOT}/src/postprocess/ppmatting"
+    "${PROJECT_ROOT}/src/postprocess/clip_text"
     "${PROJECT_ROOT}/src/utility"
     "${PROJECT_ROOT}/extern"
 )

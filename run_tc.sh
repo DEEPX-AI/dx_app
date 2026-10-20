@@ -133,8 +133,8 @@ run_python_tests() {
         print_info "Running Python E2E tests..."
 
         if [ "$E2E_SHORT" = true ]; then
-            print_info "Short mode: representative models, stream tests"
-            PYTEST_PY_E2E_CMD=(pytest -m "e2e_stream and e2e_short" --tb=short -v)
+            print_info "Short mode: representative models (one per task), image + stream tests"
+            PYTEST_PY_E2E_CMD=(pytest -m "(e2e_image or e2e_stream) and e2e_short" --tb=short -v)
         elif [ "$E2E_QUICK" = true ]; then
             print_info "Quick mode: Image tests only"
             PYTEST_PY_E2E_CMD=(pytest -m e2e_image --tb=short -v)
@@ -393,8 +393,8 @@ run_cpp_tests() {
 
         # Build pytest command
         if [ "$E2E_SHORT" = true ]; then
-            print_info "Short mode: representative models, stream tests"
-            PYTEST_E2E_CMD=(pytest -m "e2e_stream and e2e_short" --tb=short -v)
+            print_info "Short mode: representative models (one per task), image + stream tests"
+            PYTEST_E2E_CMD=(pytest -m "(e2e_image or e2e_stream) and e2e_short" --tb=short -v)
         elif [ "$E2E_QUICK" = true ]; then
             print_info "Quick mode: Image tests only"
             PYTEST_E2E_CMD=(pytest -m e2e_image --tb=short -v)
@@ -669,7 +669,8 @@ usage() {
     echo "  --cli             Run CLI tests (can combine with --e2e-quick or --e2e-short)"
     echo "  --e2e             Run E2E stream tests for all models"
     echo "  --e2e-quick       Run E2E image tests only (faster, skips stream tests)"
-    echo "  --e2e-short       Run E2E stream tests for representative models"
+    echo "  --e2e-short       Run E2E image + stream tests for representative models (one per task;"
+    echo "                    E2E_SHORT_MODELS in tests/test_helpers/constants.py)"
     echo "  --vis             Run visualization tests (can combine with --python or --cpp)"
     echo "  --signal          Run signal handling tests (SIGINT graceful shutdown)"
     echo "  --coverage        Run all tests with coverage for SonarQube (standalone option)"
@@ -694,7 +695,7 @@ usage() {
     echo "  $0 --e2e-quick           # Run E2E image tests only (no CLI)"
     echo "  $0 --cli --e2e-quick     # Run CLI + E2E image tests"
     echo "  $0 --cpp --e2e-quick     # Run C++ E2E image tests only"
-    echo "  $0 --e2e-short           # Run E2E stream tests for representative models"
+    echo "  $0 --e2e-short           # Run E2E image + stream tests for representative models"
     echo "  $0 --vis                 # Run Python + C++ visualization tests"
     echo "  $0 --cpp --vis           # Run C++ visualization tests"
     echo "  $0 --signal              # Run signal handling tests"

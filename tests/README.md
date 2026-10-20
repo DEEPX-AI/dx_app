@@ -56,7 +56,7 @@ descriptions below — keep them in sync when you add a marker.
 | `e2e_stream` | E2E stream (video) inference tests |
 | `e2e_camera` | E2E camera input tests (requires `--camera-index`) |
 | `e2e_rtsp` | E2E RTSP input tests (requires `--rtsp-url`) |
-| `e2e_short` | Reduced E2E set of representative models (used with `--e2e-short`) |
+| `e2e_short` | Reduced E2E set of representative models, at least one per task (`E2E_SHORT_MODELS`; used with `--e2e-short`, which runs image + stream for them) |
 | `save_mode` | `--save` / `--save-dir` output tests |
 | `dump_tensors` | `--dump-tensors` tensor debugging tests |
 | `verify` | `DXAPP_VERIFY` numerical verification tests |

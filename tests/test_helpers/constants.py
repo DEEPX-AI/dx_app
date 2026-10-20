@@ -240,6 +240,12 @@ STREAM_REJECTING_TASKS_PY: frozenset = frozenset({
 # E2E short-list models  (used by ``--e2e-short`` / ``-m e2e_short``)
 #
 # Format: variant directory names under src/{python,cpp}_example/<task>/<family>/
+#
+# One representative per task at least, and one per postprocessor that no other
+# short model exercises, so the short suite touches every decode path. The
+# smallest published variant of a family is preferred. ``unit/test_e2e_short_coverage.py``
+# fails when a registry task has no short model, so a new task cannot be added
+# without a representative here.
 E2E_SHORT_MODELS: set[str] = {
     "yolov5-s_640x640",
     "yolov6-n0_640x640_v0.2.1",
@@ -285,6 +291,45 @@ E2E_SHORT_MODELS: set[str] = {
     "arcface_mobilefacenet_112x112",
     "casvit-t_224x224",
     "deepmar_resnet50_224x224",
+    # --- v3.3.0 tasks and postprocessors -----------------------------------
+    # anomaly_detection: EfficientAD runs its teacher/student/autoencoder trio;
+    # PatchCore is the single-network feature response.
+    "efficientad-m-student_256x256",
+    "patchcore_224x224",
+    # face_attribute (image-only)
+    "faceattr_resnetv1-18_218x178",
+    # image_matting: PP-Matting alpha matte
+    "ppmatting-hrnet-w48-composition_512x512",
+    # image_retrieval: CLIP image tower + gallery, and the text tower
+    "clip-img_resnet50_224x224_openai",
+    "clip-text_resnet50_77x512_openai",
+    # mainbody_detection: PP-PicoDet per-level GFL decode
+    "pp-shituv2-mainbody-detection_640x640",
+    # person_reid and visual_place_recognition: gallery retrieval
+    "repvgg-a0-reid_256x128",
+    "eigenplaces-resnet18_512x512",
+    "pp-shituv2-feature-extraction_224x224",
+    # zero_shot_image_classification: CLIP prompt bank
+    "clip-img_vit-b32_256x256_datacomp-s34b-b86k",
+    # zero_shot_instance_segmentation
+    "fastsam-s_1024x1024",
+    # object_detection: RT-DETR (NMS-free table), the pre-optimized top-k table,
+    # and the YOLOv12/v13 heads decoded with the YOLOv8 postprocessor
+    "rtdetr-r18vd-6x_640x640",
+    "yolo26-n_640x640_pre-optimized",
+    "yolov12-n_640x640",
+    "yolov13-n_640x640",
+    # instance_segmentation: mask-RT-DETR per-query masks, YOLOv12 prototypes
+    "mask-rtdetr-hgnetv2-s-6x_640x640",
+    "yolov12-seg-n_640x640",
+    # pose_estimation: pre-optimized pose table, CenterPose, ViTPose heatmaps
+    "yolo26-n-pose_640x640_pre-optimized",
+    "centerpose_repvgg-a0_416x416",
+    "vitpose-s_256x192",
+    # image_classification: a network that already ends in softmax
+    "pplcnetv2-small_224x224",
+    # semantic_segmentation: PP-LiteSeg (non-square input)
+    "pp-liteseg-stdc1-camvid-10k_960x720",
 }
 
 
@@ -296,6 +341,9 @@ E2E_HEAVY_MODELS: frozenset = frozenset({
     "realesrgan-x8_192x192",   # postprocess-bound (see note at end of set)
     "realesrgan-x4_192x192",   # postprocess-bound
     "stdc2-seg50_512x1024",
+    # Larger spatial size than stdc2-seg50_512x1024 (768x1536, seg75).
+    "stdc1-seg75_768x1536",
+    "stdc2-seg75_768x1536",
     "retinaface_mobilenetv1_736x1280",
     "zerodce_400x600",
     "fcn8_resnet50_512x512",
@@ -322,6 +370,8 @@ E2E_HEAVY_MODELS: frozenset = frozenset({
     "bisenetv1_1024x2048",
     "deit-b_384x384",
     "beit-l-p16_224x224",
+    # Same network as beit-l-p16_224x224 with a larger input (384 vs 224).
+    "beit-l-p16_384x384",
     "fastsam-s_1024x1024",
     "yolo26-x-seg_640x640",
     "clip-img_vit-l14_224x224_datacomp-xl-s13b-b90k",
