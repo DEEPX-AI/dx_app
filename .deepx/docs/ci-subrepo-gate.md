@@ -24,8 +24,9 @@ public repo by hand (see the suite guide, §5.3).
 
 1. Checks out this repo into `self/` (`fetch-depth: 1`, `persist-credentials: false`).
 2. Clones dx-all-suite (`https://<host>/<owner>/dx-all-suite.git`), shallow,
-   same-name branch if it exists — waiting up to `SUITE_BRANCH_WAIT` (180 s) for it to
-   appear, because the sync tool pushes the sub-repos before dx-all-suite — else the suite's
+   same-name branch if it exists — retrying `SUITE_BRANCH_RETRIES` times
+   (2 retries x `SUITE_BRANCH_RETRY_DELAY` 15 s = up to 30 s) for it to appear, because the
+   sync tool pushes the sub-repos before dx-all-suite — else the suite's
    default branch; with the token passed as `git -c http.extraheader=…`, never inside the URL.
    A fallback suite that has no `subrepo_check.sh` under its tools/scripts (too old) is refused
    with an explicit error: sync dx-all-suite first, then re-run the job.
@@ -70,7 +71,7 @@ bash .deepx/tools/scripts/run_all.sh check      # must print "All generated file
 
 Then commit the regenerated files **in this repo**. Never hand-edit generated
 files — edit the `.deepx/` source and regenerate. If a suite branch with the same
-name does not exist yet, the gate waits up to 180 s for it and then compares against
+name does not exist yet, the gate retries twice (~30 s) and then compares against
 the suite's default branch; push the suite branch first when your change depends on
 new fragments. `bash: suite/.deepx/tools/scripts/subrepo_check.sh: No such file` on an
 old run means exactly that race — re-run the job once the suite branch exists.
