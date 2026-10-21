@@ -23,8 +23,9 @@ commit한다 (suite 가이드 §5.3 참고).
 
 1. 이 repo를 `self/`로 checkout한다 (`fetch-depth: 1`, `persist-credentials: false`).
 2. dx-all-suite(`https://<host>/<owner>/dx-all-suite.git`)를 shallow clone한다 —
-   같은 이름 branch가 있으면 그것(sync 도구가 sub-repo를 먼저, dx-all-suite를 나중에 push하므로
-   브랜치가 나타날 때까지 최대 `SUITE_BRANCH_WAIT`(180초) 대기), 없으면 suite의 default branch.
+   같은 이름 branch가 있으면 그것 — sync 도구가 sub-repo를 먼저, dx-all-suite를 나중에
+   push하므로 브랜치가 나타날 때까지 `SUITE_BRANCH_RETRIES`회 재시도
+   (2회 x `SUITE_BRANCH_RETRY_DELAY` 15초 = 최대 30초) — 없으면 suite의 default branch.
    token은 `git -c http.extraheader=…`로 전달하며 URL에 넣지 않는다. fallback한 suite의
    tools/scripts에 `subrepo_check.sh`가 없으면(너무 오래됨) 명확한 에러로 거부한다 —
    dx-all-suite를 먼저 sync한 뒤 job을 re-run.
@@ -68,7 +69,7 @@ bash .deepx/tools/scripts/run_all.sh check      # must print "All generated file
 
 그 다음 재생성된 파일을 **이 repo에서** commit한다. 생성 파일을 직접 수정하지 말고
 `.deepx/` source를 수정한 뒤 재생성한다. 같은 이름의 suite branch가 아직 없으면
-gate는 최대 180초 기다린 뒤 suite의 default branch와 비교하므로, 변경이 새 fragment에
+gate는 2회(약 30초) 재시도한 뒤 suite의 default branch와 비교하므로, 변경이 새 fragment에
 의존한다면 suite branch를 먼저 push한다. 오래된 run의 `bash: suite/.deepx/tools/scripts/
 subrepo_check.sh: No such file`는 바로 그 race — suite branch가 생긴 뒤 job을 re-run.
 
