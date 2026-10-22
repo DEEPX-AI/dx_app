@@ -2,7 +2,7 @@
 
 ## Overview
 
-The project provides a comprehensive Python-based test suite located in `tests/cpp_example/`. These tests ensure that C++ binaries are functional, handle arguments correctly, produce correct visualizations, and meet performance benchmarks on the DEEPX NPU.
+The project provides a comprehensive Python-based test suite located in `tests/cpp_example/`. These tests ensure that C++ binaries are functional, handle arguments correctly, produce correct visualizations, and report performance (FPS per pipeline stage) on the DEEPX NPU.
 
 ---
 
@@ -15,7 +15,7 @@ The suite is organized into tiered categories based on execution speed and scope
 **CLI Tests (Fast)**  
 
 - **Files**: `test_cli_help.py`, `test_cli_basic.py`  
-- **Scope**: Validates `--help` options, `--version` flag, invalid argument handling, and no-argument behaviors for all executables.  
+- **Scope**: Validates `--help` output, invalid argument handling, and no-argument behaviors for all executables.  
 
 **E2E (End-to-End) Tests (Slow)**  
 
@@ -24,7 +24,7 @@ The suite is organized into tiered categories based on execution speed and scope
      : Auto-discovers all (executable, model) pairs from `bin/` and `assets/models/`.  
      : Assets: Uses real models from `assets/models/` and test data from `sample/img/` and `assets/videos/`.  
      : Parameters: Default loop count configurable via `--loop`.  
-     : Timeouts: 100 seconds for image inference (300s for TTA models), 2000 seconds (about 33 minutes) for video inference.  
+     : Timeouts: no time limit for image inference except TTA models (300 seconds); models in `E2E_HEAVY_MODELS` (`tests/test_helpers/constants.py`) run at most 2 loops. Video inference: 2000 seconds (about 33 minutes).  
      : Video E2E and `--save` video tests run every stream-capable model except the W6 face detectors (`VIDEO_TOO_SLOW_MODELS` in `tests/test_helpers/constants.py`). Super-resolution's stream path runs on a 6-frame low-resolution clip (`test_super_resolution_stream_e2e`).  
 
 **Specialized Tests**  
@@ -50,6 +50,20 @@ Feature Tests
 
 `test_graph_engine.py` (marker `graph`) runs the graph engine's `graph_engine_test` binary: it fails on a missing summary line, any failure, an OpenCV or GLib log line on stderr, a `Config file not found` line or any file left in its scratch `TMPDIR`; skipped hardware cases are reported as a pytest SKIP naming them.
 
+Other test files:
+
+| File | Marker | Scope |
+|------|--------|-------|
+| `test_graph_cli.py` | `graph`, `graph_e2e`, `graph_parity` | Multi-model graph CLI. `graph`: no NPU, `--check` and `--list-models`. `graph_e2e`: every sample graph end to end on hardware. `graph_parity`: sync and async executors give byte-identical `--report` JSON |
+| `test_graph_python.py` | `graph`, `graph_e2e`, `graph_parity` | The `dx_graph` Python binding of the graph engine (skipped when `dx_graph` is not built) |
+| `test_graph_export.py` | `contract`, `graph_export`, `graph_e2e` | A graph exported with `scripts/export_graph_project.py`, built and run outside the repository (`graph_export` needs no NPU) |
+| `test_e2e_camera_rtsp.py` | `e2e_camera`, `e2e_rtsp` | Camera (`-c`) and RTSP (`-r`) input: each executable runs for `--stream-duration` seconds, then gets SIGINT; passes on exit 0, frames > 0 and FPS > 0 |
+| `test_headless_display.py` | `e2e`, `e2e_image` | An example started without a display server and without `--no-display` runs headless instead of crashing |
+| `test_download_hints.py` | `contract` | Recovery hints name `scripts/download_models.py`, never `./setup.sh --models` |
+| `test_common_unit.py` | — | Runs the `common_unit_test` binary (plain-assert tests of `common/`) |
+| `test_harness_helpers.py` | `cli`, `help` | Test harness helpers: executable discovery, headless display, bounded subprocess runs |
+| `test_preprocessor_scale_regression.py` | `golden`, `contract` | Golden checks of the grayscale resize preprocessor's per-axis scale (DnCNN, ESPCN, SuperPoint keypoints) |
+
 ### Environment Setup
 
 **Test Requirements**  
@@ -58,17 +72,16 @@ Before running tests, ensure the environment is prepared.
 For CLI Tests  
 
 - Executables must be built in the `bin/` directory.  
-- Run `./build.sh` from the project root if executables are missing.  
+- Run `./build.sh --all` from the project root to test every executable. The default `./build.sh` builds only the `run_demo` targets, so only those are tested; use `--target <name>` to build a specific one.  
 
 For E2E Tests (Additional)  
 
 - **Models**: Run `./setup_sample_models.sh` to populate `assets/models/`. Pass `--all` to download every model non-interactively.  
 - **Test Data**: Ensure images exist in `sample/img/` and videos in `assets/videos/` (Run `./setup_sample_videos.sh`).  
-- **Libraries**: Shared libraries must be present in the `lib/` directory.  
 
 **Available Markers (`pytest.ini`)**  
 
-`cli`, `help`, `e2e`, `visualization`, `async_exec`, `sync_exec`, `save_mode`, `dump_tensors`, `verify`, `multi_loop`, `signal_handling`
+`cli`, `help`, `e2e`, `e2e_image`, `e2e_stream`, `e2e_camera`, `e2e_rtsp`, `e2e_short`, `visualization`, `async_exec`, `sync_exec`, `save_mode`, `dump_tensors`, `verify`, `multi_loop`, `signal_handling`, `contract`, `golden`, `graph`, `graph_e2e`, `graph_parity`, `graph_export`
 
 ---
 
@@ -79,13 +92,17 @@ For E2E Tests (Additional)
 All test files import shared constants and utilities from `tests/test_helpers/`:  
 
 - `constants.py`: `TASK_IMAGE_MAP`, `MODEL_IMAGE_OVERRIDE`, `MULTI_MODEL_EXECUTABLES`, path constants  
-- `utils.py`: `setup_environment()`, `discover_cpp_executables()`, `normalize_model_name()`  
+- `utils.py`: `setup_environment()`, `discover_cpp_executables()`, `strip_variant_suffix()`, `dxnn_for_exe()`  
+- `platform_paths.py`: per-OS `bin/` directory and `.exe` names  
+- `proc.py`: subprocess runs with a timeout (SIGTERM first, then SIGKILL)  
+- `pytest_support.py`: shared pytest options (`--loop`, `--camera-index`, `--rtsp-url`, `--stream-duration`)  
+- `verify.py`: readers and comparers for `DXAPP_VERIFY` output  
 
 ### Asset Management
 
-Assets required for testing are automatically managed by scripts within the `scripts/` directory:  
+Assets required for testing are automatically managed by the setup scripts in the project root:  
 
-- **Models**: Use `setup_sample_models.sh` to download lightweight, test-specific models.  
+- **Models**: Use `setup_sample_models.sh` to download models.  
 - **Videos**: Use `setup_sample_videos.sh` to acquire sample video files required for E2E (End-to-End) pipeline verification.  
 
 ---
@@ -113,6 +130,9 @@ cd ../../  # Go to project root (dx_app/)
 # Run only C++ E2E image tests (faster, skips stream)
 ./run_tc.sh --cpp --e2e-quick
 
+# Run only C++ E2E image + stream tests for representative models (one per task, `E2E_SHORT_MODELS`)
+./run_tc.sh --cpp --e2e-short
+
 # Run C++ tests with code coverage (standalone)
 ./run_tc.sh --cpp --coverage
 
@@ -134,11 +154,11 @@ Basic Usage
 # Install requirements
 pip install -r requirements.txt
 
-# Run all tests (excluding slow E2E tests)
+# Run every test not marked e2e (feature, visualization, verify and graph tests still run real binaries and can take long)
 pytest -m "not e2e"
 
 # Run only CLI tests (fast)
-pytest test_cli_help.py test_cli_basic.py
+pytest -m cli
 
 # Run only E2E tests (slow, requires models and test data)
 pytest test_e2e.py -v
@@ -154,7 +174,7 @@ cd tests/cpp_example
 
 # Test specific model (all variants)
 pytest -m e2e -k "yolov7"           # All yolov7 variants
-pytest -m e2e -k "yolov7_async"     # Only yolov7_async
+pytest -m e2e -k "yolov7_640x640_async"  # Only that async variant
 
 # Test multiple models
 pytest -m e2e -k "yolov7 or yolov8"
@@ -169,19 +189,19 @@ pytest -m "e2e and async_exec" -k "yolov7"  # Only async yolov7 tests
 pytest -m "e2e and sync_exec" -k "yolov5"   # Only sync yolov5 tests
 
 # Run specific test function
-pytest test_e2e.py::test_stream_inference_e2e[yolov7_async]
-pytest test_e2e.py::test_image_inference_e2e[scrfd_async]
+pytest test_e2e.py::test_stream_inference_e2e[yolov7_640x640_async]
+pytest test_e2e.py::test_image_inference_e2e[scrfd-500m_640x640_async]
 
 # Multiple specific tests
-pytest test_e2e.py::test_stream_inference_e2e[yolov7_async] \
-            test_e2e.py::test_stream_inference_e2e[yolov8_async]
+pytest test_e2e.py::test_stream_inference_e2e[yolov7_640x640_async] \
+            test_e2e.py::test_stream_inference_e2e[yolov8-n_640x640_async]
 ```
 
 ### Result Analysis
 
 **Performance Reporting**  
 
-After running E2E tests, a performance report is automatically generated to provide deep insights into the inference pipeline efficiency.  
+After running the E2E stream (video) tests, a performance report is automatically generated to provide deep insights into the inference pipeline efficiency.  
 
 - **Console Output**: A formatted table with real-time FPS metrics.  
 - **CSV File**: A detailed log saved as `tests/cpp_example/performance_reports/performance_report_YYYYMMDD_HHMMSS.csv`.  
@@ -193,18 +213,11 @@ The report includes
 - **Preprocess FPS:** Speed of image transformation (resizing, normalization).  
 - **Inference FPS:** Pure NPU model execution speed.  
 - **Postprocess FPS:** Speed of result parsing (NMS, coordinate scaling).  
-- **Bottleneck Detection:** The slowest stage in the pipeline is automatically marked with an **asterisk (*)** for quick optimization targeting.  
+- **Bottleneck Detection:** For async variants, the slowest of the Read / Preprocess / Inference / Postprocess stages is marked with an **asterisk (*)** for quick optimization targeting.  
 
 **Test Coverage Summary**  
 
-Example output: `./run_tc.sh --cpp --coverage`  
-
-| **Category** | **Count** | **Status** |
-|----|----|----|
-| **CLI Tests** | ~1,293 | All binaries validated (help + basic) |
-| **E2E Image Tests** | ~242 | sync + async, auto-discovered |
-| **Visualization Tests** | ~247 | sync + async image verification |
-| **Feature Tests** | ~22 | save_mode, dump_tensors, verify, multi_loop, signal_handling |
+`./run_tc.sh --cpp --coverage` runs one pytest pass, `-m "not e2e_stream and not visualization and not multi_loop and not signal_handling" --coverage`. It covers the CLI tests, E2E image tests and the save_mode, dump_tensors, verify, contract, golden and graph tests. Stream E2E, visualization, multi-loop and signal-handling tests are not included. Test counts depend on the executables in `bin/` (`./build.sh --all` builds a sync and an async binary per variant, about 1,000) and on the downloaded models.
 
 ---
 
@@ -228,13 +241,13 @@ sudo apt-get install lcov -y
 
 # [Recommended] Build with debug mode for the most reliable coverage results
 cd ../../  # Go to project root (dx_app/) from tests/cpp_example/
-./build.sh --clean --coverage --type debug
+./build.sh --clean --coverage --type debug --all 
 
 # [Alternative] Build with relwithdebinfo for faster builds (less accurate coverage)
-./build.sh --clean --coverage --type relwithdebinfo
+./build.sh --clean --coverage --type relwithdebinfo --all
 
 # Verify coverage build (check for .gcno files)
-ls build_x86_64/src/examples/*.gcno
+find build_x86_64 -name "*.gcno" | head
 ```
 
 **Build & Environment**  
@@ -265,7 +278,7 @@ Unified Test Runner (from project root)
 
 ```bash
 # [Recommended] Build with debug mode, then run coverage
-./build.sh --clean --coverage --type debug && ./run_tc.sh --cpp --coverage
+./build.sh --clean --coverage --type debug --all && ./run_tc.sh --cpp --coverage
 
 # Run C++ coverage (standalone)
 ./run_tc.sh --cpp --coverage
@@ -275,7 +288,7 @@ Unified Test Runner (from project root)
 
 After running tests with `--coverage`, several reports are generated in `tests/cpp_example/coverage/`
 
-- **Console summary:** Line and branch coverage percentages.
+- **Console summary:** line coverage (gcovr); line, function and branch coverage with the lcov fallback.
 - **HTML report:** Located at `html/index.html`. Shows line-by-line visualization with uncovered code in **red**.
 - **XML (Cobertura) & JSON:** Timestamped for CI/CD integration.
 
@@ -301,53 +314,15 @@ Coverage Filtering Rules
 
 ---
 
-## Maintenance & CI/CD
+## Repository Checks
 
-### Repository checks
-
-`scripts/ci_checks.sh` is the single entry point for the repository checks that need no NPU; those needing the DX-RT headers SKIP where they are missing. Developers and CI jobs run the same command.
+If you modify the examples or add a model, `scripts/ci_checks.sh` checks the repository's consistency (model registry, factory layout, generated sources, Python syntax) without an NPU.
 
 ```bash
-bash scripts/ci_checks.sh                  # every check, then a PASS / SKIP / FAIL summary
-bash scripts/ci_checks.sh --list           # the check names, in order
-bash scripts/ci_checks.sh --only guard-graph-boundary,python-compile
-bash scripts/ci_checks.sh --require-dxrt   # a check skipped for want of the dxrt headers FAILS
+bash scripts/ci_checks.sh          # run every check, then print a PASS / SKIP / FAIL summary
+bash scripts/ci_checks.sh --list   # list the check names
 ```
 
-| Check | What it runs | Needs |
-|---|---|---|
-| `guard-graph-boundary` | `scripts/check_graph_boundary.py`: the engine never names a concrete registry | Python |
-| `guard-factory-uniqueness` | `scripts/check_factory_uniqueness.py`: no two factory headers declare the same fully qualified class (`dxapp::v_<variant>::<Class>`) | Python |
-| `guard-model-registry` | `scripts/check_model_registry.py`: `config/model_registry.json` matches the factory tree | Python |
-| `guard-variant-scope` | `scripts/generate_cpp_family_layout.py --variant-scope src/cpp_example --check`: every per-variant factory header is wrapped in its own `dxapp::v_<variant>` namespace, so two variants of one family linked into one program cannot silently share one class definition | Python |
-| `codegen-strict` | `scripts/gen_model_registry.py --strict` into a temporary directory | Python |
-| `codegen-check-docs` | `scripts/check_graph_models_doc.py`: `docs/graph_models.md` is not stale | Python |
-| `header-odr` | `scripts/check_header_odr.sh`: two translation units including every shared header link; then two variants of one family linked into one program keep their own postprocessor (`scripts/check_variant_odr.sh`) | dxrt and OpenCV headers, g++ |
-| `cxx14-headers` | `scripts/check_cxx14.sh`: the headers that own `g_interrupted()` compile as C++14 with `-Werror` | dxrt and OpenCV headers, g++ |
-| `cross-compile` | `scripts/check_cross_compile.sh`: the graph engine and CLI compile for aarch64 | `aarch64-linux-gnu-g++`, dxrt and OpenCV headers |
-| `python-compile` | `python -m compileall` over `src/python_example`, `src/bindings/python`, `scripts` and `tests` | Python |
-| `tests-scripts` | `pytest tests/scripts` (hermetic, see `tests/README.md`) with `--known-failures tests/scripts/known_target_failures.txt` | pytest, PyYAML, requests (cmake and g++ for the tests that use them; the others skip) |
-
-**Known TARGET failures.** `tests/scripts/known_target_failures.txt` lists the `tests/scripts` tests that are known to fail on the release base, one `<test id> | <reason>` per line. `tests-scripts` runs each of them as `xfail(strict=True)` (`tests/scripts/known_failures.py`): the check stays green while they fail, and turns red (XPASS(strict)) the day one passes, until its line is deleted. A malformed line, a test listed twice or a missing list file is a usage error (exit 4). A plain `pytest tests/scripts` reads no list and shows those tests failing. The list today holds only its header, which is accepted: `test_generate_build_bat.py::test_run_bat_executes_bare_relative_filename` now skips outside Windows (`skipif(os.name != "nt")`, it runs a `.bat` through `cmd.exe`), and the `test_setup_demo_models.py` tests take the expected count from `run_demo.py`'s `DEMOS`.
-
-**SKIP versus FAIL.** A check whose prerequisite is missing on this machine prints `SKIP` with the reason, and the run still exits 0; only a `FAIL` makes it exit 1. `--require-dxrt` turns the missing dxrt headers of `header-odr`, `cxx14-headers` and `cross-compile` into a `FAIL`. A missing cross compiler is still a `SKIP`. `--only` runs the named checks (an unknown name exits 2).
-
-**A machine without the dxrt headers.** Those three checks are skipped where the headers are missing. To see that run on a machine that has them:
-
-```bash
-DXRT_INCLUDE_DIR=/nonexistent bash scripts/ci_checks.sh
-```
-
-Other variables: `PYTHON` (the interpreter for the checks, default the active virtual environment's, else `python3`) and `DXAPP_CROSS_CXX`.
-
-### Continuous Integration (CI) Integration
-
-**Coverage Reports**  
-
-The XML reports generated via the `--coverage` flag can be fed to a code-quality server (for example SonarQube) for static analysis and test coverage tracking, which helps identify untested logic paths during the development lifecycle.  
-
-**Scheduled Regression Runs**  
-
-Running the full E2E suite on a schedule (for example nightly) catches regressions caused by updates to NPU drivers, firmware, and the underlying runtime environment.  
+A check whose prerequisite is missing on this machine (for example the DX-RT headers or a cross compiler) prints `SKIP` with the reason, and the run still exits 0. Only a `FAIL` makes it exit 1.
 
 ---

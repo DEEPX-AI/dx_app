@@ -41,7 +41,7 @@ src/
 - **`src/bindings/`**: pybind11 bridge exposing `src/postprocess/` to Python as the `dx_postprocess` package  
 - **`src/utility/`**: common support code shared across the build flow  
 
-Both `cpp_example/common/` and `python_example/common/` share the same 7-module structure: `base/`, `config/`, `processors/`, `runner/`, `inputs/`, `visualizers/`, `utility/`. They are language-specific implementations of the same architectural pattern.
+Both `cpp_example/common/` and `python_example/common/` share the same core modules: `base/`, `config/`, `processors/`, `runner/`, `inputs/`, `visualizers/`, `utility/`. They are language-specific implementations of the same architectural pattern.
 
 **Task-First Organization**  
 
@@ -106,9 +106,9 @@ C++ Common Structure
 ```text
 src/cpp_example/common/
 ├── base/                          # Abstract interfaces (.hpp)
-│   ├── i_factory.hpp              #   IFactory — assembles processor + visualizer + runner
-│   ├── i_processor.hpp            #   IProcessor — postprocess(outputs, meta) → results
-│   ├── i_visualizer.hpp           #   IVisualizer — draw(frame, results) → frame
+│   ├── i_factory.hpp              #   IFactory pattern: task-specific I<Task>Factory interfaces (e.g., IDetectionFactory) that create the preprocessor, postprocessor and visualizer
+│   ├── i_processor.hpp            #   IPreprocessor / IPostprocessor — image → input tensor, model outputs → results
+│   ├── i_visualizer.hpp           #   IVisualizer — draw(frame, results, ctx) → frame
 │   └── i_input_source.hpp         #   IInputSource — image/video/camera/RTSP abstraction
 ├── config/
 │   └── model_config.hpp           # ModelConfig — loads config.json
@@ -154,6 +154,10 @@ src/cpp_example/common/
 │   ├── visualization.hpp
 │   └── ...                        #   colorspace, frame_reorder, kitti_calib,
 │                                  #   lidar_util, sfa3d_geometry, sr_tiling
+├── graph/                         # Multi-model graph engine
+├── registry/                      # Concrete model registry used by the graph engine
+├── trackers/                      # IoU tracker (stable instance colors across frames)
+├── test/                          # Unit test for common/
 └── third_party/                   # Third-party header-only libraries
     └── nlohmann_json.hpp          #   JSON for Modern C++
 ```
@@ -165,9 +169,9 @@ Python Common Structure
 ```text
 src/python_example/common/
 ├── base/                  # Abstract interfaces (.py)
-│   ├── i_factory.py       #   IFactory — assembles processor + visualizer + runner
-│   ├── i_processor.py     #   IProcessor — postprocess(outputs, meta) → results
-│   ├── i_visualizer.py    #   IVisualizer — draw(frame, results) → frame
+│   ├── i_factory.py       #   task-specific I<Task>Factory interfaces (e.g., IDetectionFactory) — create the preprocessor, postprocessor and visualizer
+│   ├── i_processor.py     #   IPreprocessor / IPostprocessor — image → input tensor, model outputs → results
+│   ├── i_visualizer.py    #   IVisualizer — visualize(frame, results) → frame
 │   └── i_input_source.py  #   IInputSource — image/video/camera/RTSP abstraction
 ├── config/
 │   ├── config_schema.py   # Config schema validation for config.json values
@@ -178,12 +182,12 @@ src/python_example/common/
 │   ├── face_postprocessor.py           # SCRFD, YOLOv5Face, YOLOv7Face
 │   ├── segmentation_postprocessor.py   # BiSeNet, DeepLabV3+, SegFormer
 │   ├── fast_segmentation_postprocessor.py # opt-in fast path (SegFormer / low-res seg)
-│   ├── instance_seg_postprocessor.py   # YOLOv8Seg, YOLOv26Seg
+│   ├── instance_seg_postprocessor.py   # YOLOv5Seg, YOLOv8Seg, YOLOv26Seg
 │   ├── fast_instance_seg_postprocessor.py # opt-in fast mask path (YOLOv8-seg)
 │   ├── yolact_postprocessor.py         # YOLACT instance segmentation
 │   ├── fast_yolact_postprocessor.py    # opt-in fast mask path (YOLACT)
 │   ├── obb_postprocessor.py            # YOLOv26OBB
-│   ├── pose_postprocessor.py           # YOLOv8-Pose
+│   ├── pose_postprocessor.py           # YOLOv5-Pose, YOLOv8-Pose
 │   ├── ppu_postprocessor.py            # PPU variants (YOLOv3/v4/v5/v7/v8/v9/v10/v11/v12, YOLOX)
 │   ├── classification_postprocessor.py # EfficientNet, AlexNet, etc.
 │   ├── efficientdet_postprocessor.py   # EfficientDet
@@ -192,8 +196,8 @@ src/python_example/common/
 │   ├── nanodet_postprocessor.py        # NanoDet
 │   ├── ssd_postprocessor.py            # SSD MobileNet
 │   ├── damoyolo_postprocessor.py       # DAMOYOLO
-│   ├── embedding_postprocessor.py      # CLIP, ArcFace
-│   ├── restoration_postprocessor.py    # DnCNN, Zero-DCE
+│   ├── embedding_postprocessor.py      # GenericEmbeddingPostprocessor (base of CLIP / ArcFace)
+│   ├── restoration_postprocessor.py    # DnCNN, Real-ESRGAN
 │   ├── nms_utils.py                    # Shared NMS / box utilities
 │   ├── letterbox_preprocessor.py       # Shared letterbox preprocessing
 │   └── ...
@@ -201,6 +205,8 @@ src/python_example/common/
 │   ├── sync_runner.py     # SyncRunner — sequential Pre→Infer→Post→Display loop
 │   ├── async_runner.py    # AsyncRunner — pipelined multi-thread runner
 │   ├── args.py            # Unified CLI argument parser (--model, --image, --video, etc.)
+│   ├── entry.py           # run_entry() used by every entry script
+│   ├── interrupts.py      # Graceful stop on SIGINT/SIGTERM
 │   ├── run_dir.py         # `--save` run-directory and run_info helper
 │   ├── sr_tiling.py       # Tiled super-resolution helper
 │   └── verify_serialize.py # Serialize results to JSON for numerical verification
@@ -219,6 +225,9 @@ src/python_example/common/
 │   ├── instance_seg_visualizer.py
 │   ├── obb_visualizer.py
 │   └── ...
+├── trackers/              # IoU tracker (stable instance colors across frames)
+├── variant_config.py      # Builds processors from the variant config.json
+├── variants.py            # Variant lookup in config/model_registry.json
 └── utility/                       # Utility files
     ├── common_util.py     # General utilities
     ├── labels.py          # COCO / ImageNet label constants
@@ -280,9 +289,9 @@ The factory imports shared components from `common/`:
 ```
 
 ```python
-# Python factory example
-from common.processors import YOLOv5Postprocessor
-from common.visualizers import DetectionVisualizer
+# Python factory example (config-driven: processors come from the variant's config.json)
+from common.base import IDetectionFactory
+from common.variant_config import build_processor, default_variant, load_variant_config
 ```
 
 The entry-point script/program delegates to the runner:
@@ -290,8 +299,11 @@ The entry-point script/program delegates to the runner:
 ```python
 # Python
 from common.runner import SyncRunner
-runner = SyncRunner(factory)
-runner.run()
+from common.runner.entry import run_entry
+
+run_entry(_script, factory_cls=Yolov9Factory, runner_cls=SyncRunner,
+          description="yolov9-s_640x640 sync inference",
+          fixed_variant="yolov9-s_640x640")
 ```
 
 Adding a variant means a new `<task>/<family>/<variant>/` directory with `config.json`, a factory, and that variant's entry files.
@@ -337,23 +349,23 @@ src/python_example/<task>/<family>/<variant>/
 
 **C++ and Python Shared Runtime** (`common/`)
 
-Both `cpp_example/` and `python_example/` contain a `common/` directory with the same 7-module architecture:
+Both `cpp_example/` and `python_example/` contain a `common/` directory with the same core modules:
 
-| Module | C++ | Python | Role |
-|--------|-----|--------|------|
-| `base/` | 4 interfaces (.hpp) | 4 interfaces (.py) | `IFactory`, `IProcessor`,<br> `IVisualizer`, `IInputSource` |
-| `config/` | `model_config.hpp` | `model_config.py` | Loads `config.json`<br> (input size, labels, thresholds) |
-| `processors/` | Header files | Python files | Shared processors for<br> all model families |
-| `runner/` | Runner headers | Runner files | Sync/Async execution engines<br> with profiling |
-| `inputs/` | 5 source headers | 5 source files | Image, Video, Camera,<br> RTSP input abstraction |
-| `visualizers/` | Visualizer headers | Visualizer files | Task-specific result rendering |
-| `utility/` | Utility headers | Utility files | Labels, preprocessing,<br> profiling, drawing, run_dir,<br> queue, verify |
+| Module | Contents | Role |
+|--------|----------|------|
+| `common/base/` | 4 interface headers (.hpp) | `IFactory`, `IPreprocessor` / `IPostprocessor`, `IVisualizer`, `IInputSource` |
+| `common/config/` | `model_config.hpp` | Loads `config.json` (input size, labels, thresholds) |
+| `common/processors/` | Postprocessor / preprocessor headers | Shared decode logic for all model families |
+| `common/runner/` | Runner headers | A dedicated sync/async runner pair per task type |
+| `common/inputs/` | 5 source headers | Image, Video, Camera, RTSP input abstraction |
+| `common/visualizers/` | Visualizer headers | Task-specific result rendering |
+| `common/utility/` | Utility headers | Labels, preprocessing, profiling, run_dir, colorspace, verify_serialize |
 
 This is the core architectural pattern of DX-APP: model directories are thin wrappers (factory + entry points) that delegate all heavy logic to their respective `common/` layer.  
 
 **Pybind11 Post-Processing Bridge** (`src/postprocess/` + `src/bindings/`)  
 
-`src/postprocess/` contains C++ post-processing implementations that are **not** used by `cpp_example/common/processors/` directly. Instead, they are consumed by the pybind11 bindings under `src/bindings/python/dx_postprocess/`.  
+`src/postprocess/` contains C++ post-processing implementations that are **not** linked by the C++ examples, except for four modules (`sfa3d`, `superpoint`, `dope`, `yolopv2`) whose sources are compiled into them. They are consumed by the pybind11 bindings under `src/bindings/python/dx_postprocess/`.  
 
 This bridge enables the `*_cpp_postprocess.py` Python variants to use C++ decode logic for higher performance, while the pure Python variants (`*_sync.py`, `*_async.py`) use `python_example/common/processors/` natively.  
 
@@ -402,12 +414,13 @@ The model registry is a JSON array that serves as the single source of truth for
 
 **`scripts/add_model.sh`**
 
-The `add_model.sh` script reads an entry from the registry and auto-generates:
+The `add_model.sh` script copies a reference example picked from the registry and rewrites, for the new variant:
 
-- `config.json` with correct input dimensions and thresholds
-- `factory/<variant>_factory.py` wired to the correct processor and visualizer
-- 4 entry-point scripts under the variant directory (sync/async × python/cpp_postprocess)
-- C++ `<variant>_sync.cpp` and `<variant>_async.cpp` under `src/cpp_example/<task>/<family>/<variant>/`
+- `config.json` (variant, model file, input size, registry thresholds; processor classes from the reference)
+- Python `factory/<variant>_factory.py` and `factory/__init__.py` (plus `custom_ops.py` when the reference has one)
+- the entry-point scripts the reference has (sync/async × python/cpp_postprocess)
+- C++ `factory/<variant>_factory.hpp` (namespace `dxapp::v_<variant>`), `<variant>_sync.cpp` and `<variant>_async.cpp` under `src/cpp_example/<task>/<family>/<variant>/`
+- a `config/model_registry.json` row and a `config/test_models.conf` line (unless `--no-register`)
 
 This enables onboarding a new model with zero manual code in most cases; see the [DX Tool Guide](10_DX-APP_DX-Tool_Guide.md) for the options.
 
@@ -449,26 +462,26 @@ The source tree and the test tree are related, but not identical.
 
 `tests/test_helpers/` provides shared constants and utilities used by both C++ and Python test suites:  
 
-- `constants.py` — paths, timeout values, suffix patterns (e.g., `_sync`, `_async`)  
-- `utils.py` — helper functions for executable/script discovery, process execution, result validation  
+- `constants.py` — paths, sample-image maps, timeout values  
+- `utils.py` — executable/script and model discovery, environment setup (full module list: see [DX-APP C++ Example Tests](04_DX-APP_CPP_Example_Test.md))  
 
 **C++ tests**  
 
-C++ tests are organized into four categories:
+C++ tests are organized as follows. For the full list, see [DX-APP C++ Example Tests](04_DX-APP_CPP_Example_Test.md).
 
 | Category | File | Description |
 |----------|------|-------------|
 | CLI Help | `test_cli_help.py` | Validates `--help` output for all executables |
-| CLI Basic | `test_cli_basic.py` | Validates `--model` argument handling |
+| CLI Basic | `test_cli_basic.py` | Validates invalid-argument and no-argument handling |
 | E2E | `test_e2e.py` | End-to-end inference with image/video inputs |
 | Visualization | `test_visualization.py` | Validates output image generation with `--save` |
 | Feature: Save Mode | `test_save_mode.py` | Tests `--save` / `--save-dir` behavior |
 | Feature: Dump Tensors | `test_dump_tensors.py` | Tests `--dump-tensors` output |
 | Feature: Verify | `test_verify.py` | Tests `DXAPP_VERIFY` environment variable |
 | Feature: Multi-Loop | `test_multi_loop.py` | Tests `--loop` repeated execution |
-| Feature: Signal | `test_signal_handling.py` | Tests SIGINT/SIGTERM graceful shutdown |
+| Feature: Signal | `test_signal_handling.py` | Tests SIGINT graceful shutdown |
 
-All tests auto-discover executables from `bin/` using `tests/test_helpers/utils.py`.
+The tests discover the executables in `bin/`.
 
 **Python tests**  
 
@@ -508,7 +521,7 @@ Typical related commands:
 
 ```bash
 ./setup.sh
-./build.sh --clean
+./build.sh --clean --all
 ./scripts/dx_tool.sh validate
 ./scripts/validate_models.sh --lang py
 ./run_tc.sh --cpp --cli

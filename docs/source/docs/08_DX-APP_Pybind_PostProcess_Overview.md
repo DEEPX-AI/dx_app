@@ -28,7 +28,7 @@ For end-to-end Python example usage, refer to [DX-APP Python Example Usage Guide
 The SDK follows a **Single Source of Truth** strategy to ensure reliability across platforms:  
 
 - **Implementation:** C++ post-processing classes are wrapped with `pybind11` for seamless Python integration.  
-- **Unified Logic:** It directly wraps the C++ source code from `src/postprocess/`. This guarantees that results in Python are 100% identical to those in C++.  
+- **Unified Logic:** It directly wraps the C++ source in `src/postprocess/`, so a class used from Python runs the same decoding as that C++ library.  
 - **Build System:** Utilizes **CMake** with **scikit-build-core** for robust, cross-platform extension building.  
 - **Source Code Locations:**  
     - **Python Bindings:** `src/bindings/python/dx_postprocess/postprocess_pybinding.cpp`  
@@ -38,20 +38,22 @@ The SDK follows a **Single Source of Truth** strategy to ensure reliability acro
 
 The library wraps **58 C++ post-processing classes** with pybind11 bindings, ensuring consistent results between C++ and Python implementations.  
 
-- **Object Detection:** YOLOv5, YOLOv7, YOLOv8, YOLOv9, YOLOv10, YOLOv11, YOLOv12, YOLOv26, YOLOX, NanoDet, DAMOYOLO, SSD, CenterPose, EfficientDet, YOLACT, RT-DETR (v1/v2/v3), PP-PicoDet (PP-ShiTu mainbody), YOLO26 pre-optimized (top-k table; detection and pose)  
-- **Face Detection:** SCRFD, YOLOv5Face, RetinaFace, ULFGFD, Face3D  
-- **Pose Estimation:** YOLOv5Pose, YOLOv8Pose, VitPose  
+- **Object Detection:** YOLOv4, YOLOv5, YOLOv7, YOLOv8, YOLOv9, YOLOv10, YOLOv11, YOLOv12, YOLOv26, YOLOX, NanoDet, DAMOYOLO, SSD, CenterPose, EfficientDet, RT-DETR (v1/v2/v3), PP-PicoDet (PP-ShiTu mainbody), YOLO26 pre-optimized (top-k table; detection and pose)  
+- **Face Detection:** SCRFD, YOLOv5Face, RetinaFace, ULFGFD  
+- **Face Landmark:** Face3D (3DDFA-v2)  
+- **Pose Estimation:** YOLOv5Pose, YOLOv8Pose, VitPose, CenterPose  
 - **Keypoint Detection:** SuperPoint  
 - **Object Pose Estimation:** DOPE  
 - **3D Object Detection:** SFA3D  
 - **Panoptic Driving Perception:** YOLOPv2  
 - **Hand Detection:** MediaPipe Hand  
 - **Semantic Segmentation:** DeepLabV3, SemanticSeg (BiSeNet/SegFormer)  
-- **Instance Segmentation:** YOLOv5Seg, YOLOv8Seg, mask-RT-DETR  
+- **Instance Segmentation:** YOLOv5Seg, YOLOv8Seg, YOLACT, mask-RT-DETR  
 - **Image Matting:** PP-Matting (alpha matte at the model resolution; the examples resize it)  
 - **OBB Detection:** YOLOv26-OBB  
-- **Classification:** EfficientNet-family  
-- **Depth Estimation:** DepthPostProcess (FastDepth, SCDepth)  
+- **Classification:** ClassificationPostProcess (all image-classification families, e.g. EfficientNet, ResNet, RegNet)  
+- **Attribute Recognition:** AttributePostProcess (person attribute, face attribute)  
+- **Depth Estimation:** DepthPostProcess (FastDepth, SCDepth, Depth Anything V2, YOLO26-depth)  
 - **Image Denoising:** DnCNN  
 - **Super Resolution:** ESPCN, RealESRGAN  
 - **Image Enhancement:** Zero-DCE  
@@ -73,9 +75,9 @@ Before building, ensure the following are installed on your system
 
 - **Python:** 3.8 or higher  
 - **Compiler:** C++14-compatible (GCC 7.5+, Clang, etc.)  
-- **Build Tool:** CMake 3.14 or higher  
+- **Build Tool:** CMake 3.16 or higher  
 
-During the installation, `pybind11` is automatically cloned from GitHub to `extern/pybind11` if it is not already present.  
+`pybind11` is installed by pip as a build dependency (`pyproject.toml`) and found with `find_package(pybind11)`.  
 
 ### Installation Steps
 
@@ -112,10 +114,10 @@ The `dx_postprocess` classes expect a list of NumPy arrays directly from the `In
 # From dx_app/ directory
 
 # Sync (Image Inference)
-python src/python_example/object_detection/yolov9/yolov9-s_640x640/yolov9-s_640x640_sync_cpp_postprocess.py --model assets/models/yolov9-s_640x640.dxnn --image sample/img/sample_kitchen.jpg
+python src/python_example/object_detection/yolov9/yolov9-s_640x640/yolov9-s_640x640_sync_cpp_postprocess.py --image sample/img/sample_kitchen.jpg
 
 # Async (Stream Inference)
-python src/python_example/object_detection/yolov9/yolov9-s_640x640/yolov9-s_640x640_async_cpp_postprocess.py --model assets/models/yolov9-s_640x640.dxnn --video assets/videos/dance-group.mov
+python src/python_example/object_detection/yolov9/yolov9-s_640x640/yolov9-s_640x640_async_cpp_postprocess.py --video assets/videos/dance-group.mov
 ```
 
 Each `*_cpp_postprocess.py` script defines an `on_engine_init(runner)` callback and passes it to `run_entry()`. Once the engine reports the model input size, the callback creates the model's `dx_postprocess` class (for example `YOLOv8PostProcess` or `ClassificationPostProcess`) and sets it as `runner._cpp_postprocessor`, so the C++ class replaces the Python postprocessor. `dx_postprocess` is imported inside the callback, so `--help` works before the module is built.  

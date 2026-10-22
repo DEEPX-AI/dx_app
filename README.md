@@ -16,14 +16,16 @@ For deeper technical specifications, refer to the [`docs/source/docs/`](./docs/s
 | # | Document | Description |
 |---|----------|-------------|
 | 01 | [DXNN Application Overview](./docs/source/docs/01_DXNN_Application_Overview.md) | SDK architecture, DX-APP features & core design |
+| 01a | [Quick Start](./docs/source/docs/01a_DX-APP_Quick_Start.md) | From a fresh installation to the first inference, in five steps |
 | 02 | [Installation and Build](./docs/source/docs/02_DX-APP_Installation_and_Build.md) | Prerequisites, build steps (Linux/Windows) |
 | 03 | [C++ Example Usage Guide](./docs/source/docs/03_DX-APP_CPP_Example_Usage_Guide.md) | C++ template structure & execution guide |
 | 04 | [C++ Example Tests](./docs/source/docs/04_DX-APP_CPP_Example_Test.md) | C++ test framework & coverage |
 | 05 | [Python Example Usage Guide](./docs/source/docs/05_DX-APP_Python_Example_Usage_Guide.md) | Python template structure & execution guide |
 | 06 | [Python Example Tests](./docs/source/docs/06_DX-APP_Python_Example_Test.md) | Python test framework (pytest) |
+| 06a | [Multi-Model Graph](./docs/source/docs/06a_DX-APP_Multi_Model_Graph.md) | Several models in one pipeline from a graph JSON: usage, graph format, logic nodes |
 | 07 | [C++ Post-processing](./docs/source/docs/07_DX-APP_CPP_PostProcess_Overview.md) | C++ post-processing library design |
 | 08 | [Python Post-processing](./docs/source/docs/08_DX-APP_Pybind_PostProcess_Overview.md) | pybind11 bindings (dx_postprocess) |
-| 09 | [Project Overview](./docs/source/docs/09_DX-APP_Project_Overview.md) | Repository layout, CLI reference, advanced features |
+| 09 | [Architecture and Usage Reference](./docs/source/docs/09_DX-APP_Project_Overview.md) | Repository layout, CLI reference, advanced features |
 | 10 | [DX Tool Guide](./docs/source/docs/10_DX-APP_DX-Tool_Guide.md) | Developer tooling (dx_tool.sh) |
 | 11 | [Example Source Structure](./docs/source/docs/11_DX-APP_Example_Source_Structure.md) | Source tree conventions & contributor guide |
 | 12 | [YOLO Customizing Guide](./docs/source/docs/12_DX-APP_YOLO_Customizing_Guide.md) | YOLO model onboarding and customization workflow |
@@ -97,27 +99,29 @@ The project is structured to separate core logic from language-specific implemen
 ```text
 dx_app/
 ├── src/
-│   ├── cpp_example/            # C++ end-to-end examples (497 registered variants / 29 tasks, all downloadable)
-│   │                           #   <task>/<family>/<variant>/ holds factory, config.json, and entries
-│   │                           #   bin/<variant>_sync is the built executable (.dxnn stem)
+│   ├── cpp_example/            # C++ end-to-end examples (organized across 29 tasks)
+│   │   ├── multi_model_graph/  # Multi-model graph CLI and sample graph JSON files
 │   │   └── common/             # ← Shared C++ runtime layer
-│   │       ├── base/           #   Abstract interfaces (IFactory, IProcessor, ...)
-│   │       ├── processors/     #   Shared post-processors
+│   │       ├── base/           #   Abstract interfaces (task factories such as IDetectionFactory, IPreprocessor, IPostprocessor, IVisualizer, IInputSource)
+│   │       ├── processors/     #   Shared processors
 │   │       ├── runner/         #   Task-specific sync/async runner pairs
 │   │       ├── inputs/         #   Image/Video/Camera/RTSP input sources
 │   │       ├── visualizers/    #   Task-specific visualizers
 │   │       ├── config/         #   ModelConfig loader
-│   │       └── utility/        #   Labels, preprocessing, profiling, run_dir, interrupt handling, verify_serialize
-│   ├── python_example/         # Python end-to-end examples (497 registered variants / 29 tasks, all downloadable)
-│   │                           #   <task>/<family>/<variant>/ holds factory, config.json, and thin entries
-│   │                           #   <variant>_sync.py fixes that variant
+│   │       ├── utility/        #   Labels, preprocessing, profiling, run_dir, interrupt handling, verify_serialize
+│   │       ├── graph/          #   Multi-model graph engine
+│   │       ├── registry/       #   Model registry used by the graph engine
+│   │       ├── trackers/       #   IoU tracker
+│   │       └── third_party/    #   Header-only third-party libraries (nlohmann_json)
+│   ├── python_example/         # Python end-to-end examples (organized across 29 tasks)
 │   │   └── common/             # ← Shared Python runtime layer
-│   │       ├── base/           #   Abstract interfaces (IFactory, IProcessor, ...)
-│   │       ├── processors/     #   Shared post-processors
-│   │       ├── runner/         #   SyncRunner, AsyncRunner, run_dir, verify_serialize, args
+│   │       ├── base/           #   Abstract interfaces (task factories such as IDetectionFactory, IPreprocessor, IPostprocessor, IVisualizer, IInputSource)
+│   │       ├── processors/     #   Shared processors
+│   │       ├── runner/         #   SyncRunner, AsyncRunner, run_dir, verify_serialize, sr_tiling, args
 │   │       ├── inputs/         #   Image/Video/Camera/RTSP input sources
 │   │       ├── visualizers/    #   Task-specific visualizers
 │   │       ├── config/         #   ModelConfig loader
+│   │       ├── trackers/       #   IoU tracker
 │   │       └── utility/        #   Labels, preprocessing, profiling
 │   ├── postprocess/            # C++ post-processing (consumed by pybind11 bindings)
 │   ├── utility/                # Shared support code used by build flow
@@ -133,7 +137,7 @@ dx_app/
 ├── tests/                      # pytest-based test suites
 │   ├── test_helpers/           #   Shared test constants & utilities
 │   ├── cpp_example/            #   C++ tests (CLI, E2E, visualization, features)
-│   └── python_example/         #   Python tests (unit, integration, CLI, E2E, visualization)
+│   └── python_example/         #   Python tests (unit, CLI, E2E, visualization)
 ├── assets/                     # Downloaded models/videos (via setup.sh)
 ├── build.sh                    # Top-level build script
 ├── run_tc.sh                   # Unified test runner for example tests
@@ -159,10 +163,10 @@ To utilize NPU acceleration, you **must** install the kernel-mode drivers and th
 
 Versions this release needs:
 
-- **DX-RT ≥ 3.5.0.** `./setup.sh` downloads DX Model Zoo 2_5_0, whose `.dxnn` files are container **v9**; DX-RT 3.5.0 is the first runtime that loads them.
-- **NPU driver ≥ 2.7.0** (RT and PCIe driver). The runtime's own minimum driver, firmware and `.dxnn` versions are printed by `dxrt-cli --version`.
-- **`dx_engine` 3.5.x**, the Python package of the same DX-RT: `import dx_engine` (3.5.0) raises `dx_engine and DX-RT versions do not match` when its major.minor differs from the runtime's.
-- The C++ examples check the floor when they start: a runtime older than 3.5.0 stops with `DXRT library version is too low. (required: >= 3.5.0, current: <version>)`. The check runs after the engine is created, so an older runtime may report its own error on the `.dxnn` first.
+- **OS**: Ubuntu 20.04 / 22.04 / 24.04 (x64) and Debian 12 / 13 (x64)  
+- **DEEPX M1 Runtime Lib Version (DX-RT)**: v3.5.0 or higher  
+- **NPU Device Driver**: v2.7.0 or higher (RT and PCIe driver). The runtime's own minimum driver, firmware and `.dxnn` versions are printed by `dxcli --version`.  
+- **dx_engine** (Python): 3.5.x, matching the runtime's major.minor. `import dx_engine` raises `dx_engine and DX-RT versions do not match` otherwise.  
 
 Tested with DX-RT 3.5.0, NPU driver 2.7.0 (RT and PCIe) and firmware 2.7.4 on a DX-M1 M.2 card (x86_64).
 
@@ -172,14 +176,13 @@ The following tools are required to compile the C++ templates and the Python dx_
 
 **B-a.** Build System  
 
-- **CMake:** Version 3.14 or higher.  
-- **Compiler:** C++14-compatible (GCC 7.5+, Clang, etc.).  
-- **Build Utility:** make or ninja.  
+- **CMake:** 3.14 or higher, with make or ninja 
+- **Compiler:** C++14-compatible (GCC 7.5 or later, Clang)
 
 **B-b.** Core Libraries  
 
--	**OpenCV:** Version 4.2.0 or higher (**4.5.5 recommended**). This is used for image I/O and pre/post-processing visualization.  
--	**Python Environment:** Python 3.8 or higher and pip are required for Python-based examples and pybind11 integration.  
+- **OpenCV**: 4.2.0 or higher (**4.5.5 recommended**), for image I/O and visualization  
+- **Python**: 3.8 or higher with pip, for the CMake configure step (it generates the graph model registry), the Python examples and the pybind11 modules    
 
 ## Development Workflow Overview
 
@@ -515,9 +518,9 @@ The quickest way to explore the AI task categories (26 demo tasks) is the unifie
 Shipped multi-model graphs have their own checker:
 
 ```bash
-./run_multi_model_demo.sh                              # menu
-./run_multi_model_demo.sh --check                      # every sample graph, no NPU
-./run_multi_model_demo.sh --all                        # --check, then each scenario
+./run_multi_model_demo.sh                           # menu
+./run_multi_model_demo.sh --check                   # every sample graph, no NPU
+./run_multi_model_demo.sh --all                     # --check, then each scenario
 ./run_multi_model_demo.sh --scenario hand_cascade
 ```
 
