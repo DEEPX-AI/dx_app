@@ -1,6 +1,6 @@
 # DX-APP C++ Usage Guide
 
-This guide explains how to navigate and use the refactored C++ example tree in DX-APP.
+This guide explains how to navigate and use the C++ example tree in DX-APP.
 
 ---
 
@@ -12,7 +12,7 @@ The C++ examples are located under `src/cpp_example/` and are organized by:
 - **model family**  
 - **variant** (the `.dxnn` stem; sync and async are separate entry files inside that folder)
 
-All examples share a common runtime layer under `src/cpp_example/common/` that provides base interfaces, processors, runners, input sources, visualizers, and utilities. This is the C++ counterpart of `src/python_example/common/` — both languages implement the same 7-module factory-based architecture. Each variant directory contains thin entry-point source files and a factory that wires shared components together.  
+All examples share a common runtime layer under `src/cpp_example/common/` that provides base interfaces, processors, runners, input sources, visualizers, and utilities. This is the C++ counterpart of `src/python_example/common/` — both languages implement the same factory-based architecture with the same core modules. Each variant directory contains thin entry-point source files and a factory that wires shared components together.  
 
 Representative task directories include:
 
@@ -47,7 +47,7 @@ The `common/` directory is the engine behind all C++ examples:
 
 | Module | Contents | Role |
 |--------|----------|------|
-| `common/base/` | 4 interfaces (.hpp) | `IFactory`, `IProcessor`, `IVisualizer`, `IInputSource` |
+| `common/base/` | 4 interface headers (.hpp) | `IFactory`, `IPreprocessor` / `IPostprocessor`, `IVisualizer`, `IInputSource` |
 | `common/config/` | `model_config.hpp` | Loads `config.json` (input size, labels, thresholds) |
 | `common/processors/` | Postprocessor / preprocessor headers | Shared decode logic for all model families |
 | `common/runner/` | Runner headers | A dedicated sync/async runner pair per task type |
@@ -60,6 +60,8 @@ Unlike Python's generic `SyncRunner`/`AsyncRunner`, C++ runners are **task-speci
 **Factory Pattern Implementation**  
 
 Each variant directory has a `factory/<variant>_factory.hpp` that implements the task factory:
+
+The entry point delegates to a task-specific runner:
 
 ```cpp
 // object_detection/yolov9/yolov9-s_640x640/yolov9-s_640x640_sync.cpp
@@ -121,7 +123,7 @@ All C++ examples use `cxxopts` for argument parsing and share a consistent inter
 
 | Flag | Short | Type | Description |
 |------|-------|------|-------------|
-| `--model_path` | `-m` | string | Path to `.dxnn` model file (auto-downloaded if missing) |
+| `--model_path` | `-m` | string | Path to `.dxnn` model file. Optional: if omitted, the example's default model is used and auto-downloaded when missing |
 | `--image_path` | `-i` | string | Input image file or directory |
 | `--video_path` | `-v` | string | Input video file |
 | `--camera_index` | `-c` | int | Camera device index |
@@ -133,7 +135,7 @@ All C++ examples use `cxxopts` for argument parsing and share a consistent inter
 | `--no-display` | — | bool | Disable visualization window, output FPS only |
 | `--drop-frames` | — | bool | Preview drops stale frames instead of pacing the pipeline (default: off, every frame is shown) |
 | `--show-log` | — | bool | Enable verbose log output (default: quiet) |
-| `--config` | — | string | Model config JSON path (auto-detected if omitted) |
+| `--config` | — | string | Model config JSON path. If omitted, the factory's built-in defaults are used; the variant's `config.json` is not read automatically |
 | `--help` | `-h` | — | Show usage |
 
 - **Input source:** `--image_path`, `--video_path`, `--camera_index`, and `--rtsp_url` form a mutually exclusive group. If none is specified, a **default sample image** is automatically selected based on the task type.
@@ -141,10 +143,11 @@ All C++ examples use `cxxopts` for argument parsing and share a consistent inter
 
 !!! note "NOTE"
     **Image-only tasks:** 11 tasks accept `--image_path` input only; `--video_path`, `--camera_index` and `--rtsp_url`
-    are rejected at runtime with an error. The authoritative list is
-    `_IMAGE_ONLY_TASKS` in `src/python_example/common/runner/sync_runner.py`.
+    are rejected at runtime with an error. The list is `isComparisonOnlyTask()` in
+    `src/cpp_example/common/utility/common_util.hpp`, plus the `object_pose_estimation` and
+    `3d_object_detection` checks in the pose and 3D detection runners under `src/cpp_example/common/runner/`.
 
-    `embedding`, `reid`, `attribute_recognition`, `face_recognition`, `face_attribute`, `person_attribute`, `person_reid`, `image_retrieval`, `visual_place_recognition` need a crop of a pre-detected subject, or a committed gallery to rank
+    `face_recognition`, `face_attribute`, `person_attribute`, `person_reid`, `image_retrieval`, `visual_place_recognition`, and the embedding-model variants under `zero_shot_image_classification` (CLIP image encoders) and `image_classification/casvit` need a crop of a pre-detected subject, or a committed gallery to rank
     against. Running a single embedding model on a raw stream without a preceding
     detector would not produce valid results.
 
@@ -154,25 +157,12 @@ All C++ examples use `cxxopts` for argument parsing and share a consistent inter
 
 ---
 
-## Getting Started (Workflow)
+## Getting Started
 
-**Step 1. Prepare assets**  
-
-```bash
-./setup.sh
-```
-
-**Step 2. Build the repository**  
+To set up, build and run a first C++ example, follow [DX-APP Quick Start](01a_DX-APP_Quick_Start.md). The default `./build.sh` builds only the examples that `run_demo.sh` uses; build any other example by its target names, for example:  
 
 ```bash
-./build.sh
-```
-
-**Step 3. Run a C++ example**  
-
-```bash
-./bin/yolov9-s_640x640_sync -m assets/models/yolov9-s_640x640.dxnn -i sample/img/sample_kitchen.jpg
-./bin/yolov9-s_640x640_async -m assets/models/yolov9-s_640x640.dxnn -v assets/videos/dance-group.mov
+./build.sh --target yolov9-s_640x640_sync yolov9-s_640x640_async
 ```
 
 ---
@@ -183,7 +173,7 @@ All C++ examples use `cxxopts` for argument parsing and share a consistent inter
 
 **Auto-Download**
 
-When a specified model file is not found locally, the runner automatically attempts to download it via `setup_sample_models.sh`. If a `--video` file is missing, `setup_sample_videos.sh` is invoked. If the download fails, a clear error message with manual download instructions is displayed.
+When `-m`/`--model_path` is omitted, the runner uses this example's default model from `config/model_registry.json` and, if the file is missing, downloads it via `setup_sample_models.sh`. If the download fails, an error message with manual download instructions is displayed. An explicit `-m` path that does not exist is an error (no download). Missing input files, including videos, are not downloaded; run `./setup.sh` or `./setup_sample_videos.sh` first.
 
 **Default Input Fallback**
 
@@ -193,7 +183,7 @@ If no input source is provided, the runner automatically selects a default sampl
 
 All C++ binaries - every single-model runner (`installSignalHandlers()`) and `multi_model_graph_sync`/`multi_model_graph_async` - install SIGINT/SIGTERM handlers. Pressing Ctrl+C triggers a graceful shutdown with clean resource release (the graph CLI finishes the frames in flight in every stream and finalizes `--report`/`--output`/`--events`). A later Ctrl+C, more than 200 ms after the first, terminates the process at once (for a shutdown that is itself stuck); repeats within 200 ms count as the same request. SIGTERM is always graceful, however often it arrives.
 
-**Preview window.** The window opens at half the screen size with the frame's aspect ratio kept (`DXAPP_SCREEN_W`/`DXAPP_SCREEN_H`, else `xdpyinfo`, else 1920x1080), the same rule as the Python runners' `show_image()`. Every frame is shown by default: a window slower than the NPU paces the pipeline, so measure throughput with `--no-display`. `--drop-frames` selects a depth-1 preview that discards stale frames (the sync preview is then capped at 10 fps, the async one at 60 fps, and the summary prints `dropped (stale)`).
+**Preview window.** The window opens at half the screen size with the frame's aspect ratio kept (`DXAPP_SCREEN_W`/`DXAPP_SCREEN_H`, else `xdpyinfo`, else 1920x1080), the same rule as the Python runners' `show_output()` on Linux (on Windows the C++ runners use 1920x1080 unless `DXAPP_SCREEN_W`/`DXAPP_SCREEN_H` is set). Every frame is shown by default: a window slower than the NPU paces the pipeline, so measure throughput with `--no-display`. `--drop-frames` selects a depth-1 preview that discards stale frames (the sync preview is then capped at 10 fps, the async one at 60 fps, and the async summary prints `dropped (stale)`).
 
 **Output order (async runners)**  
 
@@ -203,11 +193,11 @@ Async runners get results back from dxrt's completion threads in any order. Each
 - On an interrupted run (Ctrl+C, SIGTERM, or closing the window) that wait ends at once, and the frames the reorder buffer already holds are still released in index order.
 - The reorder buffer holds at most twice the runner's in-flight depth. If a frame never comes back from dxrt, the lowest buffered frame is released once that cap is passed, so the display cannot stall; from then on output order is no longer guaranteed.
 
-`DXRT_TASK_MAX_LOAD=40` (a dxrt setting) raises dxrt's I/O buffer count from its default (about 7 jobs in flight) to the runners' 40-frame pipeline depth (instance segmentation keeps its own limit of 4). For a large model dxrt may allocate fewer buffers when NPU memory is short and logs `Buffer count reduced from 40 to N due to NPU memory limit (...)`. If a large model such as `yolopv2_384x640` fails to start at 40 (dxrt reports `Dynamic IPC task init failed` before the first frame), lower the value, for example to `DXRT_TASK_MAX_LOAD=20`. The limit depends on the device's free NPU memory, which other processes on the NPU share.
+`DXRT_TASK_MAX_LOAD=40` (a dxrt setting) raises dxrt's I/O buffer count from its default (6; valid range 1-100) to the runners' 40-frame pipeline depth (instance segmentation keeps its own limit of 4). For a large model dxrt may allocate fewer buffers when NPU memory is short and logs `Buffer count reduced from 40 to N due to NPU memory limit (...)`. If a large model such as `yolopv2_384x640` fails to start at 40 (dxrt reports `Dynamic IPC task init failed` before the first frame), lower the value, for example to `DXRT_TASK_MAX_LOAD=20`. The limit depends on the device's free NPU memory, which other processes on the NPU share.
 
 **Output Management (`--save`)**  
 
-When `--save` is enabled, a timestamped directory is created (e.g., `artifacts/cpp_example/{model}-image-{name}-{timestamp}/`) containing `run_info.txt`, saved images/video, and optional tensor dumps.
+When `--save` is enabled, a timestamped directory is created (e.g., `artifacts/cpp_example/{model}_sync-image-{name}-{timestamp}/`, `_async` for async binaries) containing `run_info.txt`, saved images/video, and optional tensor dumps.
 
 **Configuration Management (`--config`)**  
 
@@ -223,13 +213,13 @@ Frame numbers count per process, so with `-l N` on a video the records of later 
 
 **Tensor Dump for Debugging (`--dump-tensors`)**  
 
-Dumps raw input/output tensors as `.bin` files. On exception, tensors and a `reason.txt` are auto-dumped for debugging.
+Dumps raw input/output tensors as `.bin` files. On an exception in a sync runner, the input and output tensors are auto-dumped for debugging.
 
 ### Environment Variables Reference
 
 | Variable | Description |
 |----------|-------------|
-| `DXAPP_SAVE_IMAGE` | Save visualization to the specified file path |
+| `DXAPP_SAVE_IMAGE` | Save visualization to the specified file path (no `--save` required) |
 | `DXAPP_VERIFY` | When `1`, dump JSON verification data |
 | `DXAPP_VERIFY_DIR` | Directory for `DXAPP_VERIFY` output (default `logs/verify`) |
 | `DXAPP_PROGRESS` | When `1`, print `[PROGRESS] frames=N fps=F avg_fps=A read_ms=… pre_ms=… infer_ms=… post_ms=…` once a second and at exit (front ends); multi_model_graph prints `node_ms=<id>:<ms>,…` instead of the stage fields |
@@ -247,7 +237,7 @@ Dumps raw input/output tensors as `.bin` files. On exception, tensors and a `rea
 
 ### Component Relationships
 
-`src/postprocess/` contains C++ post-processing implementations that are **not** used by `cpp_example/common/processors/` directly. Instead, they are consumed by the pybind11 bindings (`src/bindings/python/dx_postprocess/`) to enable `*_cpp_postprocess.py` variants in Python.  
+`src/postprocess/` contains C++ post-processing implementations that are **not** linked by the C++ examples, except for four modules (`sfa3d`, `superpoint`, `dope`, `yolopv2`) whose sources are compiled into them. They are consumed by the pybind11 bindings (`src/bindings/python/dx_postprocess/`) to enable `*_cpp_postprocess.py` variants in Python.  
 
 The C++ examples rely on their own shared processors in `src/cpp_example/common/processors/`.  
 

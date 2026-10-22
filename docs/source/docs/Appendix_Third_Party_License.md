@@ -5,11 +5,13 @@
 Sample models included in **DX-APP** (distributed as `.dxnn` files) are provided for **evaluation and development purposes only** and are **not licensed for commercial deployment**.
 
 These models are compiled from various third-party open-source projects, each subject to its own license terms (e.g., AGPL-3.0, GPL-3.0, non-commercial research licenses, etc.). Most of these licenses impose significant restrictions on commercial use, including but not limited to:
+
 - Full source code disclosure obligations (Copyleft).
 - Outright prohibition of commercial deployment.
 - Mandatory attribution requirements.
 
 For commercial use, users must either:
+
 - **Obtain appropriate licenses** directly from the original model providers/authors, or
 - **Use their own** commercially licensed or proprietary models.
 

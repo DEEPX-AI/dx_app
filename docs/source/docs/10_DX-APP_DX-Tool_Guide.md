@@ -36,7 +36,7 @@ Use `dx_tool.sh` when you need to:
 
 - add a new example model to the repository structure
 - inspect existing models by task or keyword
-- extract a standalone package into the current example layout
+- export an example as a standalone package for deployment
 - validate example assets and generated code structure
 - run a filtered subset of examples
 - benchmark examples across C++ and Python variants
@@ -54,7 +54,7 @@ If you are adding or refactoring an example, follow this standard sequence to en
 ```bash
 # 1. Prepare assets & Build
 ./setup.sh
-./build.sh --clean
+./build.sh --clean --all
 
 # 2. Inspect & Validate repository state
 ./scripts/dx_tool.sh list
@@ -66,7 +66,7 @@ If you are adding or refactoring an example, follow this standard sequence to en
 ./run_tc.sh --python
 ```
 
-This sequence prepares assets, rebuilds the repository, inspects available models, validates layout consistency, and performs a fast example-oriented test pass.  
+This sequence prepares assets, rebuilds the repository, inspects available models, runs registry-driven validation, and performs an example-oriented test pass.  
 
 ### Step 2. Execution Modes
 
@@ -98,6 +98,8 @@ Run a subcommand directly when you already know the intended task.
 ./scripts/dx_tool.sh validate
 ```
 
+`validate` prompts for the language and scope; for scripts, call `./scripts/validate_models.sh` directly.  
+
 This mode is better for:  
 
 - repeatable contributor workflows  
@@ -109,13 +111,13 @@ This mode is better for:
 | Command | Purpose |
 |---|---|
 | `add` | Create a new model/example skeleton |
-| `extract` | Extract a standalone package into repository layout |
-| `list` | List registered models |
+| `extract` | Export an example as a standalone package |
+| `list` | List example models by task (C++/Python) |
 | `search` | Search models by keyword |
 | `info` | Show model details |
-| `delete` | Remove a model from the repository |
-| `new-task` | Create a new task directory skeleton |
-| `validate` | Validate current model/example layout |
+| `delete` | Delete example directories (`<task>/<family>/<variant>`, or a bare family name = the whole family); registry and `test_models.conf` rows are left in place |
+| `new-task` | Generate skeleton `common/` files (postprocessor, visualizer, factory interface, sync/async runner) for a new task type |
+| `validate` | Run registry-driven validation via `validate_models.sh`: build and run (NPU inference) every supported registry model, generating any that has no example yet |
 | `run` | Execute examples with filters |
 | `bench` | Benchmark examples with filters |
 | `help` | Show usage help |
@@ -137,20 +139,21 @@ This mode is better for:
 | `family` | Family directory (e.g., `yolov9`) |
 | `task` | Task directory (e.g., `object_detection`) |
 | `dxnn_file` | Compiled model filename (e.g., `yolov9-s_640x640.dxnn`) |
-| `add_model_task` | Task category (e.g., `object_detection`) |
+| `add_model_task` | Legacy task name passed to `add_model.sh` by `validate_models.sh` (e.g., `object_detection`, `classification`, `ppu`) |
 | `postprocessor` | Which shared processor to use (e.g., `yolov8`) |
 | `input_width`, `input_height` | Model input dimensions |
 | `config` | Extra parameters (thresholds, num_classes, etc.) |
 | `supported` | Whether the model is part of the standard validation flow |
+| `alias_of`, `published`, `image_only`, ... | Alias, publication and test metadata |
 
-The `add` command reads this registry to auto-generate factory files, `config.json`, and all entry-point scripts.  
+The `add` command copies a reference example picked from this registry and rewrites its factory files, `config.json`, and entry-point scripts for the new variant.  
 
 **Adding Examples**  
 
 - Use `add` when you are onboarding a new model into an existing task category.  
 - Use `new-task` when you are introducing a new task-level grouping that does not yet exist in the current repository layout.  
 
-In both cases, validate the result and then update the related test registration if the example should be covered by automated tests.  
+In both cases, validate the result. `add_model.sh` registers the new variant in `model_registry.json` and `test_models.conf` automatically (unless `--no-register` is given). For a new task, check whether the test helpers need the new task as well.  
 
 ### Validation & Verification 
 
@@ -162,19 +165,19 @@ In both cases, validate the result and then update the related test registration
 ./scripts/validate_models.sh --lang py
 ```
 
-This runs code generation + NPU inference for all supported models.  
+This builds and runs (NPU inference) the example of every supported registry row whose `.dxnn` is present; a row without an example is generated first. With `--skip-verify` only missing examples are generated.  
 
 **`validate_models.sh` options**
 
 | Option | Purpose |
 |--------|---------|
-| `--lang cpp\|py\|both` | Language filter |
+| `--lang <lang>` | Language filter: `cpp`, `py` or `both` |
 | `--skip-verify` | Code generation only (no inference) |
 | `--no-video` | Image-only mode |
 | `--list` | Print commands without executing |
-| `--clean` | Remove all generated packages |
-| `--start-from <model>` | Resume from a specific model |
-| `<task_filter>` | Filter by task (e.g., `object_detection`) |
+| `--clean` | Legacy cleanup for the pre-v3.3.0 flat layout. **Do not run it on the current tree**: it deletes every `<task>/<family>/` directory whose name is not a registry `model_name`, including committed examples |
+| `--start-from <model_name>` | Resume from a registry `model_name` |
+| `<task_filter>` | Filter by registry `add_model_task` (e.g., `object_detection`, `classification`, `pose`, `obb`, `ppu`); task directory names such as `image_classification` are rejected |
 
 ### Execution & Benchmarking
 
@@ -193,7 +196,7 @@ This runs code generation + NPU inference for all supported models.
 ```bash
 ./scripts/dx_tool.sh list
 ./scripts/dx_tool.sh search yolov8
-./scripts/dx_tool.sh info yolov9
+./scripts/dx_tool.sh info yolov9-s_640x640
 ```
 
 Use this first to avoid creating duplicate or inconsistent example names.
@@ -206,37 +209,38 @@ Use this first to avoid creating duplicate or inconsistent example names.
 
 The add flow is intended for contributors creating a new example under the `<task>/<family>/<variant>/` layout. Typical information includes:  
 
-- target language (`cpp`, `py`, or both)  
-- task category  
-- model name  
-- post-processing selection  
-- sync-only or multi-variant generation choice  
+- target language (C++, Python, or both)  
+- task type  
+- postprocessor (reference)  
+- variant name (the `.dxnn` stem)  
+- family directory (empty = the reference's family)  
+- generation mode (sync + async, or sync only)  
 
 For YOLO-family model onboarding and postprocessor selection details, refer to [DX-APP YOLO Customizing Guide](12_DX-APP_YOLO_Customizing_Guide.md).
 
 You can also invoke `add_model.sh` directly for non-interactive usage:  
 
 ```bash
-# Create from a postprocessor family (the reference is the first registered example that uses it)
+# Create from a postprocessor family (the reference is the alphabetically first registered variant that uses it, preferring the same task)
 ./scripts/add_model.sh yolo-custom_640x640 object_detection --postprocessor yolov8
 
 # Copy from an existing variant (useful for same-family variants)
-./scripts/add_model.sh yolov7-w6_1280x1280 object_detection --base-model yolov7_640x640 --input-size 1280x1280
+./scripts/add_model.sh yolov7-custom_1280x1280 object_detection --base-model yolov7_640x640 --input-size 1280x1280
 
 # Open a new family for the variant
 ./scripts/add_model.sh my-det_640x640 object_detection --family my_det --postprocessor yolov5
 
-# Generate, verify, and push in one step
-./scripts/add_model.sh yolo-custom_640x640 object_detection --postprocessor yolov8 --verify --model assets/models/yolo-custom_640x640.dxnn --git-push
+# Generate and verify in one step
+./scripts/add_model.sh yolo-custom_640x640 object_detection --postprocessor yolov8 --verify --model assets/models/yolo-custom_640x640.dxnn
 ```
 
-The first argument is the variant: the `.dxnn` stem, which is also the directory name. The example lands in `src/{cpp,python}_example/<task>/<family>/<variant>/` with the C++ factory scoped in `dxapp::v_<variant>`, `config.json` names the variant, and `config/model_registry.json` and `config/test_models.conf` gain the variant unless `--no-register` is given (a variant that is already registered takes its family, model file and input size from its row). The generator is `scripts/add_model_variant.py`; `add_model.sh` adds `--verify`, `--git-push` and `--auto-add` around it.
+The first argument is the variant: the `.dxnn` stem, which is also the directory name. The example lands in `src/{cpp,python}_example/<task>/<family>/<variant>/` with the C++ factory scoped in `dxapp::v_<variant>`, `config.json` names the variant, and `config/model_registry.json` and `config/test_models.conf` gain the variant unless `--no-register` is given (a variant that is already registered takes its family, model file and input size from its row). The generator is `scripts/add_model_variant.py`; `add_model.sh` adds `--verify` (with `--model`, `--image`, `--video`, `--no-video`) and `--auto-add` around it.
 
 Common `--postprocessor` values include:
 
 | Task | Common values |
 |------|---------------|
-| Object detection | `yolov5`, `yolov7`, `yolov8`, `yolov9`, `yolov10`, `yolov11`, `yolov12`, `yolov26`, `yolox`, `damoyolo`, `nanodet`, `ssd` |
+| Object detection | `yolov5`, `yolov7`, `yolov8`, `yolov9`, `yolov10`, `yolov11`, `yolov12`, `yolov13`, `yolov26`, `yolox`, `damoyolo`, `nanodet`, `ssd` |
 | Semantic segmentation | `deeplabv3`, `bisenetv1`, `bisenetv2`, `segformer`, `fast_segmentation` |
 | Instance segmentation | `yolov5seg`, `yolov8seg`, `yolov26seg` |
 | Pose estimation | `yolov5pose`, `yolov8pose`, `yolov26pose` |
@@ -254,11 +258,11 @@ Key `add_model.sh` options
 | `--input-size <WxH>` | Model input size (default: the registry row's, else the reference's) |
 | `--dxnn <file>` | Model file name (default: `<variant>.dxnn`) |
 | `--no-register` | Do not add the variant to `model_registry.json` / `test_models.conf` |
-| `--lang <cpp\|py\|both>` | Target language (default: `both`) |
+| `--lang <lang>` | Target language: `cpp`, `py` or `both` (default: `both`) |
+| `--sync-only` | Generate only the sync entries |
 | `--verify` | Build and run inference verification after generation |
 | `--model <path>` | `.dxnn` model file for `--verify` |
 | `--no-video` | Skip video verification (image only) |
-| `--git-push` | After successful `--verify`, commit and push |
 | `--auto-add` | Generate the example of every registry row that has none |
 
 After generation, review the resulting files under `src/cpp_example/` and/or `src/python_example/`.
@@ -268,11 +272,11 @@ After generation, review the resulting files under `src/cpp_example/` and/or `sr
 After generation, verify that the new example is correctly integrated and runs without issues.  
 
 ```bash
-# Check if all required files and registry entries are consistent
+# Build and run every supported registry model (long; interactive)
 ./scripts/dx_tool.sh validate
 
 # Test the new example (e.g., for C++)
-./scripts/dx_tool.sh run --lang cpp --model <your_model_name>
+./scripts/dx_tool.sh run --lang cpp --filter <variant>
 ```
 
 !!! note "NOTE"  
@@ -287,10 +291,9 @@ After generation, verify that the new example is correctly integrated and runs w
 ./scripts/dx_tool.sh extract
 ```
 
-Use this when you need to convert an external model package into the repository layout used by DX-APP.  
+Use this when you need a standalone copy of one example (its model directory plus the `common/` files it depends on) for deployment outside the repository.  
 
-The extracted package carries only the `common/` files the model actually depends on.
-For `object_detection/yolov7` that is 29 of 121 files (C++) and 54 of 103 (Python), instead of
+The extracted package carries only the `common/` files the model actually depends on: only a fraction of the shared files, instead of
 every postprocessor, runner, and visualizer for all 29 tasks.
 
 To get the complete shared framework instead, answer `n` at the `Prune unused common/ files?
@@ -301,7 +304,7 @@ To get the complete shared framework instead, answer `n` at the `Prune unused co
 ```
 
 Pruned and full packages are equivalent: they compile identically and produce byte-identical
-inference output. Note that the visualization color palette is unseeded, so rendered box colors
+inference output. Note that the Python visualizers use an unseeded color palette, so rendered colors
 differ between runs either way.
 
 **Step 2-2. Extract a Visual Studio solution package on Windows**
@@ -362,7 +365,7 @@ To create only the package skeleton without configuring CMake or generating `.sl
 ./scripts/dx_tool.sh validate
 ```
 
-Run validation after adding or restructuring examples. This helps catch mismatched files, missing variants, or incomplete model onboarding.  
+Run validation after adding or restructuring examples. It builds and runs every supported registry model, so it catches examples that no longer build or run, and it generates any registered variant that has no example yet.  
 
 **Step 3-2. Run examples selectively**  
 
@@ -426,7 +429,7 @@ The exact workflow depends on the contributor task, but the following command pa
 ```bash
 ./scripts/dx_tool.sh list
 ./scripts/dx_tool.sh search yolov8
-./scripts/dx_tool.sh info yolov9
+./scripts/dx_tool.sh info yolov9-s_640x640
 ```
 
 **Validate after adding or refactoring examples**  

@@ -1,6 +1,6 @@
 # DX-APP Python Usage Guide
 
-This guide explains how to navigate and use the refactored Python example tree in DX-APP.
+This guide explains how to navigate and use the Python example tree in DX-APP.
 
 ---
 
@@ -12,12 +12,12 @@ The Python examples are located under `src/python_example/` and are organized by
 - **model family**    
 - **variant** (the `.dxnn` stem; each folder has sync, async, and C++ post-process entries)
 
-All examples share a common runtime layer under `src/python_example/common/` that provides base interfaces, processors, runners, input sources, visualizers, and utilities. This is the Python counterpart of `src/cpp_example/common/` — both languages implement the same 7-module factory-based architecture. Each variant directory contains thin entry-point scripts and a factory that wires shared components together.  
+All examples share a common runtime layer under `src/python_example/common/` that provides base interfaces, processors, runners, input sources, visualizers, and utilities. This is the Python counterpart of `src/cpp_example/common/` — both languages implement the same factory-based architecture with the same core modules. Each variant directory contains thin entry-point scripts and a factory that wires shared components together.  
 
 Representative task directories include:  
 
 - `image_classification/` — EfficientNet, AlexNet, ResNet, MobileNet, CasViT, etc.  
-- `object_detection/` — YOLOv3/v5/v7/v8/v9/v10/v11/v12, YOLO26, YOLOX, NanoDet, DAMOYOLO, SSD. PPU variants live under families such as `yolo_ppu/`  
+- `object_detection/` — YOLOv3/v4/v5/v6/v7/v8/v9/v10/v11/v12/v13, YOLO26, YOLOX, EfficientDet, RT-DETR, NanoDet, DAMOYOLO, SSD. PPU variants live under families such as `yolo_ppu/`  
 - `face_detection/` — SCRFD, YOLOv5Face, YOLOv7Face, RetinaFace  
 - `pose_estimation/` — YOLOv8-Pose  
 - `semantic_segmentation/` — BiSeNet, DeepLabV3+, SegFormer  
@@ -45,8 +45,9 @@ The `common/` directory is the engine behind all Python examples:
 
 | Module | Role |
 |--------|------|
-| `common/base/` | Abstract interfaces: `IFactory`, `IProcessor`, `IVisualizer`, `IInputSource` |
-| `common/config/` | `ModelConfig` — loads `config.json` (input size, labels, thresholds) |
+| `common/base/` | Abstract interfaces: task factories (`IDetectionFactory`, `IClassificationFactory`, …), `IPreprocessor` / `IPostprocessor`, `IVisualizer`, `IInputSource` |
+| `common/config/` | `load_config()` / `validate_config()` — reads a flat `--config` JSON |
+| `common/variant_config.py`, `common/variants.py` | Build processors from `<variant>/config.json`; resolve a variant key through `config/model_registry.json` |
 | `common/processors/` | Shared processors covering all model families |
 | `common/runner/` | `SyncRunner`, `AsyncRunner`, `run_dir`, `verify_serialize`, `sr_tiling`, `args` — generic execution engines with built-in profiling |
 | `common/inputs/` | Input source abstraction: image, video, camera, RTSP |
@@ -55,30 +56,41 @@ The `common/` directory is the engine behind all Python examples:
 
 **Factory Pattern & Model Registry**  
 
-Each model directory has a `factory/{model}_factory.py` that implements `IFactory`:  
+Each variant directory has a `factory/{variant}_factory.py` that implements the task factory (for example `IDetectionFactory`). The factory is config-driven: every variant folder carries the same family factory class, which builds the processor classes and their arguments from that folder's `config.json` (`preprocessor`, `postprocessor`, `visualizer`). For `yolov9-s_640x640`, an anchor-free model, the postprocessor is `YOLOv8Postprocessor`, which decodes the whole YOLOv8 to YOLOv13 detection family:  
 
-```python
-from common.processors import YOLOv5Postprocessor
-from common.visualizers import DetectionVisualizer
-
-class Yolov9sFactory(IFactory):
-    def create_postprocessor(self):
-        return YOLOv5Postprocessor(self.config)
-    def create_visualizer(self):
-        return DetectionVisualizer(self.config)
+```json
+"preprocessor":  { "class": "LetterboxPreprocessor", ... },
+"postprocessor": { "class": "YOLOv8Postprocessor", ... },
+"visualizer":    { "class": "DetectionVisualizer", ... }
 ```
 
-The entry-point script simply delegates to the runner:  
+```python
+class Yolov9Factory(IDetectionFactory):
+    def __init__(self, config: dict = None, variant: str = None):
+        self.variant = variant or default_variant(_FAMILY_DIR)
+        self.spec = load_variant_config(_FAMILY_DIR, self.variant)
+        self.config = {**(self.spec.get("config") or {}), **(config or {})}
+
+    def create_postprocessor(self, input_width: int, input_height: int):
+        # builds the "postprocessor" entry of config.json: YOLOv8Postprocessor
+        return self._build("postprocessor", input_width, input_height)
+```
+
+The entry-point script fixes the variant and delegates to the runner:  
 
 ```python
+from factory import Yolov9Factory
 from common.runner import SyncRunner
-runner = SyncRunner(factory)
-runner.run()
+from common.runner.entry import run_entry
+
+run_entry(_script, factory_cls=Yolov9Factory, runner_cls=SyncRunner,
+          description="yolov9-s_640x640 sync inference",
+          fixed_variant="yolov9-s_640x640")
 ```
 
 Model Registry (`config/model_registry.json`)  
 
-A JSON registry stores per-model metadata (task, postprocessor type, input dimensions, thresholds). The `scripts/add_model.sh` tool reads this registry to auto-generate factory files, config.json, and all entry-point scripts — enabling zero-code model onboarding.  
+A JSON registry stores per-model metadata (task, postprocessor type, input dimensions, thresholds). `scripts/add_model.sh` copies a reference variant of the same family into a new `<task>/<family>/<variant>/` directory (factory, `config.json` and the four entry scripts), renames it, and adds the variant to this registry. When a matching postprocessor already exists, onboarding a model needs no new source code.  
 
 ### Directory & File Pattern
 
@@ -115,7 +127,6 @@ Use these when you want:
 Use these when you want:  
 
 - faster post-processing — uses C++ via pybind11 (`dx_postprocess`)  
-- better alignment with shared C++ decode logic  
 - more realistic performance validation  
 
 ### CLI Interface
@@ -124,7 +135,8 @@ All Python examples use `argparse` via `common/runner/args.py` and share a consi
 
 | Flag | Short | Type | Description |
 |------|-------|------|-------------|
-| `--model` | `-m` | string | Path to `.dxnn` model file (auto-downloaded if missing) |
+| `--model` | `-m` | string | Path to `.dxnn` model file. Optional: if omitted, the example's default model is used and auto-downloaded when missing |
+| `--variant` | — | string | Variant key (the `.dxnn` stem, e.g. `yolov5-s_640x640`); sets the model path from `config/model_registry.json`. An explicit `--model` takes precedence |
 | `--image` | `-i` | string | Input image file or directory |
 | `--video` | `-v` | string | Input video file |
 | `--camera` | `-c` | int | Camera device index |
@@ -133,22 +145,26 @@ All Python examples use `argparse` via `common/runner/args.py` and share a consi
 | `--save-dir` | — | string | Base output directory (default: `artifacts/python_example/`) |
 | `--dump-tensors` | — | flag | Dump input/output tensors to `.npy` files |
 | `--loop` | `-l` | int | Inference repeat count (default: 1; bare `--loop` = 2) |
+| `--display` | — | flag | Show the visualization window (default: on) |
 | `--no-display` | — | flag | Disable visualization window |
 | `--show-log` | — | flag | Enable verbose log output (default: quiet) |
 | `--config` | — | string | Model config JSON path (auto-detected if omitted) |
 | `--fast-postprocess` | — | flag | Opt-in faster postprocessing variant where available (standard path is the default) |
-| `--output` | `-o` | string | Output file path (restoration/depth/SR only) |
+| `--sr-tile-halo` | — | int | Tile overlap in low-resolution pixels for tiled super-resolution, 0..4 (default: 4) |
+| `--output` | `-o` | string | Accepted by some examples (see `--help`) but not used by the runners in this release; save results with `--save` / `--save-dir` or `DXAPP_SAVE_IMAGE` |
+| `--calib-dir` | — | string | SFA3D only. Accepted but not applied in this release: calibration is read from `<stem>.txt` next to the `.bin`, or from `../calib/<stem>.txt` |
+| `--image2-dir` | — | string | SFA3D only. Accepted but not applied in this release: the camera image is read from `../image_2/<stem>.png` or `.jpg` |
 | `--help` | `-h` | — | Show usage |
 
-- **Input source:** `--image`, `--video`, `--camera`, and `--rtsp` form a mutually exclusive group. If none is specified, a **default sample image** is automatically selected based on the task type.
+- **Input source:** `--image`, `--video`, `--camera`, and `--rtsp` form a mutually exclusive group. If none is specified, the variant's **default sample image** (`default_image` in its `config.json`) is used; image-only examples instead print a hint to pass `--image` and exit.
 
 !!! note "NOTE"
 
-    **Image-only tasks:** 11 tasks accept `--image` input only; `--video`, `--camera` and `--rtsp`
-    are rejected at runtime with an error. The authoritative list is
-    `_IMAGE_ONLY_TASKS` in `src/python_example/common/runner/sync_runner.py`.
+    **Image-only examples:** a variant whose `config.json` sets `"image_only": true` (8 tasks such as
+    `face_recognition`, `person_reid`, `3d_object_detection`, plus the CasViT ReID and some CLIP variants)
+    rejects `--video`, `--camera` and `--rtsp`; with `"include_stream_inputs": false` those options are not registered at all.
 
-    `embedding`, `reid`, `attribute_recognition`, `face_recognition`, `face_attribute`, `person_attribute`, `person_reid`, `image_retrieval`, `visual_place_recognition` need a crop of a pre-detected subject, or a committed gallery to rank
+    `face_recognition`, `face_attribute`, `person_attribute`, `person_reid`, `image_retrieval`, `visual_place_recognition` need a crop of a pre-detected subject, or a committed gallery to rank
     against. Running a single embedding model on a raw stream without a preceding
     detector would not produce valid results.
 
@@ -158,26 +174,9 @@ All Python examples use `argparse` via `common/runner/args.py` and share a consi
 
 ---
 
-## Getting Started (Workflow)
+## Getting Started
 
-**Step 1. Prepare assets**  
-
-```bash
-./setup.sh
-```
-
-**Step 2. Build shared libraries**  
-
-```bash
-./build.sh
-```
-
-**Step 3. Run a Python example**  
-
-```bash
-python src/python_example/object_detection/yolov9/yolov9-s_640x640/yolov9-s_640x640_sync.py --model assets/models/yolov9-s_640x640.dxnn --image sample/img/sample_kitchen.jpg
-python src/python_example/object_detection/yolov9/yolov9-s_640x640/yolov9-s_640x640_async_cpp_postprocess.py --model assets/models/yolov9-s_640x640.dxnn --video assets/videos/dance-group.mov
-```
+To set up and run a first Python example, follow [DX-APP Quick Start](01a_DX-APP_Quick_Start.md). The Python scripts need no build of their own; the default `./build.sh` installs `dx_postprocess`, which the `*_cpp_postprocess.py` variants use.  
 
 ---
 
@@ -187,7 +186,7 @@ python src/python_example/object_detection/yolov9/yolov9-s_640x640/yolov9-s_640x
 
 **Auto-Download**
 
-When a specified model file is not found locally, the runner automatically attempts to download it via `setup_sample_models.sh`. If a `--video` file is missing, `setup_sample_videos.sh` is invoked. If the download fails, a clear error message with manual download instructions is displayed.
+When `--model` is omitted, the runner uses this example's default model from `config/model_registry.json` and, if the file is missing, downloads it via `setup_sample_models.sh`. If the download fails, an error message with manual download instructions is displayed. An explicit `--model` path that does not exist is an error (no download). Missing input files, including videos, are not downloaded; run `./setup.sh` or `./setup_sample_videos.sh` first.
 
 **Default Input Fallback**
 
@@ -208,11 +207,11 @@ The async runner waits for dxrt's results in submit order (one wait worker and F
 
 **Output Management** (`--save`)  
 
-When `--save` is enabled, a timestamped directory is created (e.g., `artifacts/python_example/{model}-image-{name}-{timestamp}/`) containing `run_info.txt`, saved images/video, and optional tensor dumps.
+When `--save` is enabled, a timestamped directory is created (e.g., `artifacts/python_example/{script}-image-{name}-{timestamp}/`, where `{script}` is the entry script's name such as `yolov9-s_640x640_sync`) containing `run_info.txt`, saved images/video, and optional tensor dumps.
 
 **Headless Mode**
 
-When `DISPLAY`/`WAYLAND_DISPLAY` environment variables are absent, `cv2.imshow()` is automatically skipped. Use `--no-display` for explicit headless operation.  
+On Linux, when `DISPLAY`/`WAYLAND_DISPLAY` are absent, `cv2.imshow()` is skipped automatically (Windows and macOS always open the window). Use `--no-display` for explicit headless operation.  
 
 **Model Configuration** (`--config`)  
 
@@ -220,14 +219,14 @@ Runtime parameters (thresholds, top-k, etc.) come from `<task>/<family>/<variant
 
 **Fast Postprocessing** (`--fast-postprocess`)  
 
-An opt-in, performance-oriented postprocessing path. By default the runner always uses the standard postprocessor; passing `--fast-postprocess` selects a faster variant **only for the model families that provide one** — other models silently keep the standard path, so the flag is always safe to add. The optimization skips work the standard path performs *before* thresholding (e.g. running `sigmoid` over the full anchor grid, taking `argmax` over every anchor, or upsampling each mask to the full input resolution).
+An opt-in, performance-oriented postprocessing path. By default the runner always uses the standard postprocessor; passing `--fast-postprocess` selects a faster variant **only for the model families that provide one** — other models keep the standard path and print a warning, so the flag is always safe to add. It does not affect the `*_cpp_postprocess` scripts, whose post-processing runs in C++. The optimization skips work the standard path performs *before* thresholding (e.g. running `sigmoid` over the full anchor grid, taking `argmax` over every anchor, or upsampling each mask to the full input resolution).
 
 There are two accuracy tiers:
 
 | Tier | Output vs. standard path | Model families |
 |------|--------------------------|----------------|
-| **Exact** | Byte-identical (verified by parity unit tests) | Object detection — YOLOv5 / YOLOv7, EfficientDet |
-| **Approximate** | Differs only at sub-pixel mask boundaries (binary masks agree at high IoU) | Instance segmentation (YOLOv8-seg), YOLACT, SegFormer semantic segmentation |
+| **Exact** | Byte-identical (verified by parity unit tests) | Object detection — every variant using `YOLOv5Postprocessor` (YOLOv3/v4/v5/v6/v7), EfficientDet |
+| **Approximate** | Differs only at sub-pixel mask boundaries (binary masks agree at high IoU) | Instance segmentation (YOLOv8-seg family), YOLACT, SegFormer semantic segmentation, depth estimation (values differ by up to ~3/255) |
 
 - **Exact tier (detection):** the fast path gates anchors *before* the expensive decode. Because objectness/score gating is monotonic and the survivors are decoded with the same formulas, the detections are bit-for-bit identical to the standard path — it can be enabled with no accuracy cost.
 - **Approximate tier (segmentation):** the fast path crops and resizes masks at prototype (or output) resolution instead of upsampling each mask to the full input resolution first. This changes only sub-pixel boundary interpolation; on the profiled workloads the measured speedup is roughly 2.3x for instance segmentation and 4.9x for SegFormer-style semantic segmentation (the exact figure depends on the model, resolution, and host CPU).
@@ -246,7 +245,7 @@ python src/python_example/object_detection/yolov7/yolov7_640x640/yolov7_640x640_
 
 **Numerical Verification** (`DXAPP_VERIFY`)  
 
-Set `DXAPP_VERIFY=1` to serialize post-processing results. Each run writes `logs/verify/{model}.json` (override the directory with `DXAPP_VERIFY_DIR`) holding the last frame, and `{model}.frames.jsonl` with one record per frame (`"frame": 0, 1, …` in input order). Writes are serialized and the JSON is replaced atomically, so a reader never sees a half-written file. Every runner dumps its real results, including tiled super-resolution (statistics of the stitched output), 3D detection and YOLOPv2 (boxes plus drivable/lane mask statistics); SuperPoint records carry each frame's keypoints and the descriptor size. The `*_cpp_postprocess` scripts dump too (raw arrays as `output_stats` / `output_stats_list`, for the scripts whose post-processing returns arrays). `{model}.json` holds the last frame.  
+Set `DXAPP_VERIFY=1` to serialize post-processing results. Each run writes `logs/verify/{model}.json` (override the directory with `DXAPP_VERIFY_DIR`) holding the last frame, and `{model}.frames.jsonl` with one record per frame (`"frame": 0, 1, …` in input order). Writes are serialized and the JSON is replaced atomically, so a reader never sees a half-written file. Every runner dumps its real results, including tiled super-resolution (statistics of the stitched output), 3D detection and YOLOPv2 (boxes plus drivable/lane mask statistics); SuperPoint records carry each frame's keypoints and the descriptor size. The `*_cpp_postprocess` scripts dump too (raw arrays as `output_stats` / `output_stats_list`, for the scripts whose post-processing returns arrays).  
 
 Frame numbers count per process, so with `--loop N` on a video the records of later loops continue the numbering.  
 
@@ -268,7 +267,9 @@ bash scripts/validate_models.sh --lang py
 | `DXAPP_SAVE_IMAGE` | Save visualization to the specified file path (no `--save` required) |
 | `DXAPP_VERIFY` | When `1`, dump JSON verification data |
 | `DXAPP_VERIFY_DIR` | Directory for `DXAPP_VERIFY` output (default `logs/verify`) |
-| `DXAPP_PROGRESS` | When `1`, print `[PROGRESS] frames=N fps=F avg_fps=A read_ms=… pre_ms=… infer_ms=… post_ms=…` once a second and at exit (front ends) |
+| `DXAPP_PROGRESS` | When set (any value but `0`), print `[PROGRESS] frames=N fps=F avg_fps=A read_ms=… pre_ms=… infer_ms=… post_ms=…` once a second and at exit (front ends) |
+| `DXAPP_SR_TILE_HALO` | Tile overlap for tiled super-resolution, 0..4 (overridden by `--sr-tile-halo` and config.json `sr_tile_halo`) |
+| `DXAPP_SCREEN_W` / `DXAPP_SCREEN_H` | Screen size used to size the display window (both must be set) |
 
 ---
 

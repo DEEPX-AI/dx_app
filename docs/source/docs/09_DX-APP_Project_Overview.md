@@ -1,189 +1,8 @@
-# Project README
+# DX-APP Architecture and Usage Reference
 
-## Overview  
+This chapter is the reference for the whole repository: how it is laid out, how an example is built from the shared runtime layer, the command-line options and environment variables every example shares, and the runtime features built into all of them.  
 
-**DX-APP** is a production-ready suite of application templates designed to accelerate the development of AI services on **DEEPX NPUs**. It bridges the gap between raw model deployment and high-performance application engineering.  
-
-**Key Features & Objectives**  
-
-- **Rapid Deployment:** Ready-to-run examples across multiple AI task categories — Classification, Object Detection, Face Detection, Pose Estimation, Semantic/Instance Segmentation, Depth Estimation, OBB Detection, Embedding, and more.
-- **Dual-Language Flexibility:** High-performance **C++** for production and **Python** for rapid prototyping, each with their own shared runtime layer (`src/cpp_example/common/` for C++, `src/python_example/common/` for Python).  
-- **Hardware Acceleration:** Native support for **PPU-enabled models** and **Async templates** that overlap pipeline stages to maximize FPS.  
-- **Modular Design:** Clean, task-oriented templates that serve as reusable blueprints for custom commercial applications.  
-
-**Reference Documentation**  
-
-For deeper technical specifications, refer to the `docs/` directory  
-
-- **Application Overview:** [01_DXNN_Application_Overview.md](01_DXNN_Application_Overview.md)  
-- **Installation & Build Guide:** [02_DX-APP_Installation_and_Build.md](02_DX-APP_Installation_and_Build.md)  
-
----
-
-## Quick Start Guide
-
-Follow these steps to transition from a fresh installation to your first successful inference on DEEPX NPU.  
-
-**Step 1. Environment Setup & Verification**  
-
-First, verify that the NPU driver and DX-RT are correctly installed. This is a mandatory prerequisite.  
-
-```bash
-## Verify hardware connection and driver status
-dxrt-cli -s
-```
-
-!!! warning "Caution: Prerequisite Check"  
-
-      If the command above fails, you **must** manually install the NPU Drivers and DX-RT before continuing with DX-APP setup. Refer to the installation and build documentation under `docs/source/docs/`.  
-
-Once hardware is verified, install the necessary toolchain and system libraries.  
-
-```bash
-## Install Build tools, CMake, and OpenCV
-./install.sh --all
-```
-
-**Step 2. Asset Acquisition**  
-
-Download the required models and sample media files.  
-
-```bash
-## Interactive mode (default) — select categories and models from a menu
-./setup.sh
-
-## Non-interactive — download all models automatically without prompts
-./setup.sh --all
-
-## Preview what would be downloaded (no actual download)
-./setup.sh --dry-run
-
-## Download only a specific category
-./setup.sh --category=object_detection
-
-## Download specific models by name
-./setup.sh --models yolov8n yolov9s efficientnet_lite0
-```
-
-**`setup.sh` Options**  
-
-| Option | Description |
-|--------|-------------|
-| `--all` | Download all models non-interactively |
-| `--dry-run` | List models that would be downloaded without downloading |
-| `--list` | List available models without downloading |
-| `--workers=<N>` | Parallel download threads (default: 4) |
-| `--category=<name>` | Download models of a specific category only |
-| `--models <m1> [m2...]` | Download specific models by name |
-| `--no-json` | Skip JSON metadata file downloads |
-| `--manifest=<path>` | Use an alternate manifest JSON file |
-| `--force` | Force overwrite if files already exist (default) |
-| `--no-force` | Skip download if the file already exists |
-| `--force-remove-models` | Force remove models if they exist |
-| `--force-remove-videos` | Force remove videos if they exist |
-| `--verbose` | Enable verbose logging |
-
-- **Models:** Saved to `assets/models/`. By default, an interactive menu lets you select which model categories and models to download. Use `--all` to skip the menu and download everything automatically.
-- **Media:** Saved to `assets/videos/`.
-
-For most users, `./setup.sh` is the only required entry point for asset preparation.  
-
-If you are maintaining examples rather than only consuming them, review [DX Tool Guide](10_DX-APP_DX-Tool_Guide.md).  
-
-**Step 3. Build & Execution**  
-
-Build the C++ binaries and the Python dx_postprocess bindings simultaneously.  
-
-```bash
-## Default build (minimal — builds run_demo C++ targets and installs dx_postprocess)
-./build.sh
-
-## Full build (all C++ targets + install)
-./build.sh --all
-
-## For a clean rebuild, use: ./build.sh --clean
-
-## Build specific targets only (faster incremental builds)
-./build.sh --target yolov9-s_640x640_sync yolov9-s_640x640_async
-
-## List all available build targets
-./build.sh --target list
-```
-
-- **Output:** Binaries are located in `bin/`, and shared libraries are in their respective build folders.  
-
-
-Test the NPU performance using the YOLOv9 object detection template.  
-
-**C++ Implementation (High Performance)**  
-
-```bash
-## Static Image Inference (Synchronous)
-./bin/yolov9-s_640x640_sync \
--m assets/models/yolov9-s_640x640.dxnn \
--i sample/img/sample_kitchen.jpg
-
-## Video Stream Inference (Asynchronous)
-./bin/yolov9-s_640x640_async \
--m assets/models/yolov9-s_640x640.dxnn \
--v assets/videos/dance-group.mov
-```
-
-**Python Implementation (Rapid Prototyping)**  
-
-```bash
-## Python Baseline (Synchronous)
-python src/python_example/object_detection/yolov9/yolov9-s_640x640/yolov9-s_640x640_sync.py \
-   --model assets/models/yolov9-s_640x640.dxnn \
-   --image sample/img/sample_kitchen.jpg
-
-## Python Optimized (Asynchronous + C++ Post-processing)
-python src/python_example/object_detection/yolov9/yolov9-s_640x640/yolov9-s_640x640_async_cpp_postprocess.py \
-  --model assets/models/yolov9-s_640x640.dxnn \
-    --video assets/videos/dance-group.mov 
-```
-
-**Output and Analysis**  
-
-Following execution, a window will render results (`boxes/masks`), and the console will output a **Performance Summary** (`Latency/FPS`). For additional usage details, refer to [DX-APP C++ Usage Guide](03_DX-APP_CPP_Example_Usage_Guide.md) and [DX-APP Python Usage Guide](05_DX-APP_Python_Example_Usage_Guide.md).  
-
----
-
-## Prerequisites
-
-Before building the templates, ensure your system meets the following hardware and software requirements.  
-
-**A. DEEPX Runtime (DX-RT) and NPU Drivers**  
-
-To utilize NPU acceleration, you **must** install the kernel-mode drivers and the user-space runtime library  
-
-- **DEEPX NPU Linux Driver:** Required for low-level NPU communication. [Github Repository](https://github.com/DEEPX-AI/dx_rt_npu_linux_driver)  
-- **DX-RT (Runtime & Tools):** The core library for model inference and hardware management. [Github Repository](https://github.com/DEEPX-AI/dx_rt)  
-
-**B. Development Toolchain and Libraries**  
-
-The following tools are required to compile the C++ templates and the Python dx_postprocess bindings.  
-
-**B-a.** Build System  
-
-- **CMake:** Version 3.14 or higher.  
-- **Compiler:** C++14-compatible (GCC 7.5+, Clang, etc.).  
-- **Build Utility:** make or ninja.  
-
-**B-b.** Core Libraries  
-
-- **OpenCV:** Version 4.2.0 or higher (**4.5.5 recommended**). This is used for image I/O and pre/post-processing visualization.  
-- **Python Environment:** Python 3.8 or higher and pip are required for Python-based examples and pybind11 integration.  
-
-### Development Workflow Overview  
-
-The process from environment setup to running your first AI application is divided into three main phases. For detailed commands and execution steps, please refer to the [**Section. Quick Start Guide**](#quick-start-guide).  
-
-- **Hardware & Driver Verification:** Ensure the NPU is recognized by the system using the `dxrt-cli` tool.  
-- **Asset & Dependency Preparation:** Install required libraries (OpenCV, Build tools) via `./install.sh` and prepare models/videos via `./setup.sh`. Model assets are fetched through the current [DX-ModelZoo](https://developer.deepx.ai/modelzoo/)-based setup flow.  
-- **Build & Execution:** Compile the source code using `./build.sh` and run the generated binaries or Python scripts located in the `bin/` or `src/python_example/` directories.  
-
-For contributor workflows such as model onboarding, validation, filtered execution, and benchmarking, refer to [DX Tool Guide](10_DX-APP_DX-Tool_Guide.md).  
+To run a first example, follow [DX-APP Quick Start](01a_DX-APP_Quick_Start.md). Requirements and installation are in [DX-APP Installation and Build](02_DX-APP_Installation_and_Build.md).  
 
 ---
 
@@ -197,29 +16,35 @@ The project is structured to separate core logic from language-specific implemen
 dx_app/
 ├── src/
 │   ├── cpp_example/            # C++ end-to-end examples (organized across 29 tasks)
+│   │   ├── multi_model_graph/  # Multi-model graph CLI and sample graph JSON files
 │   │   └── common/             # ← Shared C++ runtime layer
-│   │       ├── base/           #   Abstract interfaces (IFactory, IProcessor, ...)
+│   │       ├── base/           #   Abstract interfaces (task factories such as IDetectionFactory, IPreprocessor, IPostprocessor, IVisualizer, IInputSource)
 │   │       ├── processors/     #   Shared processors
 │   │       ├── runner/         #   Task-specific sync/async runner pairs
 │   │       ├── inputs/         #   Image/Video/Camera/RTSP input sources
 │   │       ├── visualizers/    #   Task-specific visualizers
 │   │       ├── config/         #   ModelConfig loader
 │   │       ├── utility/        #   Labels, preprocessing, profiling, run_dir, interrupt handling, verify_serialize
+│   │       ├── graph/          #   Multi-model graph engine
+│   │       ├── registry/       #   Model registry used by the graph engine
+│   │       ├── trackers/       #   IoU tracker
 │   │       └── third_party/    #   Header-only third-party libraries (nlohmann_json)
 │   ├── python_example/         # Python end-to-end examples (organized across 29 tasks)
 │   │   └── common/             # ← Shared Python runtime layer
-│   │       ├── base/           #   Abstract interfaces (IFactory, IProcessor, ...)
+│   │       ├── base/           #   Abstract interfaces (task factories such as IDetectionFactory, IPreprocessor, IPostprocessor, IVisualizer, IInputSource)
 │   │       ├── processors/     #   Shared processors
 │   │       ├── runner/         #   SyncRunner, AsyncRunner, run_dir, verify_serialize, sr_tiling, args
 │   │       ├── inputs/         #   Image/Video/Camera/RTSP input sources
 │   │       ├── visualizers/    #   Task-specific visualizers
 │   │       ├── config/         #   ModelConfig loader
+│   │       ├── trackers/       #   IoU tracker
 │   │       └── utility/        #   Labels, preprocessing, profiling
 │   ├── postprocess/            # C++ post-processing (consumed by pybind11 bindings)
 │   ├── utility/                # Shared support code used by build flow
 │   └── bindings/
 │       └── python/
-│           └── dx_postprocess/ # pybind11 bindings wrapping src/postprocess/
+│           ├── dx_postprocess/ # pybind11 bindings wrapping src/postprocess/
+│           └── dx_graph/       # pybind11 module running multi-model graphs
 ├── config/
 │   ├── model_registry.json     # Model registry — single source of truth
 │   ├── test_models.conf        # Test model configuration
@@ -228,7 +53,7 @@ dx_app/
 ├── tests/                      # pytest-based test suites
 │   ├── test_helpers/           #   Shared test constants & utilities
 │   ├── cpp_example/            #   C++ tests (CLI, E2E, visualization, features)
-│   └── python_example/         #   Python tests (unit, integration, CLI, E2E, visualization)
+│   └── python_example/         #   Python tests (unit, CLI, E2E, visualization)
 ├── assets/                     # Downloaded models/videos (via setup.sh)
 ├── build.sh                    # Top-level build script
 ├── run_tc.sh                   # Unified test runner for example tests
@@ -240,7 +65,7 @@ For contributor-oriented layout details, refer to [DX-APP Example Source Structu
 
 !!! note "User vs Contributor Guidance"  
 
-      This README is primarily a user-facing overview. If you are extending examples, onboarding new models, or maintaining the repository structure, use the contributor-oriented documents linked from this page.  
+      This chapter is primarily a user-facing reference. If you are extending examples, onboarding new models, or maintaining the repository structure, use the contributor-oriented documents in *DX-APP Developer Guide*.  
 
 ### Pipeline Architecture
 
@@ -248,14 +73,14 @@ For contributor-oriented layout details, refer to [DX-APP Example Source Structu
 
 These templates provide high-performance, production-ready references for building applications using the DX-RT C++ API.  
 
-The refactored C++ tree is organized by **task → model family → variant**, with a shared `common/` layer providing base interfaces, shared processors, task-specific runner pairs, visualizers, and input abstraction. Each model directory delegates to `common/` via the factory pattern. For details, refer to [DX-APP C++ Usage Guide](03_DX-APP_CPP_Example_Usage_Guide.md) and [DX-APP Example Source Structure](11_DX-APP_Example_Source_Structure.md).
+The C++ tree is organized by **task → model family → variant**, with a shared `common/` layer providing base interfaces, shared processors, task-specific runner pairs, visualizers, and input abstraction. Each model directory delegates to `common/` via the factory pattern. For details, refer to [DX-APP C++ Usage Guide](03_DX-APP_CPP_Example_Usage_Guide.md) and [DX-APP Example Source Structure](11_DX-APP_Example_Source_Structure.md).
 
 **Pipeline Architecture**  
 
 Each template follows a self-contained pipeline designed for modularity  
 
 - **Step 1. Input:** Image, Video, Camera, or RTSP stream (via `common/inputs/`).  
-- **Step 2. Pre-process:** Resizing and normalization (via `common/utility/`).  
+- **Step 2. Pre-process:** Resizing and normalization (via the preprocessors in `common/processors/`, which use the letterbox helpers in `common/utility/`).  
 - **Step 3. Inference:** Execution on the NPU via **DX-RT**.  
 - **Step 4. Post-process:** Call to shared C++ processors in `common/processors/` (e.g., NMS, box scaling).  
 - **Step 5. Output:** Result rendering via `common/visualizers/` (Display) or storage (Save).  
@@ -266,7 +91,7 @@ These libraries transform raw NPU output tensors into structured, actionable dat
 
 !!! note "NOTE"  
 
-    The C++ examples under `src/cpp_example/` do **not** use `src/postprocess/` directly. They have their own shared processors in `src/cpp_example/common/processors/`. The `src/postprocess/` library exists specifically for the pybind11 bridge.  
+    The C++ examples under `src/cpp_example/` do **not** link the `src/postprocess/` libraries; they use their own shared processors in `src/cpp_example/common/processors/`. The exceptions are four modules (`sfa3d`, `superpoint`, `dope`, `yolopv2`), whose sources are compiled directly into the C++ examples and are also exposed through the pybind11 bindings.  
 
 **Module Structure**  
 
@@ -274,7 +99,7 @@ The library is organized into model-specific subdirectories (e.g., `yolov5/, yol
 
 - `*_postprocess.h`: Defines the post-processing class (e.g., `YOLOv5PostProcess`) and standard result structures (e.g., `YOLOv5Result`).  
 - `*_postprocess.cpp`: Contains the optimized implementation for decoding, coordinate scaling, and filtering.  
-- `CMakeLists.txt`: Facilitates the compilation of these modules into reusable shared libraries.  
+- `CMakeLists.txt`: Present in the modules listed in `src/postprocess/CMakeLists.txt`; `./build.sh --all --make_so` builds those modules as standalone shared libraries (`lib/libdxapp_<module>_postprocess.so`).  
 
 **Functional Responsibilities**  
 
@@ -302,20 +127,22 @@ All C++ and Python examples share a consistent set of command-line arguments.
 
 | Flag | C++ | Python | Description |
 |------|-----|--------|-------------|
-| `-m` / `--model` | `-m` | `--model` | Path to `.dxnn` model file (auto-downloaded if missing) |
-| `-i` / `--image` | `-i` | `--image` | Input image file or directory |
-| `-v` / `--video` | `-v` | `--video` | Input video file |
-| `-c` / `--camera` | `-c` | `--camera` | Camera device index |
-| `-r` / `--rtsp` | `-r` | `--rtsp` | RTSP stream URL |
-| `-l` / `--loop` | `-l` (default: auto) | `--loop` (default: 1) | Inference repeat count |
+| `-m` / `--model` | `-m` / `--model_path` | `-m` / `--model` | Path to `.dxnn` model file. Optional: if omitted, the example's default model is used and auto-downloaded when missing |
+| `-i` / `--image` | `-i` / `--image_path` | `-i` / `--image` | Input image file or directory |
+| `-v` / `--video` | `-v` / `--video_path` | `-v` / `--video` | Input video file |
+| `-c` / `--camera` | `-c` / `--camera_index` | `-c` / `--camera` | Camera device index |
+| `-r` / `--rtsp` | `-r` / `--rtsp_url` | `-r` / `--rtsp` | RTSP stream URL |
+| `-l` / `--loop` | `-l` / `--loop` (default: auto) | `-l` / `--loop` (default: 1; bare `--loop` = 2) | Inference repeat count |
 | `--no-display` | `--no-display` | `--no-display` | Disable visualization window |
-| `-s` / `--save` | `--save` | `--save` | Save rendered output to run directory |
-| `--save-dir` | `--save-dir` | `--save-dir` | Base output directory (default: `artifacts/`) |
+| `-s` / `--save` | `-s` / `--save` | `-s` / `--save` | Save rendered output to run directory |
+| `--save-dir` | `--save-dir` | `--save-dir` | Base output directory (default: `artifacts/cpp_example` under the current directory for C++, `artifacts/python_example/` under the dx_app root for Python) |
 | `--dump-tensors` | `--dump-tensors` | `--dump-tensors` | Dump raw input/output tensors to files |
-| `--config` | `--config` | `--config` | Model config JSON path (auto-detected if omitted) |
-| `-h` / `--help` | `-h` | `-h` | Show usage |
+| `--show-log` | `--show-log` | `--show-log` | Enable verbose log output (default: quiet) |
+| `--drop-frames` | `--drop-frames` | — | C++ only: preview drops stale frames instead of pacing the pipeline (not available in the classification sync runner or the embedding runners) |
+| `--config` | `--config` | `--config` | Model config JSON path. Python: auto-detected if omitted (`config.json` next to the model, then next to the script). C++: read only when given; otherwise the factory's built-in defaults are used |
+| `-h` / `--help` | `-h` / `--help` | `-h` / `--help` | Show usage |
 
-- **Input Source Rule:** `--image`, `--video`, `--camera`, and `--rtsp` form a mutually exclusive group. If none is specified, a **default sample image** is automatically selected based on the task type.
+- **Input Source Rule:** `--image`, `--video`, `--camera`, and `--rtsp` form a mutually exclusive group. If none is specified, a **default sample image** is automatically selected based on the task type. Image-only examples (embedding, re-ID, attribute recognition) accept only `--image`.
 
 **Environment Variables**  
 
@@ -349,7 +176,7 @@ DX-APP provides a unified environment that combines the rapid development of Pyt
 To eliminate post-inference bottlenecks, DX-APP provides optimized C++ logic exposed via `pybind11`.  
 
 - **Key Capabilities:** Handles CPU-intensive tasks such as NMS (Non-Maximum Suppression), tensor decoding, and mask generation at native speeds.  
-- **Unified Logic:** Shares the exact same decoding logic as the C++ examples, ensuring consistent inference results across all platforms.  
+- **Scope:** Used by the `*_cpp_postprocess.py` variants. The C++ examples use their own shared processors under `src/cpp_example/common/processors/`.  
 - **Installation:** Automatically compiled during `./build.sh`.  
     : **Manual install:** `cd src/bindings/python/dx_postprocess && python3 -m pip install .`  
 
@@ -360,18 +187,18 @@ For detailed usage examples and API references, please refer to the documentatio
 
 These templates utilize `dx_engine` (for inference) and `dx_postprocess` (for acceleration). Users can choose from four variants depending on their performance requirements.  
 
-The refactored Python tree is organized by **task → model family → variant**, with a shared `common/` layer providing base interfaces, shared processors, generic sync/async runners, visualizers, and input abstraction — the same factory-based architecture as the C++ side. For structure and contributor-facing rules, refer to [DX-APP Python Usage Guide](05_DX-APP_Python_Example_Usage_Guide.md) and [DX-APP Example Source Structure](11_DX-APP_Example_Source_Structure.md).  
+The Python tree is organized by **task → model family → variant**, with a shared `common/` layer providing base interfaces, shared processors, generic sync/async runners, visualizers, and input abstraction — the same factory-based architecture as the C++ side. For structure and contributor-facing rules, refer to [DX-APP Python Usage Guide](05_DX-APP_Python_Example_Usage_Guide.md) and [DX-APP Example Source Structure](11_DX-APP_Example_Source_Structure.md).  
 
 **Task-Based Structure**    
 
 Templates are categorized by task across multiple task directories. All examples share the `common/` runtime layer for processors, runners, and visualizers. Representative tasks:  
 
-- **Classification:** EfficientNet, AlexNet, ResNet, MobileNet, etc.  
-- **Object Detection:** YOLOv5/v7/v8/v9/v10/v11/v12, YOLOX, NanoDet, DAMOYOLO, SSD  
+- **Image Classification:** EfficientNet, AlexNet, ResNet, MobileNet, etc.  
+- **Object Detection:** YOLOv5/v7/v8/v9/v10/v11/v12/v13, YOLOX, NanoDet, DAMOYOLO, SSD (PPU variants under `yolo_ppu/`)  
 - **Face Detection:** SCRFD, YOLOv5Face, YOLOv7Face, RetinaFace  
 - **Pose Estimation:** YOLOv8-Pose  
 - **Segmentation:** BiSeNet, DeepLabV3+, SegFormer, YOLOv8Seg  
-- **Depth, Embedding, OBB, Denoising, Enhancement, Super Resolution, Hand Landmark, Attribute Recognition, Re-ID, PPU**  
+- **Depth Estimation, Face Recognition, Oriented Object Detection, Image Denoising, Low-Light Enhancement, Super Resolution, Hand Landmark, Person Attribute, Person Re-ID**  
 
 **Functional Variants**  
 
@@ -391,7 +218,7 @@ DX-APP includes several production-oriented features built into all templates.
 
 **Auto-Download**
 
-When running any example (C++ or Python), if the specified model file is not found locally, the runner automatically attempts to download it via `setup_sample_models.sh`. Similarly, if a `--video` file is missing, `setup_sample_videos.sh` is invoked automatically. If the download fails, a clear error message with manual download instructions is displayed.
+When an example (C++ or Python) runs without `-m`, the runner uses its default model from `config/model_registry.json` and, if the file is missing, downloads it via `setup_sample_models.sh`. If the download fails, an error message with manual download instructions is displayed. An explicit `-m` path that does not exist is an error (no download). Missing input files, including videos, are not downloaded; run `./setup.sh` or `./setup_sample_videos.sh` first.
 
 **Default Input Fallback**
 
@@ -414,6 +241,8 @@ artifacts/cpp_example/
     dump_tensors/       # (if --dump-tensors) raw tensor files
 ```
 
+Video, camera and RTSP runs are named `{model}_sync-stream-{name}-...`, and a directory input `...-image-dir-...`. The Python runners use the same pattern under `artifacts/python_example/`, prefixed with the script name; they save images as `{image}_result.jpg` and dump tensors to `tensors/` as `.npy` files.  
+
 **Numerical Verification** (`DXAPP_VERIFY`)  
 
 A complete pipeline for serializing inference results for inspection and debugging:  
@@ -424,23 +253,35 @@ A complete pipeline for serializing inference results for inspection and debuggi
 
 **Tensor Dump** (`--dump-tensors`)  
 
-Dumps raw input/output tensors for debugging. On exception, tensors are auto-dumped with a `reason.txt` file. C++ outputs `.bin` files; Python outputs `.npy` files.  
+Dumps raw input/output tensors for debugging. On exception, tensors are auto-dumped (C++: sync runners, `.bin` files; Python: `.npy` files plus a `reason.txt`).  
 
 **Model Config** (`--config`)  
 
-Runtime parameters (score threshold, NMS threshold, top-k) live in `<task>/<family>/<variant>/config.json`, next to that variant's entry. A single-model extract may keep `config.json` beside the entry script.  
+Runtime parameters (score threshold, NMS threshold, top-k) live in `<task>/<family>/<variant>/config.json`, next to that variant's entry. The Python examples load it automatically. A C++ example reads it only when you pass `--config <path>`; otherwise it uses the defaults compiled into its factory. A single-model extract may keep `config.json` beside the entry script.  
 
 **Version Compatibility**  
 
-The runners check the runtime and the model before they run:  
+Every example in this release, C++ and Python, needs **DX-RT 3.5.0 or later**: the DX Model Zoo 2_5_0 files that `./setup.sh` downloads are `.dxnn` container v9, and DX-RT 3.5.0 is the first runtime that loads them. Check the runtime before you run an example:  
 
-- **C++:** DX-RT library ≥ 3.5.0 and compiled model format ≥ v7 (`minversionforRTandCompiler` in `common/utility/common_util.hpp`), checked once the engine is created  
-- **Python:** DX-RT library ≥ 3.0.0, and a warning for a model format older than v7  
+```bash
+dxcli --version   # the first line must be DXRT v3.5.0 or later
+```
 
-An incompatible version stops the example with an error message. The Model Zoo 2_5_0 files (`.dxnn` container v9) need DX-RT ≥ 3.5.0 in both languages; see *Software Requirements on Linux* in the installation guide.
+The runners also check versions when they start, but the C++ and Python checks differ:  
+
+| Language | What the runner checks | What an older DX-RT shows |
+|----------|------------------------|---------------------------|
+| C++ | DX-RT ≥ 3.5.0 and model format ≥ v7 (`minversionforRTandCompiler` in `common/utility/common_util.hpp`), once the engine is created | `DXRT library version is too low. (required: >= 3.5.0, current: <version>)`, or DX-RT's own error on the `.dxnn` if loading fails first |
+| Python | DX-RT ≥ 3.0.0 only, and a warning for a model format older than v7 | DX-RT 3.0.0 to 3.4.x pass the check, and the example then fails while loading the model, with DX-RT's own error (for example `Model file format version 9 is not supported`) |
+
+!!! warning "Python examples on DX-RT 3.0.0 to 3.4.x"  
+
+    The Python runners do not stop on DX-RT 3.0.0 to 3.4.x, and the error you see when the model loads comes from DX-RT, not from DX-APP. If a Python example fails while loading a model, check `dxcli --version` first and upgrade DX-RT to 3.5.0 or later. `import dx_engine` fails with `dx_engine and DX-RT versions do not match` when the `dx_engine` package and the runtime differ in major.minor version.  
+
+The multi-model graph checks the `.dxnn` container itself before it loads a model and names the required DX-RT version (see [DX-APP Multi-Model Graph](06a_DX-APP_Multi_Model_Graph.md)). The requirements are listed in *Software Requirements on Linux* in [DX-APP Installation and Build](02_DX-APP_Installation_and_Build.md).
 
 **Headless Mode**  
 
-Python runners detect the absence of `DISPLAY`/`WAYLAND_DISPLAY` and skip `cv2.imshow()` automatically. Use `--no-display` for explicit headless operation in both C++ and Python.  
+C++ and Python runners detect the absence of `DISPLAY`/`WAYLAND_DISPLAY` and skip the preview window automatically. Use `--no-display` for explicit headless operation.  
 
 ---
