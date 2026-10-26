@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "name": "enhance-detect-pose-embed",
+  "nodes": [
+    { "id": "cam", "type": "source", "uri": "sample/img/sample_dark_room.jpg" },
+    { "id": "enh", "model": "zerodce_400x600" },
+    { "id": "od",  "model": "yolov8-n_640x640" },
+    { "id": "kp",  "model": "vitpose-s_256x192" },
+    { "id": "emb", "model": "casvit-t_224x224" }
+  ],
+  "edges": [
+    { "from": "cam", "to": "enh" },
+    { "from": "enh", "to": "od" },
+    { "from": "od",  "to": "kp",  "roi": { "classes": ["person"], "pad": 0.1 } },
+    { "from": "od",  "to": "emb", "roi": { "classes": ["person"] } }
+  ]
+}

@@ -1,0 +1,72 @@
+{
+  "variant": "clip-img_resnet50_224x224_openai",
+  "dxnn_file": "clip-img_resnet50_224x224_openai.dxnn",
+  "task": "image_retrieval",
+  "family": "clip",
+  "input_width": 224,
+  "input_height": 224,
+  "image_only": true,
+  "registry_image_only": true,
+  "default_image": "sample/img/sample_person_a2.jpg",
+  "default_video": null,
+  "zoo_canonical": false,
+  "published": true,
+  "config": {
+    "gallery": "sample/gallery/retrieval_clip-img_resnet50_224x224_openai.bin",
+    "top_k": 5,
+    "max_display": 3,
+    "title": "Image Retrieval - CLIP RN50 image tower"
+  },
+  "registry_config": {},
+  "cli": {
+    "include_kitti_paths": false,
+    "include_output": false,
+    "include_stream_inputs": false
+  },
+  "preprocessor": {
+    "class": "SimpleResizePreprocessor",
+    "args": [
+      {
+        "token": "input_width"
+      },
+      {
+        "token": "input_height"
+      }
+    ],
+    "kwargs": {},
+    "config_overrides": {}
+  },
+  "postprocessor": {
+    "class": "GalleryRetrievalPostprocessor",
+    "args": [
+      {
+        "token": "input_width"
+      },
+      {
+        "token": "input_height"
+      },
+      {
+        "token": "config"
+      }
+    ],
+    "kwargs": {
+      "model_type": "image_embedding",
+      "model_name": "clip-img_resnet50_224x224_openai"
+    },
+    "config_overrides": {}
+  },
+  "visualizer": {
+    "class": "RetrievalVisualizer",
+    "args": [
+      {
+        "token": "config"
+      }
+    ],
+    "kwargs": {},
+    "config_overrides": {}
+  },
+  "gallery": "sample/gallery/retrieval_clip-img_resnet50_224x224_openai.bin",
+  "top_k": 5,
+  "max_display": 3,
+  "title": "Image Retrieval - CLIP RN50 image tower"
+}

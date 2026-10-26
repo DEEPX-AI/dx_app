@@ -41,14 +41,18 @@ from typing import Any, Dict, List, Optional, Union
 import numpy as np
 import cv2
 
+from ..base.i_processor import SuperResolutionResult
 from ..inputs import InputFactory
 from ..utility import print_async_performance_summary_legacy, SafeQueue
 from ..utility import print_image_processing_summary, print_sync_performance_summary
+from ..utility.camera import open_camera_capture
+from ..utility.progress import progress_tick
 from ..utility.video_io import write_video_frame
 from ..utility.colorspace import bgr_to_y_limited, bgr_to_ycrcb_limited, ycrcb_limited_to_bgr
+from .interrupts import interrupt_scope
 from .run_dir import create_run_dir, write_run_info, dump_tensors, dump_tensors_on_exception
 from .sr_tiling import (
-    assemble_tiles, plan_tiles, resolve_runner_halo, run_tiles_pipelined,
+    plan_tiles, resolve_runner_halo, run_and_assemble_tiles,
 )
 from .verify_serialize import is_verify_enabled, dump_verify_json
 
@@ -56,8 +60,10 @@ from .verify_serialize import is_verify_enabled, dump_verify_json
 from .sync_runner import (
     _check_dxrt_version, _validate_inputs, _apply_default_input, _has_display,
     _resolve_config_path, _parse_loop_value, _window_should_close,
+    _create_sync_metrics, _add_sync_metrics,
     _DEFAULT_SAMPLE_IMAGE, _IMG_STREET, _IMAGE_ONLY_TASKS,
     _show_image_only_no_input_hint, _reject_image_only_stream_input,
+    resolve_companion_models,
 )
 
 logger = logging.getLogger(__name__)
@@ -65,6 +71,51 @@ logger = logging.getLogger(__name__)
 # Sentinel object for queue termination chain
 _SENTINEL = object()
 _ASYNC_QUEUE_MAXSIZE = 4
+
+# How many stale frames offer_latest() will evict in one call before giving up.
+# A small bound keeps the helper O(1)-ish even if another thread is refilling.
+_DISPLAY_DROP_LIMIT = 8
+
+# Live preview budget. Frames the window will not show are not drawn: drawing
+# every frame fills render_queue (maxsize 4) and the back-pressure reaches
+# inference. --no-display passes display=False and skips this entirely.
+# -s / DXAPP_SAVE_IMAGE still render every frame because the file is the overlay.
+_PREVIEW_INTERVAL_S = 1.0 / 60.0
+
+
+def offer_latest(display_q, item, on_drop=None) -> bool:
+    """Publish a frame for display, dropping stale frames instead of blocking.
+
+    The preview window is a *best-effort* consumer. A queued frame that has been
+    superseded is worthless to the viewer, but blocking until the window catches
+    up propagates back-pressure through the render worker into the inference
+    pipeline -- which is what made end-to-end FPS collapse to the GUI's rate as
+    soon as ``--no-display`` was omitted.
+
+    So: try to enqueue; if the queue is full, evict the OLDEST frame and retry.
+    ``_SENTINEL`` is never evicted, because it is the shutdown marker and losing
+    it would hang the display loop.
+
+    Args:
+        display_q: the bounded display queue.
+        item: the rendered frame to publish.
+        on_drop: optional callable invoked once per dropped frame (metrics).
+
+    Returns:
+        True if the frame was published, False if it had to be abandoned.
+    """
+    for _ in range(_DISPLAY_DROP_LIMIT):
+        if display_q.put(item, block=False):
+            return True
+        stale = display_q.try_get()
+        if stale is None:            # drained by the consumer; retry the put
+            continue
+        if stale is _SENTINEL:       # shutdown marker: put it back, drop ours
+            display_q.put(stale, block=False)
+            return False
+        if on_drop is not None:
+            on_drop(stale)
+    return False
 _DEFAULT_DISPLAY_SIZE = (960, 640)
 
 
@@ -90,6 +141,7 @@ class AsyncRunner:
         self._display_size = display_size
 
         self.ie: Optional[Any] = None
+        self._companion_engines: List[tuple] = []
         self.preprocessor = None
         self.postprocessor = None
         self.visualizer = None
@@ -111,7 +163,6 @@ class AsyncRunner:
         self._run_dir: Optional[Path] = None
         self._is_image_input = False
         self._input_path = ""      # For verify dump
-        self._verify_dumped = False  # Only dump once per run
         self._verbose = False
 
         # SR tiled fallback (ESPCN etc.)
@@ -178,17 +229,28 @@ class AsyncRunner:
     # ------------------------------------------------------------------
 
     def run(self, args) -> None:
+        """Main entry point."""
+        with interrupt_scope():
+            try:
+                self._run(args)
+            except KeyboardInterrupt:
+                # SIGINT/SIGTERM outside a stream loop (setup, image mode): end cleanly.
+                logger.info("\nInterrupted by user.")
+
+    def _run(self, args) -> None:
         _check_dxrt_version()
         _apply_default_input(args, self.factory)
         _reject_image_only_stream_input(args, self.factory)
+        # An image-only example given no image answers with the hint before anything
+        # else -- it needs no model to say "use --image" (a missing model used to win).
+        if _show_image_only_no_input_hint(args, self.factory):
+            return
         _validate_inputs(args, self.factory)
 
         self._verbose = getattr(args, "show_log", False)
         self._model_path = args.model
         self._fast_postprocess = getattr(args, "fast_postprocess", False)
         self._sr_halo_cli = getattr(args, "sr_tile_halo", None)
-        if _show_image_only_no_input_hint(args, self.factory):
-            return
         self._init_engine(args.model, _resolve_config_path(args))
 
         self._save = getattr(args, "save", False)
@@ -254,6 +316,11 @@ class AsyncRunner:
             self.ie = InferenceEngine(model_path, option)
         else:
             self.ie = InferenceEngine(model_path)
+
+        self._companion_engines = []
+        for role, path in resolve_companion_models(self.factory, model_path):
+            self._companion_engines.append((role, InferenceEngine(path)))
+            logger.info(f"Companion model ({role}): {path}")
 
         input_info = self.ie.get_input_tensors_info()
         shape = input_info[0]["shape"]
@@ -424,7 +491,10 @@ class AsyncRunner:
 
                 # Submit async inference
                 input_tensor = self._prep_input(input_tensor)
-                req_id = self.ie.run_async([input_tensor])
+                req_ids = [self.ie.run_async([input_tensor])]
+                for _role, engine in self._companion_engines:
+                    req_ids.append(engine.run_async([input_tensor]))
+                req_id = req_ids
                 t_submit = time.perf_counter()
 
                 with self._metrics_lock:
@@ -456,7 +526,12 @@ class AsyncRunner:
                 t_wait_start = time.perf_counter()
                 frame, input_tensor, req_id, ctx, t_submit, t_queue_entry = item
 
-                outputs = self.ie.wait(req_id)
+                # Companion results are appended in the order the factory declared
+                # them: EfficientAD's teacher and autoencoder are the same shape, so
+                # the order is the only thing that identifies them.
+                outputs = list(self.ie.wait(req_id[0]))
+                for (_role, engine), rid in zip(self._companion_engines, req_id[1:]):
+                    outputs.extend(engine.wait(rid))
                 t_done = time.perf_counter()
 
                 with self._metrics_lock:
@@ -489,6 +564,15 @@ class AsyncRunner:
         finally:
             self._push_sentinel(output_q)
 
+    def _verify_dump(self, results, frame) -> None:
+        """DXAPP_VERIFY: this frame's results, every frame, in input order."""
+        if not is_verify_enabled():
+            return
+        task = self.factory.get_task_type() \
+            if hasattr(self.factory, "get_task_type") else ""
+        dump_verify_json(results, self._input_path, self._model_path, task,
+                         (frame.shape[0], frame.shape[1]), verbose=self._verbose)
+
     def _postprocess_worker(self, queues: dict) -> None:
         """Run postprocessing on inference outputs."""
         output_q = queues["output_queue"]
@@ -504,21 +588,12 @@ class AsyncRunner:
                 results = self._run_postprocess(outputs, ctx)
                 t1 = time.perf_counter()
 
-                # --- Numerical verification dump (DXAPP_VERIFY=1) ---
-                # Only dump from pure-Python postprocess path (skip cpp_postprocess variants)
-                if is_verify_enabled() and not self._verify_dumped \
-                        and self._cpp_postprocessor is None:
-                    self._verify_dumped = True
-                    task = self.factory.get_task_type() \
-                        if hasattr(self.factory, "get_task_type") else ""
-                    dump_verify_json(
-                        results, self._input_path, self._model_path,
-                        task, (frame.shape[0], frame.shape[1]),
-                        verbose=self._verbose)
+                self._verify_dump(results, frame)
 
                 with self._metrics_lock:
                     self._metrics["sum_postprocess"] += t1 - t0
                     self.frame_count += 1
+                    progress_tick(self._metrics)   # [PROGRESS] for front ends (DXAPP_PROGRESS=1)
 
                 if not self._enqueue(render_q, (frame, results)):
                     break
@@ -566,17 +641,32 @@ class AsyncRunner:
         show_output(img)
 
     def _render_worker(self, queues: dict, save_enabled: bool,
-                       image_save_paths: Optional[list] = None) -> None:
+                       image_save_paths: Optional[list] = None,
+                       display: bool = True) -> None:
         """Render + save thread. Pushes frames to display_queue for main."""
         render_q = queues["render_queue"]
         display_q = queues["display_queue"]
         render_idx = 0
+        # Frames that get persisted must not be dropped; frames that are only
+        # shown on screen must not be allowed to throttle the pipeline.
+        lossy_display = not save_enabled and not image_save_paths
+        env_save = os.environ.get("DXAPP_SAVE_IMAGE")
+        persist_all = bool(save_enabled or image_save_paths or env_save)
+        last_preview = 0.0
         try:
             while not self._stop_event.is_set():
                 item = self._dequeue(render_q)
                 if item is _SENTINEL:
                     break
                 frame, results = item
+
+                now = time.perf_counter()
+                preview = display and (now - last_preview) >= _PREVIEW_INTERVAL_S
+                if not persist_all and not preview:
+                    render_idx += 1
+                    continue
+                if preview:
+                    last_preview = now
 
                 t0 = time.perf_counter()
                 output_img = self._run_visualize(frame, results)
@@ -599,7 +689,10 @@ class AsyncRunner:
                     self._metrics["sum_save"] += time.perf_counter() - t_s0
 
                 render_idx += 1
-                if not self._enqueue(display_q, output_img):
+                if lossy_display:
+                    # Display-only: never let the window pace inference.
+                    offer_latest(display_q, output_img, self._count_display_drop)
+                elif not self._enqueue(display_q, output_img):
                     break
         except Exception as exc:
             self._handle_worker_exception("render_worker", exc, queues)
@@ -609,6 +702,17 @@ class AsyncRunner:
     # ------------------------------------------------------------------
     # Display loop (main thread)
     # ------------------------------------------------------------------
+
+    def _count_display_drop(self, _frame) -> None:
+        """Count a preview frame dropped because the window fell behind.
+
+        Dropping here is healthy, not an error -- it is what keeps the display
+        off the inference critical path -- but it is reported so the behaviour
+        stays visible in the performance summary.
+        """
+        with self._metrics_lock:
+            self._metrics["display_dropped"] = \
+                self._metrics.get("display_dropped", 0) + 1
 
     def _run_display_loop(self, queues: dict, display: bool) -> None:
         """Run on main thread. Consumes display_queue."""
@@ -866,12 +970,11 @@ class AsyncRunner:
 
         # Only each tile's valid centre is stitched, so with halo >= the
         # receptive-field radius (4 px for ESPCN) no tile seams remain. Tiles go
-        # through run_async so the per-call overhead is pipelined away.
-        outputs = run_tiles_pipelined(
-            self.ie, self._prep_input, lr_gray, plans, tile_h, tile_w)
-        sr_y, tiles_done = assemble_tiles(
-            plans, outputs, padded_h * scale_y, padded_w * scale_x,
-            scale_y, scale_x)
+        # through run_async so the per-call overhead is pipelined away, and each
+        # is stitched as it arrives instead of holding every output of the frame.
+        sr_y, tiles_done = run_and_assemble_tiles(
+            self.ie, self._prep_input, lr_gray, plans, tile_h, tile_w,
+            padded_h * scale_y, padded_w * scale_x, scale_y, scale_x)
         t2 = time.perf_counter()
         sr_y = sr_y[:out_h, :out_w]
 
@@ -904,9 +1007,15 @@ class AsyncRunner:
                 "t_post": t3 - t2, "t_render": t4 - t3}
 
     def _run_stream_sr(self, source, display: bool) -> None:
-        """SR fallback: synchronous tiled loop (like C++ async SR path)."""
+        """SR fallback: synchronous tiled loop (like C++ async SR path).
+
+        Honours ``--loop`` like ``_run_stream``: the source is reopened for
+        each loop, only loop 0 is saved, and an interrupt or a closed window
+        ends all loops. One summary covers every processed frame.
+        """
         source_label = (f"camera:{source}" if isinstance(source, int)
                         else str(source))
+        self._input_path = source_label
         if self._verbose:
             logger.info(f"SR tiled mode (sync within async runner)")
 
@@ -916,33 +1025,62 @@ class AsyncRunner:
             self._run_stream(source, display)
             return
 
-        cap = cv2.VideoCapture(source)
+        metrics = _create_sync_metrics()
+        frame_count = 0
+        elapsed = 0.0
+        processed_loops = 0
+        for loop_idx in range(self._loop):
+            if self._loop > 1 and self._verbose:
+                logger.info(f"\n{'='*40}\n Loop [{loop_idx + 1}/{self._loop}]\n{'='*40}")
+            save_enabled = self._save and (loop_idx == 0)
+            result = self._run_stream_sr_once(source, source_label, display,
+                                              save_enabled)
+            if result is None:
+                break
+            _add_sync_metrics(metrics, result["metrics"])
+            frame_count += result["count"]
+            elapsed += result["elapsed"]
+            processed_loops += 1
+            if result["quit_requested"]:
+                break
+
+        if frame_count > 0:
+            if self._loop > 1 and self._verbose:
+                logger.info(f"\nAverage performance over {processed_loops}"
+                            f"/{self._loop} loops")
+            print_sync_performance_summary(
+                metrics, frame_count, elapsed,
+                display or self._save)
+
+    def _run_stream_sr_once(self, source, source_label: str, display: bool,
+                            save_enabled: bool) -> Optional[dict]:
+        """One pass over the SR stream. None when the source cannot be opened."""
+        cap = open_camera_capture(source)
         if not cap.isOpened():
             logger.error(f"Cannot open {source_label}")
-            return
+            return None
 
         fps = cap.get(cv2.CAP_PROP_FPS)
-        need_run_dir = self._save or self._dump_tensors
         run_dir = None
         writer = None
 
-        if need_run_dir:
+        if save_enabled or self._dump_tensors:
             src_name = (f"camera{source}" if isinstance(source, int)
                         else os.path.splitext(
                             os.path.basename(str(source)))[0] or "stream")
             run_dir = create_run_dir("stream", src_name, self._save_dir)
             write_run_info(run_dir, self._model_path, source)
-        if self._save and run_dir:
-            dw, dh = self._display_size
-            writer = self._init_video_writer(run_dir, dw, dh,
-                                             fps if fps > 0 else 30.0)
 
-        metrics = {"sum_preprocess": 0.0, "sum_inference": 0.0,
-                   "sum_postprocess": 0.0, "sum_render": 0.0,
-                   "sum_read": 0.0, "sum_save": 0.0, "sum_display": 0.0}
+        metrics = _create_sync_metrics()
         frame_count = 0
+        quit_requested = False
         start = time.perf_counter()
         try:
+            # Opened inside the try: an interrupt right after it still releases it.
+            if save_enabled and run_dir:
+                dw, dh = self._display_size
+                writer = self._init_video_writer(run_dir, dw, dh,
+                                                 fps if fps > 0 else 30.0)
             while True:
                 t_read0 = time.perf_counter()
                 ret, frame = cap.read()
@@ -951,6 +1089,9 @@ class AsyncRunner:
                     break
 
                 result = self._process_sr_frame(frame)
+                self._verify_dump([SuperResolutionResult(output_image=result["sr_output"],
+                                                         scale_factor=self._sr_cache["scale_x"])],
+                                  frame)
                 canvas = result["output_frame"]
                 frame_count += 1
 
@@ -959,6 +1100,7 @@ class AsyncRunner:
                 metrics["sum_inference"] += result["t_infer"]
                 metrics["sum_postprocess"] += result["t_post"]
                 metrics["sum_render"] += result["t_render"]
+                progress_tick(metrics)   # [PROGRESS] for front ends (DXAPP_PROGRESS=1)
 
                 if writer is not None:
                     t_s0 = time.perf_counter()
@@ -970,9 +1112,11 @@ class AsyncRunner:
                     self._show_output(canvas)
                     metrics["sum_display"] += time.perf_counter() - t_d0
                     if _window_should_close("Output"):
+                        quit_requested = True
                         break
         except KeyboardInterrupt:
             logger.info("\nInterrupted by user.")
+            quit_requested = True
         finally:
             cap.release()
             if writer is not None:
@@ -980,11 +1124,9 @@ class AsyncRunner:
             if _has_display():
                 cv2.destroyAllWindows()
 
-        elapsed = time.perf_counter() - start
-        if frame_count > 0:
-            print_sync_performance_summary(
-                metrics, frame_count, elapsed,
-                display or self._save)
+        return {"metrics": metrics, "count": frame_count,
+                "elapsed": time.perf_counter() - start,
+                "quit_requested": quit_requested}
 
     def _run_image_sr(self, image_path: str, display: bool) -> None:
         """SR tiled path for a single image (mirrors sync runner _run_image_sr_tiled)."""
@@ -1004,6 +1146,10 @@ class AsyncRunner:
         t0 = time.perf_counter()
 
         result = self._process_sr_frame(img)
+        self._input_path = image_path
+        self._verify_dump([SuperResolutionResult(output_image=result["sr_output"],
+                                                 scale_factor=self._sr_cache["scale_x"])],
+                          img)
         canvas = result["output_frame"]
         sr_only = result.get("sr_output")
         # Map internal timings to image summary timestamps
@@ -1143,8 +1289,6 @@ class AsyncRunner:
         self._run_dir = run_dir
 
         queues = self._create_queues()
-        self._setup_video_writer(input_source, save_enabled, run_dir, is_video)
-
         start_time = time.perf_counter()
 
         threads = [
@@ -1157,38 +1301,48 @@ class AsyncRunner:
             threading.Thread(target=self._postprocess_worker,
                              args=(queues,), daemon=True),
             threading.Thread(target=self._render_worker,
-                             args=(queues, save_enabled, image_save_paths),
+                             args=(queues, save_enabled, image_save_paths,
+                                   display),
                              daemon=True),
         ]
-        for t in threads:
-            t.start()
 
+        finished = False
         try:
+            # Inside the try: a stop request while the writer opens or the
+            # workers start still releases the writer and joins what started.
+            self._setup_video_writer(input_source, save_enabled, run_dir, is_video)
+            start_time = time.perf_counter()
+            for t in threads:
+                t.start()
             if display:
+                # Image mode holds each result inside the display loop until q
+                # or the window is closed (as SyncRunner does); a second hold
+                # here made the run need one more q.
                 self._run_display_loop(queues, display)
-                # Image mode: keep window open until user closes it.
-                # Only in a real GUI environment (headless: skip).
-                if not is_video and _has_display():
-                    while not _window_should_close("Output"):
-                        time.sleep(0.01)
             else:
                 self._drain_display_queue(queues)
+            finished = True
         except KeyboardInterrupt:
             logger.info("\nInterrupted by user.")
             self._set_stop(queues)
-
-        for t in threads:
-            t.join(timeout=5.0)
-
-        elapsed = time.perf_counter() - start_time
-
-        if self._video_writer is not None:
-            self._video_writer.release()
-            if run_dir and self._verbose:
-                logger.info(f"Saved output video to: {run_dir}/")
-
-        if _has_display():
-            cv2.destroyAllWindows()
+            finished = True
+        finally:
+            # Also on an interrupt that lands after the loop: the video must be finalized.
+            try:
+                if not finished:
+                    # Any other error: stop the workers before joining them,
+                    # or each join waits its full 5 s and the error surfaces late.
+                    self._set_stop(queues)
+                # A thread that never started cannot be joined (RuntimeError).
+                self._join_workers([t for t in threads if t.ident is not None], queues)
+                elapsed = time.perf_counter() - start_time
+            finally:
+                if self._video_writer is not None:
+                    self._video_writer.release()
+                    if run_dir and self._verbose:
+                        logger.info(f"Saved output video to: {run_dir}/")
+                if _has_display():
+                    cv2.destroyAllWindows()
 
         self._finalize_metrics()
 
@@ -1199,6 +1353,21 @@ class AsyncRunner:
             "summary_render": display or save_enabled,
             "quit_requested": self._stop_event.is_set(),
         }
+
+    def _join_workers(self, threads: list, queues: dict) -> None:
+        """Join the pipeline workers (5 s each).
+
+        A stop request that lands while they finish stops them first, so the
+        writer is never released under a worker still writing to it.
+        """
+        try:
+            for t in threads:
+                t.join(timeout=5.0)
+        except KeyboardInterrupt:
+            logger.info("\nInterrupted by user.")
+            self._set_stop(queues)
+            for t in threads:
+                t.join(timeout=5.0)
 
     def _print_summary(self, result: dict) -> None:
         if result["count"] > 0:
@@ -1252,9 +1421,10 @@ class AsyncRunner:
 
     def _run_stream(self, source: Union[str, int], display: bool) -> None:
         source_label = f"camera:{source}" if isinstance(source, int) else str(source)
+        self._input_path = source_label  # same label as the sync runner
         if self._verbose:
             logger.info(f"Input: {source_label}")
-            probe_cap = cv2.VideoCapture(source)
+            probe_cap = open_camera_capture(source)
             if probe_cap.isOpened():
                 w = int(probe_cap.get(cv2.CAP_PROP_FRAME_WIDTH))
                 h = int(probe_cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
@@ -1312,7 +1482,6 @@ class AsyncRunner:
 
     def _run_image(self, image_path: str, display: bool) -> None:
         self._input_path = image_path
-        self._verify_dumped = False
         from ..utility.lidar_input import is_lidar_input, load_display_frame
         if self._verbose:
             logger.info(f"Input image: {image_path}")

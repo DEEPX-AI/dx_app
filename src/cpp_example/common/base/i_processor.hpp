@@ -134,6 +134,20 @@ struct DetectionResult {
 };
 
 /**
+ * @brief Panoptic driving perception result (YOLOPv2): ONE per frame.
+ *
+ * The frame's vehicle boxes and its own drivable/lane masks travel together,
+ * so an async runner can decode frame N+1 while it still draws frame N.
+ */
+struct PanopticResult {
+    std::vector<DetectionResult> detections;
+    cv::Mat drivable;  // CV_8UC1 at the original frame size; 1 = drivable area
+    cv::Mat lane;      // CV_8UC1 at the original frame size; 1 = lane line
+
+    PanopticResult() = default;
+};
+
+/**
  * @brief Segmentation result structure
  */
 struct SegmentationResult {
@@ -142,6 +156,13 @@ struct SegmentationResult {
     int height{0};
     std::vector<int> class_ids;
     std::vector<std::string> class_names;
+    // Soft alpha matte in [0,1], for models whose output is a continuous foreground
+    // opacity rather than a class map (PP-Matting). `mask` still carries the
+    // thresholded 0/1 class map so SemanticSegmentationVisualizer -- which reads
+    // `mask` as class IDs -- renders it unchanged, while a consumer that wants the
+    // real matte has it here instead of having to recover it from a binary image.
+    // Empty for every class-map model.
+    cv::Mat alpha;
 
     SegmentationResult() = default;
 };
@@ -177,6 +198,7 @@ struct FaceDetectionResult {
     std::vector<float> box;  // x1, y1, x2, y2
     float confidence{0.0f};
     std::vector<Keypoint> landmarks;  // 5 facial landmarks (left eye, right eye, nose, left mouth, right mouth)
+    std::string class_name{"face"};   // what the box holds: "hand" for the MediaPipe palm detector
 
     FaceDetectionResult() = default;
     
@@ -257,6 +279,25 @@ struct DepthResult {
 };
 
 /**
+ * @brief Anomaly-detection response
+ *
+ * Mirrors the Python AnomalyResult. Two producers, two meanings:
+ * EfficientADPostprocessor runs all three networks and returns EfficientAD's own
+ * combination of their disagreements, with `score` read off the RAW combination so it
+ * ranks frames; AnomalyFeaturePostprocessor sees one network and can only report a
+ * feature magnitude, with `score` off the normalised map. `heatmap` is always
+ * normalised against its own frame, so a hot region stays visible whatever the
+ * absolute magnitudes -- it is not comparable between frames.
+ */
+struct AnomalyResult {
+    cv::Mat heatmap;      // Float H x W, 0..1, frame-relative
+    float score{0.0f};
+    int channels{0};
+
+    AnomalyResult() = default;
+};
+
+/**
  * @brief Image restoration result
  */
 struct RestorationResult {
@@ -272,9 +313,29 @@ struct RestorationResult {
  * 
  * Stores a normalized feature vector from encoder models (e.g., CLIP, ArcFace).
  */
+struct GalleryMatch {
+    int rank{0};
+    float score{0.0f};        // cosine similarity in [-1, 1], higher is nearer
+    std::string path;         // gallery image, repo-relative, for the visualizer
+    std::string label;        // gallery folder name, empty when unlabelled
+};
+
 struct EmbeddingResult {
     std::vector<float> embedding;  // Feature vector
     int dimension{0};              // Embedding dimension
+
+    // Retrieval fields, filled only by GalleryRetrievalPostprocessor and left empty
+    // by every pure-embedding model. They live HERE, rather than in a RetrievalResult
+    // of their own, because IEmbeddingFactory and IVisualizer are templated on this
+    // exact type: a derived struct would be sliced by the runner's
+    // std::vector<EmbeddingResult>, and a separate type would need a parallel factory
+    // interface plus its own sync and async runner for no behavioural gain.
+    // (The Python tree can afford a distinct RetrievalResult because its runner is
+    // duck-typed and its verify serializer dispatches on the class name; the JSON both
+    // trees emit is the same either way.)
+    std::vector<GalleryMatch> matches;   // ranked best-first
+    int gallery_size{0};
+    std::string gallery_name;
 
     EmbeddingResult() = default;
 };

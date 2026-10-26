@@ -1,1 +1,0 @@
-from .efficientformer_l3_factory import Efficientformer_l3Factory

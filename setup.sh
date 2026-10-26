@@ -7,6 +7,7 @@ DX_AS_PATH=$(realpath -s "${RUNTIME_PATH}/..")
 # color env settings
 source ${SCRIPT_DIR}/scripts/color_env.sh
 source ${SCRIPT_DIR}/scripts/common_util.sh
+source ${SCRIPT_DIR}/scripts/gui_env.sh
 
 # --- Initialize variables ---
 ENABLE_DEBUG_LOGS=0   # New flag for debug logging
@@ -23,8 +24,8 @@ NO_JSON_ARG=""
 CATEGORY_ARG=""
 DEMO_MODELS_ARG=""
 MODELS_ARG=""
-INTERNAL_ARG=""
-INTERNAL_PATH_ARG=""
+MODELS_ARGS=()
+IGNORED_INTERNAL_OPTS=()
 
 # If the user only asked for downloader help, forward to the inner setup_sample_models helper
 if [ "$#" -eq 1 ]; then
@@ -50,16 +51,19 @@ show_help() {
     print_colored "  [--no-json]                    Skip JSON file downloads" "GREEN"
     print_colored "  [--category=<name>]            Download models of a specific category only" "GREEN"
     print_colored "  [--demo-models]                Download only models used by run_demo.sh/run_demo.bat" "GREEN"
-    print_colored "  [--models=<m1> [m2...]]        Download specific models by name" "GREEN"
+    print_colored "  [--models=<m1>[,m2...]]        Download specific models by name, .dxnn file name or" "GREEN"
+    print_colored "                                 registry model_name (also: --models <m1> [m2...])" "GREEN"
     print_colored "  [--force]                      Force overwrite if the file already exists (default)" "GREEN"
     print_colored "  [--no-force]                   Skip download if the file already exists" "GREEN"
     print_colored "  [--force-remove-models]        Force remove models if they exist" "GREEN"
     print_colored "  [--force-remove-videos]        Force remove videos if they exist" "GREEN"
-    print_colored "  [--internal]                   Use local mount instead of S3 (internal/air-gapped network)" "GREEN"
-    print_colored "  [--internal-path=<path>]       Local model directory for --internal mode" "GREEN"
-    print_colored "                                 (default: /mnt/regression_storage/atd/models_v3.2.0)" "GREEN"
     print_colored "  [--verbose]                    Enable verbose (debug) logging." "GREEN"
     print_colored "  [--help]                       Show this help message" "GREEN"
+    print_colored "Environment:" "GREEN"
+    print_colored "  DXAPP_SETUP_PYTHON=<python>    Python that runs the model downloader (default: the active" "GREEN"
+    print_colored "                                 virtualenv, else ../venv-dx-runtime, else python3)" "GREEN"
+    print_colored "  DXAPP_TLS_RELAX_X509_STRICT=1  Behind a TLS-inspecting proxy on Python 3.13+: turn off only" "GREEN"
+    print_colored "                                 X.509 strict mode (chain and host name still verified)" "GREEN"
 
     if [ "$1" == "error" ] && [[ ! -n "$2" ]]; then
         print_colored "Invalid or missing arguments." "ERROR"
@@ -74,6 +78,15 @@ show_help() {
     exit 0
 }
 
+# Append model names to MODELS_ARGS, splitting on commas and whitespace.
+add_model_names() {
+    local _names _name
+    IFS=', ' read -r -a _names <<< "$1"
+    for _name in "${_names[@]}"; do
+        [ -n "$_name" ] && MODELS_ARGS+=("$_name")
+    done
+}
+
 # Parse arguments
 while [ $# -gt 0 ]; do
     case $1 in
@@ -85,16 +98,18 @@ while [ $# -gt 0 ]; do
             DOCKER_VOLUME_PATH="$2"
             shift 2
             ;;
+        # The --internal local-copy mode is gone. Its options still parse so
+        # existing command lines (CI jobs) keep working; they are ignored.
         --internal)
-            INTERNAL_ARG="--internal"
+            IGNORED_INTERNAL_OPTS+=("$1")
             shift
             ;;
-        --internal-path=*)
-            INTERNAL_PATH_ARG="--internal-path=${1#*=}"
+        --internal-path=*|--internal-video-path=*)
+            IGNORED_INTERNAL_OPTS+=("${1%%=*}")
             shift
             ;;
-        --internal-path)
-            INTERNAL_PATH_ARG="--internal-path=$2"
+        --internal-path|--internal-video-path)
+            IGNORED_INTERNAL_OPTS+=("$1")
             shift 2
             ;;
         --all)
@@ -133,13 +148,19 @@ while [ $# -gt 0 ]; do
             DEMO_MODELS_ARG="--demo-models"
             shift
             ;;
-        --models)
+        --models=*|--models)
+            # --models=a,b | --models=a b | --models a b (names may repeat
+            # the option; all of them are kept)
+            _models_count=${#MODELS_ARGS[@]}
+            [[ "$1" == --models=* ]] && add_model_names "${1#*=}"
             shift
-            MODELS_ARGS=()
             while [ $# -gt 0 ] && [[ "$1" != --* ]]; do
-                MODELS_ARGS+=("$1")
+                add_model_names "$1"
                 shift
             done
+            if [ ${#MODELS_ARGS[@]} -eq "$_models_count" ]; then
+                show_help "error" "--models requires at least one model name"
+            fi
             MODELS_ARG="--models ${MODELS_ARGS[*]}"
             ;;
         --manifest=*)
@@ -180,6 +201,10 @@ while [ $# -gt 0 ]; do
             ;;
     esac
 done
+
+if [ ${#IGNORED_INTERNAL_OPTS[@]} -gt 0 ]; then
+    print_colored "Ignoring ${IGNORED_INTERNAL_OPTS[*]}: the --internal local-copy mode was removed (the options go in a future release); models and sample videos come from S3." "WARNING"
+fi
 
 print_colored "======== PATH INFO =========" "DEBUG"
 print_colored "RUNTIME_PATH($RUNTIME_PATH)" "DEBUG"
@@ -245,18 +270,6 @@ setup_assets() {
     if [ -n "$MODELS_ARG" ]; then
         SETUP_MODEL_ARGS="$SETUP_MODEL_ARGS $MODELS_ARG"
     fi
-    if [ -n "$INTERNAL_ARG" ]; then
-        SETUP_MODEL_ARGS="$SETUP_MODEL_ARGS $INTERNAL_ARG"
-    fi
-    if [ -n "$INTERNAL_PATH_ARG" ]; then
-        SETUP_MODEL_ARGS="$SETUP_MODEL_ARGS $INTERNAL_PATH_ARG"
-    fi
-    if [ -n "$INTERNAL_ARG" ]; then
-        SETUP_VIDEO_ARGS="$SETUP_VIDEO_ARGS $INTERNAL_ARG"
-    fi
-    if [ -n "$INTERNAL_PATH_ARG" ]; then
-        SETUP_VIDEO_ARGS="$SETUP_VIDEO_ARGS $INTERNAL_PATH_ARG"
-    fi
 
     print_colored " MODEL_PATH: ${MODEL_PATH}" "INFO"
     MODEL_REAL_PATH=$(readlink -f "$MODEL_PATH")
@@ -271,7 +284,18 @@ setup_assets() {
     # missing. Skipping the whole step here would leave partial asset trees
     # unrepaired.
     print_colored " Running setup models script... ($MODEL_REAL_PATH)" "INFO"
-    ./setup_sample_models.sh $SETUP_MODEL_ARGS $MODEL_FORCE_ARGS || { print_colored "Setup models script failed." "ERROR"; rm -rf $MODEL_PATH; exit 1; }
+    # On failure remove only a model path this run created: an existing one
+    # (a symlink, or models downloaded earlier) stays, since one failed file
+    # now fails the whole step.
+    MODEL_PATH_EXISTED=0
+    if [ -e "$MODEL_PATH" ] || [ -L "$MODEL_PATH" ]; then
+        MODEL_PATH_EXISTED=1
+    fi
+    ./setup_sample_models.sh $SETUP_MODEL_ARGS $MODEL_FORCE_ARGS || {
+        print_colored "Setup models script failed." "ERROR"
+        [ "$MODEL_PATH_EXISTED" -eq 0 ] && rm -rf "$MODEL_PATH"
+        exit 1
+    }
 
     if [ -n "$LIST_ARG" ] || [ -n "$DRY_RUN_ARG" ]; then
         print_colored "Skipping video setup for list/dry-run mode." "INFO"
@@ -284,18 +308,41 @@ setup_assets() {
         if [ "${FORCE_REMOVE_VIDEOS:-0}" -eq 1 ]; then
             VIDEO_FORCE_ARGS="--force"
         fi
-        # Always delegate: under --no-force setup_sample_videos.sh skips an
-        # existing extracted directory (internal mode) and get_resource.sh
-        # keeps the cached archive (S3 mode), so nothing is re-downloaded.
+        # Always delegate: under --no-force get_resource.sh keeps the cached
+        # archive, so nothing is re-downloaded.
         print_colored " Running setup videos script... ($VIDEO_REAL_PATH)" "INFO"
-        ./setup_sample_videos.sh $SETUP_VIDEO_ARGS $VIDEO_FORCE_ARGS || { print_colored "Setup videos script failed." "ERROR"; rm -rf $VIDEO_PATH; exit 1; }
+        VIDEO_PATH_EXISTED=0
+        if [ -e "$VIDEO_PATH" ] || [ -L "$VIDEO_PATH" ]; then
+            VIDEO_PATH_EXISTED=1
+        fi
+        ./setup_sample_videos.sh $SETUP_VIDEO_ARGS $VIDEO_FORCE_ARGS || {
+            print_colored "Setup videos script failed." "ERROR"
+            [ "$VIDEO_PATH_EXISTED" -eq 0 ] && rm -rf "$VIDEO_PATH"
+            exit 1
+        }
     fi
 
     print_colored "[OK] Sample models and videos setup complete" "INFO"
 }
 
+# Python the examples run with, in the order the help text documents.
+resolve_gui_python() {
+    if [ -n "${DXAPP_SETUP_PYTHON}" ]; then
+        echo "${DXAPP_SETUP_PYTHON}"
+    elif [ -n "${VIRTUAL_ENV}" ] && [ -x "${VIRTUAL_ENV}/bin/python3" ]; then
+        echo "${VIRTUAL_ENV}/bin/python3"
+    elif [ -x "${RUNTIME_PATH}/venv-dx-runtime/bin/python3" ]; then
+        echo "${RUNTIME_PATH}/venv-dx-runtime/bin/python3"
+    else
+        echo "python3"
+    fi
+}
+
 main() {
     setup_assets
+    if [ -z "$LIST_ARG" ] && [ -z "$DRY_RUN_ARG" ]; then
+        dxapp_link_cv2_qt_fonts "$(resolve_gui_python)"
+    fi
 }
 
 main

@@ -26,6 +26,8 @@ printf '%s\\n' "$@" > "$(dirname "$0")/{record}"
 exit 0
 """
 
+GUI_ENV_STUB = "dxapp_link_cv2_qt_fonts() { :; }\ndxapp_prepare_gui_env() { :; }\n"
+
 
 @pytest.fixture
 def sandbox(tmp_path: Path) -> Path:
@@ -40,6 +42,8 @@ def sandbox(tmp_path: Path) -> Path:
     shutil.copy(ROOT / "setup.sh", app / "setup.sh")
     for helper in ("color_env.sh", "common_util.sh"):
         shutil.copy(ROOT / "scripts" / helper, app / "scripts" / helper)
+    # The real helper would link fonts into the caller's venv.
+    (app / "scripts" / "gui_env.sh").write_text(GUI_ENV_STUB)
 
     for child, record in (
         ("setup_sample_models.sh", "models_args.txt"),

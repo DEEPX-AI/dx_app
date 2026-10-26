@@ -12,13 +12,14 @@ from .profiling import (
 from .preprocessing import make_letterbox_image, calculate_letterbox_params, scale_to_original
 from .visualization import get_class_color, draw_detection, draw_detections, draw_segmentation, deeplabv3_cpp_visualize, yolov8seg_cpp_visualize, depth_cpp_visualize
 from .labels import get_coco_80_labels, get_coco_class_name, get_cityscapes_labels, get_labels
-from .common_util import sigmoid, softmax, argmax, nms, nms_by_class, iou, convert_cpp_detections, convert_cpp_face_detections, convert_cpp_pose_detections, convert_cpp_classification, convert_cpp_obb_detections, convert_cpp_embedding, convert_cpp_hand_landmark, convert_cpp_zero_dce, convert_cpp_face3d, convert_cpp_restoration, convert_cpp_super_resolution, convert_cpp_semantic_seg, convert_cpp_attribute, show_output, convert_cpp_vitpose, convert_cpp_dope, convert_cpp_superpoint, convert_cpp_yolopv2, convert_cpp_mediapipe_hand, convert_cpp_sfa3d, convert_cpp_sfa3d_detections
+from .common_util import sigmoid, softmax, argmax, nms, nms_by_class, iou, convert_cpp_detections, convert_cpp_face_detections, convert_cpp_pose_detections, convert_cpp_classification, convert_cpp_obb_detections, convert_cpp_embedding, convert_cpp_hand_landmark, convert_cpp_zero_dce, convert_cpp_face3d, convert_cpp_restoration, convert_cpp_super_resolution, convert_cpp_semantic_seg, convert_cpp_attribute, show_output, convert_cpp_vitpose, convert_cpp_dope, convert_cpp_superpoint, convert_cpp_yolopv2, convert_cpp_mediapipe_hand, convert_cpp_sfa3d, convert_cpp_sfa3d_detections, convert_cpp_efficientad, convert_cpp_anomaly_feature, convert_cpp_text_embedding, convert_cpp_ppmatting, convert_cpp_mask_rtdetr
 from .colorspace import (
     bgr_to_y_limited, bgr_to_ycrcb_limited, ycrcb_limited_to_bgr,
     Y_LIMITED_MIN, Y_LIMITED_MAX,
 )
 from .safe_queue import SafeQueue
 from .video_io import write_video_frame, writer_frame_size
+from .camera import open_camera_capture
 from .skeleton import (
     SKELETON, POSE_LIMB_COLOR, POSE_KPT_COLOR, KEYPOINT_NAMES,
     FACE_KEYPOINT_NAMES, FACE_KPT_COLOR
@@ -57,6 +58,11 @@ __all__ = [
     'convert_cpp_mediapipe_hand',
     'convert_cpp_sfa3d',
     'convert_cpp_sfa3d_detections',
+    'convert_cpp_efficientad',
+    'convert_cpp_anomaly_feature',
+    'convert_cpp_text_embedding',
+    'convert_cpp_ppmatting',
+    'convert_cpp_mask_rtdetr',
     # Colorspace (BT.601 limited range)
     'bgr_to_y_limited', 'bgr_to_ycrcb_limited', 'ycrcb_limited_to_bgr',
     'Y_LIMITED_MIN', 'Y_LIMITED_MAX',
@@ -64,6 +70,8 @@ __all__ = [
     'SafeQueue',
     # Video output
     'write_video_frame', 'writer_frame_size',
+    # Camera input (USB / Raspberry Pi CSI via libcamera)
+    'open_camera_capture',
     # Skeleton constants
     'SKELETON', 'POSE_LIMB_COLOR', 'POSE_KPT_COLOR', 'KEYPOINT_NAMES',
     'FACE_KEYPOINT_NAMES', 'FACE_KPT_COLOR',

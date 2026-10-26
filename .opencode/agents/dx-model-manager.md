@@ -150,38 +150,72 @@ for i, o in enumerate(out_info):
 
 ### Task Code Mapping
 
-| csv_task | add_model_task | Description |
+| add_model_task | csv_task | Description |
 |---|---|---|
-| OD | object_detection | Object detection |
-| IC | classification | Image classification |
-| POSE | pose_estimation | Pose estimation |
-| ISEG | instance_segmentation | Instance segmentation |
-| SEG | semantic_segmentation | Semantic segmentation |
-| FD | face_detection | Face detection |
-| DE | depth_estimation | Depth estimation |
-| DN | image_denoising | Image denoising |
-| IE | image_enhancement | Image enhancement |
-| SR | super_resolution | Super resolution |
-| FREC | embedding | Feature embedding |
-| OBB | obb_detection | Oriented bounding box |
-| HL | hand_landmark | Hand landmark |
-| PPU | ppu | Pre/post-process unit |
+| 3d_object_detection | 3DOD | 3D object detection |
+| attribute_recognition | ATTR, MCL | Attribute recognition |
+| classification | IC | Image classification |
+| depth_estimation | DEPTH | Monocular depth estimation |
+| embedding | FREC | Feature embedding / face recognition |
+| face_alignment | F3D | Face alignment (3D landmarks) |
+| face_detection | FD | Face detection |
+| hand_detection | HD | Hand detection |
+| hand_landmark | HAND | Hand keypoint/landmark detection |
+| image_denoising | DN | Image noise reduction |
+| image_enhancement | LLIE | Image enhancement (low-light) |
+| instance_segmentation | ISEG, SEG | Per-instance masks |
+| keypoint_detection | KD | Generic keypoint detection |
+| obb_detection | OBB | Oriented bounding-box detection |
+| mainbody_detection | OD | Main-body (salient object) detection, one class; PP-ShiTu's first stage |
+| object_detection | OD | Bounding-box object detection |
+| object_pose_estimation | OD | 6-DoF object pose estimation |
+| panoptic_driving_perception | OD | Panoptic driving perception |
+| pose_estimation | POSE | Keypoint-based pose estimation |
+| ppu | OD, PPU, FD, POSE | Pre/post-process unit models |
+| reid | REID | Re-identification |
+| semantic_segmentation | SEG | Per-pixel class labels |
+| super_resolution | SR | Image upscaling |
 
-## Model Count by Task (v3.0.0)
+> `csv_task` is a CSV-import artifact and is NOT authoritative for routing — use `add_model_task`. Several codes are shared (`OD`, `SEG`, `FD`, `POSE`); see `.deepx/toolsets/model-registry.md`.
 
-| Task | Count | Example Models |
-|---|---|---|
-| object_detection | ~50 | yolov5/6/7/8/9/10/11/26, ssd, nanodet, damoyolo |
-| classification | ~15 | efficientnet, mobilenet, resnet, alexnet |
-| instance_segmentation | ~8 | yolov5_seg, yolov8_seg, yolact |
-| pose_estimation | ~6 | yolov5_pose, yolov8_pose, centerpose |
-| face_detection | ~8 | scrfd, yolov5face, retinaface, ulfgfd |
-| semantic_segmentation | ~5 | bisenet, deeplabv3, segformer |
-| depth_estimation | ~2 | fastdepth |
-| image_denoising | 3 | dncnn_15, dncnn_25, dncnn_50 |
-| embedding | 1 | arcface_mobilefacenet |
-| super_resolution | 1 | espcn_x4 |
-| image_enhancement | 1 | zero_dce |
-| obb_detection | 1 | yolo26n_obb |
-| hand_landmark | 1 | handlandmarklite_1 |
-| **Total** | **133** | |
+## Model Count by Task (v3.3.0)
+
+> Counts below are a snapshot. `config/model_registry.json` is the single source
+> of truth — query it (`jq 'group_by(.task) | map({(.[0].task): length}) | add'`)
+> on the `task` field, which is the one the example directory layout uses.
+> `add_model_task` and `task_legacy` are the pre-dx-modelzoo spellings and group
+> differently (e.g. everything embedding-shaped collapses into `embedding`).
+> for exact live counts.
+
+| Task | Variants | Example families |
+|---|--:|---|
+| object_detection | 167 | damoyolo, efficientdet, nanodet, rtdetr, ssd, ... |
+| image_classification | 137 | alexnet, beit, casvit, deit, densenet, ... |
+| instance_segmentation | 53 | mask_rtdetr, yolact, yolo11_seg, yolo26_seg, yolov12_seg, ... |
+| pose_estimation | 37 | centerpose, dark_hrnet, vitpose, yolo11_pose, yolo26_pose, ... |
+| semantic_segmentation | 24 | bisenet, casvit_seg, ddrnet, deeplabv3, fcn, ... |
+| face_detection | 19 | retinaface, scrfd, ulfgfd, yolov5_face, yolov7_face |
+| depth_estimation | 10 | depthanythingv2, fastdepth, scdepthv3, yolo26_depth |
+| super_resolution | 6 | espcn, realesrgan |
+| image_denoising | 5 | dncnn |
+| oriented_object_detection | 5 | yolo26_obb |
+| zero_shot_image_classification | 5 | clip |
+| anomaly_detection | 4 | efficientad, patchcore |
+| face_recognition | 4 | arcface |
+| visual_place_recognition **(2_5_0 new)** | 3 | eigenplaces, pp_shitu_rec |
+| face_landmark | 2 | 3ddfa_v2 |
+| image_matting **(2_5_0 new)** | 2 | ppmatting |
+| image_retrieval **(2_5_0 new)** | 2 | clip_rn50 |
+| low_light_enhancement | 2 | zerodce |
+| mainbody_detection | 2 | pp_shitu |
+| person_attribute | 2 | deepmar |
+| 3d_object_detection | 1 | sfa3d |
+| face_attribute | 1 | faceattr |
+| hand_detection | 1 | mediapipe_hand_detector |
+| hand_landmark | 1 | mediapipe_hands_lite |
+| keypoint_detection | 1 | superpoint |
+| object_pose_estimation | 1 | dope |
+| panoptic_driving_perception | 1 | yolopv2 |
+| person_reid **(2_5_0 new)** | 1 | repvgg_reid |
+| zero_shot_instance_segmentation | 1 | fastsam |
+| **Total** | **497** | across 29 tasks |

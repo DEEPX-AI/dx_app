@@ -176,7 +176,14 @@ private:
     float score_threshold_;
     float nms_threshold_;
     std::vector<std::string> class_names_;
-    static constexpr int STRIDES[3] = {8, 16, 32};
+
+    // Function-local static: an out-of-line constexpr array in this header is
+    // a multiple-definition error when two translation units include it (C++14).
+    static int strideForLayer(int layer) {
+        static const int kStrides[3] = {8, 16, 32};
+        if (layer >= 0 && layer < 3) return kStrides[layer];
+        return kStrides[0];
+    }
 
     std::vector<YOLOv8PPUResult> decoding_ppu_outputs(const dxrt::TensorPtrs& outputs) const {
         std::vector<YOLOv8PPUResult> detections;
@@ -190,7 +197,7 @@ private:
             if (bb.score < score_threshold_) continue;
 
             int layer = bb.layer_idx;
-            int stride = (layer < 3) ? STRIDES[layer] : STRIDES[0];
+            int stride = strideForLayer(layer);
 
             // YOLOX anchor-free: tx/ty are raw grid offsets, tw/th need exp
             float cx = (bb.x + static_cast<float>(bb.grid_x)) * stride;
@@ -214,7 +221,5 @@ private:
         return postprocess_utils::apply_nms(dets, nms_threshold_);
     }
 };
-
-constexpr int YOLOXPPUPostProcess::STRIDES[3];
 
 #endif  // YOLOV8_PPU_DETECTION_POSTPROCESSOR_HPP

@@ -30,10 +30,25 @@ This section describes the software requirements and installation steps for sett
 
 To run **DX-APP** on Linux, the following components **must** be installed.  
 
-- **OS**: Ubuntu 18.04 / 20.04 / 22.04 / 24.04 (x64) and Debian 12 / 13 (x64)  
-- **DEEPX M1 Runtime Lib Version**: v3.0.0 or higher  
+- **OS**: Ubuntu 20.04 / 22.04 / 24.04 (x64) and Debian 12 / 13 (x64)  
+- **DEEPX M1 Runtime Lib Version (DX-RT)**: v3.5.0 or higher  
+- **NPU Device Driver**: v2.7.0 or higher (RT and PCIe driver). The runtime's own minimum driver, firmware and `.dxnn` versions are printed by `dxcli --version`.  
+- **dx_engine** (Python): 3.5.x, matching the runtime's major.minor. `import dx_engine` raises `dx_engine and DX-RT versions do not match` otherwise.  
 
 All required components are included in the **DXNN All Suite (DX-AS)** package.  
+
+The build needs the following tools and libraries. `./install.sh` installs them (see *DX-APP Application Setup* below).  
+
+- **CMake**: 3.14 or higher, with make or ninja  
+- **Compiler**: C++14-compatible (GCC 7.5 or later, Clang)  
+- **OpenCV**: 4.2.0 or higher (**4.5.5 recommended**), for image I/O and visualization  
+- **Python**: 3.8 or higher with pip, for the CMake configure step (it generates the graph model registry), the Python examples and the pybind11 modules  
+
+!!! note "Why DX-RT 3.5.0"
+
+    `./setup.sh` downloads DX Model Zoo 2_5_0. Those `.dxnn` files are container format **v9**, which DX-RT 3.5.0 is the first runtime to load (DX-RT 3.4.2 refuses them: `Model file format version 9 is not supported`). The C++ examples check the floor when they start and stop with `DXRT library version is too low. (required: >= 3.5.0, current: <version>)`; the check runs after the engine is created, so an older runtime may report its own error on the `.dxnn` first. The Python examples check for DX-RT 3.0.0 or later only, so on DX-RT 3.0.0 to 3.4.x they start and then fail while loading the model, with the DX-RT error above. Check `dxcli --version` before running them. The multi-model graph reads the container version before it creates an engine and names the problem (see [DX-APP Multi-Model Graph](06a_DX-APP_Multi_Model_Graph.md)).
+
+    Tested with DX-RT 3.5.0, NPU driver 2.7.0 (RT and PCIe), firmware 2.7.4 and `dx_engine` 3.5.0 on a DX-M1 M.2 card (x86_64, Ubuntu 24.04).
 
 
 ### Prerequisites Setup
@@ -53,7 +68,7 @@ lsmod | grep dx
 
 **Step 2. Install DX-RT Library**   
 
-To install the DX-RT library and NPU device driver, refer to **Section. Build Guide for Cross-compile** in **DX-RT User Manual**.  
+To build and install the DX-RT library, refer to **Section. Build Guide for Cross-compile** in **DX-RT User Manual**.  
 
 Once **DX-RT** is built, the runtime library and header files are installed in the following directory.  
 
@@ -71,13 +86,13 @@ If necessary, you can modify the installation path by editing `cmake/toolchain.x
 
 **Step 1. DX-APP Installation Options**  
 
-You can check the available **DX-APP** installation options by running the following command.  
+To list the **DX-APP** installation options, run the following command.  
 
 ```bash
-./install.sh # --help
+./install.sh --help
 ```
 
-You can view more installation options by entering the `--help` flag.  
+Without options, `./install.sh` does the same as `./install.sh --all`: it installs the build dependencies (CMake, GCC, Ninja and the Python packages) and OpenCV from the system packages, using `sudo`.  
 
 **Step 2. OpenCV Installation Options**  
 
@@ -96,7 +111,9 @@ set(OpenCV_DIR /your/opencv/installation/dir)
 set(onnxruntime_LIB_DIRS /usr/local/lib)
 ```
 
-**Step 3. Build and Run DX-APP**  
+**Step 3. Build DX-APP and Download Assets**  
+
+For the shortest path from installation to a first inference, see [DX-APP Quick Start](01a_DX-APP_Quick_Start.md). This step is the reference for the build and asset options.  
 
 To build `dx_app`, run the following command.  
 
@@ -110,13 +127,10 @@ To download required models and sample videos, run the following command.
 ./setup.sh
 ```
 
-Assets are downloaded and placed in the `assets/` directory.
+Assets are downloaded and placed in the `assets/` directory. Without options, `./setup.sh` opens a menu to select categories and models; use `./setup.sh --all` to download everything.
 
 - **Models:** stored under `assets/models/`
 - **Videos:** stored under `assets/videos/`
-
-!!! note "NOTE"
-    Running `setup.sh` beforehand is optional. When you run any individual example, missing models are **automatically downloaded** on demand. Videos are also auto-downloaded when a `--video` path is specified but the file does not exist.
 
 !!! note "NOTE"
     The sample models (`.dxnn`) and dataset images are provided for **evaluation and development purposes only** and are not licensed for commercial deployment. For full license details, see [Appendix: Third-Party License Notice](./Appendix_Third_Party_License.md).
@@ -130,21 +144,19 @@ Assets are downloaded and placed in the `assets/` directory.
 | `--list` | List available models without downloading |
 | `--workers=<N>` | Parallel download threads (default: 4) |
 | `--category=<name>` | Download models of a specific category only |
-| `--models <m1> [m2...]` | Download specific models by name |
+| `--models <m1> [m2...]` | Download specific models by name, `.dxnn` file name or registry model name (also `--models=<m1>,<m2>`) |
+| `--demo-models` | Download only the models used by `run_demo.sh` / `run_demo.bat` |
 | `--no-json` | Skip JSON metadata file downloads |
 | `--manifest=<path>` | Use an alternate manifest JSON file |
 | `--force` | Force overwrite if files already exist (default) |
 | `--no-force` | Skip download if the file already exists |
-| `--force-remove-models` | Force remove models if they exist |
-| `--force-remove-videos` | Force remove videos if they exist |
-| `--verbose` | Show detailed progress output |
-
-In internal-network environments, the setup flow can use the internal [DX-ModelZoo](https://developer.deepx.ai/modelzoo/) source automatically when the intranet mode is enabled by the surrounding environment.
+| `--force-remove-models` | Re-download the models even with `--no-force` (existing files are overwritten; nothing is deleted) |
+| `--force-remove-videos` | Re-download the sample videos even with `--no-force` |
+| `--docker_volume_path=<path>` | Docker volume path for the assets; required when `setup.sh` runs inside a container (it stops otherwise) |
+| `--verbose` | Enable verbose logging |
+| `--help` | Show the help message |
 
 For most users, running only `./setup.sh` is sufficient. Contributor-facing setup details are documented separately in the developer guides.
-
-!!! note "Internal-Network Setup"
-    In internal environments, DX-APP can use the internal DX-ModelZoo source to prepare model assets without requiring manual model-by-model input during the standard setup flow.
 
 **Post-Processing Unit (PPU) Acceleration Integration**  
 
@@ -159,18 +171,14 @@ The PPU is engineered to offload computationally intensive post-processing tasks
 
 **PPU-Enabled Models**  
 
-DX-APP includes 11 PPU-accelerated model variants across multiple tasks. To run PPU models interactively, use `./run_demo.sh` and select "PPU Pipeline", or use the example runner / DX Model Tool:
+DX-APP registers 14 PPU-accelerated object-detection variants. `SCRFD500M_PPU` and `YOLOV5Pose_PPU` example sources stay on disk and are not registered or built. To run PPU models, use `./run_demo.sh` and select "PPU Pipeline" (YOLOv7-PPU), or filter the example runner / DX Model Tool by name. The PPU variants are in the `object_detection` category, and all except `yolov7_640x640_ppu` need `./build.sh --all` (or `./build.sh --target <variant>`):
 
 ```bash
-# Interactive — select PPU from the category menu
-scripts/run_examples.sh
-./scripts/dx_tool.sh run
-
-# Non-interactive
-./scripts/dx_tool.sh run --lang cpp --category ppu
+scripts/run_examples.sh --lang cpp --filter _ppu
+./scripts/dx_tool.sh run --lang cpp --filter _ppu
 ```
 
-Available PPU models: YOLOv5S, YOLOv7, YOLOv7x, YOLOv8N, YOLOv8S, YOLOv9T, YOLOv10N, YOLOv11N, YOLOv12N, SCRFD500M, YOLOv5Pose.
+Available PPU models: YOLOv3-tiny, YOLOv3 (416 and 608), YOLOv4, YOLOv5-S, YOLOv7, YOLOv7-X, YOLOv8-N, YOLOv8-S, YOLOv9-T, YOLOv10-N, YOLO11-N, YOLO12-N, YOLOX-S.
 
 **Step 4. Resolve Shared Library Errors**  
 
@@ -183,6 +191,67 @@ sudo cp your_library.so /usr/local/lib
 # Update the system's library cache
 sudo ldconfig
 ```
+
+### Downloads behind a TLS-inspecting proxy
+
+**Symptom.** `setup.sh`, or the automatic model download of an example runner, fails behind a corporate proxy that inspects TLS with:
+
+```text
+certificate verify failed: Missing Authority Key Identifier
+```
+
+**Cause.** Python 3.13 and later (with urllib3 2.3 or later) verify certificates in X.509 strict mode (`VERIFY_X509_STRICT`). Many proxy CAs do not meet it: they lack an Authority Key Identifier, for example. A conda `python3` first on `PATH` is the typical case (Python 3.14 with OpenSSL 3.5). The system Python 3.12 of Ubuntu 24.04, and the dx-runtime virtual environment built from it, are not affected.
+
+**Which Python runs the downloader.** `setup_sample_models.sh` picks the first of these:
+
+1. `DXAPP_SETUP_PYTHON` (a path or a command name; one that is not an executable exits 1);
+2. the active virtual environment (`VIRTUAL_ENV`);
+3. `../venv-dx-runtime`;
+4. `python3`.
+
+The script prints its choice:
+
+```text
+[DXAPP] [INFO] Downloader Python: /usr/bin/python3 (Python 3.12.3, OpenSSL 3.0.13 30 Jan 2024)
+```
+
+**The ways past it, in the order to try them.**
+
+1. Run the downloader with Python 3.12 or older: activate the dx-runtime virtual environment, or pass `DXAPP_SETUP_PYTHON=<python> ./setup.sh` (for example `/usr/bin/python3` on Ubuntu 24.04).
+2. Give the proxy's root CA through `REQUESTS_CA_BUNDLE` (or `CURL_CA_BUNDLE`, `SSL_CERT_FILE`, or the OS trust store). This fixes a *missing* root. It does not change strict mode.
+3. Opt in with `DXAPP_TLS_RELAX_X509_STRICT=1 ./setup.sh`. It turns off only `VERIFY_X509_STRICT`. The certificate is still required, the certificate chain and the host name are still verified, and the protocol floor stays TLS 1.2. It covers the connection to the model server, direct or through a tunnel; the TLS connection to an `https://` proxy itself stays strict. The downloader prints a warning while it is on:
+
+```text
+[DXAPP] [WARN]  $DXAPP_TLS_RELAX_X509_STRICT=1: X.509 strict mode is off for these downloads; the certificate chain and the host name are still verified
+```
+
+Verification is never turned off. After a failure on a strict-mode-only check, the downloader prints this hint (`x509_strict_hint` in `scripts/download_models.py`):
+
+```text
+TLS verification failed a strict-mode check (Missing Authority Key Identifier): <python> (Python 3.14.6, OpenSSL 3.5.7 9 Jun 2026) verifies in X.509 strict mode, and the certificate chain presented here - typically a TLS-inspecting proxy's - does not meet it.
+Either run the downloader with a Python 3.12 or older: activate a Python 3.12-or-older virtualenv, or DXAPP_SETUP_PYTHON=<python> ./setup.sh (e.g. /usr/bin/python3 on Ubuntu 24.04);
+or opt in with DXAPP_TLS_RELAX_X509_STRICT=1 ./setup.sh, which turns off only X.509 strict mode: the certificate chain and the host name are still verified.
+```
+
+`python3 scripts/download_models.py --help` documents the variable too.
+
+### Cross-compiling for aarch64
+
+`./build.sh --arch aarch64` configures with `cmake/toolchain.aarch64.cmake` and builds into `build_aarch64/`. The default (`--minimal`), `--target` and `--category` cross builds leave the executables in the `build_aarch64/` build tree; `./build.sh --arch aarch64 --all` installs into `build_aarch64/release`. A cross build never writes the repository's `bin/`, `lib/` or `include/`, and `./build.sh --clean` leaves them alone too.
+
+- **dx_graph is skipped.** The Python module would be built against the host's Python, so the configure step says:
+
+    ```text
+    dx_graph Python module skipped: cross build (host x86_64, target aarch64): the module would be built against the host's Python. To build it for the target, pass -DDXAPP_CROSS_PYTHON_GRAPH=ON and -DPython_INCLUDE_DIR=<the target Python's include/python3.X> (not validated here: no target Python on the development host)
+    ```
+
+    The opt-in is `-DDXAPP_CROSS_PYTHON_GRAPH=ON -DPython_INCLUDE_DIR=<target include/python3.X>`. Both are needed. This path is not covered by the release tests.
+
+- **dx_postprocess skipped.** `pip` would build it for the host and install it into the host's interpreter, so `build.sh` prints `Cross build (aarch64): dx_postprocess skipped - build it on the target with ./build.sh there.` and installs nothing with `pip` (with `--clean` it still uninstalls `dx_postprocess` from the host's `python3`).
+
+- **Compile check.** `bash scripts/check_cross_compile.sh` compile-checks the graph engine and the graph CLI for aarch64 (`-fsyntax-only`, C++14, the graph targets' `-Werror` flags). `--with-registry` adds the generated registry sources (about 100 s). It needs `aarch64-linux-gnu-g++` (`DXAPP_CROSS_CXX`), the dxrt headers and the OpenCV headers; it prints `check_cross_compile OK: <n> sources compile for aarch64 (aarch64-linux-gnu-g++, -fsyntax-only)`. Nothing is linked or run on aarch64.
+
+- **Validation scope.** Concurrency (the graph engine's pipelining, `--max-inflight`, default 16) is validated on x86_64 with a DX-M1. aarch64 is compile-checked only.
 
 ---
 
@@ -200,8 +269,9 @@ This section details the software requirements and sequential installation steps
 
 To run **DX-APP** on Windows, the following components **must** be installed.  
 
-- **OS**: Windows 10 or later  
-- **Python**: Version 3.8 or higher (required for Python module support)  
+- **OS**: Windows 10 22H2 (build 19045) or later (x64)  
+- **DX-RT**: v3.5.0 or higher (needed for the v9 `.dxnn` files of Model Zoo 2_5_0; see the note under *Software Requirements on Linux*)  
+- **Python**: Version 3.8 or higher (required: `build.bat` and the CMake configure step run Python scripts; also used by the Python examples)  
 - **Compiler**: Visual Studio Community 2022 (required for building C++ examples)  
 
 
@@ -357,7 +427,17 @@ The updated `build.bat` now generates `build_internal.bat` from `CMakeSettings.j
 
 From the project root  
 ```batch
+REM Asks for the build scope (Enter = minimal)
 build.bat
+
+REM run_demo C++ examples only
+build.bat --minimal
+
+REM Every example, installed to out\install\x64-Release and copied to bin\
+build.bat --all
+
+REM C++ examples of one category ("list" shows the categories)
+build.bat --category <name>
 ```
 
 `build_internal.bat` is written alongside, then executed to configure, build, and install outputs. Use the generated `dxapp.sln` (under the build directory, `./out/build/x64-Release/`) if you want to open in Visual Studio 2022 for further development.  
@@ -382,9 +462,20 @@ dx_app/
 │   │   │   └── ...        # Other build artifacts
 │   │   └── ...
 │   └── install/           # Installation directory
-├── bin/                   # Installed executables
-└── lib/                   # Installed libraries
+└── bin/                   # Executables copied by build.bat, plus the DX-RT and vcpkg DLLs
 ```
+
+### Graph engine on Windows
+
+The graph engine, the `multi_model_graph_{sync,async}` CLI and the generated model registry are **not tested on Windows in this release**. They are still part of the Windows CMake project: `build.bat --all` and **Build All** compile them (with `graph_engine_test`), and every configure generates the registry; only `dx_graph` is skipped. The Windows support below is prepared and verified on Linux only:
+
+- **MSVC stays C++17.** Under `/std:c++14` the tree's own filesystem switch picks `<experimental/filesystem>`, which current MSVC STL rejects, and the Windows build has only ever been C++17. C++14 is enforced where it can be checked: GCC/Clang `-Werror=c++17-extensions` and `scripts/check_cross_compile.sh`.
+- **Graph targets get `/bigobj` and two warnings as errors.** `/bigobj` (a generated registry source holds up to 64 factories), `/w15038 /we5038` (C5038, members initialized out of order) and, for targets with a `switch` over an enum, `/w14062 /we4062` (C4062, an enumerator not handled). Tests check that the flags are emitted, not that MSVC accepts them.
+- **Python 3 is needed to configure.** The configure step runs `scripts/gen_model_registry.py`. Without a Python 3 it stops with `No Python 3 interpreter for the graph model registry` and names the fix: install Python 3 (the Microsoft Store stub does not work) or pass `-DPython3_EXECUTABLE=<path to python3>`.
+- **Ctrl-C** goes through `SetConsoleCtrlHandler`: the first press asks for a graceful stop, a repeat within 200 ms counts as the same request, a later press ends the process with `STATUS_CONTROL_C_EXIT`. **Ctrl-Break** ends it at once, as before. It is tested on Linux against a stub `<windows.h>`.
+- **Tests find the binaries** in `bin\Release` (or `bin\RelWithDebInfo`, `bin\Debug`), else `bin\`, with `.exe` names.
+- **Smoke tests.** `tests\windows\run_tests.bat graph` runs the graph CLI smoke tests (`--help`, `--list-models`, `--check`; no NPU).
+- **dx_graph has no Windows build.** The CMake decision function skips it for MSVC.
 
 ### Run Example Executable Files On Windows  
 
@@ -392,23 +483,22 @@ After building and installing dx_app, you can execute the demo applications usin
 
 **Step 1. Execute `setup.bat`**  
 
-Run the `setup.bat` script to automatically download all required models and sample videos.  
+Run the `setup.bat` script to download models and sample videos. Without options, a menu lets you select categories and models. Use `setup.bat --all` to download everything, or `setup.bat --demo-models` to download only the demo models.  
 
 - The downloaded assets will be placed in the `assets` folder.  
-- The assets include models for Classification, Object Detection, and Segmentation.  
 
 **Step 2. Run Examples**  
 
 You can run the examples using the same command line instructions as in Linux, but using the `.exe` extension for executables.  
 
-classification example  
+classification example (not in the minimal build: build it with `build.bat --all` or `build.bat --category image_classification`)  
 ```shell
-./bin/efficientnet_lite0_async.exe -m ./assets/models/efficientnet-lite0_256x256.dxnn -i ./sample/ILSVRC2012/0.jpeg 
+./bin/efficientnet-lite0_224x224_async.exe -m ./assets/models/efficientnet-lite0_224x224.dxnn -i ./sample/ILSVRC2012/0.jpeg
 ```
 
 object detection example  
 ```shell
-./bin/yolov8n_sync.exe  -m ./assets/models/yolov8-n_640x640.dxnn -i ./sample/img/sample_kitchen.jpg -l 10
+./bin/yolov7_640x640_sync.exe -m ./assets/models/yolov7_640x640.dxnn -i ./sample/img/sample_kitchen.jpg -l 10
 ```
 
 ---

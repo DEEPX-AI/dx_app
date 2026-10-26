@@ -17,9 +17,10 @@ DX_APP_PATH=$(realpath -s "${SCRIPT_DIR}")
 
 source "${DX_APP_PATH}/scripts/color_env.sh"
 source "${DX_APP_PATH}/scripts/common_util.sh"
+source "${DX_APP_PATH}/scripts/gui_env.sh"
 
 # =============================================================================
-# Demo Registry (23 entries)
+# Demo Registry (26 entries)
 # =============================================================================
 DEMO_LABELS=(
     # ── Detection (4) ──
@@ -42,10 +43,9 @@ DEMO_LABELS=(
     "Image Denoising          (DnCNN-50)"
     "Super Resolution         (ESPCN-X4)"
     "Image Enhancement        (Zero-DCE)"
-    # ── Recognition (3) ──
+    # ── Recognition (2) ──
     "Embedding                (ArcFace)"
     "Attribute Recognition    (DeepMAR-ResNet50)"
-    "Person Re-ID             (CasViT-T)"
     # ── PPU (1) ──
     "PPU Pipeline             (YOLOv7-PPU)"
     # ── Keypoint & Pose (2) ──
@@ -54,90 +54,158 @@ DEMO_LABELS=(
     # ── Driving & 3D (2) ──
     "Panoptic Driving         (YOLOPv2)"
     "3D Object Detection      (SFA3D)"
-    # ── Hand (1) ──
+    # ── Hand Detection (1) ──
     "Hand Detection           (MediaPipe Palm)"
+    # ── Retrieval & Matting (4) ──
+    "Image Retrieval          (CLIP RN50)"
+    "Visual Place Recognition (EigenPlaces R18)"
+    "Person Re-ID             (RepVGG-A0)"
+    "Image Matting            (PP-Matting HRNet-W48)"
 )
 
 DEMO_GROUPS=(
-    "Detection" "Detection" "Detection" "Detection"
-    "Pose & Landmark" "Pose & Landmark" "Pose & Landmark"
-    "Segmentation" "Segmentation"
+    "Detection"
+    "Detection"
+    "Detection"
+    "Detection"
+    "Pose & Landmark"
+    "Pose & Landmark"
+    "Pose & Landmark"
+    "Segmentation"
+    "Segmentation"
     "Classification"
     "Depth Estimation"
-    "Image Restoration" "Image Restoration" "Image Restoration"
-    "Recognition" "Recognition" "Recognition"
+    "Image Restoration"
+    "Image Restoration"
+    "Image Restoration"
+    "Recognition"
+    "Recognition"
     "PPU"
-    "Keypoint & Pose" "Keypoint & Pose"
-    "Driving & 3D" "Driving & 3D"
+    "Keypoint & Pose"
+    "Keypoint & Pose"
+    "Driving & 3D"
+    "Driving & 3D"
     "Hand Detection"
+    "Retrieval & Matting"
+    "Retrieval & Matting"
+    "Retrieval & Matting"
+    "Retrieval & Matting"
 )
 
 DEMO_CPP_BASE=(
-    yolov7 yolov11n scrfd500m yolo26n_obb
-    yolov8s_pose handlandmarklite_1 3ddfa_v2_mobilnetv1_120x120
-    yolov8n_seg deeplabv3plusmobilenet
-    resnet50
-    yolo26_depth_s
-    dncnn_50 espcn_x4 zero_dce
-    arcface_mobilefacenet deepmar_resnet50 casvit_t
-    yolov7_ppu
-    superpoint dope_hope_ketchup
-    yolopv2 sfa3d_608x608
-    mediapipe_hand_detector
+    "yolov7"
+    "yolo11"
+    "scrfd"
+    "yolo26_obb"
+    "yolov8_pose"
+    "mediapipe_hands_lite"
+    "3ddfa_v2"
+    "yolov8_seg"
+    "deeplabv3"
+    "resnet"
+    "yolo26_depth"
+    "dncnn"
+    "espcn"
+    "zerodce"
+    "arcface"
+    "deepmar"
+    "yolo_ppu"
+    "superpoint"
+    "dope"
+    "yolopv2"
+    "sfa3d"
+    "mediapipe_hand_detector"
+    "clip-img_resnet50_224x224_openai"
+    "eigenplaces-resnet18_512x512"
+    "repvgg-a0-reid_256x128"
+    "ppmatting-hrnet-w48-composition_512x512"
 )
 
 DEMO_PY_DIR=(
     "object_detection/yolov7"
-    "object_detection/yolov11n"
-    "face_detection/scrfd500m"
-    "obb_detection/yolo26n_obb"
-    "pose_estimation/yolov8s_pose"
-    "hand_landmark/handlandmarklite_1"
-    "face_alignment/3ddfa_v2_mobilnetv1_120x120"
-    "instance_segmentation/yolov8n_seg"
-    "semantic_segmentation/deeplabv3plusmobilenet"
-    "classification/resnet50"
-    "depth_estimation/yolo26_depth_s"
-    "image_denoising/dncnn_50"
-    "super_resolution/espcn_x4"
-    "image_enhancement/zero_dce"
-    "embedding/arcface_mobilefacenet"
-    "attribute_recognition/deepmar_resnet50"
-    "reid/casvit_t"
-    "ppu/yolov7_ppu"
+    "object_detection/yolo11"
+    "face_detection/scrfd"
+    "oriented_object_detection/yolo26_obb"
+    "pose_estimation/yolov8_pose"
+    "hand_landmark/mediapipe_hands_lite"
+    "face_landmark/3ddfa_v2"
+    "instance_segmentation/yolov8_seg"
+    "semantic_segmentation/deeplabv3"
+    "image_classification/resnet"
+    "depth_estimation/yolo26_depth"
+    "image_denoising/dncnn"
+    "super_resolution/espcn"
+    "low_light_enhancement/zerodce"
+    "face_recognition/arcface"
+    "person_attribute/deepmar"
+    "object_detection/yolo_ppu"
     "keypoint_detection/superpoint"
-    "object_pose_estimation/dope_hope_ketchup"
+    "object_pose_estimation/dope"
     "panoptic_driving_perception/yolopv2"
-    "3d_object_detection/sfa3d_608x608"
+    "3d_object_detection/sfa3d"
     "hand_detection/mediapipe_hand_detector"
+    "image_retrieval/clip_rn50"
+    "visual_place_recognition/eigenplaces"
+    "person_reid/repvgg_reid"
+    "image_matting/ppmatting"
 )
 
 DEMO_PY_BASE=(
-    yolov7 yolov11n scrfd500m yolo26n_obb
-    yolov8s_pose handlandmarklite_1 3ddfa_v2_mobilnetv1_120x120
-    yolov8n_seg deeplabv3plusmobilenet
-    resnet50
-    yolo26_depth_s
-    dncnn_50 espcn_x4 zero_dce
-    arcface_mobilefacenet deepmar_resnet50 casvit_t
-    yolov7_ppu
-    superpoint dope_hope_ketchup
-    yolopv2 sfa3d_608x608
-    mediapipe_hand_detector
+    "yolov7"
+    "yolo11"
+    "scrfd"
+    "yolo26_obb"
+    "yolov8_pose"
+    "mediapipe_hands_lite"
+    "3ddfa_v2"
+    "yolov8_seg"
+    "deeplabv3"
+    "resnet"
+    "yolo26_depth"
+    "dncnn"
+    "espcn"
+    "zerodce"
+    "arcface"
+    "deepmar"
+    "yolo_ppu"
+    "superpoint"
+    "dope"
+    "yolopv2"
+    "sfa3d"
+    "mediapipe_hand_detector"
+    "clip-img_resnet50_224x224_openai"
+    "eigenplaces-resnet18_512x512"
+    "repvgg-a0-reid_256x128"
+    "ppmatting-hrnet-w48-composition_512x512"
 )
 
 DEMO_MODEL=(
-    yolov7_640x640.dxnn yolo11-n_640x640.dxnn scrfd-500m_640x640.dxnn yolo26-n-obb_1024x1024.dxnn
-    yolov8-s-pose_640x640.dxnn mediapipe-hands-lite_224x224.dxnn 3ddfa-v2_mobilenetv1_120x120.dxnn
-    yolov8-n-seg_640x640.dxnn deeplabv3plus_mobilenetv1_512x512.dxnn
-    resnet50_224x224.dxnn
-    yolo26-depth-s_768x768.dxnn
-    dncnn-50_512x512.dxnn espcn-x4_17x17.dxnn zerodce_400x600.dxnn
-    arcface_mobilefacenet_112x112.dxnn deepmar_resnet50_224x224.dxnn casvit-t_224x224.dxnn
-    yolov7_640x640_ppu.dxnn
-    superpoint_480x640.dxnn dope-hope-ketchup_480x640.dxnn
-    yolopv2_384x640.dxnn sfa3d_608x608.dxnn
-    mediapipe-hand-detector_192x192.dxnn
+    "yolov7_640x640.dxnn"
+    "yolo11-n_640x640.dxnn"
+    "scrfd-500m_640x640.dxnn"
+    "yolo26-n-obb_1024x1024.dxnn"
+    "yolov8-s-pose_640x640.dxnn"
+    "mediapipe-hands-lite_224x224.dxnn"
+    "3ddfa-v2_mobilenetv1_120x120.dxnn"
+    "yolov8-n-seg_640x640.dxnn"
+    "deeplabv3plus_mobilenetv1_512x512.dxnn"
+    "resnet50_224x224.dxnn"
+    "yolo26-depth-s_768x768.dxnn"
+    "dncnn-50_512x512.dxnn"
+    "espcn-x4_17x17.dxnn"
+    "zerodce_400x600.dxnn"
+    "arcface_mobilefacenet_112x112.dxnn"
+    "deepmar_resnet50_224x224.dxnn"
+    "yolov7_640x640_ppu.dxnn"
+    "superpoint_480x640.dxnn"
+    "dope-hope-ketchup_480x640.dxnn"
+    "yolopv2_384x640.dxnn"
+    "sfa3d_608x608.dxnn"
+    "mediapipe-hand-detector_192x192.dxnn"
+    "clip-img_resnet50_224x224_openai.dxnn"
+    "eigenplaces-resnet18_512x512.dxnn"
+    "repvgg-a0-reid_256x128.dxnn"
+    "ppmatting-hrnet-w48-composition_512x512.dxnn"
 )
 
 DEMO_VIDEO=(
@@ -157,13 +225,16 @@ DEMO_VIDEO=(
     "assets/videos/lowlight.mp4"
     "assets/videos/face-pair-sofa.mp4"
     "assets/videos/person-pair-hallway.mp4"
-    "assets/videos/person-pair-hallway.mp4"
     "assets/videos/snowboard.mp4"
-    "assets/videos/dance-solo.mov"
+    "assets/videos/blackbox-city-road2.mov"
     "assets/videos/snowboard.mp4"
     "assets/videos/blackbox-city-road.mp4"
     "assets/videos/blackbox-city-road.mp4"
     "assets/videos/hand.mp4"
+    ""
+    ""
+    ""
+    "assets/videos/person-pair-hallway.mp4"
 )
 
 DEMO_IMAGE=(
@@ -183,43 +254,76 @@ DEMO_IMAGE=(
     "sample/img/sample_lowlight.jpg"
     "sample/img/face_pair"
     "sample/img/sample_person_a1.jpg"
-    "sample/img/person_pair"
     "sample/img/sample_street.jpg"
     "sample/img/sample_street.jpg"
     "sample/dope/000000.png"
     "sample/img/sample_parking.jpg"
     "sample/kitti/velodyne/000049.bin"
     "sample/img/sample_hand.jpg"
+    "sample/img/sample_person_a2.jpg"
+    "sample/vpr/queries/q1.jpg"
+    "sample/reid/queries/sample_person_a2.jpg"
+    "sample/img/sample_person_b.jpg"
 )
 
 # "full" = all 6 modes, "no_py_async" = task ships no *_async.py variant
 DEMO_PY_ASYNC=(
-    full full full full
-    full full full
-    full full
-    full
-    full
-    full full full
-    full full full
-    full
-    full full
-    full full
-    full
+    "full"
+    "full"
+    "full"
+    "full"
+    "full"
+    "full"
+    "full"
+    "full"
+    "full"
+    "full"
+    "full"
+    "full"
+    "full"
+    "full"
+    "full"
+    "full"
+    "full"
+    "full"
+    "full"
+    "full"
+    "full"
+    "full"
+    "full"
+    "full"
+    "full"
+    "full"
 )
 
 # 1 = image only (skip video selection), 0 = both image and video
 DEMO_IMAGE_ONLY=(
-    0 0 0 0
-    0 0 0
-    0 0
-    0
-    0
-    0 0 0
-    1 1 1
-    0
-    0 1
-    0 1
-    0
+    "0"
+    "0"
+    "0"
+    "0"
+    "0"
+    "0"
+    "0"
+    "0"
+    "0"
+    "0"
+    "0"
+    "0"
+    "0"
+    "0"
+    "1"
+    "1"
+    "0"
+    "0"
+    "1"
+    "0"
+    "1"
+    "0"
+    "1"
+    "1"
+    "1"
+    "1"
 )
 
 DEMO_COUNT=${#DEMO_LABELS[@]}
@@ -242,7 +346,7 @@ OPTIONS:
     --help         Show this help message
 
 Interactive 3-stage menu:
-    Stage 1: Select AI task (17 options)
+    Stage 1: Select AI task ($DEMO_COUNT options)
     Stage 2: Select language + execution mode (up to 6 options)
     Stage 3: Select input type (video or image)
 
@@ -272,7 +376,7 @@ print_intro() {
     printf "    ./run_demo.sh --show-log                   Enable verbose logs\n"
     printf "    ./run_demo.sh --help                       Show help\n"
     echo ""
-    printf "  ${COLOR_YELLOW}TIP:${COLOR_RESET} To run ${COLOR_BOLD}all 130+ models${COLOR_RESET} (beyond the %d demo tasks),\n" "$DEMO_COUNT"
+    printf "  ${COLOR_YELLOW}TIP:${COLOR_RESET} To run ${COLOR_BOLD}all 497 model variants${COLOR_RESET} (beyond the %d demo tasks),\n" "$DEMO_COUNT"
     printf "       use the DX Model Tool:\n"
     printf "         ${COLOR_GREEN}./scripts/dx_tool.sh run${COLOR_RESET}    ← interactive category/model filter\n"
     printf "         ${COLOR_GREEN}./scripts/dx_tool.sh bench${COLOR_RESET}  ← benchmark with performance report\n"
@@ -320,7 +424,25 @@ if ! check_valid_dir_or_symlink "./assets/videos"; then
     ./setup_sample_videos.sh --output=./assets/videos
 fi
 
-# Ensure all 23 demo models are present; download any missing ones
+# assets/models first, then a parent checkout's workspace/res/models.
+resolve_model_path() {
+    local name="$1"
+    local d
+    if [ -f "$DX_APP_PATH/assets/models/$name" ]; then
+        echo "$DX_APP_PATH/assets/models/$name"
+        return
+    fi
+    d="$DX_APP_PATH"
+    while [ "$d" != "/" ]; do
+        if [ -f "$d/workspace/res/models/$name" ]; then
+            echo "$d/workspace/res/models/$name"
+            return
+        fi
+        d=$(dirname "$d")
+    done
+}
+
+# Ensure every demo model is present; download any missing ones
 MODELS_DIR="./assets/models"
 if [ -L "$MODELS_DIR" ]; then
     MODELS_REAL=$(readlink -f "$MODELS_DIR")
@@ -330,7 +452,7 @@ fi
 mkdir -p "$MODELS_REAL"
 MISSING_DEMO_MODELS=()
 for model_file in "${DEMO_MODEL[@]}"; do
-    if [ ! -f "${MODELS_REAL}/${model_file}" ]; then
+    if [ -z "$(resolve_model_path "${model_file}")" ]; then
         MISSING_DEMO_MODELS+=("${model_file%.dxnn}")
     fi
 done
@@ -520,30 +642,55 @@ fi
 # =============================================================================
 # Build and Execute Command
 # =============================================================================
-model_path="assets/models/${DEMO_MODEL[$task_sel]}"
-cpp_base="${DEMO_CPP_BASE[$task_sel]}"
+# Pick an interpreter that actually has dx_engine. A plain login shell resolves
+# python3 to /usr/bin/python3, which does NOT carry it, so every Python mode of every
+# task failed with "ModuleNotFoundError: No module named 'dx_engine'" unless the user
+# had already activated the runtime venv by hand -- four of the six offered modes, on a
+# script advertised as needing no manual setup. Same fallback order the generated
+# run.sh scripts are required to use: local venv, then the shared runtime venv, then
+# bare python3 with a warning.
+resolve_python() {
+    local candidate
+    for candidate in "$DX_APP_PATH/venv/bin/python3" \
+                     "$DX_APP_PATH/.venv/bin/python3" \
+                     "$DX_APP_PATH/../venv-dx-runtime/bin/python3"; do
+        if [ -x "$candidate" ] && "$candidate" -c "import dx_engine" 2>/dev/null; then
+            echo "$candidate"
+            return
+        fi
+    done
+    if ! python3 -c "import dx_engine" 2>/dev/null; then
+        print_colored "No interpreter with dx_engine found (tried ./venv, ./.venv, ../venv-dx-runtime)." "WARNING"
+        print_colored "  Python modes will fail. Build it with: ./install.sh && ./build.sh" "WARNING"
+    fi
+    echo "python3"
+}
+PY_EXE="$(resolve_python)"
+
+model_file="${DEMO_MODEL[$task_sel]}"
+model_stem="${model_file%.dxnn}"
+model_path="$(resolve_model_path "${model_file}")"
 py_dir="${DEMO_PY_DIR[$task_sel]}"
-py_base="${DEMO_PY_BASE[$task_sel]}"
 
 
 case "$selected_mode" in
     cpp_sync)
-        CMD="$WRC/bin/${cpp_base}_sync -m $model_path"
+        CMD="$WRC/bin/${model_stem}_sync -m $model_path"
         ;;
     cpp_async)
-        CMD="$WRC/bin/${cpp_base}_async -m $model_path"
+        CMD="$WRC/bin/${model_stem}_async -m $model_path"
         ;;
     py_sync)
-        CMD="python3 $WRC/src/python_example/${py_dir}/${py_base}_sync.py --model $model_path"
+        CMD="$PY_EXE $WRC/src/python_example/${py_dir}/${model_stem}/${model_stem}_sync.py --model $model_path"
         ;;
     py_async)
-        CMD="python3 $WRC/src/python_example/${py_dir}/${py_base}_async.py --model $model_path"
+        CMD="$PY_EXE $WRC/src/python_example/${py_dir}/${model_stem}/${model_stem}_async.py --model $model_path"
         ;;
     py_sync_cpp_postprocess)
-        CMD="python3 $WRC/src/python_example/${py_dir}/${py_base}_sync_cpp_postprocess.py --model $model_path"
+        CMD="$PY_EXE $WRC/src/python_example/${py_dir}/${model_stem}/${model_stem}_sync_cpp_postprocess.py --model $model_path"
         ;;
     py_async_cpp_postprocess)
-        CMD="python3 $WRC/src/python_example/${py_dir}/${py_base}_async_cpp_postprocess.py --model $model_path"
+        CMD="$PY_EXE $WRC/src/python_example/${py_dir}/${model_stem}/${model_stem}_async_cpp_postprocess.py --model $model_path"
         ;;
 esac
 
@@ -576,8 +723,8 @@ esac
 case "$selected_mode" in
     py_*)
         _missing_deps=()
-        python3 -c "import cv2" 2>/dev/null || _missing_deps+=("opencv-python")
-        python3 -c "import numpy" 2>/dev/null || _missing_deps+=("numpy")
+        "$PY_EXE" -c "import cv2" 2>/dev/null || _missing_deps+=("opencv-python")
+        "$PY_EXE" -c "import numpy" 2>/dev/null || _missing_deps+=("numpy")
         if [ ${#_missing_deps[@]} -gt 0 ]; then
             print_colored "Python dependency missing: ${_missing_deps[*]}" "ERROR"
             print_colored "Install with:  pip3 install -r ${DX_APP_PATH}/requirements.txt" "INFO"
@@ -585,8 +732,10 @@ case "$selected_mode" in
             popd > /dev/null
             exit 1
         fi
+        dxapp_link_cv2_qt_fonts "$PY_EXE"
         ;;
 esac
+dxapp_prepare_gui_env
 
 echo ""
 printf "${COLOR_CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${COLOR_RESET}\n"

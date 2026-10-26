@@ -1,1 +1,0 @@
-from .yolo11m_pose_factory import Yolo11m_poseFactory

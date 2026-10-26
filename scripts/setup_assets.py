@@ -152,13 +152,16 @@ def _flatten_single_subdir(dest_dir: Path):
         pass
 
 
-def download_and_extract_videos(url: str, dest_dir: Path, force: bool = False):
-    """Download a .tar.gz video archive and extract to dest_dir."""
+def download_and_extract_videos(url: str, dest_dir: Path, force: bool = False) -> int:
+    """Download a .tar.gz video archive and extract to dest_dir.
+
+    Returns 0 on success (or when the archive is already present), 1 on failure.
+    """
     requests = _ensure_requests()
 
     if dest_dir.exists() and not force:
         info(f"Video directory already exists: {dest_dir} -- skipping")
-        return
+        return 0
 
     if dest_dir.exists() and force:
         info(f"Force removing existing video directory: {dest_dir}")
@@ -219,12 +222,13 @@ def download_and_extract_videos(url: str, dest_dir: Path, force: bool = False):
         _flatten_single_subdir(dest_dir)
 
         info(f"[OK] Videos extracted to: {dest_dir}")
+        return 0
 
     except Exception as exc:
         error(f"Video download/extraction failed: {exc}")
         if dest_dir.exists():
             shutil.rmtree(dest_dir)
-        raise SystemExit(1)
+        return 1
     finally:
         if tmp_path.exists():
             tmp_path.unlink()
@@ -240,8 +244,7 @@ def setup_videos(args: argparse.Namespace) -> int:
 
     force = args.force or args.force_remove_videos
 
-    download_and_extract_videos(url, VIDEO_OUTPUT, force=force)
-    return 0
+    return download_and_extract_videos(url, VIDEO_OUTPUT, force=force)
 
 
 # ── CLI ───────────────────────────────────────────────────────────────────────
@@ -304,7 +307,7 @@ examples:
                     help="download models of a specific category only")
     dl.add_argument("--demo-models", action="store_true",
                     help="download only models required by run_demo.py/run_demo.bat")
-    dl.add_argument("--models",   type=str, default=None, nargs="+",
+    dl.add_argument("--models",   type=str, default=None, nargs="+", action="extend",
                     metavar="MODEL",
                     help="download specific models by name")
     dl.add_argument("--verbose",  action="store_true",
@@ -331,10 +334,15 @@ def main():
     # Models
     if not args.videos_only:
         info("--- Setting up models ---")
+        # On failure remove only a model directory this run created: one that
+        # was already there (a symlink, or models downloaded earlier) stays,
+        # since one failed file now fails the whole step.
+        model_output_existed = MODEL_OUTPUT.exists() or MODEL_OUTPUT.is_symlink()
         rc = setup_models(args)
         if rc != 0:
             error("Model setup failed.")
-            if MODEL_OUTPUT.exists() and not args.list and not args.dry_run:
+            if (MODEL_OUTPUT.exists() and not model_output_existed
+                    and not args.list and not args.dry_run):
                 shutil.rmtree(MODEL_OUTPUT, ignore_errors=True)
             sys.exit(rc)
 

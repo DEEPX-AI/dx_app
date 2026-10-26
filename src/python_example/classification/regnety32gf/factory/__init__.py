@@ -1,1 +1,0 @@
-from .regnety32gf_factory import Regnety32gfFactory

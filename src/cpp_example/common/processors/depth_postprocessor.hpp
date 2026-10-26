@@ -26,7 +26,7 @@ public:
         : input_width_(input_width), input_height_(input_height) {}
 
     std::vector<DepthResult> process(const dxrt::TensorPtrs& outputs,
-                                      const PreprocessContext& ctx) override {
+                                      const PreprocessContext& /*ctx*/) override {
         if (outputs.empty()) return {};
 
         auto output = outputs[0];
@@ -49,22 +49,24 @@ public:
             return {};
         }
 
-        // Wrap the tensor buffer WITHOUT copying. The normalization below
-        // allocates its own output, so the result never aliases the (transient)
-        // tensor memory — an up-front clone would just be a wasted full-size
-        // copy (2.36 MB/frame at 768x768).
-        cv::Mat depth_map(h, w, CV_32FC1, const_cast<float*>(data));
-        double min_val_d, max_val_d;
-        cv::minMaxLoc(depth_map, &min_val_d, &max_val_d);
-        float min_val = static_cast<float>(min_val_d);
-        float max_val = static_cast<float>(max_val_d);
+        // Header over the tensor, used only to read min/max. Do not assign the
+        // normalized expression back onto this header: that keeps data() on the
+        // tensor (refcount stays unset) and the next Run overwrites the map.
+        cv::Mat wrapped(h, w, CV_32FC1, const_cast<float*>(data));
+        double min_val_d = 0.0;
+        double max_val_d = 0.0;
+        cv::minMaxLoc(wrapped, &min_val_d, &max_val_d);
+        const float min_val = static_cast<float>(min_val_d);
+        const float max_val = static_cast<float>(max_val_d);
 
-        // Normalize to [0, 1]
-        float range = max_val - min_val;
+        // Owned [0, 1] map. A fresh Mat is the destination so the result
+        // outlives the tensor buffer.
+        cv::Mat depth_map;
+        const float range = max_val - min_val;
         if (range > 1e-6f) {
-            depth_map = (depth_map - min_val) / range;  // allocates an owned buffer
+            depth_map = (wrapped - min_val) / range;
         } else {
-            depth_map = depth_map.clone();  // degenerate: still must own the data
+            depth_map = wrapped.clone();
         }
 
         DepthResult result;

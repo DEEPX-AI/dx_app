@@ -76,7 +76,7 @@ for _path in [str(_v3_dir), str(_module_dir)]:
 
 ### When to Use Production Path
 
-Only create files in `src/python_example/<task>/<model>/` when the user EXPLICITLY says:
+Only create files in `src/python_example/<task>/<family>/<variant>/` when the user EXPLICITLY says:
 - "Add this to the production codebase"
 - "Create this in src/"
 - "Make this a permanent addition"

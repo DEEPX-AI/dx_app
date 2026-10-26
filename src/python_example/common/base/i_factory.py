@@ -12,14 +12,17 @@ from .i_processor import IPreprocessor, IPostprocessor
 from .i_visualizer import IVisualizer
 
 
+# Alias mapping so that a single config.json works for both C++ and Python.
+# C++ uses 'score_threshold'; Python postprocessors use 'conf_threshold'.
+CONFIG_ALIASES = {
+    "score_threshold": "conf_threshold",
+}
+
+
 class _FactoryConfigMixin:
     """Mixin providing load_config() for all factory interfaces."""
 
-    # Alias mapping so that a single config.json works for both C++ and Python.
-    # C++ uses 'score_threshold'; Python postprocessors use 'conf_threshold'.
-    _CONFIG_ALIASES = {
-        "score_threshold": "conf_threshold",
-    }
+    _CONFIG_ALIASES = CONFIG_ALIASES
 
     def load_config(self, config: dict) -> None:
         """
@@ -28,11 +31,18 @@ class _FactoryConfigMixin:
         Override in concrete factories for custom behaviour.
         Default implementation merges into ``self.config`` if it exists,
         applying alias translations (e.g. score_threshold → conf_threshold).
+        Passing the factory's own ``config`` dict back in is supported.
         """
         if hasattr(self, "config") and isinstance(self.config, dict):
-            for key, value in config.items():
+            # Concrete factories keep their constructor argument by reference, so
+            # ``f.load_config(f.config)`` aliases self.config and the argument.
+            # Iterate a snapshot: inserting the alias into the live dict raised
+            # RuntimeError, and an alias added here must not satisfy its own
+            # ``not in`` check against a later key.
+            incoming = dict(config)
+            for key, value in incoming.items():
                 alias = self._CONFIG_ALIASES.get(key)
-                if alias and alias not in config:
+                if alias and alias not in incoming:
                     self.config[alias] = value
                 self.config[key] = value
 
@@ -157,6 +167,37 @@ class ISegmentationFactory(_FactoryConfigMixin, ABC):
     def get_model_name(self) -> str:
         pass
     
+    @abstractmethod
+    def get_task_type(self) -> str:
+        pass
+
+
+class IAnomalyDetectionFactory(_FactoryConfigMixin, ABC):
+    """Abstract Factory interface for anomaly-detection models.
+
+    Its own interface rather than a reuse of ISegmentationFactory: the output is a
+    continuous per-pixel anomaly response with a frame-level severity, not a class
+    map, and the runner dispatches nothing on the factory type anyway -- it calls
+    visualizer.visualize(image, results) -- so the interface exists to say what the
+    family is, not to unlock behaviour.
+    """
+
+    @abstractmethod
+    def create_preprocessor(self, input_width: int, input_height: int) -> IPreprocessor:
+        pass
+
+    @abstractmethod
+    def create_postprocessor(self, input_width: int, input_height: int) -> IPostprocessor:
+        pass
+
+    @abstractmethod
+    def create_visualizer(self) -> IVisualizer:
+        pass
+
+    @abstractmethod
+    def get_model_name(self) -> str:
+        pass
+
     @abstractmethod
     def get_task_type(self) -> str:
         pass

@@ -1,1 +1,0 @@
-from .yolov5s_6_1_factory import Yolov5s_6_1Factory

@@ -18,11 +18,14 @@
 #include <iostream>
 #include <memory>
 #include <opencv2/opencv.hpp>
+#include <tuple>
 #include <vector>
 
 #include "common/base/i_factory.hpp"
 #include "common/utility/colorspace.hpp"
 #include "common/utility/common_util.hpp"
+#include "common/utility/progress.hpp"
+#include "common/utility/display_pump.hpp"
 #include "common/utility/sr_tiling.hpp"
 #include "common/utility/run_dir.hpp"
 #include "common/utility/verify_serialize.hpp"
@@ -239,10 +242,6 @@ public:
             }
         }
 
-        // DXAPP_VERIFY numerical verification
-        verify::dumpVerifyJson(std::vector<RestorationResult>{}, model_path_, "restoration",
-                              0, 0);
-
         printPerformanceSummary(metrics, processCount, total_time, !args.no_display, args.saveMode);
 
         DXRT_TRY_CATCH_END
@@ -288,6 +287,8 @@ private:
              cxxopts::value<int>(args.loopTest)->default_value("-1"))
             ("no-display", "will not visualize, only show fps",
              cxxopts::value<bool>(args.no_display)->default_value("false"))
+            ("drop-frames", "display: drop stale frames instead of pacing the pipeline (default: off, every frame is shown)",
+             cxxopts::value<bool>(args.drop_frames)->default_value("false"))
             ("config", "Model configuration JSON file path",
              cxxopts::value<std::string>(args.configPath))
             ("show-log", "Enable verbose log output (default: quiet)",
@@ -304,6 +305,8 @@ private:
             ("h, help", "print usage");
 
         auto cmd = options.parse(argc, argv);
+
+        dxapp::configureDisplayPump(dxapp::syncPreviewPump(), args.drop_frames);
         if (cmd.count("help")) {
             std::cout << options.help() << std::endl;
             exit(0);
@@ -364,7 +367,7 @@ private:
     }
 
     bool openVideoCapture(cv::VideoCapture& video, const CommandLineArgs& args) {
-        if (args.cameraIndex >= 0) video.open(args.cameraIndex);
+        if (args.cameraIndex >= 0) dxapp::openCameraCapture(video, args.cameraIndex);
         else if (!args.rtspUrl.empty()) video.open(args.rtspUrl);
         else video.open(args.videoFile);
         return video.isOpened();
@@ -392,23 +395,6 @@ private:
         return sr_halo_;
     }
 
-    /** Compute output scale factors by probing once.
-     *  Only the output *shape* matters, so a zero tile is enough. */
-    std::pair<int,int> probeOutputScale(
-        dxrt::InferenceEngine& ie, int tile_w, int tile_h,
-        dxrt::TensorPtrs& probe_out) {
-        cv::Mat probe_tile = cv::Mat::zeros(tile_h, tile_w, CV_8UC1);
-        probe_out = ie.Run(probe_tile.data, nullptr, nullptr);
-        int out_tile_h = tile_h, out_tile_w = tile_w;
-        if (!probe_out.empty()) {
-            auto shape = probe_out[0]->shape();
-            if (shape.size() == 4)      { out_tile_h = static_cast<int>(shape[2]); out_tile_w = static_cast<int>(shape[3]); }
-            else if (shape.size() == 3) { out_tile_h = static_cast<int>(shape[1]); out_tile_w = static_cast<int>(shape[2]); }
-            else if (shape.size() == 2) { out_tile_h = static_cast<int>(shape[0]); out_tile_w = static_cast<int>(shape[1]); }
-        }
-        return {std::max(1, out_tile_w / tile_w), std::max(1, out_tile_h / tile_h)};
-    }
-
     /** Run tiled super-resolution and return side-by-side result canvas. */
     cv::Mat runSuperResolution(
         dxrt::InferenceEngine& ie, const cv::Mat& lr_bgr, const cv::Mat& lr_gray,
@@ -424,13 +410,11 @@ private:
         // Tiles are cut with a halo and only their valid centres are stitched, so
         // with halo >= the receptive-field radius (4 px for ESPCN) no tile seams
         // remain. Tiles go through RunAsync so the per-call overhead — which
-        // dominates a 17x17 forward pass — is pipelined away.
+        // dominates a 17x17 forward pass — is pipelined away, and each is
+        // stitched as it arrives instead of holding every output of the frame.
         auto ti0 = std::chrono::high_resolution_clock::now();
-        std::vector<dxrt::TensorPtrs> tile_outputs;
-        dxapp::srtiling::runTilesPipelined(
-            ie, lr_gray, tile_plans_, tile_w, tile_h, tile_outputs);
-        tiles_done = dxapp::srtiling::assembleTiles(
-            tile_plans_, tile_outputs, padded_out_h, padded_out_w,
+        tiles_done = dxapp::srtiling::runAndAssembleTiles(
+            ie, lr_gray, tile_plans_, tile_h, tile_w, padded_out_h, padded_out_w,
             scale_y, scale_x, out_tile_w, sr_y_padded);
         t_inference_total = std::chrono::duration<double, std::milli>(
             std::chrono::high_resolution_clock::now() - ti0).count();
@@ -440,13 +424,16 @@ private:
         cv::Mat orig_bgr = lr_bgr(cv::Rect(0, 0, orig_w, orig_h));
         // sr_y is a limited-range Y (ESPCN is trained on MATLAB rgb2ycbcr), so
         // the chroma planes and the inverse matrix stay on that convention.
-        cv::Mat lr_ycrcb; dxapp::colorspace::bgrToYCrCbLimited(orig_bgr, lr_ycrcb);
-        std::vector<cv::Mat> ch; cv::split(lr_ycrcb, ch);
-        cv::Mat cr_up, cb_up;
-        cv::resize(ch[1], cr_up, cv::Size(target_out_w, target_out_h), 0, 0, cv::INTER_CUBIC);
-        cv::resize(ch[2], cb_up, cv::Size(target_out_w, target_out_h), 0, 0, cv::INTER_CUBIC);
-        cv::Mat ycrcb_merged; cv::merge(std::vector<cv::Mat>{sr_y, cr_up, cb_up}, ycrcb_merged);
-        cv::Mat sr_bgr; dxapp::colorspace::ycrcbLimitedToBgr(ycrcb_merged, sr_bgr);
+        cv::Mat sr_bgr = dxapp::srtiling::mergeSrLuma(orig_bgr, sr_y);
+        // DXAPP_VERIFY: the stitched, label-free SR output at the input size.
+        {
+            RestorationResult sr_result;
+            sr_result.restored_image = sr_bgr;
+            sr_result.width = sr_bgr.cols;
+            sr_result.height = sr_bgr.rows;
+            verify::dumpVerifyJson(std::vector<RestorationResult>(1, sr_result), model_path_,
+                                   "restoration", orig_h, orig_w);
+        }
         t_postprocess_total = std::chrono::duration<double, std::milli>(
             std::chrono::high_resolution_clock::now() - tp0).count();
 
@@ -520,6 +507,10 @@ private:
         t_postprocess_total = std::chrono::duration<double, std::milli>(
             std::chrono::high_resolution_clock::now() - tpp0).count();
 
+        // --- Numerical verification dump (DXAPP_VERIFY=1), as the async runner ---
+        verify::dumpVerifyJson(results, model_path_, "restoration",
+                              display_image.rows, display_image.cols);
+
         // Super-resolution: also save the upscaled output on its own (no
         // side-by-side panel / labels), next to the DXAPP_SAVE_IMAGE canvas.
         // Full-color SR models (e.g. RealESRGAN) take this standard 3-channel
@@ -562,8 +553,7 @@ private:
             // Probe with a zero tile: only the output shape decides whether this
             // is an upscaling model. Non-SR 1-channel models (e.g. DnCNN) fall
             // straight through to runSingleInference below, untouched.
-            dxrt::TensorPtrs probe_out;
-            std::pair<int,int> scale_xy = probeOutputScale(ie, tile_w, tile_h, probe_out);
+            std::pair<int,int> scale_xy = dxapp::srtiling::probeOutputScale(ie, tile_w, tile_h);
             int scale_x = scale_xy.first;
             int scale_y = scale_xy.second;
             is_sr = (scale_x > 1 || scale_y > 1);
@@ -594,12 +584,10 @@ private:
                               << " tiles; processing may be slow.\n";
                 }
 
-                cv::Mat lr_bgr;
-                cv::copyMakeBorder(input_frame, lr_bgr, 0, padded_h - orig_h,
-                                   0, padded_w - orig_w, cv::BORDER_REPLICATE);
                 // ESPCN is trained on MATLAB rgb2ycbcr Y, so feed limited-range Y
                 // rather than OpenCV's full-range grayscale.
-                cv::Mat lr_gray; dxapp::colorspace::bgrToYLimited(lr_bgr, lr_gray);
+                cv::Mat lr_bgr, lr_gray;
+                dxapp::srtiling::prepareLowRes(input_frame, padded_h, padded_w, lr_bgr, lr_gray);
                 t_preprocess = std::chrono::duration<double, std::milli>(
                     std::chrono::high_resolution_clock::now() - t0).count();
 
@@ -628,6 +616,7 @@ private:
                 metrics.sum_preprocess += t_preprocess;
                 metrics.sum_inference += t_inference_total;
                 metrics.infer_completed++;
+                dxapp::progressTick(metrics);   // [PROGRESS] for front ends (DXAPP_PROGRESS=1)
                 return true;
             }
             result_frame = std::move(maybe.second);
@@ -651,7 +640,11 @@ private:
         }
 
         auto render_start = std::chrono::high_resolution_clock::now();
-        auto [quit_requested, t_save, t_display] = renderAndDisplay_(result_frame, writer, no_display, saveMode);
+        const std::tuple<bool, double, double> render_result =
+            renderAndDisplay_(result_frame, writer, no_display, saveMode);
+        const bool quit_requested = std::get<0>(render_result);
+        const double t_save = std::get<1>(render_result);
+        const double t_display = std::get<2>(render_result);
         auto render_end = std::chrono::high_resolution_clock::now();
         // Note: result_frame is already rendered by visualizer.draw() in runSingleInference;
         // render_start..render_end captures the renderAndDisplay_ overhead (negligible clone/resize).
@@ -668,6 +661,7 @@ private:
         metrics.sum_save += t_save;
         metrics.sum_display += t_display;
         metrics.infer_completed++;
+        dxapp::progressTick(metrics);   // [PROGRESS] for front ends (DXAPP_PROGRESS=1)
 
         return !quit_requested;
     }
@@ -698,13 +692,21 @@ private:
         if (!save_image_path_.empty()) cv::imwrite(save_image_path_, result_frame);
         dxapp::saveDebugImage(result_frame);  // caller's path, independent of --save
 
-            if (!no_display) {
-                auto display_start = std::chrono::high_resolution_clock::now();
-                dxapp::showOutput(result_frame);
-                if (dxapp::windowShouldClose("Output")) quit_requested = true;
-                auto display_end = std::chrono::high_resolution_clock::now();
-                t_display = std::chrono::duration<double, std::milli>(display_end - display_start).count();
-            }
+if (!no_display) {
+    // 10 fps, not the 60 fps default: that default assumes the display sits
+    // OFF the critical path, which holds for the async runner. The sync
+    // pipeline is serial, so every imshow is charged to frame time.
+    // Lossless (default): every frame is shown. --drop-frames keeps the
+    // 10 fps preview slot so waitKey is not on every frame of this loop.
+    auto& pump = dxapp::syncPreviewPump();  // shared, configured in run()
+    if (pump.wouldShow()) {
+    auto display_start = std::chrono::high_resolution_clock::now();
+    pump.offer(result_frame);
+    if (!pump.pump()) quit_requested = true;
+    auto display_end = std::chrono::high_resolution_clock::now();
+    t_display = std::chrono::duration<double, std::milli>(display_end - display_start).count();
+    }
+}
         return {quit_requested, t_save, t_display};
     }
 
@@ -741,7 +743,7 @@ private:
                                     input_channels, is_float_input, is_nhwc,
                                     i, frameDumpPath, false)) break;
             processCount++;
-            if (!no_display) {
+            if (!no_display && dxapp::hasDisplay()) {
                 while (!dxapp::windowShouldClose("Output")) {
                     std::this_thread::sleep_for(std::chrono::milliseconds(10));
                 }

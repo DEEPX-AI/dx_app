@@ -79,7 +79,7 @@ insights:
     description: >
       All dx_app examples must use parse_common_args() from common.runner.args.
       Never define custom argparse parsers in model-specific scripts. This ensures
-      consistent CLI behavior across all 133 models and enables framework-level
+      consistent CLI behavior across every model in the registry and enables framework-level
       features (metrics, display control, config loading) to work correctly.
     learned_from: >
       Multiple instances of custom argparse breaking --no-display and --config

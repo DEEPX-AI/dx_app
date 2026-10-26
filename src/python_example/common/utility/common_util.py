@@ -5,7 +5,8 @@ Common utility functions for neural network operations.
 import os
 import subprocess
 import sys
-from typing import Any, List, Tuple
+from contextlib import contextmanager
+from typing import Any, Iterator, List, Tuple
 import numpy as np
 import cv2
 
@@ -14,6 +15,73 @@ import cv2
 # Screen-aware display window
 # ---------------------------------------------------------------------------
 _window_initialized = False
+
+# opencv-python's config-3.py points QT_QPA_FONTDIR at cv2/qt/fonts, which
+# the wheel does not ship. Prefer a system face directory that actually exists.
+_FONT_DIR_CANDIDATES = (
+    "/usr/share/fonts/truetype/dejavu",
+    "/usr/share/fonts/truetype/liberation",
+    "/usr/share/fonts/TTF",
+    "/usr/share/fonts",
+)
+
+
+def _is_gnome_wayland() -> bool:
+    """True when Qt would ignore a Wayland session and fall back to xcb."""
+    session_type = os.environ.get("XDG_SESSION_TYPE", "")
+    if session_type != "wayland":
+        return False
+    desktop = os.environ.get("XDG_CURRENT_DESKTOP", "")
+    legacy_session = os.environ.get("DESKTOP_SESSION", "")
+    return "gnome" in desktop.lower() or "gnome" in legacy_session.lower()
+
+
+def _existing_font_dir() -> str:
+    """First system font directory Qt can open, or an empty string."""
+    for font_dir in _FONT_DIR_CANDIDATES:
+        if os.path.isdir(font_dir):
+            return font_dir
+    return ""
+
+
+def prepare_gui_backend() -> None:
+    """Point Qt at a real font directory before the first OpenCV window.
+
+    ``import cv2`` overwrites ``QT_QPA_FONTDIR`` with ``cv2/qt/fonts``.
+    That directory is not in the wheel, so QFontDatabase warns once per
+    font database it builds. Replace the path only when it does not exist.
+    """
+    if not sys.platform.startswith("linux"):
+        return
+    font_dir = os.environ.get("QT_QPA_FONTDIR", "")
+    if font_dir and os.path.isdir(font_dir):
+        return
+    fallback = _existing_font_dir()
+    if fallback:
+        os.environ["QT_QPA_FONTDIR"] = fallback
+
+
+@contextmanager
+def _xcb_session_for_gnome_wayland() -> Iterator[None]:
+    """Report an X11 session while Qt creates its xcb window.
+
+    On GNOME, Qt 5.15 warns and refuses Wayland unless
+    ``QT_QPA_PLATFORM=wayland``. The opencv wheel only ships the xcb
+    plugin, so that setting aborts. The session type is restored after
+    the window exists; Qt does not read it again.
+    """
+    saved_session = os.environ.get("XDG_SESSION_TYPE")
+    quiet = sys.platform.startswith("linux") and _is_gnome_wayland()
+    if quiet:
+        os.environ["XDG_SESSION_TYPE"] = "x11"
+    try:
+        yield
+    finally:
+        if quiet:
+            if saved_session is None:
+                os.environ.pop("XDG_SESSION_TYPE", None)
+            else:
+                os.environ["XDG_SESSION_TYPE"] = saved_session
 
 
 def window_exists() -> bool:
@@ -100,9 +168,11 @@ def show_output(img, winname: str = "Output"):
     """
     if img is None:
         return
+    prepare_gui_backend()
     global _window_initialized
     if not _window_initialized:
-        cv2.namedWindow(winname, cv2.WINDOW_NORMAL)
+        with _xcb_session_for_gnome_wayland():
+            cv2.namedWindow(winname, cv2.WINDOW_NORMAL)
         screen_w, screen_h = _get_screen_resolution()
         target_w = screen_w // 2
         target_h = screen_h // 2
@@ -1145,4 +1215,120 @@ def convert_cpp_sfa3d_detections(detections: Any, ctx=None) -> List:
                 yaw=yaw,
             )
         )
+    return results
+
+
+def _anomaly_heatmap(anomaly_map: np.ndarray, ctx=None) -> np.ndarray:
+    """Feature-resolution anomaly map -> 0..1 heatmap at the original image size."""
+    heatmap = np.asarray(anomaly_map, dtype=np.float32)
+    if ctx is not None:
+        heatmap = cv2.resize(heatmap, (ctx.original_width, ctx.original_height),
+                             interpolation=cv2.INTER_LINEAR)
+    return np.clip(heatmap, 0.0, 1.0).astype(np.float32)
+
+
+def convert_cpp_efficientad(result_tuple, ctx=None) -> list:
+    """Convert C++ EfficientADPostProcess output to [AnomalyResult].
+
+    C++ does the channel reductions, the per-frame normalisation and the raw
+    score percentile; it returns (map[H, W], score, channels) at feature
+    resolution. dx_postprocess has no OpenCV, so the resize to the original image
+    happens here, as in EfficientADPostprocessor.
+    """
+    from ..base import AnomalyResult
+
+    anomaly_map, score, channels = result_tuple
+    return [AnomalyResult(heatmap=_anomaly_heatmap(anomaly_map, ctx),
+                          score=float(score), channels=int(channels))]
+
+
+def convert_cpp_anomaly_feature(result_tuple, ctx=None, score_percentile: float = 99.0) -> list:
+    """Convert C++ AnomalyFeaturePostProcess output to [AnomalyResult].
+
+    The score is read again from the resized heatmap, because
+    AnomalyFeaturePostprocessor takes its percentile at image resolution while
+    the C++ class can only see the feature map.
+    """
+    from ..base import AnomalyResult
+
+    anomaly_map, _score, channels = result_tuple
+    heatmap = _anomaly_heatmap(anomaly_map, ctx)
+    return [AnomalyResult(heatmap=heatmap,
+                          score=float(np.percentile(heatmap, score_percentile)),
+                          channels=int(channels))]
+
+
+def convert_cpp_text_embedding(embedding: np.ndarray, ctx=None) -> list:
+    """Convert C++ CLIPTextPostProcess output [D] to [EmbeddingResult]."""
+    from ..base import EmbeddingResult
+
+    vector = np.asarray(embedding, dtype=np.float32)
+    if vector.size == 0:
+        return []
+    return [EmbeddingResult(embedding=vector, model_type="text_encoder")]
+
+
+def convert_cpp_ppmatting(alpha_map: np.ndarray, ctx=None, alpha_threshold: float = 0.5) -> list:
+    """Convert C++ PPMattingPostProcess output [H, W] to [SegmentationResult].
+
+    dx_postprocess has no OpenCV, so the resize to the original image happens
+    here, as in PPMattingPostprocessor; ``mask`` is the thresholded class map and
+    ``alpha`` the matte itself.
+    """
+    from ..base import SegmentationResult
+
+    alpha = np.asarray(alpha_map, dtype=np.float32)
+    if alpha.ndim != 2 or alpha.size == 0:
+        raise ValueError(
+            "[DXAPP] [ERROR] convert_cpp_ppmatting - expected a non-empty [H, W] alpha "
+            f"map from PPMattingPostProcess, got shape {alpha.shape}.")
+    if ctx is not None and (alpha.shape[1], alpha.shape[0]) != (ctx.original_width,
+                                                              ctx.original_height):
+        alpha = cv2.resize(alpha, (ctx.original_width, ctx.original_height),
+                           interpolation=cv2.INTER_LINEAR)
+    alpha = np.clip(alpha, 0.0, 1.0)
+    return [SegmentationResult(
+        mask=(alpha > alpha_threshold).astype(np.uint8),
+        alpha=alpha,
+        width=int(alpha.shape[1]),
+        height=int(alpha.shape[0]),
+        class_ids=[0, 1],
+        class_names=["background", "foreground"],
+    )]
+
+
+def convert_cpp_mask_rtdetr(result_tuple, ctx=None, mask_threshold: float = 0.5) -> list:
+    """Convert C++ MaskRTDETRPostProcess output to [InstanceSegResult].
+
+    The tuple is (detections [N, 6] in model-input pixels, masks [N, H, W]
+    probabilities). Boxes stay in model space for the runner to map; each mask
+    is resized to the original image, thresholded and confined to its box in
+    original coordinates, as MaskRTDETRPostprocessor does.
+    """
+    from ..base import InstanceSegResult
+    from .preprocessing import scale_to_original
+
+    detections, masks = result_tuple
+    results = []
+    for det, probability in zip(detections, masks):
+        box = [float(det[0]), float(det[1]), float(det[2]), float(det[3])]
+        if ctx is not None:
+            full = cv2.resize(np.asarray(probability, dtype=np.float32),
+                              (ctx.original_width, ctx.original_height),
+                              interpolation=cv2.INTER_LINEAR)
+            x1, y1 = scale_to_original(box[0], box[1], ctx)
+            x2, y2 = scale_to_original(box[2], box[3], ctx)
+        else:
+            full = np.asarray(probability, dtype=np.float32)
+            x1, y1, x2, y2 = box
+        height, width = full.shape
+        binary = (full > mask_threshold).astype(np.uint8)
+        bx1, by1 = max(0, int(x1)), max(0, int(y1))
+        bx2, by2 = min(width, int(np.ceil(x2))), min(height, int(np.ceil(y2)))
+        binary[:by1, :] = 0
+        binary[by2:, :] = 0
+        binary[:, :bx1] = 0
+        binary[:, bx2:] = 0
+        results.append(InstanceSegResult(box=box, confidence=float(det[4]),
+                                         class_id=int(det[5]), mask=binary))
     return results

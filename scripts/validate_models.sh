@@ -319,9 +319,19 @@ run_add_model() {
         verify_flags="--verify ${NO_VIDEO:+--no-video}"
     fi
 
-    if "$SCRIPT_DIR/add_model.sh" "$name" "$task" --lang "$CURRENT_LANG" \
+    # add_model.sh exits 3 when the example already exists; with --verify it then
+    # verifies the existing package, without it there is nothing to do here.
+    local rc=0
+    "$SCRIPT_DIR/add_model.sh" "$name" "$task" --lang "$CURRENT_LANG" \
         --postprocessor "$pp" $verify_flags --model "$model_path" 2>&1 \
-        | tee "$model_log"; then
+        | tee "$model_log" || rc=$?
+    if [ "$rc" -eq 3 ] && [ "$SKIP_VERIFY" = true ]; then
+        echo -e "${YELLOW}[SKIP]${NC} $name ($CURRENT_LANG): example already exists"
+        log_live "[SKIP] $name ($CURRENT_LANG): example already exists"
+        echo "SKIP" >> "$model_log"
+        SKIP=$((SKIP + 1))
+        TOTAL=$((TOTAL - 1))
+    elif [ "$rc" -eq 0 ]; then
         echo -e "${GREEN}[PASS]${NC} $name ($CURRENT_LANG)"
         log_live "[PASS] $name ($CURRENT_LANG)"
         echo "PASS" >> "$model_log"
@@ -460,7 +470,6 @@ REFERENCE_DIRS=(
     "embedding/arcface_mobilefacenet"
     "ppu/yolov5s_ppu"
     "ppu/yolov7_ppu"
-    "ppu/yolov5pose_ppu"
     "hand_landmark/handlandmarklite_1"
     "attribute_recognition/deepmar_resnet50"
 )

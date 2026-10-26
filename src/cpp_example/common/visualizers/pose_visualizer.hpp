@@ -31,6 +31,70 @@ static const std::vector<std::pair<int, int>> BBOX3D_SKELETON = {
     {0, 4}, {1, 5}, {2, 6}, {3, 7}   // Connecting edges
 };
 
+// MediaPipe hand skeleton (21 keypoints, 23 bones): 0 wrist, then four
+// joints per digit from base to tip - thumb 1-4, index 5-8, middle 9-12,
+// ring 13-16, pinky 17-20 - plus the palm's knuckle line.
+static const size_t HAND_KEYPOINT_COUNT = 21;
+static const std::vector<std::pair<int, int>> HAND_SKELETON = {
+    {0, 1}, {1, 2}, {2, 3}, {3, 4},          // Thumb
+    {0, 5}, {5, 6}, {6, 7}, {7, 8},          // Index
+    {0, 9}, {9, 10}, {10, 11}, {11, 12},     // Middle
+    {0, 13}, {13, 14}, {14, 15}, {15, 16},   // Ring
+    {0, 17}, {17, 18}, {18, 19}, {19, 20},   // Pinky
+    {5, 9}, {9, 13}, {13, 17}                // Palm
+};
+
+// One BGR color per digit, then the palm (HandLandmarkVisualizer's colors).
+static const std::vector<cv::Scalar> HAND_BONE_COLORS = {
+    cv::Scalar(255, 0, 0), cv::Scalar(0, 255, 0), cv::Scalar(0, 0, 255),
+    cv::Scalar(255, 255, 0), cv::Scalar(255, 0, 255), cv::Scalar(200, 200, 200)
+};
+
+// 68-point face landmarks (iBUG 300-W order, as 3DDFA emits them): jaw
+// 0-16, brows 17-21 / 22-26, nose bridge 27-30, nostrils 31-35, eyes
+// 36-41 / 42-47 (closed), outer lip 48-59 and inner lip 60-67 (closed).
+// One color per part, FaceAlignmentVisualizer's.
+static const size_t FACE68_KEYPOINT_COUNT = 68;
+struct Face68Part { int first; int last; bool closed; cv::Scalar color; };
+static const std::vector<Face68Part> FACE68_PARTS = {
+    {0, 16, false, cv::Scalar(200, 200, 200)},   // jaw
+    {17, 21, false, cv::Scalar(0, 255, 0)},      // left brow
+    {22, 26, false, cv::Scalar(0, 255, 0)},      // right brow
+    {27, 30, false, cv::Scalar(255, 200, 0)},    // nose bridge
+    {31, 35, false, cv::Scalar(255, 200, 0)},    // nostrils
+    {36, 41, true, cv::Scalar(255, 0, 0)},       // left eye
+    {42, 47, true, cv::Scalar(255, 0, 0)},       // right eye
+    {48, 59, true, cv::Scalar(0, 0, 255)},       // outer lip
+    {60, 67, true, cv::Scalar(0, 100, 255)}      // inner lip
+};
+
+inline std::vector<std::pair<int, int>> Face68Bones(std::vector<cv::Scalar>* colors) {
+    std::vector<std::pair<int, int>> bones;
+    for (const auto& part : FACE68_PARTS) {
+        for (int i = part.first; i < part.last; ++i) {
+            bones.emplace_back(i, i + 1);
+            if (colors) colors->push_back(part.color);
+        }
+        if (part.closed) {
+            bones.emplace_back(part.last, part.first);
+            if (colors) colors->push_back(part.color);
+        }
+    }
+    return bones;
+}
+static const std::vector<std::pair<int, int>> FACE68_SKELETON = Face68Bones(nullptr);
+static const std::vector<cv::Scalar> FACE68_BONE_COLORS = [] {
+    std::vector<cv::Scalar> colors;
+    Face68Bones(&colors);
+    return colors;
+}();
+
+static const size_t COCO_KEYPOINT_COUNT = 17;
+static const size_t BBOX3D_KEYPOINT_COUNT = 8;
+
+/// How PoseVisualizer joins a pose's keypoints (see layoutOf()).
+enum class KeypointLayout { kCoco17, kHand21, kFace68, kBox3d, kPoints };
+
 // Limb colors (matching original: blue/magenta/orange/green pattern)
 static const std::vector<cv::Scalar> POSE_LIMB_COLORS = {
     cv::Scalar(51, 153, 255), cv::Scalar(51, 153, 255), cv::Scalar(51, 153, 255),
@@ -93,6 +157,12 @@ public:
         kp_threshold_ = threshold;
     }
 
+    /// Keypoints with no order or connectivity (SuperPoint): drawn as points
+    /// only, whatever their count, and all of them.
+    void setUnorderedKeypoints(bool unordered) {
+        unordered_ = unordered;
+    }
+
 private:
     // Draw bounding box and confidence label for one pose
     void drawBoundingBox(cv::Mat& output, const PoseResult& pose, float disp_scale, float x_off, float y_off) const {
@@ -117,8 +187,10 @@ private:
 
     // Draw skeleton connections for one pose
     void drawSkeleton(cv::Mat& output, const PoseResult& pose, float disp_scale, float x_off, float y_off) const {
-        const auto& skeleton = (pose.keypoints.size() <= 8) ? BBOX3D_SKELETON : POSE_SKELETON;
-        cv::Scalar bbox3d_color(0, 255, 128);
+        const KeypointLayout layout = layoutOf(pose);
+        const std::vector<std::pair<int, int>>* found = skeletonOf(layout);
+        if (found == nullptr) return;  // points only
+        const auto& skeleton = *found;
 
         for (size_t i = 0; i < skeleton.size(); ++i) {
             int idx1 = skeleton[i].first;
@@ -132,20 +204,63 @@ private:
 
             cv::Point pt1(static_cast<int>(kp1.x * disp_scale + x_off), static_cast<int>(kp1.y * disp_scale + y_off));
             cv::Point pt2(static_cast<int>(kp2.x * disp_scale + x_off), static_cast<int>(kp2.y * disp_scale + y_off));
-            cv::Scalar color = (pose.keypoints.size() <= 8) ? bbox3d_color
-                : (i < POSE_LIMB_COLORS.size() ? POSE_LIMB_COLORS[i] : bbox3d_color);
-            cv::line(output, pt1, pt2, color, line_thickness_, cv::LINE_AA);
+            cv::line(output, pt1, pt2, boneColor(layout, i),
+                     layout == KeypointLayout::kFace68 ? 1 : line_thickness_, cv::LINE_AA);
         }
     }
 
     // Draw individual keypoints for one pose
     void drawKeypoints(cv::Mat& output, const PoseResult& pose, float disp_scale, float x_off, float y_off) const {
+        const KeypointLayout layout = layoutOf(pose);
+        const bool fine_marks = layout == KeypointLayout::kFace68 || layout == KeypointLayout::kPoints;
         for (size_t i = 0; i < pose.keypoints.size(); ++i) {
             const auto& kp = pose.keypoints[i];
-            if (kp.confidence < kp_threshold_) continue;
+            // Unordered points (SuperPoint) are each a detection that already
+            // passed the model's own threshold; a pose's joint is drawn only
+            // when it is confident.
+            if (!unordered_ && kp.confidence < kp_threshold_) continue;
             cv::Point pt(static_cast<int>(kp.x * disp_scale + x_off), static_cast<int>(kp.y * disp_scale + y_off));
-            cv::circle(output, pt, 3,
-                       POSE_KPT_COLORS[i % POSE_KPT_COLORS.size()], -1, cv::LINE_AA);
+            const cv::Scalar color =
+                layout == KeypointLayout::kFace68 ? cv::Scalar(0, 255, 255)
+                : layout == KeypointLayout::kPoints ? cv::Scalar(0, 255, 0)
+                : POSE_KPT_COLORS[i % POSE_KPT_COLORS.size()];
+            cv::circle(output, pt, fine_marks ? 2 : 3, color, -1, cv::LINE_AA);
+        }
+    }
+
+    /// What one pose's keypoints are, from their count: COCO body (17),
+    /// MediaPipe hand (21), 68-point face, CenterPose 3D box (8). Any other
+    /// count, and every set marked unordered, is drawn as points only.
+    KeypointLayout layoutOf(const PoseResult& pose) const {
+        if (unordered_) return KeypointLayout::kPoints;
+        switch (pose.keypoints.size()) {
+            case COCO_KEYPOINT_COUNT: return KeypointLayout::kCoco17;
+            case HAND_KEYPOINT_COUNT: return KeypointLayout::kHand21;
+            case FACE68_KEYPOINT_COUNT: return KeypointLayout::kFace68;
+            case BBOX3D_KEYPOINT_COUNT: return KeypointLayout::kBox3d;
+            default: return KeypointLayout::kPoints;
+        }
+    }
+
+    static const std::vector<std::pair<int, int>>* skeletonOf(KeypointLayout layout) {
+        switch (layout) {
+            case KeypointLayout::kCoco17: return &POSE_SKELETON;
+            case KeypointLayout::kHand21: return &HAND_SKELETON;
+            case KeypointLayout::kFace68: return &FACE68_SKELETON;
+            case KeypointLayout::kBox3d: return &BBOX3D_SKELETON;
+            default: return nullptr;
+        }
+    }
+
+    static cv::Scalar boneColor(KeypointLayout layout, size_t bone) {
+        const cv::Scalar bbox3d_color(0, 255, 128);
+        switch (layout) {
+            case KeypointLayout::kHand21:
+                return HAND_BONE_COLORS[std::min<size_t>(bone / 4, HAND_BONE_COLORS.size() - 1)];
+            case KeypointLayout::kFace68: return FACE68_BONE_COLORS[bone];
+            case KeypointLayout::kCoco17:
+                return bone < POSE_LIMB_COLORS.size() ? POSE_LIMB_COLORS[bone] : bbox3d_color;
+            default: return bbox3d_color;
         }
     }
 
@@ -153,6 +268,7 @@ private:
     double font_scale_{0.5};
     float alpha_{0.6f};
     float kp_threshold_{0.3f};  // Matching original (0.3)
+    bool unordered_{false};
 };
 
 /**

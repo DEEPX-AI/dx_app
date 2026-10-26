@@ -19,6 +19,12 @@ def run_command(*args: str) -> subprocess.CompletedProcess[str]:
     )
 
 
+def _demo_model_count() -> int:
+    sys.path.insert(0, str(ROOT / "scripts"))
+    from run_demo import DEMOS  # noqa: E402
+    return len(DEMOS)
+
+
 def test_download_models_demo_models_filters_to_run_demo_models():
     result = run_command(
         sys.executable,
@@ -30,7 +36,7 @@ def test_download_models_demo_models_filters_to_run_demo_models():
 
     combined = result.stdout + result.stderr
     assert result.returncode == 0, combined
-    assert "Run demo model filter: 18 model(s) selected" in combined
+    assert f"Run demo model filter: {_demo_model_count()} model(s) selected" in combined
     assert "YoloV7" in combined
     assert "ResNet50" in combined
     assert "AlexNet" not in combined
@@ -48,7 +54,7 @@ def test_setup_assets_forwards_demo_models_to_downloader():
 
     combined = result.stdout + result.stderr
     assert result.returncode == 0, combined
-    assert "Run demo model filter: 18 model(s) selected" in combined
+    assert f"Run demo model filter: {_demo_model_count()} model(s) selected" in combined
 
 
 def test_setup_sh_accepts_and_forwards_demo_models_option():

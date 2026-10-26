@@ -19,7 +19,8 @@ from typing import List
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+# conftest.py puts tests/ on sys.path; hence the noqa: E402 imports below.
+from test_helpers.proc import example_python  # noqa: E402
 from test_helpers.constants import (  # noqa: E402
     ASSETS_DIR,
     IMAGE_ONLY_TASKS,
@@ -75,7 +76,7 @@ class TestSignalHandling:
 
         env = setup_environment()
         cmd = [
-            sys.executable, str(script),
+            example_python(), str(script),
             "--model", str(model_path),
             "--video", str(TEST_VIDEO),
             "--no-display",
@@ -137,7 +138,7 @@ class TestSignalHandling:
 
         env = setup_environment()
         cmd = [
-            sys.executable, str(script),
+            example_python(), str(script),
             "--model", str(model_path),
             "--video", str(TEST_VIDEO),
             "--no-display",
@@ -173,6 +174,60 @@ class TestSignalHandling:
             pytest.skip(f"Test video not found: {TEST_VIDEO}")
         assert len(SIGNAL_CASES) > 0, "No scripts for signal tests"
         print(f"\n  Signal test script: {SIGNAL_CASES[0][0].stem if SIGNAL_CASES else 'none'}")
+
+
+SIGTERM_SAVE_CASES = [
+    pytest.param("object_detection/yolov5/yolov5-s_640x640/yolov5-s_640x640_sync.py", id="sync", marks=pytest.mark.sync_exec),
+    pytest.param("object_detection/yolov5/yolov5-s_640x640/yolov5-s_640x640_async.py", id="async", marks=pytest.mark.async_exec),
+]
+
+
+@pytest.mark.signal_handling
+@pytest.mark.parametrize("script_rel", SIGTERM_SAVE_CASES)
+def test_sigterm_in_save_mode_finalizes_the_video_and_prints_the_summary(script_rel, tmp_path):
+    """U-06: SIGTERM stops like the first Ctrl-C - the video is finalized, the summary printed."""
+    import cv2
+    script = PROJECT_ROOT / "src" / "python_example" / script_rel
+    model = MODELS_DIR / "yolov5-s_640x640.dxnn"
+    if not (script.exists() and model.exists() and TEST_VIDEO.exists()):
+        pytest.skip("script, model or video missing")
+    env = setup_environment()
+    env["PYTHONUNBUFFERED"] = "1"
+    save_dir = tmp_path / "save"
+    proc = subprocess.Popen(
+        [example_python(), str(script), "--model", str(model), "--video", str(TEST_VIDEO),
+         "--no-display", "--save", "--save-dir", str(save_dir), "--loop", "1"],
+        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+        env=env, cwd=str(PROJECT_ROOT), start_new_session=True)
+    try:
+        deadline = time.monotonic() + 60
+        writing = False
+        while time.monotonic() < deadline and proc.poll() is None:
+            videos = list(save_dir.rglob("output.*"))
+            if videos and videos[0].stat().st_size > 200_000:  # several frames written
+                writing = True
+                break
+            time.sleep(0.1)
+        assert writing, "no video output within 60 s"
+        proc.send_signal(signal.SIGTERM)
+        output, _ = proc.communicate(timeout=60)
+    finally:
+        if proc.poll() is None:
+            proc.kill()
+            proc.communicate()
+    assert proc.returncode == 0, output[-2000:]
+    assert "PERFORMANCE SUMMARY" in output, output[-2000:]
+    assert "Traceback" not in output, output[-2000:]
+    videos = list(save_dir.rglob("output.*"))
+    assert len(videos) == 1, videos
+    cap = cv2.VideoCapture(str(videos[0]))
+    assert cap.isOpened(), "saved video cannot be opened (not finalized)"
+    assert cap.get(cv2.CAP_PROP_FRAME_COUNT) >= 1
+    frames = 0
+    while cap.read()[0]:
+        frames += 1
+    cap.release()
+    assert frames >= 1
 
 
 if __name__ == "__main__":

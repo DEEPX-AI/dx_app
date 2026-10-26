@@ -1,0 +1,56 @@
+{
+  "variant": "clip-text_resnet50_77x512_openai",
+  "dxnn_file": "clip-text_resnet50_77x512_openai.dxnn",
+  "task": "image_retrieval",
+  "family": "clip",
+  "input_width": 77,
+  "input_height": 512,
+  "image_only": true,
+  "registry_image_only": true,
+  "default_image": null,
+  "default_video": null,
+  "zoo_canonical": false,
+  "published": true,
+  "config": {},
+  "registry_config": {},
+  "cli": {
+    "include_kitti_paths": false,
+    "include_output": false,
+    "include_stream_inputs": false
+  },
+  "preprocessor": {
+    "class": "SimpleResizePreprocessor",
+    "args": [
+      {
+        "token": "input_width"
+      },
+      {
+        "token": "input_height"
+      }
+    ],
+    "kwargs": {},
+    "config_overrides": {}
+  },
+  "postprocessor": {
+    "class": "CLIPTextPostprocessor",
+    "args": [
+      {
+        "token": "input_width"
+      },
+      {
+        "token": "input_height"
+      },
+      {
+        "token": "config"
+      }
+    ],
+    "kwargs": {},
+    "config_overrides": {}
+  },
+  "visualizer": {
+    "class": "EmbeddingVisualizer",
+    "args": [],
+    "kwargs": {},
+    "config_overrides": {}
+  }
+}

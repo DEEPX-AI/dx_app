@@ -1,4 +1,5 @@
 site_name: DXNN Application (DX-APP) User Manual
+site_url: 'https://developer.deepx.ai/'
 use_directory_urls: false
 docs_dir: source # markdown source directory
 site_dir: docs # generated html output directory
@@ -9,13 +10,14 @@ theme:
     text: Noto Sans Display
     code: Roboto Mono 
   logo: img/deepx.png
-  #favicon: img/favicon.png
   palette:
+    # Palette toggle for light mode
     - scheme: default
       primary: black
       toggle:
         icon: material/brightness-7 
         name: Switch to dark mode
+    # Palette toggle for dark mode
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
       primary: black
@@ -29,9 +31,9 @@ theme:
      - navigation.tabs.sticky
      - content.tabs.link
      - content.code.copy
-site_url: 'https://developer.deepx.ai/'
 nav:
   - DXNN Application Overview: docs/01_DXNN_Application_Overview.md
+  - DX-APP Quick Start: docs/01a_DX-APP_Quick_Start.md
   - DX-APP Installation and Build: docs/02_DX-APP_Installation_and_Build.md
   - DX-APP C++ Example: 
     - Guide: docs/03_DX-APP_CPP_Example_Usage_Guide.md
@@ -39,10 +41,11 @@ nav:
   - DX-APP Python Example:
     - Guide: docs/05_DX-APP_Python_Example_Usage_Guide.md
     - Test: docs/06_DX-APP_Python_Example_Test.md
+  - DX-APP Multi-Model Graph: docs/06a_DX-APP_Multi_Model_Graph.md
   - DX-APP Post-processing:
     - C++: docs/07_DX-APP_CPP_PostProcess_Overview.md
     - Python Binding: docs/08_DX-APP_Pybind_PostProcess_Overview.md
-  - DX-APP Project README: docs/09_DX-APP_Project_Overview.md
+  - DX-APP Architecture and Usage Reference: docs/09_DX-APP_Project_Overview.md
   - DX-APP Developer Guide:
     - DX Tool: docs/10_DX-APP_DX-Tool_Guide.md
     - Example Source Structure: docs/11_DX-APP_Example_Source_Structure.md
@@ -60,12 +63,11 @@ plugins:
       #
       #cover: false
       cover_title: DXNN Application (DX-APP) User Manual
-      cover_subtitle: 2026/08/14 (v3.2.2)
+      cover_subtitle: 2026/10/23 (v3.3.0)
       cover_logo: img/deepx.png
       custom_template_path: source/stylesheets
-      output_path: ../DEEPX_DX-APP_UM_v3.2.2_AUG_2026.pdf
+      output_path: ../DEEPX_DX-APP_UM_v3.3.0_OCT_2026.pdf
 extra:
-  homepage: https://developer.deepx.ai
   generator: false
   social:
      - icon: fontawesome/brands/linkedin

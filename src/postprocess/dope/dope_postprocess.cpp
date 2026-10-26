@@ -70,7 +70,9 @@ DopeResult DOPEPostProcess::postprocess(const dxrt::TensorPtrs& outputs) {
         const int iy = flat_idx / hm_w;
         const int ix = flat_idx % hm_w;
         // Sub-pixel refinement: 3x3 belief-weighted centroid
-        auto [rfx, rfy] = subpixel_refine(hm, hm_h, hm_w, iy, ix);
+        const std::pair<float, float> refined = subpixel_refine(hm, hm_h, hm_w, iy, ix);
+        const float rfx = refined.first;
+        const float rfy = refined.second;
         // +0.5 pixel-center offset → heatmap-space coords (not yet image-space)
         result.peaks.emplace_back(rfx + 0.5f, rfy + 0.5f, hm[flat_idx]);
     }

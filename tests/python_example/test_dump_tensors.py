@@ -15,7 +15,8 @@ from typing import List
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+# conftest.py puts tests/ on sys.path; hence the noqa: E402 imports below.
+from test_helpers.proc import example_python, run_bounded  # noqa: E402
 from test_helpers.constants import (  # noqa: E402
     ASSETS_DIR,
     IMAGE_ONLY_TASKS,
@@ -24,16 +25,16 @@ from test_helpers.constants import (  # noqa: E402
     SAMPLE_DIR,
     STREAM_REJECTING_TASKS_PY,
 )
-from test_helpers.utils import discover_python_scripts, setup_environment  # noqa: E402
+from test_helpers.utils import discover_python_scripts, py_script_task, setup_environment  # noqa: E402
 
 
 def _task_of(script: Path) -> str:
     """Task category for a python example script.
 
-    Scripts live at ``src/python_example/<task>/<model>/<script>.py``, so the
-    task is the grandparent directory name.
+    Scripts live at ``src/python_example/<task>/<family>/<variant>/<script>.py``;
+    the grandparent is the family, so the task comes from the layout root.
     """
-    return script.parent.parent.name
+    return py_script_task(script)
 
 TEST_IMAGE = SAMPLE_DIR / "img" / "sample_kitchen.jpg"
 TEST_VIDEO = ASSETS_DIR / "videos" / "dance-group.mov"
@@ -52,7 +53,7 @@ def _pick_representative(max_count: int = 3) -> List[tuple]:
             continue
         candidates.append((sync_scripts[0], model_path, model_name))
 
-    priority = ["yolov5s", "yolov8n", "fastdepth"]
+    priority = ["yolov5-s_640x640", "yolov8-n", "fastdepth"]
     selected = []
     for script, model, name in candidates:
         for p in priority:
@@ -120,7 +121,7 @@ class TestDumpTensors:
 
         save_dir = tmp_path / "dump_img"
         cmd = [
-            sys.executable, str(script),
+            example_python(), str(script),
             "--model", str(model_path),
             "--image", str(TEST_IMAGE),
             "--no-display",
@@ -131,7 +132,7 @@ class TestDumpTensors:
         ]
 
         env = setup_environment()
-        result = subprocess.run(
+        result = run_bounded(
             cmd, capture_output=True, text=True, timeout=120,
             env=env, cwd=str(PROJECT_ROOT),
         )
@@ -176,7 +177,7 @@ class TestDumpTensors:
 
         save_dir = tmp_path / "dump_vid"
         cmd = [
-            sys.executable, str(script),
+            example_python(), str(script),
             "--model", str(model_path),
             "--video", str(TEST_VIDEO),
             "--no-display",
@@ -186,7 +187,7 @@ class TestDumpTensors:
         ]
 
         env = setup_environment()
-        result = subprocess.run(
+        result = run_bounded(
             cmd, capture_output=True, text=True, timeout=600,
             env=env, cwd=str(PROJECT_ROOT),
         )
@@ -211,14 +212,14 @@ class TestDumpTensors:
         runtime guard nor argparse needs an NPU (both run before engine init).
         """
         cmd = [
-            sys.executable, str(script),
+            example_python(), str(script),
             "--model", str(model_path),
             "--video", str(TEST_VIDEO),
             "--no-display",
         ]
 
         env = setup_environment()
-        result = subprocess.run(
+        result = run_bounded(
             cmd, capture_output=True, text=True, timeout=60,
             env=env, cwd=str(PROJECT_ROOT),
         )

@@ -22,7 +22,7 @@ public:
 
     cv::Mat draw(const cv::Mat& frame,
                  const std::vector<DepthResult>& results,
-                 const PreprocessContext& ctx) override {
+                 const PreprocessContext& /*ctx*/) override {
         if (results.empty()) return frame.clone();
 
         const auto& depth = results[0];

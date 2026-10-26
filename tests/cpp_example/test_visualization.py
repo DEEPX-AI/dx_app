@@ -22,7 +22,8 @@ from pathlib import Path
 import pytest
 
 # -- common module ---------------------------------------------------------
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+# conftest.py puts tests/ on sys.path; hence the noqa: E402 imports below.
+from test_helpers.proc import run_bounded  # noqa: E402
 from test_helpers.constants import (  # noqa: E402
     BIN_DIR,
     MODELS_DIR,
@@ -41,6 +42,13 @@ from test_helpers.utils import (  # noqa: E402
 # Output root
 # ======================================================================
 CPP_VIS_DIR = VIS_RESULT_DIR / "cpp_example"
+
+# A comparison visualizer (EmbeddingVisualizer: ArcFace, CasViT Re-ID, ...)
+# keeps the first image as its reference and draws nothing for it, so a single
+# -i image never produces a picture. The embedding runners say so on stderr
+# (sync_embedding_runner.hpp / async_embedding_runner.hpp), and only then is a
+# missing image expected; the run itself is still checked (rc 0).
+REFERENCE_FRAME_WARNING = "this task compares against a reference"
 
 
 # ======================================================================
@@ -90,7 +98,7 @@ class TestCppVisualization:
         timeout = 300 if ("tta" in base_name or "w6" in base_name) else 120
 
         try:
-            result = subprocess.run(
+            result = run_bounded(
                 cmd,
                 capture_output=True,
                 text=True,
@@ -108,6 +116,12 @@ class TestCppVisualization:
             f"STDERR: {result.stderr[-500:]}"
         )
 
+        if not output_image.exists() and REFERENCE_FRAME_WARNING in result.stderr:
+            pytest.skip(
+                "the runner reports a reference-frame visualizer: a single -i image "
+                "becomes the reference, nothing is rendered"
+            )
+
         assert output_image.exists(), (
             f"Visualization image not saved: {output_image}\n"
             f"STDOUT: {result.stdout[-300:]}"
@@ -115,6 +129,13 @@ class TestCppVisualization:
         assert output_image.stat().st_size > 0, (
             f"Visualization image is empty: {output_image}"
         )
+
+    def test_embedding_runners_print_the_reference_frame_warning(self):
+        """The skip above keys on this stderr line; both embedding runners print it."""
+        runner_dir = PROJECT_ROOT / "src" / "cpp_example" / "common" / "runner"
+        for name in ("sync_embedding_runner.hpp", "async_embedding_runner.hpp"):
+            text = (runner_dir / name).read_text(encoding="utf-8")
+            assert REFERENCE_FRAME_WARNING in text, name
 
     def test_visualization_prerequisites(self):
         """Sanity: required directories and registry exist."""
@@ -139,7 +160,7 @@ def _run_single_vis(cmd, output_image, timeout, run_env, label):
     status: 'ok', 'fail', or 'skip'.
     """
     try:
-        result = subprocess.run(
+        result = run_bounded(
             cmd, capture_output=True, text=True,
             timeout=timeout, env=run_env, cwd=str(PROJECT_ROOT),
         )

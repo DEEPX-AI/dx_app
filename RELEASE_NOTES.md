@@ -1,5 +1,47 @@
 # RELEASE_NOTES
 
+## DX-APP v3.3.0 / 2026-10-23
+
+### 1. Changed
+- **Example Layout**: Reorganized C++ and Python examples into task/family/variant directories. The variant name is the .dxnn stem, and each C++ factory is namespaced `dxapp::v_<variant>`
+- **Task Renames**:
+    - `classification` → `image_classification`
+    - `embedding` → split into `face_recognition`, `image_retrieval`, `visual_place_recognition`, `zero_shot_image_classification`
+    - `attribute_recognition` → split into `person_attribute`, `face_attribute`
+    - `reid` → split into `image_classification`, `person_reid` (new task)
+    - `instance_segmentation` (FastSAM) → `zero_shot_instance_segmentation`
+    - `obb_detection` → `oriented_object_detection`
+    - `image_enhancement` → `low_light_enhancement`
+    - `face_alignment` → `face_landmark`
+- **PPU Models**: Moved PPU models under `object_detection/yolo_ppu`
+- **Executable and Script Names**: Executables, build targets, and Python scripts are now named after the variant (e.g. `yolov9s_sync` → `yolov9-s_640x640_sync`). Update any scripts that call the old names
+- **Classification Sample**: Replaced the `efficientnet-lite0_256x256` sample with `efficientnet-lite0_224x224`
+- **Model Zoo Manifest**: Migrated the model-zoo manifest to the `2_5_0` URL hierarchy (`models.ver`, `modelzoo_manifest.json`)
+- **DX-RT 3.5.0 Required**: Model Zoo 2_5_0 `.dxnn` files are container format v9, which needs DX-RT 3.5.0 or later; the C++ examples check the version at startup
+- **`add_model.sh`**: Takes a variant (the `.dxnn` stem) as its first argument; adds `--family`, `--input-size`, `--dxnn`, and `--no-register`. `config/model_registry.json` rows gain `variant`, `family`, `task` (plus `task_legacy`, `image_only`, `zoo_canonical`, `alias_of`, `published`)
+- **Model Package Pruning**: `scripts/extract_model_package.sh` now prunes `common/` to the files the extracted model actually depends on instead of copying the whole framework; use `--no-prune` for the previous full copy
+- **Ubuntu 18.04 (EOL)**: Dropped Ubuntu 18.04 support; removed it from the Makefile, CI matrix, and installation guide
+
+### 2. Fixed
+- Fixed async runners calling the shared postprocessor from several dxrt callback threads at once. DXAPP_VERIFY records follow input order
+- Fixed retrieval, re-id, and `--check` gallery paths that depended on the working directory
+- Fixed SuperPoint keypoints being drawn at the wrong vertical position in the C++ example
+- Fixed SuperPoint tracker settings (nn_thresh, max_pixel_dist, track_max_length) being ignored
+- Fixed all 998 `*_cpp_postprocess.py` Python examples running the Python postprocessor instead of `dx_postprocess`: the layout regeneration had dropped their `on_engine_init`, so they behaved exactly like the plain sync/async scripts. Each installs its C++ class again, and `run_entry()` forwards `on_engine_init` to the runner
+- Fixed `dx_postprocess` results that differed from the Python and C++ examples: `ClassificationPostProcess` applied softmax to outputs that already were a distribution and broke top-1 ties differently; `VitPosePostProcess` returned heatmap cells instead of model-input pixels (keypoints at 1/4 of their position); DAMO-YOLO and NanoDet NMS suppressed per class instead of class-agnostically; CenterPose ranked its heads and snapped keypoints differently
+- Fixed Python example postprocessors ignoring the variant's `score_threshold` (the nested config block reached them without the `conf_threshold` alias, so they ran at their 0.3 default), and `YOLOv7PPUPostprocessor` decoding with the YOLOv5 anchors (boxes ~0.82x the C++ size)
+- Fixed `dx_postprocess` rejecting numpy int64 arrays (spelled `"l"` on LP64 platforms), such as CLIP token ids
+- Fixed 3D object detection C++ runners printing errors and logs without the `[DXAPP]` prefix
+- Fixed `scripts/bench_models.sh` for the v3.3.0 layout: it read the 4-column `config/test_models.conf` as 3 columns and keyed models by family, so every row came out NO_MODEL; it now benchmarks each of the 497 variants
+
+### 3. Added
+- Multi-model graph engine and CLI `multi_model_graph_sync` / `multi_model_graph_async` (`--check`, `--list-models`, `--report`)
+- Registered 147 DX Model Zoo models, including RT-DETR, YOLOv12, YOLOv13, pre-optimized YOLO, anomaly detection, image matting, CLIP retrieval, person re-id, and visual place recognition
+- Sample galleries for re-id, image retrieval, and visual place recognition
+- `dx_postprocess` classes for the eight postprocessors that had none (50 → 58 pybind classes): `EfficientADPostProcess`, `AnomalyFeaturePostProcess` (PatchCore), `RTDETRPostProcess` (RT-DETR v1/v2/v3), `MaskRTDETRPostProcess`, `PreoptTopKPostProcess` (YOLO26 pre-optimized detection and pose), `PicoDetPostProcess` (PP-ShiTu mainbody), `PPMattingPostProcess` and `CLIPTextPostProcess`. Anomaly maps, masks and alpha mattes come back at the model's resolution and the examples resize them, since the module has no OpenCV
+
+---
+
 ## DX-APP v3.2.2 / 2026-08-14
 
 ### 1. Changed
@@ -19,13 +61,12 @@
 
 ---
 
-## DX-APP v3.2.1 / 2026-07-28
+## DX-APP v3.2.1 / 2026-08-03
 
 ### 1. Changed
 - Updated all example commands in README and docs to the new model filename convention (e.g. YoloV9S.dxnn -> yolov9-s_640x640.dxnn)
 - Super-resolution now saves both a side-by-side comparison (sr_input_output.jpg) and the standalone upscaled output.
 - Replace the super-resolution sample image with genuinely low-resolution inputs (`sample_superresolution.png` removed)
-- Add `--sr-tile-halo` CLI option (0..4, default 4) to control tile overlap for tiled super-resolution examples
 
 ### 2. Fixed
 - Fixed RealESRGAN discolored output vs. C++: corrected color rounding and RGB->BGR channel order, and stopped routing 3-channel SR models through the luminance-only tiled path
@@ -35,10 +76,11 @@
 - Remove tile seams in tiled super-resolution by cutting tiles with a halo of the model's receptive-field radius
 
 ### 3. Added
+- `--sr-tile-halo` CLI option (0..4, default 4) to control tile overlap for tiled super-resolution examples
 
 ---
 
-## DX-APP v3.2.0 / 2026-06-25
+## DX-APP v3.2.0 / 2026-07-22
 
 ### 1. Changed
 - Image-only examples (embedding/reid/attribute) now show an input hint and reject stream inputs instead of exposing unused `--video/--camera/--rtsp` options
@@ -49,7 +91,7 @@
 - Migrated the model-zoo manifest to the `2_4_0` URL hierarchy (`models.ver`, `modelzoo_manifest.json`)
 - Generalized float-input preprocessing (FLOAT dtype → normalized float32 buffer) via `runSyncInferenceTyped` / `fillModelInputBuffer`
 - Default build mode changed to minimal in build.sh : automatically runs minimal build when no option is specified, with available options printed to console
-- build.bat interactive prompt default changed to 1) minimal
+- build.bat interactive prompt default changed to 1 minimal
 
 ### 2. Fixed
 - Super-resolution now preserves input resolution by using dynamic tile padding instead of a fixed 20-tile downscale
@@ -72,11 +114,11 @@ Generate standalone Python/C++ inference apps from plain language: an AI agent b
 - Native C++ post-processing for the example model zoo (YOLO families, semantic seg, Face3D, embedding/classification/attribute, restoration, YOLO-PPU), replacing Python fallbacks
 - Opt-in `--fast-postprocess` path for object detection and instance segmentation
 - YOLO Customizing Guide documentation
-- Added Windows standalone Visual Studio solution package extraction workflow for DX-APP C++ examples, including automatic  OpenCV/DXRT CMake dependency configuration.
- -  Added `--demo-models` setup/download option to download only models used by `run_demo.sh` / `run_demo.bat`
+- Added Windows standalone Visual Studio solution package extraction workflow for DX-APP C++ examples, including automatic OpenCV/DXRT CMake dependency configuration.
+- Added `--demo-models` setup/download option to download only models used by `run_demo.sh` / `run_demo.bat`
 - Added DX-APP build selection options for minimal and category-based builds, plus Windows build selection TUI(Text User Interface).
-- Added knowledge base (`.deepx/`) : specialized agents, app-building/SWE skills, and multi-platform agent-instruction generation
-  (CLAUDE/AGENTS/copilot/cursor) via `dx-agent-gen`
+- Added the agent knowledge base (`.deepx/`): specialized agents, app-building/SWE skills, and generated
+  instruction files for Claude Code, GitHub Copilot, Cursor, OpenCode, and Codex CLI
 - Support for 69 net-new .dxnn models (86 added / 17 removed) and 5 new AI task categories
   
   - **Model registry**: 280 → 347 models across 22 AI task categories
@@ -91,9 +133,10 @@ Generate standalone Python/C++ inference apps from plain language: an AI agent b
 
 ---
 
-## DX-APP v3.1.1 / 2026-04-21
+## DX-APP v3.1.1 / 2026-05-06
 
 ### 1. Changed
+- None
 
 ### 2. Fixed
 - Fixed typo error in document(DX-APP User Manual)
@@ -103,7 +146,7 @@ Generate standalone Python/C++ inference apps from plain language: an AI agent b
 
 ---
 
-## DX-APP v3.1.0 / 2026-04-06
+## DX-APP v3.1.0 / 2026-04-10
 
 ### 1. Changed
 - Unified 5-layer architecture and design patterns across Python and C++ implementations
@@ -121,6 +164,7 @@ Generate standalone Python/C++ inference apps from plain language: an AI agent b
 - Display windows now show original resolution frames with auto-sized window (~1/4 screen area)
 
 ### 2. Fixed
+- None
 
 ### 3. Added
 - Supported new Depth Estimation task featuring FastDepth for monocular depth estimation
@@ -136,7 +180,7 @@ Generate standalone Python/C++ inference apps from plain language: an AI agent b
 
 ---
 
-## DX-APP v3.0.2 / 2026-02-10
+## DX-APP v3.0.2 / 2026-02-26
 
 ### 1. Changed
 - Copy of dxrt and vcpkg DLLs into the dx-app/bin directory when building with MSVC.
@@ -150,9 +194,10 @@ Generate standalone Python/C++ inference apps from plain language: an AI agent b
 
 ---
 
-## DX-APP v3.0.1 / 2026-02-05
+## DX-APP v3.0.1 / 2026-02-09
 
 ### 1. Changed
+- None
 
 ### 2. Fixed
 - Hardcoded attribute size in YOLO post-processing to dynamically adjust based on model output shape
@@ -162,7 +207,7 @@ Generate standalone Python/C++ inference apps from plain language: an AI agent b
 
 ---
 
-## DX-APP v3.0.0 / 2026-01-02
+## DX-APP v3.0.0 / 2026-01-16
 
 ### 1. Changed
 
@@ -331,7 +376,7 @@ DX-APP now fully supports the Windows operating system! In response to user requ
 
 ---
 
-## DX-APP v2.0.0 / 2025-08-14
+## DX-APP v2.0.0 / 2025-09-08
 
 ### 1. Changed
 - Moved the YOLO post-processing guide from 07_Python_Examples.md to a new, dedicated document 08_YOLO_Post_Processing_Pybind11.md.
@@ -369,7 +414,7 @@ DX-APP now fully supports the Windows operating system! In response to user requ
 
 ---
 
-## DX-APP v1.11.0 / 2025-07-24
+## DX-APP v1.11.0 / 2025-07-23
 
 ### 1. Changed
 - feat: enhance --clean option in build script for pybind artifacts

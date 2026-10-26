@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "name": "super-resolve-detect-pose",
+  "nodes": [
+    { "id": "cam", "type": "source", "uri": "sample/img/sample_people.jpg" },
+    { "id": "sr",  "model": "realesrgan-x2_192x192" },
+    { "id": "od",  "model": "yolov8-n_640x640" },
+    { "id": "kp",  "model": "vitpose-s_256x192" }
+  ],
+  "edges": [
+    { "from": "cam", "to": "sr" },
+    { "from": "sr",  "to": "od" },
+    { "from": "od",  "to": "kp", "roi": { "classes": ["person"], "pad": 0.1 } }
+  ]
+}

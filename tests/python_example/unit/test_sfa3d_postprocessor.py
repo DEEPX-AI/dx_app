@@ -30,7 +30,7 @@ class TestSFA3DPostprocessor:
 
         assert results == []
 
-    def test_decodes_single_peak_to_3d_detection(self, ctx):
+    def test_decodes_single_peak_to_one_3d_box(self, ctx):
         postprocessor = SFA3DPostprocessor(608, 608)
         outputs = _make_outputs()
         outputs[0].fill(-10.0)

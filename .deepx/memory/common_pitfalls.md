@@ -304,7 +304,7 @@ this mapping. See `dx-agent-app-validate.md` Level 5 Check 5 for the automated c
 ## 14. [DX_APP] Existing Example Ignored → Wrong Postprocessor Selected
 
 **Symptom:** Agent generates new code for a model that already has a working example in
-`src/python_example/<task>/<model>/`, but uses a different (incorrect) postprocessor.
+`src/python_example/<task>/<family>/<variant>/`, but uses a different (incorrect) postprocessor.
 
 **Cause:** Agent skipped the "Search Existing Examples" step and selected the postprocessor
 based on model name heuristics or registry key alone, without checking the established
@@ -312,8 +312,8 @@ working pattern.
 
 **Fix:** **Always search for existing examples first** before generating new code:
 ```bash
-ls src/python_example/<task>/<model>/factory/ 2>/dev/null
-grep "Postprocessor" src/python_example/<task>/<model>/factory/*_factory.py
+ls src/python_example/<task>/<family>/<variant>/factory/ 2>/dev/null
+grep "Postprocessor" src/python_example/<task>/<family>/<variant>/factory/*_factory.py
 ```
 If a working example exists, use the same postprocessor class. The existing example is
 the ground truth for correct component selection.
@@ -723,7 +723,7 @@ option.buffer_count = 8    # same as set_buffer_count(8)
 - **Symptom**: `ModuleNotFoundError: No module named 'common'` when running `./run.sh`
   after `setup.sh` succeeds. Works with `PYTHONPATH="../../src/python_example/"` manually.
 - **Root Cause**: Generated `_sync.py` uses `_v3_dir = _module_dir.parent.parent`.
-  - For `src/python_example/<task>/<model>/`: `.parent.parent` = `src/python_example/` ✓
+  - For `src/python_example/<task>/<family>/<variant>/`: `.parent.parent` = `src/python_example/<task>/` ✗
   - For `dx-agent-dev/<session>/`: `.parent.parent` = `dx-agent-dev/` ✗ (not `src/python_example/`)
   The agent copied the static path template without noticing the "Import Boilerplate for
   dx-agent-dev/" override section which specifies the dynamic walker.

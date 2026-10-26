@@ -24,7 +24,8 @@ struct ClassificationResult {
 /**
  * @brief Generic classification post-processing class
  *
- * Handles softmax + top-K for classification models.
+ * Handles softmax (skipped when the output already is a distribution) + top-K
+ * for classification models.
  * Input tensor: [1, num_classes] or [1, 1, num_classes] (raw logits or probabilities)
  */
 class ClassificationPostProcess {

@@ -1,1 +1,0 @@
-from .yolov8n_ppu_factory import Yolov8nPpuFactory

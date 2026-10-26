@@ -103,22 +103,22 @@ Read `.deepx/README.md` for the complete index.
 
 ## Overview
 
-dx_app provides 133 compiled `.dxnn` models across 22 AI tasks with Python (4 variants) and C++ examples.
+dx_app provides 497 compiled `.dxnn` models across 29 AI tasks with Python (4 variants) and C++ examples.
 
 ## Context Routing Table
 
 | If the task mentions... | Read these files |
 |---|---|
-| **Python app, detection, classification** | `.deepx/skills/dx-agent-app-build-python.md`, `.deepx/toolsets/common-framework-api.md` |
-| **C++ app, native** | `.deepx/skills/dx-agent-app-build-cpp.md`, `.deepx/toolsets/dx-engine-api.md` |
-| **Async, performance, throughput** | `.deepx/skills/dx-agent-app-build-async.md`, `.deepx/memory/performance_patterns.md` |
-| **Model, download, registry** | `.deepx/skills/dx-agent-app-model-management.md`, `.deepx/toolsets/model-registry.md` |
-| **PaddleOCR OCR app (video/webcam), RapidDoc PDF→Markdown, PaddlePaddle** | `.deepx/toolsets/paddleocr-rapiddoc-app.md` (+ `dx-compiler/.deepx/toolsets/paddlepaddle-deepx.md`) |
-| **Validation, testing** | `.deepx/skills/dx-agent-app-validate.md`, `.deepx/instructions/testing-patterns.md` |
-| **Validation, feedback, fix** | `.deepx/skills/dx-agent-app-validate.md`, parent `dx-runtime/.deepx/skills/dx-agent-runtime-validate.md` |
-| **Brainstorm, plan, design** | `.deepx/skills/dx-swe-brainstorm.md` |
-| **TDD, validation, incremental** | `.deepx/skills/dx-swe-tdd.md` |
-| **Completion, verify, evidence** | `.deepx/skills/dx-swe-verify.md` |
+| **Python app, detection, classification** | `.deepx/skills/dx-agent-app-build-python/SKILL.md`, `.deepx/toolsets/common-framework-api.md` |
+| **C++ app, native** | `.deepx/skills/dx-agent-app-build-cpp/SKILL.md`, `.deepx/toolsets/dx-engine-api.md` |
+| **Async, performance, throughput** | `.deepx/skills/dx-agent-app-build-async/SKILL.md`, `.deepx/memory/performance_patterns.md` |
+| **Model, download, registry** | `.deepx/skills/dx-agent-app-model-management/SKILL.md`, `.deepx/toolsets/model-registry.md` |
+| **PaddleOCR OCR app (video/webcam), RapidDoc PDF→Markdown, PaddlePaddle** | `.deepx/toolsets/paddleocr-rapiddoc-app.md` (+ `../../dx-compiler/.deepx/toolsets/paddlepaddle-deepx.md`) |
+| **Validation, testing** | `.deepx/skills/dx-agent-app-validate/SKILL.md`, `.deepx/instructions/testing-patterns.md` |
+| **Validation, feedback, fix** | `.deepx/skills/dx-agent-app-validate/SKILL.md`, parent `../.deepx/skills/dx-agent-runtime-validate/SKILL.md` |
+| **Brainstorm, plan, design** | `.deepx/skills/dx-agent-brainstorm/SKILL.md` |
+| **TDD, validation, incremental** | `.deepx/skills/dx-agent-tdd/SKILL.md` |
+| **Completion, verify, evidence** | `.deepx/skills/dx-agent-verify/SKILL.md` |
 | **Debug, root cause, investigate** | `.deepx/skills/dx-swe-debugging/SKILL.md` |
 | **Plan, execute, subagent** | `.deepx/skills/dx-swe-writing-plans/SKILL.md`, `.deepx/skills/dx-swe-executing-plans/SKILL.md` |
 | **Code review, feedback** | `.deepx/skills/dx-swe-receiving-review/SKILL.md`, `.deepx/skills/dx-swe-requesting-review/SKILL.md` |
@@ -134,9 +134,9 @@ dx_app provides 133 compiled `.dxnn` models across 22 AI tasks with Python (4 va
 | dx-agent-app-model-management | Download, register, and configure .dxnn models |
 | dx-agent-app-validate | Run validation checks at every phase gate |
 | dx-agent-runtime-validate | Full feedback loop: validate, collect, approve, apply, verify |
-| dx-swe-brainstorm | Brainstorm, propose 2-3 approaches, spec self-review, then plan |
-| dx-swe-tdd | Validation-driven development with optional Red-Green-Refactor for unit tests |
-| dx-swe-verify | Process: verify before claiming completion — evidence before assertions |
+| dx-agent-brainstorm | DEEPX build brainstorming with model registry check and sub-project routing |
+| dx-agent-tdd | DEEPX build validation order — factory, pipeline, and integration checks |
+| dx-agent-verify | DEEPX build verification checklists — dx_app, dx_stream, and cross-project |
 | dx-swe-writing-plans | Write implementation plans with bite-sized tasks |
 | dx-swe-executing-plans | Execute plans with review checkpoints |
 | dx-swe-subagent-dev | Execute plans via fresh subagent per task with two-stage review |
@@ -145,6 +145,7 @@ dx_app provides 133 compiled `.dxnn` models across 22 AI tasks with Python (4 va
 | dx-swe-requesting-review | Request code review after completing features |
 | dx-skill-router | Skill discovery and invocation — check skills before any action |
 | dx-harness-writing-skills | Create and edit skill files |
+| dx-harness-validate | Validate this repo's .deepx/ integrity (bootstraps the suite harness when standalone) |
 | dx-swe-parallel-agents | Dispatch parallel subagents for independent tasks |
 
 ## Interactive Workflow (MUST FOLLOW)
@@ -233,14 +234,14 @@ See the common conflict patterns in the parent project's instructions.
 8. **No dotted-relative imports**: never `from ..common import ...`; import `common` as a top-level package (`from common.base import ...`)
 9. **No hardcoded model paths**: All model paths from CLI args or model_registry.json
 10. **4 variants**: Python apps have sync, async, sync_cpp_postprocess, async_cpp_postprocess
-11. **PPU model auto-detection**: Auto-detect PPU models by checking model name `_ppu` suffix, `model_registry.json` `csv_task: "PPU"`, or compiler session context. PPU models go under `src/python_example/ppu/` with simplified postprocessing (no separate NMS needed).
-12. **Existing example search**: Before generating code, search `src/python_example/<task>/<model>/` for existing examples. If found, ask user: (a) explain existing only, or (b) create new example based on existing. Never silently skip or overwrite.
+11. **PPU model auto-detection**: Auto-detect PPU models by checking model name `_ppu` suffix, `model_registry.json` `csv_task: "PPU"`, or compiler session context. PPU models live under their task like any other variant (e.g. `src/python_example/object_detection/yolo_ppu/<variant>/`) and use simplified postprocessing (no separate NMS needed).
+12. **Existing example search**: Before generating code, search `src/python_example/<task>/<family>/<variant>/` for existing examples. If found, ask user: (a) explain existing only, or (b) create new example based on existing. Never silently skip or overwrite.
 13. **PPU example generation is MANDATORY**: If the compiled .dxnn model is PPU, the agent MUST generate a working example — never skip example generation for PPU models.
 14. **Cross-validation with reference model**: When a precompiled DXNN exists in `assets/models/` or an existing verified example exists in `src/python_example/`, run the Level 5.5 differential diagnosis to isolate app code vs compilation issues. See `dx-validate.md` Level 5.5.
 15. **Mandatory output artifacts**: Every session MUST produce ALL 13 artifacts (factory, config, 4 variants, __init__.py, session.json, README.md, setup.sh, run.sh, session.log). See agent's MANDATORY OUTPUT REQUIREMENTS section. Run self-verification check before claiming completion.
-16. **Skeleton-first development** — Read `.deepx/skills/dx-agent-app-build-python.md` skeleton
+16. **Skeleton-first development** — Read `.deepx/skills/dx-agent-app-build-python/SKILL.md` skeleton
     template BEFORE writing any code. Copy the closest existing example from
-    `src/python_example/<task>/<model>/` and modify ONLY model-specific parts (factory,
+    `src/python_example/<task>/<family>/<variant>/` and modify ONLY model-specific parts (factory,
     postprocessor). NEVER write demo scripts from scratch. NEVER propose standalone
     scripts that bypass the framework (e.g., direct `InferenceEngine` usage without
     factory/runner pattern).
@@ -271,21 +272,24 @@ logger = logging.getLogger(__name__)
 ## File Structure
 
 ```
-src/python_example/{task}/{model}/
+src/python_example/{task}/{family}/
 ├── __init__.py
-├── config.json
-├── {model}_factory.py
-├── {model}_sync.py
-├── {model}_async.py
-├── {model}_sync_cpp_postprocess.py
-└── {model}_async_cpp_postprocess.py
+└── {variant}/                       # directory name is the .dxnn stem
+    ├── config.json
+    ├── factory/
+    │   ├── __init__.py
+    │   └── {variant}_factory.py
+    ├── {variant}_sync.py
+    ├── {variant}_async.py
+    ├── {variant}_sync_cpp_postprocess.py
+    └── {variant}_async_cpp_postprocess.py
 
-src/cpp_example/{task}/{model}/
-├── CMakeLists.txt
-├── main.cpp
-├── config.json
-├── include/
-└── src/
+src/cpp_example/{task}/{family}/
+└── {variant}/                       # directory name is the .dxnn stem
+    ├── config.json
+    ├── factory/{variant}_factory.hpp
+    ├── {variant}_sync.cpp
+    └── {variant}_async.cpp
 ```
 
 ## No Placeholder Code (MANDATORY)
@@ -327,7 +331,10 @@ plan, TDD, mandatory artifacts, execution verification) still apply without exce
 
 ## Brainstorming — Spec Before Plan (HARD GATE)
 
-When using the superpowers `brainstorming` skill or `/dx-swe-brainstorm`:
+Applies to **every** brainstorming entry point — the superpowers `brainstorming`
+skill, `/dx-swe-brainstorm`, and `/dx-agent-brainstorm`. Which one exists depends
+on the level: the suite ships both, the sub-projects ship `/dx-agent-brainstorm`
+only. Reaching the spec gate is not conditional on which one you invoked.
 
 1. **Spec document is MANDATORY** — Before transitioning to `writing-plans`, a spec
    document MUST be written to `docs/superpowers/specs/YYYY-MM-DD-<topic>-design.md`.
@@ -335,16 +342,23 @@ When using the superpowers `brainstorming` skill or `/dx-swe-brainstorm`:
 2. **User approval gate is MANDATORY** — After writing the spec, the user MUST review
    and approve it before proceeding to plan writing. Do NOT treat unrelated user
    responses (e.g., answering a different question) as spec approval.
+   **In autopilot (user absent, `--yolo`, auto-response), this gate is satisfied by
+   writing the spec and self-reviewing it against the knowledge base** — see the
+   Autopilot Mode Guard. Absence of a reviewer never waives writing the spec, and
+   never blocks progress either.
 3. **Plan document MUST reference the spec** — The plan header must include a link
    to the approved spec document.
-4. **Prefer `/dx-swe-brainstorm`** — Use the project-level brainstorming skill
-   instead of the generic superpowers `brainstorming` skill. The project-level skill
-    has domain-specific questions and pre-flight checks.
+4. **Prefer the project-level brainstorming skill** — `/dx-swe-brainstorm` at the
+   suite, `/dx-agent-brainstorm` in a sub-project — over the generic superpowers
+   `brainstorming` skill. The project-level skills carry domain-specific questions
+   and pre-flight checks. Invoking the one your level ships does NOT exempt you
+   from the spec gate above.
 5. **Rule conflict check is MANDATORY** — During brainstorming, the agent MUST check
    whether any user requirement conflicts with HARD GATE rules (IFactory pattern,
    skeleton-first, Output Isolation, SyncRunner/AsyncRunner). If a conflict is
    detected, the agent MUST resolve it during brainstorming — not silently comply
    with the violating request in the design spec. See the "Rule Conflict Resolution" section.
+
 ## Mandatory Process Skill Sequence — All Code Generation (HARD GATE)
 
 This gate applies to ALL sessions that generate code artifacts in
@@ -524,6 +538,414 @@ When the user is absent — autopilot mode, `--yolo` flag, or system auto-respon
    unnecessary `cat` / `bash` read wastes 5-15 seconds. Use the knowledge
    already in your system prompt and conversation history.
 
+## Mandatory Deliverables
+
+ALL compilation or app-generation sessions MUST produce the following files in the
+session output directory (`dx-agent-dev/<session_id>/`) before outputting DONE.
+This applies to **every task type** — compiler-only, app-only, and cross-project.
+
+| File | Purpose | Required when |
+|------|---------|---------------|
+| `setup.sh` | Environment setup (sanity check, dxcom install, venv, pip deps) | Always |
+| `run.sh` | One-command inference launcher with venv activation | Always |
+| `README.md` | Session summary, quick start, file list | Always |
+| `verify.py` | ONNX vs DXNN numerical comparison | Compilation involved |
+| `session.log` | Actual command output log (NOT hand-written summary) | Always |
+| `config.json` | dxcom compilation configuration | Compilation involved |
+| `*.dxnn` | Compiled model binary | Compilation involved |
+| `*.onnx` / `*.pt` | The source model, kept next to the `.dxnn` it produced | Compilation involved |
+
+These are in ADDITION to any application-specific artifacts (Python files with
+factory/inference patterns, GStreamer pipeline code, etc.).
+
+**Every deliverable must be produced by THIS session.** Copying a file out of
+another session's output directory — another agent's, another round's, your own
+earlier one — and presenting it as this session's work is prohibited, with or
+without edits. It is not a shortcut to the same result: the point of the
+directory is to show what this run produced. The same rule already covers
+`session.log` (no heredoc, no `echo`, no hand-written summary); it applies to
+every file in the table. If a prerequisite is missing, say so and stop — do not
+borrow one.
+
+Each sub-project also defines templates for these files in its agent/skill documents
+(e.g. Phase 5.5 of the **dx-compiler** repo's `.deepx/agents/` dx-dxnn-compiler.md).
+
+### Cross-project suite tasks — pre-DONE `.dxnn` check (HARD GATE, REC-X4)
+
+**For any task involving compilation**, before emitting the DONE sentinel, verify that
+the `.dxnn` file exists in the compiler session directory:
+
+```bash
+COMPILER_SESSION="<compiler_session_dir>"   # e.g., dx-compiler/dx-agent-dev/20260430-..._compile
+test -f "${COMPILER_SESSION}/yolo26n.dxnn" \
+  || { echo "BLOCKED: yolo26n.dxnn not found — compilation still running. Wait for compile.pid to exit before emitting DONE."; exit 1; }
+```
+
+Emitting DONE while `yolo26n.dxnn` is absent causes `test_dxnn_compiled` to fail even if
+background compilation eventually produces it (the test harness collects files at DONE time).
+See Phase 5.8 of the **dx-compiler** repo's `.deepx/agents/` dx-dxnn-compiler.md for the full pre-DONE gate.
+
+## Prerequisites Check (HARD GATE)
+
+Before generating ANY code, creating files, or routing to sub-agents, the following
+environment checks MUST pass. This gate applies at the suite level — even if
+brainstorming produced a spec and plan, these checks MUST execute before implementation.
+
+```bash
+# 1. dx-runtime sanity check (MANDATORY — do NOT skip)
+bash dx-runtime/scripts/sanity_check.sh --dx_rt
+# IMPORTANT: Judge PASS/FAIL by the TEXT OUTPUT, not the exit code.
+# Agents often pipe through `| tail` or `| head`, which silently
+# replaces the real exit code with tail's exit code (always 0).
+# PASS = output contains "Sanity check PASSED!" and NO [ERROR] lines
+# FAIL = output contains "Sanity check FAILED!" or ANY [ERROR] lines
+# NEVER pipe through tail/head/grep — run the command directly.
+# If FAIL → run install, then RE-CHECK:
+bash dx-runtime/install.sh --all --exclude-app --exclude-stream --skip-uninstall --venv-reuse
+bash dx-runtime/scripts/sanity_check.sh --dx_rt  # Must PASS after install
+
+# 2. dx_engine import check (MANDATORY for app generation tasks)
+python -c "import dx_engine; print('dx_engine OK')" 2>/dev/null || {
+    echo "dx_engine not available. Run: cd dx-runtime/dx_app && ./install.sh && ./build.sh"
+}
+
+# 3. dxcom availability check (MANDATORY for compilation tasks)
+python -c "import dx_com; print('dxcom OK')" 2>/dev/null || {
+    echo "dxcom not available."
+    # Installation fallback:
+    #   1. pip install dxcom (if in venv)
+    #   2. bash dx-compiler/install.sh (if available)
+    #   3. source dx-compiler/venv-dx-compiler-local/bin/activate (if exists)
+    # If ALL fail → STOP and inform user. NEVER proceed without dxcom.
+}
+```
+
+**This is a HARD GATE:**
+- Do NOT generate any implementation code until these checks pass
+- Do NOT skip these checks because brainstorming or planning was completed
+- Each sub-project builder also has its own Step 0 Prerequisites — those are
+  ADDITIONAL checks, not replacements for these suite-level checks
+- If a check fails, inform the user with the exact fix command and STOP
+
+### dxcom Anti-Fabrication (MANDATORY for compilation tasks)
+
+When dxcom is available and compilation proceeds:
+- **NEVER fabricate dxcom API calls from memory.** Always read the toolset files,
+  which live in the **dx-compiler** repo under `.deepx/toolsets/`:
+  - CLI: `dxcom-cli.md`
+  - Python API: `dxcom-api.md`
+  - Config schema: `config-schema.md`
+- **Correct import**: `import dx_com; dx_com.compile(...)` (NOT `from dxcom import dxcom`)
+- **NEVER modify `compiler.properties`** — system file managed by the installer.
+  See Pitfalls #21 and #22 in the **dx-compiler** repo's `.deepx/memory/`
+  common_pitfalls.md.
+
+### Background Compilation (RECOMMENDED)
+
+Using `subprocess.Popen` for compilation avoids blocking the agent's tool-call
+thread for 10+ minutes, allowing parallel artifact generation.
+
+**Recommended pattern** — `subprocess.Popen` with a `compile.pid` file:
+```python
+import subprocess, os
+compile_script = f"{work_dir}/compile.py"
+compile_out = open(f"{work_dir}/compile_out.log", "w")
+proc = subprocess.Popen(
+    ["python3", compile_script],
+    stdout=compile_out, stderr=subprocess.STDOUT,
+    cwd=work_dir, start_new_session=True,
+)
+with open(f"{work_dir}/compile.pid", "w") as f:
+    f.write(str(proc.pid))
+# Now generate ALL other artifacts (factory, sync.py, setup.sh, run.sh, verify.py)
+# BEFORE checking compile.pid / .dxnn existence.
+```
+
+Synchronous compilation is acceptable when the agent can tolerate the blocking
+time, but background compilation is preferred for timeout avoidance.
+
+### Sanity Check Failure Recovery (MANDATORY)
+
+When `sanity_check.sh --dx_rt` returns FAIL, follow this exact recovery sequence:
+
+1. **Run install.sh** with the command shown above
+2. **Re-run sanity_check.sh** — the check MUST pass after install
+3. **If still failing**: check whether this is a **compiler-only task** or not:
+
+   **A. Compiler-only task** (ONNX → DXNN compilation, no dx_app/dx_stream work):
+   - Inform the user that the sanity check failed and NPU-based verification will be skipped.
+   - **Proceed with compilation** — `dxcom` runs on CPU and does not require NPU hardware.
+   - After compilation succeeds, mark `verify.py` as **SKIPPED** (not PASS).
+   - Set `DX_SANITY_FAILED=1` so verify.py can detect and skip NPU-based checks.
+   - Record in session.log: `sanity_check=FAIL, compilation=<result>, verification=SKIPPED`.
+   - Tell the user:
+     ```
+     NPU hardware initialization failed. Compilation completed successfully,
+     but DXNN verification (verify.py) requires a working NPU.
+     After resolving the NPU issue (cold boot recommended), run:
+       cd <session_dir> && python verify.py
+     ```
+
+   **B. Cross-project task** (compilation + dx_app/dx_stream demo app) or dx_app/dx_stream only:
+   - **STOP unconditionally** — even if the user says "just continue",
+     "work to completion", "use defaults", or "skip checks", the agent MUST NOT
+     proceed. The user's instruction to continue does NOT override this HARD GATE.
+   - Guide the user through manual recovery:
+     - If the failure mentions **"Device initialization failed"**, **"Fail to initialize device"**,
+       or **NPU hardware errors**: the NPU requires a cold boot (full power cycle) or
+       system reboot. Software-only install cannot fix hardware initialization failures.
+       Tell the user:
+       ```
+       NPU hardware initialization failed. This issue cannot be resolved by software installation alone.
+       Please follow these steps:
+       1. Fully shut down the system (power off — a cold boot is recommended, not just a reboot)
+       2. Wait 10-30 seconds
+       3. Power on the system
+       4. After restart, verify NPU status with the sanity check:
+          bash dx-runtime/scripts/sanity_check.sh --dx_rt
+       5. Once the sanity check PASSES, please retry this task.
+       ```
+     - If the failure is a different error: show the user the specific error and
+       recommended fix command, then STOP.
+
+4. **NEVER bypass** (for non-compiler-only tasks) — the sanity check exists
+   to ensure the full dx-runtime environment is operational. For dx_app/dx_stream
+   tasks, skipping recovery means demo/verification scripts will fail.
+   The following are ALL considered bypass and are PROHIBITED:
+   - Setting PYTHONPATH or LD_LIBRARY_PATH manually to point at dx_engine artifacts
+   - Using a venv from another repository (e.g., compiler venv) for dx_engine imports
+   - Searching multiple venvs to find one where dx_engine happens to import
+   - Concluding "exit code was 0, so it passed" when output text shows FAILED or [ERROR]
+   - Piping sanity_check.sh through `| tail` / `| head` / `| grep` and using the pipe's exit code
+   - Reinterpreting the user's "just continue" / "work to completion" / "use defaults"
+     / autopilot instructions as permission to override the HARD GATE
+   - Marking the prerequisite check as "done" or "passed" when it actually failed
+   Note: compiler-only tasks (item 3A above) are exempt from this STOP — compilation
+   proceeds, but verification is marked SKIPPED, not PASS.
+5. **Common failure causes**:
+   - NPU driver not installed → `install.sh` with `dx_rt_npu_linux_driver` target
+   - dx_engine build artifacts missing → `cd dx_app && ./install.sh && ./build.sh`
+   - PEP 668 (Ubuntu 24.04+) blocking pip → must use venv (never `--break-system-packages`)
+
+## Artifact Verification Gate (HARD GATE — All Code Generation)
+
+This gate applies to ALL sessions that generate code artifacts (compilation,
+app generation, pipeline creation). It is independent of the "Internal Development"
+SWE Process Gates — those apply to dx-agent-dev feature work; THIS gate applies
+to user-facing deliverables.
+
+### When This Gate Applies
+
+Any session that produces files in `dx-agent-dev/<session_id>/` MUST verify
+those files before declaring DONE. This includes:
+- Compilation sessions (ONNX → DXNN)
+- App generation sessions (dx_app factories + runners)
+- Pipeline sessions (dx_stream pipelines)
+- Cross-project sessions (compile + deploy)
+
+### Mandatory Verification Steps
+
+After generating each artifact, verify it IMMEDIATELY (not at the end):
+
+| Artifact | Verification Command | Must Pass |
+|----------|---------------------|-----------|
+| `setup.sh` | `bash -n setup.sh && bash setup.sh` | Exit code 0, no errors |
+| `run.sh` | `bash -n run.sh` | Syntax OK (full run needs model) |
+| `verify.py` | `python verify.py; echo "exit: $?"` | Exit code 0 and output contains "RESULT: PASS" |
+| `*.py` (factory) | `python -c "import py_compile; py_compile.compile('<file>', doraise=True)"` | Syntax OK |
+| `*.py` (app) | `PYTHONPATH=. python -c "import py_compile; py_compile.compile('<file>', doraise=True)"` | Syntax OK |
+| `config.json` | `python -c "import json; json.load(open('config.json'))"` | Valid JSON |
+
+### verify.py Execution Test (MANDATORY)
+
+`verify.py` MUST be executed with the session venv activated (created by `setup.sh`):
+
+```bash
+source venv/bin/activate   # activate the venv created by setup.sh
+python verify.py
+echo "Exit code: $?"
+deactivate
+```
+
+Required behavior:
+1. **Exit code 0** when both ONNX and DXNN inference succeed
+2. **Exit code 1** when any inference fails (ImportError, RuntimeError, etc.)
+3. **venv provides dependencies**: `setup.sh` creates the venv with all required packages
+   (`onnxruntime`, `numpy`, etc.). `verify.py` focuses on verification logic only.
+
+If `verify.py` prints "ONNX inference failed" or "DXNN inference failed" but
+exits 0, it is BROKEN. Fix the exit code before proceeding.
+
+Common failures:
+- `No module named 'onnxruntime'` → run `setup.sh` first to create venv with dependencies
+- `No module named 'dx_engine'` → ensure `setup.sh` adds runtime site-packages to venv
+- Prints "failed" but exits 0 → add `sys.exit(1)` in the failure branch
+
+### Cross-Project Path Resolution — SUITE_ROOT (HARD GATE)
+
+When `setup.sh`, `run.sh`, or any generated script references a path **outside
+its own sub-project** (e.g., a compiler session referencing `dx-runtime`, or an
+app session referencing `dx-compiler`), the script MUST use `SUITE_ROOT`
+auto-detection — NEVER hardcoded relative paths like `../../dx-runtime`.
+
+**Why**: Session directory depth varies by sub-project:
+- `dx-compiler/dx-agent-dev/<session>/` = 3 levels from suite root
+- `dx-runtime/dx_app/dx-agent-dev/<session>/` = 4 levels from suite root
+- `dx-runtime/dx_stream/dx-agent-dev/<session>/` = 4 levels from suite root
+
+Hardcoded `../../` or `../../../` paths break when the agent miscounts depth
+(a recurring failure pattern).
+
+**Mandatory SUITE_ROOT pattern** — use this in ALL generated `setup.sh` / `run.sh`:
+```bash
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd -P)"
+
+# Auto-detect suite root (walks up until dx-runtime/ and dx-compiler/ siblings are found)
+SUITE_ROOT="$SCRIPT_DIR"
+while [ "$SUITE_ROOT" != "/" ]; do
+    if [ -d "$SUITE_ROOT/dx-runtime" ] && [ -d "$SUITE_ROOT/dx-compiler" ]; then
+        break
+    fi
+    SUITE_ROOT="$(dirname "$SUITE_ROOT")"
+done
+if [ "$SUITE_ROOT" = "/" ]; then
+    echo "ERROR: Cannot find dx-all-suite root (expected dx-runtime/ and dx-compiler/ siblings)"
+    exit 1
+fi
+
+RUNTIME_DIR="$SUITE_ROOT/dx-runtime"
+COMPILER_DIR="$SUITE_ROOT/dx-compiler"
+```
+
+**Within-project relative paths** (e.g., `../../assets/models/` from a dx_app
+session to `dx_app/assets/`) are acceptable because the depth within a single
+sub-project is fixed. But cross-project references MUST use `$SUITE_ROOT`.
+
+**Prohibited patterns** in generated `setup.sh` / `run.sh`:
+```bash
+# ALL of these are PROHIBITED for cross-project references:
+RUNTIME_DIR="../../dx-runtime"           # Wrong depth assumption
+RUNTIME_DIR="../../../dx-runtime"        # Still fragile
+--input ../../dx-runtime/dx_app/sample/  # Inline hardcoded relative path
+REF_DXNN="../../dx-runtime/dx_app/assets/models/..."  # Cross-project without SUITE_ROOT
+```
+
+**Correct patterns**:
+```bash
+# Cross-project references — always use SUITE_ROOT
+RUNTIME_DIR="$SUITE_ROOT/dx-runtime"
+COMPILER_DIR="$SUITE_ROOT/dx-compiler"
+--input "$SUITE_ROOT/dx-runtime/dx_app/sample/img/sample_dog.jpg"
+REF_DXNN="$SUITE_ROOT/dx-runtime/dx_app/assets/models/${MODEL_NAME}.dxnn"
+```
+
+### setup.sh Execution Test (MANDATORY)
+
+`setup.sh` MUST be executed (not just syntax-checked) in the session directory.
+If it fails:
+1. Diagnose the error
+2. Fix the script
+3. Re-run until it passes
+
+Common failures to test for:
+- PEP 668 "externally-managed-environment" → must use venv
+- `pip install <package>` for private packages → must use local install or pre-installed venv
+- Relative path resolution from symlinked directories → use `$(cd "$(dirname "$0")" && pwd -P)` patterns
+- Missing dependencies → verify `pip install` list is complete
+- Cross-project paths using `../../` instead of `SUITE_ROOT` → use the SUITE_ROOT pattern above
+
+### Import Resolution Test (MANDATORY for Python apps)
+
+After all Python files are generated, run the following from the session directory.
+**CRITICAL**: Run WITHOUT any manually set PYTHONPATH — this verifies the generated
+`_sync.py` dynamic walker correctly resolves `src/python_example/common` on its own:
+
+```bash
+cd <session_dir>
+python <model>_sync.py --help 2>&1 | head -10
+```
+
+Expected: `--help` output (usage/argparse text). If `ImportError: No module named 'common'`
+appears, the dynamic path walker in `_sync.py` failed — do NOT use `PYTHONPATH=../../`
+as a workaround. Fix the walker in `_sync.py` instead.
+
+**Anti-pattern (PROHIBITED)**:
+```bash
+# WRONG — masks broken path setup; passes in agent env even when generated code is broken
+PYTHONPATH=../../ python -c "from factory import <Model>Factory; print('import OK')"
+```
+
+### session.log Must Be Real Output (MANDATORY)
+
+`session.log` MUST contain actual terminal command output captured via:
+```bash
+command 2>&1 | tee session.log
+```
+
+The following patterns are PROHIBITED for session.log:
+- `cat << 'EOF' > session.log` (heredoc fabrication)
+- `cat << 'LOGEOF' > session.log` (heredoc fabrication)
+- `echo "..." > session.log` (hand-written summary)
+- `printf "..." > session.log` (hand-written summary)
+- Writing session.log content from memory without running commands
+
+### dx-agent-tdd and Process Skill Sequence (MANDATORY for All Code Generation)
+
+The complete process skill sequence (`/dx-agent-brainstorm` → `/dx-swe-writing-plans`
+→ `/dx-agent-tdd` → `/dx-agent-verify`) is MANDATORY for ALL artifact generation
+sessions. See the **"Mandatory Process Skill Sequence — All Code Generation"**
+section for the full sequence definition and enforcement rules.
+
+Within this Artifact Verification Gate, the `/dx-agent-tdd` Red-Green-Verify cycle
+applies to each artifact:
+1. **RED**: Define what each artifact must satisfy (syntax, execution, imports)
+2. **GREEN**: Generate the artifact
+3. **VERIFY**: Run the check immediately after creation (using the verification
+   commands defined above in this section)
+
+This is NOT optional even in autopilot mode. Skipping any process skill for code
+generation is a session-failing violation regardless of whether the task is
+"internal development" or "user-facing."
+
+## Rule Conflict Resolution (HARD GATE)
+
+When a user's request conflicts with a HARD GATE rule, the agent MUST:
+
+1. **Acknowledge the user's intent** — Show that you understand what they want.
+2. **Explain the conflict** — Cite the specific rule and why it exists.
+3. **Propose the correct alternative** — Show how to achieve the user's goal
+   within the framework. For example, if the user asks for direct
+   `InferenceEngine.run()` usage, explain that the IFactory pattern wraps
+   the same API and propose the factory-based equivalent.
+4. **Proceed with the correct approach** — Do NOT silently comply with the
+   rule-violating request. Do NOT present it as "Option A vs Option B", and do
+   NOT end the turn by asking which one the user wants. Build the compliant
+   version. Questions that stay inside the rules (which model, which input,
+   sync or async) are fine; "shall I do it the non-compliant way instead?" is
+   not — offering the violation as a choice is itself the violation.
+
+**Common conflict patterns** (from real sessions):
+- User says "use `InferenceEngine.Run()`" → Must use IFactory pattern (engine
+  calls are handled internally by SyncRunner/AsyncRunner; implement the 5 IFactory
+  methods: `create_preprocessor`, `create_postprocessor`, `create_visualizer`,
+  `get_model_name`, `get_task_type`)
+- User says "clone demo.py and swap onnxruntime" → Must use skeleton-first
+  from `src/python_example/`, not clone user scripts
+- User says "create demo_dxnn_sync.py" → Must use `<model>_sync.py` naming
+  with SyncRunner, not a standalone script
+- User says "use `run_async()` directly" → Must use AsyncRunner, not manual
+  async loops
+
+**This rule does NOT override explicit user overrides**: If the user, after being
+informed of the conflict, explicitly says "I understand the rule, proceed with
+direct API usage anyway", then comply. But the agent MUST explain the conflict
+FIRST — silent compliance is always a violation.
+
+**The override is the user's to raise, never the agent's to offer.** Explain the
+conflict, deliver the compliant implementation, and stop there. Do not close with
+a prompt inviting the user to authorise the exception — that turns item 4's
+prohibition into a formality and is what TC-144 flags.
+
 
 ## Hardware
 
@@ -542,13 +964,41 @@ work. The user will handle all git operations themselves. Never present options
 like "merge to main", "create PR", or "delete branch" — just finish the task.
 
 
-## 22 Supported AI Tasks
+## 29 Supported AI Tasks
 
-3d_object_detection, attribute_recognition, classification, depth_estimation,
-embedding, face_alignment, face_detection, hand_detection, hand_landmark,
-image_denoising, image_enhancement, instance_segmentation, keypoint_detection,
-obb_detection, object_detection, object_pose_estimation, panoptic_driving_perception,
-pose_estimation, ppu, reid, semantic_segmentation, super_resolution
+| AI task | Variants | Example tree |
+|---|--:|---|
+| `object_detection` | 167 | `src/{python,cpp}_example/object_detection/` |
+| `image_classification` | 137 | `src/{python,cpp}_example/image_classification/` |
+| `instance_segmentation` | 53 | `src/{python,cpp}_example/instance_segmentation/` |
+| `pose_estimation` | 37 | `src/{python,cpp}_example/pose_estimation/` |
+| `semantic_segmentation` | 24 | `src/{python,cpp}_example/semantic_segmentation/` |
+| `face_detection` | 19 | `src/{python,cpp}_example/face_detection/` |
+| `depth_estimation` | 10 | `src/{python,cpp}_example/depth_estimation/` |
+| `super_resolution` | 6 | `src/{python,cpp}_example/super_resolution/` |
+| `image_denoising` | 5 | `src/{python,cpp}_example/image_denoising/` |
+| `oriented_object_detection` | 5 | `src/{python,cpp}_example/oriented_object_detection/` |
+| `zero_shot_image_classification` | 5 | `src/{python,cpp}_example/zero_shot_image_classification/` |
+| `anomaly_detection` | 4 | `src/{python,cpp}_example/anomaly_detection/` |
+| `face_recognition` | 4 | `src/{python,cpp}_example/face_recognition/` |
+| `visual_place_recognition` **(2_5_0 new)** | 3 | `src/{python,cpp}_example/visual_place_recognition/` |
+| `face_landmark` | 2 | `src/{python,cpp}_example/face_landmark/` |
+| `image_matting` **(2_5_0 new)** | 2 | `src/{python,cpp}_example/image_matting/` |
+| `image_retrieval` **(2_5_0 new)** | 2 | `src/{python,cpp}_example/image_retrieval/` |
+| `low_light_enhancement` | 2 | `src/{python,cpp}_example/low_light_enhancement/` |
+| `mainbody_detection` | 2 | `src/{python,cpp}_example/mainbody_detection/` |
+| `person_attribute` | 2 | `src/{python,cpp}_example/person_attribute/` |
+| `3d_object_detection` | 1 | `src/{python,cpp}_example/3d_object_detection/` |
+| `face_attribute` | 1 | `src/{python,cpp}_example/face_attribute/` |
+| `hand_detection` | 1 | `src/{python,cpp}_example/hand_detection/` |
+| `hand_landmark` | 1 | `src/{python,cpp}_example/hand_landmark/` |
+| `keypoint_detection` | 1 | `src/{python,cpp}_example/keypoint_detection/` |
+| `object_pose_estimation` | 1 | `src/{python,cpp}_example/object_pose_estimation/` |
+| `panoptic_driving_perception` | 1 | `src/{python,cpp}_example/panoptic_driving_perception/` |
+| `person_reid` **(2_5_0 new)** | 1 | `src/{python,cpp}_example/person_reid/` |
+| `zero_shot_instance_segmentation` | 1 | `src/{python,cpp}_example/zero_shot_instance_segmentation/` |
+
+Counts come from `config/model_registry.json`; regenerate this section when the registry changes (`python3 -c "import json,collections;print(collections.Counter(r['task'] for r in json.load(open('config/model_registry.json'))))"`).
 
 ## Git Safety — Superpowers Artifacts
 
@@ -784,3 +1234,61 @@ rules, syncing platforms, creating KO translations, modifying agents/skills). It
 does NOT apply when a feature implementation incidentally triggers a single-line
 change in `.deepx/`.
 
+## Standalone Checkout — Harness Bootstrap (HARD GATE)
+
+This repo is a sub-project of dx-all-suite, but it can also be cloned **on its
+own**. In that standalone case the harness tooling is simply not present:
+
+| Present in this repo | Ships only with dx-all-suite |
+|---|---|
+| `.deepx/{agents,skills,templates/{en,ko},scripts,memory,instructions,toolsets}` | `.deepx/tools/` — the `dx-agent-gen` generator |
+| `.deepx/scripts/validate_framework.py` | `.deepx/templates/fragments/` — the shared fragments |
+| this instruction file (already generated) | `.deepx/tests/conformance/` |
+
+The Instruction File Verification Loop above tells you to run
+`dx-agent-gen generate` / `check` and the conformance tests. In a standalone
+checkout **none of those commands can work** — which is exactly how `.deepx/`
+edits get committed unverified and become drift that only CI catches.
+
+### Required before the FIRST `.deepx/` edit
+
+```bash
+bash .deepx/scripts/harness_bootstrap.sh --check
+```
+
+It resolves a real dx-all-suite checkout in this order — explicit
+`--suite-dir` / `$DX_SUITE_DIR`, then a parent directory (the normal nested
+case: nothing is downloaded), then a previously acquired `.dx-harness/suite`
+cache, then a shallow clone into `.dx-harness/` — and then runs **the same
+verification the CI `subrepo-gate` runs**: the generator drift check plus this
+repo's `validate_framework.py`.
+
+`.dx-harness/` is git-ignored, so nothing it downloads can reach the index.
+
+### When it exits 3 — STOP
+
+Exit code 3 means no suite could be acquired (no local suite, no cache, no
+network). Then:
+
+- **Do NOT edit any file under `**/.deepx/**`** in this checkout. Without the
+  generator and the fragments you cannot regenerate `CLAUDE.md` / `AGENTS.md` /
+  `.claude/` / `.github/` / `.cursor/` / `.opencode/`, so every edit ships as
+  drift.
+- **Do NOT work around it.** Specifically, if the generator reports
+  `unresolved template variables` listing `FRAGMENT` placeholders, those
+  fragments are **missing, not wrong**. Editing the templates, renaming
+  fragments, or adding variables to `_build_template_context()` turns a missing
+  input into a second, worse drift that is committed.
+- Say so plainly, and offer the two documented ways forward:
+  `--suite-dir /path/to/dx-all-suite`, `$DX_SUITE_DIR`, or doing the harness
+  work from a full dx-all-suite checkout.
+
+Non-harness work is unaffected: application code, `src/`, docs, tests and
+`dx-agent-dev/<session_id>/` outputs proceed normally when bootstrap fails.
+
+### Scope note
+
+`--check` deliberately does **not** run the suite conformance suite. Those
+checks are cross-level — they compare all 5 levels against each other — so they
+cannot be satisfied when the other sub-repos are absent. Matching the
+`subrepo-gate` scope exactly is what makes "local green" mean "CI green".

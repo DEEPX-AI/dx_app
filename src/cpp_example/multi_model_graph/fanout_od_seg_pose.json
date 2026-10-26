@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "name": "od-seg-pose",
+  "nodes": [
+    { "id": "cam",  "type": "source", "uri": "sample/img/sample_people.jpg" },
+    { "id": "od",   "model": "yolov8-n_640x640" },
+    { "id": "seg",  "model": "bisenetv2_1024x2048" },
+    { "id": "pose", "model": "yolov8-s-pose_640x640" }
+  ],
+  "edges": [
+    { "from": "cam", "to": "od" },
+    { "from": "cam", "to": "seg" },
+    { "from": "cam", "to": "pose" }
+  ]
+}

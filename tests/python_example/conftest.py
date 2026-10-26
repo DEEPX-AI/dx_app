@@ -1,7 +1,13 @@
+"""pytest configuration for the Python example suite (``src/python_example``).
+
+Scope: the CLI/help contract tests and E2E inference tests in this directory,
+plus the fully mocked unit tests under ``unit/``. Option and fixture wiring
+shared with the C++ suite lives in ``tests/test_helpers/pytest_support.py`` --
+see ``tests/README.md``.
+"""
 import importlib.util
 import logging
-import shutil
-import subprocess
+import os
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -11,91 +17,66 @@ import cv2
 import numpy as np
 import pytest
 
-for _stream in (sys.__stdout__, sys.__stderr__, sys.stdout, sys.stderr):
-    try:
-        _stream.reconfigure(errors="backslashreplace")
-    except (AttributeError, OSError, ValueError):
-        pass  # None (pythonw), or a capture object without reconfigure()
-
-_rng = np.random.default_rng(42)
-logger = logging.getLogger(__name__)
-
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 PYTHON_EXAMPLE_PATH = PROJECT_ROOT / "src" / "python_example"
 SCRIPTS_DIR = PROJECT_ROOT / "scripts"
 sys.path.insert(0, str(PYTHON_EXAMPLE_PATH))
-# Make tests/test_helpers available to all test modules
+# Make tests/test_helpers importable here and in every test module of this suite.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from test_helpers.pytest_support import (  # noqa: E402
+    add_loop_option,
+    add_stream_options,
+    configure_stdio_errors,
+)
+# Re-exported fixtures -- importing them here is what makes pytest discover them.
+from test_helpers.pytest_support import (  # noqa: E402,F401
+    camera_index,
+    rtsp_url,
+    stream_duration,
+    wait_for_temperature,
+)
+
+configure_stdio_errors()
+
+from test_helpers.proc import (  # noqa: E402
+    TEST_PYTHON_ENV,
+    apply_headless_display,
+    example_python,
+)
+
+# No display: Qt-backed OpenCV windows go offscreen instead of aborting.
+apply_headless_display(os.environ)
+
+
+def pytest_report_header(config):
+    return "example python ({}): {}".format(TEST_PYTHON_ENV, example_python())
+
+
+_rng = np.random.default_rng(42)
+logger = logging.getLogger(__name__)
+
+#: Default inference iterations for this suite (the C++ image suite uses 20).
+DEFAULT_LOOP_COUNT = 1
 
 
 def pytest_addoption(parser):
-    try:
-        parser.addoption(
-            "--loop",
-            action="store",
-            default="1",
-            help="Number of inference iterations for E2E image tests (default: 1)",
-        )
-    except ValueError as e:
-        msg = str(e)
-        if "already added" in msg or "conflicting" in msg:
-            pass  # --loop already registered by another conftest (e.g. E2E suite)
-        else:
-            raise
-    parser.addoption(
-        "--camera-index",
-        action="store",
-        default=None,
-        help="Camera device index for e2e_camera tests (e.g. 0)",
-    )
-    parser.addoption(
-        "--rtsp-url",
-        action="store",
-        default=None,
-        help="RTSP stream URL for e2e_rtsp tests",
-    )
-    parser.addoption(
-        "--stream-duration",
-        action="store",
-        default="10",
-        help="Seconds to run each camera/RTSP test (default: 10)",
-    )
+    """Register the options shared with the C++ suite."""
+    add_loop_option(parser, default=str(DEFAULT_LOOP_COUNT))
+    add_stream_options(parser)
 
 
 @pytest.fixture
 def loop_count(request):
-    """Number of inference loops (from --loop CLI option)."""
+    """Number of inference loops (from --loop CLI option).
+
+    Function-scoped here -- the C++ suite scopes it per session -- because
+    Python E2E cases may vary it per test.
+    """
     try:
         return int(request.config.getoption("--loop"))
     except (TypeError, ValueError):
-        return 1
-
-
-@pytest.fixture(scope="session")
-def camera_index(request):
-    """Camera device index from --camera-index."""
-    val = request.config.getoption("--camera-index")
-    if val is None:
-        pytest.skip("--camera-index not provided")
-    return int(val)
-
-
-@pytest.fixture(scope="session")
-def rtsp_url(request):
-    """RTSP URL from --rtsp-url."""
-    val = request.config.getoption("--rtsp-url")
-    if val is None:
-        pytest.skip("--rtsp-url not provided")
-    return val
-
-
-@pytest.fixture(scope="session")
-def stream_duration(request) -> int:
-    """Seconds to run each camera/RTSP test."""
-    try:
-        return int(request.config.getoption("--stream-duration"))
-    except (TypeError, ValueError):
-        return 10
+        return DEFAULT_LOOP_COUNT
 
 
 def load_module_from_file(file_path: str, module_name: str):
@@ -172,18 +153,35 @@ def pytest_configure(config):
         sys.modules["dx_postprocess"] = mock_dx_postprocess
         print("[OK] dx_postprocess mocked")
 
-    # Dynamically register per-model markers (one per model directory)
+    # Dynamically register per-model markers. ``test_e2e.py`` builds one marker per
+    # model with ``getattr(pytest.mark, model_name)`` and pytest.ini sets
+    # ``--strict-markers``, so every name it can produce must be registered here or
+    # collection of the WHOLE suite dies with "not found in `markers` configuration
+    # option".
+    #
+    # Both depths are registered because the tree is ``<task>/<family>/<variant>/``:
+    # registering only the second level yields the FAMILY (``sfa3d``) while test_e2e
+    # asks for the VARIANT (``sfa3d_608x608``). That mismatch is latent until enough
+    # .dxnn files are on disk for the missing variant to be collected -- running
+    # ``./setup.sh --demo-models`` was enough to turn it into a hard collection error.
     if PYTHON_EXAMPLE_PATH.exists():
+        seen: set[str] = set()
         for task_dir in sorted(PYTHON_EXAMPLE_PATH.iterdir()):
-            if not task_dir.is_dir():
+            if not task_dir.is_dir() or task_dir.name == "__pycache__":
                 continue
-            for model_dir in sorted(task_dir.iterdir()):
-                if not model_dir.is_dir() or model_dir.name == "__pycache__":
+            for family_dir in sorted(task_dir.iterdir()):
+                if not family_dir.is_dir() or family_dir.name == "__pycache__":
                     continue
-                config.addinivalue_line(
-                    "markers",
-                    f"{model_dir.name}: {model_dir.name} model tests",
-                )
+                for name_dir in (family_dir, *sorted(family_dir.iterdir())):
+                    if not name_dir.is_dir() or name_dir.name == "__pycache__":
+                        continue
+                    if name_dir.name in seen:
+                        continue
+                    seen.add(name_dir.name)
+                    config.addinivalue_line(
+                        "markers",
+                        f"{name_dir.name}: {name_dir.name} model tests",
+                    )
 
     report_dir = PROJECT_ROOT / "reports"
     report_dir.mkdir(exist_ok=True)
@@ -215,24 +213,6 @@ def pytest_sessionfinish(session, exitstatus):
     collector.save_csv(str(csv_path))
 
     print(f"\n Report saved: {csv_path}")
-
-
-@pytest.fixture(scope="function", autouse=True)
-def wait_for_temperature(request):
-    """Wait for device temperature to drop below threshold before each e2e test."""
-    if request.node.get_closest_marker("e2e"):
-        check_temp_script = SCRIPTS_DIR / "check_temperature.sh"
-        # bash is absent on stock Windows: resolve it instead of assuming PATH,
-        # or every e2e test dies at setup with FileNotFoundError (WinError 2).
-        bash = shutil.which("bash")
-        if bash and check_temp_script.exists():
-            result = subprocess.run(
-                [bash, str(check_temp_script), "--wait_target_temp=70"],
-                check=False, capture_output=True, text=True
-            )
-            if "Waiting" in result.stdout:
-                for line in result.stdout.strip().splitlines():
-                    logger.info(line.strip())
 
 
 @pytest.fixture(scope="function", autouse=True)

@@ -1,1 +1,0 @@
-from .face_attr_resnet_v1_18_factory import Face_attr_resnet_v1_18Factory

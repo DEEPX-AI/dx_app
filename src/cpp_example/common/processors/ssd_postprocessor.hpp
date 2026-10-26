@@ -75,7 +75,9 @@ public:
         for (int i = 0; i < num_proposals; ++i) {
             const float* row_scores = scores_data + i * score_cols;
 
-            auto [max_score, max_cls] = findMaxFgClass_(row_scores, score_cols, fg_offset);
+            const std::pair<float, int> max_result = findMaxFgClass_(row_scores, score_cols, fg_offset);
+            const float max_score = max_result.first;
+            const int max_cls = max_result.second;
             if (max_score < conf_threshold_) continue;
 
             const float* box = boxes_data + i * 4;

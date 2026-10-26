@@ -44,6 +44,15 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 CPP_DIR="$PROJECT_ROOT/src/cpp_example"
 PY_DIR="$PROJECT_ROOT/src/python_example"
 
+# A compiled example is task/family/variant/config.json.
+_list_variant_dirs() {
+    local root="$1"
+    [[ -d "$root" ]] || return 0
+    find "$root" -type f -name config.json \
+        ! -path '*/common/*' ! -path '*/__pycache__/*' \
+        -printf '%h\n' 2>/dev/null | sort -u
+}
+
 # =============================================================================
 # Colors & Symbols
 # =============================================================================
@@ -186,34 +195,15 @@ _read_complete() {
 # Build the list of all model names (for completion)
 _get_all_model_names() {
     local names=()
+    local base_dir dir rel
     for base_dir in "$CPP_DIR" "$PY_DIR"; do
-        for cat_dir in "$base_dir"/*/; do
-            [[ ! -d "$cat_dir" ]] && continue
-            local cat_name=$(basename "$cat_dir")
-            [[ "$cat_name" == "common" || "$cat_name" == "build" || "$cat_name" == "sample" || "$cat_name" == "__pycache__" || "$cat_name" == "utils" ]] && continue
-            for model_dir in "$cat_dir"/*/; do
-                [[ ! -d "$model_dir" ]] && continue
-                local mname=$(basename "$model_dir")
-                [[ "$mname" == "__pycache__" || "$mname" == "build" ]] && continue
-                names+=("$mname")
-            done
-        done
+        while IFS= read -r dir; do
+            [[ -n "$dir" ]] || continue
+            rel="${dir#"$base_dir"/}"
+            names+=("$(basename "$dir")")
+            names+=("$rel")
+        done < <(_list_variant_dirs "$base_dir")
     done
-    # Also add category/model format
-    for base_dir in "$CPP_DIR" "$PY_DIR"; do
-        for cat_dir in "$base_dir"/*/; do
-            [[ ! -d "$cat_dir" ]] && continue
-            local cat_name=$(basename "$cat_dir")
-            [[ "$cat_name" == "common" || "$cat_name" == "build" || "$cat_name" == "sample" || "$cat_name" == "__pycache__" || "$cat_name" == "utils" ]] && continue
-            for model_dir in "$cat_dir"/*/; do
-                [[ ! -d "$model_dir" ]] && continue
-                local mname=$(basename "$model_dir")
-                [[ "$mname" == "__pycache__" || "$mname" == "build" ]] && continue
-                names+=("$cat_name/$mname")
-            done
-        done
-    done
-    # Deduplicate
     printf '%s\n' "${names[@]}" | sort -u
 }
 
@@ -375,14 +365,22 @@ TASK_DESCRIPTIONS=(
 )
 
 # Category directory names
-CATEGORIES=(
-    classification object_detection semantic_segmentation
-    instance_segmentation depth_estimation ppu
-    embedding face_detection
-    pose_estimation obb_detection super_resolution
-    image_denoising image_enhancement
-    hand_landmark attribute_recognition reid
-)
+CATEGORIES=()
+declare -A _seen_cat
+for _base in "$CPP_DIR" "$PY_DIR"; do
+    for _d in "$_base"/*/; do
+        [[ -d "$_d" ]] || continue
+        _name=$(basename "$_d")
+        case "$_name" in
+            common|build|sample|__pycache__|utils) continue ;;
+        esac
+        [[ -n "${_seen_cat[$_name]:-}" ]] && continue
+        _seen_cat["$_name"]=1
+        CATEGORIES+=("$_name")
+    done
+done
+IFS=$'\n' CATEGORIES=($(printf '%s\n' "${CATEGORIES[@]}" | sort))
+unset IFS
 
 # Task type -> default category mapping
 # Now that task types match category names, this is mostly identity.
@@ -423,7 +421,7 @@ task_to_postprocessors() {
         super_resolution)        echo "espcn" ;;
         image_enhancement)       echo "zero_dce" ;;
         embedding)               echo "arcface embedding" ;;
-        ppu)                     echo "yolov5_ppu yolov7_ppu yolov8n_ppu yolov8s_ppu scrfd_ppu yolov5pose_ppu" ;;
+        ppu)                     echo "yolov5_ppu yolov7_ppu yolov8n_ppu yolov8s_ppu" ;;
         hand_landmark)           echo "hand_landmark" ;;
         attribute_recognition)   echo "classification" ;;
         reid)                    echo "embedding" ;;
@@ -468,26 +466,32 @@ do_add_model() {
     local POSTPROCESSOR="${pp_array[$((pp_choice-1))]}"
     _info "Postprocessor: ${BOLD}${POSTPROCESSOR}${NC}"
 
-    # Model name input (validation + retry)
+    # Variant name input (validation + retry): the .dxnn stem is the directory name
     local MODEL_NAME=""
     while true; do
         echo "" >&2
-        read -rp "New model name (e.g. yolov30, my_detector): " MODEL_NAME
-        MODEL_NAME=$(echo "$MODEL_NAME" | tr '[:upper:]' '[:lower:]' | tr '-' '_')
+        read -rp "New variant name, the .dxnn stem (e.g. yolov30-n_640x640, my-detector_512x512): " MODEL_NAME
+        MODEL_NAME=$(echo "$MODEL_NAME" | tr '[:upper:]' '[:lower:]')
         if [[ -z "$MODEL_NAME" ]]; then
-            _err "Model name is empty"; continue
+            _err "Variant name is empty"; continue
         fi
-        if [[ ! "$MODEL_NAME" =~ ^[a-z][a-z0-9_]*$ ]]; then
-            _err "Model name must start with lowercase letter and only contain [a-z0-9_]"; continue
+        if [[ ! "$MODEL_NAME" =~ ^[a-z0-9][a-z0-9._-]*$ ]]; then
+            _err "Variant name may only contain [a-z0-9._-]"; continue
         fi
-        # Duplicate check
-        if [[ -d "$CPP_DIR/$CATEGORY/$MODEL_NAME" ]] || [[ -d "$PY_DIR/$CATEGORY/$MODEL_NAME" ]]; then
-            _warn "Model already exists: ${CATEGORY}/${MODEL_NAME}"
-            confirm_prompt "Overwrite?" || continue
+        # Duplicate check: the variant directory sits under <task>/<family>/
+        if find "$CPP_DIR" "$PY_DIR" -mindepth 3 -maxdepth 3 -type d -name "$MODEL_NAME" -not -path "*/common/*" 2>/dev/null | grep -q .; then
+            _err "Variant already exists: ${MODEL_NAME} (add_model.sh does not overwrite)"; continue
         fi
         break
     done
-    _info "Model name: ${BOLD}${MODEL_NAME}${NC}"
+    _info "Variant name: ${BOLD}${MODEL_NAME}${NC}"
+
+    # Family (optional): default is the reference's family
+    local FAMILY=""
+    echo "" >&2
+    read -rp "Family directory (empty = the reference family): " FAMILY
+    local FAMILY_OPT=()
+    [[ -n "$FAMILY" ]] && FAMILY_OPT=(--family "$FAMILY")
 
     # Sync/Async selection
     local mode_choice
@@ -498,9 +502,9 @@ do_add_model() {
     # Final confirmation
     echo ""
     echo -e "${BOLD}┌─── Summary ───────────────────────────────┐${NC}"
-    echo -e "${BOLD}│${NC}  Model:          ${CYAN}${MODEL_NAME}${NC}"
+    echo -e "${BOLD}│${NC}  Variant:        ${CYAN}${MODEL_NAME}${NC}"
     echo -e "${BOLD}│${NC}  Task:           ${CYAN}${TASK_TYPE}${NC}"
-    echo -e "${BOLD}│${NC}  Category:       ${CYAN}${CATEGORY}${NC}"
+    echo -e "${BOLD}│${NC}  Family:         ${CYAN}${FAMILY:-(reference family)}${NC}"
     echo -e "${BOLD}│${NC}  Postprocessor:  ${CYAN}${POSTPROCESSOR}${NC}"
     echo -e "${BOLD}│${NC}  Language:       ${CYAN}${LANG_MODE}${NC}"
     [[ -n "$SYNC_ONLY" ]] && echo -e "${BOLD}│${NC}  Mode:           ${YELLOW}Sync only${NC}"
@@ -512,19 +516,17 @@ do_add_model() {
     if [[ "$LANG_MODE" == "cpp" || "$LANG_MODE" == "both" ]]; then
         echo -e "\n${GREEN}[C++]${NC} Generating model..."
         bash "$SCRIPT_DIR/add_model.sh" "$MODEL_NAME" "$TASK_TYPE" --lang cpp \
-            --category "$CATEGORY" --postprocessor "$POSTPROCESSOR" $SYNC_ONLY
-        echo -e "${GREEN}[C++]${NC} Done: ${CYAN}src/cpp_example/${CATEGORY}/${MODEL_NAME}/${NC}"
+            "${FAMILY_OPT[@]}" --postprocessor "$POSTPROCESSOR" $SYNC_ONLY
     fi
 
     if [[ "$LANG_MODE" == "python" || "$LANG_MODE" == "both" ]]; then
         echo -e "\n${GREEN}[Python]${NC} Generating model..."
         bash "$SCRIPT_DIR/add_model.sh" "$MODEL_NAME" "$TASK_TYPE" --lang py \
-            --category "$CATEGORY" --postprocessor "$POSTPROCESSOR" $SYNC_ONLY
-        echo -e "${GREEN}[Python]${NC} Done: ${CYAN}src/python_example/${CATEGORY}/${MODEL_NAME}/${NC}"
+            "${FAMILY_OPT[@]}" --postprocessor "$POSTPROCESSOR" $SYNC_ONLY
     fi
 
     echo -e "\n${GREEN}✓ Model added successfully!${NC}"
-    echo -e "  Build: ${YELLOW}cd src/cpp_example/build && cmake .. && make ${MODEL_NAME}_sync${NC}"
+    echo -e "  Build: ${YELLOW}./build.sh --target ${MODEL_NAME}_sync ${MODEL_NAME}_async${NC}"
 }
 
 # =============================================================================
@@ -544,7 +546,7 @@ do_extract_model_package() {
     local _model_names
     _model_names=($(_get_all_model_names) "all")
     while true; do
-        _read_complete "Model path (e.g. object_detection/yolov8): " MODEL_PATH "${_model_names[@]}"
+        _read_complete "Model path (e.g. image_classification/alexnet/alexnet_224x224): " MODEL_PATH "${_model_names[@]}"
         if [[ -z "$MODEL_PATH" ]]; then
             _err "Model path is empty"; continue
         fi
@@ -571,15 +573,25 @@ do_extract_model_package() {
         OUTPUT_OPT="output"
     fi
 
+    # Pruning is the default. Answering no passes --no-prune for the full tree.
+    local PRUNE_ANS=""
+    local -a PRUNE_OPT=()
+    echo "" >&2
+    echo -e "${DIM}Keeps only the common/ files this model actually depends on.${NC}" >&2
+    read -rp "Prune unused common/ files? [Y/n]: " PRUNE_ANS
+    if [[ "$PRUNE_ANS" =~ ^[Nn] ]]; then
+        PRUNE_OPT=(--no-prune)
+    fi
+
     case "$lang_choice" in
         1|3)
             echo -e "\n${GREEN}[C++]${NC} Extracting standalone package..."
-            bash "$SCRIPT_DIR/extract_model_package.sh" "$MODEL_PATH" --lang cpp ${OUTPUT_OPT:+--output-dir "$OUTPUT_OPT"}
+            bash "$SCRIPT_DIR/extract_model_package.sh" "$MODEL_PATH" --lang cpp ${OUTPUT_OPT:+--output-dir "$OUTPUT_OPT"} "${PRUNE_OPT[@]}"
             echo -e "${GREEN}[C++]${NC} Done"
             ;;&
         2|3)
             echo -e "\n${GREEN}[Python]${NC} Extracting standalone package..."
-            bash "$SCRIPT_DIR/extract_model_package.sh" "$MODEL_PATH" --lang py ${OUTPUT_OPT:+--output-dir "$OUTPUT_OPT"}
+            bash "$SCRIPT_DIR/extract_model_package.sh" "$MODEL_PATH" --lang py ${OUTPUT_OPT:+--output-dir "$OUTPUT_OPT"} "${PRUNE_OPT[@]}"
             echo -e "${GREEN}[Python]${NC} Done"
             ;;
     esac
@@ -615,7 +627,7 @@ do_list_models() {
                 if [[ -f "$d/${name}_sync.cpp" ]]; then
                     cpp_models+=("$name")
                 fi
-            done < <(find "$CPP_DIR/$cat" -mindepth 1 -maxdepth 1 -type d | sort)
+            done < <(_list_variant_dirs "$CPP_DIR/$cat")
         fi
 
         # Python models
@@ -625,7 +637,7 @@ do_list_models() {
                 if [[ -f "$d/${name}_sync.py" ]]; then
                     py_models+=("$name")
                 fi
-            done < <(find "$PY_DIR/$cat" -mindepth 1 -maxdepth 1 -type d | sort)
+            done < <(_list_variant_dirs "$PY_DIR/$cat")
         fi
 
         local count=${#cpp_models[@]}
@@ -644,7 +656,8 @@ do_list_models() {
 
                 # Extract postprocessor type from C++ factory
                 local pp_type="${DIM}—${NC}"
-                local factory_dir="$CPP_DIR/$cat/$m/factory"
+                local factory_dir
+                factory_dir=$(find "$CPP_DIR/$cat" -type d -path "*/${m}/factory" -print -quit 2>/dev/null || true)
                 if [[ -d "$factory_dir" ]]; then
                     local pp_header
                     pp_header=$(grep -rh '#include.*postprocessor' "$factory_dir"/ 2>/dev/null | head -1 | sed 's/.*\///' | sed 's/\.hpp.*//' || true)
@@ -716,16 +729,18 @@ do_search() {
             local cat_name=$(basename "$cat_dir")
             [[ "$cat_name" == "common" || "$cat_name" == "build" || "$cat_name" == "sample" ]] && continue
 
-            for model_dir in "$cat_dir"/*/; do
-                [[ ! -d "$model_dir" ]] && continue
-                local model_name=$(basename "$model_dir")
-                if [[ "$model_name" == *"$keyword"* ]] || [[ "$cat_name" == *"$keyword"* ]]; then
+            while IFS= read -r model_dir; do
+                [[ -n "$model_dir" ]] || continue
+                local model_name rel
+                model_name=$(basename "$model_dir")
+                rel="${model_dir#"$base_dir"/}"
+                if [[ "$model_name" == *"$keyword"* || "$rel" == *"$keyword"* ]]; then
                     local color="$GREEN"
                     [[ "$lang_label" == "Python" ]] && color="$BLUE"
-                    printf "  ${color}[%-6s]${NC}  %-25s  %s\n" "$lang_label" "$cat_name" "$model_name"
+                    printf "  ${color}[%-6s]${NC}  %s\n" "$lang_label" "$rel"
                     found=$((found + 1))
                 fi
-            done
+            done < <(_list_variant_dirs "$cat_dir")
         done
     done
 
@@ -765,6 +780,12 @@ do_info() {
             fi
         else
             # Name-only: search all categories
+            while IFS= read -r d; do
+                [[ -n "$d" ]] || continue
+                if [[ "$(basename "$d")" == "$model_query" ]]; then
+                    found_dirs+=("$lang:$d")
+                fi
+            done < <(_list_variant_dirs "$base_dir")
             for cat_dir in "$base_dir"/*/; do
                 [[ ! -d "$cat_dir" ]] && continue
                 local cat_name=$(basename "$cat_dir")

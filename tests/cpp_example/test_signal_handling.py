@@ -18,9 +18,16 @@ from typing import List
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from test_helpers.utils import setup_environment, cpp_exe_task_map  # noqa: E402
+# conftest.py puts tests/ on sys.path; hence the noqa: E402 imports below.
+from test_helpers.utils import (  # noqa: E402
+    binary_path,
+    setup_environment,
+    cpp_exe_task_map,
+    cpp_variant_image_only,
+    discover_cpp_model_cases,
+)
 from test_helpers.constants import IMAGE_ONLY_TASKS  # noqa: E402
+from test_helpers.proc import blocked_opening_a_fifo, wait_until_blocked_opening_a_fifo  # noqa: E402
 
 from conftest import resolve_bin_dir
 
@@ -40,10 +47,6 @@ TEST_VIDEO = ASSETS_DIR / "videos" / "dance-group.mov"
 # ======================================================================
 # Discovery
 # ======================================================================
-def _normalize_model_to_exe(stem: str) -> str:
-    return stem.lower().replace(".", "_")
-
-
 # exe_name → task category, to exclude image-only tasks (they reject -v).
 _EXE_TASK_MAP = cpp_exe_task_map(suffixes=("_sync",))
 
@@ -51,20 +54,25 @@ _EXE_TASK_MAP = cpp_exe_task_map(suffixes=("_sync",))
 def discover_fast_sync() -> List[tuple]:
     """Discover one fast sync executable capable of video/stream input."""
     skip = ["face", "tta", "w6"]
-    for model_path in sorted(MODELS_DIR.glob("*.dxnn")):
-        prefix = _normalize_model_to_exe(model_path.stem)
-        exe_name = f"{prefix}_sync"
+    # A plain detector when one is present (like test_multi_loop), otherwise
+    # the first stream-capable executable.
+    priority = ["yolov5-s_640x640_sync", "yolov8-n_640x640_sync", "yolov5-n_640x640_sync"]
+    candidates = []
+    for exe_name, model_path in discover_cpp_model_cases("_sync", BIN_DIR):
         if any(s in exe_name for s in skip):
             continue
         # SIGINT is exercised against a running VIDEO inference. Image-only
         # tasks (3d_object_detection, embedding, …) reject -v and exit
         # immediately, giving zero real coverage — skip them so a
         # stream-capable model is chosen.
-        if _EXE_TASK_MAP.get(exe_name) in IMAGE_ONLY_TASKS:
+        if _EXE_TASK_MAP.get(exe_name) in IMAGE_ONLY_TASKS or cpp_variant_image_only(exe_name):
             continue
-        if (BIN_DIR / exe_name).exists():
-            return [(exe_name, model_path)]
-    return []
+        candidates.append((exe_name, model_path))
+    for p in priority:
+        for exe_name, model_path in candidates:
+            if exe_name == p:
+                return [(exe_name, model_path)]
+    return candidates[:1]
 
 
 SIGNAL_CASES = discover_fast_sync()
@@ -84,7 +92,7 @@ class TestSignalHandling:
     @pytest.mark.parametrize("executable,model_path", SIGNAL_PARAMS)
     def test_sigint_graceful_shutdown(self, executable, model_path):
         """Send SIGINT during video inference, verify clean exit."""
-        exe_path = BIN_DIR / executable
+        exe_path = binary_path(BIN_DIR, executable)
         if not exe_path.exists():
             pytest.skip(f"Binary not found: {executable}")
         if not TEST_VIDEO.exists():
@@ -166,7 +174,7 @@ class TestSignalHandling:
     @pytest.mark.parametrize("executable,model_path", SIGNAL_PARAMS)
     def test_no_segfault_on_sigint(self, executable, model_path):
         """Ensure SIGINT doesn't cause segfault (return code -11)."""
-        exe_path = BIN_DIR / executable
+        exe_path = binary_path(BIN_DIR, executable)
         if not exe_path.exists():
             pytest.skip(f"Binary not found: {executable}")
         if not TEST_VIDEO.exists():
@@ -210,6 +218,145 @@ class TestSignalHandling:
             pytest.skip(f"Test video not found: {TEST_VIDEO}")
         assert len(SIGNAL_CASES) > 0, "No executables for signal tests"
         print(f"\n  Signal test model: {SIGNAL_CASES[0][0] if SIGNAL_CASES else 'none'}")
+
+
+# ======================================================================
+# One Ctrl-C under a wrapper (`timeout`) is still ONE graceful request
+# ======================================================================
+WRAPPED_MODEL = MODELS_DIR / "yolov5-n_640x640.dxnn"
+
+
+@pytest.mark.signal_handling
+@pytest.mark.parametrize("runner", ["yolov5-n_640x640_sync", "yolov5-n_640x640_async"])
+def test_one_ctrl_c_under_timeout_is_graceful(runner):
+    """`timeout 20 ./bin/<runner>`, then SIGINT to the whole process group -
+    what one terminal Ctrl-C does. timeout forwards it to the runner again
+    (direct and to the group), so the runner receives it 2-3 times within
+    microseconds. That must still be one graceful request: exit 0 with the
+    interrupt message and the performance summary - not rc 130.
+
+    Default input (an image), looped so the runner is still inferring when
+    the Ctrl-C arrives. (8d0b748's runners take the model from -m only, and
+    hold no image window without a display, so the image alone would end
+    before the signal.)"""
+    import shutil
+    import threading
+    exe = binary_path(BIN_DIR, runner)
+    if not exe.exists():
+        pytest.skip("Binary not found: {}".format(runner))
+    if not WRAPPED_MODEL.exists():
+        pytest.skip("{} absent - run ./setup.sh --models yolov5-n_640x640".format(WRAPPED_MODEL))
+    timeout_bin = shutil.which("timeout")
+    if timeout_bin is None:
+        pytest.skip("coreutils timeout not installed")
+
+    env = setup_environment()
+    env.pop("DISPLAY", None)
+    env["QT_QPA_PLATFORM"] = "offscreen"
+    proc = subprocess.Popen(
+        [timeout_bin, "20", str(exe), "-m", str(WRAPPED_MODEL), "-l", "100000"],
+        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env,
+        cwd=str(PROJECT_ROOT), text=True,
+        start_new_session=True,  # its own process group, like a shell job
+    )
+    lines = []
+    started = threading.Event()
+
+    def pump():
+        for line in proc.stdout:
+            lines.append(line)
+            if "Starting" in line:
+                started.set()
+
+    reader = threading.Thread(target=pump, daemon=True)
+    reader.start()
+    try:
+        assert started.wait(60), "runner never started:\n" + "".join(lines)
+        time.sleep(1.0)  # inferring the looped image
+        assert proc.poll() is None, "exited before the Ctrl-C:\n" + "".join(lines)
+        os.killpg(proc.pid, signal.SIGINT)  # the terminal's Ctrl-C
+        rc = proc.wait(timeout=15)
+    finally:
+        if proc.poll() is None:
+            os.killpg(proc.pid, signal.SIGKILL)
+            proc.wait()
+        reader.join(5)
+    output = "".join(lines)
+    # timeout did not expire, so it returns the runner's own status.
+    assert rc == 0, "rc={} after one Ctrl-C:\n{}".format(rc, output[-1500:])
+    assert "Interrupted by user" in output, output[-1500:]
+    assert "PERFORMANCE SUMMARY" in output, output[-1500:]
+
+
+@pytest.mark.signal_handling
+@pytest.mark.parametrize("runner", ["yolov5-n_640x640_sync", "yolov5-n_640x640_async"])
+def test_a_later_ctrl_c_ends_a_run_stuck_in_its_output(runner, tmp_path):
+    """U-36: the runner saves its image into a FIFO nobody reads, so it hangs
+    in open() - a wind-down that cannot finish. The first SIGINT is a
+    request and the run stays stuck; a second one more than 200 ms later
+    must end the process by SIGINT. Before the escalation only SIGKILL could."""
+    import threading
+    exe = binary_path(BIN_DIR, runner)
+    if not exe.exists():
+        pytest.skip("Binary not found: {}".format(runner))
+    if not WRAPPED_MODEL.exists():
+        pytest.skip("{} absent - run ./setup.sh --models yolov5-n_640x640".format(WRAPPED_MODEL))
+    fifo = tmp_path / "stuck.png"
+    os.mkfifo(str(fifo))
+    env = setup_environment()
+    env.pop("DISPLAY", None)
+    env["QT_QPA_PLATFORM"] = "offscreen"
+    env["DXAPP_SAVE_IMAGE"] = str(fifo)
+    proc = subprocess.Popen([str(exe), "-m", str(WRAPPED_MODEL), "--no-display"],
+                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env,
+                            cwd=str(PROJECT_ROOT), text=True)
+    lines = []
+    started = threading.Event()
+
+    def pump():
+        for line in proc.stdout:
+            lines.append(line)
+            if "Starting" in line:
+                started.set()
+
+    reader = threading.Thread(target=pump, daemon=True)
+    reader.start()
+    try:
+        assert started.wait(60), "runner never started:\n" + "".join(lines)
+        # One image inferred; now blocked opening the FIFO.
+        wait_until_blocked_opening_a_fifo(proc, output=lambda: "".join(lines))
+        assert proc.poll() is None, "finished before the first Ctrl-C:\n" + "".join(lines)
+        proc.send_signal(signal.SIGINT)
+        time.sleep(0.5)
+        assert proc.poll() is None, "one Ctrl-C ended a run stuck in open():\n" + "".join(lines)
+        proc.send_signal(signal.SIGINT)
+        rc = proc.wait(timeout=10)
+    finally:
+        if proc.poll() is None:
+            proc.kill()
+            proc.wait()
+        reader.join(5)
+    assert rc == -signal.SIGINT, "rc={}:\n{}".format(rc, "".join(lines)[-1500:])
+
+
+def test_blocked_opening_a_fifo_sees_only_an_open_waiting_for_its_reader(tmp_path):
+    """The FIFO tests signal once the run sleeps in open(); no NPU needed."""
+    fifo = tmp_path / "wait.fifo"
+    os.mkfifo(str(fifo))
+    sleeper = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(30)"])
+    writer = subprocess.Popen([sys.executable, "-c", "open({!r}, 'w')".format(str(fifo))])
+    try:
+        wait_until_blocked_opening_a_fifo(writer, timeout=10)
+        assert not blocked_opening_a_fifo(sleeper.pid)
+        with open(str(fifo)):  # the reader arrives: the open completes
+            assert writer.wait(timeout=10) == 0
+        with pytest.raises(AssertionError, match="before blocking on the FIFO"):
+            wait_until_blocked_opening_a_fifo(writer, timeout=10)
+    finally:
+        for proc in (sleeper, writer):
+            if proc.poll() is None:
+                proc.kill()
+            proc.wait()
 
 
 if __name__ == "__main__":

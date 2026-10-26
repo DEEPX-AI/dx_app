@@ -4,7 +4,9 @@
  *
  * C++ port of Python's verify_serialize.py.
  * Activated by DXAPP_VERIFY=1 environment variable.
- * Writes one JSON per inference to logs/verify/{model_stem}.json.
+ * Writes the last frame to `{dir}/{model_stem}.json` and every frame to
+ * `{dir}/{model_stem}.frames.jsonl` ({dir} = $DXAPP_VERIFY_DIR, default
+ * logs/verify); writes are serialized and the JSON is replaced atomically.
  *
  * Requires nlohmann/json (bundled at common/third_party/nlohmann_json.hpp).
  */
@@ -13,12 +15,21 @@
 #define VERIFY_SERIALIZE_HPP
 
 #include <cmath>
+#include <cstdio>
 #include <cstdlib>
+#include <map>
+#include <mutex>
 #include <set>
 #include <fstream>
 #include <iostream>
 #include <string>
 #include <vector>
+
+#ifdef _WIN32
+#include <process.h>
+#else
+#include <unistd.h>
+#endif
 
 #if __cplusplus >= 201703L || (defined(_MSVC_LANG) && _MSVC_LANG >= 201703L)
 #include <filesystem>
@@ -180,6 +191,16 @@ inline json serializeDepth(const std::vector<DepthResult>& items, int img_h, int
     return result;
 }
 
+inline json serializeAnomaly(const std::vector<AnomalyResult>& items, int img_h, int img_w) {
+    json result = {{"image_height", img_h}, {"image_width", img_w}};
+    if (!items.empty()) {
+        result["output_stats"] = matStats(items[0].heatmap);
+        result["score"] = items[0].score;
+        result["channels"] = items[0].channels;
+    }
+    return result;
+}
+
 inline json serializeSegmentation(const std::vector<SegmentationResult>& items, int img_h, int img_w) {
     json result = {{"image_height", img_h}, {"image_width", img_w}};
     if (!items.empty()) {
@@ -240,6 +261,22 @@ inline json serializeEmbedding(const std::vector<EmbeddingResult>& items, int im
             {"l2_norm", l2_norm},
             {"has_nan", has_nan}
         };
+        // Retrieval variants also carry a ranking. Emitted with the same keys the
+        // Python tree's _ser_retrieval writes, so a cross-tree diff compares like
+        // with like: a matching descriptor with a different order means the two
+        // galleries differ, not the two models.
+        if (!e.matches.empty() || !e.gallery_name.empty()) {
+            result["gallery"] = {{"name", e.gallery_name},
+                                 {"size", e.gallery_size}};
+            json matches = json::array();
+            for (const auto& m : e.matches) {
+                matches.push_back({{"rank", m.rank},
+                                   {"score", m.score},
+                                   {"path", m.path},
+                                   {"label", m.label}});
+            }
+            result["matches"] = matches;
+        }
     }
     return result;
 }
@@ -265,7 +302,8 @@ inline json serializeHandLandmark(const std::vector<HandLandmarkResult>& items, 
     for (const auto& d : items) {
         json lm = json::array();
         for (const auto& kp : d.landmarks) {
-            lm.push_back({{"x", kp.x}, {"y", kp.y}, {"z", kp.confidence}});
+            // Keypoint has no depth; its confidence is the hand's presence.
+            lm.push_back({{"x", kp.x}, {"y", kp.y}});
         }
         dets.push_back({
             {"confidence", d.confidence},
@@ -287,12 +325,84 @@ inline json serializeRestoration(const std::vector<RestorationResult>& items, in
     return result;
 }
 
+inline json serializeDetection3D(const std::vector<Detection3DResult>& items, int img_h, int img_w) {
+    json dets = json::array();
+    for (const auto& d : items) {
+        dets.push_back({
+            {"class_id", d.class_id},
+            {"class_name", d.class_name},
+            {"conf", d.confidence},
+            {"bev", {d.bev_x, d.bev_y, d.bev_w, d.bev_h}},
+            {"center", {d.x3d, d.y3d, d.z3d}},
+            {"dims", {d.dim_h, d.dim_w, d.dim_l}},
+            {"yaw", d.yaw}
+        });
+    }
+    return {{"image_height", img_h}, {"image_width", img_w}, {"detections", dets}};
+}
+
+inline json serializePanoptic(const std::vector<PanopticResult>& items, int img_h, int img_w) {
+    if (items.empty()) return serializeDetection(std::vector<DetectionResult>(), img_h, img_w);
+    json result = serializeDetection(items.front().detections, img_h, img_w);
+    result["drivable_stats"] = matStats(items.front().drivable);
+    result["lane_stats"] = matStats(items.front().lane);
+    return result;
+}
+
 // ============================================================================
 // Internal write helper
 // ============================================================================
 
 namespace detail {
 
+/// Every verify write in the process goes through this lock: async runners
+/// used to dump from dxrt's completion threads, and two frames' truncate-
+/// and-rewrite of one file could interleave.
+struct VerifyWriteState {
+    std::mutex mutex;
+    std::map<std::string, long long> next_frame;  // per .frames.jsonl path
+};
+
+inline VerifyWriteState& verifyWriteState() {
+    static VerifyWriteState state;
+    return state;
+}
+
+inline long long currentProcessId() {
+#ifdef _WIN32
+    return static_cast<long long>(_getpid());
+#else
+    return static_cast<long long>(getpid());
+#endif
+}
+
+/// Writes `text` to a sibling temp file and renames it over `path`, so a
+/// reader sees the previous file or the new one, never a torn one.
+inline bool writeFileAtomically(const std::string& path, const std::string& text) {
+    const std::string tmp = path + ".tmp." + std::to_string(currentProcessId());
+    {
+        std::ofstream ofs(tmp, std::ios::out | std::ios::trunc);
+        if (!ofs.is_open()) return false;
+        ofs << text;
+        ofs.close();
+        if (!ofs) {
+            std::remove(tmp.c_str());
+            return false;
+        }
+    }
+    if (std::rename(tmp.c_str(), path.c_str()) != 0) {
+#ifdef _WIN32
+        std::remove(path.c_str());  // Windows: rename() does not replace a file
+        if (std::rename(tmp.c_str(), path.c_str()) == 0) return true;
+#endif
+        std::remove(tmp.c_str());
+        return false;
+    }
+    return true;
+}
+
+/// `<stem>.json` holds the last dumped frame (unchanged format);
+/// `<stem>.frames.jsonl` gets one record per dump with "frame": 0, 1, 2, ...
 inline std::string writeVerifyJson(
     json data,
     const std::string& modelPath,
@@ -302,17 +412,34 @@ inline std::string writeVerifyJson(
     data["model"] = fs::path(modelPath).filename().string();
     data["model_path"] = modelPath;
 
-    std::string verifyDir = getVerifyDir();
-    std::string modelStem = fs::path(modelPath).stem().string();
-    std::string jsonPath = verifyDir + "/" + modelStem + ".json";
+    VerifyWriteState& state = verifyWriteState();
+    std::lock_guard<std::mutex> lock(state.mutex);
 
-    std::ofstream ofs(jsonPath);
-    if (!ofs.is_open()) {
-        std::cerr << "[DXAPP] [WARN] verify_serialize: cannot open " << jsonPath << std::endl;
+    const std::string verifyDir = getVerifyDir();
+    const std::string modelStem = fs::path(modelPath).stem().string();
+    const std::string jsonPath = verifyDir + "/" + modelStem + ".json";
+    const std::string framesPath = verifyDir + "/" + modelStem + ".frames.jsonl";
+
+    if (!writeFileAtomically(jsonPath, data.dump(2) + "\n")) {
+        std::cerr << "[DXAPP] [WARN] verify_serialize: cannot write " << jsonPath << std::endl;
         return "";
     }
-    ofs << data.dump(2) << std::endl;
-    ofs.close();
+
+    auto found = state.next_frame.find(framesPath);
+    const bool first = (found == state.next_frame.end());
+    const long long frame = first ? 0 : found->second;
+    json record = data;
+    record["frame"] = frame;
+    std::ofstream frames(framesPath, first ? (std::ios::out | std::ios::trunc)
+                                           : (std::ios::out | std::ios::app));
+    if (frames.is_open()) frames << record.dump() << "\n" << std::flush;
+    if (frames.is_open() && frames) {
+        // Only a written record uses up its number: until the first write
+        // succeeds, the next dump still truncates (never appends to an old run).
+        state.next_frame[framesPath] = frame + 1;
+    } else {
+        std::cerr << "[DXAPP] [WARN] verify_serialize: cannot write " << framesPath << std::endl;
+    }
 
     std::cout << "[VERIFY] Dumped -> " << jsonPath << std::endl;
     return jsonPath;
@@ -344,6 +471,7 @@ DXAPP_VERIFY_DUMP_IMPL(FaceDetectionResult, serializeFace)
 DXAPP_VERIFY_DUMP_IMPL(PoseResult, serializePose)
 DXAPP_VERIFY_DUMP_IMPL(InstanceSegmentationResult, serializeInstanceSeg)
 DXAPP_VERIFY_DUMP_IMPL(DepthResult, serializeDepth)
+DXAPP_VERIFY_DUMP_IMPL(AnomalyResult, serializeAnomaly)
 DXAPP_VERIFY_DUMP_IMPL(SegmentationResult, serializeSegmentation)
 DXAPP_VERIFY_DUMP_IMPL(ClassificationResult, serializeClassification)
 DXAPP_VERIFY_DUMP_IMPL(OBBResult, serializeOBB)
@@ -351,6 +479,8 @@ DXAPP_VERIFY_DUMP_IMPL(EmbeddingResult, serializeEmbedding)
 DXAPP_VERIFY_DUMP_IMPL(FaceAlignmentResult, serializeFaceAlignment)
 DXAPP_VERIFY_DUMP_IMPL(HandLandmarkResult, serializeHandLandmark)
 DXAPP_VERIFY_DUMP_IMPL(RestorationResult, serializeRestoration)
+DXAPP_VERIFY_DUMP_IMPL(Detection3DResult, serializeDetection3D)
+DXAPP_VERIFY_DUMP_IMPL(PanopticResult, serializePanoptic)
 
 #undef DXAPP_VERIFY_DUMP_IMPL
 

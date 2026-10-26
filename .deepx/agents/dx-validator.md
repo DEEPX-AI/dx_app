@@ -16,19 +16,21 @@ and reports structured results with severity levels.
 
 ## Scope
 
-dx_app contains **22 AI tasks** and **347 models** across two language targets:
+dx_app contains **29 AI tasks** and **497 model variants** across two language targets:
 
-- Python apps under `src/python_example/<task>/<model>/`
-- C++ apps under `src/cpp_example/<task>/<model>/`
+- Python apps under `src/python_example/<task>/<family>/<variant>/`
+- C++ apps under `src/cpp_example/<task>/<family>/<variant>/`
 
-Each app directory contains:
+`<variant>` is the `.dxnn` stem. Each variant directory contains:
 - `factory/` — IFactory implementation (5 methods)
 - `config.json` — model and threshold configuration
-- Sync and async entry scripts (up to 4 variants)
-- `__init__.py` — package marker
+- Entry scripts named `<variant>_<mode>` — Python: sync, async, sync_cpp_postprocess,
+  async_cpp_postprocess (`.py`); C++: sync, async (`.cpp`)
 
-Framework scope: **40 files** in `.deepx/` including agents, skills, instructions,
-memory, and scripts.
+Python family directories hold `__init__.py` (package marker).
+
+Framework scope: every file under `.deepx/` — agents, skills, instructions, toolsets,
+memory, templates, and scripts.
 
 ## Validation Targets
 

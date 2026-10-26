@@ -1,1 +1,0 @@
-from .yolov7tiny_factory import Yolov7tinyFactory

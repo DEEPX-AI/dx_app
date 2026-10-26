@@ -21,6 +21,8 @@
 
 #include "common/base/i_factory.hpp"
 #include "common/utility/common_util.hpp"
+#include "common/utility/progress.hpp"
+#include "common/utility/display_pump.hpp"
 #include "common/utility/run_dir.hpp"
 #include "common/utility/verify_serialize.hpp"
 #include "sync_detection_runner.hpp"
@@ -249,6 +251,8 @@ private:
              cxxopts::value<int>(args.loopTest)->default_value("-1"))
             ("no-display", "will not visualize, only show fps",
              cxxopts::value<bool>(args.no_display)->default_value("false"))
+            ("drop-frames", "display: drop stale frames instead of pacing the pipeline (default: off, every frame is shown)",
+             cxxopts::value<bool>(args.drop_frames)->default_value("false"))
             ("config", "Model configuration JSON file path",
              cxxopts::value<std::string>(args.configPath))
             ("show-log", "Enable verbose log output (default: quiet)",
@@ -256,6 +260,8 @@ private:
             ("h, help", "print usage");
 
         auto cmd = options.parse(argc, argv);
+
+        dxapp::configureDisplayPump(dxapp::syncPreviewPump(), args.drop_frames);
         if (cmd.count("help")) {
             std::cout << options.help() << std::endl;
             exit(0);
@@ -316,7 +322,7 @@ private:
     }
 
     bool openVideoCapture(cv::VideoCapture& video, const CommandLineArgs& args) {
-        if (args.cameraIndex >= 0) video.open(args.cameraIndex);
+        if (args.cameraIndex >= 0) dxapp::openCameraCapture(video, args.cameraIndex);
         else if (!args.rtspUrl.empty()) video.open(args.rtspUrl);
         else video.open(args.videoFile);
         return video.isOpened();
@@ -354,6 +360,7 @@ private:
             metrics.sum_preprocess += t_preprocess;
             metrics.sum_inference += t_inference;
             metrics.infer_completed++;
+            dxapp::progressTick(metrics);   // [PROGRESS] for front ends (DXAPP_PROGRESS=1)
             return true;
         }
 
@@ -404,10 +411,18 @@ private:
         verify::dumpVerifyJson(results, model_path_,
             "obb_detection", display_image.rows, display_image.cols);
 
+        auto& preview_pump = syncPreviewPump();
+        const auto render_plan = planFrameRender(
+            no_display, saveMode, saveImagePath, preview_pump);
         auto render_start = std::chrono::high_resolution_clock::now();
-        cv::Mat result_frame = visualizer.draw(display_image, results, ctx);
-        auto render_end = std::chrono::high_resolution_clock::now();
-        double t_render = std::chrono::duration<double, std::milli>(render_end - render_start).count();
+        cv::Mat result_frame;
+        double t_render = 0.0;
+        if (render_plan.need_render) {
+            result_frame = visualizer.draw(display_image, results, ctx);
+            auto render_end = std::chrono::high_resolution_clock::now();
+            t_render = std::chrono::duration<double, std::milli>(
+                render_end - render_start).count();
+        }
 
         double t_save = 0.0;
         double t_display = 0.0;
@@ -425,12 +440,13 @@ private:
             // The caller's DXAPP_SAVE_IMAGE path is honoured independently of the
             // run-dir save: --save must not swallow the path the caller asked for.
             dxapp::saveDebugImage(result_frame);
-            if (!no_display) {
+            if (render_plan.preview && preview_pump.guiAvailable()) {
                 auto display_start = std::chrono::high_resolution_clock::now();
-                dxapp::showOutput(result_frame);
-                if (dxapp::windowShouldClose("Output")) quit_requested = true;
+                preview_pump.offer(result_frame);
+                if (!preview_pump.pump()) quit_requested = true;
                 auto display_end = std::chrono::high_resolution_clock::now();
-                t_display = std::chrono::duration<double, std::milli>(display_end - display_start).count();
+                t_display = std::chrono::duration<double, std::milli>(
+                    display_end - display_start).count();
             }
         }
 
@@ -442,6 +458,7 @@ private:
         metrics.sum_save += t_save;
         metrics.sum_display += t_display;
         metrics.infer_completed++;
+        dxapp::progressTick(metrics);   // [PROGRESS] for front ends (DXAPP_PROGRESS=1)
 
         return !quit_requested;
     }
@@ -474,7 +491,7 @@ private:
                                     visualizer, metrics, writer, no_display, saveMode, t_read,
                                     i, frameDumpPath, false, saveImagePath)) break;
             processCount++;
-            if (!no_display) {
+            if (!no_display && dxapp::hasDisplay()) {
                 while (!dxapp::windowShouldClose("Output")) {
                     std::this_thread::sleep_for(std::chrono::milliseconds(10));
                 }

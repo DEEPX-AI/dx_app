@@ -218,21 +218,28 @@ Known `add_model_task` values (query `config/model_registry.json` for the curren
 | `add_model_task` | `csv_task` | Description |
 |---|---|---|
 | `object_detection` | `OD` | Bounding-box object detection |
+| `mainbody_detection` | `OD` | Main-body (salient object) detection, one class |
 | `classification` | `IC` | Image classification |
 | `face_detection` | `FD` | Face detection |
-| `instance_segmentation` | `IS` | Per-instance masks |
-| `semantic_segmentation` | `SS` | Per-pixel class labels |
-| `pose_estimation` | `PE` | Keypoint-based pose |
+| `instance_segmentation` | `ISEG, SEG` | Per-instance masks |
+| `semantic_segmentation` | `SEG` | Per-pixel class labels |
+| `pose_estimation` | `POSE` | Keypoint-based pose |
 | `image_denoising` | `DN` | Image noise reduction |
-| `ppu` | `PPU` | Post-processing unit models |
-| `embedding` | `EMB` | Feature embedding / face recognition |
+| `ppu` | `PPU, OD, FD, POSE` | Post-processing unit models |
+| `embedding` | `FREC` | Feature embedding / face recognition |
 | `depth_estimation` | `DEPTH` | Monocular depth |
-| `hand_landmark` | `HL` | Hand keypoint detection |
+| `hand_landmark` | `HAND` | Hand keypoint detection |
 | `super_resolution` | `SR` | Image upscaling |
 | `obb_detection` | `OBB` | Oriented bounding-box detection |
-| `image_enhancement` | `IE` | Low-light / image enhancement |
-| `attribute_recognition` | `AR` | Attribute recognition |
+| `image_enhancement` | `LLIE` | Low-light / image enhancement |
+| `attribute_recognition` | `ATTR, MCL` | Attribute recognition |
 | `reid` | `REID` | Re-identification |
+| `3d_object_detection` | `3DOD` | 3D object detection |
+| `face_alignment` | `F3D` | Face alignment (3D landmarks) |
+| `hand_detection` | `HD` | Hand detection |
+| `keypoint_detection` | `KD` | Generic keypoint detection |
+| `object_pose_estimation` | `OD` | 6-DoF object pose estimation |
+| `panoptic_driving_perception` | `OD` | Panoptic driving perception |
 
 **Note:** This table may not be exhaustive. Always verify against `config/model_registry.json`:
 ```bash

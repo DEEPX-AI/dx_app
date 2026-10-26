@@ -1,1 +1,0 @@
-from .yolo11x_seg_factory import Yolo11x_segFactory

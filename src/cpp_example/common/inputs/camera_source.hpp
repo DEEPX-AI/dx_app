@@ -7,13 +7,15 @@
 #define DXAPP_CAMERA_SOURCE_HPP
 
 #include "../base/i_input_source.hpp"
+#include "../utility/camera.hpp"
 
 namespace dxapp {
 
 /**
  * @brief Input source for camera devices
  * 
- * Handles capturing frames from camera devices (USB webcams, etc.)
+ * Handles capturing frames from camera devices (USB webcams, the Raspberry Pi
+ * CSI camera through libcamera, etc.)
  */
 class CameraSource : public IInputSource {
 public:
@@ -26,7 +28,7 @@ public:
      */
     explicit CameraSource(int device_id, int width = 0, int height = 0, double fps = 0.0) 
         : device_id_(device_id) {
-        capture_.open(device_id);
+        openCameraCapture(capture_, device_id, width, height);
         
         if (capture_.isOpened()) {
             // Set desired resolution if specified

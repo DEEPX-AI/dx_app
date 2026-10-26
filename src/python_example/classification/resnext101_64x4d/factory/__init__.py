@@ -1,1 +1,0 @@
-from .resnext101_64x4d_factory import Resnext101_64x4dFactory

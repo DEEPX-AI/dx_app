@@ -11,7 +11,7 @@
 namespace dxapp {
 
 template <typename FactoryT>
-using SyncPanopticRunner = SyncDetectionRunner<FactoryT>;
+using SyncPanopticRunner = SyncDetectionRunner<FactoryT, PanopticResult>;
 
 }  // namespace dxapp
 

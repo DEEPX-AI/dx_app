@@ -23,20 +23,24 @@ def list_categories() -> List[str]:
 
 
 def resolve_minimal_targets() -> List[str]:
+    """Demo executables are named from the .dxnn stem, not the family folder."""
     text = RUN_DEMO.read_text(encoding="utf-8")
     in_array = False
-    bases: List[str] = []
+    stems: List[str] = []
     for line in text.splitlines():
         stripped = line.strip()
-        if stripped.startswith("DEMO_CPP_BASE=("):
+        if stripped.startswith("DEMO_MODEL=("):
             in_array = True
             continue
         if in_array and stripped.startswith(")"):
             break
         if in_array:
-            stripped = stripped.split("#", 1)[0]
-            bases.extend(part for part in stripped.split() if part)
-    return sorted({target for base in bases for target in (f"{base}_sync", f"{base}_async")})
+            stripped = stripped.split("#", 1)[0].replace('"', "").replace("'", "")
+            for part in stripped.split():
+                stem = part[:-5] if part.endswith(".dxnn") else part
+                if stem:
+                    stems.append(stem)
+    return sorted({target for stem in stems for target in (f"{stem}_sync", f"{stem}_async")})
 
 
 def resolve_category_targets(category: str) -> List[str]:
@@ -46,15 +50,37 @@ def resolve_category_targets(category: str) -> List[str]:
     if category in CATEGORY_EXCLUDES or not category_dir.is_dir():
         sys.exit(f"[DXAPP] [ERROR] Unknown category: {category}")
     targets: List[str] = []
-    for model_dir in sorted(path for path in category_dir.iterdir() if path.is_dir()):
-        model = model_dir.name
-        if (model_dir / f"{model}_sync.cpp").is_file():
-            targets.append(f"{model}_sync")
-        if (model_dir / f"{model}_async.cpp").is_file():
-            targets.append(f"{model}_async")
+    for family_dir in sorted(path for path in category_dir.iterdir() if path.is_dir()):
+        for variant_dir in sorted(path for path in family_dir.iterdir() if path.is_dir()):
+            variant = variant_dir.name
+            if (variant_dir / f"{variant}_sync.cpp").is_file():
+                targets.append(f"{variant}_sync")
+            if (variant_dir / f"{variant}_async.cpp").is_file():
+                targets.append(f"{variant}_async")
     if not targets:
         sys.exit("[DXAPP] [ERROR] No build targets resolved.")
     return targets
+
+
+def resolve_in_project(raw: str, option: str) -> pathlib.Path:
+    """Resolve a CLI-supplied path and confine it to the project tree.
+
+    Both files this script touches -- the CMakeSettings.json it reads and the
+    build_internal.bat / build_env.bat it writes -- are artifacts of this
+    repository, so a path that escapes PROJECT_ROOT is either a mistake or a
+    path-injection attempt via ``..``/absolute path. Reject it rather than
+    reading from or writing to an arbitrary filesystem location.
+
+    Relative paths keep resolving against the current working directory,
+    which is how build.bat and the test suite already invoke this script.
+    """
+    resolved = pathlib.Path(raw).expanduser().resolve()
+    if resolved != PROJECT_ROOT and PROJECT_ROOT not in resolved.parents:
+        sys.exit(
+            f"[DXAPP] [ERROR] {option} must stay inside the project root "
+            f"({PROJECT_ROOT}); refusing path: {resolved}"
+        )
+    return resolved
 
 
 def load_settings(path: pathlib.Path) -> Dict:
@@ -107,9 +133,10 @@ def is_multi_config(generator: str) -> bool:
 
 
 def sanitize_batch_var_name(target: str) -> str:
-    """배치 변수명에 사용할 수 있도록 타겟명을 sanitize합니다.
-    
-    영숫자와 언더스코어만 허용하고, 나머지는 언더스코어로 치환합니다.
+    """Sanitize a target name so it can be used as a batch variable.
+
+    Keep only ASCII letters, digits, and underscores. Replace everything else
+    with an underscore.
     """
     import re
     return re.sub(r'[^A-Za-z0-9_]', '_', target)
@@ -333,7 +360,7 @@ def main() -> None:
             print(category)
         return
 
-    settings_path = pathlib.Path(args.cmake_settings)
+    settings_path = resolve_in_project(args.cmake_settings, "--cmake-settings")
     data = load_settings(settings_path)
     cfg = find_configuration(data, args.config)
     project_root = pathlib.Path(__file__).resolve().parent.parent
@@ -368,7 +395,7 @@ def main() -> None:
         sys.exit("[DXAPP] [ERROR] No build targets resolved.")
 
     lines = build_configure_lines(cfg, "%PROJECT_DIR%", targets=targets)
-    out_path = pathlib.Path(args.output)
+    out_path = resolve_in_project(args.output, "--output")
     out_path.parent.mkdir(parents=True, exist_ok=True)
     write_bat(lines, out_path)
     print(f"Wrote {out_path}")

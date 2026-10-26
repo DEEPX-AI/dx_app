@@ -84,7 +84,7 @@ An agent building a model application MUST NOT:
 - Install packages or modify the Python environment
 - Modify CMakeLists.txt at the project root level
 
-Scope is limited to the model directory: `src/python_example/<task>/<model>/`
+Scope is limited to the model directory: `src/python_example/<task>/<family>/<variant>/`
 
 ## Protocol 8: Document What You Create
 

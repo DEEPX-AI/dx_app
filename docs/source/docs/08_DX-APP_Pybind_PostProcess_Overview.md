@@ -28,7 +28,7 @@ For end-to-end Python example usage, refer to [DX-APP Python Example Usage Guide
 The SDK follows a **Single Source of Truth** strategy to ensure reliability across platforms:  
 
 - **Implementation:** C++ post-processing classes are wrapped with `pybind11` for seamless Python integration.  
-- **Unified Logic:** It directly wraps the C++ source code from `src/postprocess/`. This guarantees that results in Python are 100% identical to those in C++.  
+- **Unified Logic:** It directly wraps the C++ source in `src/postprocess/`, so a class used from Python runs the same decoding as that C++ library.  
 - **Build System:** Utilizes **CMake** with **scikit-build-core** for robust, cross-platform extension building.  
 - **Source Code Locations:**  
     - **Python Bindings:** `src/bindings/python/dx_postprocess/postprocess_pybinding.cpp`  
@@ -36,27 +36,31 @@ The SDK follows a **Single Source of Truth** strategy to ensure reliability acro
 
 ### Supported Models & Tasks
 
-The library wraps **48 C++ post-processing classes** with pybind11 bindings, ensuring consistent results between C++ and Python implementations.  
+The library wraps **58 C++ post-processing classes** with pybind11 bindings, ensuring consistent results between C++ and Python implementations.  
 
-- **Object Detection:** YOLOv5, YOLOv7, YOLOv8, YOLOv9, YOLOv10, YOLOv11, YOLOv12, YOLOv26, YOLOX, NanoDet, DAMOYOLO, SSD, CenterPose, EfficientDet, YOLACT  
-- **Face Detection:** SCRFD, YOLOv5Face, RetinaFace, ULFGFD, Face3D  
-- **Pose Estimation:** YOLOv5Pose, YOLOv8Pose, VitPose  
+- **Object Detection:** YOLOv4, YOLOv5, YOLOv7, YOLOv8, YOLOv9, YOLOv10, YOLOv11, YOLOv12, YOLOv26, YOLOX, NanoDet, DAMOYOLO, SSD, CenterPose, EfficientDet, RT-DETR (v1/v2/v3), PP-PicoDet (PP-ShiTu mainbody), YOLO26 pre-optimized (top-k table; detection and pose)  
+- **Face Detection:** SCRFD, YOLOv5Face, RetinaFace, ULFGFD  
+- **Face Landmark:** Face3D (3DDFA-v2)  
+- **Pose Estimation:** YOLOv5Pose, YOLOv8Pose, VitPose, CenterPose  
 - **Keypoint Detection:** SuperPoint  
 - **Object Pose Estimation:** DOPE  
 - **3D Object Detection:** SFA3D  
 - **Panoptic Driving Perception:** YOLOPv2  
 - **Hand Detection:** MediaPipe Hand  
 - **Semantic Segmentation:** DeepLabV3, SemanticSeg (BiSeNet/SegFormer)  
-- **Instance Segmentation:** YOLOv5Seg, YOLOv8Seg  
+- **Instance Segmentation:** YOLOv5Seg, YOLOv8Seg, YOLACT, mask-RT-DETR  
+- **Image Matting:** PP-Matting (alpha matte at the model resolution; the examples resize it)  
 - **OBB Detection:** YOLOv26-OBB  
-- **Classification:** EfficientNet-family  
-- **Depth Estimation:** DepthPostProcess (FastDepth, SCDepth)  
+- **Classification:** ClassificationPostProcess (all image-classification families, e.g. EfficientNet, ResNet, RegNet)  
+- **Attribute Recognition:** AttributePostProcess (person attribute, face attribute)  
+- **Depth Estimation:** DepthPostProcess (FastDepth, SCDepth, Depth Anything V2, YOLO26-depth)  
 - **Image Denoising:** DnCNN  
 - **Super Resolution:** ESPCN, RealESRGAN  
 - **Image Enhancement:** Zero-DCE  
-- **Embedding:** ArcFace  
+- **Embedding:** ArcFace, CLIP text encoder  
 - **Hand Landmark:** HandLandmark  
-- **PPU Variants:** YOLOv5-PPU, YOLOv7-PPU, YOLOv8-PPU, SCRFD-PPU, YOLOv5Pose-PPU, YOLOX-PPU, YOLOv3Tiny-PPU  
+- **Anomaly Detection:** EfficientAD (teacher + student + autoencoder outputs), AnomalyFeature (PatchCore backbone response). Both return the anomaly map at feature-map resolution; the Python examples resize it to the image with OpenCV.  
+- **PPU Variants:** YOLOv5-PPU, YOLOv7-PPU, YOLOv8-PPU, SCRFD-PPU, YOLOv5Pose-PPU, YOLOX-PPU, YOLOv3Tiny-PPU. `SCRFD-PPU` and `YOLOv5Pose-PPU` are postprocess classes only; `SCRFD500M_PPU` and `YOLOV5Pose_PPU` are not registered examples.  
 
 !!! note "Generic fast segmentation in Python examples"
     `FastSegmentationPostprocessor` is available from `common.processors` for Python example-layer semantic segmentation. It is intentionally generic and selected by the `fast_segmentation` generation alias. It is not a direct `dx_postprocess` pybind class; use it from `src/python_example/common/processors/fast_segmentation_postprocessor.py` when the model outputs low-resolution logits or class maps that should be argmaxed before resize.
@@ -70,10 +74,10 @@ The library wraps **48 C++ post-processing classes** with pybind11 bindings, ens
 Before building, ensure the following are installed on your system  
 
 - **Python:** 3.8 or higher  
-- **Compiler:** GCC 4.8+ or Clang 3.3+  
+- **Compiler:** C++14-compatible (GCC 7.5+, Clang, etc.)  
 - **Build Tool:** CMake 3.16 or higher  
 
-During the installation, `pybind11` is automatically cloned from GitHub to `extern/pybind11` if it is not already present.  
+`pybind11` is installed by pip as a build dependency (`pyproject.toml`) and found with `find_package(pybind11)`.  
 
 ### Installation Steps
 
@@ -110,11 +114,14 @@ The `dx_postprocess` classes expect a list of NumPy arrays directly from the `In
 # From dx_app/ directory
 
 # Sync (Image Inference)
-python src/python_example/object_detection/yolov9s/yolov9s_sync_cpp_postprocess.py --model assets/models/yolov9-s_640x640.dxnn --image sample/img/sample_kitchen.jpg
+python src/python_example/object_detection/yolov9/yolov9-s_640x640/yolov9-s_640x640_sync_cpp_postprocess.py --image sample/img/sample_kitchen.jpg
 
 # Async (Stream Inference)
-python src/python_example/object_detection/yolov9s/yolov9s_async_cpp_postprocess.py --model assets/models/yolov9-s_640x640.dxnn --video assets/videos/dance-group.mov
+python src/python_example/object_detection/yolov9/yolov9-s_640x640/yolov9-s_640x640_async_cpp_postprocess.py --video assets/videos/dance-group.mov
 ```
+
+Each `*_cpp_postprocess.py` script defines an `on_engine_init(runner)` callback and passes it to `run_entry()`. Once the engine reports the model input size, the callback creates the model's `dx_postprocess` class (for example `YOLOv8PostProcess` or `ClassificationPostProcess`) and sets it as `runner._cpp_postprocessor`, so the C++ class replaces the Python postprocessor. `dx_postprocess` is imported inside the callback, so `--help` works before the module is built.  
+
 
 ### Direct API Call  
 

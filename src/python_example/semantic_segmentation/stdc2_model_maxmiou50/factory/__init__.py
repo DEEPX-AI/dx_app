@@ -1,1 +1,0 @@
-from .stdc2_model_maxmiou50_factory import Stdc2_model_maxmiou50Factory

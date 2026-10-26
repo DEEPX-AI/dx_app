@@ -1,1 +1,0 @@
-from .deepmar_resnet18_person_attr_resnet_v1_18_factory import Deepmar_resnet18_person_attr_resnet_v1_18Factory

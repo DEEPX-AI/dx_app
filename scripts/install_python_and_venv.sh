@@ -20,8 +20,6 @@ usage() {
     echo -e "                                Default Minimum supported version: ${DEFAULT_MIN_PY_VERSION}."
     echo -e "                                If not specified:"
     echo -e "                                  - For Ubuntu 20.04+, the OS default Python 3 will be used."
-    echo -e "                                  - For Ubuntu 18.04, Python ${DEFAULT_MIN_PY_VERSION} "
-    echo -e "                                    (or the value specified by the '--min_py_version' option) will be source-built."
     echo -e ""
     echo -e "  ${COLOR_GREEN}--min_py_version=<VERSION>${COLOR_RESET}  Specify the minimum Python version. (default: ${DEFAULT_MIN_PY_VERSION})"
     echo -e ""

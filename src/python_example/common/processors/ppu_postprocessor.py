@@ -58,7 +58,7 @@ class PPUPostprocessor(IPostprocessor):
       config: optional dict for conf_threshold, nms_threshold.
     """
 
-    # YOLOv5-style anchors (shared by all current PPU models)
+    # YOLOv5 anchors (YOLOv7PPUPostprocessor overrides them)
     ANCHORS = {
         8:  np.array([[10, 13], [16, 30], [33, 23]], dtype=np.float32),
         16: np.array([[30, 61], [62, 45], [59, 119]], dtype=np.float32),
@@ -193,7 +193,14 @@ class YOLOv5PPUPostprocessor(PPUPostprocessor):
 
 
 class YOLOv7PPUPostprocessor(PPUPostprocessor):
-    """YOLOv7 PPU — same decode logic as YOLOv5 PPU."""
+    """YOLOv7 PPU — YOLOv5 PPU decode with the YOLOv7 anchors."""
+
+    ANCHORS = {
+        8:  np.array([[12, 16], [19, 36], [40, 28]], dtype=np.float32),
+        16: np.array([[36, 75], [76, 55], [72, 146]], dtype=np.float32),
+        32: np.array([[142, 110], [192, 243], [459, 401]], dtype=np.float32),
+    }
+
     def __init__(self, input_width: int, input_height: int, config: dict = None):
         super().__init__(input_width, input_height, config, model_type="yolov7_ppu")
 

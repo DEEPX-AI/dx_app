@@ -43,9 +43,11 @@ VitPoseResult VitPosePostProcess::postprocess(const dxrt::TensorPtrs& outputs) {
         int y_hm = flat_idx / hm_w;
         int x_hm = flat_idx % hm_w;
         float conf = hm[flat_idx];
+        // Heatmap cell -> model-input pixel, the space convert_cpp_vitpose()
+        // and the Python VitPosePostprocessor scale back to the image from.
         result.keypoints.emplace_back(
-            static_cast<float>(x_hm),
-            static_cast<float>(y_hm),
+            static_cast<float>(x_hm) * static_cast<float>(input_width_) / hm_w,
+            static_cast<float>(y_hm) * static_cast<float>(input_height_) / hm_h,
             conf);
     }
 

@@ -69,7 +69,7 @@ public:
                             float score_threshold = 0.3f,
                             float nms_threshold = 0.45f,
                             int num_keypoints = 17,
-                            bool is_ort_configured = false)
+                            bool /*is_ort_configured*/ = false)
         : input_width_(input_width), input_height_(input_height),
           score_threshold_(score_threshold), nms_threshold_(nms_threshold),
           num_keypoints_(num_keypoints) {}
@@ -218,6 +218,60 @@ private:
     float score_threshold_;
     float nms_threshold_;
     int num_keypoints_;
+};
+
+// Heatmap pose (ViTPose, DarkPose / HRNet). Output is [1, K, H, W] or [K, H, W].
+class VitPosePostprocessor : public IPostprocessor<PoseResult> {
+public:
+    VitPosePostprocessor(int input_width = 192, int input_height = 256)
+        : input_width_(input_width), input_height_(input_height) {}
+
+    std::vector<PoseResult> process(const dxrt::TensorPtrs& outputs,
+                                    const PreprocessContext& ctx) override {
+        if (outputs.empty() || outputs[0] == nullptr) return {};
+        const float* data = static_cast<const float*>(outputs[0]->data());
+        const auto& shape = outputs[0]->shape();
+        if (data == nullptr || shape.size() < 3) return {};
+
+        const int keypointAxis = (shape.size() == 4) ? 1 : 0;
+        const int numKeypoints = static_cast<int>(shape[keypointAxis]);
+        const int heatmapHeight = static_cast<int>(shape[keypointAxis + 1]);
+        const int heatmapWidth = static_cast<int>(shape[keypointAxis + 2]);
+        if (numKeypoints <= 0 || heatmapHeight <= 0 || heatmapWidth <= 0) return {};
+
+        const int originalWidth = ctx.original_width > 0 ? ctx.original_width : input_width_;
+        const int originalHeight = ctx.original_height > 0 ? ctx.original_height : input_height_;
+        const int plane = heatmapHeight * heatmapWidth;
+
+        PoseResult pose;
+        pose.confidence = 1.0f;
+        pose.keypoints.reserve(static_cast<size_t>(numKeypoints));
+        for (int keypoint = 0; keypoint < numKeypoints; ++keypoint) {
+            const float* heatmap = data + static_cast<size_t>(keypoint) * static_cast<size_t>(plane);
+            int bestIndex = 0;
+            float bestValue = heatmap[0];
+            for (int index = 1; index < plane; ++index) {
+                if (heatmap[index] > bestValue) {
+                    bestValue = heatmap[index];
+                    bestIndex = index;
+                }
+            }
+            const int heatmapY = bestIndex / heatmapWidth;
+            const int heatmapX = bestIndex % heatmapWidth;
+            const float x = static_cast<float>(heatmapX) / static_cast<float>(heatmapWidth)
+                * static_cast<float>(originalWidth);
+            const float y = static_cast<float>(heatmapY) / static_cast<float>(heatmapHeight)
+                * static_cast<float>(originalHeight);
+            pose.keypoints.emplace_back(x, y, bestValue);
+        }
+        return {std::move(pose)};
+    }
+
+    std::string getModelName() const override { return "vit_pose_small_bn"; }
+
+private:
+    int input_width_;
+    int input_height_;
 };
 
 }  // namespace dxapp

@@ -1,1 +1,0 @@
-from .resnext50_32x4d_imgclsmob_factory import Resnext50_32x4d_imgclsmobFactory

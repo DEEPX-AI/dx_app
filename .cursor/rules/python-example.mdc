@@ -12,4 +12,4 @@ globs: ["src/python_example/**"]
 - 4 variants: `_sync.py`, `_async.py`, `_sync_cpp_postprocess.py`, `_async_cpp_postprocess.py`
 - sys.path insertion pattern for imports
 - Every model dir needs `config.json` and `__init__.py`
-- Read `.deepx/skills/dx-build-python-app.md` for full patterns
+- Read `.deepx/skills/dx-agent-app-build-python/SKILL.md` for full patterns

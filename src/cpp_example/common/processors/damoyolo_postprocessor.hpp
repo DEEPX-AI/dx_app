@@ -25,7 +25,7 @@ public:
                           float conf_threshold = 0.3f,
                           float nms_threshold = 0.45f,
                           int num_classes = 80,
-                          bool is_ort_configured = false,
+                          bool /*is_ort_configured*/ = false,
                           const std::vector<std::string>& class_names = {})
         : input_width_(input_width), input_height_(input_height),
           conf_threshold_(conf_threshold), nms_threshold_(nms_threshold),
