@@ -193,8 +193,6 @@ Async runners get results back from dxrt's completion threads in any order. Each
 - On an interrupted run (Ctrl+C, SIGTERM, or closing the window) that wait ends at once, and the frames the reorder buffer already holds are still released in index order.
 - The reorder buffer holds at most twice the runner's in-flight depth. If a frame never comes back from dxrt, the lowest buffered frame is released once that cap is passed, so the display cannot stall; from then on output order is no longer guaranteed.
 
-`DXRT_TASK_MAX_LOAD=40` (a dxrt setting) raises dxrt's I/O buffer count from its default (6; valid range 1-100) to the runners' 40-frame pipeline depth (instance segmentation keeps its own limit of 4). For a large model dxrt may allocate fewer buffers when NPU memory is short and logs `Buffer count reduced from 40 to N due to NPU memory limit (...)`. If a large model such as `yolopv2_384x640` fails to start at 40 (dxrt reports `Dynamic IPC task init failed` before the first frame), lower the value, for example to `DXRT_TASK_MAX_LOAD=20`. The limit depends on the device's free NPU memory, which other processes on the NPU share.
-
 **Output Management (`--save`)**  
 
 When `--save` is enabled, a timestamped directory is created (e.g., `artifacts/cpp_example/{model}_sync-image-{name}-{timestamp}/`, `_async` for async binaries) containing `run_info.txt`, saved images/video, and optional tensor dumps.

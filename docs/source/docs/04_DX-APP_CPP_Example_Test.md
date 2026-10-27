@@ -44,7 +44,7 @@ Feature Tests
 | `test_dump_tensors.py` | `dump_tensors` | `--dump-tensors` tensor file generation |
 | `test_verify.py` | `verify` | `DXAPP_VERIFY` output of every downloaded model, sync and async: one non-empty record, per-frame file |
 | `test_verify_dumps.py` | `verify` | Runtime checks of past `DXAPP_VERIFY` regressions (async classification/detection, restoration and tiled SR, 3D detection, YOLOPv2 masks) |
-| `test_sync_async_parity.py` | `verify` | Async output equals sync frame by frame (video clip, DXRT_TASK_MAX_LOAD=40): every video-capable async runner, plus loops and an interrupt mid-video. The sweep leaves out the image-only tasks (super_resolution among them) and the registry rows marked `image_only`; `espcn-x4_17x17`, `realesrgan-x2_192x192`, `sfa3d_608x608` and `arcface_mobilefacenet_112x112` are compared in image mode instead. `yolopv2_384x640` runs at DXRT_TASK_MAX_LOAD=20 (`MAX_LOAD` in the file); other models that get fewer than 40 buffers run at 40 with dxrt's reduced count |
+| `test_sync_async_parity.py` | `verify` | Async output equals sync frame by frame (video clip, at dxrt's default I/O buffer count): every video-capable async runner, plus loops and an interrupt mid-video. The sweep leaves out the image-only tasks (super_resolution among them) and the registry rows marked `image_only`; `espcn-x4_17x17`, `realesrgan-x2_192x192`, `sfa3d_608x608` and `arcface_mobilefacenet_112x112` are compared in image mode instead. |
 | `test_multi_loop.py` | `multi_loop` | `-l N` loop count behavior |
 | `test_signal_handling.py` | `signal_handling` | SIGINT graceful shutdown; one Ctrl-C under `timeout` is one request; a later Ctrl-C ends a run stuck in its output (a FIFO) |
 

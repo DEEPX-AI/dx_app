@@ -30,7 +30,7 @@ This section describes the software requirements and installation steps for sett
 
 To run **DX-APP** on Linux, the following components **must** be installed.  
 
-- **OS**: Ubuntu 20.04 / 22.04 / 24.04 (x64) and Debian 12 / 13 (x64)  
+- **OS**: Ubuntu 20.04 / 22.04 / 24.04 / 26.04 (x64) and Debian 12 / 13 (x64)  
 - **DEEPX M1 Runtime Lib Version (DX-RT)**: v3.5.0 or higher  
 - **NPU Device Driver**: v2.7.0 or higher (RT and PCIe driver). The runtime's own minimum driver, firmware and `.dxnn` versions are printed by `dxcli --version`.  
 - **dx_engine** (Python): 3.5.x, matching the runtime's major.minor. `import dx_engine` raises `dx_engine and DX-RT versions do not match` otherwise.  
@@ -39,7 +39,7 @@ All required components are included in the **DXNN All Suite (DX-AS)** package.
 
 The build needs the following tools and libraries. `./install.sh` installs them (see *DX-APP Application Setup* below).  
 
-- **CMake**: 3.14 or higher, with make or ninja  
+- **CMake**: 3.16 or higher, with make or ninja  
 - **Compiler**: C++14-compatible (GCC 7.5 or later, Clang)  
 - **OpenCV**: 4.2.0 or higher (**4.5.5 recommended**), for image I/O and visualization  
 - **Python**: 3.8 or higher with pip, for the CMake configure step (it generates the graph model registry), the Python examples and the pybind11 modules  
@@ -48,7 +48,7 @@ The build needs the following tools and libraries. `./install.sh` installs them 
 
     `./setup.sh` downloads DX Model Zoo 2_5_0. Those `.dxnn` files are container format **v9**, which DX-RT 3.5.0 is the first runtime to load (DX-RT 3.4.2 refuses them: `Model file format version 9 is not supported`). The C++ examples check the floor when they start and stop with `DXRT library version is too low. (required: >= 3.5.0, current: <version>)`; the check runs after the engine is created, so an older runtime may report its own error on the `.dxnn` first. The Python examples check for DX-RT 3.0.0 or later only, so on DX-RT 3.0.0 to 3.4.x they start and then fail while loading the model, with the DX-RT error above. Check `dxcli --version` before running them. The multi-model graph reads the container version before it creates an engine and names the problem (see [DX-APP Multi-Model Graph](06a_DX-APP_Multi_Model_Graph.md)).
 
-    Tested with DX-RT 3.5.0, NPU driver 2.7.0 (RT and PCIe), firmware 2.7.4 and `dx_engine` 3.5.0 on a DX-M1 M.2 card (x86_64, Ubuntu 24.04).
+    Tested with DX-RT 3.5.0, NPU driver 2.7.0 (RT and PCIe), firmware 2.7.6 and `dx_engine` 3.5.0 on a DX-M1 M.2 card (x86_64, Ubuntu 24.04).
 
 
 ### Prerequisites Setup

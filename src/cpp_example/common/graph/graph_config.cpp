@@ -125,7 +125,6 @@ const char* const kTopKeys[] = {"version", "name", "nodes", "edges",
 const char* const kNodeKeys[] = {"id", "type", "uri", "model", "op", "params",
                                  "track", "engine"};
 const char* const kEngineKeys[] = {"buffers", "share"};
-/// DX-RT's DXRT_TASK_MAX_LOAD_LIMIT: the largest I/O buffer count it accepts.
 const int kMaxEngineBuffers = 100;
 const char* const kTrackKeys[] = {"algo", "iou", "max_age"};
 const char* const kEdgeKeys[] = {"from", "to", "roi", "port", "carry"};

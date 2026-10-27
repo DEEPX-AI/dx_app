@@ -1,12 +1,11 @@
 """Async runners deliver the same per-frame results as sync, in input order (U-03, U-29).
 
 DXAPP_VERIFY writes one record per delivered frame to <stem>.frames.jsonl.
-DXRT_TASK_MAX_LOAD=40 raises dxrt's I/O buffer count (default: about 7 jobs in
-flight) to the runners' ASYNC_BUFFER_SIZE, so "max" depth really has up to 40
-frames in flight (YOLOPv2 runs at 20: see MAX_LOAD). No runner option is
-involved: dxrt reads the variable. Every downloaded video-capable async runner
-is compared at that depth (SWEEP), and the image-only super-resolution, 3D and
-embedding runners in image mode. Expected time: about 5 minutes.
+Every run uses dxrt's default I/O buffer count: no runner option or dxrt
+setting is touched, so the in-flight depth is whatever dxrt grants the model.
+Every downloaded video-capable async runner is compared (SWEEP), and the
+image-only super-resolution, 3D and embedding runners in image mode. Expected
+time: about 5 minutes.
 """
 import signal
 import subprocess
@@ -30,28 +29,12 @@ from conftest import PROJECT_ROOT, resolve_bin_dir
 BIN_DIR = resolve_bin_dir()
 SOURCE_VIDEO = PROJECT_ROOT / "assets" / "videos" / "blackbox-city-road.mp4"
 CLIP_FRAMES = 120
-FULL_DEPTH_ENV = {"DXRT_TASK_MAX_LOAD": "40"}
 MODELS = {exe[: -len("_sync")]: model
           for exe, model in discover_cpp_model_cases("_sync", BIN_DIR)}
 
 # A plain detector, per-frame masks (YOLOPv2) and SuperPoint (keypoints and
 # descriptors per frame; the port has no SuperPoint tracker).
 NAMED = ["yolov8-n_640x640", "yolopv2_384x640", "superpoint_480x640"]
-# DXRT_TASK_MAX_LOAD for the "max" depth, where it is not 40 (FULL_DEPTH_ENV).
-# YOLOPv2: dxrt cannot allocate 30-40 I/O buffers for it on this device. At 40 it logs
-# "Buffer count reduced from 40 to 31 due to NPU memory limit (4211081216 bytes)"
-# and then fails with "Dynamic IPC task init failed" (SERVICE_IO, rc 255) before
-# the first frame; 30 and 31 fail the same way (probed 2026-09-30). 20 works,
-# and YOLOPv2's own decode limits it to about 13 in flight anyway, so 20 still
-# runs it at its full depth. Other models that cannot get 40 buffers run at 40:
-# dxrt logs the same reduction warning and uses the count it could allocate.
-MAX_LOAD = {"yolopv2_384x640": "20"}
-# In-flight depth each reaches at its MAX_LOAD on the clip (measured: yolov8-n 40
-# at 40; yolopv2 13-14 at 40 on 2026-09-29, 13 at 20 on 2026-09-30; superpoint
-# 14-16 at 40 on the port, 2026-10-01, where 8d0b748's runner is bounded by the
-# reader, not the NPU). YOLOPv2 and SuperPoint only have to exceed dxrt's
-# default of 7.
-MIN_DEPTH_AT_MAX = {"yolov8-n_640x640": 40, "yolopv2_384x640": 8, "superpoint_480x640": 8}
 
 
 @pytest.fixture(scope="module")
@@ -63,7 +46,7 @@ def clip(tmp_path_factory):
     return path
 
 
-def run_frames(exe, model, input_args, workdir, extra_env=None, timeout=600):
+def run_frames(exe, model, input_args, workdir, timeout=600):
     """Run *exe* with DXAPP_VERIFY; return (per-frame records, stdout + stderr)."""
     exe_path = BIN_DIR / exe
     if not exe_path.exists():
@@ -72,17 +55,11 @@ def run_frames(exe, model, input_args, workdir, extra_env=None, timeout=600):
     env = setup_environment()
     env["DXAPP_VERIFY"] = "1"
     env["DXAPP_VERIFY_DIR"] = str(verify_dir)
-    env.update(extra_env or {})
     result = run_bounded([str(exe_path), "-m", str(model)] + list(input_args) + ["--no-display"],
                          capture_output=True, text=True, timeout=timeout, env=env, cwd=str(workdir))
     output = result.stdout + result.stderr
     assert result.returncode == 0, "{} rc={}\n{}".format(exe, result.returncode, output[-2000:])
     return read_verify_frames(verify_dir), output
-
-
-def max_depth_env(name):
-    """The child environment that runs *name* at its full dxrt depth."""
-    return {"DXRT_TASK_MAX_LOAD": MAX_LOAD.get(name, FULL_DEPTH_ENV["DXRT_TASK_MAX_LOAD"])}
 
 
 def _model(name):
@@ -92,22 +69,17 @@ def _model(name):
 
 
 @pytest.mark.verify
-@pytest.mark.parametrize("depth", ["default", "max"])
 @pytest.mark.parametrize("name", NAMED)
-def test_async_frames_equal_sync_frames(name, depth, clip, tmp_path):
+def test_async_frames_equal_sync_frames(name, clip, tmp_path):
     model = _model(name)
     video = ["-v", str(clip), "-l", "1"]
     expected, _ = run_frames(name + "_sync", model, video, tmp_path)
-    got, output = run_frames(name + "_async", model, video, tmp_path,
-                             max_depth_env(name) if depth == "max" else None)
+    got, output = run_frames(name + "_async", model, video, tmp_path)
+    print("\n  {}: in flight max {}".format(name, inflight_max(output)))
     assert len(expected) == CLIP_FRAMES
     assert [f["frame"] for f in got] == list(range(CLIP_FRAMES))
     difference = first_frame_difference(expected, got)
-    assert difference is None, "{} async at {} depth: {}".format(name, depth, difference)
-    if depth == "max":
-        seen = inflight_max(output)
-        assert seen is not None and seen >= MIN_DEPTH_AT_MAX[name], (
-            "{} reached only {} in flight".format(name, seen))
+    assert difference is None, "{} async: {}".format(name, difference)
 
 
 # Review Focus 4: tickets and frame numbers continue across --loop passes.
@@ -116,7 +88,7 @@ def test_async_loops_continue_the_frame_order(clip, tmp_path):
     model = _model("yolov8-n_640x640")
     video = ["-v", str(clip), "-l", "2"]
     expected, _ = run_frames("yolov8-n_640x640_sync", model, video, tmp_path)
-    got, _ = run_frames("yolov8-n_640x640_async", model, video, tmp_path, FULL_DEPTH_ENV)
+    got, _ = run_frames("yolov8-n_640x640_async", model, video, tmp_path)
     assert len(expected) == 2 * CLIP_FRAMES
     difference = first_frame_difference(expected, got)
     assert difference is None, difference
@@ -133,7 +105,6 @@ def test_async_interrupt_mid_video_keeps_order_and_finalizes_the_video(clip, tmp
     out_dir = tmp_path / "out"
     env = setup_environment()
     env.update({"DXAPP_VERIFY": "1", "DXAPP_VERIFY_DIR": str(verify_dir)})
-    env.update(FULL_DEPTH_ENV)
     proc = subprocess.Popen(
         [str(exe), "-m", str(model), "-v", str(clip), "-l", "20", "--no-display",
          "-s", "--save-dir", str(out_dir)],
@@ -198,11 +169,11 @@ def short_clip(tmp_path_factory):
 
 @pytest.mark.verify
 @pytest.mark.parametrize("name", SWEEP)
-def test_every_async_runner_equals_sync_at_full_depth(name, short_clip, tmp_path):
+def test_every_async_runner_equals_sync(name, short_clip, tmp_path):
     model = _model(name)
     video = ["-v", str(short_clip), "-l", "1"]
     expected, _ = run_frames(name + "_sync", model, video, tmp_path)
-    got, output = run_frames(name + "_async", model, video, tmp_path, max_depth_env(name))
+    got, output = run_frames(name + "_async", model, video, tmp_path)
     print("\n  {}: {} frames, in flight max {}".format(name, len(got), inflight_max(output)))
     difference = first_frame_difference(expected, got)
     assert difference is None, "{}: {}".format(name, difference)
@@ -228,7 +199,7 @@ def test_image_mode_async_equals_sync(name, path, extra, tmp_path):
         pytest.skip("input missing for {}".format(name))
     args = ["-i", str(source)] + extra
     expected, _ = run_frames(name + "_sync", model, args, tmp_path)
-    got, _ = run_frames(name + "_async", model, args, tmp_path, max_depth_env(name))
+    got, _ = run_frames(name + "_async", model, args, tmp_path)
     assert expected, "{} dumped nothing".format(name)
     difference = first_frame_difference(expected, got)
     assert difference is None, "{}: {}".format(name, difference)
