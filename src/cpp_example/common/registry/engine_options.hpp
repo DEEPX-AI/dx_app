@@ -28,7 +28,6 @@ namespace graph {
 namespace detail {
 
 /// The I/O buffer count for an engine opened on this thread now; 0 = DX-RT's
-/// default (DXRT_TASK_MAX_LOAD, 6 unless that variable says otherwise).
 inline int& EngineBuffersSlot() {
     static thread_local int buffers = 0;
     return buffers;

@@ -163,12 +163,12 @@ To utilize NPU acceleration, you **must** install the kernel-mode drivers and th
 
 Versions this release needs:
 
-- **OS**: Ubuntu 20.04 / 22.04 / 24.04 (x64) and Debian 12 / 13 (x64)  
+- **OS**: Ubuntu 20.04 / 22.04 / 24.04 / 26.04 (x64) and Debian 12 / 13 (x64)  
 - **DEEPX M1 Runtime Lib Version (DX-RT)**: v3.5.0 or higher  
 - **NPU Device Driver**: v2.7.0 or higher (RT and PCIe driver). The runtime's own minimum driver, firmware and `.dxnn` versions are printed by `dxcli --version`.  
 - **dx_engine** (Python): 3.5.x, matching the runtime's major.minor. `import dx_engine` raises `dx_engine and DX-RT versions do not match` otherwise.  
 
-Tested with DX-RT 3.5.0, NPU driver 2.7.0 (RT and PCIe) and firmware 2.7.4 on a DX-M1 M.2 card (x86_64).
+Tested with DX-RT 3.5.0, NPU driver 2.7.0 (RT and PCIe) and firmware 2.7.6 on a DX-M1 M.2 card (x86_64).
 
 **B. Development Toolchain and Libraries**  
 
@@ -176,7 +176,7 @@ The following tools are required to compile the C++ templates and the Python dx_
 
 **B-a.** Build System  
 
-- **CMake:** 3.14 or higher, with make or ninja 
+- **CMake:** 3.16 or higher, with make or ninja 
 - **Compiler:** C++14-compatible (GCC 7.5 or later, Clang)
 
 **B-b.** Core Libraries  
