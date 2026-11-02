@@ -717,8 +717,9 @@ def test_live_source_with_image_output_is_refused(tmp_path, where):
     assert result.returncode == 2, result.stdout + result.stderr
     assert "is a live source that never ends" in result.stderr
     assert "--frames N" in result.stderr
-    # .mkv and .avi first: a killed .mp4 has no index and cannot be read.
-    assert "(--output <stem>.mkv, .avi or .mp4)" in result.stderr
+    # .avi first: a killed .mp4 has no index and cannot be read, and the
+    # Windows build cannot write .mkv.
+    assert "(--output <stem>.avi, .mkv or .mp4)" in result.stderr
     assert not output.exists()
     assert "graph:" not in result.stdout  # nothing was built
 

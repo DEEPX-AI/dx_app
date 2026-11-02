@@ -25,7 +25,52 @@
 #include <vector>
 
 #include <sys/stat.h>
+#ifdef _WIN32
+#include <direct.h>
+#include <process.h>
+#else
 #include <unistd.h>
+#endif
+
+inline int dxappTestPid() {
+#ifdef _WIN32
+    return _getpid();
+#else
+    return static_cast<int>(::getpid());
+#endif
+}
+
+inline int dxappTestRmdir(const char* path) {
+#ifdef _WIN32
+    return _rmdir(path);
+#else
+    return ::rmdir(path);
+#endif
+}
+
+inline int dxappTestMkdir(const char* path) {
+#ifdef _WIN32
+    return _mkdir(path);
+#else
+    return ::mkdir(path, 0700);
+#endif
+}
+
+inline int dxappTestSetenv(const char* name, const char* value) {
+#ifdef _WIN32
+    return _putenv_s(name, value);
+#else
+    return ::setenv(name, value, 1);
+#endif
+}
+
+inline int dxappTestUnsetenv(const char* name) {
+#ifdef _WIN32
+    return _putenv_s(name, "");
+#else
+    return ::unsetenv(name);
+#endif
+}
 
 #include <opencv2/core/utils/logger.hpp>
 #include <opencv2/imgproc.hpp>
@@ -9070,9 +9115,21 @@ namespace {
 
 std::string ScratchPath(const std::string& name) {
     const char* dir = std::getenv("TMPDIR");
+#ifdef _WIN32
+    // Windows has no /tmp: its temp directory is in TEMP or TMP.
+    if (dir == NULL || *dir == '\0') dir = std::getenv("TEMP");
+    if (dir == NULL || *dir == '\0') dir = std::getenv("TMP");
+#endif
     // The pid keeps two concurrent runs (two build trees, a CI matrix) apart.
-    return std::string(dir != NULL && *dir != '\0' ? dir : "/tmp") + "/graph_engine_test_" +
-           std::to_string(static_cast<long long>(::getpid())) + "_" + name;
+    std::string path = std::string(dir != NULL && *dir != '\0' ? dir : "/tmp") +
+                       "/graph_engine_test_" +
+                       std::to_string(static_cast<long long>(dxappTestPid())) + "_" + name;
+#ifdef _WIN32
+    // Forward slashes: Windows accepts them, and the path is pasted into JSON
+    // text by tests, where a backslash would be an escape.
+    std::replace(path.begin(), path.end(), '\\', '/');
+#endif
+    return path;
 }
 
 /// Silences OpenCV's own log lines for one scope and restores the previous
@@ -9091,8 +9148,33 @@ class ScopedOpenCvLogLevel {
     cv::utils::logging::LogLevel previous_;
 };
 
+/// Whether this OpenCV build can encode the codec the CLI picks for `ext`.
+/// A build without FFmpeg (vcpkg's default on Windows) has only the
+/// platform's own backend, which may not write every container.
+bool CanEncodeVideo(const std::string& ext) {
+    ScopedOpenCvLogLevel quiet(cv::utils::logging::LOG_LEVEL_SILENT);
+    const std::string path = ScratchPath("probe" + ext);
+    bool opened = false;
+    {
+        cv::VideoWriter probe(path, cli::VideoFourcc(path), 10.0, cv::Size(64, 48));
+        opened = probe.isOpened();
+    }
+    std::remove(path.c_str());
+    return opened;
+}
+
+/// Whether a writer refuses to open on a path that is a directory. Some
+/// backends open anyway and fail only when a frame is written.
+bool VideoWriterRefusesADirectory(const std::string& dir) {
+    ScopedOpenCvLogLevel quiet(cv::utils::logging::LOG_LEVEL_SILENT);
+    cv::VideoWriter probe(dir, cli::VideoFourcc(dir), 30.0, cv::Size(64, 48));
+    return !probe.isOpened();
+}
+
 std::string ReadWholeFile(const std::string& path) {
-    std::ifstream in(path.c_str(), std::ios::binary);
+    // Text mode: ReportFileWriter writes in text mode, so a Windows build's
+    // "\r\n" reads back as the "\n" the whole-file dump produced.
+    std::ifstream in(path.c_str());
     std::ostringstream text;
     text << in.rdbuf();
     return text.str();
@@ -9253,7 +9335,7 @@ void TestCliOutputRules() {
     GRAPH_CHECK(refused ==
                 "--output out.png writes one image per frame, and \"camera:0\" is a "
                 "live source that never ends: write a video instead (--output "
-                "<stem>.mkv, .avi or .mp4) or stop after N frames (--frames N)");
+                "<stem>.avi, .mkv or .mp4) or stop after N frames (--frames N)");
     GRAPH_CHECK(!cli::OutputProblem("out", "rtsp://h/s", 0).empty());
     GRAPH_CHECK(!cli::OutputProblem("OUT.PNG", "camera:1", 0).empty());
     GRAPH_CHECK(cli::OutputProblem("out.png", "camera:0", 5).empty());
@@ -9286,6 +9368,11 @@ void TestCliOutputRules() {
 void TestVideoOutputKeepsEveryFrameAtTheFirstFramesSize() {
     const char* extensions[] = {".avi", ".mp4", ".mkv"};
     for (std::size_t e = 0; e < 3; ++e) {
+        if (!CanEncodeVideo(extensions[e])) {
+            Skip("TestVideoOutputKeepsEveryFrameAtTheFirstFramesSize",
+                 std::string("this OpenCV build cannot encode ") + extensions[e]);
+            continue;
+        }
         const std::string path = ScratchPath(std::string("video") + extensions[e]);
         {
             cli::VideoOutput video(path, 10.0);
@@ -9333,13 +9420,20 @@ void TestVideoOutputOpenFailureOffersAviOnlyWhenItIsNotAvi() {
     for (std::size_t e = 0; e < 3; ++e) {
         ScopedOpenCvLogLevel quiet(cv::utils::logging::LOG_LEVEL_SILENT);
         const std::string path = ScratchPath(std::string("is_a_dir") + extensions[e]);
-        ::mkdir(path.c_str(), 0700);
+        dxappTestMkdir(path.c_str());
+        if (!VideoWriterRefusesADirectory(path)) {
+            dxappTestRmdir(path.c_str());
+            Skip("TestVideoOutputOpenFailureOffersAviOnlyWhenItIsNotAvi",
+                 std::string("this OpenCV build opens a ") + extensions[e] +
+                     " writer on a directory");
+            continue;
+        }
         std::string error;
         {
             cli::VideoOutput video(path, 30.0);
             GRAPH_CHECK(!video.Write(cv::Mat(48, 64, CV_8UC3, cv::Scalar(0, 0, 0)), &error));
         }
-        ::rmdir(path.c_str());
+        dxappTestRmdir(path.c_str());
         GRAPH_CHECK(error.find("could not open a video writer for " + path) == 0);
         GRAPH_CHECK(error.find("cannot be created there") != std::string::npos);
         const bool offers_avi = error.find("try .avi") != std::string::npos;
@@ -11522,7 +11616,7 @@ void TestAStageRefusesAV9FileBeforeOpeningAnEngine() {
     // StageGraph::Build turns it into MODEL_LOAD with that hint and no
     // download line: downloading again would fetch the same v9 file.
     const std::string dir = ScratchPath("v9_models");
-    ::mkdir(dir.c_str(), 0700);
+    dxappTestMkdir(dir.c_str());
     const std::string file = dir + "/yolov8-n_640x640.dxnn";
     {
         std::ofstream out(file.c_str(), std::ios::binary | std::ios::trunc);
@@ -11554,7 +11648,7 @@ void TestAStageRefusesAV9FileBeforeOpeningAnEngine() {
     GRAPH_CHECK(built.find("download_models") == std::string::npos);
     GRAPH_CHECK(built.find("dxrt-cli -s") == std::string::npos);
     std::remove(file.c_str());
-    ::rmdir(dir.c_str());
+    dxappTestRmdir(dir.c_str());
 }
 
 // R6: the model key is the variant. A legacy model_name and an alias_of row
@@ -11767,7 +11861,7 @@ void TestARelativeGalleryIsReadAgainstTheRepository() {
     char cwd[4096];
     GRAPH_CHECK(::getcwd(cwd, sizeof(cwd)) != NULL);
     const std::string elsewhere = ScratchPath("gallery_cwd");
-    ::mkdir(elsewhere.c_str(), 0700);
+    dxappTestMkdir(elsewhere.c_str());
     GRAPH_CHECK(::chdir(elsewhere.c_str()) == 0);
 
     const char* given[] = {NULL, "sample/gallery/vpr_eigenplaces-resnet18_512x512.bin"};
@@ -11787,7 +11881,7 @@ void TestARelativeGalleryIsReadAgainstTheRepository() {
         GRAPH_CHECK(retrieval->galleryError().empty());
     }
     GRAPH_CHECK(::chdir(cwd) == 0);
-    ::rmdir(elsewhere.c_str());
+    dxappTestRmdir(elsewhere.c_str());
 }
 
 // I18: --check and the stage overlay read a repository-relative path by one
@@ -15348,16 +15442,16 @@ class RootEnv {
             old_ = old;
         }
         if (value == NULL) {
-            ::unsetenv("DXAPP_ROOT");
+            dxappTestUnsetenv("DXAPP_ROOT");
         } else {
-            ::setenv("DXAPP_ROOT", value, 1);
+            dxappTestSetenv("DXAPP_ROOT", value);
         }
     }
     ~RootEnv() {
         if (had_) {
-            ::setenv("DXAPP_ROOT", old_.c_str(), 1);
+            dxappTestSetenv("DXAPP_ROOT", old_.c_str());
         } else {
-            ::unsetenv("DXAPP_ROOT");
+            dxappTestUnsetenv("DXAPP_ROOT");
         }
     }
 
@@ -15396,10 +15490,14 @@ void TestRuntimeRootIsDxappRootElseTheBuildsRepository() {
 void TestFindMarkedRootWalksUpToTheMarker() {
     const std::string base = ScratchPath("marked_root");
     const std::string inner = base + "/project/build/bin";
-    GRAPH_CHECK(std::system(("mkdir -p '" + inner + "'").c_str()) == 0);
+    const std::string marker_path = base + "/project/" + ::dxapp::RootMarkerName();
+    dxappTestMkdir(base.c_str());
+    dxappTestMkdir((base + "/project").c_str());
+    dxappTestMkdir((base + "/project/build").c_str());
+    GRAPH_CHECK(dxappTestMkdir(inner.c_str()) == 0);
     GRAPH_CHECK(::dxapp::FindMarkedRoot(inner).empty());
     {
-        std::ofstream marker((base + "/project/" + ::dxapp::RootMarkerName()).c_str());
+        std::ofstream marker(marker_path.c_str());
         marker << "dx_app graph project\n";
     }
     GRAPH_CHECK(::dxapp::FindMarkedRoot(inner) == base + "/project");
@@ -15409,7 +15507,11 @@ void TestFindMarkedRootWalksUpToTheMarker() {
     GRAPH_CHECK(::dxapp::FindMarkedRoot("").empty());
     GRAPH_CHECK(!::dxapp::ExecutableDir().empty());
     GRAPH_CHECK(!::dxapp::WorkingDir().empty());
-    GRAPH_CHECK(std::system(("rm -rf '" + base + "'").c_str()) == 0);
+    GRAPH_CHECK(std::remove(marker_path.c_str()) == 0);
+    GRAPH_CHECK(dxappTestRmdir(inner.c_str()) == 0);
+    dxappTestRmdir((base + "/project/build").c_str());
+    dxappTestRmdir((base + "/project").c_str());
+    GRAPH_CHECK(dxappTestRmdir(base.c_str()) == 0);
 }
 
 // ---------------------------------------------------------------------

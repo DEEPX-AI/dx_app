@@ -159,7 +159,7 @@ void PrintUsage(std::FILE* out, const char* program) {
         "                        camera:<N>, rtsp://...). Repeat it once per"
         " source;\n"
         "                        a graph with several sources needs <source>=\n"
-        "  --output <file>       write the rendered result. .mp4, .avi or"
+        "  --output <file>       write the rendered result. .avi, .mp4 or"
         " .mkv: one\n"
         "                        video. Any other extension: an image; a"
         " multi-frame\n"
@@ -1983,7 +1983,7 @@ int Main(int argc, char** argv, ExecutorKind kind) {
                 ClassifyOutput(args.output) == OutputKind::kImagePerFrame) {
                 std::fprintf(stderr,
                              "--loop never ends a video, and --output %s writes one image per "
-                             "frame: write a video instead (--output <stem>.mkv, .avi or .mp4) "
+                             "frame: write a video instead (--output <stem>.avi, .mkv or .mp4) "
                              "or stop after N frames (--frames N)\n\n",
                              args.output.c_str());
                 PrintUsage(stdout, argv[0]);

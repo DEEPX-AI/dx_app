@@ -349,7 +349,7 @@ public:
             }
             std::cout << std::endl;
 
-            // Video Save Setup with run_dir + mp4v→XVID fallback
+            // Video Save Setup with run_dir + avc1→mp4v→MJPG fallback
             if (args.saveMode) {
                 std::string run_name;
                 if (args.cameraIndex >= 0) {
@@ -487,7 +487,7 @@ public:
                         std::cout << "=================================================" << std::endl;
                     }
 
-                    auto readFrame = [&video](cv::Mat& f) { video >> f; return !f.empty(); };
+                    auto readFrame = [&video](cv::Mat& f) { return readFrameInterruptible(video, f); };
                     cv::Mat frame;
                     while (running_ && !g_interrupted()) {
                         auto t_read_start = std::chrono::high_resolution_clock::now();
@@ -636,6 +636,11 @@ public:
         }
 
         printPerformanceSummary(processCount, total_time, !args.no_display, args.saveMode);
+
+        {
+            const int emptyStreamStatusCode = emptyStreamStatus(is_image, processCount);
+            if (emptyStreamStatusCode != 0) return emptyStreamStatusCode;
+        }
 
         DXRT_TRY_CATCH_END
         return 0;

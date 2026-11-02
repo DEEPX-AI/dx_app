@@ -307,7 +307,7 @@ public:
                             std::cout << std::string(50, '=') << std::endl;
                         }
                     }
-                    auto readFrame = [&video](cv::Mat& f) { video >> f; return !f.empty(); };
+                    auto readFrame = [&video](cv::Mat& f) { return readFrameInterruptible(video, f); };
                     cv::Mat frame;
                     while (running_ && !g_interrupted()) {
                         auto t_read_start = std::chrono::high_resolution_clock::now();
@@ -424,6 +424,11 @@ public:
         }
 
         printPerformanceSummary(processCount, total_time, !args.no_display, args.saveMode);
+
+        {
+            const int emptyStreamStatusCode = emptyStreamStatus(is_image, processCount);
+            if (emptyStreamStatusCode != 0) return emptyStreamStatusCode;
+        }
 
         DXRT_TRY_CATCH_END
         return 0;

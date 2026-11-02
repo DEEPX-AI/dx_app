@@ -244,6 +244,11 @@ public:
 
         printPerformanceSummary(metrics, processCount, total_time, !args.no_display, args.saveMode);
 
+        {
+            const int emptyStreamStatusCode = emptyStreamStatus(is_image, processCount);
+            if (emptyStreamStatusCode != 0) return emptyStreamStatusCode;
+        }
+
         DXRT_TRY_CATCH_END
         return 0;
     }
@@ -540,10 +545,10 @@ private:
             double t_read = 0.0;
             auto readFrame = [&video, &t_read](cv::Mat& f) {
                 auto t0 = std::chrono::high_resolution_clock::now();
-                video >> f;
+                const bool frameReady = readFrameInterruptible(video, f);
                 auto t1 = std::chrono::high_resolution_clock::now();
                 t_read = std::chrono::duration<double, std::milli>(t1 - t0).count();
-                return !f.empty();
+                return frameReady;
             };
             cv::Mat frame;
             while (!g_interrupted().load() && readFrame(frame)) {

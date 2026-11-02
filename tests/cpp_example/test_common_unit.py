@@ -54,7 +54,7 @@ ASYNC_RUNNERS = [
 def test_async_runner_serializes_its_shared_postprocessor(runner):
     path = (PROJECT_ROOT / "src" / "cpp_example" / "common" / "runner"
             / "async_{}_runner.hpp".format(runner))
-    text = path.read_text()
+    text = path.read_text(encoding="utf-8")
     assert '#include "common/processors/serialized_postprocessor.hpp"' in text
     problem = _serialize_problem(text)
     assert problem is None, problem
@@ -220,7 +220,7 @@ def _serialize_problem(text):
 def test_async_runner_waits_on_running_also_honour_the_interrupt_flag(runner):
     path = (PROJECT_ROOT / "src" / "cpp_example" / "common" / "runner"
             / "async_{}_runner.hpp".format(runner))
-    unguarded = [line for condition, line in _running_loop_conditions(path.read_text())
+    unguarded = [line for condition, line in _running_loop_conditions(path.read_text(encoding="utf-8"))
                  if "g_interrupted()" not in condition
                  and condition not in BOUNDED_RUNNING_LOOPS]
     assert not unguarded, (
@@ -230,7 +230,7 @@ def test_async_runner_waits_on_running_also_honour_the_interrupt_flag(runner):
 
 def _runner_text(runner):
     return (PROJECT_ROOT / "src" / "cpp_example" / "common" / "runner"
-            / "async_{}_runner.hpp".format(runner)).read_text()
+            / "async_{}_runner.hpp".format(runner)).read_text(encoding="utf-8")
 
 
 _REORDER_PUSH = re.compile(r"\breorder\.push\(std::move\(\w+\), (\w+)\);")

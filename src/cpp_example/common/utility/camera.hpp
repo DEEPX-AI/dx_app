@@ -5,7 +5,9 @@
  * On current Raspberry Pi OS the CSI camera is managed by libcamera, not the
  * legacy V4L2 capture interface, so OpenCV has to read it through the
  * libcamerasrc GStreamer element. openCameraCapture() takes that path on a
- * Raspberry Pi and is plain cv::VideoCapture::open(index) everywhere else.
+ * Raspberry Pi and is plain cv::VideoCapture::open(index) everywhere else. On
+ * Windows a camera opens with MSMF hardware transforms off unless the user set
+ * OPENCV_VIDEOIO_MSMF_ENABLE_HW_TRANSFORMS (see defaultMsmfHwTransformsOff).
  *
  * Mirrors src/python_example/common/utility/camera.py - keep the two in sync.
  */
@@ -273,12 +275,30 @@ inline bool openLibcameraCapture(cv::VideoCapture& video, int cameraIndex,
 
 #endif  // _WIN32
 
+#ifdef _WIN32
+/**
+ * @brief Windows: open cameras with MSMF hardware transforms off by default.
+ *
+ * With them on, OpenCV's MSMF backend takes about 7 s to open a USB webcam;
+ * off, about 0.15 s at the same frame rate. This OpenCV build reads the
+ * variable each time a capture opens, so setting it before the open is
+ * enough. A value the user set (e.g. 1 to keep them on) is left alone. The
+ * Python counterpart is common/videoio_env.py: opencv-python reads it only
+ * when cv2 is imported.
+ */
+inline void defaultMsmfHwTransformsOff() {
+    const char* kName = "OPENCV_VIDEOIO_MSMF_ENABLE_HW_TRANSFORMS";
+    if (std::getenv(kName) == nullptr) _putenv_s(kName, "0");
+}
+#endif
+
 /**
  * @brief Open camera @p cameraIndex, transparently supporting the Raspberry Pi camera.
  *
  * Off a Raspberry Pi this is cv::VideoCapture::open(index) (USB webcams,
- * capture cards). On a Raspberry Pi the backend follows the V4L2 node, so a
- * CSI raw node is never probed with the wrong backend:
+ * capture cards); on Windows with MSMF hardware transforms off by default
+ * (defaultMsmfHwTransformsOff). On a Raspberry Pi the backend follows the V4L2
+ * node, so a CSI raw node is never probed with the wrong backend:
  *   - CSI/ISP node, or no /dev/video<index> -> libcamerasrc GStreamer pipeline
  *   - any other node (USB webcam)           -> V4L2, then libcamera if that fails
  * @p width / @p height size the libcamera stream (0: 1280x720); on the V4L2
@@ -289,6 +309,7 @@ inline bool openCameraCapture(cv::VideoCapture& video, int cameraIndex,
 #ifdef _WIN32
     (void)width;
     (void)height;
+    defaultMsmfHwTransformsOff();
     video.open(cameraIndex);
     return video.isOpened();
 #else

@@ -296,7 +296,7 @@ endif()
 find_package(OpenCV REQUIRED HINTS "${{OpenCV_DIR}}")
 
 if(MSVC)
-    find_library(DXRT_LIB dxrt HINTS "${{DXRT_INSTALLED_DIR}}/lib/x64" REQUIRED)
+    find_library(DXRT_LIB dxrt HINTS "${{DXRT_INSTALLED_DIR}}/lib" "${{DXRT_INSTALLED_DIR}}/lib/x64" REQUIRED)
     set(DXRT_INCLUDE_DIR "${{DXRT_INSTALLED_DIR}}/include")
 else()
     find_package(dxrt REQUIRED HINTS "${{DXRT_INSTALLED_DIR}}")
@@ -318,6 +318,7 @@ set(DXAPP_LIBS ${{OpenCV_LIBS}} ${{DXRT_LIB}})
 
 if(MSVC)
     set(DXAPP_COMPILE_OPTIONS /W3 /MP)
+    add_compile_definitions(NOMINMAX WIN32_LEAN_AND_MEAN)
 else()
     set(DXAPP_COMPILE_OPTIONS -Wall -Wextra -O3)
 endif()
@@ -372,6 +373,8 @@ def generate_build_bat(output_file):
     """
     content = """@echo off
 setlocal
+set "VSLANG=1033"
+set "DOTNET_CLI_UI_LANGUAGE=en-US"
 
 set "BUILD_DIR=%~dp0build"
 
@@ -428,10 +431,17 @@ def generate_solution(package_dir):
         # the matching note in scripts/generate_build_bat.py::build_configure_lines).
         "-DCMAKE_SUPPRESS_REGENERATION=ON",
     ]
+    build_env = os.environ.copy()
+    if os.name == "nt":
+        # Native MSBuild/compiler diagnostics can use a different code page.
+        build_env.update(VSLANG="1033", DOTNET_CLI_UI_LANGUAGE="en-US")
     completed = subprocess.run(
         command,
         cwd=package_dir,
+        env=build_env,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         check=False,
@@ -439,26 +449,26 @@ def generate_solution(package_dir):
 
     if completed.returncode != 0:
         print(
-            "[DXAPP] [WARN] Failed to generate Visual Studio .sln with CMake.",
+            "[DXAPP] [ERROR] Failed to generate Visual Studio .sln with CMake.",
             file=sys.stderr,
         )
-        output = (completed.stdout + "\n" + completed.stderr).strip()
+        output = ((completed.stdout or "") + "\n" + (completed.stderr or "")).strip()
         if output:
             for line in output.splitlines()[-20:]:
-                print(f"[DXAPP] [WARN]   {line}", file=sys.stderr)
+                print(f"[DXAPP] [ERROR]   {line}", file=sys.stderr)
         print(
-            f"[DXAPP] [WARN] Retry manually: cmake -S \"{package_dir}\" -B \"{build_dir}\" -G \"{VS_GENERATOR}\" -A {VS_ARCH}",
+            f"[DXAPP] [ERROR] Retry manually: cmake -S \"{package_dir}\" -B \"{build_dir}\" -G \"{VS_GENERATOR}\" -A {VS_ARCH}",
             file=sys.stderr,
         )
-        return None
+        sys.exit(1)
 
     solutions = sorted(build_dir.glob("*.sln"))
     if not solutions:
         print(
-            f"[DXAPP] [WARN] CMake configure completed, but no .sln was found in: {build_dir}",
+            f"[DXAPP] [ERROR] CMake configure completed, but no .sln was found in: {build_dir}",
             file=sys.stderr,
         )
-        return None
+        sys.exit(1)
 
     print(f"[DXAPP] [INFO] Visual Studio solution generated: {solutions[0]}", file=sys.stderr)
     return solutions[0]
@@ -479,6 +489,7 @@ This is a draft Visual Studio/CMake package skeleton. Full standalone behavior i
 
 The extractor attempts to generate a Visual Studio solution immediately with CMake. If generation succeeds, open the `.sln` file under `build/`.
 Dependency defaults are written to `cmake/dxapp_package_deps.cmake` and `cmake/dxapp_package_deps.bat`.
+On Windows, automatic solution generation and `build.bat` request English MSBuild/compiler diagnostics to avoid mixed-code-page messages. This setting is local to the build process and does not change the system language.
 
 ## Build Instructions
 
@@ -523,6 +534,30 @@ def extract_package(model_ref, output_dir, generate_sln=True):
         output_dir: Output directory for package
         generate_sln: Whether to run CMake to generate a Visual Studio .sln
     """
+    sync_cpp = model_ref.path / f"{model_ref.model}_sync.cpp"
+    if not sync_cpp.is_file():
+        print(
+            f"[DXAPP] [ERROR] Sync source not found: {sync_cpp}",
+            file=sys.stderr,
+        )
+        if model_ref.path.is_dir():
+            variants = sorted(
+                child.name
+                for child in model_ref.path.iterdir()
+                if child.is_dir() and (child / f"{child.name}_sync.cpp").is_file()
+            )
+            if variants:
+                print(
+                    "[DXAPP] [ERROR] This is a family directory. Pass a variant:",
+                    file=sys.stderr,
+                )
+                for name in variants:
+                    print(
+                        f"        {model_ref.category}/{model_ref.model}/{name}",
+                        file=sys.stderr,
+                    )
+        sys.exit(1)
+
     # Create package directory
     package_dir = output_dir / "sln" / model_ref.category / model_ref.model
     package_dir.mkdir(parents=True, exist_ok=True)
@@ -535,16 +570,7 @@ def extract_package(model_ref, output_dir, generate_sln=True):
     generate_dependency_files(package_dir / "cmake", detect_dependency_defaults())
 
     # Copy model source files
-    sync_cpp = model_ref.path / f"{model_ref.model}_sync.cpp"
     async_cpp = model_ref.path / f"{model_ref.model}_async.cpp"
-
-    # Sync source is required
-    if not sync_cpp.exists():
-        print(
-            f"[DXAPP] [ERROR] Sync source not found: {sync_cpp}",
-            file=sys.stderr,
-        )
-        sys.exit(1)
 
     copy_with_warn(
         sync_cpp,

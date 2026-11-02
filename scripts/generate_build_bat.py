@@ -306,7 +306,7 @@ def write_env_bat(dxrt_dir: Optional[str], dest: pathlib.Path) -> None:
         lines.append(f"set \"DXRT_INSTALLED_DIR={dxrt_dir}\"")
         lines.append("set \"CMAKE_PREFIX_PATH=%DEEPX_SDK_DIR%;%CMAKE_PREFIX_PATH%\"")
         lines.append("set \"DXRT_DLL_DIR=%DXRT_INSTALLED_DIR%/bin\"")
-        lines.append("set \"DXRT_LIB_DIR=%DXRT_INSTALLED_DIR%/lib/x64\"")
+        lines.append("if exist \"%DXRT_INSTALLED_DIR%\\lib\\dxrt.lib\" (set \"DXRT_LIB_DIR=%DXRT_INSTALLED_DIR%/lib\") else (set \"DXRT_LIB_DIR=%DXRT_INSTALLED_DIR%/lib/x64\")")
         lines.append("set \"DXRT_INCLUDE_DIR=%DXRT_INSTALLED_DIR%/include\"")
     else:
         lines.append("REM DEEPX_SDK_DIR not defined in CMakeSettings; nothing to export")

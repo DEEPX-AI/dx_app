@@ -720,8 +720,9 @@ def emit_sources(rows, aliases, out_dir):
     entry += ["}", "", "}  // namespace graph", "}  // namespace dxapp", ""]
     _write_if_changed(out_dir / "graph_registry_all.cpp", "\n".join(entry))
 
-    return [str(out_dir / "graph_registry_{}.cpp".format(stem)) for stem, _ in units] + \
-           [str(out_dir / "graph_registry_all.cpp")]
+    # as_posix() keeps CMake from treating Windows backslashes as escapes.
+    return [(out_dir / "graph_registry_{}.cpp".format(stem)).as_posix() for stem, _ in units] + \
+           [(out_dir / "graph_registry_all.cpp").as_posix()]
 
 
 SHAPE_NAMES = {

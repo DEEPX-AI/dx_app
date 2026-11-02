@@ -11,17 +11,34 @@
 
 #include <algorithm>
 #include <cctype>
+#include <chrono>
 #include <cmath>
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <thread>
 #include <vector>
+#ifdef _WIN32
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#define DXAPP_COMMON_UTIL_LEAN
+#endif
+#endif
 #include <opencv2/opencv.hpp>
+#ifdef DXAPP_COMMON_UTIL_LEAN
+#undef WIN32_LEAN_AND_MEAN
+#undef DXAPP_COMMON_UTIL_LEAN
+#endif
 #include <atomic>
 #include <array>
+#include <condition_variable>
 #include <cstring>
+#include <mutex>
 #include <utility>
 
 #include "common/utility/interrupt_flag.hpp"
@@ -717,6 +734,72 @@ inline bool autoDownloadVideos() {
     return ret == 0;
 }
 
+// True when the capture has no finite frame count (camera, RTSP, or a source
+// that has not published a length). A positive count is a file.
+inline bool videoCaptureLooksLive(cv::VideoCapture& video) {
+    return video.get(cv::CAP_PROP_FRAME_COUNT) <= 0.0;
+}
+
+// Read one frame. File captures use operator>> directly. Live captures read
+// on a worker so Ctrl-C can release the device while operator>> is blocked
+// (MSMF ignores CAP_PROP_READ_TIMEOUT_MSEC). The worker signals completion,
+// so a frame is returned as soon as it arrives; the 50 ms timeout only bounds
+// how late an interrupt is noticed. On an interrupt, an in-flight read gets a
+// grace period to finish: cv::VideoCapture is not thread-safe, and releasing
+// it under operator>> crashes the FFmpeg (RTSP) backend. Only a read still
+// stuck after the grace (a stalled source) is released. The worker is joined
+// before return.
+inline bool readFrameInterruptible(cv::VideoCapture& video, cv::Mat& frame) {
+    if (g_interrupted().load()) return false;
+    if (!videoCaptureLooksLive(video)) {
+        video >> frame;
+        return !frame.empty();
+    }
+
+    std::mutex readMutex;
+    std::condition_variable readCv;
+    bool readDone = false;
+    std::thread reader([&video, &frame, &readMutex, &readCv, &readDone]() {
+        try {
+            video >> frame;
+        } catch (...) {
+            frame.release();
+        }
+        {
+            std::lock_guard<std::mutex> lock(readMutex);
+            readDone = true;
+        }
+        readCv.notify_one();
+    });
+    {
+        std::unique_lock<std::mutex> lock(readMutex);
+        while (!readDone) {
+            if (g_interrupted().load()) {
+                const bool finished = readCv.wait_for(lock, std::chrono::milliseconds(1000),
+                                                      [&readDone]() { return readDone; });
+                if (!finished) {
+                    lock.unlock();
+                    video.release();
+                }
+                break;
+            }
+            readCv.wait_for(lock, std::chrono::milliseconds(50));
+        }
+    }
+    reader.join();
+    if (g_interrupted().load()) return false;
+    return !frame.empty();
+}
+
+// Non-zero when a stream was opened and no frame arrived, and the user did
+// not interrupt. Image mode and a graceful Ctrl-C stay at 0.
+inline int emptyStreamStatus(bool isImage, int framesRead) {
+    if (isImage || framesRead > 0 || g_interrupted().load()) return 0;
+    std::cerr << "[DXAPP] [ERROR] No frames were read from the input. "
+              << "The capture opened, but the first frame was empty." << std::endl;
+    return 1;
+}
+
 /**
  * @brief Derive the example key from argv[0] by stripping the variant suffix.
  *
@@ -726,7 +809,16 @@ inline bool autoDownloadVideos() {
  * legacy "model_name" (yolov8n).
  */
 inline std::string exampleKeyFromArgv0(const std::string& argv0) {
+    // Drop only a trailing .exe (Windows argv[0]). stem() would also cut
+    // variant names at their dots: regnet-x3.2gf_224x224 -> regnet-x3.
     std::string name = fs::path(argv0).filename().string();
+    const std::string exe = ".exe";
+    if (name.size() > exe.size()) {
+        std::string tail = name.substr(name.size() - exe.size());
+        std::transform(tail.begin(), tail.end(), tail.begin(),
+                       [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+        if (tail == exe) name.erase(name.size() - exe.size());
+    }
     const char* suffixes[] = {"_async_cpp_postprocess", "_sync_cpp_postprocess",
                               "_cpp_postprocess", "_async", "_sync"};
     for (const char* suf : suffixes) {
@@ -883,14 +975,30 @@ inline std::string resolveDefaultModelPath(const std::string& argv0) {
  * @param modelPath in/out — filled with the resolved default when `-m` omitted.
  * @param argv0     program path (argv[0]) used to resolve the default.
  */
+inline const char* modelDownloadCommandPrefix() {
+#ifdef _WIN32
+    return "python scripts\\download_models.py --models ";
+#else
+    return "python3 scripts/download_models.py --models ";
+#endif
+}
+
+inline const char* demoLauncherHint() {
+#ifdef _WIN32
+    return "run_demo.bat  (auto-downloads demo models)";
+#else
+    return "./run_demo.sh  (auto-downloads demo models)";
+#endif
+}
+
 inline void resolveAndValidateModel(std::string& modelPath, const std::string& argv0) {
     if (modelPath.empty()) {
         ExampleModelRef ref = resolveExampleModel(argv0);
         if (ref.path.empty()) {
             std::string key = exampleKeyFromArgv0(argv0);
-            fatal_error("[DXAPP] [ERROR] Model path is required. Use -m or --model_path option.\n"
-                "        -> Download:  python3 scripts/download_models.py --models " + key + "\n"
-                "        -> Or use:    ./run_demo.sh  (auto-downloads demo models)\n"
+            fatal_error(std::string("[DXAPP] [ERROR] Model path is required. Use -m or --model_path option.\n"
+                "        -> Download:  ") + modelDownloadCommandPrefix() + key + "\n"
+                "        -> Or use:    " + demoLauncherHint() + "\n"
                 "Use -h or --help for usage information.");
         }
         modelPath = ref.path;
@@ -900,9 +1008,9 @@ inline void resolveAndValidateModel(std::string& modelPath, const std::string& a
             std::string selector = ref.modelName.empty()
                 ? fs::path(modelPath).stem().string() : ref.modelName;
             if (!autoDownloadModel(modelPath, selector)) {
-                fatal_error("[DXAPP] [ERROR] Model file not found: " + modelPath + "\n"
-                    "        -> Download:  python3 scripts/download_models.py --models " + selector + "\n"
-                    "        -> Or use:    ./run_demo.sh  (auto-downloads demo models)");
+                fatal_error(std::string("[DXAPP] [ERROR] Model file not found: ") + modelPath + "\n"
+                    "        -> Download:  " + modelDownloadCommandPrefix() + selector + "\n"
+                    "        -> Or use:    " + demoLauncherHint());
             }
             std::cout << "[DXAPP] [INFO] Model downloaded successfully: " << modelPath << std::endl;
         }
@@ -910,9 +1018,9 @@ inline void resolveAndValidateModel(std::string& modelPath, const std::string& a
     }
     // Explicit -m: no auto-download — a wrong path is a user error.
     if (!fileExists(modelPath)) {
-        fatal_error("[DXAPP] [ERROR] Model file not found: " + modelPath + "\n"
+        fatal_error(std::string("[DXAPP] [ERROR] Model file not found: ") + modelPath + "\n"
             "        -> Check the path, or omit -m to use this example's default model.\n"
-            "        -> Download:  python3 scripts/download_models.py --models " + fs::path(modelPath).stem().string());
+            "        -> Download:  " + modelDownloadCommandPrefix() + fs::path(modelPath).stem().string());
     }
 }
 

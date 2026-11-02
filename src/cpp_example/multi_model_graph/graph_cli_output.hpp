@@ -20,8 +20,9 @@
  *    the disk is full. Main refuses that as a usage error before
  *    PrepareGraph, so no model is loaded and no device is opened to find
  *    out, and the answer does not depend on having an NPU, a camera or a
- *    reachable RTSP server. The message offers .mkv and .avi first: a run
- *    that is killed leaves an .mp4 with no index, which nothing can read.
+ *    reachable RTSP server. The message offers .avi first, then .mkv: a run
+ *    that is killed leaves an .mp4 with no index, which nothing can read,
+ *    and the Windows build cannot write .mkv (no FFmpeg backend).
  *
  *  - An --output whose directory does not exist fails in Main, before
  *    PrepareGraph (OutputDirectoryProblem), not at the first rendered
@@ -31,7 +32,9 @@
  *  - Codecs, probed on this OpenCV (4.6.0, FFMPEG and GStreamer on): .mp4
  *    and .mkv -> mp4v, .avi -> MJPG. All three open, write and read back
  *    every frame. avc1 also works here, but it depends on the H.264 encoder
- *    the FFMPEG build has; mp4v and MJPG are in every FFMPEG build.
+ *    the FFMPEG build has; mp4v and MJPG are in every FFMPEG build. The
+ *    Windows build has no FFMPEG: Media Foundation writes .mp4, OpenCV's
+ *    built-in MJPEG writer writes .avi, and nothing writes .mkv.
  *
  *  - fps: the source's when it is finite and within [1, 240], else 30.
  *    Cameras and images report 0, and RTSP streams often report the 90 kHz
@@ -285,7 +288,7 @@ inline std::string OutputProblem(const std::string& output, const std::string& u
     }
     return "--output " + output + " writes one image per frame, and \"" + uri +
            "\" is a live source that never ends: write a video instead (--output "
-           "<stem>.mkv, .avi or .mp4) or stop after N frames (--frames N)";
+           "<stem>.avi, .mkv or .mp4) or stop after N frames (--frames N)";
 }
 
 /// .avi: MJPG. .mp4, .mkv: mp4v.

@@ -5,6 +5,7 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -161,6 +162,21 @@ def test_resolve_basename_rejects_ambiguous_model(capsys):
     assert "category_b/same_model" in captured.err
 
 
+def test_family_path_exits_nonzero_and_lists_variants():
+    """A task/family path has no sync source. The process must fail closed."""
+    output_dir = reset_scratch("family_path")
+    result = run_extract(
+        "object_detection/damoyolo",
+        "--output-dir",
+        str(output_dir),
+        "--no-generate-sln",
+    )
+    assert result.returncode == 1
+    assert "Sync source not found:" in result.stderr
+    assert "object_detection/damoyolo/damoyolo-l_640x640" in result.stderr
+    assert not (output_dir / "sln").exists()
+
+
 def test_extract_package_requires_sync_source(capsys):
     """Extract package must fail if sync source is missing."""
     module = load_module()
@@ -175,13 +191,15 @@ def test_extract_package_requires_sync_source(capsys):
     # Create output directory
     output_dir = reset_scratch("missing_sync_output")
     
-    # Call extract_package - should exit with error
-    with pytest.raises(SystemExit):
+    # Call extract_package - should exit with error and leave no package tree.
+    with pytest.raises(SystemExit) as raised:
         module.extract_package(ref, output_dir)
-    
+    assert raised.value.code == 1
+
     captured = capsys.readouterr()
     assert "[DXAPP] [ERROR] Sync source not found:" in captured.err
     assert "nosync_sync.cpp" in captured.err
+    assert not (output_dir / "sln").exists()
 
 
 def test_resolve_model_rejects_path_traversal(capsys):
@@ -232,3 +250,45 @@ def test_generate_solution_uses_cmake_and_returns_sln(monkeypatch):
     monkeypatch.setattr(module.subprocess, "run", fake_run)
 
     assert module.generate_solution(package_dir) == build_dir / "dxapp_resnet50_sln_package.sln"
+
+
+@pytest.mark.parametrize("platform", ["nt", "posix"])
+def test_generate_solution_scopes_english_diagnostics_to_windows_child(
+    monkeypatch, tmp_path, capsys, platform
+):
+    module = load_module()
+    parent_env = {"VSLANG": "1042", "DOTNET_CLI_UI_LANGUAGE": "ko-KR", "PATH": "test-path"}
+    monkeypatch.setattr(module, "os", SimpleNamespace(name=platform, environ=parent_env))
+    monkeypatch.setattr(module.shutil, "which", lambda name: "cmake")
+
+    def fake_run(command, **kwargs):
+        child_env = kwargs.get("env", parent_env)
+        if platform == "nt":
+            assert child_env["VSLANG"] == "1033"
+            assert child_env["DOTNET_CLI_UI_LANGUAGE"] == "en-US"
+            assert child_env["PATH"] == "test-path"
+        else:
+            assert child_env == parent_env
+        assert kwargs["encoding"] == "utf-8"
+        assert kwargs["errors"] == "replace"
+        return subprocess.CompletedProcess(
+            command, 1, "", "error C1083: Cannot open include file: 'missing.hpp'"
+        )
+
+    monkeypatch.setattr(module.subprocess, "run", fake_run)
+    with pytest.raises(SystemExit) as raised:
+        module.generate_solution(tmp_path)
+    assert raised.value.code == 1
+    assert "Cannot open include file" in capsys.readouterr().err
+    assert parent_env["VSLANG"] == "1042"
+    assert parent_env["DOTNET_CLI_UI_LANGUAGE"] == "ko-KR"
+
+
+def test_generated_build_bat_uses_local_english_diagnostics(tmp_path):
+    module = load_module()
+    output = tmp_path / "build.bat"
+    module.generate_build_bat(output)
+    content = output.read_text(encoding="utf-8")
+    assert content.index("setlocal") < content.index('set "VSLANG=1033"')
+    assert content.index('set "VSLANG=1033"') < content.index("cmake -S")
+    assert content.index('set "DOTNET_CLI_UI_LANGUAGE=en-US"') < content.index("cmake -S")

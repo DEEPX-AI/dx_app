@@ -24,6 +24,7 @@
 #include <cerrno>
 #include <chrono>
 #include <cmath>
+#include <condition_variable>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -1593,7 +1594,7 @@ void TestOrderedQueueDeliversShuffledPushesInTicketOrder() {
     // within windows of 8: a plain FIFO would deliver them out of order.
     std::vector<std::thread> producers;
     for (int t = 0; t < 4; ++t) {
-        producers.emplace_back([&q, &tickets, t]() {
+        producers.emplace_back([&q, &tickets, t, kFrames]() {
             std::mt19937 rng(1234u + static_cast<unsigned>(t));
             std::vector<std::uint64_t> mine;
             for (int i = t; i < kFrames; i += 4) mine.push_back(tickets[i]);
@@ -2355,6 +2356,33 @@ void TestModelConfigAgreesWithAJsonParserOnEveryShippedConfig() {
     COMMON_CHECK(files == variant_files);
 }
 
+// Variant names carry dots (regnet-x3.2gf, shufflenetv2-x0.5, ..._v6.1).
+// stem() cut them at the last one, so on Linux 28 variants looked up
+// "regnet-x3" and found no default model.
+void TestExampleKeyKeepsTheDotsInAVariantName() {
+    COMMON_CHECK(dxapp::exampleKeyFromArgv0("bin/regnet-x3.2gf_224x224_sync") ==
+                 "regnet-x3.2gf_224x224");
+    COMMON_CHECK(dxapp::exampleKeyFromArgv0("./shufflenetv2-x0.5_224x224_async") ==
+                 "shufflenetv2-x0.5_224x224");
+    COMMON_CHECK(dxapp::exampleKeyFromArgv0(
+                     "bin/yolov5-n6_1280x1280_v6.1_async_cpp_postprocess") ==
+                 "yolov5-n6_1280x1280_v6.1");
+    COMMON_CHECK(dxapp::exampleKeyFromArgv0("bin/yolov8-n_640x640_sync") ==
+                 "yolov8-n_640x640");
+}
+
+// Windows argv[0] ends in .exe (any case), or has none when typed bare.
+void TestExampleKeyDropsOnlyATrailingExe() {
+    COMMON_CHECK(dxapp::exampleKeyFromArgv0("bin/regnet-x3.2gf_224x224_sync.exe") ==
+                 "regnet-x3.2gf_224x224");
+    COMMON_CHECK(dxapp::exampleKeyFromArgv0("bin/regnet-x3.2gf_224x224_sync.EXE") ==
+                 "regnet-x3.2gf_224x224");
+    COMMON_CHECK(dxapp::exampleKeyFromArgv0("yolov8-n_640x640_async.exe") ==
+                 "yolov8-n_640x640");
+    COMMON_CHECK(dxapp::exampleKeyFromArgv0("regnet-x3.2gf_224x224_sync") ==
+                 "regnet-x3.2gf_224x224");
+}
+
 // =====================================================================
 // Camera capture: USB webcam + Raspberry Pi CSI camera (utility/camera.hpp)
 // =====================================================================
@@ -2438,6 +2466,160 @@ void TestCameraOffAPiOpensLikeVideoCapture() {
     cv::VideoCapture video;
     COMMON_CHECK(!dxapp::openCameraCapture(video, 9999));
     COMMON_CHECK(!video.isOpened());
+}
+
+// =====================================================================
+// Windows: openCameraCapture opens with MSMF hardware transforms off unless
+// the user set OPENCV_VIDEOIO_MSMF_ENABLE_HW_TRANSFORMS. With them on, a USB
+// webcam took about 7 s to open; off, 0.15 s at the same 30 fps.
+// =====================================================================
+
+void TestCameraOpenTurnsOffMsmfHwTransformsByDefault() {
+#ifdef _WIN32
+    const char* kName = "OPENCV_VIDEOIO_MSMF_ENABLE_HW_TRANSFORMS";
+    _putenv_s(kName, "");  // an empty value removes the variable
+    cv::VideoCapture defaulted;
+    dxapp::openCameraCapture(defaulted, 9999);
+    const char* value = std::getenv(kName);
+    COMMON_CHECK(value != nullptr && std::string(value) == "0");
+
+    _putenv_s(kName, "1");
+    cv::VideoCapture chosen;
+    dxapp::openCameraCapture(chosen, 9999);
+    value = std::getenv(kName);
+    COMMON_CHECK(value != nullptr && std::string(value) == "1");
+    _putenv_s(kName, "");
+#else
+    Skip("TestCameraOpenTurnsOffMsmfHwTransformsByDefault", "MSMF is Windows only");
+#endif
+}
+
+// =====================================================================
+// Live-source reads (camera, RTSP): readFrameInterruptible reads on a
+// worker so Ctrl-C can stop a blocked read. Waiting for that worker must
+// not add latency: a 30 fps camera read in polling steps of 50 ms ran at
+// about 15 fps on Windows.
+// =====================================================================
+
+/// A live source (no frame count) that delivers one frame every period.
+class PacedLiveCapture : public cv::VideoCapture {
+public:
+    explicit PacedLiveCapture(std::chrono::milliseconds period) : period_(period) {}
+    using cv::VideoCapture::operator>>;
+    double get(int propId) const override {
+        return propId == cv::CAP_PROP_FRAME_COUNT ? 0.0 : cv::VideoCapture::get(propId);
+    }
+    cv::VideoCapture& operator>>(cv::Mat& image) override {
+        reading_.store(true);
+        std::this_thread::sleep_for(period_);
+        image = cv::Mat(8, 8, CV_8UC3, cv::Scalar(1, 2, 3));
+        reading_.store(false);
+        return *this;
+    }
+    // Counts a release() that lands while operator>> is still running: a
+    // real backend (FFmpeg over RTSP) crashes on exactly that.
+    void release() override {
+        if (reading_.load()) concurrent_releases_.fetch_add(1);
+    }
+    int concurrentReleases() const { return concurrent_releases_.load(); }
+
+private:
+    std::chrono::milliseconds period_;
+    std::atomic<bool> reading_{false};
+    std::atomic<int> concurrent_releases_{0};
+};
+
+/// A live source whose read blocks until release(), like a stalled stream.
+class StalledLiveCapture : public cv::VideoCapture {
+public:
+    using cv::VideoCapture::operator>>;
+    double get(int propId) const override {
+        return propId == cv::CAP_PROP_FRAME_COUNT ? 0.0 : cv::VideoCapture::get(propId);
+    }
+    cv::VideoCapture& operator>>(cv::Mat& image) override {
+        std::unique_lock<std::mutex> lock(mutex_);
+        released_cv_.wait(lock, [this]() { return released_; });
+        image.release();
+        return *this;
+    }
+    void release() override {
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            released_ = true;
+        }
+        released_cv_.notify_all();
+    }
+
+private:
+    std::mutex mutex_;
+    std::condition_variable released_cv_;
+    bool released_ = false;
+};
+
+void TestLiveReadReturnsAsSoonAsTheFrameArrives() {
+    dxapp::g_interrupted().store(false);
+    PacedLiveCapture video(std::chrono::milliseconds(33));
+    cv::Mat frame;
+    const int kReads = 15;
+    using Clock = std::chrono::steady_clock;
+    // Baseline: the source's own pace. sleep_for(33 ms) itself lasts 33-47 ms
+    // depending on the Windows timer resolution, so compare against it.
+    const auto direct_start = Clock::now();
+    for (int i = 0; i < kReads; ++i) video >> frame;
+    const double direct_ms =
+        std::chrono::duration<double, std::milli>(Clock::now() - direct_start).count() / kReads;
+    int delivered = 0;
+    const auto start = Clock::now();
+    for (int i = 0; i < kReads; ++i) {
+        if (dxapp::readFrameInterruptible(video, frame)) ++delivered;
+    }
+    const double average_ms =
+        std::chrono::duration<double, std::milli>(Clock::now() - start).count() / kReads;
+    COMMON_CHECK(delivered == kReads);
+    // Only the worker thread's start may be added; polling in 50 ms steps
+    // added 15+ ms per frame (a 30 fps camera read at about 15 fps).
+    COMMON_CHECK(average_ms - direct_ms < 10.0);
+    if (average_ms - direct_ms >= 10.0) {
+        std::printf("  live read %.1f ms vs source %.1f ms per frame\n", average_ms, direct_ms);
+    }
+}
+
+void TestLiveReadInterruptLetsAnInFlightReadFinish() {
+    // A slow but healthy source (300 ms per frame, e.g. a 3-4 fps RTSP
+    // stream): Ctrl-C at 100 ms must wait for the read, not release the
+    // capture under it.
+    dxapp::g_interrupted().store(false);
+    PacedLiveCapture video(std::chrono::milliseconds(300));
+    cv::Mat frame;
+    std::thread interrupter([]() {
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        dxapp::g_interrupted().store(true);
+    });
+    const bool got = dxapp::readFrameInterruptible(video, frame);
+    interrupter.join();
+    dxapp::g_interrupted().store(false);
+    COMMON_CHECK(!got);
+    COMMON_CHECK(video.concurrentReleases() == 0);
+}
+
+void TestLiveReadStopsWhenInterruptedWhileBlocked() {
+    dxapp::g_interrupted().store(false);
+    StalledLiveCapture video;
+    cv::Mat frame;
+    std::thread interrupter([]() {
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        dxapp::g_interrupted().store(true);
+    });
+    const auto start = std::chrono::steady_clock::now();
+    const bool got = dxapp::readFrameInterruptible(video, frame);
+    const double elapsed_ms =
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
+    interrupter.join();
+    dxapp::g_interrupted().store(false);
+    COMMON_CHECK(!got);
+    // Interrupted at 100 ms, then a bounded grace for the read to finish
+    // before the stalled capture is released: seconds, never a hang.
+    COMMON_CHECK(elapsed_ms < 2000.0);
 }
 
 // =====================================================================
@@ -2779,6 +2961,9 @@ int main() {
     TestRetrievalThumbnailsResolveAgainstTheRepository();
     TestLoadOptionalConfigWarnsOnAnUnreadableFile();
 
+    TestExampleKeyKeepsTheDotsInAVariantName();
+    TestExampleKeyDropsOnlyATrailingExe();
+
     TestCameraRaspberryPiModelString();
     TestCameraCsiNodeNames();
     TestCameraLibcameraIdComesFromTheCameraList();
@@ -2786,6 +2971,10 @@ int main() {
     TestCameraGStreamerFromBuildInformation();
     TestCameraListingNeedsTheToolToFinish();
     TestCameraOffAPiOpensLikeVideoCapture();
+    TestCameraOpenTurnsOffMsmfHwTransformsByDefault();
+    TestLiveReadReturnsAsSoonAsTheFrameArrives();
+    TestLiveReadInterruptLetsAnInFlightReadFinish();
+    TestLiveReadStopsWhenInterruptedWhileBlocked();
 
     TestHandLandmarkKeypointsCarryPresenceNotDepth();
     TestHandLandmarkKeypointsWithoutPresenceAreFullyConfident();
