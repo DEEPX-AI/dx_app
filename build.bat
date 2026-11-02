@@ -49,6 +49,12 @@ if defined PYTHON_PATH (
     goto :python_verify
 )
 
+REM 1a-2) Active virtual environment (VIRTUAL_ENV set by activate)
+if defined VIRTUAL_ENV if exist "%VIRTUAL_ENV%\Scripts\python.exe" (
+    set "PYTHON_EXE=%VIRTUAL_ENV%\Scripts\python.exe"
+    goto :python_verify
+)
+
 REM 1b) Project venv
 if exist "%PROJECT_ROOT%venv\Scripts\python.exe" (
     set "PYTHON_EXE=%PROJECT_ROOT%venv\Scripts\python.exe"
