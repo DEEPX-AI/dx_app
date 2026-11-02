@@ -27,9 +27,9 @@ find_package(PkgConfig REQUIRED)
 
 # Find dxrt library
 if(MSVC)
-    find_library(DXRT_LIB dxrt HINTS ${DXRT_INSTALLED_DIR}/lib/x64 REQUIRED)
+    find_library(DXRT_LIB dxrt HINTS ${DXRT_INSTALLED_DIR}/lib ${DXRT_INSTALLED_DIR}/lib/x64 REQUIRED)
     include_directories(${DXRT_INSTALLED_DIR}/include)
-    link_directories(${DXRT_INSTALLED_DIR}/lib/x64)
+    link_directories(${DXRT_INSTALLED_DIR}/lib ${DXRT_INSTALLED_DIR}/lib/x64)
 elseif(CROSS_COMPILE)
     find_library(DXRT_LIB dxrt HINTS ${DXRT_INSTALLED_DIR}/lib)
     include_directories(${DXRT_INSTALLED_DIR}/include)
@@ -574,9 +574,15 @@ get_property(ALL_TARGETS DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY BUILDSYS
 set(INSTALL_TARGETS)
 foreach(_TARGET ${ALL_TARGETS})
     get_target_property(_TARGET_TYPE ${_TARGET} TYPE)
-    if(NOT _TARGET_TYPE STREQUAL "UTILITY")
-        list(APPEND INSTALL_TARGETS ${_TARGET})
+    if(_TARGET_TYPE STREQUAL "UTILITY")
+        continue()
     endif()
+    # Unit-test binaries are built for pytest. They are not user CLIs and do not
+    # implement --help, so they stay out of the installed bin/ directory.
+    if(_TARGET STREQUAL "common_unit_test" OR _TARGET STREQUAL "graph_engine_test")
+        continue()
+    endif()
+    list(APPEND INSTALL_TARGETS ${_TARGET})
 endforeach()
 
 install(TARGETS ${INSTALL_TARGETS} RUNTIME DESTINATION bin)

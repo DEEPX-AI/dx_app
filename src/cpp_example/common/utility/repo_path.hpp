@@ -65,7 +65,7 @@ inline std::string FindMarkedRoot(std::string dir) {
     return std::string();
 }
 
-/// The running program's directory; "" where it cannot be told (not Linux).
+/// The running program's directory; "" where it cannot be told (not Linux or Windows).
 inline std::string ExecutableDir() {
 #if defined(__linux__)
     char buffer[4096];
@@ -73,6 +73,13 @@ inline std::string ExecutableDir() {
     if (length <= 0) return std::string();
     const std::string path(buffer, static_cast<std::size_t>(length));
     const std::string::size_type slash = path.find_last_of('/');
+    if (slash == std::string::npos) return std::string();
+    return slash == 0 ? std::string("/") : path.substr(0, slash);
+#elif defined(_WIN32)
+    char* program = NULL;
+    if (::_get_pgmptr(&program) != 0 || program == NULL) return std::string();
+    const std::string path(program);
+    const std::string::size_type slash = path.find_last_of("/\\");
     if (slash == std::string::npos) return std::string();
     return slash == 0 ? std::string("/") : path.substr(0, slash);
 #else

@@ -249,7 +249,7 @@ _DXAPP_OPEN = re.compile(r"\bnamespace\s+dxapp\s*\{")
 _DXAPP_OPEN_LINE = re.compile(r"namespace dxapp \{[ \t]*")
 _DXAPP_CLOSE_LINE = re.compile(r"\}[ \t]*//[ \t]*namespace[ \t]+dxapp[ \t]*")
 _ANY_VARIANT_NS_OPEN = re.compile(r"namespace (v_\w+) \{")
-_GUARD = re.compile(r"^#ifndef[ \t]+(\w+)[ \t]*\n#define[ \t]+\1\b", re.M)
+_GUARD = re.compile(r"^#ifndef[ \t]+(\w+)[ \t]*\r?\n#define[ \t]+\1\b", re.M)
 _FACTORY_CLASS = re.compile(r"\bclass\s+(\w*Factory)\b\s*[:{]")
 # A quote right after a hex digit is a C++14 digit separator (1'000, 0xFF'FF), not the
 # start of a character literal; an L/u/U prefix is not a hex digit and still opens one.
@@ -432,8 +432,9 @@ def _scope_header(text: str, ns: str, guard: str | None, rel: str):
     """
     refusals: list[str] = []
     problems: list[str] = []
-    code_lines = _code_only(text).split("\n")
-    raw_lines = text.split("\n")
+    # rstrip CR so a Windows checkout still matches the LF close-line pattern.
+    code_lines = [line.rstrip("\r") for line in _code_only(text).split("\n")]
+    raw_lines = [line.rstrip("\r") for line in text.split("\n")]
     opens = [i for i, l in enumerate(code_lines) if _DXAPP_OPEN.search(l)]
     closes = [i for i, l in enumerate(raw_lines) if _DXAPP_CLOSE_LINE.fullmatch(l)]
     shape = None

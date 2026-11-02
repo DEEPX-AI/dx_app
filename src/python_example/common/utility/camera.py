@@ -4,7 +4,9 @@ Open a camera by index: USB webcams and the Raspberry Pi CSI camera.
 On current Raspberry Pi OS the CSI camera is managed by libcamera, not the
 legacy V4L2 capture interface, so OpenCV has to read it through the
 libcamerasrc GStreamer element. open_camera_capture() takes that path on a
-Raspberry Pi and is plain cv2.VideoCapture(index) everywhere else.
+Raspberry Pi and is plain cv2.VideoCapture(index) everywhere else. Windows'
+MSMF hardware-transform default is set in common/videoio_env.py: opencv-python
+reads it once, when cv2 is imported, so it cannot be set here at open time.
 
 Mirrors src/cpp_example/common/utility/camera.hpp - keep the two in sync.
 """

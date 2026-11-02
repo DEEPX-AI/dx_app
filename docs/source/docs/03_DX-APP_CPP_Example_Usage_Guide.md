@@ -140,6 +140,7 @@ All C++ examples use `cxxopts` for argument parsing and share a consistent inter
 
 - **Input source:** `--image_path`, `--video_path`, `--camera_index`, and `--rtsp_url` form a mutually exclusive group. If none is specified, a **default sample image** is automatically selected based on the task type.
 - **Raspberry Pi camera:** on a Raspberry Pi, `--camera_index N` opens the CSI camera through a libcamera GStreamer pipeline (`libcamerasrc`) and camera `N` is camera `N` of `rpicam-hello --list-cameras`; a USB webcam node keeps the V4L2 path. `install.sh` installs `gstreamer1.0-libcamera` when it detects a Pi camera.
+- **Windows camera:** `--camera_index N` opens the camera with OpenCV's MSMF hardware transforms off (`OPENCV_VIDEOIO_MSMF_ENABLE_HW_TRANSFORMS=0`): with them on, a USB webcam takes about 7 s to open; off, about 0.15 s at the same frame rate. To keep them on, set `OPENCV_VIDEOIO_MSMF_ENABLE_HW_TRANSFORMS=1` before running; a value you set is not changed.
 
 !!! note "NOTE"
     **Image-only tasks:** 11 tasks accept `--image_path` input only; `--video_path`, `--camera_index` and `--rtsp_url`
@@ -195,7 +196,7 @@ Async runners get results back from dxrt's completion threads in any order. Each
 
 **Output Management (`--save`)**  
 
-When `--save` is enabled, a timestamped directory is created (e.g., `artifacts/cpp_example/{model}_sync-image-{name}-{timestamp}/`, `_async` for async binaries) containing `run_info.txt`, saved images/video, and optional tensor dumps.
+When `--save` is enabled, a timestamped directory is created (e.g., `artifacts/cpp_example/{model}_sync-image-{name}-{timestamp}/`, `_async` for async binaries) containing `run_info.txt`, saved images/video, and optional tensor dumps. A video is saved as `output.mp4` (H.264, else MPEG-4); a PC with neither encoder, such as Windows N/KN editions, gets `output.avi` (MJPG) instead.
 
 **Configuration Management (`--config`)**  
 

@@ -18,7 +18,7 @@ if(MSVC)
     message(STATUS "DXRT_INSTALLED_DIR: ${DXRT_INSTALLED_DIR}")
 
     # Locate DXRT headers and library
-    find_library(DXRT_LIB dxrt HINTS ${DXRT_INSTALLED_DIR}/lib/x64 REQUIRED)
+    find_library(DXRT_LIB dxrt HINTS ${DXRT_INSTALLED_DIR}/lib ${DXRT_INSTALLED_DIR}/lib/x64 REQUIRED)
 else()
     find_library(DXRT_LIB dxrt REQUIRED)
 endif()
@@ -97,7 +97,7 @@ set(INCLUDE_DIRS
     "${PROJECT_ROOT}/src/postprocess/centerpose"
     "${PROJECT_ROOT}/src/postprocess/anomaly"
     "${PROJECT_ROOT}/src/postprocess/rtdetr"
-    "${PROJECT_ROOT}/src/postprocess/preopt"
+    "${PROJECT_ROOT}/src/postprocess/preopt_topk"
     "${PROJECT_ROOT}/src/postprocess/picodet"
     "${PROJECT_ROOT}/src/postprocess/ppmatting"
     "${PROJECT_ROOT}/src/postprocess/clip_text"

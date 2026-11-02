@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import json
 import subprocess
 import sys
 from pathlib import Path
+from urllib.parse import urlparse
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -25,13 +27,17 @@ def _demo_model_count() -> int:
     return len(DEMOS)
 
 
-def test_download_models_demo_models_filters_to_run_demo_models():
+def test_download_models_demo_models_filters_to_run_demo_models(tmp_path):
+    # Filtered manifest from the same dry run; the printed list uses manifest names.
+    selected_manifest = tmp_path / "demo-models.json"
     result = run_command(
         sys.executable,
         "scripts/download_models.py",
         "--demo-models",
         "--dry-run",
         "--no-json",
+        "--save-manifest",
+        str(selected_manifest),
     )
 
     combined = result.stdout + result.stderr

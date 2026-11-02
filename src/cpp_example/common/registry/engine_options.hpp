@@ -27,7 +27,7 @@ namespace dxapp {
 namespace graph {
 namespace detail {
 
-/// The I/O buffer count for an engine opened on this thread now; 0 = DX-RT's
+/// The I/O buffer count for an engine opened on this thread now; 0 = DX-RT's default.
 inline int& EngineBuffersSlot() {
     static thread_local int buffers = 0;
     return buffers;

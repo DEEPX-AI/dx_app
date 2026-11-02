@@ -186,11 +186,11 @@ inline std::string frameDumpDir(const std::string& baseDumpDir,
 }
 
 // ---------------------------------------------------------------
-// VideoWriter with mp4v → XVID fallback
+// VideoWriter with avc1 → mp4v → MJPG fallback
 // ---------------------------------------------------------------
 
 /**
- * @brief Open a VideoWriter trying mp4v first, then XVID/AVI fallback.
+ * @brief Open a VideoWriter trying avc1/mp4v first, then MJPG/AVI fallback.
  * @param saveDir   Directory to place the output file
  * @param fps       Frames per second
  * @param frameSize Output frame size
@@ -207,37 +207,58 @@ inline cv::VideoWriter initVideoWriter(const std::string& saveDir,
     std::string mp4Path = saveDir + "/output.mp4";
     cv::VideoWriter writer;
 
-    // Try H.264 (avc1) first — universally playable on all modern players/OS
-    writer.open(mp4Path, cv::VideoWriter::fourcc('a', 'v', 'c', '1'),
-                useFps, frameSize);
-    if (writer.isOpened()) {
-        resolvedPath = fs::absolute(mp4Path).string();
-        std::cout << "[DXAPP] [INFO] Saving output video: " << resolvedPath << std::endl;
-        return writer;
-    }
-    writer.release();
+#ifdef _WIN32
+    // The Media Foundation H.264 encoder (the only mp4 path without FFmpeg; it
+    // also serves mp4v) needs even dimensions. With an odd width/height it may
+    // open and accept frames, then hang forever in release() and leave an
+    // empty output.mp4 (seen at 641x361, 640x361, 1281x721) — go to MJPG.
+    const bool tryMp4 = frameSize.width % 2 == 0 && frameSize.height % 2 == 0;
+    if (!tryMp4)
+        std::cerr << "[DXAPP] [WARN] odd frame size " << frameSize.width << "x"
+                  << frameSize.height << " is not supported by the H.264 encoder" << std::endl;
+#else
+    const bool tryMp4 = true;
+#endif
 
-    // Fallback: mp4v (MPEG-4 Part 2) — requires codec pack on some systems
-    std::cerr << "[DXAPP] [WARN] avc1 codec failed, retrying with mp4v..." << std::endl;
-    writer.open(mp4Path, cv::VideoWriter::fourcc('m', 'p', '4', 'v'),
-                useFps, frameSize);
-    if (writer.isOpened()) {
-        resolvedPath = fs::absolute(mp4Path).string();
-        std::cout << "[DXAPP] [INFO] Saving output video: " << resolvedPath
-                  << " (mp4v fallback)" << std::endl;
-        return writer;
-    }
-    writer.release();
+    if (tryMp4) {
+        // Try H.264 (avc1) first — universally playable on all modern players/OS
+        writer.open(mp4Path, cv::VideoWriter::fourcc('a', 'v', 'c', '1'),
+                    useFps, frameSize);
+        if (writer.isOpened()) {
+            resolvedPath = fs::absolute(mp4Path).string();
+            std::cout << "[DXAPP] [INFO] Saving output video: " << resolvedPath << std::endl;
+            return writer;
+        }
+        writer.release();
 
-    // Fallback: XVID/AVI
-    std::cerr << "[DXAPP] [WARN] mp4v codec failed, retrying with XVID/AVI..." << std::endl;
+        // Fallback: mp4v (MPEG-4 Part 2) — requires codec pack on some systems
+        std::cerr << "[DXAPP] [WARN] avc1 codec failed, retrying with mp4v..." << std::endl;
+        writer.open(mp4Path, cv::VideoWriter::fourcc('m', 'p', '4', 'v'),
+                    useFps, frameSize);
+        if (writer.isOpened()) {
+            resolvedPath = fs::absolute(mp4Path).string();
+            std::cout << "[DXAPP] [INFO] Saving output video: " << resolvedPath
+                      << " (mp4v fallback)" << std::endl;
+            return writer;
+        }
+        writer.release();
+    }
+
+    // Fallback: MJPG/AVI — OpenCV's built-in MJPEG writer, so it works without
+    // FFmpeg and without a Media Foundation H.264 encoder (e.g. Windows N/KN).
+    // XVID would need FFmpeg, which the Windows build no longer ships.
+    std::cerr << "[DXAPP] [WARN] " << (tryMp4 ? "mp4v codec failed, retrying" : "saving")
+              << " with MJPG/AVI..." << std::endl;
+    // The failed MSMF attempts can leave an empty output.mp4 behind.
+    std::error_code ec;
+    if (fs::exists(mp4Path, ec) && fs::file_size(mp4Path, ec) == 0) fs::remove(mp4Path, ec);
     std::string aviPath = saveDir + "/output.avi";
-    writer.open(aviPath, cv::VideoWriter::fourcc('X', 'V', 'I', 'D'),
+    writer.open(aviPath, cv::VideoWriter::fourcc('M', 'J', 'P', 'G'),
                 useFps, frameSize);
     if (writer.isOpened()) {
         resolvedPath = fs::absolute(aviPath).string();
         std::cout << "[DXAPP] [INFO] Saving output video: " << resolvedPath
-                  << " (XVID fallback)" << std::endl;
+                  << " (MJPG fallback)" << std::endl;
         return writer;
     }
     writer.release();

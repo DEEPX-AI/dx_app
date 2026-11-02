@@ -93,12 +93,14 @@ python3 scripts/download_models.py --models yolov8-n_640x640 bisenetv2_1024x2048
 
 # A video instead of the graph's own input, result saved as a video
 ./bin/multi_model_graph_async --graph src/cpp_example/multi_model_graph/fanout_od_seg_pose.json \
-    --input assets/videos/dance-group.mov --output result.mkv
+    --input assets/videos/dance-group.mov --output result.mp4
 
 # A camera, shown in a window (q or ESC stops)
 ./bin/multi_model_graph_async --graph src/cpp_example/multi_model_graph/fanout_od_seg_pose.json \
     --input camera:0 --display
 ```
+
+> **Windows:** video output supports `.mp4` and `.avi` only. `.mkv` needs OpenCV's FFmpeg video backend, which the Windows build does not include, and fails with exit code 1.  
 
 Each frame prints one line with what every node found, and the run ends with a summary. The first command prints:  
 
@@ -377,11 +379,11 @@ A graph may have several source nodes. **Each source is its own stream**: the mo
 ./bin/multi_model_graph_async \
     --graph src/cpp_example/multi_model_graph/multistream_od_two_sources.json \
     --input cam1=camera:0 --input cam2=assets/videos/dance-group.mov \
-    --output run.mkv --frames 300
+    --output run.avi --frames 300
 ```
 
 - `--input <source_id>=<uri>` replaces one source's `uri`. A graph with several sources needs the `<source_id>=` form.  
-- `--output run.mkv` writes one video per stream: `run_cam1.mkv`, `run_cam2.mkv`.  
+- `--output run.avi` writes one video per stream: `run_cam1.avi`, `run_cam2.avi`.  
 - `--display` shows one window with a grid of the streams, each labelled with its source id.  
 - `--frames N` stops after N frames of each stream.  
 - With several sources, every frame in `--report` and every event names its `stream`.  
@@ -394,7 +396,7 @@ A graph may have several source nodes. **Each source is its own stream**: the mo
 |--------|---------|-------------|
 | `--graph <file>` | - | The graph to run |
 | `--input [<source>=]<uri>` | each source's `uri` | An image, a video, `camera:<N>` or `rtsp://...`. Repeat once per source |
-| `--output <file>` | none | The rendered result. `.mp4`, `.avi` or `.mkv`: a video. Other extensions: images (`<stem>_<index><ext>` for each frame of a video). A camera or RTSP source with image output needs `--frames N` |
+| `--output <file>` | none | The rendered result. `.mp4`, `.avi` or `.mkv`: a video (on Windows, `.mp4` or `.avi` only; `.mkv` fails with exit code 1). Other extensions: images (`<stem>_<index><ext>` for each frame of a video). A camera or RTSP source with image output needs `--frames N` |
 | `--display` | off | Show each frame in a window; `q` or ESC stops the run. Needs a desktop session |
 | `--draw <id,...>` | every node | Draw only these nodes; every node still runs and reports |
 | `--report <file>` | none | Every frame's results as JSON |
@@ -415,7 +417,7 @@ A graph may have several source nodes. **Each source is its own stream**: the mo
 
 **Exit codes**: `0` success, `1` the graph or its models cannot run, or a frame failed, `2` a usage error.  
 
-Ctrl-C (and SIGTERM) stops gracefully: the frames in flight finish and `--report` and `--output` are finalized. A second Ctrl-C more than 200 ms later ends the process at once. If a run may have to be killed, write `.mkv` or `.avi` rather than `.mp4`, which cannot be played without its closing index.  
+Ctrl-C (and SIGTERM) stops gracefully: the frames in flight finish and `--report` and `--output` are finalized. A second Ctrl-C more than 200 ms later ends the process at once. If a run may have to be killed, write `.avi` rather than `.mp4`, which cannot be played without its closing index (`.mkv` also survives a kill, but is not available on Windows).  
 
 `DXAPP_PROGRESS=1` prints a `[PROGRESS] frames=N fps=F avg_fps=A node_ms=<id>:<ms>,...` line about once a second.  
 

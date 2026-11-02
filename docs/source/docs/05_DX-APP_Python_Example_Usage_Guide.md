@@ -157,6 +157,7 @@ All Python examples use `argparse` via `common/runner/args.py` and share a consi
 | `--help` | `-h` | — | Show usage |
 
 - **Input source:** `--image`, `--video`, `--camera`, and `--rtsp` form a mutually exclusive group. If none is specified, the variant's **default sample image** (`default_image` in its `config.json`) is used; image-only examples instead print a hint to pass `--image` and exit.
+- **Windows camera:** the examples set `OPENCV_VIDEOIO_MSMF_ENABLE_HW_TRANSFORMS=0` (OpenCV's MSMF hardware transforms off) before `cv2` is imported: with them on, a USB webcam takes about 7 s to open; off, about 0.15 s at the same frame rate. To keep them on, set `OPENCV_VIDEOIO_MSMF_ENABLE_HW_TRANSFORMS=1` before running; a value you set is not changed.
 
 !!! note "NOTE"
 

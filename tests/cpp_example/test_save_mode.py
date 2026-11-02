@@ -6,7 +6,7 @@ Verifies:
   - run_info.txt metadata file generation
   - VideoWriter output (video save mode)
   - Image save output (image save mode)
-  - initVideoWriter XVID→mp4v fallback
+  - initVideoWriter avc1→mp4v→MJPG fallback
 """
 import os
 import re
@@ -302,10 +302,15 @@ class TestSaveMode:
             f"STDERR: {result.stderr[-500:]}"
         )
 
-        # Verify video output file was created (.mp4 or .mov)
-        video_files = list(save_dir.rglob("*.mp4")) + list(save_dir.rglob("*.mov"))
+        # Verify video output file was created (.mp4, .mov, or the MJPG .avi
+        # fallback on a PC without an H.264/mp4v encoder, e.g. Windows N/KN)
+        video_files = (
+            list(save_dir.rglob("*.mp4"))
+            + list(save_dir.rglob("*.avi"))
+            + list(save_dir.rglob("*.mov"))
+        )
         assert len(video_files) >= 1, (
-            f"No .mp4/.mov output file found under {save_dir}\n"
+            f"No .mp4/.avi/.mov output file found under {save_dir}\n"
             f"Contents: {list(save_dir.rglob('*'))}"
         )
 

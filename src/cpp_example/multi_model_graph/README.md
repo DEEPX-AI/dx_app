@@ -1210,9 +1210,10 @@ source" message above rather than the misspelled-id one.
 
 **Outputs.** `--output` writes one set of files per stream:
 
-* a video extension (`.mp4`, `.avi`, `.mkv`): one video per stream,
-  `<stem>_<source_id><ext>` (`--output run.mkv` writes `run_cam1.mkv` and
-  `run_cam2.mkv`), each at its own stream's frame rate and frame size;
+* a video extension (`.mp4`, `.avi`, `.mkv`; on Windows `.mp4` or `.avi`
+  only): one video per stream, `<stem>_<source_id><ext>` (`--output run.avi`
+  writes `run_cam1.avi` and `run_cam2.avi`), each at its own stream's frame
+  rate and frame size;
 * any other extension: `<stem>_<source_id>_<index><ext>` for every frame,
   `<index>` in six digits (`run_cam1_000000.png`), even from a source that is
   a single image - with several sources images are always numbered. No
@@ -1221,7 +1222,7 @@ source" message above rather than the misspelled-id one.
 The live-source refusal (image output from `camera:` or `rtsp://` without
 `--frames`) is checked for each stream's own uri, and the missing-directory
 check names the first file a stream would write:
-`could not write out/run_cam1.mkv: directory out does not exist` (exit 1).
+`could not write out/run_cam1.avi: directory out does not exist` (exit 1).
 `--display` opens one window, `multi_model_graph`, holding every stream: a
 grid with one cell per source (2 side by side, 3-4 in 2x2, more in
 ceil(sqrt(N)) columns), each cell labelled with its source id at the top
@@ -1336,7 +1337,7 @@ front end can add up `parse_model` figures itself.
 |---|---|---|
 | `--graph <file>` | — | the graph to run |
 | `--input [<source>=]<uri>` | each source node's `uri` | image, video, `camera:<N>`, `rtsp://...`. Repeatable, once per source: `<source>=` names the source node it replaces, and a graph with several sources needs it (see *Several sources: one stream each*) |
-| `--output <file>` | none | the rendered result. `.mp4`, `.avi` or `.mkv` (any letter case): one video (codec `mp4v` for `.mp4`/`.mkv`, `MJPG` for `.avi`; the source's fps when it is between 1 and 240, else 30). Any other extension, or none: images, exactly `<file>` for a single image, `<stem>_<index><ext>` for each frame of a multi-frame source. Images from a live source (`camera:`, `rtsp://`, from `--input` or the graph's `uri`) never end, so they need `--frames N`; without it the run is refused (exit 2) before any model loads. A directory that does not exist fails before any model loads too (`could not write <file>: directory <dir> does not exist`, exit 1). With several sources, one file set per stream: one video `<stem>_<source_id><ext>` each, or images `<stem>_<source_id>_<index><ext>`, always numbered; both checks apply to each stream |
+| `--output <file>` | none | the rendered result. `.mp4`, `.avi` or `.mkv` (any letter case): one video (codec `mp4v` for `.mp4`/`.mkv`, `MJPG` for `.avi`; the source's fps when it is between 1 and 240, else 30). On Windows use `.mp4` or `.avi`: `.mkv` needs OpenCV's FFmpeg video backend, which the Windows build does not include, and fails with exit 1. Any other extension, or none: images, exactly `<file>` for a single image, `<stem>_<index><ext>` for each frame of a multi-frame source. Images from a live source (`camera:`, `rtsp://`, from `--input` or the graph's `uri`) never end, so they need `--frames N`; without it the run is refused (exit 2) before any model loads. A directory that does not exist fails before any model loads too (`could not write <file>: directory <dir> does not exist`, exit 1). With several sources, one file set per stream: one video `<stem>_<source_id><ext>` each, or images `<stem>_<source_id>_<index><ext>`, always numbered; both checks apply to each stream |
 | `--display` | off | show each rendered frame in a window. `q` or ESC stops the run gracefully, as Ctrl-C does; closing the window does not stop it (the next frame reopens it). Needs a window system: with none of `DISPLAY`, `WAYLAND_DISPLAY`, `QT_QPA_PLATFORM` set it is refused (exit 2). One that is set but does not answer (`DISPLAY=:99` with no server there, `QT_QPA_PLATFORM=xcb` without `DISPLAY`) is refused the same way, before any model loads: a window is opened once in a child process first, because Qt aborts the process that cannot connect. With several sources, one window, `multi_model_graph`, a grid of the streams with each cell labelled with its source id (see *Results for front ends*); `q` or ESC stops the run |
 | `--draw <id[,id...]>` | every node | draw only these nodes, in the window, `--output` and `--output-layers`; every node still runs, prints and reports. A logic node's id draws its overlay (a zone's polygon, a line's arrow, its labels): `--draw zone` draws the zone but not its detector's boxes, `--draw od,zone` both. The events panel lists only the drawn nodes' events, so it shows when a drawn node raises one. Repeatable; ids are comma-separated. An id that is not a node of the graph, or is a source, is a usage error (exit 2) naming the graph's other nodes: `--draw: "nope" is not a node of this graph that draws; its nodes: od, seg, depth`. With `--check` or a listing it is a usage error too |
 | `--output-layers <dir>` | none | per frame, the clean source frame and each drawn node's drawing alone on a transparent RGBA PNG the size of the frame, plus `<dir>/layers.json` listing them in stacking order (see *Results for front ends*). `<dir>` is made when it does not exist (its parent must; otherwise exit 1, before any model loads). A video, camera or RTSP source needs `--frames N` (exit 2 otherwise): it writes every frame. With `--check` or a listing it is a usage error (exit 2) |
@@ -1372,7 +1373,7 @@ The live-source and `--display` refusals, word for word:
 
 ```console
 $ ./bin/multi_model_graph_async --graph g.json --input camera:0 --output out.png
---output out.png writes one image per frame, and "camera:0" is a live source that never ends: write a video instead (--output <stem>.mkv, .avi or .mp4) or stop after N frames (--frames N)
+--output out.png writes one image per frame, and "camera:0" is a live source that never ends: write a video instead (--output <stem>.avi, .mkv or .mp4) or stop after N frames (--frames N)
 $ ./bin/multi_model_graph_async --graph g.json --display      # no window system
 --display needs a window system, and neither DISPLAY nor WAYLAND_DISPLAY is set: run it in a desktop session, or save the result with --output
 $ DISPLAY=:99 ./bin/multi_model_graph_async --graph g.json --display   # nothing on :99
@@ -1402,8 +1403,8 @@ then holds every finished frame and needs its closing lines (below). A
 video is left without its closing index: an `.mp4` has no `moov` atom and
 OpenCV and most players cannot open it at all, while an `.mkv` or `.avi`
 still plays up to about the last frames written. So after the first stop
-request, let the run finish; if you may have to kill it, write `.mkv` or
-`.avi`.
+request, let the run finish; if you may have to kill it, write `.avi` (or
+`.mkv`, which is not available on Windows).
 
 ### Results for front ends
 

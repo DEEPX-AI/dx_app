@@ -15,7 +15,7 @@ namespace {
 
 bool FileExists(const std::string& path) {
     struct stat info;
-    return stat(path.c_str(), &info) == 0 && S_ISREG(info.st_mode);
+    return stat(path.c_str(), &info) == 0 && (info.st_mode & S_IFMT) == S_IFREG;
 }
 
 bool SameKeypoint(const Keypoint& a, const Keypoint& b) {

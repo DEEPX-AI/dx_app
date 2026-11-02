@@ -260,7 +260,7 @@ artifacts/cpp_example/
   {model}_sync-image-{name}-{YYYYMMDD-HHMMSS}/
     run_info.txt        # Metadata (script, model, input paths)
     output.jpg          # Saved visualization (image mode)
-    output.mp4          # Saved visualization (video mode)
+    output.mp4          # Saved visualization (video mode; output.avi (MJPG) if no mp4 encoder)
     dump_tensors/       # (if --dump-tensors) raw tensor files
 ```
 

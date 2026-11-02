@@ -78,6 +78,13 @@ def _as_row(demo: tuple) -> list[str]:
             demo[7], "full" if demo[8] else "no_py_async", "1" if demo[9] else "0"]
 
 
+def test_detection_and_classification_demo_models_are_selected(py_demos):
+    """Menu indices stay put; demos 0, 1 and 9 run YOLOv7, YOLO11-N and ResNet50."""
+    assert py_demos[0][5] == "yolov7_640x640.dxnn"
+    assert py_demos[1][5] == "yolo11-n_640x640.dxnn"
+    assert py_demos[9][5] == "resnet50_224x224.dxnn"
+
+
 def test_both_registries_hold_the_same_number_of_demos(sh_demos, py_demos):
     assert len(sh_demos) == len(py_demos)
 

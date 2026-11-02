@@ -45,6 +45,12 @@ def _toolchain_available() -> bool:
 needs_toolchain = pytest.mark.skipif(
     not _toolchain_available(), reason="g++, opencv4 or the dxrt headers not available")
 
+# The script itself is bash. Windows has no g++ check to run (MSVC builds the
+# tree as C++17), and `bash` there may be WSL, which cannot read a Windows path.
+needs_bash = pytest.mark.skipif(
+    os.name == "nt" or shutil.which("bash") is None,
+    reason="check_cxx14.sh is a Linux bash/g++ check")
+
 
 def _run(*args: str) -> subprocess.CompletedProcess:
     return subprocess.run(["bash", str(SCRIPT), *args], capture_output=True, text=True,
@@ -96,12 +102,14 @@ def test_check_cxx14_fails_if_a_structured_binding_is_reintroduced(tmp_path):
     assert "FAILED: common/utility/common_util.hpp" in completed.stdout + completed.stderr
 
 
+@needs_bash
 def test_check_cxx14_rejects_an_unknown_argument():
     completed = _run("--no-such-option")
     assert completed.returncode == 2
     assert "unknown argument" in completed.stderr
 
 
+@needs_bash
 def test_check_cxx14_rejects_a_stray_argument_after_root(tmp_path):
     (tmp_path / "src" / "cpp_example" / "common" / "utility").mkdir(parents=True)
     completed = _run("--root", str(tmp_path), "--extra")
