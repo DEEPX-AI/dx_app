@@ -439,10 +439,10 @@ private:
     static void finalizeVideoWriter(int loop_idx, bool saveMode,
                                     cv::VideoWriter& writer,
                                     const std::string& videoSavePathResolved,
-                                    bool verbose = false) {
+                                    int framesWritten, bool verbose = false) {
         if (loop_idx == 0 && saveMode && writer.isOpened()) {
             writer.release();
-            if (!videoSavePathResolved.empty()) {
+            if (!videoSavePathResolved.empty() && framesWritten > 0) {
                 if (verbose) {
                     std::cout << "\n[DXAPP] [INFO] Saved output video: " << videoSavePathResolved << std::endl;
                 }
@@ -855,7 +855,8 @@ private:
                 frameIdx++;
             }
 
-            finalizeVideoWriter(loop_idx, args.saveMode, writer, videoSavePathResolved, args.verbose);
+            finalizeVideoWriter(loop_idx, args.saveMode, writer, videoSavePathResolved,
+                                frameIdx, args.verbose);
         }
     }
 

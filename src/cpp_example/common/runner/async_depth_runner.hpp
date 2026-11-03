@@ -477,7 +477,7 @@ public:
         }
         if (writer.isOpened()) {
             writer.release();
-            if (!video_save_path.empty()) {
+            if (!video_save_path.empty() && processCount > 0) {
                 if (args.verbose) {
                     std::cout << "\n[DXAPP] [INFO] Saved output video: " << fs::absolute(video_save_path).string() << std::endl;
                 }

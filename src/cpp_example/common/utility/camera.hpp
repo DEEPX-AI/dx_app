@@ -6,8 +6,9 @@
  * legacy V4L2 capture interface, so OpenCV has to read it through the
  * libcamerasrc GStreamer element. openCameraCapture() takes that path on a
  * Raspberry Pi and is plain cv::VideoCapture::open(index) everywhere else. On
- * Windows a camera opens with MSMF hardware transforms off unless the user set
- * OPENCV_VIDEOIO_MSMF_ENABLE_HW_TRANSFORMS (see defaultMsmfHwTransformsOff).
+ * Windows a camera or video file opens with MSMF hardware transforms off unless
+ * the user set OPENCV_VIDEOIO_MSMF_ENABLE_HW_TRANSFORMS (see
+ * defaultMsmfHwTransformsOff).
  *
  * Mirrors src/python_example/common/utility/camera.py - keep the two in sync.
  */
@@ -277,19 +278,31 @@ inline bool openLibcameraCapture(cv::VideoCapture& video, int cameraIndex,
 
 #ifdef _WIN32
 /**
- * @brief Windows: open cameras with MSMF hardware transforms off by default.
+ * @brief Windows: open cameras and video files with MSMF hardware transforms off.
  *
  * With them on, OpenCV's MSMF backend takes about 7 s to open a USB webcam;
- * off, about 0.15 s at the same frame rate. This OpenCV build reads the
- * variable each time a capture opens, so setting it before the open is
- * enough. A value the user set (e.g. 1 to keep them on) is left alone. The
- * Python counterpart is common/videoio_env.py: opencv-python reads it only
- * when cv2 is imported.
+ * off, about 0.15 s at the same frame rate. They also break video files: an
+ * OpenCV build without the FFmpeg backend (the Windows build here) decodes
+ * through MSMF, and with hardware transforms on it can fail to read a file
+ * that decodes fine without them (a 6-frame MJPG .avi gave "No frames were
+ * read"). This OpenCV build reads the variable each time a capture opens, so
+ * setting it before the open is enough. A value the user set (e.g. 1 to keep
+ * them on) is left alone. The Python counterpart is common/videoio_env.py:
+ * opencv-python reads it only when cv2 is imported.
+ *
+ * Runners open video files with a plain video.open(path), so this is also
+ * called before main() (see kMsmfHwTransformsDefaulted below); openCameraCapture
+ * still calls it itself.
  */
 inline void defaultMsmfHwTransformsOff() {
     const char* kName = "OPENCV_VIDEOIO_MSMF_ENABLE_HW_TRANSFORMS";
     if (std::getenv(kName) == nullptr) _putenv_s(kName, "0");
 }
+
+/// Runs defaultMsmfHwTransformsOff() at program start in every binary that
+/// includes this header, like Python's import-time default. One copy per
+/// translation unit (C++14 has no inline variables); the call is idempotent.
+static const bool kMsmfHwTransformsDefaulted = (defaultMsmfHwTransformsOff(), true);
 #endif
 
 /**

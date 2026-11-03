@@ -47,7 +47,7 @@ from ..utility import print_async_performance_summary_legacy, SafeQueue
 from ..utility import print_image_processing_summary, print_sync_performance_summary
 from ..utility.camera import open_camera_capture
 from ..utility.progress import progress_tick
-from ..utility.video_io import write_video_frame
+from ..utility.video_io import no_frames_message, write_video_frame
 from ..utility.colorspace import bgr_to_y_limited, bgr_to_ycrcb_limited, ycrcb_limited_to_bgr
 from .interrupts import interrupt_scope
 from .run_dir import create_run_dir, write_run_info, dump_tensors, dump_tensors_on_exception
@@ -179,6 +179,7 @@ class AsyncRunner:
         self._worker_error: Dict[str, object] = {"name": None, "exc": None}
         self._video_writer = None
         self._video_writer_size = None  # (w, h) the writer was opened with
+        self._pending_video = None  # (run_dir, w, h, fps): opened on the first saved frame
         self.frame_count = 0
 
     # ------------------------------------------------------------------
@@ -623,11 +624,14 @@ class AsyncRunner:
                     cv2.imwrite(f"{_stem}_output_only{_ext}", sr_only)
                 with self._metrics_lock:
                     self._metrics["save_completed"] += 1
-            elif self._video_writer is not None:
-                write_video_frame(self._video_writer, output_img,
-                                  self._video_writer_size)
-                with self._metrics_lock:
-                    self._metrics["save_completed"] += 1
+            else:
+                if self._video_writer is None and self._pending_video is not None:
+                    self._open_pending_video_writer()
+                if self._video_writer is not None:
+                    write_video_frame(self._video_writer, output_img,
+                                      self._video_writer_size)
+                    with self._metrics_lock:
+                        self._metrics["save_completed"] += 1
         env_save = os.environ.get("DXAPP_SAVE_IMAGE")
         if env_save and output_img is not None and render_idx == 0:
             cv2.imwrite(env_save, output_img)
@@ -1076,17 +1080,19 @@ class AsyncRunner:
         quit_requested = False
         start = time.perf_counter()
         try:
-            # Opened inside the try: an interrupt right after it still releases it.
-            if save_enabled and run_dir:
-                dw, dh = self._display_size
-                writer = self._init_video_writer(run_dir, dw, dh,
-                                                 fps if fps > 0 else 30.0)
             while True:
                 t_read0 = time.perf_counter()
                 ret, frame = cap.read()
                 t_read1 = time.perf_counter()
                 if not ret:
                     break
+
+                # Opened on the first frame (see SyncRunner._stream_inference_once):
+                # a stop before it arrives leaves no empty output video.
+                if writer is None and save_enabled and run_dir:
+                    dw, dh = self._display_size
+                    writer = self._init_video_writer(run_dir, dw, dh,
+                                                     fps if fps > 0 else 30.0)
 
                 result = self._process_sr_frame(frame)
                 self._verify_dump([SuperResolutionResult(output_image=result["sr_output"],
@@ -1124,6 +1130,9 @@ class AsyncRunner:
             if _has_display():
                 cv2.destroyAllWindows()
 
+        if frame_count == 0:
+            logger.warning(no_frames_message(
+                source_label, quit_requested, bool(save_enabled and run_dir)))
         return {"metrics": metrics, "count": frame_count,
                 "elapsed": time.perf_counter() - start,
                 "quit_requested": quit_requested}
@@ -1238,7 +1247,13 @@ class AsyncRunner:
     def _setup_video_writer(self, input_source, save_enabled: bool,
                             run_dir: Optional[Path],
                             is_video: bool) -> None:
-        """Create the output VideoWriter for a video/stream input."""
+        """Plan the output VideoWriter for a video/stream input.
+
+        The writer itself is opened by the render worker when it saves the
+        first frame (``_save_render_output``): a live source stopped before it
+        delivers one leaves no empty, unplayable output video.
+        """
+        self._pending_video = None
         if not (save_enabled and run_dir and is_video):
             return
         w, h, fps = self._probe_source_geometry(input_source)
@@ -1246,6 +1261,12 @@ class AsyncRunner:
             logger.warning(
                 "Input frame size is unknown — output video will NOT be saved.")
             return
+        self._pending_video = (run_dir, w, h, fps)
+
+    def _open_pending_video_writer(self) -> None:
+        """Open the writer planned by ``_setup_video_writer`` (render worker only)."""
+        run_dir, w, h, fps = self._pending_video
+        self._pending_video = None
         try:
             self._video_writer = self._init_video_writer(run_dir, w, h, fps)
         except Exception as exc:
@@ -1285,6 +1306,7 @@ class AsyncRunner:
         self._worker_error = {"name": None, "exc": None}
         self._video_writer = None
         self._video_writer_size = None  # (w, h) the writer was opened with
+        self._pending_video = None
         self.frame_count = 0
         self._run_dir = run_dir
 
@@ -1463,8 +1485,12 @@ class AsyncRunner:
                 is_video=True)
             results.append(result)
 
-            # Single loop: print immediately
-            if self._loop <= 1:
+            if result["count"] == 0:
+                logger.warning(no_frames_message(
+                    source_label, result.get("quit_requested", False),
+                    bool(save_enabled and run_dir)))
+            elif self._loop <= 1:
+                # Single loop: print immediately
                 self._print_summary(result)
 
             if result.get("quit_requested", False):

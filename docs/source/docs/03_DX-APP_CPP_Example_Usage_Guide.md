@@ -140,7 +140,7 @@ All C++ examples use `cxxopts` for argument parsing and share a consistent inter
 
 - **Input source:** `--image_path`, `--video_path`, `--camera_index`, and `--rtsp_url` form a mutually exclusive group. If none is specified, a **default sample image** is automatically selected based on the task type.
 - **Raspberry Pi camera:** on a Raspberry Pi, `--camera_index N` opens the CSI camera through a libcamera GStreamer pipeline (`libcamerasrc`) and camera `N` is camera `N` of `rpicam-hello --list-cameras`; a USB webcam node keeps the V4L2 path. `install.sh` installs `gstreamer1.0-libcamera` when it detects a Pi camera.
-- **Windows camera:** `--camera_index N` opens the camera with OpenCV's MSMF hardware transforms off (`OPENCV_VIDEOIO_MSMF_ENABLE_HW_TRANSFORMS=0`): with them on, a USB webcam takes about 7 s to open; off, about 0.15 s at the same frame rate. To keep them on, set `OPENCV_VIDEOIO_MSMF_ENABLE_HW_TRANSFORMS=1` before running; a value you set is not changed.
+- **Windows camera and video files:** the examples open cameras (`--camera_index N`) and video files (`--video_path`) with OpenCV's MSMF hardware transforms off (`OPENCV_VIDEOIO_MSMF_ENABLE_HW_TRANSFORMS=0`), set when the program starts: with them on, a USB webcam takes about 7 s to open (off, about 0.15 s at the same frame rate), and the OpenCV build used here has no FFmpeg backend, so a video file is decoded through MSMF, where hardware transforms can make a file that decodes fine without them read no frames. To keep them on, set `OPENCV_VIDEOIO_MSMF_ENABLE_HW_TRANSFORMS=1` before running; a value you set is not changed.
 
 !!! note "NOTE"
     **Image-only tasks:** 11 tasks accept `--image_path` input only; `--video_path`, `--camera_index` and `--rtsp_url`

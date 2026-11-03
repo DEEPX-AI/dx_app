@@ -32,7 +32,7 @@ from ..utility import print_image_processing_summary, print_sync_performance_sum
 from ..utility.camera import open_camera_capture
 from ..utility.common_util import window_exists
 from ..utility.progress import progress_tick
-from ..utility.video_io import write_video_frame
+from ..utility.video_io import no_frames_message, write_video_frame
 from ..utility.colorspace import bgr_to_y_limited, bgr_to_ycrcb_limited, ycrcb_limited_to_bgr
 from .interrupts import interrupt_scope
 from .run_dir import create_run_dir, write_run_info, dump_tensors, dump_tensors_on_exception
@@ -1497,15 +1497,19 @@ class SyncRunner:
         env_save = os.environ.get("DXAPP_SAVE_IMAGE")
 
         try:
-            # Opened inside the try: an interrupt right after it still releases it.
-            if save_enabled and run_dir:
-                writer = self._init_video_writer_probed(cap, run_dir)
             while True:
                 t_read_start = time.perf_counter()
                 ret, frame = cap.read()
                 t_read = time.perf_counter() - t_read_start
                 if not ret:
                     break
+
+                # Opened on the first frame, not before the first read: a live
+                # source stopped before it delivers one (RTSP still waiting for
+                # its first keyframe) leaves no empty, unplayable output video -
+                # even when a second Ctrl-C kills a run blocked in cap.read().
+                if writer is None and save_enabled and run_dir:
+                    writer = self._init_video_writer_probed(cap, run_dir)
 
                 frame_count += 1
                 now = time.perf_counter()
@@ -1540,7 +1544,10 @@ class SyncRunner:
             self._release_capture(writer, cap)
 
         elapsed = time.perf_counter() - start_time
-        if frame_count > 0 and self._loop <= 1:
+        if frame_count == 0:
+            logger.warning(no_frames_message(
+                source_label, quit_requested, bool(save_enabled and run_dir)))
+        elif self._loop <= 1:
             print_sync_performance_summary(
                 metrics, frame_count, elapsed, display or save_enabled)
 

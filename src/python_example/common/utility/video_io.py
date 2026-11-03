@@ -39,3 +39,17 @@ def write_video_frame(writer, frame: Optional[np.ndarray],
     if size is not None and (frame.shape[1], frame.shape[0]) != size:
         frame = cv2.resize(frame, size)
     writer.write(frame)
+
+
+def no_frames_message(source_label: str, stopped: bool, save_requested: bool) -> str:
+    """Warning for a stream run that ended before its first frame arrived.
+
+    The runners open the output video only when the first frame is written, so
+    such a run saves no video; the performance summary is skipped for 0 frames,
+    and without this message the run would end silently.
+    """
+    if stopped:
+        text = f"No frames were received from {source_label} before the run was stopped"
+    else:
+        text = f"No frames were read from {source_label}"
+    return text + ("; no output video was saved." if save_requested else ".")

@@ -12,6 +12,7 @@ Two regressions are covered:
 
 import threading
 
+import numpy as np
 import pytest
 
 from common.runner.async_runner import _SENTINEL, AsyncRunner
@@ -49,8 +50,14 @@ class TestVideoWriterSetup:
     def test_writer_created_from_input_source_accessors(self, tmp_path):
         runner = _bare_runner()
         runner._setup_video_writer(_StubVideoSource(), True, tmp_path, True)
-        assert runner._video_writer is not None, \
-            "--save must create a VideoWriter for a video input source"
+        assert runner._pending_video == (tmp_path, 1920, 1080, 30.0), \
+            "--save must plan a VideoWriter from the input source accessors"
+        # Opened by the first saved frame, not before (see test_stream_no_frames.py).
+        runner._metrics_lock = threading.Lock()
+        runner._metrics = AsyncRunner._create_async_metrics()
+        runner._save_render_output(np.zeros((1080, 1920, 3), dtype=np.uint8), True, 0, None)
+        assert runner._video_writer is not None
+        assert runner._video_writer_size == (1920, 1080)
         runner._video_writer.release()
         assert list(tmp_path.glob("output.*")), "no output video file was created"
 
@@ -58,11 +65,13 @@ class TestVideoWriterSetup:
         runner = _bare_runner()
         runner._setup_video_writer(_StubVideoSource(), False, tmp_path, True)
         assert runner._video_writer is None
+        assert runner._pending_video is None
 
     def test_no_writer_for_image_input(self, tmp_path):
         runner = _bare_runner()
         runner._setup_video_writer(_StubVideoSource(), True, tmp_path, False)
         assert runner._video_writer is None
+        assert runner._pending_video is None
 
     def test_bad_geometry_is_reported_not_swallowed(self, tmp_path, caplog):
         runner = _bare_runner()
@@ -70,6 +79,7 @@ class TestVideoWriterSetup:
             runner._setup_video_writer(_StubVideoSource(width=0, height=0),
                                        True, tmp_path, True)
         assert runner._video_writer is None
+        assert runner._pending_video is None
         assert any("video" in r.message.lower() for r in caplog.records), \
             "an undeterminable input geometry must be logged, not swallowed"
 

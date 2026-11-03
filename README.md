@@ -264,6 +264,8 @@ artifacts/cpp_example/
     dump_tensors/       # (if --dump-tensors) raw tensor files
 ```
 
+A video, camera or RTSP run that stops (or whose input ends) before its first frame arrives saves no video, only `run_info.txt`, and warns `No frames were received from <input> before the run was stopped; no output video was saved.` instead of leaving an empty, unplayable `output.mp4`.
+
 ## Numerical Verification (`DXAPP_VERIFY`)
 
 Serialize post-processing results to JSON for inspection and debugging:
