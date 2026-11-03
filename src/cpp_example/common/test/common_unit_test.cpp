@@ -2469,6 +2469,27 @@ void TestCameraOffAPiOpensLikeVideoCapture() {
 }
 
 // =====================================================================
+// Windows: the MSMF hardware-transform default also covers video FILES. Every
+// runner opens its input with a plain video.open(path) (no helper), and the
+// default used to be set only inside openCameraCapture, so with MSMF hardware
+// decoding a file the FFmpeg-less OpenCV build could not read (a 6-frame MJPG
+// .avi gave "No frames were read", rc=1). Like Python's common/videoio_env.py
+// (set when cv2 is imported), the default is set before main() - for any
+// binary that includes camera.hpp - and a value the user set is kept.
+// Must run before TestCameraOpenTurnsOffMsmfHwTransformsByDefault, which
+// clears the variable.
+// =====================================================================
+
+void TestMsmfHwTransformsAreOffFromProcessStart() {
+#ifdef _WIN32
+    const char* value = std::getenv("OPENCV_VIDEOIO_MSMF_ENABLE_HW_TRANSFORMS");
+    COMMON_CHECK(value != nullptr);  // "0" by default, or whatever the user set
+#else
+    Skip("TestMsmfHwTransformsAreOffFromProcessStart", "MSMF is Windows only");
+#endif
+}
+
+// =====================================================================
 // Windows: openCameraCapture opens with MSMF hardware transforms off unless
 // the user set OPENCV_VIDEOIO_MSMF_ENABLE_HW_TRANSFORMS. With them on, a USB
 // webcam took about 7 s to open; off, 0.15 s at the same 30 fps.
@@ -2620,6 +2641,72 @@ void TestLiveReadStopsWhenInterruptedWhileBlocked() {
     // Interrupted at 100 ms, then a bounded grace for the read to finish
     // before the stalled capture is released: seconds, never a hang.
     COMMON_CHECK(elapsed_ms < 2000.0);
+}
+
+// =====================================================================
+// Empty stream: every runner opens its VideoWriter before the first read.
+// A live source stopped before it delivers a frame (RTSP still waiting for
+// its first keyframe) used to leave a 0-byte, unplayable output.mp4 and
+// print nothing: the summary is skipped for 0 frames and emptyStreamStatus
+// stayed silent on Ctrl-C. Every runner calls emptyStreamStatus after
+// releasing the writer, so it discards the never-written output and says so.
+// =====================================================================
+
+std::string OpenEmptyStreamVideo(const std::string& dir, int frames) {
+    std::string path;
+    cv::VideoWriter writer = dxapp::initVideoWriter(dir, 30.0, cv::Size(64, 48), path);
+    COMMON_CHECK(writer.isOpened());
+    const cv::Mat frame(48, 64, CV_8UC3, cv::Scalar(128, 128, 128));
+    for (int i = 0; i < frames; ++i) writer.write(frame);
+    writer.release();
+    COMMON_CHECK(!path.empty() && fs::exists(path));
+    return path;
+}
+
+void TestEmptyStreamStoppedBeforeTheFirstFrameDiscardsTheVideo() {
+    const std::string dir = MakeTempDir("empty_stream_stopped");
+    const std::string path = OpenEmptyStreamVideo(dir, 0);
+    dxapp::g_interrupted().store(true);
+    StderrCapture capture;
+    const int status = dxapp::emptyStreamStatus(false, 0);
+    const std::string text = capture.Stop();
+    dxapp::g_interrupted().store(false);
+    COMMON_CHECK(status == 0);  // a user stop is not an error
+    COMMON_CHECK(!fs::exists(path));
+    COMMON_CHECK(text.find("No frames were received from the input before the run was stopped") !=
+                 std::string::npos);
+    COMMON_CHECK(text.find("no output video was saved") != std::string::npos);
+    fs::remove_all(dir);
+}
+
+void TestEmptyStreamThatEndedWithoutAFrameIsStillAnError() {
+    const std::string dir = MakeTempDir("empty_stream_ended");
+    const std::string path = OpenEmptyStreamVideo(dir, 0);
+    dxapp::g_interrupted().store(false);
+    StderrCapture capture;
+    const int status = dxapp::emptyStreamStatus(false, 0);
+    const std::string text = capture.Stop();
+    COMMON_CHECK(status == 1);
+    COMMON_CHECK(!fs::exists(path));
+    COMMON_CHECK(text.find("No frames were read from the input") != std::string::npos);
+    COMMON_CHECK(text.find("No output video was saved") != std::string::npos);
+    fs::remove_all(dir);
+}
+
+void TestEmptyStreamKeepsTheVideoOnceAFrameWasRead() {
+    const std::string dir = MakeTempDir("empty_stream_frames");
+    const std::string path = OpenEmptyStreamVideo(dir, 2);
+    dxapp::g_interrupted().store(true);
+    StderrCapture capture;
+    const int status = dxapp::emptyStreamStatus(false, 2);
+    const std::string text = capture.Stop();
+    dxapp::g_interrupted().store(false);
+    COMMON_CHECK(status == 0);
+    COMMON_CHECK(fs::exists(path) && fs::file_size(path) > 0);
+    COMMON_CHECK(text.empty());
+    // The output was handed over: a later empty run in this process leaves it alone.
+    COMMON_CHECK(dxapp::emptyStreamStatus(false, 0) == 1 && fs::exists(path));
+    fs::remove_all(dir);
 }
 
 // =====================================================================
@@ -2891,7 +2978,9 @@ void TestPicoDetIgnoresASingleConcatenatedTensor() {
 }
 
 int main() {
-    // Must stay first: see the ORDER NOTE on this test.
+    // Before TestCameraOpenTurnsOffMsmfHwTransformsByDefault clears the variable.
+    TestMsmfHwTransformsAreOffFromProcessStart();
+    // Must stay first of the postprocess tests: see the ORDER NOTE on this test.
     TestAnchorFaceDebugHeaderOncePerInstance();
     TestPicoDetDecodesPerLevelTensors();
     TestPicoDetIgnoresASingleConcatenatedTensor();
@@ -2914,6 +3003,10 @@ int main() {
     TestNoteInterruptRequestAtCoalescesThroughTheWindow();
     TestABrokenClockEscalatesEveryRepeat();
     TestConsoleCtrlDispatchRunsOnlyCtrlC();
+
+    TestEmptyStreamStoppedBeforeTheFirstFrameDiscardsTheVideo();
+    TestEmptyStreamThatEndedWithoutAFrameIsStillAnError();
+    TestEmptyStreamKeepsTheVideoOnceAFrameWasRead();
 
     TestVerifyDumpsFromManyThreadsAreWholeAndNumbered();
     TestVerifyJsonKeepsItsFormatAndFramesFileAddsTheIndex();

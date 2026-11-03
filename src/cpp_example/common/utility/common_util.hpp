@@ -45,6 +45,7 @@
 #include "common/utility/display_pump.hpp"
 #include "common/utility/camera.hpp"
 #include "common/utility/repo_path.hpp"
+#include "common/utility/video_output_registry.hpp"
 
 #if __cplusplus >= 201703L || (defined(_MSVC_LANG) && _MSVC_LANG >= 201703L)
 #include <filesystem>
@@ -792,11 +793,22 @@ inline bool readFrameInterruptible(cv::VideoCapture& video, cv::Mat& frame) {
 }
 
 // Non-zero when a stream was opened and no frame arrived, and the user did
-// not interrupt. Image mode and a graceful Ctrl-C stay at 0.
+// not interrupt. Image mode and a graceful Ctrl-C stay at 0. Called by every
+// runner after it has released its VideoWriter: a stream that read no frame
+// leaves no empty output video (see video_output_registry.hpp) and says so.
 inline int emptyStreamStatus(bool isImage, int framesRead) {
-    if (isImage || framesRead > 0 || g_interrupted().load()) return 0;
+    const bool noFrame = !isImage && framesRead <= 0;
+    const int discarded = takeVideoOutputs(noFrame);
+    if (!noFrame) return 0;
+    if (g_interrupted().load()) {
+        std::cerr << "[DXAPP] [WARN] No frames were received from the input before the run "
+                  << "was stopped" << (discarded > 0 ? "; no output video was saved." : ".")
+                  << std::endl;
+        return 0;
+    }
     std::cerr << "[DXAPP] [ERROR] No frames were read from the input. "
               << "The capture opened, but the first frame was empty." << std::endl;
+    if (discarded > 0) std::cerr << "[DXAPP] [INFO] No output video was saved." << std::endl;
     return 1;
 }
 

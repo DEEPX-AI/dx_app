@@ -34,6 +34,7 @@
 
 #include "common/utility/interrupt_flag.hpp"
 #include "common/utility/signal_escalation.hpp"
+#include "common/utility/video_output_registry.hpp"
 
 namespace dxapp {
 #if __cplusplus >= 201703L || (defined(_MSVC_LANG) && _MSVC_LANG >= 201703L)
@@ -226,6 +227,7 @@ inline cv::VideoWriter initVideoWriter(const std::string& saveDir,
                     useFps, frameSize);
         if (writer.isOpened()) {
             resolvedPath = fs::absolute(mp4Path).string();
+            registerVideoOutput(resolvedPath);
             std::cout << "[DXAPP] [INFO] Saving output video: " << resolvedPath << std::endl;
             return writer;
         }
@@ -237,6 +239,7 @@ inline cv::VideoWriter initVideoWriter(const std::string& saveDir,
                     useFps, frameSize);
         if (writer.isOpened()) {
             resolvedPath = fs::absolute(mp4Path).string();
+            registerVideoOutput(resolvedPath);
             std::cout << "[DXAPP] [INFO] Saving output video: " << resolvedPath
                       << " (mp4v fallback)" << std::endl;
             return writer;
@@ -257,6 +260,7 @@ inline cv::VideoWriter initVideoWriter(const std::string& saveDir,
                 useFps, frameSize);
     if (writer.isOpened()) {
         resolvedPath = fs::absolute(aviPath).string();
+        registerVideoOutput(resolvedPath);
         std::cout << "[DXAPP] [INFO] Saving output video: " << resolvedPath
                   << " (MJPG fallback)" << std::endl;
         return writer;
