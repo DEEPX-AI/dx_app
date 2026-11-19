@@ -384,7 +384,7 @@ A graph may have several source nodes. **Each source is its own stream**: the mo
 
 - `--input <source_id>=<uri>` replaces one source's `uri`. A graph with several sources needs the `<source_id>=` form.  
 - `--output run.avi` writes one video per stream: `run_cam1.avi`, `run_cam2.avi`.  
-- `--display` shows one window with a grid of the streams, each labelled with its source id.  
+- `--display` shows one window with a grid of the streams, each labeled with its source id.  
 - `--frames N` stops after N frames of each stream.  
 - With several sources, every frame in `--report` and every event names its `stream`.  
 
