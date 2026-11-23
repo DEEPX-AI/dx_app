@@ -42,7 +42,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 REGISTRY = ROOT / "config" / "model_registry.json"
-SPECS = ROOT / "tests" / "data" / "processor_specs.json"
+SPECS = ROOT / "data" / "processor_specs.json"
 CPP_SRC = ROOT / "src" / "cpp_example"
 SUFFIX_RULES = (r"_q_lite$", r"_\d+$")
 

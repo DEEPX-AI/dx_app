@@ -1263,7 +1263,7 @@ void TestValidateRejectsNotReadyModel() {
         "\"edges\":[{\"from\":\"cam\",\"to\":\"det\"}]}",
         GraphErrorCode::kModelNotReady, &message));
     GRAPH_CHECK(message.find("no postprocessor") != std::string::npos);
-    GRAPH_CHECK(message.find("graph_models.md") != std::string::npos);
+    GRAPH_CHECK(message.find("GRAPH_MODELS.md") != std::string::npos);
 }
 
 void TestValidateRejectsRoiFromNonProducer() {
@@ -5613,7 +5613,7 @@ void TestValidateSuggestsANearbyModelName() {
         "\"edges\":[{\"from\":\"cam\",\"to\":\"od\"}]}",
         registry, GraphErrorCode::kModelUnknown, &message));
     GRAPH_CHECK(message.find("did you mean") == std::string::npos);
-    GRAPH_CHECK(message.find("docs/graph_models.md") != std::string::npos);
+    GRAPH_CHECK(message.find("GRAPH_MODELS.md") != std::string::npos);
 }
 
 namespace {

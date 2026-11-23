@@ -1,6 +1,6 @@
 # Common Framework API Reference
 
-> **SDK Source of Truth**: `docs/source/docs/05_DX-APP_Python_Example_Usage_Guide.md`, `src/python_example/common/`
+> **SDK Source of Truth**: [Python Example Usage Guide](https://developer.deepx.ai/tech-docs/DXNN-SDK/DX-APP/DX-APP_Python_Example_Usage_Guide/), `src/python_example/common/`
 
 > SyncRunner, AsyncRunner, IFactory hierarchy, IInputSource, and parse_common_args() —
 > the application framework for dx_app.

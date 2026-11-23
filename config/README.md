@@ -51,7 +51,7 @@ is not a second model.
 | Script | Purpose |
 |---|---|
 | `scripts/check_model_registry.py` | Guard: every row's `<task>/<family>/<variant>/` holds a C++ and a Python factory and every factory is registered; one row per variant; no name resolves two ways (`scripts/ci_checks.sh`: `guard-model-registry`) |
-| `scripts/gen_model_registry.py` | Generates the graph engine's model registry and `docs/graph_models.md` from the rows and the factory tree (run by the CMake configure step) |
+| `scripts/gen_model_registry.py` | Generates the graph engine's model registry and `GRAPH_MODELS.md` from the rows and the factory tree (run by the CMake configure step) |
 | `scripts/download_models.py` / `setup.sh --models` | Resolves a model name, old name or `.dxnn` stem to the model-zoo download |
 | `scripts/regen_test_models_conf.py` | Regenerates `test_models.conf` |
 | C++ and Python runners | An example run without `-m` takes its variant's `dxnn_file` from here |

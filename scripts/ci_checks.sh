@@ -135,6 +135,11 @@ run_check() {
                 src/python_example src/bindings/python scripts tests ;;
         workflow-yaml) check_workflow_yaml ;;
         tests-scripts)
+            # A release tree ships without tests/: there is no suite to run.
+            if [ ! -d tests/scripts ]; then
+                skip_reason="no tests/scripts in this tree"
+                return 77
+            fi
             if [ -n "${DXAPP_CI_CHECKS_ACTIVE:-}" ]; then
                 echo "ci_checks: tests-scripts refused: already running inside ci_checks.sh" \
                      "(a tests/scripts test must not start the suite that runs it)" >&2

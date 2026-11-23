@@ -29,7 +29,7 @@ python3 scripts/download_models.py --models yolo26-s_640x640   # fetch the .dxnn
 No `cmake`, no `ninja`, no recompilation — the same binary, reading a
 different word out of a JSON file. The same edit works for the segmenter,
 the pose model, and every second-stage model in the cascade samples: any of
-the 492 models that [`docs/graph_models.md`](../../../docs/graph_models.md)
+the 492 models that [`GRAPH_MODELS.md`](../../../GRAPH_MODELS.md)
 counts as running in a graph, as long as its `produces` and `consumes`
 columns fit the slot.
 `--check` tells you before you run whether they fit.
@@ -39,7 +39,7 @@ columns fit the slot.
 (`yolov8n`) or an `alias_of` name; `--check` resolves it and says so on one
 line per node (`note: node "od": "yolov8n" is the old name of
 "yolov8-n_640x640"`), a run (and `dx_graph.Graph`) prints the same line on
-stderr, and the table at the end of `docs/graph_models.md` lists every old
+stderr, and the table at the end of `GRAPH_MODELS.md` lists every old
 name. The shipped samples use variant names.
 
 **Model files**: `python3 scripts/download_models.py --models <name...>` fetches
@@ -144,7 +144,7 @@ the corner and the size once.
 | Kind | Written as | Meaning |
 |---|---|---|
 | source | `{ "id": "cam", "type": "source", "uri": "..." }` | where frames come from: an image, a video file, `camera:0`, or an `rtsp://` URL. A relative `uri` is resolved against the repository root, so the samples run from any directory. A graph may have several source nodes; each one is its own stream (see *Several sources: one stream each*) |
-| model | `{ "id": "od", "model": "yolov8-n_640x640" }` | one model from the registry — note there is **no `"type"`** on a model node. `--list-models` and [`docs/graph_models.md`](../../../docs/graph_models.md) say which names exist. Optional `"engine": {"buffers": N, "share": true}`: NPU memory (see *Device memory*) |
+| model | `{ "id": "od", "model": "yolov8-n_640x640" }` | one model from the registry — note there is **no `"type"`** on a model node. `--list-models` and [`GRAPH_MODELS.md`](../../../GRAPH_MODELS.md) say which names exist. Optional `"engine": {"buffers": N, "share": true}`: NPU memory (see *Device memory*) |
 | cpu | `{ "id": "headpose", "type": "cpu", "op": "headpose" }` | one named reduction, run once per frame after its parents finish. `"op"` is `headpose` or `volume`. No `"model"`, no `"track"`. `headpose` takes no params; it writes one record per face with five landmarks (`pitch`, `yaw`, `roll` in degrees, `face_index` = the face's index in its boxes input, and `track_id` when the face is tracked) and draws each face's axes from the nose (x red, y green, z blue: where the face points) and its yaw, pitch and roll under the face box, as a layer of its own. A condition reads several faces through its `reduce`: `max` (the default) for a `>` test fires when any face passes, `min` for a `<` test. `volume` accepts `scale_factor` (number, default 1), `classes` and `class_ids` (string arrays; omit them for the defaults, pass `[]` to disable that match) |
 | logic | `{ "id": "zone", "type": "logic", "op": "zone", "params": { "polygon": [0.5, 0, 1, 0, 1, 1, 0.5, 1] } }` | a decision around the models, run once per frame on the CPU after its inputs: `filter`, `zone`, `line`, `count`, `dwell`, `condition`, `gallery` or `user` (see *Logic nodes*). No `"model"`, no `"track"`, no `"engine"` |
 
@@ -160,7 +160,7 @@ the corner and the size once.
 A model node accepts a frame edge only if it `consumes` `frame` or `either`,
 and a ROI edge only if it `consumes` `roi` or `either`. A ROI edge's producer
 must emit `boxes`, `obboxes` or `instances`. Both columns are in
-`docs/graph_models.md`.
+`GRAPH_MODELS.md`.
 
 The `consumes` column is each model's **input contract**. It comes from the
 model's factory interface by default, and a model family may override it
@@ -264,7 +264,7 @@ drawn with its box and label on top of its mask, as a `boxes` result is.
 ### Output ports
 
 Most models have one output, their `produces` shape. Twelve also have named
-extra outputs, called **ports**. `docs/graph_models.md` shows them after a
+extra outputs, called **ports**. `GRAPH_MODELS.md` shows them after a
 `+` in the `produces` column (`boxes + drivable, lane (labelmap)`), and
 `--list-models` ends their rows with `  ports: <name>=<shape> ...`:
 
@@ -744,9 +744,9 @@ below is real output from `--check`, except the three marked otherwise.
 | `GRAPH_CYCLE` | the nodes do not form a DAG | `ERROR [GRAPH_CYCLE] graph: cycle detected among: a, b`<br>`  -> a graph must be acyclic` |
 | `GRAPH_ORPHAN` | a node no source can reach, or a graph with no source | `ERROR [GRAPH_ORPHAN] node "lost": unreachable from any source`<br>`  -> connect it with an edge, or remove it` |
 | `GRAPH_RESERVED` | a key held back for a later release | `ERROR [GRAPH_RESERVED] g.json node[1]: "prompt" is reserved for text-conditioned models and is not supported in this release`<br>`  -> remove "prompt"; see README.md for the models this build runs` |
-| `MODEL_UNKNOWN` | the name is not in the registry | `ERROR [MODEL_UNKNOWN] node "od": unknown model "YoloV8N" - not in config/model_registry.json`<br>`  -> did you mean "yolov8-n_640x640"? run --list-models, or see docs/graph_models.md` |
+| `MODEL_UNKNOWN` | the name is not in the registry | `ERROR [MODEL_UNKNOWN] node "od": unknown model "YoloV8N" - not in config/model_registry.json`<br>`  -> did you mean "yolov8-n_640x640"? run --list-models, or see GRAPH_MODELS.md` |
 | `MODEL_NO_TASK` | registered without a task *(no model this build ships is in this state; not real output)* | `ERROR [MODEL_NO_TASK] node "od": model "X" has no task registered`<br>`  -> ./scripts/add_model.sh --model X --task <task>` |
-| `MODEL_NOT_READY` | registered, but the graph engine cannot run it: no factory, no postprocessor, or an interface with no graph stage (the four anomaly models in this release) | `ERROR [MODEL_NOT_READY] node "ad": model "patchcore_224x224" is registered but cannot run: anomaly detection is not graph-ready in this release`<br>`  -> see docs/graph_models.md for models usable in graphs` |
+| `MODEL_NOT_READY` | registered, but the graph engine cannot run it: no factory, no postprocessor, or an interface with no graph stage (the four anomaly models in this release) | `ERROR [MODEL_NOT_READY] node "ad": model "patchcore_224x224" is registered but cannot run: anomaly detection is not graph-ready in this release`<br>`  -> see GRAPH_MODELS.md for models usable in graphs` |
 | `MODEL_MISSING` | the `.dxnn` is not in `--model-dir` | *(from a run: `--check` lists the same files and the same command without failing)*<br>`ERROR [MODEL_MISSING] graph "person-reid": 2 model files are not in ./no_models`<br>`  node "od"  model yolov8-n_640x640  ->  ./no_models/yolov8-n_640x640.dxnn`<br>`  node "reid"  model casvit-t_224x224  ->  ./no_models/casvit-t_224x224.dxnn`<br>`  -> python3 scripts/download_models.py --models YoloV8N casvit_t --output ./no_models` |
 | `MODEL_LOAD` | the `.dxnn` is present but the runtime cannot load it (device memory, device state, an incompatible file). `--check` reports the cases it can see without the NPU, a file that is not a `.dxnn` and a v9 file on DX-RT older than 3.5.0 (see *Model files*), and exits 1; whether the models fit in device memory shows only when they load | *(real output on DX-M1, from a run, not from `--check`, of a graph that names its models by their old names)*<br>`ERROR [MODEL_LOAD] node "sr2": model "realesrgan_x2" (realesrgan-x2_192x192.dxnn) could not be loaded: [dxrt-exception] Invalid model exception {"failed to register task":lib/task.cpp:145:Task}`<br>`  -> the NPU's device memory may be full: this graph loaded 3 model(s) before this one, and every node loads its own copy, even of the same model, unless the nodes set "engine": {"share": true} (another process on the NPU uses memory too); share an engine, lower a node's "engine": {"buffers": N} (DX-RT's default is 6), remove a node or use a smaller model - DX-M1 cannot hold a second realesrgan-x2_192x192 next to yolov8-n_640x640 and resnet50_224x224` |
 
@@ -956,7 +956,7 @@ task name cannot: *which model can I put in the second stage?*
 
 One row per registered model (497), named by its variant, then one
 `alias of <variant>` row per `alias_of` name (the old registry names are not
-listed; `docs/graph_models.md` has them). `published` is `no` for a model the
+listed; `GRAPH_MODELS.md` has them). `published` is `no` for a model the
 model zoo does not publish yet. `file` is the container version of the
 model's `.dxnn` in `--model-dir`: `v8`, `v9`, `missing`, or `invalid` for a
 file without the `DXNN` header; when this DX-RT cannot load the file it
@@ -989,7 +989,7 @@ Three sources, in order of authority:
 1. **`--check <graph.json>`** — what this graph needs, right now.
 2. **`--list-models`** — what this binary can run. Authoritative after you
    add your own model.
-3. **[`docs/graph_models.md`](../../../docs/graph_models.md)** — the same
+3. **[`GRAPH_MODELS.md`](../../../GRAPH_MODELS.md)** — the same
    table, generated from the same registry. The build writes its own copy
    (`build_x86_64/generated/graph_models.md`) and never rewrites the tracked
    file; after a registry change, update it with
@@ -1108,7 +1108,7 @@ of them.
   `SetConsoleCtrlHandler`: repeats within 200 ms are one request, a later
   press terminates, and Ctrl-Break terminates at once. `tests\windows\run_tests.bat
   graph` runs the CLI smoke tests. The Windows support is verified on Linux only; see
-  *Graph engine on Windows* in `docs/source/docs/02_DX-APP_Installation_and_Build.md`.
+  *Graph engine on Windows* in [Installation and Build](https://developer.deepx.ai/tech-docs/DXNN-SDK/DX-APP/DX-APP_Installation_and_Build/).
 
 ## Not in this release
 

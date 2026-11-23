@@ -226,7 +226,7 @@ set(GRAPH_GENERATED_DIR ${CMAKE_BINARY_DIR}/generated)
 # (ModelInfo::download_name), so a manifest update re-runs the codegen too.
 #
 # The model table goes into the build tree, never into the source tree: a
-# configure must not rewrite a tracked file. The tracked docs/graph_models.md
+# configure must not rewrite a tracked file. The tracked GRAPH_MODELS.md
 # is updated with `python3 scripts/gen_model_registry.py --docs-only` and
 # guarded by scripts/check_graph_models_doc.py.
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
