@@ -256,7 +256,7 @@ void PrintUsage(std::FILE* out, const char* program) {
         "  --help                this message\n"
         "\n"
         "Sample graphs: src/cpp_example/multi_model_graph/\n"
-        "Model list:    docs/graph_models.md\n"
+        "Model list:    GRAPH_MODELS.md\n"
         "Schema:        src/cpp_example/multi_model_graph/README.md\n",
         program, program, program, program, DefaultModelDir().c_str(),
         static_cast<unsigned>(kDefaultMaxInflight));
@@ -548,7 +548,7 @@ bool ListedByFilters(const ModelInfo& info, const GraphCliArgs& args) {
 int PrintModels(const IModelRegistry& registry, const GraphCliArgs& args) {
     // Every non-comment line starts with a model name, because
     // tests/cpp_example/test_graph_cli.py reads the first token of each
-    // line back and requires docs/graph_models.md to carry it. Anything
+    // line back and requires GRAPH_MODELS.md to carry it. Anything
     // that is not a model row is a header ("model ...") or starts with
     // "-"; nothing else is printed on stdout.
     std::string filter_error;

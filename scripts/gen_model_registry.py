@@ -10,7 +10,7 @@ scripts/modelzoo_manifest.json (--manifest) adds each model's download name.
 Outputs: the registry sources (--out-dir) and the model table (--docs).
 The configure step writes both into the build tree. Without --docs, a run
 that emits sources writes the table as <out-dir>/graph_models.md; only
---docs-only and --check-docs default to the tracked docs/graph_models.md,
+--docs-only and --check-docs default to the tracked GRAPH_MODELS.md,
 so the tracked doc is written only by --docs-only, and --check-docs
 (scripts/check_graph_models_doc.py) fails when it is stale.
 
@@ -862,7 +862,7 @@ def main():
     parser.add_argument("--out-dir", default=str(ROOT / "build" / "generated"))
     parser.add_argument("--docs", default=None,
                         help="the model table; default <out-dir>/graph_models.md, or the "
-                             "tracked docs/graph_models.md with --docs-only / --check-docs")
+                             "tracked GRAPH_MODELS.md with --docs-only / --check-docs")
     parser.add_argument("--manifest", default=str(DEFAULT_MANIFEST),
                         help="model-zoo manifest: the download name of each .dxnn")
     parser.add_argument("--docs-only", action="store_true",
@@ -884,7 +884,7 @@ def main():
             parser.error("--only names no variant")
     if args.docs is None:
         tracked = args.docs_only or args.check_docs
-        args.docs = str((ROOT / "docs" if tracked else Path(args.out_dir)) / "graph_models.md")
+        args.docs = str(ROOT / "GRAPH_MODELS.md" if tracked else Path(args.out_dir) / "graph_models.md")
 
     try:
         rows, aliases = build_entries(args.registry, args.cpp_root, args.strict,

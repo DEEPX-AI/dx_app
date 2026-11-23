@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Guard: fail when docs/graph_models.md is stale.
+"""Guard: fail when GRAPH_MODELS.md is stale.
 
 The configure step writes its copy of the model table into the build tree
 and never touches the tracked file (SP1 U-12), so a registry or factory

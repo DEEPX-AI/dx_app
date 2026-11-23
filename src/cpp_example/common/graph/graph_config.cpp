@@ -1762,7 +1762,7 @@ void ValidateGraph(const GraphSpec& spec, const IModelRegistry& registry) {
                 if (!nearest.empty()) {
                     how = "did you mean \"" + nearest + "\"? ";
                 }
-                how += "run --list-models, or see docs/graph_models.md";
+                how += "run --list-models, or see GRAPH_MODELS.md";
                 throw GraphError(
                     GraphErrorCode::kModelUnknown, "node \"" + node.id + "\"",
                     // Split across adjacent string literals so the boundary
@@ -1789,7 +1789,7 @@ void ValidateGraph(const GraphSpec& spec, const IModelRegistry& registry) {
                     GraphErrorCode::kModelNotReady, "node \"" + node.id + "\"",
                     "model \"" + node.model + "\" is registered but cannot run: " +
                         info->not_ready_reason,
-                    "see docs/graph_models.md for models usable in graphs");
+                    "see GRAPH_MODELS.md for models usable in graphs");
             }
             if (info->output_shape == Shape::kBoxes3d) {
                 throw GraphError(

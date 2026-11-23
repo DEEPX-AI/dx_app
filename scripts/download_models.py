@@ -792,8 +792,9 @@ def main():
     print(f"  {_Y}│  For commercial deployment, obtain licenses from the  │{_RST}")
     print(f"  {_Y}│  original model/dataset providers.                    │{_RST}")
     print(f"  {_Y}│                                                       │{_RST}")
-    print(f"  {_Y}│  Details: docs/source/docs/Appendix_Third_Party_License.md │{_RST}")
+    print(f"  {_Y}│  Details: Third-Party License page (link below)       │{_RST}")
     print(f"  {_Y}└────────────────────────────────────────────────────────┘{_RST}")
+    print(f"  {_Y}https://developer.deepx.ai/tech-docs/DXNN-SDK/DX-APP/Appendix_Third_Party_License/{_RST}")
     print()
 
     models = load_manifest(manifest_path)

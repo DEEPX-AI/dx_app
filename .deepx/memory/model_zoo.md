@@ -191,7 +191,7 @@ mapping, joined from a committed snapshot of the dx-modelzoo CV tree.
   `deit_base384_distilled` owns variant `deit-b_384x384_distilled` and is the
   only row for `deit-b_384x384_distilled.dxnn`. The legacy duplicate row
   `deit_base_distilled_2` was dropped, so that old name no longer resolves in
-  `graph_models.md` — use the variant or `deit_base384_distilled`. The
+  `GRAPH_MODELS.md` — use the variant or `deit_base384_distilled`. The
   non-distilled file belongs only to `deitbase384`.
 - **RETENTION POLICY — conflicting EXAMPLES are kept, never deleted.** The
   alignment renames and regroups; it does not remove examples. That is about the

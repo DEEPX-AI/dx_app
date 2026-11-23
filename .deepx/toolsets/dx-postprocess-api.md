@@ -1,6 +1,6 @@
 # DX Postprocess API Reference
 
-> **SDK Source of Truth**: `src/bindings/python/dx_postprocess/postprocess_pybinding.cpp`, `docs/source/docs/08_DX-APP_Pybind_PostProcess_Overview.md`
+> **SDK Source of Truth**: `src/bindings/python/dx_postprocess/postprocess_pybinding.cpp`, [Pybind PostProcess Overview](https://developer.deepx.ai/tech-docs/DXNN-SDK/DX-APP/DX-APP_Pybind_PostProcess_Overview/)
 
 > Pybind11 C++ postprocess bindings exposed via `dx_postprocess` module.
 > See `src/bindings/python/dx_postprocess/postprocess_pybinding.cpp` for the

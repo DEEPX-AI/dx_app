@@ -459,7 +459,7 @@ void StageGraph::Build(const GraphSpec& spec, const IModelRegistry& registry,
             throw GraphError(GraphErrorCode::kModelUnknown,
                              "node \"" + node.id + "\"",
                              "model \"" + node.model + "\" is not registered",
-                             "run --list-models, or see docs/graph_models.md");
+                             "run --list-models, or see GRAPH_MODELS.md");
         }
 
         const std::string path = model_dir + "/" + info->dxnn_file;
